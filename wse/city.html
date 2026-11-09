@@ -1,0 +1,1048 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Wall Street Empire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: plein écran, le plateau isométrique occupe tout l'écran, HUD en haut, barre d'outils en bas.
+   Direction: crépuscule financier, néons or / cyan / magenta sur indigo profond (monde sombre assumé). */
+:root{
+  color-scheme: dark;
+  --bg:#090d1c;
+  --panel:rgba(12,17,38,.86);
+  --panel-hi:#161e45;
+  --line:#2a3566;
+  --fg:#e9edff;
+  --mut:#8f9acb;
+  --gold:#f2b84b;
+  --cyan:#3fd8ff;
+  --red:#ff5a5f;
+  --green:#46d39a;
+  --orange:#ff8a3d;
+  --magenta:#ff4fa3;
+  --violet:#7f96ff;
+  --font-d:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+  --font-b:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-m:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --hud-h:120px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);color:var(--fg);
+  font:14px/1.4 var(--font-b);
+  overflow:hidden;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;-webkit-user-select:none;
+}
+[hidden]{display:none!important}
+#app{position:relative;width:100%;height:100%;overflow:hidden}
+canvas#view{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+/* HUD */
+#hud{
+  position:absolute;left:0;right:0;top:0;z-index:5;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-left:max(12px,env(safe-area-inset-left,0px));
+  padding-right:max(12px,env(safe-area-inset-right,0px));
+  pointer-events:none;
+}
+.hud-in{max-width:980px;margin:0 auto;padding-top:8px;display:flex;flex-direction:column;gap:6px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:auto}
+.brand{min-width:0;line-height:1.05}
+.brand b{display:block;font-family:var(--font-d);font-weight:800;font-size:22px;letter-spacing:.04em;color:var(--gold);white-space:nowrap}
+.brand span{display:block;font-size:11px;color:var(--mut);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctrl{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.ibtn{
+  min-width:34px;height:32px;padding:0 9px;border-radius:8px;
+  background:var(--panel);border:1px solid var(--line);
+  font-family:var(--font-m);font-size:12px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.ibtn[aria-pressed="true"]{background:var(--panel-hi);border-color:var(--gold);color:var(--gold)}
+.ibtn.warn{border-color:var(--red);color:var(--red)}
+.stats{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:5px;
+  pointer-events:auto;
+}
+.chip{
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:5px 8px 6px;min-width:0;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+.chip small{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);white-space:nowrap}
+.chip strong{display:block;font-family:var(--font-m);font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.chip em{font-style:normal;font-size:11px;font-weight:500}
+.pos{color:var(--green)} .neg{color:var(--red)} .gold{color:var(--gold)}
+
+/* Marché */
+#market{
+  position:absolute;z-index:4;right:max(12px,env(safe-area-inset-right,0px));
+  top:calc(var(--hud-h) + 8px);width:196px;padding:10px;border-radius:10px;
+  background:var(--panel);border:1px solid var(--line);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+#market h3{margin:0;font-family:var(--font-d);font-weight:700;font-size:13px;letter-spacing:.1em;color:var(--mut)}
+#market .gti{display:flex;align-items:baseline;gap:6px;margin:2px 0 4px;font-family:var(--font-m);font-weight:600}
+#market .gti b{font-size:18px}
+#spark{width:100%;height:46px;display:block}
+.dem{display:grid;grid-template-columns:22px 1fr;gap:5px 8px;align-items:center;margin-top:8px;font-family:var(--font-m);font-size:11px;color:var(--mut)}
+.bar{height:6px;border-radius:3px;background:#1b2350;position:relative;overflow:hidden}
+.bar i{position:absolute;top:0;bottom:0;left:50%;width:0;background:var(--green)}
+.bar i.n{background:var(--red)}
+.bar:after{content:"";position:absolute;left:50%;top:-1px;bottom:-1px;width:1px;background:#4a5694}
+@media (max-width:719px){#market:not(.open){display:none}}
+
+/* Fil d'alertes */
+#feed{
+  position:absolute;z-index:4;left:max(12px,env(safe-area-inset-left,0px));
+  right:max(12px,env(safe-area-inset-right,0px));
+  bottom:calc(var(--bar-h,120px) + 8px);
+  display:flex;flex-direction:column;gap:5px;align-items:flex-start;pointer-events:none;
+}
+.msg{
+  max-width:min(460px,100%);padding:7px 10px;border-radius:8px;font-size:13px;
+  background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cyan);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  animation:in .25s ease-out;
+}
+.msg.good{border-left-color:var(--green)} .msg.warn{border-left-color:var(--orange)} .msg.bad{border-left-color:var(--red)}
+.msg.fade{opacity:0;transition:opacity .5s}
+@keyframes in{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+
+/* Aide */
+#hint{
+  position:absolute;z-index:6;left:50%;top:calc(var(--hud-h) + 12px);transform:translateX(-50%);
+  width:min(420px,calc(100% - 32px));padding:12px 14px;border-radius:10px;
+  background:var(--panel-hi);border:1px solid var(--gold);font-size:13px;line-height:1.5;
+}
+#hint b{font-family:var(--font-d);font-size:16px;letter-spacing:.06em;color:var(--gold)}
+#hint p{margin:4px 0 0}
+
+/* Barre d'outils */
+#bar{
+  position:absolute;z-index:5;left:0;right:0;bottom:0;
+  padding:8px max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));
+  background:linear-gradient(to top,rgba(7,10,26,.95),rgba(7,10,26,.7) 70%,rgba(7,10,26,0));
+}
+#tools{display:flex;gap:6px;overflow-x:auto;padding:4px 0 2px;scrollbar-width:none;max-width:980px;margin:0 auto}
+#tools::-webkit-scrollbar{display:none}
+.tool{
+  flex:0 0 auto;width:74px;padding:6px 4px 5px;border-radius:10px;text-align:center;
+  background:var(--panel);border:1px solid var(--line);
+}
+.tool svg{width:28px;height:28px;display:block;margin:0 auto 2px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tool span{display:block;font-size:11px;font-weight:600;white-space:nowrap}
+.tool small{display:block;font-family:var(--font-m);font-size:10.5px;color:var(--mut)}
+.tool[aria-pressed="true"]{background:var(--panel-hi);border-color:currentColor;box-shadow:0 0 0 1px currentColor,0 0 14px -2px currentColor}
+.tool.poor small{color:var(--red)}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="view" aria-label="Plateau de la ville New Dollarton"></canvas>
+
+  <header id="hud">
+    <div class="hud-in">
+      <div class="top">
+        <div class="brand"><b>WALL STREET EMPIRE</b><span>New Dollarton · prototype V0</span></div>
+        <div class="ctrl">
+          <button class="ibtn" id="spd0" aria-label="Pause" aria-pressed="false">II</button>
+          <button class="ibtn" id="spd1" aria-label="Vitesse normale" aria-pressed="true">x1</button>
+          <button class="ibtn" id="spd3" aria-label="Vitesse rapide" aria-pressed="false">x3</button>
+          <button class="ibtn" id="zout" aria-label="Dézoomer">−</button>
+          <button class="ibtn" id="zin" aria-label="Zoomer">+</button>
+          <button class="ibtn" id="mk" aria-label="Afficher le marché">Marché</button>
+          <button class="ibtn" id="rst" aria-label="Nouvelle ville">Reset</button>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="chip"><small>Trésorerie</small><strong id="vCash">–</strong><em id="vNet"></em></div>
+        <div class="chip"><small>Capitalisation</small><strong id="vCap" class="gold">–</strong></div>
+        <div class="chip"><small>Population</small><strong id="vPop">–</strong><em id="vPopSub"></em></div>
+        <div class="chip"><small>Emplois</small><strong id="vJobs">–</strong><em id="vUnemp"></em></div>
+        <div class="chip"><small>Humeur</small><strong id="vHappy">–</strong></div>
+        <div class="chip"><small>Date</small><strong id="vDate">–</strong><em id="vSeason"></em></div>
+      </div>
+    </div>
+  </header>
+
+  <aside id="market">
+    <h3>GLOBAL TRADING INDEX</h3>
+    <div class="gti"><b id="gtiV">–</b><span id="gtiD"></span></div>
+    <canvas id="spark" width="360" height="92"></canvas>
+    <div class="dem">
+      <span>RÉS</span><div class="bar"><i id="dR"></i></div>
+      <span>COM</span><div class="bar"><i id="dC"></i></div>
+      <span>IND</span><div class="bar"><i id="dI"></i></div>
+    </div>
+  </aside>
+
+  <div id="feed" aria-live="polite"></div>
+
+  <div id="hint">
+    <b>BIENVENUE À NEW DOLLARTON</b>
+    <p>Choisis un bâtiment en bas, puis touche une case. Glisse pour tracer des routes. Un bâtiment doit toucher une route pour fonctionner.</p>
+    <p>Outil Main : glisse pour déplacer, touche une case pour l'inspecter. Deux doigts ou molette pour zoomer.</p>
+  </div>
+
+  <nav id="bar" aria-label="Outils de construction"><div id="tools"></div></nav>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Constantes ---------- */
+const N = 12, TW = 64, TH = 32, SLAB = 16, DAY_MS = 2000;
+const SAVE_KEY = 'wse-city-v1';
+const SEASONS = ['Printemps', 'Été', 'Automne', 'Hiver'];
+const GROUND = [
+  { a: '#2b4944', b: '#2f4f49', tree: '#3f9a72', slabL: '#10162e', slabR: '#0b1124' },
+  { a: '#34533b', b: '#395a41', tree: '#2f9a58', slabL: '#10162e', slabR: '#0b1124' },
+  { a: '#52443a', b: '#594a3e', tree: '#e08a3a', slabL: '#161228', slabR: '#0f0c1d' },
+  { a: '#cfd9ec', b: '#c4cfe5', tree: '#8da4cf', slabL: '#7d8bb0', slabR: '#66749b' }
+];
+const TYPES = {
+  road: { name: 'Route',     sub: 'Réseau',         cost: 100,  color: '#9aa4d6' },
+  res:  { name: 'Logements', sub: 'Résidentiel',    cost: 500,  color: '#7f96ff', cap: 10, jobs: 0,  upkeep: 1,   h: [34, 58] },
+  shop: { name: 'Commerce',  sub: 'Retail Index',   cost: 800,  color: '#ff4fa3', cap: 0,  jobs: 6,  upkeep: 1.5, h: [22, 28] },
+  oil:  { name: 'Raffinerie', sub: 'NYMEX Oil',     cost: 1500, color: '#ff8a3d', cap: 0,  jobs: 12, upkeep: 3,   h: [10, 10] },
+  tech: { name: 'Tour Tech', sub: 'Tech Composite', cost: 2500, color: '#3fd8ff', cap: 0,  jobs: 10, upkeep: 4,   h: [90, 124] },
+  bank: { name: 'Banque',    sub: 'London Gold',    cost: 4000, color: '#f2b84b', cap: 0,  jobs: 8,  upkeep: 5,   h: [62, 72] }
+};
+const ICONS = {
+  view: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
+  road: '<path d="M8 3l-3 18M16 3l3 18"/><path d="M12 4v3M12 10.5v3M12 17v3"/>',
+  res:  '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M9.5 7h1M13.5 7h1M9.5 11h1M13.5 11h1M9.5 15h1M13.5 15h1"/>',
+  shop: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9c0 1.7 1.3 2.5 2.7 2.5S9.3 10.700 9.300 9c0 1.700 1.100 2.500 2.700 2.500s2.700-.8 2.700-2.500c0 1.700 1.300 2.500 2.700 2.500S20 10.700 20 9"/><path d="M5.500 12v8h13v-8M10 20v-4h4v4"/>',
+  oil:  '<rect x="3" y="13" width="8" height="8" rx="1"/><path d="M3 16.500h8"/><path d="M15 21V6h3v15"/><path d="M16.500 6V3.500"/><path d="M12 21h9"/>',
+  tech: '<path d="M8 21V6l4-3 4 3v15"/><path d="M12 3V1.500"/><path d="M10.500 9h3M10.500 12.500h3M10.500 16h3"/>',
+  bank: '<path d="M3 9l9-5 9 5"/><path d="M5 9v0M5 20h14M6.500 11v6M10 11v6M14 11v6M17.500 11v6"/>',
+  bull: '<path d="M5 7h14M10 7V4.500h4V7"/><path d="M6.500 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
+};
+const TOOL_ORDER = ['view', 'road', 'res', 'shop', 'oil', 'tech', 'bank', 'bull'];
+const TOOL_META = {
+  view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
+  bull: { name: 'Démolir', sub: 'Gratuit', color: '#ff5a5f' }
+};
+
+/* ---------- Utilitaires ---------- */
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+function hash(a, b, c) {
+  let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0;
+  h = (h ^ (h >>> 13)) * 1274126177 | 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+const mixCache = new Map();
+function mix(a, b, t) {
+  const k = a + b + t;
+  let v = mixCache.get(k);
+  if (v) return v;
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const r = Math.round(lerp(pa >> 16, pb >> 16, t)), g = Math.round(lerp((pa >> 8) & 255, (pb >> 8) & 255, t)), bl = Math.round(lerp(pa & 255, pb & 255, t));
+  v = `rgb(${r},${g},${bl})`;
+  mixCache.set(k, v);
+  return v;
+}
+const fmt = n => Math.round(n).toLocaleString('fr-FR');
+const money = n => fmt(n) + ' $';
+const idx = (x, y) => y * N + x;
+const inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
+
+/* ---------- État ---------- */
+let S = null;          // état de la ville
+let tool = 'res';
+let speed = 1;
+let hover = null;      // {x,y}
+let selected = null;   // dernière case touchée (mobile)
+let decor = [];
+
+function newCity() {
+  const grid = new Array(N * N).fill(null);
+  const put = (x, y, t) => { grid[idx(x, y)] = mkCell(t); };
+  for (let x = 1; x <= 10; x++) put(x, 5, 'road');
+  for (let y = 1; y <= 10; y++) if (y !== 5) put(5, y, 'road');
+  [[4, 4], [6, 4], [4, 6], [6, 6], [3, 4], [7, 6]].forEach(p => put(p[0], p[1], 'res'));
+  [[6, 3], [7, 4]].forEach(p => put(p[0], p[1], 'shop'));
+  put(9, 4, 'oil');
+  grid.forEach(c => { if (c) c.born = 0; });
+  return { cash: 15000, pop: 24, day: 0, grid, hist: [], boomUntil: -1, milestone: 0, lastWarn: -99, stats: {} };
+}
+function mkCell(t) {
+  const T = TYPES[t];
+  const seed = Math.random();
+  const h = T.h ? Math.round(lerp(T.h[0], T.h[1], seed)) : 0;
+  return { t, seed, h, born: performance.now(), alertUntil: -1, conn: true, rev: 0 };
+}
+function save() {
+  try {
+    const g = S.grid.map(c => c ? [c.t, +c.seed.toFixed(4), c.h] : 0);
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, g }));
+  } catch (e) { /* stockage indisponible */ }
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || d.v !== 1 || !Array.isArray(d.g) || d.g.length !== N * N) return null;
+    const grid = d.g.map(r => r && TYPES[r[0]] ? { t: r[0], seed: r[1], h: r[2], born: 0, alertUntil: -1, conn: true, rev: 0 } : null);
+    return { cash: +d.cash, pop: +d.pop, day: +d.day | 0, grid, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: -1, milestone: d.milestone | 0, lastWarn: -99, stats: {} };
+  } catch (e) { return null; }
+}
+function makeDecor() {
+  decor = [];
+  for (let i = 0; i < N * N; i++) {
+    const r = hash(i, 11, 7);
+    decor.push(r < 0.2 ? 1 : r < 0.3 ? 2 : 0);
+  }
+}
+
+/* ---------- Simulation ---------- */
+const cell = (x, y) => inb(x, y) ? S.grid[idx(x, y)] : null;
+const isRoad = (x, y) => { const c = cell(x, y); return !!c && c.t === 'road'; };
+const connected = (x, y) => isRoad(x + 1, y) || isRoad(x - 1, y) || isRoad(x, y + 1) || isRoad(x, y - 1);
+
+function evaluate() {
+  // recalcule connexions et agrégats (sans avancer le temps)
+  const cc = { res: 0, shop: 0, oil: 0, tech: 0, bank: 0 };
+  let roads = 0, cap = 0, jobs = 0, upkeep = 0, value = 0, polluted = 0;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const c = cell(x, y);
+    if (!c) continue;
+    if (c.t === 'road') { roads++; continue; }
+    const T = TYPES[c.t];
+    c.conn = connected(x, y);
+    cc[c.t]++;
+    upkeep += T.upkeep;
+    value += T.cost * 0.9;
+    if (c.conn) { cap += T.cap; jobs += T.jobs; }
+  }
+  upkeep += roads * 0.3;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const c = cell(x, y);
+    if (!c || c.t !== 'res' || !c.conn) continue;
+    outer: for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      if (Math.abs(dx) + Math.abs(dy) > 2) continue;
+      const o = cell(x + dx, y + dy);
+      if (o && o.t === 'oil') { polluted++; break outer; }
+    }
+  }
+  return { cc, roads, cap, jobs, upkeep, value, polluted };
+}
+
+function step() {
+  const ev = evaluate();
+  const { cc, cap, jobs, upkeep, value, polluted } = ev;
+  S.day++;
+  const workforce = S.pop * 0.55;
+  const employed = Math.min(workforce, jobs);
+  const unemp = workforce > 0 ? 1 - employed / workforce : 0;
+  const service = S.pop > 0 ? Math.min(1, (cc.shop * 38) / S.pop) : 1;
+  const pol = cc.res ? polluted / cc.res : 0;
+  const happy = clamp(62 + service * 22 - unemp * 55 - pol * 25 + (jobs > workforce ? 6 : 0), 0, 100);
+  const target = cap * (0.35 + 0.65 * happy / 100);
+  S.pop += (target - S.pop) * 0.07 + (target > S.pop ? 0.3 : 0);
+  if (S.pop > cap) S.pop = Math.max(cap, S.pop - 1);
+  if (S.pop < 0) S.pop = 0;
+
+  const jobRatio = jobs > 0 ? employed / jobs : 0;
+  const boom = S.day <= S.boomUntil ? 2 : 1;
+  const resConn = Math.max(1, S.grid.filter(c => c && c.t === 'res' && c.conn).length);
+  const tax = employed * 3.2 + S.pop * 0.5;
+  let rev = tax;
+  const oils = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const c = cell(x, y);
+    if (!c || c.t === 'road') continue;
+    let r = 0;
+    if (c.conn) {
+      if (c.t === 'res') r = tax / resConn;
+      else if (c.t === 'shop') r = 26 * Math.min(1, S.pop / Math.max(1, cc.shop * 34));
+      else if (c.t === 'oil') r = 40 * (0.55 + 0.45 * jobRatio) * (S.day <= c.alertUntil ? 0.75 : 1);
+      else if (c.t === 'tech') r = 75 * (0.3 + 0.7 * jobRatio);
+      else if (c.t === 'bank') r = Math.min(120, 36 + Math.max(0, S.cash) * 0.0007) * boom;
+    }
+    if (c.t === 'oil') oils.push(c);
+    c.rev = r;
+    if (c.t !== 'res') rev += r;
+  }
+  const net = rev - upkeep;
+  S.cash += net;
+
+  // événements
+  if (oils.length && Math.random() < 0.05) {
+    const c = oils[Math.floor(Math.random() * oils.length)];
+    c.alertUntil = S.day + 6;
+    say('Goulot de production : une raffinerie perd 25 % pendant 6 jours.', 'warn');
+  }
+  if (cc.bank && Math.random() < 0.03 && S.day > S.boomUntil) {
+    S.boomUntil = S.day + 8;
+    say('Boom boursier : les banques rapportent le double pendant 8 jours.', 'good');
+  }
+  const stepsPop = [50, 100, 200, 400, 800];
+  const pop = Math.floor(S.pop);
+  if (S.milestone < stepsPop.length && pop >= stepsPop[S.milestone]) {
+    say(`Palier atteint : ${stepsPop[S.milestone]} habitants à New Dollarton.`, 'good');
+    S.milestone++;
+  }
+  if (unemp > 0.3 && S.day - S.lastWarn > 25 && S.pop > 20) {
+    S.lastWarn = S.day;
+    say('Chômage élevé : construis des commerces, une raffinerie ou une tour tech.', 'warn');
+  }
+  if (S.cash < 0 && S.day - S.lastWarn > 25) {
+    S.lastWarn = S.day;
+    say('Trésorerie négative : démolis des bâtiments coûteux ou attends les revenus.', 'bad');
+  }
+
+  const worth = S.cash + value * (1 + happy / 400);
+  S.hist.push(Math.round(worth));
+  if (S.hist.length > 80) S.hist.shift();
+  const demR = clamp((jobs - workforce) / Math.max(20, jobs + 10) + 0.25, -1, 1);
+  const demC = clamp(1 - (cc.shop * 34) / Math.max(1, S.pop) , -1, 1);
+  const demI = clamp(unemp * 2 - 0.2, -1, 1);
+  S.stats = { pop, cap, jobs, workforce, employed, unemp, happy, income: rev, upkeep, net, worth, demR, demC, demI, cc };
+  if (S.day % 5 === 0) save();
+  updateHUD();
+}
+
+/* ---------- Actions ---------- */
+function place(x, y, key) {
+  if (!inb(x, y)) return false;
+  const c = cell(x, y);
+  if (key === 'bull') {
+    if (!c) return false;
+    S.grid[idx(x, y)] = null;
+    evaluate(); refreshStats(); updateHUD(); save();
+    return true;
+  }
+  if (c) return false;
+  const T = TYPES[key];
+  if (!T) return false;
+  if (S.cash < T.cost) { say('Trésorerie insuffisante pour ' + T.name.toLowerCase() + '.', 'bad'); return false; }
+  S.cash -= T.cost;
+  S.grid[idx(x, y)] = mkCell(key);
+  evaluate();
+  flyers.push({ x, y, text: '-' + fmt(T.cost), t: performance.now(), col: '#ff8a8e' });
+  if (key !== 'road' && !connected(x, y)) say('Ce bâtiment ne touche aucune route : il ne produira rien.', 'warn');
+  refreshStats(); updateHUD();
+  return true;
+}
+function refreshStats() {
+  // met à jour les chiffres sans avancer le jour
+  const ev = evaluate();
+  const st = S.stats || {};
+  const workforce = S.pop * 0.55;
+  st.cap = ev.cap; st.jobs = ev.jobs; st.workforce = workforce;
+  st.employed = Math.min(workforce, ev.jobs);
+  st.unemp = workforce > 0 ? 1 - st.employed / workforce : 0;
+  st.pop = Math.floor(S.pop);
+  st.cc = ev.cc;
+  if (st.happy == null) st.happy = 60;
+  if (st.worth == null) st.worth = S.cash + ev.value;
+  else st.worth = S.cash + ev.value * (1 + st.happy / 400);
+  if (st.net == null) st.net = 0;
+  S.stats = st;
+}
+
+function inspect(x, y) {
+  const c = cell(x, y);
+  selected = { x, y };
+  if (!c) { say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info'); return; }
+  if (c.t === 'road') { say(`Route (${x + 1}, ${y + 1}) · entretien 0,3 $/jour.`, 'info'); return; }
+  const T = TYPES[c.t];
+  const parts = [`${T.name} · ${T.sub}`];
+  if (!c.conn) parts.push('non reliée à une route');
+  else {
+    parts.push(`${c.rev >= 0 ? '+' : ''}${fmt(c.rev)} $/jour`);
+    if (T.jobs) parts.push(`${T.jobs} emplois`);
+    if (T.cap) parts.push(`${T.cap} logements`);
+    if (S.day <= c.alertUntil) parts.push('goulot en cours');
+  }
+  say(parts.join(' · '), c.conn ? 'info' : 'warn');
+}
+
+/* ---------- Fil d'alertes ---------- */
+const feed = $('#feed');
+function say(text, kind) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + (kind || '');
+  d.textContent = text;
+  feed.appendChild(d);
+  while (feed.children.length > 3) feed.removeChild(feed.firstChild);
+  setTimeout(() => { d.classList.add('fade'); setTimeout(() => d.remove(), 520); }, 6500);
+}
+
+/* ---------- HUD ---------- */
+const el = id => document.getElementById(id);
+function updateHUD() {
+  const st = S.stats;
+  el('vCash').textContent = money(S.cash);
+  el('vCash').className = S.cash < 0 ? 'neg' : '';
+  const net = st.net || 0;
+  const nEl = el('vNet');
+  nEl.textContent = (net >= 0 ? '+' : '') + fmt(net) + ' $/jour';
+  nEl.className = net >= 0 ? 'pos' : 'neg';
+  el('vCap').textContent = money(st.worth || S.cash);
+  el('vPop').textContent = fmt(st.pop || 0);
+  el('vPopSub').textContent = 'capacité ' + fmt(st.cap || 0);
+  el('vPopSub').className = 'gold';
+  el('vJobs').textContent = `${fmt(st.employed || 0)} / ${fmt(st.jobs || 0)}`;
+  el('vUnemp').textContent = 'chômage ' + Math.round((st.unemp || 0) * 100) + ' %';
+  el('vUnemp').className = (st.unemp || 0) > 0.25 ? 'neg' : 'pos';
+  el('vHappy').textContent = Math.round(st.happy == null ? 60 : st.happy) + ' %';
+  const season = Math.floor((S.day % 120) / 30);
+  el('vDate').textContent = `Jour ${S.day % 30 + 1}`;
+  el('vSeason').textContent = `${SEASONS[season]} · An ${Math.floor(S.day / 120) + 1}`;
+  el('vSeason').className = 'gold';
+  // outils
+  document.querySelectorAll('.tool').forEach(b => {
+    const k = b.dataset.k;
+    const T = TYPES[k];
+    b.classList.toggle('poor', !!T && S.cash < T.cost);
+  });
+  // marché
+  const h = S.hist;
+  if (h.length) {
+    const last = h[h.length - 1], prev = h.length > 1 ? h[h.length - 2] : last;
+    el('gtiV').textContent = fmt(last / 100);
+    const d = prev ? ((last - prev) / Math.abs(prev)) * 100 : 0;
+    el('gtiD').textContent = (d >= 0 ? '+' : '') + d.toFixed(1).replace('.', ',') + ' %';
+    el('gtiD').className = d >= 0 ? 'pos' : 'neg';
+  }
+  setBar('dR', st.demR || 0); setBar('dC', st.demC || 0); setBar('dI', st.demI || 0);
+  drawSpark();
+}
+function setBar(id, v) {
+  const e = el(id);
+  e.className = v < 0 ? 'n' : '';
+  e.style.width = Math.abs(v) * 50 + '%';
+  e.style.left = v < 0 ? (50 - Math.abs(v) * 50) + '%' : '50%';
+}
+function drawSpark() {
+  const c = el('spark'), g = c.getContext('2d');
+  const W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(143,154,203,.18)'; g.lineWidth = 1;
+  for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(0, H * i / 4); g.lineTo(W, H * i / 4); g.stroke(); }
+  const h = S.hist;
+  if (h.length < 2) return;
+  const mn = Math.min(...h), mx = Math.max(...h), rg = Math.max(1, mx - mn);
+  const pts = h.map((v, i) => [i / (h.length - 1) * (W - 10) + 2, H - 8 - (v - mn) / rg * (H - 18)]);
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(242,184,75,.35)'); grad.addColorStop(1, 'rgba(242,184,75,0)');
+  g.beginPath(); g.moveTo(pts[0][0], H);
+  pts.forEach(p => g.lineTo(p[0], p[1]));
+  g.lineTo(pts[pts.length - 1][0], H); g.closePath(); g.fillStyle = grad; g.fill();
+  g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]));
+  g.strokeStyle = '#f2b84b'; g.lineWidth = 2.5; g.lineJoin = 'round'; g.stroke();
+  const e = pts[pts.length - 1];
+  g.beginPath(); g.arc(e[0], e[1], 4.5, 0, 7); g.fillStyle = '#f2b84b'; g.fill();
+}
+
+/* ---------- Barre d'outils ---------- */
+const toolsEl = $('#tools');
+TOOL_ORDER.forEach(k => {
+  const T = TYPES[k] || TOOL_META[k];
+  const b = document.createElement('button');
+  b.className = 'tool'; b.dataset.k = k; b.type = 'button';
+  b.style.color = T.color;
+  b.setAttribute('aria-pressed', k === tool ? 'true' : 'false');
+  b.setAttribute('aria-label', T.name);
+  const cost = TYPES[k] ? money(TYPES[k].cost) : T.sub;
+  b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg><span style="color:var(--fg)">${T.name}</span><small>${cost}</small>`;
+  b.addEventListener('click', () => setTool(k));
+  toolsEl.appendChild(b);
+});
+function setTool(k) {
+  tool = k;
+  document.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k ? 'true' : 'false'));
+  const act = document.querySelector('.tool[aria-pressed="true"]');
+  if (act && act.scrollIntoView) { try { act.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} }
+  cvs.style.cursor = k === 'view' ? 'grab' : 'crosshair';
+}
+function setSpeed(s) {
+  speed = s;
+  el('spd0').setAttribute('aria-pressed', s === 0);
+  el('spd1').setAttribute('aria-pressed', s === 1);
+  el('spd3').setAttribute('aria-pressed', s === 3);
+}
+el('spd0').onclick = () => setSpeed(0);
+el('spd1').onclick = () => setSpeed(1);
+el('spd3').onclick = () => setSpeed(3);
+el('zin').onclick = () => zoomBy(1.25);
+el('zout').onclick = () => zoomBy(0.8);
+el('mk').onclick = () => { const m = el('market'); m.classList.toggle('open'); el('mk').setAttribute('aria-pressed', m.classList.contains('open')); };
+let rstTimer = 0;
+el('rst').onclick = () => {
+  const b = el('rst');
+  if (!rstTimer) {
+    b.textContent = 'Confirmer ?'; b.classList.add('warn');
+    rstTimer = setTimeout(() => { b.textContent = 'Reset'; b.classList.remove('warn'); rstTimer = 0; }, 3000);
+    return;
+  }
+  clearTimeout(rstTimer); rstTimer = 0; b.textContent = 'Reset'; b.classList.remove('warn');
+  S = newCity(); makeDecor(); cars = []; refreshStats(); S.hist = []; updateHUD(); save();
+  say('Nouvelle ville créée.', 'info');
+};
+
+/* ---------- Canvas / caméra ---------- */
+const cvs = $('#view');
+const ctx = cvs.getContext('2d');
+let W = 0, H = 0, dpr = 1, vx = 0, vy = 0, z = 0.6;
+const cam = { x: 0, y: N * TH / 2 - 30 };
+let fitted = false;
+const stars = Array.from({ length: 90 }, (_, i) => ({ x: hash(i, 1, 2), y: hash(i, 3, 4) * 0.62, r: 0.5 + hash(i, 5, 6) * 1.3, tw: hash(i, 7, 8) * 6 }));
+const flakes = Array.from({ length: 70 }, (_, i) => ({ x: hash(i, 9, 1), y: hash(i, 2, 9), r: 0.8 + hash(i, 4, 4) * 1.8, v: 0.3 + hash(i, 6, 3) * 0.7 }));
+const flyers = [];
+let cars = [];
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = cvs.clientWidth; H = cvs.clientHeight;
+  cvs.width = Math.round(W * dpr); cvs.height = Math.round(H * dpr);
+  const hud = $('#hud').getBoundingClientRect();
+  const bar = $('#bar').getBoundingClientRect();
+  const topH = hud.bottom, botH = H - bar.top;
+  document.documentElement.style.setProperty('--hud-h', Math.round(topH) + 'px');
+  document.documentElement.style.setProperty('--bar-h', Math.round(botH) + 'px');
+  vx = W / 2; vy = (topH + (H - botH)) / 2;
+  if (!fitted) {
+    const availW = W - 24, availH = (H - topH - botH) - 16;
+    z = clamp(Math.min(availW / (N * TW + 40), availH / (N * TH + SLAB + 150)), 0.3, 1.3);
+  }
+}
+function zoomBy(f, px, py) {
+  fitted = true;
+  px = px == null ? vx : px; py = py == null ? vy : py;
+  const wx = (px - vx) / z + cam.x, wy = (py - vy) / z + cam.y;
+  z = clamp(z * f, 0.3, 2.6);
+  cam.x = wx - (px - vx) / z; cam.y = wy - (py - vy) / z;
+}
+const iso = (x, y) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 });
+function screenToTile(px, py) {
+  const wx = (px - vx) / z + cam.x, wy = (py - vy) / z + cam.y;
+  const gx = (wx / (TW / 2) + wy / (TH / 2)) / 2, gy = (wy / (TH / 2) - wx / (TW / 2)) / 2;
+  const x = Math.floor(gx), y = Math.floor(gy);
+  return inb(x, y) ? { x, y } : null;
+}
+
+/* ---------- Dessin ---------- */
+function poly(pts, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+function tilePts(p, f) {
+  f = f || 1;
+  const cx = p.x, cy = p.y + TH / 2, hw = TW / 2 * f, hh = TH / 2 * f;
+  return [{ x: cx, y: cy - hh }, { x: cx + hw, y: cy }, { x: cx, y: cy + hh }, { x: cx - hw, y: cy }];
+}
+function box(sx, sy, f, Hh, cTop, cL, cR) {
+  const cx = sx, cy = sy + TH / 2, hw = TW / 2 * f, hh = TH / 2 * f;
+  const T = { x: cx, y: cy - hh }, R = { x: cx + hw, y: cy }, B = { x: cx, y: cy + hh }, L = { x: cx - hw, y: cy };
+  const up = p => ({ x: p.x, y: p.y - Hh });
+  poly([L, B, up(B), up(L)], cL);
+  poly([B, R, up(R), up(B)], cR);
+  poly([up(T), up(R), up(B), up(L)], cTop);
+  return { T, R, B, L, Hh };
+}
+function windows(P0, P1, Hh, cols, rows, seed, face, litP, onCol, offCol) {
+  const ux = P1.x - P0.x, uy = P1.y - P0.y;
+  for (let r = 0; r < rows; r++) {
+    const v0 = (r + 0.28) / rows * Hh, v1 = (r + 0.72) / rows * Hh;
+    for (let c = 0; c < cols; c++) {
+      const s0 = (c + 0.2) / cols, s1 = (c + 0.8) / cols;
+      ctx.fillStyle = hash(Math.floor(seed * 9999), r * 7 + c, face) < litP ? onCol : offCol;
+      ctx.beginPath();
+      ctx.moveTo(P0.x + ux * s0, P0.y + uy * s0 - v0);
+      ctx.lineTo(P0.x + ux * s1, P0.y + uy * s1 - v0);
+      ctx.lineTo(P0.x + ux * s1, P0.y + uy * s1 - v1);
+      ctx.lineTo(P0.x + ux * s0, P0.y + uy * s0 - v1);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+}
+function tank(x, y, rx, ry, h, body, top, band) {
+  ctx.fillStyle = body; ctx.fillRect(x - rx, y - h, rx * 2, h);
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = band; ctx.fillRect(x - rx, y - h * 0.55, rx * 2, 3);
+  ctx.fillStyle = top; ctx.beginPath(); ctx.ellipse(x, y - h, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawBuilding(key, x, y, seed, hFull, o) {
+  const p = iso(x, y);
+  const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 500, 0, 1)) : 1;
+  const Hh = hFull * grow;
+  const conn = o.conn;
+  ctx.globalAlpha = o.alpha == null ? 1 : o.alpha;
+  const cx = p.x, cy = p.y + TH / 2;
+  let topY = cy - Hh;
+
+  if (key === 'res') {
+    const pal = ['#5a6bb0', '#6c5fae', '#4f7fae', '#5e72a6'];
+    const body = pal[Math.floor(seed * 4) % 4];
+    const b = box(p.x, p.y, 0.7, Hh, mix(body, '#ffffff', 0.22), body, mix(body, '#000000', 0.38));
+    const rows = Math.max(1, Math.floor(Hh / 12));
+    windows(b.L, b.B, Hh, 2, rows, seed, 1, conn ? 0.6 : 0.08, '#ffd98a', '#2a3158');
+    windows(b.B, b.R, Hh, 2, rows, seed, 2, conn ? 0.6 : 0.08, '#e9bf6e', '#222a4d');
+  } else if (key === 'shop') {
+    const b = box(p.x, p.y, 0.86, Hh, '#4b5193', '#3a3f74', '#2b2f58');
+    windows(b.L, b.B, Hh * 0.56, 2, 1, seed, 1, conn ? 0.95 : 0.1, '#ffd1ea', '#23274a');
+    windows(b.B, b.R, Hh * 0.56, 2, 1, seed, 2, conn ? 0.95 : 0.1, '#e8a9cc', '#1d2040');
+    // auvent néon
+    const strip = (P0, P1, col) => {
+      poly([{ x: P0.x, y: P0.y - Hh * 0.6 }, { x: P1.x, y: P1.y - Hh * 0.6 }, { x: P1.x, y: P1.y - Hh * 0.82 }, { x: P0.x, y: P0.y - Hh * 0.82 }], col);
+    };
+    strip(b.L, b.B, '#ff4fa3'); strip(b.B, b.R, '#c23a7d');
+    if (conn) { ctx.shadowColor = '#ff4fa3'; ctx.shadowBlur = 7; }
+    ctx.strokeStyle = '#ff4fa3'; ctx.lineWidth = 1.5;
+    poly([{ x: b.T.x, y: b.T.y - Hh }, { x: b.R.x, y: b.R.y - Hh }, { x: b.B.x, y: b.B.y - Hh }, { x: b.L.x, y: b.L.y - Hh }], null, '#ff4fa3');
+    ctx.shadowBlur = 0;
+  } else if (key === 'oil') {
+    const slabH = 10 * grow;
+    const b = box(p.x, p.y, 0.94, slabH, '#5a5d6b', '#42444f', '#2f313a');
+    const by = cy - slabH;
+    // cheminée
+    const chH = 40 * grow;
+    ctx.fillStyle = '#6b6f7c'; ctx.fillRect(cx + 2, by - 6 - chH, 6, chH);
+    ctx.fillStyle = '#ff5a5f'; ctx.fillRect(cx + 2, by - 6 - chH, 6, 4);
+    ctx.fillStyle = '#e9edff'; ctx.fillRect(cx + 2, by - 6 - chH + 4, 6, 4);
+    topY = by - 6 - chH;
+    tank(cx - 13, by + 1, 9, 5, 22 * grow, '#8e95a8', '#b7bdcc', '#ff8a3d');
+    tank(cx + 10, by + 6, 9, 5, 16 * grow, '#7d8498', '#a8aebf', '#ff8a3d');
+    if (grow >= 1) {
+      const fl = 3.2 + Math.sin(o.now / 120 + seed * 20) * 1.1;
+      if (conn) { ctx.shadowColor = '#ff8a3d'; ctx.shadowBlur = 12; }
+      ctx.fillStyle = conn ? '#ffb15c' : '#6b6f7c';
+      ctx.beginPath(); ctx.arc(cx + 5, topY - 2, conn ? fl : 2, 0, 7); ctx.fill();
+      ctx.shadowBlur = 0;
+      if (conn) for (let i = 0; i < 3; i++) {
+        const tt = ((o.now / 1700) + i / 3 + seed) % 1;
+        ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (1 - tt) * 0.4;
+        ctx.fillStyle = '#c9cde0';
+        ctx.beginPath(); ctx.arc(cx + 5 + tt * 12, topY - 6 - tt * 28, 3 + tt * 6, 0, 7); ctx.fill();
+      }
+      ctx.globalAlpha = o.alpha == null ? 1 : o.alpha;
+    }
+  } else if (key === 'tech') {
+    const b = box(p.x, p.y, 0.58, Hh, '#5fdcff', '#1d6a93', '#12405e');
+    const rows = Math.max(2, Math.floor(Hh / 9));
+    windows(b.L, b.B, Hh, 2, rows, seed, 1, conn ? 0.78 : 0.1, '#a5ecff', '#0f3550');
+    windows(b.B, b.R, Hh, 2, rows, seed, 2, conn ? 0.78 : 0.1, '#7fd8f5', '#0b2c45');
+    if (conn) { ctx.shadowColor = '#3fd8ff'; ctx.shadowBlur = 8; }
+    poly([{ x: b.T.x, y: b.T.y - Hh }, { x: b.R.x, y: b.R.y - Hh }, { x: b.B.x, y: b.B.y - Hh }, { x: b.L.x, y: b.L.y - Hh }], null, '#3fd8ff');
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#9aa7cf'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx, cy - Hh); ctx.lineTo(cx, cy - Hh - 18 * grow); ctx.stroke();
+    topY = cy - Hh - 18 * grow;
+    if (Math.sin(o.now / 350 + seed * 9) > 0.2) {
+      ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 8; ctx.fillStyle = '#ff5a5f';
+      ctx.beginPath(); ctx.arc(cx, topY, 2.2, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    }
+  } else if (key === 'bank') {
+    const b = box(p.x, p.y, 0.8, Hh, '#e7c66a', '#cfc29a', '#a89b75');
+    ctx.strokeStyle = 'rgba(40,30,10,.22)'; ctx.lineWidth = 2;
+    for (let i = 1; i <= 3; i++) {
+      const s = i / 4;
+      ctx.beginPath(); ctx.moveTo(b.L.x + (b.B.x - b.L.x) * s, b.L.y + (b.B.y - b.L.y) * s); ctx.lineTo(b.L.x + (b.B.x - b.L.x) * s, b.L.y + (b.B.y - b.L.y) * s - Hh); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(b.B.x + (b.R.x - b.B.x) * s, b.B.y + (b.R.y - b.B.y) * s); ctx.lineTo(b.B.x + (b.R.x - b.B.x) * s, b.B.y + (b.R.y - b.B.y) * s - Hh); ctx.stroke();
+    }
+    box(p.x, p.y - Hh, 0.92, 6 * grow, '#f6cf6a', '#d9a63a', '#a97d22');
+    topY = cy - Hh - 6 * grow;
+    if (conn) {
+      ctx.shadowColor = '#f2b84b'; ctx.shadowBlur = 10; ctx.fillStyle = '#ffe08a';
+      ctx.font = '700 12px "Big Shoulders Display", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('$', cx, topY - 10); ctx.shadowBlur = 0;
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  if (o.alert) {
+    const bob = Math.sin(o.now / 220) * 2;
+    const ay = topY - 16 + bob;
+    ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 10;
+    ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, ay, 8, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff'; ctx.font = '700 11px "IBM Plex Sans", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('!', cx, ay + 0.5);
+  }
+}
+
+function drawTree(x, y, kind, season) {
+  const p = iso(x, y), cx = p.x + (kind === 2 ? 8 : -4), cy = p.y + TH / 2 + (kind === 2 ? 4 : 2);
+  const col = GROUND[season].tree;
+  if (kind === 1) {
+    ctx.fillStyle = '#4b3a2c'; ctx.fillRect(cx - 1.5, cy - 8, 3, 8);
+    ctx.fillStyle = mix(col, '#000000', 0.25); ctx.beginPath(); ctx.moveTo(cx - 9, cy - 6); ctx.lineTo(cx + 9, cy - 6); ctx.lineTo(cx, cy - 24); ctx.fill();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(cx - 7, cy - 13); ctx.lineTo(cx + 7, cy - 13); ctx.lineTo(cx, cy - 29); ctx.fill();
+  } else {
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(cx, cy - 3, 6, 4.5, 0, 0, 7); ctx.fill();
+  }
+}
+
+function drawRoad(x, y, season, now) {
+  const p = iso(x, y);
+  ctx.lineWidth = 1;
+  poly(tilePts(p), season === 3 ? '#3d4668' : '#2d3558', '#232a4b');
+  const cx = p.x, cy = p.y + TH / 2;
+  const links = [];
+  if (isRoad(x + 1, y)) links.push([cx + TW / 4, cy + TH / 4]);
+  if (isRoad(x - 1, y)) links.push([cx - TW / 4, cy - TH / 4]);
+  if (isRoad(x, y + 1)) links.push([cx - TW / 4, cy + TH / 4]);
+  if (isRoad(x, y - 1)) links.push([cx + TW / 4, cy - TH / 4]);
+  if (!links.length) return;
+  ctx.strokeStyle = 'rgba(242,184,75,.75)'; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]);
+  links.forEach(l => { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(l[0], l[1]); ctx.stroke(); });
+  ctx.setLineDash([]);
+}
+
+function spawnCars() {
+  const roads = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (isRoad(x, y)) roads.push([x, y]);
+  const want = Math.min(26, Math.floor(roads.length * 0.55));
+  const pal = ['#ff5a5f', '#f2b84b', '#3fd8ff', '#e9edff', '#ff4fa3', '#46d39a'];
+  while (cars.length < want) {
+    const r = roads[Math.floor(Math.random() * roads.length)];
+    cars.push({ x: r[0], y: r[1], nx: r[0], ny: r[1], px: -1, py: -1, t: 1, sp: 0.5 + Math.random() * 0.6, col: pal[Math.floor(Math.random() * pal.length)] });
+  }
+  if (cars.length > want) cars.length = want;
+}
+function updateCars(dt) {
+  if (!S) return;
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  spawnCars();
+  for (const c of cars) {
+    if (!isRoad(c.x, c.y)) { // la route a disparu
+      const roads = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (isRoad(x, y)) roads.push([x, y]);
+      if (!roads.length) continue;
+      const r = roads[Math.floor(Math.random() * roads.length)]; c.x = c.nx = r[0]; c.y = c.ny = r[1]; c.t = 1;
+    }
+    c.t += c.sp * dt * speedFactor();
+    if (c.t >= 1) {
+      c.px = c.x; c.py = c.y; c.x = c.nx; c.y = c.ny; c.t = 0;
+      const opts = dirs.map(d => [c.x + d[0], c.y + d[1]]).filter(a => isRoad(a[0], a[1]));
+      const fwd = opts.filter(a => !(a[0] === c.px && a[1] === c.py));
+      const pick = (fwd.length ? fwd : opts)[Math.floor(Math.random() * (fwd.length ? fwd.length : opts.length))];
+      if (pick) { c.nx = pick[0]; c.ny = pick[1]; } else { c.nx = c.x; c.ny = c.y; c.t = 1; }
+    }
+  }
+}
+const speedFactor = () => speed === 0 ? 0 : speed === 1 ? 1 : 2.2;
+function drawCars() {
+  for (const c of cars) {
+    const a = iso(c.x, c.y), b = iso(c.nx, c.ny);
+    const ax = a.x, ay = a.y + TH / 2, bx = b.x, by = b.y + TH / 2;
+    let dx = bx - ax, dy = by - ay; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+    const t = clamp(c.t, 0, 1);
+    const px = lerp(ax, bx, t) - dy * 3.2, py = lerp(ay, by, t) + dx * 1.6;
+    ctx.fillStyle = c.col; ctx.beginPath(); ctx.ellipse(px, py - 2, 4.2, 2.4, Math.atan2(dy, dx), 0, 7); ctx.fill();
+    ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.arc(px + dx * 3, py - 2 + dy * 3, 1, 0, 7); ctx.fill();
+  }
+}
+
+function drawSky(now) {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#070a1a'); g.addColorStop(0.55, '#1a1f4b'); g.addColorStop(1, '#5a2f5e');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (const s of stars) {
+    ctx.globalAlpha = 0.35 + 0.5 * Math.abs(Math.sin(now / 1500 + s.tw));
+    ctx.fillStyle = '#dfe6ff'; ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  const rg = ctx.createRadialGradient(vx, vy, 10, vx, vy, Math.max(W, H) * 0.6);
+  rg.addColorStop(0, 'rgba(255,140,100,.16)'); rg.addColorStop(1, 'rgba(255,140,100,0)');
+  ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+}
+
+function drawSlab(season) {
+  const g = GROUND[season];
+  const Lp = { x: -N * TW / 2, y: N * TH / 2 }, Bp = { x: 0, y: N * TH }, Rp = { x: N * TW / 2, y: N * TH / 2 };
+  poly([Lp, Bp, { x: Bp.x, y: Bp.y + SLAB }, { x: Lp.x, y: Lp.y + SLAB }], g.slabL);
+  poly([Bp, Rp, { x: Rp.x, y: Rp.y + SLAB }, { x: Bp.x, y: Bp.y + SLAB }], g.slabR);
+  // liseré néon sur l'arête du socle
+  ctx.strokeStyle = 'rgba(242,184,75,.55)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(Lp.x, Lp.y + SLAB); ctx.lineTo(Bp.x, Bp.y + SLAB); ctx.lineTo(Rp.x, Rp.y + SLAB); ctx.stroke();
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (!S) return;
+  const dt = Math.min(0.1, (now - (frame.last || now)) / 1000); frame.last = now;
+  if (speed) { frame.acc = (frame.acc || 0) + dt * 1000 * (speed === 3 ? 3 : 1); while (frame.acc >= DAY_MS) { frame.acc -= DAY_MS; step(); } }
+  updateCars(dt);
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawSky(now);
+  const season = Math.floor((S.day % 120) / 30);
+  ctx.save();
+  ctx.translate(vx - cam.x * z, vy - cam.y * z); ctx.scale(z, z);
+  drawSlab(season);
+
+  const G = GROUND[season];
+  // passe 1 : sol, routes
+  for (let d = 0; d <= 2 * N - 2; d++) for (let x = Math.max(0, d - N + 1); x <= Math.min(N - 1, d); x++) {
+    const y = d - x, p = iso(x, y), c = S.grid[idx(x, y)];
+    if (c && c.t === 'road') { poly(tilePts(p), (x + y) % 2 ? G.a : G.b); drawRoad(x, y, season, now); }
+    else {
+      poly(tilePts(p), (x + y) % 2 ? G.a : G.b);
+      if (c && !c.conn) { ctx.setLineDash([3, 3]); ctx.lineWidth = 1.4; ctx.strokeStyle = 'rgba(255,90,95,' + (0.55 + 0.35 * Math.sin(now / 300)) + ')'; poly(tilePts(p, 0.88), null, ctx.strokeStyle); ctx.setLineDash([]); }
+    }
+  }
+  drawCars();
+
+  // survol / aperçu
+  const target = hover || null;
+  let ghostBuilding = null;
+  if (target) {
+    const c = cell(target.x, target.y);
+    const p = iso(target.x, target.y);
+    let ok = false;
+    if (tool === 'bull') ok = !!c;
+    else if (tool !== 'view') ok = !c && S.cash >= TYPES[tool].cost;
+    const col = tool === 'view' ? 'rgba(233,237,255,.9)' : ok ? 'rgba(70,211,154,.95)' : 'rgba(255,90,95,.95)';
+    ctx.lineWidth = 2;
+    poly(tilePts(p), tool === 'view' ? null : (ok ? 'rgba(70,211,154,.18)' : 'rgba(255,90,95,.18)'), col);
+    if (ok && tool !== 'view' && tool !== 'bull' && tool !== 'road') ghostBuilding = { x: target.x, y: target.y, key: tool };
+  }
+  if (selected && tool === 'view') {
+    ctx.lineWidth = 2; poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)');
+  }
+
+  // passe 2 : bâtiments et arbres dans l'ordre de profondeur
+  for (let d = 0; d <= 2 * N - 2; d++) for (let x = Math.max(0, d - N + 1); x <= Math.min(N - 1, d); x++) {
+    const y = d - x, c = S.grid[idx(x, y)];
+    if (c) {
+      if (c.t !== 'road') drawBuilding(c.t, x, y, c.seed, c.h, { now, born: c.born, conn: c.conn, alert: S.day <= c.alertUntil });
+    } else if (decor[idx(x, y)]) drawTree(x, y, decor[idx(x, y)], season);
+    if (ghostBuilding && ghostBuilding.x === x && ghostBuilding.y === y) {
+      const T = TYPES[ghostBuilding.key];
+      drawBuilding(ghostBuilding.key, x, y, 0.5, T.h[0] + (T.h[1] - T.h[0]) / 2, { now, conn: true, alpha: 0.6 });
+    }
+  }
+
+  // flyers (-$ à la construction)
+  for (let i = flyers.length - 1; i >= 0; i--) {
+    const f = flyers[i], age = (now - f.t) / 900;
+    if (age >= 1) { flyers.splice(i, 1); continue; }
+    const p = iso(f.x, f.y);
+    ctx.globalAlpha = 1 - age; ctx.fillStyle = f.col; ctx.font = '600 13px "IBM Plex Mono", monospace'; ctx.textAlign = 'center';
+    ctx.fillText(f.text, p.x, p.y - 8 - age * 30); ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+
+  // neige (hiver)
+  if (season === 3) {
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (const f of flakes) {
+      f.y += f.v * dt * 0.09 * (speed ? 1 : 0.2); f.x += Math.sin(now / 900 + f.r * 5) * 0.0003;
+      if (f.y > 1.02) { f.y = -0.02; f.x = Math.random(); }
+      ctx.beginPath(); ctx.arc(f.x * W, f.y * H, f.r, 0, 7); ctx.fill();
+    }
+  }
+}
+
+/* ---------- Entrées ---------- */
+const pointers = new Map();
+let gesture = null, lastTile = null, spaceDown = false;
+const hint = $('#hint');
+function dismissHint() { if (hint && !hint.hidden) hint.hidden = true; }
+setTimeout(dismissHint, 20000);
+const pos = e => { const r = cvs.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+function applyAt(p) {
+  const t = screenToTile(p.x, p.y);
+  if (!t) return;
+  if (lastTile && lastTile.x === t.x && lastTile.y === t.y) return;
+  lastTile = t;
+  place(t.x, t.y, tool);
+}
+cvs.addEventListener('contextmenu', e => e.preventDefault());
+cvs.addEventListener('pointerdown', e => {
+  dismissHint();
+  fitted = true;
+  cvs.setPointerCapture(e.pointerId);
+  const p = pos(e);
+  pointers.set(e.pointerId, p);
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    gesture = { mode: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: z };
+    return;
+  }
+  const panning = tool === 'view' || e.button === 1 || e.button === 2 || spaceDown;
+  if (panning) gesture = { mode: 'pan', sx: p.x, sy: p.y, cx: cam.x, cy: cam.y, moved: false, tool: tool };
+  else { gesture = { mode: 'paint' }; lastTile = null; applyAt(p); }
+});
+cvs.addEventListener('pointermove', e => {
+  const p = pos(e);
+  if (e.pointerType === 'mouse') hover = screenToTile(p.x, p.y);
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, p);
+  if (!gesture) return;
+  if (gesture.mode === 'pinch' && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const target = clamp(gesture.z0 * d / gesture.d0, 0.3, 2.6);
+    zoomBy(target / z, mx, my);
+  } else if (gesture.mode === 'pan') {
+    const dx = p.x - gesture.sx, dy = p.y - gesture.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 6) gesture.moved = true;
+    if (gesture.moved) { cam.x = gesture.cx - dx / z; cam.y = gesture.cy - dy / z; }
+  } else if (gesture.mode === 'paint' && (tool === 'road' || tool === 'bull')) {
+    applyAt(p);
+  }
+});
+function endPtr(e) {
+  const p = pointers.get(e.pointerId);
+  pointers.delete(e.pointerId);
+  if (gesture && gesture.mode === 'pan' && !gesture.moved && p && gesture.tool === 'view') {
+    const t = screenToTile(p.x, p.y);
+    if (t) inspect(t.x, t.y);
+  }
+  if (pointers.size < 2 && gesture && gesture.mode === 'pinch') gesture = null;
+  if (!pointers.size) { gesture = null; lastTile = null; }
+}
+cvs.addEventListener('pointerup', endPtr);
+cvs.addEventListener('pointercancel', endPtr);
+cvs.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hover = null; });
+cvs.addEventListener('wheel', e => { e.preventDefault(); const p = pos(e); zoomBy(Math.exp(-e.deltaY * 0.0015), p.x, p.y); }, { passive: false });
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space') { spaceDown = true; e.preventDefault(); }
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= TOOL_ORDER.length) setTool(TOOL_ORDER[n - 1]);
+  if (e.key === 'Escape') setTool('view');
+});
+window.addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
+window.addEventListener('resize', resize);
+if (window.ResizeObserver) { const ro = new ResizeObserver(() => resize()); ro.observe($('#hud')); ro.observe($('#bar')); }
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => resize());
+document.addEventListener('visibilitychange', () => { if (document.hidden && S) save(); });
+
+/* ---------- Démarrage ---------- */
+S = load() || newCity();
+makeDecor();
+resize();
+refreshStats();
+if (!S.hist.length) S.hist.push(Math.round(S.stats.worth));
+updateHUD();
+setTool('res');
+requestAnimationFrame(frame);
+window.WSE = { get S() { return S; }, place, step, setTool, inspect, setSpeed, resize };
+})();
+</script>
+</body>
+</html>
