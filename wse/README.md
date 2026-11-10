@@ -1,44 +1,47 @@
-# Wall Street Empire — prototype jouable (V0.4)
+# Wall Street Empire — prototype jouable (V0.5)
 
-Ville isométrique de 64×64 cases avec campagne et gisements, gisements, chaîne de production complète et **fiches produits**, jouable dans le navigateur
-(téléphone ou ordinateur). Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
+Carte isométrique de 96×96 cases (une case ≈ 150 m) : une grande ville de gratte-ciel, une campagne presque sans routes avec de rares gisements,
+la mer à l'est, un port et sa zone industrielle, le tout jouable dans le navigateur (téléphone ou ordinateur).
+Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
 
-## Ce que fait le jeu
+## La carte
 
-**Ville et campagne** : la mairie quadrille la ville (zone centrale de 33×33 cases : une rue toutes les 4 cases, blocs de 3×3) et paie les rues.
-Le promoteur y construit à côté d'une rue ; tout bâtiment (hors extraction) doit être dans la ville et toucher une rue.
-Hors de la ville, il n'y a aucune route : puits et mines se posent sur les gisements en pleine campagne et fonctionnent sans route, mais à **65 %** de rendement.
-En les reliant au réseau urbain par **ses propres routes** (outil Route ou outil Relier, 120 $ par tronçon, 0,4 $ par jour d'entretien), le rendement passe à **100 %**.
-L'outil Relier trace automatiquement le plus court chemin, en réutilisant les routes déjà posées. Les rues de la ville ne peuvent ni être construites ni démolies par le joueur.
+| Zone | Rôle |
+|---|---|
+| **Ville** (centre-ouest) | Ville existante : environ 300 immeubles (bureaux et résidences), de 3 à 24 étages, avec deux tours-repères de plus de 30 étages. Environ 10 000 habitants. Grille d'avenues aérée (une tous les 6 cases, blocs de 5×5). Le promoteur y construit logements, commerces, Tour Tech et Banque |
+| **Campagne** | Presque aucune route : une autoroute ville-port et quelques départementales. Les gisements y sont rares (11 amas). Puits et mines se posent dessus |
+| **Zone du port** (est, à 6-9 km de la ville) | Pré-zone industrielle quadrillée : usines et fonderie d'or |
+| **Quai et mer** | Terminal portuaire (grues, conteneurs, navire à quai). Navires animés en mer |
 
-**Gisements** : pétrole, fer, charbon, cuivre et or. Trois blocs sont dans la ville de départ, les autres sont des amas irréguliers dans la campagne, avec une réserve limitée par case.
+Les rues de la ville et du port appartiennent à la mairie : elles sont gratuites et on ne peut pas les modifier.
+Les mines et puits fonctionnent sans route à **65 %** ; reliés au réseau public par tes propres routes de campagne (outils Route ou Relier, 120 $ le tronçon, 0,4 $ par jour d'entretien), ils atteignent **100 %**.
 
-**Chaîne de production** (cartographiée dans la fiche de chaque produit) :
+## Chaîne de production
 
 ```
-Gisements ─▶ Puits / Mines ─▶ matières premières ─▶ Fonderie d'or / Usines ─▶ composants ─▶ produit fini + emballage ─▶ Commerces ─▶ Habitants
+Gisements ─▶ Puits / Mines ─▶ matières premières ─▶ Fonderie / Usines (zone du port) ─▶ composants ─▶ produit fini + emballage ─▶ Commerces (ville) ─▶ Habitants
 ```
 
 | Niveau | Bâtiments |
 |---|---|
-| Extraction | Puits de pétrole, mines de fer, de charbon, de cuivre, d'or (à poser sur un gisement du bon type) |
-| Fonderie | Fonderie d'or : or brut ➜ lingots |
-| Usines (niveau d'atelier) | Petite (1×1, niveau 1), Moyenne (2×1, niveau 2), Grande (2×2, niveau 3). Chaque usine fabrique un composant ou un produit affecté, sinon une marchandise générique |
-| Commerces | Petit marché (1×1), Supermarché (2×1), Hypermarché (2×2) : chacun ne vend que ses catégories |
+| Extraction | Puits de pétrole, mines de fer, de charbon, de cuivre, d'or |
+| Fonderie | Fonderie d'or : or brut ➜ lingots (zone du port) |
+| Usines | Petite (1×1), Moyenne (2×1), Grande (2×2), toutes dans la zone du port. Chacune fabrique un composant ou un produit affecté, sinon une marchandise générique |
+| Commerces | Petit marché (1×1), Supermarché (2×1), Hypermarché (2×2), en ville : chacun ne vend que ses catégories |
+| Port | Terminal portuaire (2×2, sur le quai) : relève le prix d'export des surplus et le plafond de stock |
 | Ville | Logements (étages), Tour Tech, Banque |
 
-**Composants** (9) : acier, plastique, câbles de cuivre, emballages (niveau 1) ; moteurs, batteries, cartes électroniques, boîtiers en or (niveau 2) ; écrans (niveau 3).
-Chacun a un prix de marché qui varie avec l'offre et la demande, comme les matières premières et les marchandises (18 au total).
+**Composants** (9) : acier, plastique, câbles de cuivre, emballages ; moteurs, batteries, cartes électroniques, boîtiers en or ; écrans.
+18 marchandises au total, avec des prix qui varient selon l'offre et la demande.
 
-**Fiche produit** (vue Produits) : visuel du produit, choix de la **gamme** (Premier prix, Premium, Haut de gamme : qualité, prix de référence, intrants et R&D différents),
-choix de l'**emballage** (vrac, carton, coffret premium : consomme le composant « Emballages »), liste des **éléments nécessaires** par cycle, caractéristiques (coût des composants, marge),
-**arbre de la chaîne d'approvisionnement** avec les maillons manquants en rouge, tableau des capacités requises, et configuration automatique de la chaîne.
-7 produits : ustensiles de cuisine, jouets, vélo, lave-linge (acier, moteur, plastique, carte électronique), téléviseur, smartphone, montre de luxe.
-Les habitants répartissent leur demande entre la marchandise générique, les produits lancés et des marques rivales, selon qualité, prix, emballage et notoriété.
+**Fiche produit** (vue Produits) : visuel du produit, gamme (Premier prix, Premium, Haut de gamme), emballage (vrac, carton, coffret premium), éléments nécessaires,
+caractéristiques, arbre de la chaîne d'approvisionnement avec les maillons manquants, configuration automatique.
+7 produits : ustensiles de cuisine, jouets, vélo, lave-linge, téléviseur, smartphone, montre de luxe.
+Les habitants répartissent leur demande entre la marchandise générique, tes produits et des marques rivales, selon qualité, prix, emballage et notoriété.
 
-**Économie de la ville** : emplois (55 % des habitants travaillent), humeur, impôt réglable, banque qui dope les entreprises, amélioration des bâtiments, événements (goulots, boom boursier). La saison est fixée à l'été.
-
-**Paliers** (sur la capitalisation) : Citoyen, Entrepreneur (40 k$), Industriel (150 k$), Magnat (500 k$), Oligarque (1,5 M$), avec des missions.
+**Économie** : la ville emploie déjà la majorité de ses actifs ; tes entreprises recrutent le reste (au-delà, la main-d'œuvre manque). Humeur, impôt réglable, banque qui dope les entreprises,
+amélioration des bâtiments, événements (goulots, boom boursier). Saison fixée à l'été.
+Paliers (sur la capitalisation) : Citoyen, Entrepreneur (250 k$), Industriel (700 k$), Magnat (2,5 M$), Oligarque (7 M$), avec une vingtaine de missions.
 
 ## Commandes
 
@@ -61,12 +64,12 @@ Les habitants répartissent leur demande entre la marchandise générique, les p
 | `assets/` | sprites sources (CC0), atlas généré, `CREDITS.md` |
 
 Pour régénérer : `python3 wse/tools/build.py` (nécessite Python 3 et Pillow).
-Les visuels des produits sont des illustrations vectorielles dessinées dans le code (pas des photos).
+Les visuels des produits, la mer, le port, les grues et les navires sont dessinés dans le code (pas des photos).
 
 ## Vérifications
 
 - Chaîne du lave-linge testée en navigateur : composants (acier, plastique, câbles, emballages, moteurs, cartes électroniques) puis produit fini.
-- Ville et campagne : construction refusée hors de la ville (hors mines) et sur une rue ; une mine rurale passe de 65 % à 100 % une fois reliée.
+- Zones : logements et commerces refusés hors de la ville, usines refusées hors de la zone du port, terminal refusé hors du quai ; une mine rurale passe de 65 % à 100 % une fois reliée.
 - Un joueur automatique tient 600 jours sans valeur aberrante.
 
 ## Limites connues et pistes

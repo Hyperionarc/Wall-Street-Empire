@@ -326,11 +326,11 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     </div>
   </header>
 
-  <div id="mmwrap"><small>CARTE 64×64</small><canvas class="mm" id="mm" width="128" height="128" aria-label="Minimap"></canvas></div>
+  <div id="mmwrap"><small>CARTE · 1 case ≈ 150 m</small><canvas class="mm" id="mm" width="192" height="192" aria-label="Minimap"></canvas></div>
 
   <aside id="panel" hidden>
     <div class="ph"><b>NEW DOLLARTON</b><button class="ibtn" id="pclose" aria-label="Fermer le panneau">Fermer</button></div>
-    <div id="panelmap"><h3>CARTE</h3><canvas class="mm" id="mm2" width="128" height="128" aria-label="Minimap" style="width:100%;height:auto;max-width:200px"></canvas></div>
+    <div id="panelmap"><h3>CARTE</h3><canvas class="mm" id="mm2" width="192" height="192" aria-label="Minimap" style="width:100%;height:auto;max-width:200px"></canvas></div>
     <h3>PALIER</h3>
     <div class="tier"><strong id="tierName">Citoyen</strong><small id="tierNext"></small></div>
     <div class="bar" style="margin-top:6px"><i id="tierBar"></i></div>
@@ -362,12 +362,12 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 
   <div id="hint">
     <b>BIENVENUE À NEW DOLLARTON</b>
-    <p>Une grande carte, des gisements (pétrole, fer, charbon, cuivre, or) et une chaîne complète : extraction, fonderie et usines, commerces, habitants, impôts.</p>
-    <p>Choisis une catégorie en bas, puis un bâtiment, et touche une case. Les mines se posent sur un gisement de la même couleur. La mairie fournit les rues de la ville : construis à côté d'une rue. Mines et puits se posent sur les gisements, en campagne : sans route ils tournent à 65 %, reliés à la ville par tes propres routes ils atteignent 100 %. Ouvre « Ville » pour la carte, les missions et les prix, et « Produits » pour lancer des produits finis (montre, téléviseur, smartphone...).</p>
+    <p>Une grande ville existe déjà et ses habitants ont besoin de biens. Tu es promoteur industriel : le port et sa zone industrielle sont à l'est (ville à 6-9 km), et la campagne n'a que de rares gisements.</p>
+    <p>Construis des usines dans la zone du port, pose mines et puits sur les gisements (sans route ils tournent à 65 %, reliés au réseau par tes routes ils atteignent 100 %), puis vends en ville avec des commerces. « Produits » permet de lancer des produits finis.</p>
   </div>
   <div id="win" hidden>
     <b>SIÈGE AU CONSEIL</b>
-    <p>New Dollarton vaut 1,5 million de dollars. Tu es Oligarque : un siège au Conseil de sécurité économique t'attend.</p>
+    <p>Ton groupe vaut 7 millions de dollars. Tu es Oligarque : un siège au Conseil de sécurité économique t'attend.</p>
     <button class="ibtn" id="winok">Continuer à jouer</button>
   </div>
 
@@ -379,12 +379,14 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 'use strict';
 
 /* ---------- Constantes ---------- */
-const N = 64, TW = 132, TH = 66, FH = 32, DAY_MS = 2000, MID = 32;
-const SAVE_KEY = 'wse-city-v4';
+const N = 96, TW = 132, TH = 66, FH = 32, DAY_MS = 2000, START = { x: 74, y: 63 };
+const SAVE_KEY = 'wse-city-v5';
 const SUMMER_TINT = 'rgba(112,188,92,.30)';   // herbe d'été : saison unique
+const ZONE_TINT = ['rgba(112,188,92,.30)', 'rgba(205,208,222,.30)', 'rgba(128,122,130,.45)', '', 'rgba(96,102,118,.55)'];   // campagne, ville, zone portuaire, mer, quai
+const ZONE_COL = [[58, 92, 66], [96, 100, 125], [96, 90, 98], [34, 86, 152], [82, 86, 106]];
 const TIERS = [
-  { n: 'Citoyen', at: 0 }, { n: 'Entrepreneur', at: 40000 }, { n: 'Industriel', at: 150000 },
-  { n: 'Magnat', at: 500000 }, { n: 'Oligarque', at: 1500000 }
+  { n: 'Citoyen', at: 0 }, { n: 'Entrepreneur', at: 250000 }, { n: 'Industriel', at: 700000 },
+  { n: 'Magnat', at: 2500000 }, { n: 'Oligarque', at: 7000000 }
 ];
 
 // Marchandises : prix de base, couleur
@@ -437,11 +439,13 @@ const TYPES = {
   f3:      { name: 'Grande usine',  sub: 'Produits de luxe', cost: 15000, color: '#ff4fa3', jobs: 30, upkeep: 12, w: 2, h: 2, tier: 2, rec: { in: { copper: 8, oil: 6, ingot: 2 }, out: { lux: 10 } } },
   s1:      { name: 'Petit marché',  sub: 'Biens de base',   cost: 700,   color: '#46d39a', jobs: 4,  upkeep: 1.5, ret: { cap: 14, sells: ['basic'] } },
   s2:      { name: 'Supermarché',   sub: 'Base + manufact.', cost: 3500, color: '#7f96ff', jobs: 12, upkeep: 4,  w: 2, h: 1, tier: 1, ret: { cap: 40, sells: ['basic', 'std'] } },
-  s3:      { name: 'Hypermarché',   sub: 'Tout + luxe',     cost: 12000, color: '#ff4fa3', jobs: 35, upkeep: 10, w: 2, h: 2, tier: 2, ret: { cap: 120, sells: ['basic', 'std', 'lux'] } }
+  s3:      { name: 'Hypermarché',   sub: 'Tout + luxe',     cost: 12000, color: '#ff4fa3', jobs: 35, upkeep: 10, w: 2, h: 2, tier: 2, ret: { cap: 120, sells: ['basic', 'std', 'lux'] } },
+  port:    { name: 'Terminal portuaire', sub: 'Export à bon prix', cost: 9000, color: '#5fb0ff', jobs: 30, upkeep: 8, w: 2, h: 2 },
+  npc:     { name: 'Immeuble',      sub: 'Ville existante', cost: 0,     color: '#8f9acb', jobs: 0,  upkeep: 0 }
 };
 const INDUSTRIAL = ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3'];
 const FACT_ORDER = ['foundry', 'f1', 'f2', 'f3'];
-const DEM_PER_POP = { basic: 0.16, std: 0.058, lux: 0.02 };
+const DEM_PER_POP = { basic: 0.014, std: 0.005, lux: 0.0018 };
 const CLS = { basic: { name: 'Base', color: '#46d39a' }, std: { name: 'Manufacturé', color: '#7f96ff' }, lux: { name: 'Luxe', color: '#ff4fa3' } };
 // Composants : niveau d'usine requis (1 petite, 2 moyenne, 3 grande), recette par cycle. L'ordre est l'ordre de traitement.
 const RECIPES = {
@@ -522,6 +526,7 @@ const ICONS = {
   s2:   '<path d="M3 8h18v12H3z"/><path d="M3 12h18M8 8v12M16 8v12"/><path d="M5 5h14"/>',
   s3:   '<path d="M2 7h20v13H2z"/><path d="M2 11h20M7 7v13M12 7v13M17 7v13"/><path d="M4 4h16"/>',
   link: '<circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="6" r="2.5"/><path d="M7.5 18H14a3 3 0 003-3V9a3 3 0 013-3" stroke-dasharray="2 3"/>',
+  port: '<path d="M12 3v14M8 7h8M4 13a8 8 0 0016 0M8 21h8"/>',
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
@@ -535,34 +540,34 @@ const TOOL_META = {
 const CATS = [
   { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'road', 'link'] },
-  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3'] },
+  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'port'] },
   { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3'] }
 ];
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
 
 const MISSIONS = [
-  { id: 'm1',  t: 'Loger 60 habitants',                            r: 1000,  ok: c => c.pop >= 60 },
-  { id: 'm2',  t: 'Relier un puits de pétrole et une mine de fer', r: 1500,  ok: c => c.cn.well >= 1 && c.cn.miron >= 1 },
-  { id: 'm3',  t: 'Relier une petite usine',                       r: 1500,  ok: c => c.cn.f1 >= 1 },
-  { id: 'mp1', t: 'Lancer un produit fini (vue Produits)',         r: 3000,  ok: c => c.prodOn >= 1 },
+  { id: 'm1',  t: 'Poser un puits ou une mine sur un gisement',     r: 1500,  ok: c => c.cn.well + c.cn.miron + c.cn.mcoal + c.cn.mcopper + c.cn.mgold >= 1 },
+  { id: 'mr',  t: 'Relier une mine au réseau par tes propres routes', r: 3000, ok: c => c.linkedRural >= 1 },
+  { id: 'm3',  t: 'Ouvrir une petite usine dans la zone du port',   r: 2500,  ok: c => c.cn.f1 >= 1 },
   { id: 'mc1', t: 'Fabriquer 3 composants différents (acier, plastique...)', r: 3000, ok: c => c.comp >= 3 },
-  { id: 'mw',  t: 'Fabriquer un lave-linge complet',               r: 6000,  ok: c => c.washerMade },
-  { id: 'mr',  t: 'Relier une mine à la ville par tes propres routes', r: 3000, ok: c => c.linkedRural >= 1 },
-  { id: 'm4',  t: 'Vendre 300 biens aux habitants',                r: 2000,  ok: c => c.sold >= 300 },
-  { id: 'm5',  t: 'Atteindre 200 habitants',                       r: 3000,  ok: c => c.pop >= 200 },
-  { id: 'm6',  t: 'Capitalisation de 100 000 $',                   r: 4000,  ok: c => c.worth >= 100000 },
-  { id: 'm7',  t: 'Ouvrir une mine d\'or et une fonderie',         r: 5000,  ok: c => c.cn.mgold >= 1 && c.cn.foundry >= 1 },
-  { id: 'm8',  t: 'Construire une usine moyenne',                  r: 5000,  ok: c => c.cn.f2 >= 1 },
-  { id: 'mp2', t: 'Obtenir 25 % de part de marché sur un produit', r: 8000,  ok: c => c.maxShare >= 0.25 },
-  { id: 'm9',  t: 'Ouvrir un supermarché',                         r: 5000,  ok: c => c.cn.s2 >= 1 },
-  { id: 'm10', t: 'Construire une Tour Tech',                      r: 6000,  ok: c => c.cn.tech >= 1 },
-  { id: 'm11', t: 'Atteindre 800 habitants',                       r: 8000,  ok: c => c.pop >= 800 },
-  { id: 'm12', t: 'Construire une grande usine',                   r: 12000, ok: c => c.cn.f3 >= 1 },
-  { id: 'mp3', t: 'Lancer 4 produits finis',                       r: 15000, ok: c => c.prodOn >= 4 },
-  { id: 'm13', t: 'Ouvrir un hypermarché',                         r: 12000, ok: c => c.cn.s3 >= 1 },
-  { id: 'm14', t: 'Ouvrir une Banque',                             r: 10000, ok: c => c.cn.bank >= 1 },
-  { id: 'm15', t: 'Atteindre 3 000 habitants',                     r: 25000, ok: c => c.pop >= 3000 },
-  { id: 'm16', t: 'Devenir Oligarque (1,5 M$)',                    r: 0,     ok: c => c.worth >= 1500000 }
+  { id: 'm2',  t: 'Ouvrir un petit marché en ville',                r: 2000,  ok: c => c.cn.s1 >= 1 },
+  { id: 'mp1', t: 'Lancer un produit fini (vue Produits)',          r: 4000,  ok: c => c.prodOn >= 1 },
+  { id: 'm4',  t: 'Vendre 600 biens aux habitants',                 r: 4000,  ok: c => c.sold >= 600 },
+  { id: 'mport', t: 'Ouvrir un terminal portuaire',                 r: 5000,  ok: c => c.cn.port >= 1 },
+  { id: 'm5',  t: 'Employer 300 personnes dans tes entreprises',    r: 5000,  ok: c => c.jobsPlayer >= 300 },
+  { id: 'm6',  t: 'Capitalisation de 500 000 $',                    r: 8000,  ok: c => c.worth >= 500000 },
+  { id: 'm7',  t: 'Ouvrir une mine d\'or et une fonderie',          r: 8000,  ok: c => c.cn.mgold >= 1 && c.cn.foundry >= 1 },
+  { id: 'm8',  t: 'Construire une usine moyenne',                   r: 8000,  ok: c => c.cn.f2 >= 1 },
+  { id: 'mw',  t: 'Fabriquer un lave-linge complet',                r: 8000,  ok: c => c.washerMade },
+  { id: 'm9',  t: 'Ouvrir un supermarché',                          r: 8000,  ok: c => c.cn.s2 >= 1 },
+  { id: 'mp2', t: 'Obtenir 25 % de part de marché sur un produit',  r: 12000, ok: c => c.maxShare >= 0.25 },
+  { id: 'm10', t: 'Construire une Tour Tech',                       r: 12000, ok: c => c.cn.tech >= 1 },
+  { id: 'm12', t: 'Construire une grande usine',                    r: 20000, ok: c => c.cn.f3 >= 1 },
+  { id: 'mp3', t: 'Lancer 4 produits finis',                        r: 25000, ok: c => c.prodOn >= 4 },
+  { id: 'm13', t: 'Ouvrir un hypermarché',                          r: 25000, ok: c => c.cn.s3 >= 1 },
+  { id: 'm14', t: 'Ouvrir une Banque',                              r: 25000, ok: c => c.cn.bank >= 1 },
+  { id: 'm15', t: 'Employer 3 000 personnes dans tes entreprises',  r: 60000, ok: c => c.jobsPlayer >= 3000 },
+  { id: 'm16', t: 'Devenir Oligarque (7 M$)',                       r: 0,     ok: c => c.worth >= 7000000 }
 ];
 
 /* ---------- Atlas de sprites (CC0, Kenney) ---------- */
@@ -616,41 +621,72 @@ function mkCell(t, seed) {
 }
 
 // Gisements : amas fixes près du départ, puis amas aléatoires répartis sur la carte
-// Zone urbaine : la mairie y fournit un réseau de rues (une rue toutes les 4 cases, blocs de 3x3), gratuitement.
-// Hors de la ville, aucune route : mines et puits se posent sur les gisements et le joueur les relie lui-même.
-const CITY = { x0: 16, y0: 16, x1: 48, y1: 48 };
+// Géographie : ville (avenues aérées), campagne (routes rares), zone portuaire et mer à l'est.
+// Échelle : une case ≈ 150 m. La ville est à 6-9 km du port.
+const CITY = { x0: 12, y0: 12, x1: 48, y1: 48 };
+const PORT = { x0: 66, y0: 54, x1: 84, y1: 84 };
+const GRID = 6;      // une avenue tous les 6 cases en ville et dans la zone du port
+const REACH = 3;     // une ruelle implicite dessert l'intérieur des blocs (distance max à une avenue)
 const inCity = (x, y) => x >= CITY.x0 && x <= CITY.x1 && y >= CITY.y0 && y <= CITY.y1;
-const isRoadPos = (x, y) => inCity(x, y) && (x % 4 === 0 || y % 4 === 0);
-const UNLINKED_EFF = 0.65;   // rendement d'une installation d'extraction sans route jusqu'à la ville
-function genRoads(grid) {
-  for (let y = CITY.y0; y <= CITY.y1; y++) for (let x = CITY.x0; x <= CITY.x1; x++) if (isRoadPos(x, y) && !grid[idx(x, y)]) grid[idx(x, y)] = { t: 'road', x, y };
+const inPort = (x, y) => x >= PORT.x0 && x <= PORT.x1 && y >= PORT.y0 && y <= PORT.y1;
+const coastX = y => (y >= PORT.y0 - 4 && y <= PORT.y1 + 4) ? 88 : 88 + Math.round(1.6 * Math.sin(y * 0.31) + (hash(y, 3, 3) - 0.5) * 1.2);
+const ZONE = new Uint8Array(N * N);   // 0 campagne, 1 ville, 2 zone portuaire, 3 mer, 4 quai
+function buildZones() {
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const cx = coastX(y);
+    ZONE[idx(x, y)] = x >= cx ? 3 : (x >= cx - 3 && y >= PORT.y0 && y <= PORT.y1) ? 4 : inCity(x, y) ? 1 : inPort(x, y) ? 2 : 0;
+  }
 }
+// routes de campagne : autoroute ville-port et quelques départementales (rares)
+const RURAL_ROADS = [[49, 48, 66, 48], [66, 48, 66, 53], [30, 0, 30, 11], [0, 30, 11, 30], [30, 49, 30, 95], [60, 20, 60, 47], [72, 28, 72, 53]];
+const ruralRoadAt = (x, y) => RURAL_ROADS.some(s => x >= s[0] && x <= s[2] && y >= s[1] && y <= s[3]);
+const isRoadPos = (x, y) => (inCity(x, y) && ((x - CITY.x0) % GRID === 0 || (y - CITY.y0) % GRID === 0)) || (inPort(x, y) && ((x - PORT.x0) % GRID === 0 || (y - PORT.y0) % GRID === 0)) || ruralRoadAt(x, y);
+const UNLINKED_EFF = 0.65;   // rendement d'une installation d'extraction sans route jusqu'au réseau
+function genRoads(grid) {
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (ZONE[idx(x, y)] !== 3 && isRoadPos(x, y) && !grid[idx(x, y)]) grid[idx(x, y)] = { t: 'road', x, y };
+}
+// gisements : très rares, en campagne
+const DEP_SITES = [['oil', 76, 38, 7], ['iron', 64, 34, 7], ['coal', 80, 46, 6], ['oil', 20, 84, 8], ['iron', 10, 66, 8], ['iron', 84, 10, 7], ['coal', 48, 86, 8], ['coal', 6, 22, 7], ['copper', 86, 24, 6], ['copper', 36, 6, 6], ['gold', 8, 8, 5]];
 function genDeposits() {
   const dep = new Array(N * N).fill(null);
   const R = rng(MAP_SEED);
-  const add = (x, y, k) => { if (inb(x, y) && !dep[idx(x, y)]) dep[idx(x, y)] = { k, r: DEPOSITS[k].res }; };
-  // départ : trois blocs de la ville (pétrole, fer, charbon) à côté du carrefour central
-  [[8, 7, 'oil'], [7, 7, 'iron'], [6, 7, 'coal']].forEach(b => {
-    for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) { const x = 4 * b[0] + 1 + dx, y = 4 * b[1] + 1 + dy; if (!isRoadPos(x, y)) add(x, y, b[2]); }
-  });
-  // gisements ruraux : amas irréguliers hors de la ville
-  const rural = (x, y) => x >= 1 && y >= 1 && x < N - 1 && y < N - 1 && !(x >= CITY.x0 - 3 && x <= CITY.x1 + 3 && y >= CITY.y0 - 3 && y <= CITY.y1 + 3);
-  const blob = (cx, cy, k, size) => {
-    let x = cx, y = cy;
-    for (let i = 0; i < size; i++) { if (rural(x, y)) add(x, y, k); const d = Math.floor(R() * 4); x += [1, -1, 0, 0][d]; y += [0, 0, 1, -1][d]; }
-  };
-  // amas proches de la ville, pour que les premières mines soient à portée
-  [['oil', 55, 28], ['iron', 55, 44], ['coal', 8, 26], ['copper', 8, 42], ['gold', 28, 8], ['oil', 28, 56], ['iron', 40, 57], ['coal', 10, 54], ['copper', 52, 10], ['gold', 56, 56]].forEach(a => blob(a[1], a[2], a[0], 9 + Math.floor(R() * 4)));
-  [['oil', 4], ['iron', 4], ['coal', 4], ['copper', 4], ['gold', 3]].forEach(sp => {
-    for (let n = 0, tries = 0; n < sp[1] && tries < 500; tries++) {
-      const cx = 1 + Math.floor(R() * (N - 2)), cy = 1 + Math.floor(R() * (N - 2));
-      if (!rural(cx, cy) || dep[idx(cx, cy)]) continue;
-      blob(cx, cy, sp[0], 8 + Math.floor(R() * 4)); n++;
+  DEP_SITES.forEach(a => {
+    let x = a[2], y = a[3];
+    // a = [type, cx, cy, taille] avec cx = colonne (x) et cy = ligne (y)
+    x = a[1]; y = a[2];
+    for (let i = 0; i < a[3]; i++) {
+      if (inb(x, y) && ZONE[idx(x, y)] === 0 && !isRoadPos(x, y) && !dep[idx(x, y)]) dep[idx(x, y)] = { k: a[0], r: DEPOSITS[a[0]].res };
+      const d = Math.floor(R() * 4); x += [1, -1, 0, 0][d]; y += [0, 0, 1, -1][d];
     }
   });
   return dep;
 }
-// routes reliées au réseau urbain (les rues de la ville sont les sources)
+// ville existante : gratte-ciel (bureaux et résidences) denses au centre, plus bas en périphérie, avec 2 tours-repères
+function genNpc(grid) {
+  let cap = 0, offFloors = 0;
+  const lm = { '26,26': 36, '32,26': 32 };
+  for (let by = 0; by < 6; by++) for (let bx = 0; bx < 6; bx++) {
+    const ox = CITY.x0 + 1 + bx * GRID, oy = CITY.y0 + 1 + by * GRID;
+    const dist = Math.hypot(bx - 2.5, by - 2.5);
+    for (let j = 0; j < 5; j++) for (let i = 0; i < 5; i++) {
+      const x = ox + i, y = oy + j, id = idx(x, y);
+      if (grid[id]) continue;
+      const key = x + ',' + y, isLm = lm[key] != null;
+      if (!isLm) {
+        if (i >= 3 && j >= 3) continue;                          // coin libre de 2x2 : emplacement pour hypermarché
+        const p = clamp(0.78 - dist * 0.15, 0.22, 0.68);
+        if (hash(x, y, 41) >= p) continue;
+      }
+      const kind = isLm ? (key === '26,26' ? 'off' : 'res') : hash(x, y, 42) < 0.55 ? 'res' : 'off';
+      let floors = isLm ? lm[key] : Math.round((22 - dist * 4.5) * (0.6 + 0.8 * hash(x, y, 43)));
+      floors = clamp(floors, 3, isLm ? 40 : 24);
+      grid[id] = { t: 'npc', k: kind, seed: hash(x, y, 44), floors, lvl: 0, w: 1, h: 1, x, y, born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: isLm };
+      if (kind === 'res') cap += 5 * floors; else offFloors += floors;
+    }
+  }
+  return { cap, offFloors };
+}
+// routes reliées au réseau public (les rues et routes de la mairie sont les sources)
 function linkedMask() {
   const m = new Uint8Array(N * N), q = [];
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road' && !c.own) { m[i] = 1; q.push(i); } }
@@ -675,7 +711,7 @@ function extLinked(c, lm) {
 function newCity() {
   const grid = new Array(N * N).fill(null);
   const S0 = {
-    cash: 40000, pop: 40, day: 0, grid, dep: genDeposits(), hist: [], boomUntil: -1, milestone: 0, lastWarn: -99,
+    cash: 40000, pop: 40, day: 0, grid, dep: genDeposits(), hist: [], boomUntil: -1, milestone: 99, lastWarn: -99,
     tax: 0.25, stock: {}, price: {}, ph: {},
     sold: 0, made: { ingot: 0 }, done: [], won: false, stats: {}
   };
@@ -688,20 +724,18 @@ function newCity() {
     for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) grid[idx(x + ox, y + oy)] = (ox || oy) ? { t: 'part', ai: idx(x, y), ox, oy } : c;
   };
   genRoads(grid);
-  // bloc sud-est du carrefour central : logements
-  [[33, 33], [34, 33], [35, 33], [33, 34], [35, 34], [33, 35], [34, 35]].forEach(p => put(p[0], p[1], 'res'));
-  // bloc sud-ouest : petits marchés
-  put(31, 33, 's1'); put(31, 34, 's1');
-  // gisements voisins : un puits, deux mines, et une petite usine
-  put(33, 31, 'well'); put(31, 31, 'miron'); put(27, 31, 'mcoal');
-  put(37, 31, 'f1');
+  // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
+  const npc = genNpc(grid);
+  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors);
+  S0.pop = Math.round(npc.cap * 0.85);
+  S0.cash = 150000;
   return S0;
 }
 function save() {
   try {
-    const g = S.grid.map(c => !c || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0]);
+    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 4, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 5, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -709,7 +743,7 @@ function load() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const d = JSON.parse(raw);
-    if (!d || d.v !== 4 || !Array.isArray(d.g) || d.g.length !== N * N) return null;
+    if (!d || d.v !== 5 || !Array.isArray(d.g) || d.g.length !== N * N) return null;
     const grid = d.g.map((r, i) => {
       if (!r) return null;
       if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
@@ -718,15 +752,17 @@ function load() {
       const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
     genRoads(grid);
+    const npcInfo = genNpc(grid);
     const dep = new Array(N * N).fill(null);
     (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) dep[a[0]] = { k: a[1], r: a[2] }; });
     const S0 = {
       cash: +d.cash, pop: +d.pop, day: d.day | 0, grid, dep, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: -1,
-      milestone: d.milestone | 0, lastWarn: -99, tax: clamp(+d.tax || 0.25, 0.05, 0.45),
+      milestone: 99, lastWarn: -99, tax: clamp(+d.tax || 0.25, 0.05, 0.45),
       stock: {}, price: {}, ph: {}, sold: +d.sold || 0, made: d.made || { ingot: 0 },
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
+    S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
     GKEYS.forEach(g => {
@@ -740,8 +776,8 @@ function load() {
 function makeDecor() {
   decor = new Array(N * N);
   for (let i = 0; i < N * N; i++) {
-    const r = hash(i, 11, 7);
-    decor[i] = r < 0.2 ? { dx: Math.round((hash(i, 2, 3) - 0.5) * 50), dy: Math.round((hash(i, 4, 5) - 0.5) * 20) } : null;
+    const r = hash(i, 11, 7), z = ZONE[i];
+    decor[i] = ((z === 0 && r < 0.2) || (z === 1 && r < 0.1)) ? { dx: Math.round((hash(i, 2, 3) - 0.5) * 50), dy: Math.round((hash(i, 4, 5) - 0.5) * 20) } : null;
   }
 }
 
@@ -754,7 +790,9 @@ const tierOf = w => { let t = 0; TIERS.forEach((x, i) => { if (w >= x.at) t = i;
 function footConn(a) {
   for (let ox = 0; ox < a.w; ox++) for (let oy = 0; oy < a.h; oy++) {
     const x = a.x + ox, y = a.y + oy;
-    if ((ox === 0 && isRoad(x - 1, y)) || (ox === a.w - 1 && isRoad(x + 1, y)) || (oy === 0 && isRoad(x, y - 1)) || (oy === a.h - 1 && isRoad(x, y + 1))) return true;
+    for (let dx = -REACH; dx <= REACH; dx++) for (let dy = -REACH; dy <= REACH; dy++) {
+      if (Math.abs(dx) + Math.abs(dy) <= REACH && isRoad(x + dx, y + dy)) return true;
+    }
   }
   return false;
 }
@@ -778,12 +816,13 @@ function upgradeSpent(c) {
 function evaluate() {
   const cn = {}, cc = {}, un = {};
   Object.keys(TYPES).forEach(k => { cn[k] = 0; cc[k] = 0; un[k] = 0; });
-  let roads = 0, cap = 0, jobs = 0, upkeep = 0, value = 0, polluted = 0, nres = 0;
+  let roads = 0, cap = 0, jobs = 0, upkeep = 0, value = 0, polluted = 0, nres = 0, npcJobs = 0;
   const smog = new Uint8Array(N * N);
   let ownRoads = 0;
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') { roads++; if (c.own) ownRoads++; } }
   const lm = linkedMask();
   eachBuilding(c => {
+    if (c.t === 'npc') { c.conn = true; if (c.k === 'res') cap += 5 * c.floors; else npcJobs += c.floors * S.jpf; return; }
     const T = TYPES[c.t], m = levelMult(c);
     if (T.ext) { c.linked = extLinked(c, lm); c.conn = true; } else c.conn = footConn(c);
     cc[c.t]++;
@@ -804,7 +843,7 @@ function evaluate() {
   });
   upkeep += ownRoads * TYPES.road.upkeep;
   eachBuilding(c => { if (c.t === 'res' && c.conn) { nres++; if (smog[idx(c.x, c.y)]) polluted++; } });
-  return { cc, cn, un, roads, ownRoads, cap, jobs, upkeep, value, polluted, nres };
+  return { cc, cn, un, roads, ownRoads, cap, jobs: jobs + npcJobs, playerJobs: jobs, upkeep, value, polluted, nres };
 }
 function worthOf(ev, happy) { return S.cash + ev.value * (1 + (happy == null ? 60 : happy) / 400); }
 
@@ -821,7 +860,7 @@ function step() {
   const made = {}, want = {}, sold = { basic: 0, std: 0, lux: 0 };
   GKEYS.forEach(g => { made[g] = 0; want[g] = 2; });   // 2 = demande d'export de base
   const buildings = [];
-  eachBuilding(c => { if (c.conn) buildings.push(c); c.out = 0; });
+  eachBuilding(c => { if (c.conn && c.t !== 'npc') buildings.push(c); c.out = 0; });
 
   // 1. Extraction (limitée par le personnel, les gisements et les goulots)
   buildings.forEach(c => {
@@ -862,7 +901,7 @@ function step() {
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { capR[c.t] += R.cap * levelMult(c) * (0.4 + 0.6 * staff); retUnits += R.cap * levelMult(c); } });
   const sells = { basic: ['s1', 's2', 's3'], std: ['s2', 's3'], lux: ['s3'] };
-  const addressed = { basic: 0, std: 0, lux: 0 };
+  const addressed = { basic: 0, std: 0, lux: 0 }, Dtot = { basic: 0, std: 0, lux: 0 }, rivalPart = { basic: 0, std: 0, lux: 0 };
   let revRetVal = 0;
   PKEYS.forEach(pk => { const ps = S.prod[pk]; ps.sold = 0; ps.rev = 0; ps.share = 0; });
   ['lux', 'std', 'basic'].forEach(cls => {
@@ -871,6 +910,7 @@ function step() {
     mine.forEach(pk => items.push({ k: pk, attr: attractiveness(pk), stock: S.prod[pk].stock, price: prodPrice(pk) }));
     const totalAttr = items.reduce((a, i) => a + i.attr, 0) + RIVAL;
     const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length));
+    Dtot[cls] = Dc; rivalPart[cls] = Dc * RIVAL / totalAttr;
     items.forEach(it => {
       const wi = Dc * it.attr / totalAttr;
       let need = Math.min(wi, it.stock), got = 0;
@@ -886,11 +926,12 @@ function step() {
   S.sold += soldTotal;
   // 4. Surplus exporté au-delà du plafond de stock
   let revExp = 0;
-  GKEYS.forEach(g => { const ex = Math.max(0, S.stock[g] - STOCK_CAP); if (ex > 0) { S.stock[g] -= ex; revExp += ex * S.price[g] * 0.6; } });
+  const portN = cn.port || 0, expRate = Math.min(0.9, 0.6 + 0.15 * portN), stockCap = STOCK_CAP + 150 * portN;
+  GKEYS.forEach(g => { const ex = Math.max(0, S.stock[g] - stockCap); if (ex > 0) { S.stock[g] -= ex; revExp += ex * S.price[g] * expRate; } });
 
   // 5. Chiffres d'affaires, impôts
   const P = S.price;
-  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 80); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * 0.5; } });
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 80); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } });
   let revExt = 0, revInd = 0;
   buildings.forEach(c => {
     const T = TYPES[c.t];
@@ -902,7 +943,7 @@ function step() {
   const revBank = un.bank * Math.min(500, 180 + Math.max(0, S.cash) * 0.0008);
   const sectorRev = (revExt + revInd + revRet + revExp + revTech) * mult + revBank;
   const rate = S.tax;
-  const headTax = employed * 3 * (rate / 0.25);
+  const headTax = (jobs > 0 ? employed * ev.playerJobs / jobs : 0) * 3 * (rate / 0.25);
   const taxIncome = sectorRev * rate + headTax;
   let advCost = 0; PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') advCost += ADV[S.prod[pk].adv].cost; });
   const net = taxIncome - upkeep - advCost;
@@ -931,9 +972,9 @@ function step() {
   });
 
   // 8. Humeur, population
-  const satB = addressed.basic > 0.5 ? sold.basic / addressed.basic : 1;
-  const satS = addressed.std > 0.3 ? sold.std / addressed.std : 1;
-  const satL = addressed.lux > 0.2 ? sold.lux / addressed.lux : 1;
+  const satB = Dtot.basic > 0.5 ? (rivalPart.basic + sold.basic) / Dtot.basic : 1;
+  const satS = Dtot.std > 0.3 ? (rivalPart.std + sold.std) / Dtot.std : 1;
+  const satL = Dtot.lux > 0.2 ? (rivalPart.lux + sold.lux) / Dtot.lux : 1;
   const sat = satB * 0.6 + satS * 0.25 + satL * 0.15;
   const pol = nres ? polluted / nres : 0;
   const happy = clamp(55 + sat * 25 - unemp * 50 - pol * 25 + (jobs > workforce ? 6 : 0) - (rate - 0.25) * 120, 0, 100);
@@ -985,7 +1026,7 @@ function step() {
   S.hist.push(Math.round(worth));
   if (S.hist.length > 80) S.hist.shift();
   S.stats = {
-    pop, cap, jobs, workforce, employed, unemp, happy, income: taxIncome, upkeep, net, worth, cn, cc, sold: S.sold, soldDay: soldTotal, dem,
+    pop, cap, jobs, playerJobs: ev.playerJobs, workforce, employed, unemp, happy, income: taxIncome, upkeep, net, worth, cn, cc, sold: S.sold, soldDay: soldTotal, dem,
     demR: clamp((jobs - workforce) / Math.max(20, jobs + 10) + 0.25, -1, 1),
     demC: clamp(1 - (retUnits * (0.4 + 0.6 * staff)) / Math.max(1, dem.basic + dem.std + dem.lux), -1, 1),
     demI: clamp(unemp * 2 - 0.2, -1, 1)
@@ -1001,7 +1042,7 @@ function missionCtx() {
   let prodOn_ = 0, maxShare = 0, linkedRural_ = 0;
   eachBuilding(c => { if (TYPES[c.t].ext && !inCity(c.x, c.y) && c.linked) linkedRural_++; });
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps && ps.st === 'on') { prodOn_++; maxShare = Math.max(maxShare, ps.share || 0); } });
-  return { pop: st.pop || 0, cn: st.cn || none, sold: S.sold, worth: st.worth || 0, prodOn: prodOn_, maxShare, linkedRural: linkedRural_, comp: Object.keys(S.cm || {}).filter(k => RECIPES[k]).length, washerMade: !!(S.prod.washer && (S.prod.washer.made > 0 || S.prod.washer.sold > 0)) };
+  return { pop: st.pop || 0, jobsPlayer: st.playerJobs || 0, cn: st.cn || none, sold: S.sold, worth: st.worth || 0, prodOn: prodOn_, maxShare, linkedRural: linkedRural_, comp: Object.keys(S.cm || {}).filter(k => RECIPES[k]).length, washerMade: !!(S.prod.washer && (S.prod.washer.made > 0 || S.prod.washer.sold > 0)) };
 }
 function checkMissions() {
   const c = missionCtx();
@@ -1019,12 +1060,14 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierOf(S.stats.worth || 0) < T.tier);
 }
+const ZONE_NEED = { res: 1, tech: 1, bank: 1, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
+const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
 // vérifie si l'emprise est libre ; renvoie un message d'erreur ou ''
 function footprintError(x, y, key) {
   const T = TYPES[key], w = T.w || 1, h = T.h || 1;
   for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
     if (!inb(x + ox, y + oy)) return 'Hors de la carte.';
-    if (!T.ext && !inCity(x + ox, y + oy)) return 'Hors de la ville : seuls les puits et les mines se posent en pleine campagne.';
+    { const z = ZONE[idx(x + ox, y + oy)]; if (z === 3) return 'Impossible de construire sur la mer.'; if (!T.ext && z !== ZONE_NEED[key]) return ZONE_MSG[ZONE_NEED[key]]; }
     { const o = S.grid[idx(x + ox, y + oy)]; if (o) return o.t === 'road' ? 'C\'est une rue : construis dans les blocs.' : 'Case occupée.'; }
     const d = S.dep[idx(x + ox, y + oy)];
     if (T.ext) { if (!d || d.k !== T.ext) return `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
@@ -1036,7 +1079,8 @@ let lastRoadMsg = 0;
 function roadError(x, y) {
   if (!inb(x, y)) return 'Hors de la carte.';
   if (S.grid[idx(x, y)]) return 'Case occupée.';
-  if (inCity(x, y)) return 'Les rues de la ville sont fournies par la mairie : construis dans les blocs.';
+  if (ZONE[idx(x, y)] === 3) return 'Impossible de construire sur la mer.';
+  if (ZONE[idx(x, y)] !== 0) return 'Zone aménagée : les voies y sont fournies par la mairie.';
   if (S.dep[idx(x, y)]) return 'Cette case est un gisement : pas de route dessus.';
   return '';
 }
@@ -1051,6 +1095,7 @@ function place(x, y, key) {
   const rc = rawCell(x, y), c = anchorOf(rc);
   if (key === 'bull') {
     if (!c) return false;
+    if (c.t === 'npc') { say('Immeuble de la ville existante : il ne peut pas être démoli.', 'info'); return false; }
     if (c.t === 'road') {
       if (!c.own) { say('Les rues de la ville appartiennent à la mairie.', 'info'); return false; }
       S.grid[idx(x, y)] = null; refreshStats(); updateHUD(); save(); return true;
@@ -1098,7 +1143,7 @@ function autoConnect(x, y) {
   if (!a || a.t === 'road' || !TYPES[a.t].ext) { say('L\'outil Relier raccorde une mine ou un puits à la ville.', 'info'); return false; }
   const lm = linkedMask();
   if (extLinked(a, lm)) { say('Cette installation est déjà reliée à la ville.', 'info'); return false; }
-  const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && !S.dep[idx(X, Y)] && !inCity(X, Y);
+  const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && !S.dep[idx(X, Y)] && ZONE[idx(X, Y)] === 0;
   const ownRoad = (X, Y) => { const c = rawCell(X, Y); return !!c && c.t === 'road' && c.own; };
   const pass = (X, Y) => free(X, Y) || ownRoad(X, Y);
   const linkedAt = (X, Y) => inb(X, Y) && lm[idx(X, Y)] === 1;
@@ -1143,7 +1188,7 @@ function refreshStats() {
   const ev = evaluate();
   const st = S.stats || {};
   const workforce = S.pop * 0.55;
-  st.cap = ev.cap; st.jobs = ev.jobs; st.workforce = workforce;
+  st.cap = ev.cap; st.jobs = ev.jobs; st.playerJobs = ev.playerJobs; st.workforce = workforce;
   st.employed = Math.min(workforce, ev.jobs);
   st.unemp = workforce > 0 ? 1 - st.employed / workforce : 0;
   st.pop = Math.floor(S.pop);
@@ -1162,6 +1207,7 @@ function inspect(x, y) {
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
   }
+  if (c.t === 'npc') { say(`Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
   if (c.t === 'road') { say(c.own ? 'Route de desserte : entretien 0,4 $/jour.' : 'Rue publique, entretenue par la mairie.', 'info'); return; }
   const T = TYPES[c.t];
   const parts = [`${T.name} · ${T.sub}`];
@@ -1682,7 +1728,7 @@ el('rst').onclick = () => {
     return;
   }
   clearTimeout(rstTimer); rstTimer = 0; b.textContent = 'Reset'; b.classList.remove('warn');
-  newCity(); makeDecor(); cars = []; refreshStats(); S.hist = [Math.round(S.stats.worth)]; centerOn(MID, MID); updateHUD(); save();
+  newCity(); makeDecor(); cars = []; refreshStats(); S.hist = [Math.round(S.stats.worth)]; centerOn(START.x, START.y); updateHUD(); save();
   say('Nouvelle ville créée.', 'info');
 };
 
@@ -1711,8 +1757,8 @@ function resize() {
   vx = (W - pw) / 2; vy = (topH + (H - botH)) / 2 + 20;
   if (!fitted) {
     const availW = W - 24, availH = (H - topH - botH) - 16;
-    z = clamp(Math.min(availW / (9 * TW + 60), availH / (9 * TH + 260)), 0.18, 1.1);
-    centerOn(MID, MID);
+    z = clamp(Math.min(availW / (15 * TW + 60), availH / (15 * TH + 260)), 0.16, 1.1);
+    centerOn(START.x, START.y);
   }
 }
 function zoomBy(f, px, py) {
@@ -1858,11 +1904,92 @@ function tileSprite(a, ox, oy) {
   }
   return null;
 }
+// --- Mer, port : éléments dessinés en code ---
+// boîte isométrique générique : (cx,cy) = centre de la base, lx / ly = longueurs en cases le long des axes x et y
+function isoBox(cx, cy, lx, ly, h, cTop, cL, cR) {
+  const C = (sx, sy) => ({ x: cx + 0.5 * (sx * lx * 66 - sy * ly * 66), y: cy + 0.5 * (sx * lx * 33 + sy * ly * 33) });
+  const B = C(-1, -1), Rr = C(1, -1), F = C(1, 1), L = C(-1, 1);
+  const up = p => ({ x: p.x, y: p.y - h });
+  poly([L, F, up(F), up(L)], cL);
+  poly([F, Rr, up(Rr), up(F)], cR);
+  poly([up(B), up(Rr), up(F), up(L)], cTop);
+}
+const CONT_COL = ['#ff5a5f', '#3fd8ff', '#f2b84b', '#46d39a', '#7f96ff', '#ff8a3d', '#e9edff'];
+function drawContainers(p, seed, tall) {
+  const cx = p.x, cy = p.y + 33;
+  for (let k = 0; k < 3; k++) {
+    const ox = (k - 1) * 30, oy = (k % 2 ? 10 : -6);
+    const levels = 1 + Math.floor(hash(seed, k, 3) * 3) + (tall ? 1 : 0);
+    for (let l = 0; l < levels; l++) {
+      const col = CONT_COL[Math.floor(hash(seed, k * 5 + l, 9) * CONT_COL.length)];
+      isoBox(cx + ox, cy + oy - l * 17, 0.3, 0.55, 16, mixC(col, '#ffffff', 0.25), col, mixC(col, '#000000', 0.38));
+    }
+  }
+}
+function drawCrane(cx, cy, seed, now) {
+  ctx.strokeStyle = '#ff5a5f'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - 14, cy); ctx.lineTo(cx - 14, cy - 100); ctx.moveTo(cx + 14, cy + 8); ctx.lineTo(cx + 14, cy - 92); ctx.stroke();
+  ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.moveTo(cx - 40, cy - 104); ctx.lineTo(cx + 96, cy - 36); ctx.stroke();
+  ctx.strokeStyle = '#c9d2ee'; ctx.lineWidth = 3;
+  const t = 0.5 + 0.5 * Math.sin(now / 1400 + seed * 6), hx = lerp(cx + 18, cx + 80, t), hy = lerp(cy - 94, cy - 46, t);
+  ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx, hy + 38); ctx.stroke();
+  isoBox(hx, hy + 52, 0.26, 0.5, 10, '#ffd27a', '#f2b84b', '#b9831f');
+  ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.arc(cx - 14, cy - 104, 4, 0, 7); ctx.fill();
+}
+function drawShip(px, py, seed) {
+  // coque le long de l'axe y de la carte (vers le bas à gauche à l'écran)
+  isoBox(px, py, 0.95, 3.1, 16, '#3a456f', '#202a50', '#161d3b');
+  isoBox(px, py - 16, 0.8, 2.9, 3, '#c0392b', '#a93226', '#7b241c');
+  isoBox(px + 14, py - 24, 0.7, 0.8, 34, '#f3f4f8', '#d8dbe6', '#aeb4c7');
+  isoBox(px + 14, py - 62, 0.76, 0.86, 5, '#8fd0ff', '#5aa0d0', '#3a7098');
+  for (let i = 0; i < 6; i++) {
+    const col = CONT_COL[Math.floor(hash(seed, i, 5) * CONT_COL.length)];
+    isoBox(px - 6 - i * 10, py - 21 - (i % 2) * 14 + i * 5, 0.5, 0.42, 14, mixC(col, '#ffffff', 0.25), col, mixC(col, '#000000', 0.38));
+  }
+}
+function drawWater(p, now, x, y) {
+  const cx = p.x, cy = p.y + 33 + 12, depth = clamp((x - coastX(y)) / 6, 0, 1);
+  ctx.fillStyle = mixC('#4a9ad4', '#1e5a98', depth);
+  ctx.beginPath(); ctx.moveTo(cx, cy - 35); ctx.lineTo(cx + 68, cy); ctx.lineTo(cx, cy + 35); ctx.lineTo(cx - 68, cy); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  for (let k = 0; k < 2; k++) {
+    const ph = now / 900 + x * 0.7 + y * 0.5 + k * 2.1, ox = Math.sin(ph) * 10, oy = (k - 0.5) * 18;
+    ctx.beginPath(); ctx.moveTo(cx - 26 + ox, cy + oy); ctx.quadraticCurveTo(cx + ox, cy + oy - 5 + Math.cos(ph) * 2, cx + 26 + ox, cy + oy); ctx.stroke();
+  }
+  if (ZONE[idx(Math.max(0, x - 1), y)] !== 3) {
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(cx - 68, cy); ctx.lineTo(cx, cy - 35); ctx.stroke();
+  }
+}
+function drawQuayDecor(p, x, y, now) {
+  drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35);
+  if (y % 6 === 3) drawCrane(p.x + 20, p.y + 40, y, now);
+}
+const ships = [];
+for (let i = 0; i < 5; i++) ships.push({ x: 91 + (i % 2) * 2.4, y: 8 + i * 17, v: (i % 2 ? 1 : -1) * (0.22 + 0.06 * i), seed: i });
+function updateShips(dt) { ships.forEach(s => { s.y += s.v * dt * speedFactor(); if (s.y > N + 6) s.y = -6; if (s.y < -6) s.y = N + 6; }); }
+
 function drawTileOf(a, x, y, ox, oy, o) {
   const p = iso(x, y);
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
-  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank') {
+  if (a.t === 'npc') {
+    const k = Math.floor(a.seed * 997), name = a.k === 'res' ? 'res' + (k % 9) : ['tech0', 'tech1', 'bank0'][k % 3], s = SP[name];
+    const by = p.y - 27;
+    if (s) for (let i = 0; i < a.floors; i++) {
+      const sc = a.lm ? 1 - i * 0.0095 : 1;
+      ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] * sc / 2, by + s[3] * (1 - sc) - i * FH, s[2] * sc, s[3] * sc);
+    }
+    a._top = by - (a.floors - 1) * FH;
+    if (a.lm) {
+      ctx.strokeStyle = '#f2b84b'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(p.x, a._top + 30); ctx.lineTo(p.x, a._top - 50); ctx.stroke();
+      ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 12; ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(p.x, a._top - 52, 4, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    }
+  } else if (a.t === 'port') {
+    drawContainers(p, Math.floor(a.seed * 1000) + ox * 7 + oy * 3, false);
+    if (ox === 0 && oy === 0) a._top = p.y - 28;
+  } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank') {
     const k = Math.floor(a.seed * 997);
     const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' ? 'tech' + (k % 2) : 'bank' + (k % 2);
     const floors = Math.max(1, Math.round((a.floors + (a.t === 'res' ? 0 : a.lvl)) * (a.t === 'res' ? 1 : grow)));
@@ -1893,6 +2020,9 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
       ctx.font = '800 20px "Big Shoulders Display", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('$', p.x, topY + 22); ctx.shadowBlur = 0;
     }
+  } else if (a.t === 'port') {
+    drawCrane(p.x + 28, p.y + 40, a.seed, now); drawCrane(p.x - 40, p.y + 12, a.seed + 1, now);
+    drawShip(p.x + 160, p.y + 78, Math.floor(a.seed * 10)); topY = p.y - 120;
   } else if (a.t === 'well') {
     drawPumpjack(p.x, p.y + 33, now, a.seed, conn && a.out > 0.01); topY = p.y - 50;
   } else if (T.ext) {
@@ -1931,14 +2061,16 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
 
 const CAR_MODELS = ['Red-Sedan1', 'Blue-Sedan2', 'Green-Sedan3', 'Black-Sedan4', 'Silver-Pick-up1', 'Black-Truck1'];
 let roadList = [];
+let urbanRoads = [];
 function refreshRoadList() {
   roadList = [];
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') roadList.push([i % N, Math.floor(i / N)]); }
+  urbanRoads = roadList.filter(r => { const z = ZONE[idx(r[0], r[1])]; return z === 1 || z === 2; });
 }
 function spawnCars() {
-  const want = Math.min(110, Math.floor(roadList.length * 0.25));
+  const want = Math.min(150, Math.floor(urbanRoads.length * 0.12));
   while (cars.length < want && roadList.length) {
-    const r = roadList[Math.floor(Math.random() * roadList.length)];
+    const src = urbanRoads.length ? urbanRoads : roadList, r = src[Math.floor(Math.random() * src.length)];
     cars.push({ x: r[0], y: r[1], nx: r[0], ny: r[1], px: -1, py: -1, t: 1, sp: 0.5 + Math.random() * 0.6, m: CAR_MODELS[Math.floor(Math.random() * CAR_MODELS.length)] });
   }
   if (cars.length > want) cars.length = want;
@@ -1991,7 +2123,7 @@ function visibleRange() {
   const pts = [screenToTileF(0, 0), screenToTileF(W, 0), screenToTileF(0, H), screenToTileF(W, H)];
   let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
   pts.forEach(p => { minx = Math.min(minx, p.gx); maxx = Math.max(maxx, p.gx); miny = Math.min(miny, p.gy); maxy = Math.max(maxy, p.gy); });
-  const m = 4;
+  const m = 12;
   return { x0: clamp(Math.floor(minx) - 1, 0, N - 1), x1: clamp(Math.ceil(maxx) + 1 + m, 0, N - 1), y0: clamp(Math.floor(miny) - 1, 0, N - 1), y1: clamp(Math.ceil(maxy) + 1 + m, 0, N - 1) };
 }
 function eachVisible(vr, fn) {
@@ -2004,7 +2136,7 @@ function frame(now) {
   if (!S) return;
   const dt = Math.min(0.1, (now - (frame.last || now)) / 1000); frame.last = now;
   if (speed) { frame.acc = (frame.acc || 0) + dt * 1000 * (speed === 3 ? 3 : 1); let g = 0; while (frame.acc >= DAY_MS && g++ < 5) { frame.acc -= DAY_MS; step(); } }
-  updateCars(dt);
+  updateCars(dt); updateShips(dt);
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
@@ -2019,11 +2151,12 @@ function frame(now) {
     const wantDep = TYPES[tool] && TYPES[tool].ext;
     // passe 1 : sol, routes, gisements
     eachVisible(vr, (x, y) => {
-      const p = iso(x, y), rc = S.grid[idx(x, y)];
+      const p = iso(x, y), rc = S.grid[idx(x, y)], zn = ZONE[idx(x, y)];
+      if (zn === 3) { drawWater(p, now, x, y); return; }
       if (rc && rc.t === 'road') blit('road' + roadMask(x, y), p.x - 66, p.y);
       else blit('ground', p.x - 66, p.y);
       if (!(rc && rc.t === 'road')) {
-        ctx.fillStyle = SUMMER_TINT;
+        ctx.fillStyle = ZONE_TINT[zn];
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill();
       }
       const d = S.dep[idx(x, y)];
@@ -2077,6 +2210,8 @@ function frame(now) {
             if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawOverlay(a, o);
           }
         }
+      } else if (ZONE[i] === 4) {
+        drawQuayDecor(p, x, y, now);
       } else if (decor[i] && !S.dep[i]) {
         const dc = decor[i];
         ctx.globalAlpha = treeCol; blit('tree', p.x - 16 + dc.dx, p.y + 33 - 42 + dc.dy); ctx.globalAlpha = 1;
@@ -2086,6 +2221,7 @@ function frame(now) {
         drawOverlay(ghost, { now, alpha: 0.65, ghost: true });
       }
     });
+    ships.forEach(sh => { const sp = iso(sh.x, sh.y); drawShip(sp.x, sp.y + 33 + 12, sh.seed); });
     // flyers (-$)
     for (let i = flyers.length - 1; i >= 0; i--) {
       const f = flyers[i], age = (now - f.t) / 900;
@@ -2102,16 +2238,16 @@ function frame(now) {
 /* ---------- Minimap ---------- */
 const mmOff = document.createElement('canvas'); mmOff.width = N; mmOff.height = N;
 const mmOffCtx = mmOff.getContext('2d');
-const MM_COL = { road: [120, 128, 170], res: [127, 150, 255], tech: [63, 216, 255], bank: [242, 184, 75], well: [255, 138, 61], miron: [196, 102, 74], mcoal: [143, 154, 203], mcopper: [63, 216, 192], mgold: [242, 184, 75], foundry: [255, 215, 106], f1: [70, 211, 154], f2: [127, 150, 255], f3: [255, 79, 163], s1: [70, 211, 154], s2: [127, 150, 255], s3: [255, 79, 163] };
+const MM_COL = { road: [120, 128, 170], res: [127, 150, 255], tech: [63, 216, 255], bank: [242, 184, 75], well: [255, 138, 61], miron: [196, 102, 74], mcoal: [143, 154, 203], mcopper: [63, 216, 192], mgold: [242, 184, 75], foundry: [255, 215, 106], f1: [70, 211, 154], f2: [127, 150, 255], f3: [255, 79, 163], s1: [70, 211, 154], s2: [127, 150, 255], s3: [255, 79, 163], port: [95, 176, 255] };
 const DEP_COL = { oil: [60, 40, 110], iron: [150, 80, 55], coal: [60, 62, 80], copper: [40, 150, 130], gold: [220, 170, 50] };
 function drawMinimap() {
   if (!S) return;
   const img = mmOffCtx.createImageData(N, N), d = img.data;
   for (let i = 0; i < N * N; i++) {
     const c = S.grid[i], a = c && c.t === 'part' ? S.grid[c.ai] : c, dep = S.dep[i];
-    let col = [60, 66, 100];
+    let col = ZONE_COL[ZONE[i]];
     if (dep) col = DEP_COL[dep.k];
-    if (a) col = MM_COL[a.t] || col;
+    if (a) col = a.t === 'npc' ? [175, 185, 215] : (MM_COL[a.t] || col);
     d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255;
   }
   mmOffCtx.putImageData(img, 0, 0);
@@ -2234,6 +2370,7 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => resi
 document.addEventListener('visibilitychange', () => { if (document.hidden && S) save(); });
 
 /* ---------- Démarrage ---------- */
+buildZones();
 S = load() || newCity();
 makeDecor();
 buildTools();
@@ -2247,7 +2384,7 @@ updateHUD();
 setTool('res');
 if (window.innerWidth >= 1000) setPanel(true);
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { get S() { return S; }, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
