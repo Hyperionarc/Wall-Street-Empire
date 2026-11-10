@@ -308,7 +308,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .btabs{display:flex;gap:6px;margin:8px 0;overflow-x:auto}
 .btabs button{flex:0 0 auto;min-height:34px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:12.5px;font-weight:600}
 .btabs button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold);background:var(--panel-hi)}
-#bscene{width:100%;height:auto;display:block;border-radius:10px;border:1px solid var(--line);background:#12163a}
+#bscene{width:100%;height:auto;max-height:54vh;object-fit:contain;display:block;border-radius:10px;border:1px solid var(--line);background:#12163a}
 .fint{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
 .fint th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:600;text-align:right;padding:4px 6px}
 .fint th:first-child{text-align:left}
@@ -433,7 +433,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
   <aside id="bview" hidden>
     <div class="ph"><b id="bname"></b><span class="sub" id="bsub"></span><button class="ibtn" data-act="close" aria-label="Fermer la vue intérieure">Fermer</button></div>
     <div class="btabs" role="tablist">
-      <button data-act="tab:int" aria-pressed="true">Intérieur</button><button data-act="tab:pl" aria-pressed="false">Compte de résultat</button><button data-act="tab:bs" aria-pressed="false">Bilan</button><button data-act="tab:cf" aria-pressed="false">Flux de trésorerie</button>
+      <button data-act="tab:int" aria-pressed="true">Intérieur</button><button data-act="tab:pl" aria-pressed="false">Compte de résultat</button><button data-act="tab:bs" aria-pressed="false">Bilan</button><button data-act="tab:cf" aria-pressed="false">Flux de trésorerie</button><button data-act="tab:ad" aria-pressed="false" id="tabad" hidden>Publicité</button>
     </div>
     <canvas id="bscene" width="800" height="220" aria-label="Scène animée de l'intérieur du bâtiment"></canvas>
     <div id="bbody"></div>
@@ -738,7 +738,7 @@ function mkCell(t, seed) {
   if (t === 'tech') floors = 5 + Math.floor(seed * 2.99);
   if (t === 'bank') floors = 3 + Math.floor(seed * 1.99);
   const T = TYPES[t];
-  return { t, seed, floors, lvl: 0, w: T.w || 1, h: T.h || 1, x: 0, y: 0, born: performance.now(), alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, crew: 1, wage: 1, qual: 0, eff: 0, invest: T.cost, days: 0, cm: [0, 0, 0, 0, 0, 0, 0, 0], hist: [] };
+  return { t, seed, floors, lvl: 0, w: T.w || 1, h: T.h || 1, x: 0, y: 0, born: performance.now(), alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, crew: 1, wage: 1, qual: 0, eff: 0, invest: T.cost, days: 0, cm: [0, 0, 0, 0, 0, 0, 0, 0, 0], hist: [], ad: { tv: 0, radio: 0, net: 0 }, aw: 0 };
 }
 
 // Gisements : amas fixes près du départ, puis amas aléatoires répartis sur la carte
@@ -867,7 +867,7 @@ function newCity() {
 }
 function save() {
   try {
-    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v))]);
+    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)]]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
     localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
@@ -883,7 +883,7 @@ function load() {
       if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
       if (r[0] === 'road') return { t: 'road', own: true, x: i % N, y: Math.floor(i / N) };
       if (!TYPES[r[0]]) return null;
-      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length === 8) c.cm = r[11].map(Number); c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
+      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
     genRoads(grid);
     const npcInfo = genNpc(grid);
@@ -990,6 +990,15 @@ const WAGE = [{ n: 'Bas', m: 0.8, attr: 0.85, prod: 0.93 }, { n: 'Normal', m: 1,
 const WAGE_RATE = 3.5;                       // salaire de base par emploi et par jour
 const PORT_HUB = { x: 75, y: 69 }, TRANS = 0.01;   // coût de transport par unité et par case
 const DEP_DAYS = 1500;
+// Publicité : canaux, budgets quotidiens et notoriété du magasin
+const AD_CH = { tv: { n: 'Télévision', gain: 0.9, scale: 300, max: 1500, step: 50, d: 'Audience massive, très coûteuse. Idéale pour les grandes surfaces.' }, radio: { n: 'Radio', gain: 0.45, scale: 80, max: 500, step: 25, d: 'Peu chère, audience locale. Le meilleur rapport pour un petit marché.' }, net: { n: 'Internet', gain: 0.6, scale: 140, max: 800, step: 25, d: 'Ciblage précis, budget souple. Efficace partout.' } };
+const AD_KEYS = ['tv', 'radio', 'net'];
+const adScaleOf = c => ({ s1: 1, s2: 2.2, s3: 4, immo: 1.5 })[c.t] || 1;
+const adOf = c => c.ad || (c.ad = { tv: 0, radio: 0, net: 0 });
+const adSpend = c => TYPES[c.t].ret ? AD_KEYS.reduce((a, k) => a + (adOf(c)[k] || 0), 0) : 0;
+function adPower(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] || 0; pw += AD_CH[k].gain * (1 - Math.exp(-b / (AD_CH[k].scale * adScaleOf(c)))); }); return pw; }
+const adTarget = c => 100 * clamp(adPower(c) / 1.5, 0, 1);
+const adFactor = c => 1 + 0.9 * (c.aw || 0) / 100;
 const investOf = c => c.invest != null ? c.invest : TYPES[c.t].cost + upgradeSpent(c);
 const crewOf = c => c.crew || 1;
 const wageOf = c => WAGE[c.wage == null ? 1 : c.wage];
@@ -1072,6 +1081,8 @@ function step() {
   const capR = { s1: 0, s2: 0, s3: 0, immo: 0 };
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)); capR[c.t] += c._cap; retUnits += R.cap * u; } });
+  buildings.forEach(c => { if (TYPES[c.t].ret) { c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
+  const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF; } }); return w > 0 ? s / w : 1; };
   const capInit = Object.assign({}, capR);
   const sells = { basic: ['s1', 's2', 's3'], std: ['s2', 's3'], lux: ['s3'], estate: ['immo'] };
   const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
@@ -1081,6 +1092,7 @@ function step() {
     const items = cls === 'estate' ? [] : [{ k: 'g', attr: 0.5, stock: S.stock[cls], price: S.price[cls] }];
     const mine = PKEYS.filter(pk => PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on');
     mine.forEach(pk => items.push({ k: pk, attr: attractiveness(pk), stock: S.prod[pk].stock, price: prodPrice(pk) }));
+    const adC = adAvg(cls); items.forEach(it => { it.attr *= adC; });
     const totalAttr = items.reduce((a, i) => a + i.attr, 0) + RIVAL;
     const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length));
     Dtot[cls] = Dc; rivalPart[cls] = Dc * RIVAL / totalAttr;
@@ -1095,10 +1107,11 @@ function step() {
     });
     if (cls !== 'estate') want[cls] += dem[cls] * 0.5;
   });
+  const wsum = {}; buildings.forEach(c => { if (TYPES[c.t].ret) wsum[c.t] = (wsum[c.t] || 0) + c._cap * c.adF; });
   buildings.forEach(c => {
     const R = TYPES[c.t].ret; if (!R) return;
     const used = capInit[c.t] - capR[c.t], frac = capInit[c.t] > 0 ? used / capInit[c.t] : 0;
-    c.util = frac; c.out = capInit[c.t] > 0 ? used * c._cap / capInit[c.t] : 0;
+    c.out = wsum[c.t] > 0 ? used * c._cap * c.adF / wsum[c.t] : 0; c.util = c._cap > 0 ? clamp(c.out / c._cap, 0, 1) : 0;
     c.limit = c.out <= 0.01 ? 'demand' : frac > 0.96 ? 'capacity' : fillOf(c) < 0.97 ? 'staff' : null;
   });
   const soldTotal = sold.basic + sold.std + sold.lux;
@@ -1113,17 +1126,18 @@ function step() {
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
   const P = S.price;
-  let revTech = 0, revBank = 0, wagesTotal = 0, transportTotal = 0;
+  let revTech = 0, revBank = 0, wagesTotal = 0, transportTotal = 0, adTotal = 0;
   buildings.forEach(c => {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
     if (c.t === 'tech') { c.pRev = 260 * u * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = Math.min(500, 180 + Math.max(0, S.cash) * 0.0008) * u * qualMult(c); revBank += c.pRev; }
     if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * wageOf(c).m; wagesTotal += c.wages; }
     c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1);
+    c.adCost = adSpend(c); adTotal += c.adCost;
     transportTotal += c.transport;
   });
   const revRetail = revRetVal * mult, revExport = revExp * mult;
-  let advCost = 0; PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') advCost += ADV[S.prod[pk].adv].cost; });
+  let advCost = adTotal; PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') advCost += ADV[S.prod[pk].adv].cost; });
   S.loan = S.loan || 0;
   const interest = S.loan * 0.0006;
   const rate = S.tax;
@@ -1134,21 +1148,22 @@ function step() {
   S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep, transport: transportTotal, adv: advCost, interest, tax: corpTax, net };
 
   // 6. Compte de résultat par bâtiment (prix de cession internes au prix du marché)
+  let retOut = 0; buildings.forEach(c => { if (TYPES[c.t].ret) retOut += c.out; });
   const retRev = {}; buildings.forEach(c => { if (TYPES[c.t].ret && retUnits > 0) retRev[c.t] = 1; });
   buildings.forEach(c => {
     const T = TYPES[c.t];
     if (T.ext) c.pRev = c.out * P[T.ext] * qualMult(c);
     else if (T.rec) c.pRev = c.out * outPrice(c) * qualMult(c);
-    else if (T.ret) c.pRev = retUnits > 0 ? revRetVal * mult * (T.ret.cap * unitsOf(c) / retUnits) : 0;
+    else if (T.ret) c.pRev = retOut > 0 ? revRetVal * mult * (c.out / retOut) : 0;
     else if (c.t === 'port') c.pRev = revExport / Math.max(1, portN);
     const up = T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0)));
-    c.cost = c.inCost + c.wages + up + c.transport;
+    c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
     c.profit = c.pRev - c.cost;
     c.rev = c.profit;
     c.upk = up; c.days = (c.days || 0) + 1; c.dep = investOf(c) / DEP_DAYS;
     c.taxB = Math.max(0, c.profit - c.dep) * S.tax;
-    const cmv = c.cm && c.cm.length === 8 ? c.cm : (c.cm = [0, 0, 0, 0, 0, 0, 0, 0]);
-    cmv[0] += c.pRev; cmv[1] += c.inCost; cmv[2] += c.wages; cmv[3] += c.transport; cmv[4] += up; cmv[5] += c.profit; cmv[6] += c.dep; cmv[7] += c.taxB;
+    const cmv = c.cm && c.cm.length === 9 ? c.cm : (c.cm = (c.cm || []).concat([0, 0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 9));
+    cmv[0] += c.pRev; cmv[1] += c.inCost; cmv[2] += c.wages; cmv[3] += c.transport; cmv[4] += up; cmv[8] += c.adCost || 0; cmv[5] += c.profit; cmv[6] += c.dep; cmv[7] += c.taxB;
     (c.hist || (c.hist = [])).push(c.profit); if (c.hist.length > 40) c.hist.shift();
   });
 
@@ -2025,7 +2040,7 @@ function openBuilding(x, y) {
   bsel = { x: c.x, y: c.y }; selected = { x: c.x, y: c.y };
   el('pview').hidden = true; el('pv').setAttribute('aria-pressed', 'false');
   el('bview').hidden = false; bvHtml = ''; bTab = 'int';
-  el('bname').textContent = TYPES[c.t].name.toUpperCase(); el('bsub').textContent = `${TYPES[c.t].sub} · case ${c.x + 1}, ${c.y + 1}`;
+  el('tabad').hidden = !TYPES[c.t].ret; el('bname').textContent = TYPES[c.t].name.toUpperCase(); el('bsub').textContent = `${TYPES[c.t].sub} · case ${c.x + 1}, ${c.y + 1}`;
   document.querySelectorAll('.btabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.act === 'tab:int' ? 'true' : 'false'));
   sceneReset(c); renderBuilding(true); sceneStart();
 }
@@ -2108,7 +2123,7 @@ function renderBuilding(force) {
     ${recipes}
   </div>
   <div class="actions"><button class="btn sec" data-act="bull">Démolir</button></div>`;
-  const html = bTab === 'int' ? htmlInt : finTab(c, bTab);
+  const html = bTab === 'int' ? htmlInt : bTab === 'ad' ? adTab(c) : finTab(c, bTab);
   el('bscene').style.display = bTab === 'int' ? 'block' : 'none';
   if (html === bvHtml) return;
   const top = el('bview').scrollTop;
@@ -2133,6 +2148,8 @@ function bAct(a) {
   else if (a.indexOf('info:') === 0) say('Construis : ' + a.slice(5).toLowerCase() + '.', 'info');
   refreshStats(); updateHUD(); renderBuilding(true);
 }
+el('bview').addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.ad; if (!k || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; adOf(c)[k] = +e.target.value; const o = el('adv-' + k); if (o) o.textContent = money(+e.target.value) + ' / jour'; });
+el('bview').addEventListener('change', e => { if (e.target.dataset && e.target.dataset.ad) { bvHtml = ''; updateHUD(); renderBuilding(true); } });
 el('bview').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) bAct(b.dataset.act); });
 ['pointerdown'].forEach(t => el('bview').addEventListener(t, () => { bvDown = true; }, { passive: true }));
 ['pointerup', 'pointercancel'].forEach(t => window.addEventListener(t, () => { setTimeout(() => { bvDown = false; }, 60); }, { passive: true }));
@@ -2174,95 +2191,155 @@ function walkTo(p, tx, ty, dt) {
 }
 const newPerson = (rnd, x, y) => ({ x, y, ph: rnd() * 6, spd: 42 + rnd() * 22, shirt: SHIRTS[Math.floor(rnd() * SHIRTS.length)], skin: SKINS[Math.floor(rnd() * SKINS.length)], hair: HAIRS[Math.floor(rnd() * HAIRS.length)], dir: 1, moving: false });
 
-/* --- magasin --- */
+/* --- magasin en vue isométrique : rayons en 3D, caisses, chariots et paniers --- */
+const PCOL = ['#ff8a3d', '#46d39a', '#7f96ff', '#ffd76a', '#ff4fa3', '#3fd8ff', '#e8e4d8', '#c4664a'];
 function mkRetail(c) {
-  const k = c.t === 's3' ? 2 : c.t === 's2' ? 1 : 0, n = k + 1, rnd = mkRnd(c.seed);
-  const sc = { kind: 'retail', k, cust: [], sp: 0.3, hs: [], ks: [], rate: [1, 1.5, 2.3][k], rnd, time: 0, beep: 0, bg: document.createElement('canvas') };
-  for (let i = 0; i < n; i++) sc.hs.push({ type: 'h', x: 590, y: n === 1 ? 162 : n === 2 ? 150 + i * 32 : 146 + i * 26, bx0: 612, bx1: 690, q: [], cur: null, bits: [], bt: 0, pt: 0, tot: 1, nb: 0 });
-  for (let i = 0; i < n; i++) sc.ks.push({ type: 's', x: 470 + i * 56, y: 128, q: [], cur: null, pt: 0, tot: 1 });
-  sc.bg.width = SCW; sc.bg.height = SCH;
-  const g = sc.bg.getContext('2d'), T = TYPES[c.t];
-  const fl = g.createLinearGradient(0, 96, 0, SCH); fl.addColorStop(0, '#d9d3c4'); fl.addColorStop(1, '#bdb6a3'); g.fillStyle = fl; g.fillRect(0, 96, SCW, SCH);
-  g.fillStyle = 'rgba(0,0,0,.05)'; for (let x = 0; x < SCW; x += 40) for (let y = 96, r = 0; y < SCH; y += 24, r++) if ((x / 40 + r) % 2 === 0) g.fillRect(x, y, 40, 24);
-  const wl = g.createLinearGradient(0, 0, 0, 96); wl.addColorStop(0, '#2a3366'); wl.addColorStop(1, '#3b4688'); g.fillStyle = wl; g.fillRect(0, 0, SCW, 96);
-  g.fillStyle = '#f2b84b'; g.fillRect(0, 92, SCW, 4);
-  const cats = ['#ff8a3d', '#46d39a', '#7f96ff', '#ffd76a', '#ff4fa3', '#3fd8ff', '#e8e4d8'];
-  const units = 7 + k * 1; const uw = (440 - 30) / units;
-  for (let i = 0; i < units; i++) {
-    const x = 30 + i * uw; g.fillStyle = '#e9edff'; rrect(g, x, 26, uw - 6, 66, 3); g.fill(); g.fillStyle = '#8f9acb'; g.fillRect(x + 2, 26, uw - 10, 3);
-    for (let r = 0; r < 3; r++) { const y = 33 + r * 20; g.fillStyle = '#c3c9e6'; g.fillRect(x + 1, y + 15, uw - 8, 2); for (let j = 0; j < 5; j++) { g.fillStyle = cats[Math.floor(rnd() * cats.length)]; const bh = 8 + rnd() * 6; g.fillRect(x + 3 + j * ((uw - 12) / 5), y + 15 - bh, (uw - 12) / 5 - 1.5, bh); } }
-  }
-  g.fillStyle = 'rgba(255,255,255,.16)'; rrect(g, 460, 22, 130, 20, 4); g.fill();
-  g.font = '700 11px sans-serif'; g.textAlign = 'center'; g.fillStyle = '#ffd76a'; g.fillText('LIBRE-SERVICE', 525 + (n - 1) * 28 - 20, 36);
-  g.fillStyle = '#ffd76a'; rrect(g, 48, 4, 150, 17, 4); g.fill(); g.fillStyle = '#1a2150'; g.font = '800 12px sans-serif'; g.fillText(T.name.toUpperCase(), 123, 17);
-  g.fillStyle = 'rgba(255,255,255,.9)'; g.font = '600 10px sans-serif'; sc.hs.forEach(h => { g.fillText('CAISSE', h.bx0 + 40, h.y - 20); });
-  // vitre et porte
-  g.fillStyle = 'rgba(120,200,255,.35)'; g.fillRect(0, 70, 14, 110); g.strokeStyle = '#9aa4d6'; g.lineWidth = 3; g.strokeRect(0, 70, 14, 110);
-  sc.hs.forEach(h => { g.fillStyle = '#3d4466'; g.fillRect(h.bx0, h.y - 7, h.bx1 - h.bx0, 9); g.fillStyle = '#242a4a'; g.fillRect(h.bx0, h.y + 2, h.bx1 - h.bx0, 4); g.fillStyle = '#c9cfe8'; rrect(g, h.bx1, h.y - 22, 22, 26, 3); g.fill(); g.fillStyle = '#46d39a'; g.fillRect(h.bx1 + 3, h.y - 19, 12, 7); });
-  sc.ks.forEach(s => { g.fillStyle = '#cfd5ee'; rrect(g, s.x - 17, s.y - 62, 34, 62, 4); g.fill(); g.fillStyle = '#8f9acb'; g.fillRect(s.x - 17, s.y - 14, 34, 4); g.fillStyle = '#242a4a'; g.fillRect(s.x - 10, s.y - 8, 20, 4); });
+  const k = c.t === 's3' ? 2 : c.t === 's2' ? 1 : 0, rnd = mkRnd(c.seed);
+  const GW = [12, 15, 17][k], GH = [9, 11, 13][k], frontY = [4, 6, 8][k], n = k + 1, sum = GW + GH;
+  const tw = Math.min(48, Math.floor(1500 / sum)), oy = 78, H = Math.round(oy + sum * tw / 4 + 24), ox = 400 - (GW - GH) * tw / 4;
+  const sc = { kind: 'retail', k, GW, GH, frontY, tw, ox, oy, H, cust: [], staff: [], sp: 0.3, hs: [], ks: [], rnd, time: 0, cap: [8, 12, 16][k], rate: [1, 1.5, 2.3][k], XL: 1.2, XR: GW - 2.2, bg: document.createElement('canvas'), aisles: [1.3], gond: [] };
+  const sp = (GH - frontY - 1.4) / n;
+  for (let i = 0; i < n; i++) sc.hs.push({ type: 'h', yl: frontY + 1 + (i + 0.5) * sp, bx0: 3.6, bx1: 7.2, q: [], cur: null, items: [], cs: { it: null, t: 0 }, scan: 0, open: true });
+  for (let i = 0; i < n; i++) sc.ks.push({ type: 's', x: GW - 2 - i * 1.7, y: frontY + 0.5, q: [], cur: null, pulse: 0 });
+  for (let yg = 2; yg + 0.7 < frontY - 0.1; yg += 2) { sc.gond.push(yg); sc.aisles.push(yg + 0.7 + (frontY > yg + 2.7 ? 0.65 : (frontY - yg - 0.7) / 2)); }
+  sc.aisles = sc.aisles.filter(a => a < frontY - 0.2);
+  sc.bg.width = SCW; sc.bg.height = H;
+  const g = sc.bg.getContext('2d'), P = (x, y, z) => isoP(sc, x, y, z);
+  for (let x = 0; x < GW; x++) for (let y = 0; y < GH; y++) { quad(g, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], (x + y) % 2 ? '#d9d3c5' : '#cfc8b8'); }
+  for (let y = frontY; y < GH; y++) for (let x = 0; x < GW; x++) if ((x + y) % 2) quad(g, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], 'rgba(255,255,255,.12)');
+  quad(g, [P(0, 0, 0), P(GW, 0, 0), P(GW, 0, 64), P(0, 0, 64)], '#34407a');
+  quad(g, [P(0, 0, 0), P(0, GH, 0), P(0, GH, 64), P(0, 0, 64)], '#242c5e');
+  quad(g, [P(0, 0, 56), P(GW, 0, 56), P(GW, 0, 60), P(0, 0, 60)], '#f2b84b');
+  quad(g, [P(0, 0, 56), P(0, GH, 56), P(0, GH, 60), P(0, 0, 60)], '#c99a3a');
+  for (let i = 0; i < Math.floor(GW / 3); i++) quad(g, [P(2.4 + i * 3, 0, 52), P(4.2 + i * 3, 0, 52), P(4.2 + i * 3, 0, 40), P(2.4 + i * 3, 0, 40)], 'rgba(120,200,255,.0)');
+  // rayons muraux
+  for (let x = 0.6; x + 1 <= GW - 0.5; x += 1) { sbox(g, sc, x, 0, 1, 0.55, 38, '#e3e6f5', '#b9bfdc', '#9aa1c4'); }
+  bands(sc, g, 'x', 0.55, 0.6, GW - 0.5, [[4, 12], [15, 23], [26, 36]]);
+  for (let y = 1.4; y + 1 <= GH - 3.2; y += 1) sbox(g, sc, 0, y, 0.55, 1, 38, '#e3e6f5', '#b9bfdc', '#9aa1c4');
+  bands(sc, g, 'y', 0.55, 1.4, Math.floor(GH - 3.2 - 1.4) + 1.4, [[4, 12], [15, 23], [26, 36]]);
+  const T = TYPES[c.t]; g.save(); const a = P(GW / 2 - 3, 0, 52), b = P(GW / 2 + 3, 0, 52), d = P(GW / 2 + 3, 0, 36), e = P(GW / 2 - 3, 0, 36);
+  quad(g, [a, b, d, e], '#ffd76a', '#c99a3a'); g.translate(a[0], a[1]); g.transform(1, 0.5, 0, 1, 0, 0); g.fillStyle = '#1a2150'; g.font = '800 14px sans-serif'; g.textAlign = 'center'; g.fillText(T.name.toUpperCase(), 3 * sc.tw / 2 * 1, 22); g.restore();
+  quad(g, [P(0.9, GH - 0.9), P(2.5, GH - 0.9), P(2.5, GH), P(0.9, GH)], '#7a4a30');
   return sc;
 }
-const spotOf = (st, k) => st.type === 'h' ? { x: st.x - k * 24, y: st.y } : { x: st.x, y: st.y + 22 + k * 22 };
+function isoP(sc, x, y, z) { return [sc.ox + (x - y) * sc.tw / 2, sc.oy + (x + y) * sc.tw / 4 - (z || 0)]; }
+function quad(g, pts, fill, stroke) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1; g.stroke(); } }
+function sbox(g, sc, x, y, w, h, z, cT, cL, cR, z0) {
+  const P = (a, b, c) => isoP(sc, a, b, c); z0 = z0 || 0;
+  quad(g, [P(x, y + h, z), P(x + w, y + h, z), P(x + w, y + h, z0), P(x, y + h, z0)], cL);
+  quad(g, [P(x + w, y, z), P(x + w, y + h, z), P(x + w, y + h, z0), P(x + w, y, z0)], cR);
+  quad(g, [P(x, y, z), P(x + w, y, z), P(x + w, y + h, z), P(x, y + h, z)], cT);
+}
+function bands(sc, g, axis, fixed, a0, a1, zs) {
+  const n = Math.max(1, Math.round((a1 - a0) / 0.3));
+  zs.forEach((z, b) => { for (let i = 0; i < n; i++) {
+    const u0 = a0 + i * (a1 - a0) / n + 0.025, u1 = a0 + (i + 1) * (a1 - a0) / n - 0.025, col = PCOL[Math.floor(hash(i + Math.floor(a0 * 7), Math.floor(fixed * 10) + b * 5, 3) * 8) % 8];
+    const pts = axis === 'x' ? [isoP(sc, u0, fixed, z[1]), isoP(sc, u1, fixed, z[1]), isoP(sc, u1, fixed, z[0]), isoP(sc, u0, fixed, z[0])] : [isoP(sc, fixed, u0, z[1]), isoP(sc, fixed, u1, z[1]), isoP(sc, fixed, u1, z[0]), isoP(sc, fixed, u0, z[0])];
+    quad(g, pts, col); } });
+}
+function route(sc, p, tx, ty) {
+  const inA = p.y < sc.frontY - 0.2, toA = ty < sc.frontY - 0.2, pts = [];
+  if ((inA || toA) && !(inA && toA && Math.abs(ty - p.y) < 0.3)) { const X = (tx + p.x) / 2 < sc.GW / 2 ? sc.XL : sc.XR; pts.push([X, p.y]); pts.push([X, toA ? ty : sc.frontY + 0.3]); }
+  pts.push([tx, ty]); p.path = pts;
+}
+function gwalk(p, dt) {
+  if (!p.path || !p.path.length) { p.moving = false; return true; }
+  const t = p.path[0], dx = t[0] - p.x, dy = t[1] - p.y, d = Math.hypot(dx, dy), st = p.spd * dt;
+  if (d <= st) { p.x = t[0]; p.y = t[1]; p.path.shift(); if (!p.path.length) { p.moving = false; return true; } return false; }
+  p.x += dx / d * st; p.y += dy / d * st; p.vx = dx / d; p.vy = dy / d; p.moving = true; p.ph += dt * 9; return false;
+}
+const qSpot = (st, k) => st.type === 'h' ? { x: st.bx0 - 0.8 - k * 0.9, y: st.yl } : { x: st.x + 0.3, y: st.y + 1.1 + k * 0.9 };
 function updRetail(sc, c, dt) {
-  const util = clamp(c.util || 0, 0, 1), rnd = sc.rnd; sc.time += dt;
-  sc.sp -= dt;
-  if (sc.sp <= 0 && sc.cust.length < 14) {
-    const p = newPerson(rnd, -12, 140 + rnd() * 40); p.state = 'in'; p.stops = 1 + Math.floor(rnd() * 2); p.items = 1 + Math.floor(rnd() * 4);
-    p.buyer = rnd() < clamp(util * 1.1 + 0.05, 0, 1); p.tx = 60 + rnd() * 380; p.ty = 118 + rnd() * 80; p.bagc = SHIRTS[Math.floor(rnd() * SHIRTS.length)];
-    sc.cust.push(p); sc.sp = -Math.log(1 - rnd()) / ((0.15 + 0.7 * util) * sc.rate);
+  const util = clamp(c.util || 0, 0, 1), rnd = sc.rnd; sc.time += dt; sc.sp -= dt;
+  const mkP = () => { const p = newPerson(rnd, 1.6, sc.GH + 0.3); p.spd = 0.85 + rnd() * 0.5; p.vx = 0; p.vy = -1; p.dir = 1; p.path = []; return p; };
+  const spotIn = () => ({ x: 3 + rnd() * (sc.GW - 7.2), y: sc.aisles[Math.floor(rnd() * sc.aisles.length)] });
+  if (sc.sp <= 0 && sc.cust.length < sc.cap) {
+    const p = mkP(); p.state = 'in'; p.stops = 1 + Math.floor(rnd() * 3); p.items = 1 + Math.floor(rnd() * 5); p.buyer = rnd() < clamp(util * 1.1 + 0.05, 0, 1);
+    p.kind = !p.buyer && rnd() < 0.5 ? 'none' : rnd() < 0.55 ? 'cart' : 'basket'; p.cartN = 0; p.cartc = []; p.tc = SHIRTS[Math.floor(rnd() * 8)];
+    const s = spotIn(); route(sc, p, s.x, s.y); sc.cust.push(p); sc.sp = -Math.log(1 - rnd()) / ((0.15 + 0.7 * util) * sc.rate * (1 + (c.aw || 0) / 100));
   }
-  const sts = sc.hs.concat(sc.ks);
+  while (sc.staff.length < sc.k + 1) { const w = mkP(); w.x = 4 + rnd() * 6; w.y = sc.aisles[0]; w.shirt = '#2f9bff'; w.hat = null; w.state = 'walk'; w.t = 0; w.box = true; sc.staff.push(w); }
+  sc.staff.forEach(w => {
+    w.arm = null; w.bag = w.box ? '#b08a5a' : null;
+    if (w.state === 'walk') { if (!w.path.length) { const s = spotIn(); route(sc, w, s.x, s.y); } if (gwalk(w, dt)) { w.state = 'stock'; w.t = 2 + rnd() * 2; } }
+    else { w.t -= dt; w.dir = 1; w.arm = 2.3 + Math.sin(sc.time * 4 + w.ph) * 0.3; if (w.t <= 0) { w.state = 'walk'; w.box = rnd() < 0.7; } }
+  });
+  const sts = sc.hs.filter(h => h.open).concat(sc.ks);
   sc.cust.forEach(p => {
     p.arm = null;
-    if (p.state === 'in') { if (walkTo(p, p.tx, p.ty, dt)) { p.state = 'browse'; p.t = 1 + rnd() * 2.2; } }
+    if (p.state === 'in') { if (gwalk(p, dt)) { p.state = 'browse'; p.t = 1.2 + rnd() * 2; } }
     else if (p.state === 'browse') {
-      p.t -= dt; p.dir = p.y < 160 ? 1 : -1; p.arm = 2.4 + Math.sin(sc.time * 5 + p.ph) * 0.35; p.dir = 1;
+      p.t -= dt; p.dir = 1; p.arm = 2.3 + Math.sin(sc.time * 5 + p.ph) * 0.35;
       if (p.t <= 0) {
+        if (p.buyer && p.kind !== 'none' && p.cartN < p.items) { p.cartN++; p.cartc.push(PCOL[Math.floor(rnd() * 8)]); }
         p.stops--;
-        if (p.stops > 0) { p.state = 'in'; p.tx = 60 + rnd() * 380; p.ty = 118 + rnd() * 80; }
-        else if (p.buyer) { p.bag = p.bagc; let best = null; sts.forEach(s => { const L = s.q.length + (s.cur ? 1 : 0) + rnd() * 0.5 + (s.type === 's' ? 0.3 : 0); if (!best || L < best.L) best = { s, L }; }); p.st = best.s; best.s.q.push(p); p.state = 'queue'; }
-        else { p.state = 'out'; }
+        if (p.stops > 0) { const s = spotIn(); route(sc, p, s.x, s.y); p.state = 'in'; }
+        else if (p.buyer) { while (p.cartN < p.items) { p.cartN++; p.cartc.push(PCOL[Math.floor(rnd() * 8)]); } let best = null; sts.forEach(s => { if (s.q.length >= 3) return; const L = s.q.length + (s.cur ? 1 : 0) + rnd() * 0.6 + (s.type === 's' ? 0.3 : 0); if (!best || L < best.L) best = { s, L }; }); if (!best) { p.state = 'out'; } else { p.st = best.s; best.s.q.push(p); p.state = 'queue'; p.path = []; } }
+        else p.state = 'out';
+        if (p.state === 'out') route(sc, p, 1.6, sc.GH + 0.3);
       }
     }
     else if (p.state === 'queue') {
-      const k = p.st.q.indexOf(p), sp = spotOf(p.st, k);
-      if (walkTo(p, sp.x, sp.y, dt) && k === 0 && !p.st.cur) { p.st.cur = p; p.st.q.shift(); p.state = 'pay'; p.pt = 0; p.tot = 1 + 0.55 * p.items; p.st.nb = 0; p.dir = p.st.type === 'h' ? 1 : 1; }
+      const k = p.st.q.indexOf(p), sp = qSpot(p.st, k);
+      if (!p.path.length || p.path[p.path.length - 1][0] !== sp.x || p.path[p.path.length - 1][1] !== sp.y) route(sc, p, sp.x, sp.y);
+      if (gwalk(p, dt) && k === 0 && !p.st.cur) { p.st.cur = p; p.st.q.shift(); p.state = 'pay'; p.pt = 0; p.unl = 0; p.scn = 0; p.dir = p.st.type === 'h' ? 1 : 1; }
     }
     else if (p.state === 'pay') {
-      p.pt += dt; const s = p.st;
-      if (s.type === 'h') { if (s.nb < p.items && p.pt > s.nb * (p.tot / (p.items + 1))) { s.bits.push({ x: s.bx0 + 2, c: SHIRTS[Math.floor(rnd() * 8)] }); s.nb++; } p.arm = 0.5 + Math.sin(p.pt * 4) * 0.2; }
-      else { p.arm = 2.0 + Math.sin(p.pt * 9) * 0.35; p.dir = 1; }
-      if (p.pt >= p.tot) { s.cur = null; p.state = 'out'; p.bag = p.bagc; }
+      const s = p.st; p.pt += dt;
+      if (s.type === 'h') {
+        p.arm = 1.4 + Math.sin(p.pt * 5) * 0.2;
+        if (p.unl < p.items && p.pt >= 0.3 + p.unl * 0.45) { s.items.push({ x: s.bx0 + 0.35 + p.unl * 0.55, c: p.cartc.shift() || PCOL[0] }); p.unl++; p.cartN = Math.max(0, p.cartN - 1); }
+        if (p.unl >= p.items && !s.items.length && !s.cs.it) { s.cur = null; p.state = 'out'; p.bagged = true; p.cartN = p.kind === 'cart' ? p.items : 0; route(sc, p, 1.6, sc.GH + 0.3); }
+      } else {
+        p.arm = 1.7 + Math.sin(p.pt * 9) * 0.3; if (p.scn < p.items && p.pt >= 0.6 + p.scn * 0.7) { p.scn++; s.pulse = 1; p.cartN = Math.max(0, p.cartN - 1); }
+        if (p.scn >= p.items && p.pt > 0.8 + p.items * 0.7) { s.cur = null; p.state = 'out'; p.bagged = true; p.cartN = p.kind === 'cart' ? p.items : 0; route(sc, p, 1.6, sc.GH + 0.3); }
+      }
     }
-    else if (p.state === 'out') { if (walkTo(p, -30, 150, dt)) p.dead = true; }
+    else if (p.state === 'out') { if (gwalk(p, dt)) p.dead = true; }
   });
   sc.cust = sc.cust.filter(p => !p.dead);
+  sc.ks.forEach(s => { s.pulse = Math.max(0, s.pulse - dt * 3); });
   sc.hs.forEach(h => {
-    let near = false;
-    h.bits.forEach(b => { b.x += 70 * dt; if (b.x > h.bx1 - 24 && b.x < h.bx1 - 4) near = true; });
-    h.bits = h.bits.filter(b => b.x < h.bx1 - 2);
-    h.scan = near ? 1 : Math.max(0, (h.scan || 0) - dt * 4);
-    h.at = (h.at || 0) + dt * (near ? 12 : 0);
+    const cs = h.cs; h.scan = Math.max(0, h.scan - dt * 4);
+    if (!cs.it && h.items.length) { let bi = 0; h.items.forEach((it, i) => { if (it.x > h.items[bi].x) bi = i; }); cs.it = h.items.splice(bi, 1)[0]; cs.t = 0; cs.x0 = cs.it.x; }
+    if (cs.it) { cs.t += dt; if (cs.t >= 0.35 && !cs.beeped) { cs.beeped = true; h.scan = 1; } if (cs.t >= 0.8) { cs.it = null; cs.beeped = false; } }
   });
 }
 function drawRetail(sc, c, g) {
   g.drawImage(sc.bg, 0, 0);
-  const t = sc.time;
-  sc.hs.forEach(h => {
-    g.fillStyle = 'rgba(255,255,255,.22)'; for (let x = h.bx0 - ((t * 70) % 14); x < h.bx1; x += 14) if (x > h.bx0) g.fillRect(x, h.y - 5, 6, 5);
-    h.bits.forEach(b => { g.fillStyle = b.c; rrect(g, b.x - 4, h.y - 14, 9, 9, 2); g.fill(); g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(b.x - 3, h.y - 13, 7, 2); });
-    if (h.scan > 0.1) { g.fillStyle = `rgba(255,70,70,${h.scan * 0.9})`; g.fillRect(h.bx1 - 14, h.y - 16, 2, 14); }
+  const P = (x, y, z) => isoP(sc, x, y, z), t = sc.time, s = sc.tw / 52, objs = [];
+  sc.gond.forEach(yg => { const n = Math.floor(sc.GW - 4.0 - 2.5); for (let i = 0; i < n; i++) { const x0 = 2.5 + i; objs.push({ k: x0 + 1 + yg + 0.7, f: () => {
+    sbox(g, sc, x0, yg, 1, 0.7, 36, '#e3e6f5', '#b9bfdc', '#9aa1c4');
+    bands(sc, g, 'x', yg + 0.7, x0 + 0.02, x0 + 0.98, [[4, 12], [15, 23], [26, 35]]);
+    if (i === n - 1) bands(sc, g, 'y', x0 + 1, yg + 0.05, yg + 0.65, [[4, 12], [15, 23], [26, 35]]);
+  } }); } });
+  sc.hs.forEach((h, li) => {
+    objs.push({ k: h.bx1 + h.yl + 0.5, f: () => {
+      sbox(g, sc, h.bx0, h.yl - 0.28, h.bx1 - h.bx0, 0.56, 9, '#454c72', '#2c3258', '#262b4c');
+      sbox(g, sc, h.bx1, h.yl - 0.32, 0.75, 0.64, 22, '#cfd5ee', '#9aa1c4', '#838aae');
+      quad(g, [P(h.bx1 + 0.12, h.yl + 0.32, 20), P(h.bx1 + 0.62, h.yl + 0.32, 20), P(h.bx1 + 0.62, h.yl + 0.32, 12), P(h.bx1 + 0.12, h.yl + 0.32, 12)], h.scan > 0.1 ? '#ff6b6b' : '#46d39a');
+      sbox(g, sc, h.bx1 + 0.85, h.yl - 0.2, 0.45, 0.4, 7, '#7a6a52', '#5e5240', '#4e4434');
+      h.items.forEach(it => { sbox(g, sc, it.x, h.yl - 0.14, 0.3, 0.28, 17, lighten(it.c), it.c, it.c, 9); });
+      const cs = h.cs; if (cs.it) { const u = cs.t / 0.8, a = u < 0.44 ? u / 0.44 : 1, x = u < 0.44 ? cs.x0 + (h.bx1 - 0.2 - cs.x0) * a : h.bx1 - 0.2 + 1.1 * ((u - 0.44) / 0.56), z = 17 + Math.sin(Math.min(1, u) * Math.PI) * 14; sbox(g, sc, x, h.yl - 0.14, 0.3, 0.28, z + 8, lighten(cs.it.c), cs.it.c, cs.it.c, z); }
+      const pp = P(h.bx1 + 0.1, h.yl, 36); g.fillStyle = '#f2b84b'; g.fillRect(pp[0] - 8, pp[1] - 14, 16, 11); g.fillStyle = '#1a2150'; g.font = '800 9px sans-serif'; g.textAlign = 'center'; g.fillText('' + (li + 1), pp[0], pp[1] - 5);
+    } });
+    if (h.open) objs.push({ k: h.bx1 + 1.5 + h.yl, f: () => { const q = P(h.bx1 + 1.5, h.yl, 0); person(g, q[0], q[1], { s, shirt: '#f2b84b', skin: SKINS[1], hair: '#3a2415', ph: 0, moving: false, dir: -1, arm: h.cs.it ? 1.0 + Math.sin(h.cs.t * 14) * 0.4 : 0.1 }); } });
   });
-  sc.ks.forEach(s => {
-    g.fillStyle = s.cur ? `rgba(63,216,255,${0.75 + Math.sin(t * 20) * 0.15})` : 'rgba(63,216,255,.28)'; g.fillRect(s.x - 12, s.y - 56, 24, 18);
-    if (s.cur) { g.fillStyle = 'rgba(255,70,70,.9)'; g.fillRect(s.x - 10, s.y - 52 + ((t * 40) % 12), 20, 1.5); }
-  });
-  const people = sc.cust.map(p => ({ y: p.y, f: () => person(g, p.x, p.y, { shirt: p.shirt, skin: p.skin, hair: p.hair, ph: p.ph, moving: p.moving, arm: p.arm, dir: p.dir, bag: p.bag }) }));
-  sc.hs.forEach(h => people.push({ y: h.y, f: () => person(g, h.bx1 + 38, h.y + 3, { shirt: '#f2b84b', skin: SKINS[1], hair: '#3a2415', ph: 0, moving: false, dir: -1, arm: h.scan > 0.1 || h.bits.length ? 1.0 + Math.sin(h.at * 1) * 0.5 : 0.15, hat: null }) }));
-  people.sort((a, b) => a.y - b.y).forEach(o => o.f());
-  g.fillStyle = 'rgba(8,10,30,.55)'; rrect(g, 618, 6, 176, 22, 6); g.fill(); g.fillStyle = '#e9edff'; g.font = '600 11px sans-serif'; g.textAlign = 'left';
-  g.fillText(`${sc.cust.length} clients · ${f1(c.out)} ventes/j`, 626, 21);
+  sc.ks.forEach(k => objs.push({ k: k.x + k.y + 0.7, f: () => {
+    sbox(g, sc, k.x, k.y, 0.8, 0.6, 40, '#e6e9f8', '#b4bbdb', '#9097bd');
+    const glow = k.cur ? 0.7 + k.pulse * 0.3 : 0.28; quad(g, [P(k.x + 0.1, k.y + 0.6, 36), P(k.x + 0.7, k.y + 0.6, 36), P(k.x + 0.7, k.y + 0.6, 22), P(k.x + 0.1, k.y + 0.6, 22)], `rgba(63,216,255,${glow})`);
+    sbox(g, sc, k.x + 0.15, k.y + 0.6, 0.5, 0.2, 14, '#c3c9e6', '#8f96ba', '#7b82a6', 10);
+  } }));
+  const mk = p => { objs.push({ k: p.x + p.y, f: () => { const q = P(p.x, p.y, 0); person(g, q[0], q[1], { s, shirt: p.shirt, skin: p.skin, hair: p.hair, ph: p.ph, moving: p.moving, arm: p.arm, dir: p.dir, bag: p.kind === 'basket' && p.state !== 'in' || (p.kind === 'basket') ? '#e84b4b' : p.bag, hat: p.hat }); } });
+    if (p.kind === 'cart') { const L = Math.abs(p.vx) > Math.abs(p.vy), cx = p.x + (p.vx || 0) * 0.6, cy = p.y + (p.vy || -1) * 0.6, w = L ? 0.8 : 0.5, h = L ? 0.5 : 0.8;
+      objs.push({ k: cx + cy + 0.3, f: () => { sbox(g, sc, cx - w / 2, cy - h / 2, w, h, 15, '#e8ecff', '#6f78a3', '#59618a', 5); for (let i = 0; i < p.cartN; i++) sbox(g, sc, cx - w / 2 + 0.06 + (i % 3) * w / 3.4, cy - h / 2 + 0.07 + Math.floor(i / 3) * h / 2.6, 0.2, 0.2, 24, lighten(p.cartc[i] || '#ff8a3d'), p.cartc[i] || '#ff8a3d', p.cartc[i] || '#ff8a3d', 8); g.fillStyle = '#1d2140'; [[cx - w / 2, cy + h / 2], [cx + w / 2, cy + h / 2]].forEach(a => { const q = P(a[0], a[1], 2); g.beginPath(); g.arc(q[0], q[1], 2, 0, 7); g.fill(); }); } }); } };
+  sc.cust.forEach(mk); sc.staff.forEach(w => objs.push({ k: w.x + w.y, f: () => { const q = P(w.x, w.y, 0); person(g, q[0], q[1], { s, shirt: w.shirt, skin: w.skin, hair: w.hair, ph: w.ph, moving: w.moving, arm: w.arm, dir: w.dir, bag: w.bag }); } }));
+  objs.sort((a, b) => a.k - b.k).forEach(o => o.f());
+  quad(g, [P(0.9, sc.GH, 52), P(2.5, sc.GH, 52), P(2.5, sc.GH, 0), P(0.9, sc.GH, 0)], 'rgba(150,215,255,.16)', 'rgba(200,230,255,.8)');
+  g.fillStyle = 'rgba(8,10,30,.6)'; rrect(g, 10, 6, 220, 22, 6); g.fill(); g.fillStyle = '#e9edff'; g.font = '600 11px sans-serif'; g.textAlign = 'left';
+  g.fillText(`${sc.cust.length} clients en magasin · ${f1(c.out)} ventes/j${adSpend(c) ? ' · pub ' + Math.round(c.aw || 0) + ' %' : ''}`, 18, 21);
 }
+function lighten(col) { const n = parseInt(col.slice(1), 16), r = Math.min(255, (n >> 16) + 50), gg = Math.min(255, ((n >> 8) & 255) + 50), b = Math.min(255, (n & 255) + 50); return `rgb(${r},${gg},${b})`; }
 
 /* --- extraction (forêt, mines, puits) --- */
 function mkExt(c) {
@@ -2427,14 +2504,14 @@ function sceneReset(c) {
   const T = TYPES[c.t];
   const upd = (s, c2, dt) => ({ retail: updRetail, ext: updExt, fac: updFac, off: updOff })[s.kind](s, c2, dt);
   scene = T.ext ? mkExt(c) : (T.ret && c.t !== 'immo') ? mkRetail(c) : (T.rec) ? mkFac(c) : mkOffice(c);
-  scene.cid = c.t + c.x + '_' + c.y;
+  scene.cid = c.t + c.x + '_' + c.y; scene.H = scene.H || SCH; el('bscene').height = scene.H;
   for (let i = 0; i < 200; i++) upd(scene, c, 0.05);
 }
 function sceneFrame(dt) {
   const c = bsel && cell(bsel.x, bsel.y); if (!c || !scene) return;
   const cv = el('bscene'), g = cv.getContext('2d');
   ({ retail: updRetail, ext: updExt, fac: updFac, off: updOff })[scene.kind](scene, c, dt);
-  g.clearRect(0, 0, SCW, SCH); g.textAlign = 'left';
+  g.clearRect(0, 0, SCW, cv.height); g.textAlign = 'left';
   ({ retail: drawRetail, ext: drawExt, fac: drawFac, off: drawOff })[scene.kind](scene, c, g);
 }
 function sceneLoop(ts) {
@@ -2447,8 +2524,20 @@ function sceneLoop(ts) {
 function sceneStart() { if (!scRaf) { scLast = performance.now(); scRaf = requestAnimationFrame(sceneLoop); } }
 
 
+function adTab(c) {
+  const ad = adOf(c), tot = adSpend(c), aw = c.aw || 0, tgt = adTarget(c), up = Math.round(0.9 * aw);
+  const card = k => { const C = AD_CH[k], b = ad[k] || 0, eff = Math.round(100 * C.gain * (1 - Math.exp(-b / (C.scale * adScaleOf(c)))) / 1.5);
+    return `<div class="lever"><h4>${C.n} <span class="pip">${b > 0 ? 'actif' : 'coupé'}</span></h4><small>${C.d}</small>
+      <input type="range" data-ad="${k}" min="0" max="${C.max}" step="${C.step}" value="${b}" aria-label="Budget ${C.n}">
+      <div class="finrow"><span>Budget</span><b id="adv-${k}">${money(b)} / jour</b></div><div class="finrow"><span>Effet sur la notoriété</span><b>${eff} %</b></div></div>`; };
+  const ratio = (c.pRev || 0) > 0 ? Math.round(tot / c.pRev * 100) : null;
+  return `<p class="fnote">Chaque canal diffuse une campagne pour ce magasin. La notoriété monte progressivement avec le budget, puis retombe doucement si tu coupes. Plus elle est haute, plus les clients préfèrent ton enseigne aux marques rivales et plus ils sont nombreux.</p>
+    <div class="kpis"><div><small>Budget total</small><b class="neg">${money(tot)} /j</b></div><div><small>Notoriété</small><b>${Math.round(aw)} %</b></div><div><small>Cible</small><b>${Math.round(tgt)} %</b></div><div><small>Affluence</small><b class="pos">+${up} %</b></div><div><small>Ventes / jour</small><b>${f1(c.out)}</b></div><div><small>Pub / recettes</small><b>${ratio == null ? '–' : ratio + ' %'}</b></div></div>
+    <div class="bar" style="margin:6px 0 10px"><i style="width:${Math.round(aw)}%"></i></div>
+    <div class="levers">${AD_KEYS.map(card).join('')}</div>`;
+}
 function finTab(c, tab) {
-  const m = c.cm || [0, 0, 0, 0, 0, 0, 0, 0], d = Math.max(1, c.days || 0), K = investOf(c), dep = c.dep != null ? c.dep : K / DEP_DAYS;
+  const m = (c.cm && c.cm.length >= 9) ? c.cm : (c.cm || []).concat([0, 0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 9), d = Math.max(1, c.days || 0), K = investOf(c), dep = c.dep != null ? c.dep : K / DEP_DAYS;
   const T = TYPES[c.t], tx = S.tax;
   const row = (n, a, b, cls, neg) => `<tr class="${cls || ''}"><td>${n}</td><td>${neg && a ? '−' : ''}${money(a)}</td><td>${neg && b ? '−' : ''}${money(b)}</td></tr>`;
   const bars = (arr) => {
@@ -2457,8 +2546,8 @@ function finTab(c, tab) {
     return `<svg viewBox="0 0 760 90" width="100%" height="90" role="img" aria-label="Profit des derniers jours"><line x1="0" y1="45" x2="760" y2="45" stroke="rgba(143,154,203,.4)"/>${arr.map((v, i) => { const h = Math.abs(v) / mx * 42; return `<rect x="${(i * w + 1).toFixed(1)}" y="${v >= 0 ? 45 - h : 45}" width="${(w - 2).toFixed(1)}" height="${Math.max(1, h).toFixed(1)}" rx="2" fill="${v >= 0 ? '#46d39a' : '#ff5a5f'}"/>`; }).join('')}</svg>`;
   };
   if (tab === 'pl') {
-    const j = { rev: c.pRev || 0, inp: c.inCost || 0, wag: c.wages || 0, tra: c.transport || 0, upk: c.upk != null ? c.upk : T.upkeep };
-    const ebitda = j.rev - j.inp - j.wag - j.tra - j.upk, ebit = ebitda - dep, taxj = Math.max(0, ebit) * tx, net = ebit - taxj;
+    const j = { rev: c.pRev || 0, inp: c.inCost || 0, wag: c.wages || 0, tra: c.transport || 0, upk: c.upk != null ? c.upk : T.upkeep, ad: c.adCost || 0 };
+    const ebitda = j.rev - j.inp - j.wag - j.tra - j.upk - j.ad, ebit = ebitda - dep, taxj = Math.max(0, ebit) * tx, net = ebit - taxj;
     const ceb = m[5], cebit = ceb - m[6], cnet = cebit - m[7];
     return `<table class="fint"><tr><th>Compte de résultat</th><th>Par jour</th><th>Cumul (${d} j)</th></tr>
       ${row('Chiffre d\'affaires', j.rev, m[0])}
@@ -2466,6 +2555,7 @@ function finTab(c, tab) {
       ${row('Salaires', j.wag, m[2], '', 1)}
       ${row('Transport', j.tra, m[3], '', 1)}
       ${row('Entretien', j.upk, m[4], '', 1)}
+      ${j.ad || m[8] ? row('Publicité', j.ad, m[8], '', 1) : ''}
       ${row('Excédent brut d\'exploitation', ebitda, ceb, 'tot')}
       ${row('Amortissement', dep, m[6], 'sub', 1)}
       ${row('Résultat d\'exploitation', ebit, cebit, 'tot')}
@@ -3283,7 +3373,7 @@ updateHUD();
 setTool('res');
 if (window.innerWidth >= 1000) setPanel(true);
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { get S() { return S; }, get scene() { return scene; }, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
