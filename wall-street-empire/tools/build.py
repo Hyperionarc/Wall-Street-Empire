@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Assemble les sprites CC0 en un atlas et génère wse/city.html à partir du gabarit.
+"""Assemble les sprites CC0 en un atlas et génère wall-street-empire/city.html à partir du gabarit.
 
-Usage : python3 wse/tools/build.py
-Sorties : wse/assets/atlas.png, wse/assets/atlas.json, wse/city.html (atlas inclus en data URI)
+Usage : python3 wall-street-empire/tools/build.py
+Sorties : wall-street-empire/assets/atlas.png, wall-street-empire/assets/atlas.json, wall-street-empire/city.html (atlas inclus en data URI)
 """
 import base64, json, os, sys
 from PIL import Image

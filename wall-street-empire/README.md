@@ -79,7 +79,7 @@ Paliers (sur la capitalisation) : Citoyen, Entrepreneur (250 k$), Industriel (70
 | `tools/build.py` | assemble l'atlas à partir de `assets/src/` et génère `city.html` |
 | `assets/` | sprites sources (CC0), atlas généré, `CREDITS.md` |
 
-Pour régénérer : `python3 wse/tools/build.py` (nécessite Python 3 et Pillow).
+Pour régénérer : `python3 wall-street-empire/tools/build.py` (nécessite Python 3 et Pillow).
 Les visuels des produits, la mer, le port, les grues et les navires sont dessinés dans le code (pas des photos).
 
 ## Vérifications
