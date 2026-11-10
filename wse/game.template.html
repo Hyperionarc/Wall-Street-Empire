@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
-/* Plateau plein écran, HUD en haut, outils en bas, panneau Ville (marché, missions) en surimpression.
+/* Plateau plein écran, HUD en haut, outils par catégorie en bas, panneau Ville (marché, missions, carte).
    Direction : crépuscule financier, néons or / cyan sur indigo profond. Monde sombre assumé. */
 :root{
   color-scheme: dark;
@@ -30,7 +30,7 @@
   --font-b:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
   --font-m:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
   --hud-h:120px;
-  --bar-h:110px;
+  --bar-h:150px;
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -81,12 +81,24 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
 .chip em{font-style:normal;font-size:11px;font-weight:500}
 .pos{color:var(--green)} .neg{color:var(--red)} .gold{color:var(--gold)}
 
+/* Minimap flottante (grand écran) */
+#mmwrap{
+  position:absolute;z-index:4;left:max(12px,env(safe-area-inset-left,0px));
+  top:calc(var(--hud-h) + 8px);padding:6px;border-radius:10px;
+  background:var(--panel);border:1px solid var(--line);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+#mmwrap small{display:block;margin:0 0 4px;font-size:10px;letter-spacing:.08em;color:var(--mut)}
+canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-rendering:pixelated;cursor:pointer;touch-action:none}
+@media (max-width:899px){#mmwrap{display:none}}
+@media (min-width:900px){#panelmap{display:none}}
+
 /* Panneau Ville */
 #panel{
   position:absolute;z-index:6;
   right:max(12px,env(safe-area-inset-right,0px));
   top:calc(var(--hud-h) + 8px);
-  width:min(340px,calc(100% - 24px));
+  width:min(350px,calc(100% - 24px));
   max-height:calc(100% - var(--hud-h) - var(--bar-h) - 20px);
   overflow-y:auto;overscroll-behavior:contain;
   padding:10px 12px 12px;border-radius:12px;
@@ -110,13 +122,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
 #missions li.done{color:var(--mut)} #missions li.done .ck{background:var(--green);border-color:var(--green)}
 #missions li.done span:nth-child(2){text-decoration:line-through}
 #missions .rw{font-family:var(--font-m);font-size:11px;color:var(--gold);white-space:nowrap}
-.goods{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.goods{display:grid;grid-template-columns:1fr auto 58px;gap:0 8px;align-items:center;padding:5px 0;border-top:1px solid var(--line)}
 .goods:first-of-type{border-top:0}
-.goods .nm{font-weight:600}
+.goods .nm{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .goods .nm i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
-.goods .px{font-family:var(--font-m);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
-.goods small{color:var(--mut);font-size:11px}
-.goods canvas{grid-column:1 / -1;width:100%;height:30px;display:block}
+.goods .px{font-family:var(--font-m);font-weight:600;text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px}
+.goods small{color:var(--mut);font-size:10.5px;grid-column:1 / 3}
+.goods canvas{grid-column:3;grid-row:1 / span 2;width:58px;height:28px;display:block}
 .taxrow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-size:12.5px}
 .taxrow input{width:100%;accent-color:var(--gold)}
 .taxrow b{font-family:var(--font-m);min-width:3.2em;text-align:right}
@@ -146,7 +158,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
 /* Aide et victoire */
 #hint,#win{
   position:absolute;z-index:7;left:50%;transform:translateX(-50%);
-  width:min(420px,calc(100% - 32px));padding:12px 14px;border-radius:10px;
+  width:min(440px,calc(100% - 32px));padding:12px 14px;border-radius:10px;
   background:var(--panel-hi);border:1px solid var(--gold);font-size:13px;line-height:1.5;
 }
 #hint{top:calc(var(--hud-h) + 12px)}
@@ -156,25 +168,67 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
 #hint p,#win p{margin:4px 0 0}
 #win .ibtn{margin-top:10px;height:36px;padding:0 16px}
 
-/* Barre d'outils */
+/* Barre d'outils : catégories + outils */
 #bar{
   position:absolute;z-index:5;left:0;right:0;bottom:0;
-  padding:8px max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));
-  background:linear-gradient(to top,rgba(7,10,26,.95),rgba(7,10,26,.7) 70%,rgba(7,10,26,0));
+  padding:6px max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));
+  background:linear-gradient(to top,rgba(7,10,26,.96),rgba(7,10,26,.75) 70%,rgba(7,10,26,0));
 }
+#cats{display:flex;gap:6px;max-width:980px;margin:0 auto 4px;overflow-x:auto;scrollbar-width:none}
+#cats::-webkit-scrollbar{display:none}
+.cat{
+  flex:0 0 auto;height:28px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:600;
+  background:var(--panel);border:1px solid var(--line);color:var(--mut);
+}
+.cat[aria-pressed="true"]{background:var(--panel-hi);border-color:var(--gold);color:var(--gold)}
 #tools{display:flex;gap:6px;overflow-x:auto;padding:4px 0 2px;scrollbar-width:none;max-width:980px;margin:0 auto}
 #tools::-webkit-scrollbar{display:none}
 .tool{
-  flex:0 0 auto;width:76px;padding:6px 4px 5px;border-radius:10px;text-align:center;
+  flex:0 0 auto;width:80px;padding:6px 4px 5px;border-radius:10px;text-align:center;
   background:var(--panel);border:1px solid var(--line);
 }
 .tool svg{width:28px;height:28px;display:block;margin:0 auto 2px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.tool span{display:block;font-size:11px;font-weight:600;white-space:nowrap}
+.tool span{display:block;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tool small{display:block;font-family:var(--font-m);font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tool[aria-pressed="true"]{background:var(--panel-hi);border-color:currentColor;box-shadow:0 0 0 1px currentColor,0 0 14px -2px currentColor}
 .tool.poor small{color:var(--red)}
 .tool.locked{opacity:.45}
 .tool.locked small{color:var(--gold)}
+
+/* Vue Produits */
+#pview{
+  position:absolute;z-index:7;left:max(12px,env(safe-area-inset-left,0px));
+  top:calc(var(--hud-h) + 8px);width:min(520px,calc(100% - 24px));
+  max-height:calc(100% - var(--hud-h) - var(--bar-h) - 20px);
+  overflow-y:auto;overscroll-behavior:contain;padding:10px 12px 12px;border-radius:12px;
+  background:var(--panel);border:1px solid var(--line);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+@media (min-width:900px){#pview{left:calc(max(12px,env(safe-area-inset-left,0px)) + 168px)}}
+#pview .ph b{font-family:var(--font-d);font-weight:800;font-size:18px;letter-spacing:.05em;color:var(--gold)}
+.prow{display:grid;grid-template-columns:6px 1fr auto auto;gap:10px;align-items:center;width:100%;text-align:left;padding:6px 8px;border-radius:8px;border:1px solid transparent;background:transparent}
+.prow i{width:6px;height:26px;border-radius:3px}
+.prow .pn{font-weight:600;font-size:13px}
+.prow .pc{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.prow .ps{font-family:var(--font-m);font-size:11px;color:var(--gold);white-space:nowrap}
+.prow.sel{background:var(--panel-hi);border-color:var(--gold)}
+.prow.lock{opacity:.5}
+#pdetail{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+#pdetail h3{margin:0;font-family:var(--font-d);font-weight:800;font-size:20px;letter-spacing:.04em}
+.kv{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 12px;margin:10px 0}
+.kv div{font-size:12.5px;min-width:0}
+.kv small{display:block;color:var(--mut);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.kv b{font-family:var(--font-m);font-weight:600}
+.seg{display:flex;gap:6px;margin:6px 0 10px}
+.seg button{flex:1;min-height:32px;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-size:12px;font-weight:600}
+.seg button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold);background:var(--panel-hi)}
+.lbl{display:block;margin-top:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.btn{min-height:36px;padding:6px 14px;border-radius:8px;border:1px solid var(--gold);background:var(--panel-hi);color:var(--gold);font-weight:600;font-size:13px}
+.btn.sec{border-color:var(--line);color:var(--fg)}
+.btn[disabled]{opacity:.4;cursor:default}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+#pview input[type=range]{width:100%;accent-color:var(--gold)}
+#pd-spark{width:100%;height:46px;display:block;margin-top:4px}
 </style>
 </head>
 <body>
@@ -192,6 +246,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
           <button class="ibtn" id="zout" aria-label="Dézoomer">−</button>
           <button class="ibtn" id="zin" aria-label="Zoomer">+</button>
           <button class="ibtn" id="pn" aria-label="Ouvrir le panneau Ville" aria-pressed="false">Ville</button>
+          <button class="ibtn" id="pv" aria-label="Ouvrir la vue Produits" aria-pressed="false">Produits</button>
           <button class="ibtn" id="rst" aria-label="Nouvelle ville">Reset</button>
         </div>
       </div>
@@ -206,8 +261,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
     </div>
   </header>
 
+  <div id="mmwrap"><small>CARTE 64×64</small><canvas class="mm" id="mm" width="128" height="128" aria-label="Minimap"></canvas></div>
+
   <aside id="panel" hidden>
     <div class="ph"><b>NEW DOLLARTON</b><button class="ibtn" id="pclose" aria-label="Fermer le panneau">Fermer</button></div>
+    <div id="panelmap"><h3>CARTE</h3><canvas class="mm" id="mm2" width="128" height="128" aria-label="Minimap" style="width:100%;height:auto;max-width:200px"></canvas></div>
     <h3>PALIER</h3>
     <div class="tier"><strong id="tierName">Citoyen</strong><small id="tierNext"></small></div>
     <div class="bar" style="margin-top:6px"><i id="tierBar"></i></div>
@@ -228,20 +286,27 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
     </div>
   </aside>
 
+  <aside id="pview" hidden>
+    <div class="ph"><b>VUE PRODUITS</b><button class="ibtn" id="pvclose" aria-label="Fermer la vue Produits">Fermer</button></div>
+    <p class="note">Développe des produits finis, affecte-leur des usines et fixe leur prix. Les habitants choisissent selon la qualité, le prix et la notoriété, face aux marques rivales.</p>
+    <div id="plist"></div>
+    <div id="pdetail"></div>
+  </aside>
+
   <div id="feed" aria-live="polite"></div>
 
   <div id="hint">
     <b>BIENVENUE À NEW DOLLARTON</b>
-    <p>Le pétrole alimente les usines, les usines fournissent les commerces, les commerces nourrissent les habitants, et les impôts financent la ville.</p>
-    <p>Choisis un bâtiment en bas, touche une case, glisse pour tracer des routes. Un bâtiment doit toucher une route. Ouvre « Ville » pour les missions et les prix.</p>
+    <p>Une grande carte, des gisements (pétrole, fer, charbon, cuivre, or) et une chaîne complète : extraction, fonderie et usines, commerces, habitants, impôts.</p>
+    <p>Choisis une catégorie en bas, puis un bâtiment, et touche une case. Les mines se posent sur un gisement de la même couleur. Tout bâtiment doit toucher une route. Ouvre « Ville » pour la carte, les missions et les prix, et « Produits » pour lancer des produits finis (montre, téléviseur, smartphone...).</p>
   </div>
   <div id="win" hidden>
     <b>SIÈGE AU CONSEIL</b>
-    <p>New Dollarton vaut 800 000 $. Tu es Oligarque : un siège au Conseil de sécurité économique t'attend.</p>
+    <p>New Dollarton vaut 1,5 million de dollars. Tu es Oligarque : un siège au Conseil de sécurité économique t'attend.</p>
     <button class="ibtn" id="winok">Continuer à jouer</button>
   </div>
 
-  <nav id="bar" aria-label="Outils de construction"><div id="tools"></div></nav>
+  <nav id="bar" aria-label="Outils de construction"><div id="cats"></div><div id="tools"></div></nav>
 </div>
 
 <script>
@@ -249,56 +314,137 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-o
 'use strict';
 
 /* ---------- Constantes ---------- */
-const N = 12, TW = 132, TH = 66, SLAB = 33, FH = 32, DAY_MS = 2000;
-const SAVE_KEY = 'wse-city-v2';
+const N = 64, TW = 132, TH = 66, FH = 32, DAY_MS = 2000, MID = 32;
+const SAVE_KEY = 'wse-city-v3';
 const SEASONS = ['Printemps', 'Été', 'Automne', 'Hiver'];
 const SEASON_TINT = ['rgba(90,200,150,.10)', 'rgba(255,230,120,.06)', 'rgba(230,120,40,.16)', 'rgba(235,245,255,.55)'];
 const TIERS = [
-  { n: 'Citoyen', at: 0 }, { n: 'Entrepreneur', at: 30000 }, { n: 'Industriel', at: 80000 },
-  { n: 'Magnat', at: 250000 }, { n: 'Oligarque', at: 800000 }
+  { n: 'Citoyen', at: 0 }, { n: 'Entrepreneur', at: 40000 }, { n: 'Industriel', at: 150000 },
+  { n: 'Magnat', at: 500000 }, { n: 'Oligarque', at: 1500000 }
 ];
-const TYPES = {
-  road: { name: 'Route',      sub: 'Réseau',          cost: 100,  color: '#9aa4d6', upkeep: 0.3 },
-  res:  { name: 'Logements',  sub: 'Résidentiel',     cost: 500,  color: '#7f96ff', cap: 10, jobs: 0,  upkeep: 1 },
-  shop: { name: 'Commerce',   sub: 'Retail Index',    cost: 800,  color: '#ff4fa3', cap: 0,  jobs: 6,  upkeep: 1.5 },
-  oil:  { name: 'Raffinerie', sub: 'NYMEX Oil',       cost: 1500, color: '#ff8a3d', cap: 0,  jobs: 12, upkeep: 3 },
-  fact: { name: 'Usine',      sub: 'Manufacture',     cost: 2000, color: '#46d39a', cap: 0,  jobs: 10, upkeep: 3.5 },
-  tech: { name: 'Tour Tech',  sub: 'Tech Composite',  cost: 2500, color: '#3fd8ff', cap: 0,  jobs: 10, upkeep: 4,  tier: 1 },
-  bank: { name: 'Banque',     sub: 'London Gold',     cost: 4000, color: '#f2b84b', cap: 0,  jobs: 8,  upkeep: 5,  tier: 2 }
-};
+
+// Marchandises : prix de base, couleur
 const GOODS = {
-  oil:   { name: 'Pétrole', base: 12, color: '#ff8a3d' },
-  goods: { name: 'Biens de consommation', base: 20, color: '#46d39a' }
+  oil:    { name: 'Pétrole',            base: 12,  color: '#ff8a3d' },
+  iron:   { name: 'Minerai de fer',     base: 8,   color: '#c4664a' },
+  coal:   { name: 'Charbon',            base: 6,   color: '#8f9acb' },
+  copper: { name: 'Cuivre',             base: 14,  color: '#3fd8c0' },
+  gold:   { name: 'Or brut',            base: 90,  color: '#f2b84b' },
+  ingot:  { name: 'Lingots d\'or',      base: 150, color: '#ffd76a' },
+  basic:  { name: 'Biens de base',      base: 18,  color: '#46d39a' },
+  std:    { name: 'Biens manufacturés', base: 45,  color: '#7f96ff' },
+  lux:    { name: 'Produits de luxe',   base: 140, color: '#ff4fa3' }
 };
+const GKEYS = Object.keys(GOODS);
+const STOCK_CAP = 120;
+
+// Gisements : réserve par case
+const DEPOSITS = {
+  oil:    { name: 'pétrole', res: 7000 },
+  iron:   { name: 'fer',     res: 9000 },
+  coal:   { name: 'charbon', res: 9000 },
+  copper: { name: 'cuivre',  res: 6000 },
+  gold:   { name: 'or',      res: 1800 }
+};
+
+const TYPES = {
+  road:    { name: 'Route',         sub: 'Réseau',          cost: 100,   color: '#9aa4d6', upkeep: 0.3 },
+  res:     { name: 'Logements',     sub: 'Résidentiel',     cost: 500,   color: '#7f96ff', jobs: 0,  upkeep: 1 },
+  tech:    { name: 'Tour Tech',     sub: 'Tech Composite',  cost: 3500,  color: '#3fd8ff', jobs: 14, upkeep: 5,  tier: 1 },
+  bank:    { name: 'Banque',        sub: 'London Gold',     cost: 6000,  color: '#f2b84b', jobs: 12, upkeep: 6,  tier: 2 },
+  well:    { name: 'Puits pétrole', sub: 'NYMEX Oil',       cost: 1200,  color: '#ff8a3d', jobs: 8,  upkeep: 2,  ext: 'oil',    rate: 14 },
+  miron:   { name: 'Mine de fer',   sub: 'Extraction',      cost: 1000,  color: '#c4664a', jobs: 10, upkeep: 2,  ext: 'iron',   rate: 16 },
+  mcoal:   { name: 'Mine charbon',  sub: 'Extraction',      cost: 900,   color: '#8f9acb', jobs: 10, upkeep: 2,  ext: 'coal',   rate: 16 },
+  mcopper: { name: 'Mine cuivre',   sub: 'Extraction',      cost: 1400,  color: '#3fd8c0', jobs: 10, upkeep: 2.5, ext: 'copper', rate: 12 },
+  mgold:   { name: 'Mine d\'or',    sub: 'Extraction',      cost: 2200,  color: '#f2b84b', jobs: 12, upkeep: 3,  ext: 'gold',   rate: 5, tier: 1 },
+  foundry: { name: 'Fonderie d\'or', sub: 'Or brut → lingots', cost: 3000, color: '#ffd76a', jobs: 8, upkeep: 3.5, tier: 1, rec: { in: { gold: 4 }, out: { ingot: 4 } } },
+  f1:      { name: 'Petite usine',  sub: 'Biens de base',   cost: 2500,  color: '#46d39a', jobs: 8,  upkeep: 3,  rec: { in: { oil: 6, iron: 6 }, out: { basic: 14 } } },
+  f2:      { name: 'Usine moyenne', sub: 'Biens manufact.', cost: 6000,  color: '#7f96ff', jobs: 16, upkeep: 6,  w: 2, h: 1, tier: 1, rec: { in: { iron: 10, coal: 8, copper: 6 }, out: { std: 12 } } },
+  f3:      { name: 'Grande usine',  sub: 'Produits de luxe', cost: 15000, color: '#ff4fa3', jobs: 30, upkeep: 12, w: 2, h: 2, tier: 2, rec: { in: { copper: 8, oil: 6, ingot: 2 }, out: { lux: 10 } } },
+  s1:      { name: 'Petit marché',  sub: 'Biens de base',   cost: 700,   color: '#46d39a', jobs: 4,  upkeep: 1.5, ret: { cap: 14, sells: ['basic'] } },
+  s2:      { name: 'Supermarché',   sub: 'Base + manufact.', cost: 3500, color: '#7f96ff', jobs: 12, upkeep: 4,  w: 2, h: 1, tier: 1, ret: { cap: 40, sells: ['basic', 'std'] } },
+  s3:      { name: 'Hypermarché',   sub: 'Tout + luxe',     cost: 12000, color: '#ff4fa3', jobs: 35, upkeep: 10, w: 2, h: 2, tier: 2, ret: { cap: 120, sells: ['basic', 'std', 'lux'] } }
+};
+const INDUSTRIAL = ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3'];
+const FACT_ORDER = ['foundry', 'f1', 'f2', 'f3'];
+const DEM_PER_POP = { basic: 0.16, std: 0.058, lux: 0.02 };
+const CLS = { basic: { name: 'Base', color: '#46d39a' }, std: { name: 'Manufacturé', color: '#7f96ff' }, lux: { name: 'Luxe', color: '#ff4fa3' } };
+// Produits finis : catégorie de vente, usine requise, recette par cycle, prix de référence, R&D
+const PRODUCTS = {
+  utensils: { name: 'Ustensiles de cuisine', cls: 'basic', fac: 'f1', in: { iron: 4, coal: 2 },            out: 8,  ref: 22,   rnd: 1500,  days: 5,  tier: 0, desc: 'Casseroles et poêles. Un classique bon marché.' },
+  toys:     { name: 'Jouets',                cls: 'basic', fac: 'f1', in: { oil: 5, copper: 1 },            out: 10, ref: 16,   rnd: 1200,  days: 4,  tier: 0, desc: 'Jouets en plastique pour les familles.' },
+  bike:     { name: 'Vélo',                  cls: 'std',   fac: 'f2', in: { iron: 8, oil: 3, coal: 2 },     out: 6,  ref: 140,  rnd: 4000,  days: 9,  tier: 1, desc: 'Un vélo robuste pour la ville.' },
+  washer:   { name: 'Lave-linge',            cls: 'std',   fac: 'f2', in: { iron: 8, copper: 5, coal: 3 },  out: 5,  ref: 330,  rnd: 6000,  days: 12, tier: 1, desc: 'Électroménager durable.' },
+  tv:       { name: 'Téléviseur',            cls: 'lux',   fac: 'f3', in: { copper: 6, oil: 4, ingot: 1 },  out: 5,  ref: 520,  rnd: 14000, days: 16, tier: 2, desc: 'Écran plat pour le salon.' },
+  phone:    { name: 'Smartphone',            cls: 'lux',   fac: 'f3', in: { copper: 5, oil: 3, ingot: 2 },  out: 4,  ref: 780,  rnd: 20000, days: 20, tier: 2, desc: 'Le produit phare de la tech.' },
+  watch:    { name: 'Montre de luxe',        cls: 'lux',   fac: 'f3', in: { ingot: 3, copper: 2 },          out: 2,  ref: 2600, rnd: 30000, days: 24, tier: 2, desc: 'Boîtier en or, clientèle fortunée.' }
+};
+const PKEYS = Object.keys(PRODUCTS);
+const QTIER = [{ n: 'Économique', q: 35, inMult: 0.8, rnd: 0.6 }, { n: 'Standard', q: 55, inMult: 1, rnd: 1 }, { n: 'Premium', q: 80, inMult: 1.35, rnd: 1.8 }];
+const ADV = [{ n: 'Aucune', cost: 0, gain: 0 }, { n: 'Moyenne', cost: 150, gain: 0.5 }, { n: 'Forte', cost: 400, gain: 1.1 }];
+const RIVAL = 0.5;   // poids des marques rivales dans chaque catégorie
+function initProd() {
+  const o = {};
+  PKEYS.forEach(pk => { o[pk] = { st: 'locked', q: 1, rnd: 0, pf: 1, brand: 0, adv: 0, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
+  return o;
+}
+const prodPrice = pk => PRODUCTS[pk].ref * S.prod[pk].pf;
+const prodOn = pk => S.prod[pk] && S.prod[pk].st === 'on';
+function outPrice(c) { if (c.prod && prodOn(c.prod)) return prodPrice(c.prod); return S.price[Object.keys(TYPES[c.t].rec.out)[0]]; }
+function attractiveness(pk) { const ps = S.prod[pk]; return Math.pow(QTIER[ps.q].q / 50, 1.4) * (1 + ps.brand / 100) * Math.pow(1 / ps.pf, 1.8); }
+
 const ICONS = {
   view: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
   road: '<path d="M8 3l-3 18M16 3l3 18"/><path d="M12 4v3M12 10.5v3M12 17v3"/>',
   res:  '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M9.5 7h1M13.5 7h1M9.5 11h1M13.5 11h1M9.5 15h1M13.5 15h1"/>',
-  shop: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9c0 1.7 1.3 2.5 2.7 2.5S9.3 10.7 9.3 9c0 1.7 1.1 2.5 2.7 2.5s2.7-.8 2.7-2.5c0 1.7 1.3 2.5 2.7 2.5S20 10.7 20 9"/><path d="M5.5 12v8h13v-8M10 20v-4h4v4"/>',
-  oil:  '<rect x="3" y="13" width="8" height="8" rx="1"/><path d="M3 16.5h8"/><path d="M15 21V6h3v15"/><path d="M16.5 6V3.5"/><path d="M12 21h9"/>',
-  fact: '<path d="M3 21V10l6 4v-4l6 4V6h4v15z"/><path d="M7 21v-3M12 21v-3"/>',
   tech: '<path d="M8 21V6l4-3 4 3v15"/><path d="M12 3V1.5"/><path d="M10.5 9h3M10.5 12.5h3M10.5 16h3"/>',
   bank: '<path d="M3 9l9-5 9 5"/><path d="M5 20h14M6.5 11v6M10 11v6M14 11v6M17.5 11v6"/>',
+  well: '<path d="M4 21h16"/><path d="M12 21V9"/><path d="M3 9l8-3 8 2"/><path d="M19 8v6M4.5 9v6"/>',
+  mine: '<path d="M3 21l5-12h8l5 12z"/><path d="M9.5 21v-5a2.5 2.5 0 015 0v5"/>',
+  foundry: '<path d="M3 21V9l5 3V9l5 3V5h4v16z"/><path d="M19 9h2"/><circle cx="8" cy="17" r="1.5"/>',
+  f1:   '<path d="M3 21V10l6 4v-4l6 4V6h4v15z"/><path d="M7 21v-3M12 21v-3"/>',
+  f2:   '<path d="M2 21V11l5 3v-3l5 3V7h3v14z"/><path d="M15 11l7 3v7"/><path d="M5 21v-3M10 21v-3"/>',
+  f3:   '<path d="M2 21V11l4 3v-3l4 3V6h3v15z"/><path d="M13 10l4 3v-3l4 3v8H13z"/><path d="M5 21v-2M16 21v-3"/>',
+  s1:   '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9c0 1.7 1.3 2.5 2.7 2.5S9.3 10.7 9.3 9c0 1.7 1.1 2.5 2.7 2.5s2.7-.8 2.7-2.5c0 1.7 1.3 2.5 2.7 2.5S20 10.7 20 9"/><path d="M5.5 12v8h13v-8M10 20v-4h4v4"/>',
+  s2:   '<path d="M3 8h18v12H3z"/><path d="M3 12h18M8 8v12M16 8v12"/><path d="M5 5h14"/>',
+  s3:   '<path d="M2 7h20v13H2z"/><path d="M2 11h20M7 7v13M12 7v13M17 7v13"/><path d="M4 4h16"/>',
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const TOOL_ORDER = ['view', 'road', 'res', 'shop', 'oil', 'fact', 'tech', 'bank', 'up', 'bull'];
+const ICON_OF = { miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   up:   { name: 'Améliorer', sub: 'Niveau +1', color: '#f2b84b' },
   bull: { name: 'Démolir', sub: 'Gratuit', color: '#ff5a5f' }
 };
+const CATS = [
+  { id: 'ville', name: 'Ville',      tools: ['road', 'res', 'tech', 'bank'] },
+  { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold'] },
+  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3'] },
+  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3'] }
+];
+const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'up', 'bull'];
+
 const MISSIONS = [
-  { id: 'm1', t: 'Loger 40 habitants', r: 800,   ok: c => c.pop >= 40 },
-  { id: 'm2', t: 'Relier une raffinerie et une usine', r: 1000, ok: c => c.cn.oil >= 1 && c.cn.fact >= 1 },
-  { id: 'm3', t: 'Vendre 150 biens aux habitants', r: 1500, ok: c => c.sold >= 150 },
-  { id: 'm4', t: 'Ouvrir 3 commerces', r: 1500, ok: c => c.cn.shop >= 3 },
-  { id: 'm5', t: 'Atteindre 150 habitants', r: 2000, ok: c => c.pop >= 150 },
-  { id: 'm6', t: 'Capitalisation de 50 000 $', r: 3000, ok: c => c.worth >= 50000 },
-  { id: 'm7', t: 'Construire une Tour Tech', r: 3000, ok: c => c.cn.tech >= 1 },
-  { id: 'm8', t: 'Ouvrir une Banque', r: 4000, ok: c => c.cn.bank >= 1 },
-  { id: 'm9', t: 'Atteindre 400 habitants', r: 6000, ok: c => c.pop >= 400 },
-  { id: 'm10', t: 'Devenir Oligarque (800 000 $)', r: 0, ok: c => c.worth >= 800000 }
+  { id: 'm1',  t: 'Loger 60 habitants',                            r: 1000,  ok: c => c.pop >= 60 },
+  { id: 'm2',  t: 'Relier un puits de pétrole et une mine de fer', r: 1500,  ok: c => c.cn.well >= 1 && c.cn.miron >= 1 },
+  { id: 'm3',  t: 'Relier une petite usine',                       r: 1500,  ok: c => c.cn.f1 >= 1 },
+  { id: 'mp1', t: 'Lancer un produit fini (vue Produits)',         r: 3000,  ok: c => c.prodOn >= 1 },
+  { id: 'm4',  t: 'Vendre 300 biens aux habitants',                r: 2000,  ok: c => c.sold >= 300 },
+  { id: 'm5',  t: 'Atteindre 200 habitants',                       r: 3000,  ok: c => c.pop >= 200 },
+  { id: 'm6',  t: 'Capitalisation de 100 000 $',                   r: 4000,  ok: c => c.worth >= 100000 },
+  { id: 'm7',  t: 'Ouvrir une mine d\'or et une fonderie',         r: 5000,  ok: c => c.cn.mgold >= 1 && c.cn.foundry >= 1 },
+  { id: 'm8',  t: 'Construire une usine moyenne',                  r: 5000,  ok: c => c.cn.f2 >= 1 },
+  { id: 'mp2', t: 'Obtenir 25 % de part de marché sur un produit', r: 8000,  ok: c => c.maxShare >= 0.25 },
+  { id: 'm9',  t: 'Ouvrir un supermarché',                         r: 5000,  ok: c => c.cn.s2 >= 1 },
+  { id: 'm10', t: 'Construire une Tour Tech',                      r: 6000,  ok: c => c.cn.tech >= 1 },
+  { id: 'm11', t: 'Atteindre 800 habitants',                       r: 8000,  ok: c => c.pop >= 800 },
+  { id: 'm12', t: 'Construire une grande usine',                   r: 12000, ok: c => c.cn.f3 >= 1 },
+  { id: 'mp3', t: 'Lancer 4 produits finis',                       r: 15000, ok: c => c.prodOn >= 4 },
+  { id: 'm13', t: 'Ouvrir un hypermarché',                         r: 12000, ok: c => c.cn.s3 >= 1 },
+  { id: 'm14', t: 'Ouvrir une Banque',                             r: 10000, ok: c => c.cn.bank >= 1 },
+  { id: 'm15', t: 'Atteindre 3 000 habitants',                     r: 25000, ok: c => c.pop >= 3000 },
+  { id: 'm16', t: 'Devenir Oligarque (1,5 M$)',                    r: 0,     ok: c => c.worth >= 1500000 }
 ];
 
 /* ---------- Atlas de sprites (CC0, Kenney) ---------- */
@@ -324,6 +470,9 @@ function hash(a, b, c) {
   h = (h ^ (h >>> 13)) * 1274126177 | 0;
   return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
 }
+function rng(seed) {
+  return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
 const fmt = n => Math.round(n).toLocaleString('fr-FR');
 const money = n => fmt(n) + ' $';
 const idx = (x, y) => y * N + x;
@@ -331,11 +480,12 @@ const inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
 
 /* ---------- État ---------- */
 let S = null;
-let tool = 'res';
+let tool = 'res', cat = 'ville';
 let speed = 1;
 let hover = null;
 let selected = null;
 let decor = [];
+const MAP_SEED = 20261109;
 
 function mkCell(t, seed) {
   seed = seed == null ? Math.random() : seed;
@@ -343,29 +493,65 @@ function mkCell(t, seed) {
   if (t === 'res') floors = 1 + Math.floor(seed * 3.99) % 3;
   if (t === 'tech') floors = 5 + Math.floor(seed * 2.99);
   if (t === 'bank') floors = 3 + Math.floor(seed * 1.99);
-  return { t, seed, floors, lvl: 0, born: performance.now(), alertUntil: -1, conn: true, rev: 0, out: 0 };
+  const T = TYPES[t];
+  return { t, seed, floors, lvl: 0, w: T.w || 1, h: T.h || 1, x: 0, y: 0, born: performance.now(), alertUntil: -1, conn: true, rev: 0, out: 0, prod: null };
 }
+
+// Gisements : amas fixes près du départ, puis amas aléatoires répartis sur la carte
+function genDeposits() {
+  const dep = new Array(N * N).fill(null);
+  const R = rng(MAP_SEED);
+  const add = (x, y, k) => { if (inb(x, y) && !dep[idx(x, y)]) dep[idx(x, y)] = { k, r: DEPOSITS[k].res }; };
+  const blob = (cx, cy, k, size) => {
+    let x = cx, y = cy;
+    for (let i = 0; i < size; i++) {
+      add(x, y, k);
+      const d = Math.floor(R() * 4);
+      x += [1, -1, 0, 0][d]; y += [0, 0, 1, -1][d];
+    }
+  };
+  [[37, 30, 'oil'], [26, 33, 'iron'], [28, 30, 'coal']].forEach(p => { for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 2; dy++) add(p[0] + dx, p[1] + dy, p[2]); });
+  const spec = [['oil', 7, 6, 28], ['iron', 7, 6, 28], ['coal', 7, 6, 28], ['copper', 7, 6, 26], ['gold', 6, 4, 28]];
+  spec.forEach(s => {
+    const k = s[0], count = s[1], size = s[2], maxd = s[3];
+    for (let n = 0, tries = 0; n < count && tries < 300; tries++) {
+      const cx = Math.floor(R() * (N - 6)) + 3, cy = Math.floor(R() * (N - 6)) + 3;
+      const d = Math.abs(cx - MID) + Math.abs(cy - MID);
+      if (d > maxd * 1.6) continue;
+      if (Math.abs(cx - MID) < 12 && Math.abs(cy - MID) < 12) continue;
+      blob(cx, cy, k, size + Math.floor(R() * 4)); n++;
+    }
+  });
+  return dep;
+}
+
 function newCity() {
   const grid = new Array(N * N).fill(null);
-  const put = (x, y, t) => { grid[idx(x, y)] = mkCell(t, hash(x, y, 5)); };
-  for (let x = 1; x <= 10; x++) put(x, 5, 'road');
-  for (let y = 1; y <= 10; y++) if (y !== 5) put(5, y, 'road');
-  [[4, 4], [6, 4], [4, 6], [6, 6], [3, 4], [7, 6]].forEach(p => put(p[0], p[1], 'res'));
-  [[6, 3], [7, 4]].forEach(p => put(p[0], p[1], 'shop'));
-  put(9, 4, 'oil'); put(9, 6, 'fact');
-  grid.forEach(c => { if (c) c.born = 0; });
-  return {
-    cash: 15000, pop: 30, day: 0, grid, hist: [], boomUntil: -1, milestone: 0, lastWarn: -99,
-    tax: 0.25, stock: { oil: 0, goods: 0 },
-    price: { oil: GOODS.oil.base, goods: GOODS.goods.base },
-    ph: { oil: [GOODS.oil.base], goods: [GOODS.goods.base] },
-    sold: 0, done: [], won: false, stats: {}
+  const S0 = {
+    cash: 40000, pop: 40, day: 0, grid, dep: genDeposits(), hist: [], boomUntil: -1, milestone: 0, lastWarn: -99,
+    tax: 0.25, stock: {}, price: {}, ph: {},
+    sold: 0, made: { ingot: 0 }, done: [], won: false, stats: {}
   };
+  GKEYS.forEach(g => { S0.stock[g] = 0; S0.price[g] = GOODS[g].base; S0.ph[g] = [GOODS[g].base]; });
+  S0.prod = initProd();
+  S = S0;
+  const put = (x, y, t) => {
+    const c = mkCell(t, hash(x, y, 5)); c.born = 0; c.x = x; c.y = y;
+    for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) grid[idx(x + ox, y + oy)] = (ox || oy) ? { t: 'part', ai: idx(x, y), ox, oy } : c;
+  };
+  for (let x = 24; x <= 40; x++) put(x, 32, 'road');
+  for (let y = 24; y <= 40; y++) if (y !== 32) put(32, y, 'road');
+  [[30, 31], [31, 31], [33, 31], [34, 31], [30, 33], [31, 33], [33, 34]].forEach(p => put(p[0], p[1], 'res'));
+  put(33, 33, 's1'); put(35, 33, 's1');
+  put(37, 31, 'well'); put(26, 33, 'miron'); put(28, 31, 'mcoal');
+  put(37, 33, 'f1');
+  return S0;
 }
 function save() {
   try {
-    const g = S.grid.map(c => c ? [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0] : 0);
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 2, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, done: S.done, won: S.won, g }));
+    const g = S.grid.map(c => !c ? 0 : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0]);
+    const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 3, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -373,30 +559,55 @@ function load() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const d = JSON.parse(raw);
-    if (!d || d.v !== 2 || !Array.isArray(d.g) || d.g.length !== N * N) return null;
-    const grid = d.g.map(r => { if (!r || !TYPES[r[0]]) return null; const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; c.born = 0; return c; });
-    return {
-      cash: +d.cash, pop: +d.pop, day: d.day | 0, grid, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: -1,
+    if (!d || d.v !== 3 || !Array.isArray(d.g) || d.g.length !== N * N) return null;
+    const grid = d.g.map((r, i) => {
+      if (!r) return null;
+      if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
+      if (!TYPES[r[0]]) return null;
+      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && PRODUCTS[r[4]]) c.prod = r[4]; c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
+    });
+    const dep = new Array(N * N).fill(null);
+    (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) dep[a[0]] = { k: a[1], r: a[2] }; });
+    const S0 = {
+      cash: +d.cash, pop: +d.pop, day: d.day | 0, grid, dep, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: -1,
       milestone: d.milestone | 0, lastWarn: -99, tax: clamp(+d.tax || 0.25, 0.05, 0.45),
-      stock: d.stock || { oil: 0, goods: 0 }, price: d.price || { oil: GOODS.oil.base, goods: GOODS.goods.base },
-      ph: d.ph || { oil: [GOODS.oil.base], goods: [GOODS.goods.base] }, sold: +d.sold || 0,
+      stock: {}, price: {}, ph: {}, sold: +d.sold || 0, made: d.made || { ingot: 0 },
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
+    S0.prod = initProd();
+    if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
+    GKEYS.forEach(g => {
+      S0.stock[g] = (d.stock && d.stock[g]) || 0;
+      S0.price[g] = (d.price && d.price[g]) || GOODS[g].base;
+      S0.ph[g] = (d.ph && Array.isArray(d.ph[g]) && d.ph[g].length) ? d.ph[g].slice(-60) : [S0.price[g]];
+    });
+    return S0;
   } catch (e) { return null; }
 }
 function makeDecor() {
-  decor = [];
+  decor = new Array(N * N);
   for (let i = 0; i < N * N; i++) {
     const r = hash(i, 11, 7);
-    decor.push(r < 0.22 ? { dx: Math.round((hash(i, 2, 3) - 0.5) * 50), dy: Math.round((hash(i, 4, 5) - 0.5) * 20) } : null);
+    decor[i] = r < 0.2 ? { dx: Math.round((hash(i, 2, 3) - 0.5) * 50), dy: Math.round((hash(i, 4, 5) - 0.5) * 20) } : null;
   }
 }
 
 /* ---------- Simulation ---------- */
-const cell = (x, y) => inb(x, y) ? S.grid[idx(x, y)] : null;
-const isRoad = (x, y) => { const c = cell(x, y); return !!c && c.t === 'road'; };
-const connected = (x, y) => isRoad(x + 1, y) || isRoad(x - 1, y) || isRoad(x, y + 1) || isRoad(x, y - 1);
+const rawCell = (x, y) => inb(x, y) ? S.grid[idx(x, y)] : null;
+const anchorOf = c => c && c.t === 'part' ? S.grid[c.ai] : c;
+const cell = (x, y) => anchorOf(rawCell(x, y));
+const isRoad = (x, y) => { const c = rawCell(x, y); return !!c && c.t === 'road'; };
 const tierOf = w => { let t = 0; TIERS.forEach((x, i) => { if (w >= x.at) t = i; }); return t; };
+function footConn(a) {
+  for (let ox = 0; ox < a.w; ox++) for (let oy = 0; oy < a.h; oy++) {
+    const x = a.x + ox, y = a.y + oy;
+    if ((ox === 0 && isRoad(x - 1, y)) || (ox === a.w - 1 && isRoad(x + 1, y)) || (oy === 0 && isRoad(x, y - 1)) || (oy === a.h - 1 && isRoad(x, y + 1))) return true;
+  }
+  return false;
+}
+function eachBuilding(fn) {
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t !== 'road' && c.t !== 'part') fn(c); }
+}
 
 const MAX_LVL = 3, MAX_FLOORS = 6;
 const levelMult = c => c.t === 'res' ? 1 : 1 + 0.5 * (c.lvl || 0);
@@ -410,167 +621,222 @@ function upgradeSpent(c) {
   if (c.t === 'res') return Math.max(0, c.floors - 1) * 400;
   let t = 0; for (let l = 0; l < (c.lvl || 0); l++) t += Math.round(TYPES[c.t].cost * (0.7 + 0.4 * l)); return t;
 }
+
 function evaluate() {
-  const cc = { res: 0, shop: 0, oil: 0, fact: 0, tech: 0, bank: 0 };
-  const cn = { res: 0, shop: 0, oil: 0, fact: 0, tech: 0, bank: 0 };
-  const un = { res: 0, shop: 0, oil: 0, fact: 0, tech: 0, bank: 0 };   // capacité pondérée par les niveaux
-  let roads = 0, cap = 0, jobs = 0, upkeep = 0, value = 0, polluted = 0;
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const c = cell(x, y);
-    if (!c) continue;
-    if (c.t === 'road') { roads++; continue; }
-    const T = TYPES[c.t];
-    c.conn = connected(x, y);
-    const m = levelMult(c);
+  const cn = {}, cc = {}, un = {};
+  Object.keys(TYPES).forEach(k => { cn[k] = 0; cc[k] = 0; un[k] = 0; });
+  let roads = 0, cap = 0, jobs = 0, upkeep = 0, value = 0, polluted = 0, nres = 0;
+  const smog = new Uint8Array(N * N);
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') roads++; }
+  eachBuilding(c => {
+    const T = TYPES[c.t], m = levelMult(c);
+    c.conn = footConn(c);
     cc[c.t]++;
     upkeep += T.upkeep * (c.t === 'res' ? 1 : m);
     value += T.cost * 0.9 + upgradeSpent(c) * 0.6;
-    if (c.conn) { cn[c.t]++; un[c.t] += m; cap += c.t === 'res' ? 6 + 4 * c.floors : 0; jobs += T.jobs * m; }
-  }
-  upkeep += roads * TYPES.road.upkeep;
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const c = cell(x, y);
-    if (!c || c.t !== 'res' || !c.conn) continue;
-    outer: for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
-      if (Math.abs(dx) + Math.abs(dy) > 2) continue;
-      const o = cell(x + dx, y + dy);
-      if (o && (o.t === 'oil' || o.t === 'fact')) { polluted++; break outer; }
+    if (c.conn) {
+      cn[c.t]++; un[c.t] += m; jobs += T.jobs * m;
+      if (c.t === 'res') cap += 6 + 4 * c.floors;
     }
-  }
-  return { cc, cn, un, roads, cap, jobs, upkeep, value, polluted };
+    if (INDUSTRIAL.indexOf(c.t) >= 0) {
+      for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++)
+        for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+          if (Math.abs(dx) + Math.abs(dy) > 2) continue;
+          const x = c.x + ox + dx, y = c.y + oy + dy;
+          if (inb(x, y)) smog[idx(x, y)] = 1;
+        }
+    }
+  });
+  upkeep += roads * TYPES.road.upkeep;
+  eachBuilding(c => { if (c.t === 'res' && c.conn) { nres++; if (smog[idx(c.x, c.y)]) polluted++; } });
+  return { cc, cn, un, roads, cap, jobs, upkeep, value, polluted, nres };
 }
-
 function worthOf(ev, happy) { return S.cash + ev.value * (1 + (happy == null ? 60 : happy) / 400); }
 
 function step() {
   const ev = evaluate();
-  const { cc, cn, un, cap, jobs, upkeep, value, polluted } = ev;
+  const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
   const workforce = S.pop * 0.55;
   const employed = Math.min(workforce, jobs);
   const unemp = workforce > 0 ? 1 - employed / workforce : 0;
   const staff = jobs > 0 ? employed / jobs : 0;
   const boom = S.day <= S.boomUntil ? 0.25 : 0;
-  const mult = 1 + Math.min(0.3, cn.bank * 0.1) + boom;   // les banques financent les entreprises
+  const mult = 1 + Math.min(0.3, cn.bank * 0.1) + boom;
+  const made = {}, want = {}, sold = { basic: 0, std: 0, lux: 0 };
+  GKEYS.forEach(g => { made[g] = 0; want[g] = 2; });   // 2 = demande d'export de base
+  const buildings = [];
+  eachBuilding(c => { if (c.conn) buildings.push(c); c.out = 0; });
 
-  // 1. Pétrole
-  let oilProd = 0;
-  const oils = [];
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const c = cell(x, y);
-    if (!c || c.t !== 'oil') continue;
-    c.out = c.conn ? 14 * levelMult(c) * staff * (S.day <= c.alertUntil ? 0.75 : 1) : 0;
-    oilProd += c.out; oils.push(c);
-  }
-  // 2. Usines : pétrole -> biens (1 pétrole = 1,2 bien)
-  const factNeed = un.fact * 10 * staff;
-  const oilAvail = S.stock.oil + oilProd;
-  const used = Math.min(factNeed, oilAvail);
-  const goodsProd = used * 1.2;
-  S.stock.oil = oilAvail - used;
-  let oilExport = Math.max(0, S.stock.oil - 40);
-  S.stock.oil -= oilExport;
-  // 3. Commerces : biens -> habitants
-  const demandGoods = S.pop * 0.12;
-  const shopCap = un.shop * 16;
-  const goodsAvail = S.stock.goods + goodsProd;
-  const sold = Math.min(goodsAvail, demandGoods, shopCap);
-  S.stock.goods = goodsAvail - sold;
-  let goodsExport = Math.max(0, S.stock.goods - 60);
-  S.stock.goods -= goodsExport;
-  S.sold += sold;
+  // 1. Extraction (limitée par le personnel, les gisements et les goulots)
+  buildings.forEach(c => {
+    const T = TYPES[c.t];
+    if (!T.ext) return;
+    const d = S.dep[idx(c.x, c.y)];
+    let out = T.rate * levelMult(c) * staff * (S.day <= c.alertUntil ? 0.75 : 1);
+    if (!d || d.k !== T.ext) out = 0; else { out = Math.min(out, d.r); d.r -= out; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} à l'arrêt. Ouvre une nouvelle mine ailleurs.`, 'bad'); } }
+    c.out = out; S.stock[T.ext] += out; made[T.ext] += out;
+  });
+  // 2. Industrie : chaque usine produit la marchandise générique de sa catégorie
+  //    ou, si elle est affectée, un produit fini lancé par le joueur.
+  const runRecipe = (list, inp, outs, pk, outQty) => {
+    if (!list.length) return;
+    let units = 0; list.forEach(c => units += levelMult(c));
+    let r = units * staff;
+    Object.keys(inp).forEach(g => { want[g] += units * staff * inp[g]; r = Math.min(r, S.stock[g] / inp[g]); });
+    r = Math.max(0, r);
+    Object.keys(inp).forEach(g => { S.stock[g] -= r * inp[g]; });
+    let per = 0;
+    if (pk) { const q = r * outQty; S.prod[pk].stock += q; S.prod[pk].mDay += q; per = outQty; }
+    else { Object.keys(outs).forEach(g => { const q = r * outs[g]; S.stock[g] += q; made[g] += q; if (g === 'ingot') S.made.ingot += q; }); per = Object.values(outs)[0]; }
+    list.forEach(c => { c.out = units > 0 ? r * levelMult(c) / units * per : 0; });
+  };
+  FACT_ORDER.forEach(t => {
+    const T = TYPES[t], all = buildings.filter(c => c.t === t);
+    if (!all.length) return;
+    runRecipe(all.filter(c => !(c.prod && prodOn(c.prod))), T.rec.in, T.rec.out, null);
+    PKEYS.forEach(pk => {
+      const pr = PRODUCTS[pk], ps = S.prod[pk];
+      if (pr.fac !== t || ps.st !== 'on') return;
+      const qm = QTIER[ps.q].inMult, inp = {};
+      Object.keys(pr.in).forEach(g => { inp[g] = pr.in[g] * qm; });
+      runRecipe(all.filter(c => c.prod === pk), inp, null, pk, pr.out);
+    });
+  });
+  // 3. Commerce : la demande se répartit entre la marchandise générique, les produits lancés et les rivaux
+  const happyPrev = S.stats.happy == null ? 60 : S.stats.happy;
+  const dem = { basic: S.pop * DEM_PER_POP.basic, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100), lux: S.pop * DEM_PER_POP.lux };
+  const capR = { s1: 0, s2: 0, s3: 0 };
+  let retUnits = 0;
+  buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { capR[c.t] += R.cap * levelMult(c) * (0.4 + 0.6 * staff); retUnits += R.cap * levelMult(c); } });
+  const sells = { basic: ['s1', 's2', 's3'], std: ['s2', 's3'], lux: ['s3'] };
+  const addressed = { basic: 0, std: 0, lux: 0 };
+  let revRetVal = 0;
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; ps.sold = 0; ps.rev = 0; ps.share = 0; });
+  ['lux', 'std', 'basic'].forEach(cls => {
+    const items = [{ k: 'g', attr: 0.5, stock: S.stock[cls], price: S.price[cls] }];
+    const mine = PKEYS.filter(pk => PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on');
+    mine.forEach(pk => items.push({ k: pk, attr: attractiveness(pk), stock: S.prod[pk].stock, price: prodPrice(pk) }));
+    const totalAttr = items.reduce((a, i) => a + i.attr, 0) + RIVAL;
+    const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length));
+    items.forEach(it => {
+      const wi = Dc * it.attr / totalAttr;
+      let need = Math.min(wi, it.stock), got = 0;
+      sells[cls].forEach(p => { const q = Math.min(need, capR[p]); capR[p] -= q; need -= q; got += q; });
+      addressed[cls] += wi;
+      if (it.k === 'g') S.stock[cls] -= got;
+      else { const ps = S.prod[it.k]; ps.stock -= got; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
+      sold[cls] += got; revRetVal += got * it.price;
+    });
+    want[cls] += dem[cls] * 0.5;
+  });
+  const soldTotal = sold.basic + sold.std + sold.lux;
+  S.sold += soldTotal;
+  // 4. Surplus exporté au-delà du plafond de stock
+  let revExp = 0;
+  GKEYS.forEach(g => { const ex = Math.max(0, S.stock[g] - STOCK_CAP); if (ex > 0) { S.stock[g] -= ex; revExp += ex * S.price[g] * 0.6; } });
 
-  // 4. Chiffres d'affaires des secteurs
-  const pO = S.price.oil, pG = S.price.goods;
-  const revOil = oilProd * pO;
-  const revFact = goodsProd * pG * 0.55;
-  const revShop = sold * pG * 0.45;
-  const revExp = oilExport * pO * 0.6 + goodsExport * pG * 0.5;
-  const revTech = un.tech * 230 * (0.3 + 0.7 * staff);
-  const revBank = un.bank * Math.min(300, 120 + Math.max(0, S.cash) * 0.001);
-  const sectorRev = (revOil + revFact + revShop + revExp + revTech) * mult + revBank;
+  // 5. Chiffres d'affaires, impôts
+  const P = S.price;
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 80); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * 0.5; } });
+  let revExt = 0, revInd = 0;
+  buildings.forEach(c => {
+    const T = TYPES[c.t];
+    if (T.ext) revExt += c.out * P[T.ext];
+    else if (T.rec) revInd += c.out * outPrice(c) * 0.5;
+  });
+  const revRet = revRetVal * 0.4;
+  const revTech = un.tech * 260 * (0.3 + 0.7 * staff);
+  const revBank = un.bank * Math.min(500, 180 + Math.max(0, S.cash) * 0.0008);
+  const sectorRev = (revExt + revInd + revRet + revExp + revTech) * mult + revBank;
   const rate = S.tax;
   const headTax = employed * 3 * (rate / 0.25);
   const taxIncome = sectorRev * rate + headTax;
-  const net = taxIncome - upkeep;
+  let advCost = 0; PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') advCost += ADV[S.prod[pk].adv].cost; });
+  const net = taxIncome - upkeep - advCost;
   S.cash += net;
 
-  // 5. Revenus par bâtiment (pour l'inspecteur)
-  const resConn = Math.max(1, cn.res);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const c = cell(x, y);
-    if (!c || c.t === 'road') continue;
-    let r = 0;
-    if (c.conn) {
-      if (c.t === 'res') r = headTax / resConn;
-      else if (c.t === 'oil') r = (c.out * pO + (un.oil ? oilExport * pO * 0.6 * levelMult(c) / un.oil : 0)) * mult * rate;
-      else if (c.t === 'fact') r = (un.fact ? goodsProd * pG * 0.55 * levelMult(c) / un.fact : 0) * mult * rate;
-      else if (c.t === 'shop') r = (un.shop ? revShop * levelMult(c) / un.shop : 0) * mult * rate;
-      else if (c.t === 'tech') r = 230 * levelMult(c) * (0.3 + 0.7 * staff) * mult * rate;
-      else if (c.t === 'bank') r = (revBank * levelMult(c) / Math.max(1, un.bank)) * rate;
-    }
+  // 6. Revenus par bâtiment (pour l'inspecteur)
+  buildings.forEach(c => {
+    const T = TYPES[c.t]; let r = 0;
+    if (c.t === 'res') r = headTax / Math.max(1, cn.res);
+    else if (T.ext) r = c.out * P[T.ext] * mult * rate;
+    else if (T.rec) r = c.out * outPrice(c) * 0.5 * mult * rate;
+    else if (T.ret) r = retUnits > 0 ? revRet * (T.ret.cap * levelMult(c) / retUnits) * mult * rate : 0;
+    else if (c.t === 'tech') r = 260 * levelMult(c) * (0.3 + 0.7 * staff) * mult * rate;
+    else if (c.t === 'bank') r = revBank * levelMult(c) / Math.max(1, un.bank) * rate;
     c.rev = r;
-  }
+  });
 
-  // 6. Prix : l'offre et la demande les font bouger
-  const upd = (g, demand, supply) => {
-    const base = GOODS[g].base;
-    const m = Math.max(demand, supply, 1);
-    const pressure = clamp((demand - supply) / m, -1, 1);
-    let p = S.price[g] * (1 + 0.10 * pressure);
+  // 7. Prix : offre et demande
+  GKEYS.forEach(g => {
+    const base = GOODS[g].base, m = Math.max(want[g], made[g], 1);
+    const pressure = clamp((want[g] - made[g]) / m, -1, 1);
+    let p = P[g] * (1 + 0.08 * pressure);
     p += (base - p) * 0.04;
-    S.price[g] = clamp(p, base * 0.4, base * 2.5);
-    const h = S.ph[g]; h.push(S.price[g]); if (h.length > 60) h.shift();
-  };
-  upd('oil', factNeed, oilProd + S.stock.oil * 0.1);
-  upd('goods', demandGoods, goodsProd + S.stock.goods * 0.3);
+    P[g] = clamp(p, base * 0.4, base * 2.5);
+    const h = S.ph[g]; h.push(P[g]); if (h.length > 60) h.shift();
+  });
 
-  // 7. Humeur, population
-  const sat = demandGoods > 0.5 ? sold / demandGoods : 1;
-  const pol = cn.res ? polluted / cn.res : 0;
+  // 8. Humeur, population
+  const satB = addressed.basic > 0.5 ? sold.basic / addressed.basic : 1;
+  const satS = addressed.std > 0.3 ? sold.std / addressed.std : 1;
+  const satL = addressed.lux > 0.2 ? sold.lux / addressed.lux : 1;
+  const sat = satB * 0.6 + satS * 0.25 + satL * 0.15;
+  const pol = nres ? polluted / nres : 0;
   const happy = clamp(55 + sat * 25 - unemp * 50 - pol * 25 + (jobs > workforce ? 6 : 0) - (rate - 0.25) * 120, 0, 100);
   const target = cap * (0.35 + 0.65 * happy / 100);
   S.pop += (target - S.pop) * 0.07 + (target > S.pop ? 0.3 : 0);
   if (S.pop > cap) S.pop = Math.max(cap, S.pop - 1);
   if (S.pop < 0) S.pop = 0;
 
-  // 8. Événements
-  if (oils.length && Math.random() < 0.05) {
-    const c = oils[Math.floor(Math.random() * oils.length)];
+  // Produits : notoriété, développement (R&D)
+  PKEYS.forEach(pk => {
+    const ps = S.prod[pk];
+    ps.made = ps.mDay; ps.mDay = 0;
+    if (ps.st === 'on') {
+      ps.brand = clamp(ps.brand + (ps.sold > 0.1 ? 0.35 : -0.25) + ADV[ps.adv].gain - 0.12, 0, 100);
+      ps.ph.push(ps.share * 100); if (ps.ph.length > 40) ps.ph.shift();
+    } else if (ps.st === 'rnd') {
+      ps.rnd -= 1;
+      if (ps.rnd <= 0) { ps.st = 'on'; ps.pf = 1; say(`Produit lancé : ${PRODUCTS[pk].name}. Affecte-lui des usines dans la vue Produits.`, 'gold'); }
+    }
+  });
+
+  // 9. Événements
+  const cand = buildings.filter(c => TYPES[c.t].ext || TYPES[c.t].rec);
+  if (cand.length && Math.random() < 0.05) {
+    const c = cand[Math.floor(Math.random() * cand.length)];
     c.alertUntil = S.day + 6;
-    say('Goulot de production : une raffinerie perd 25 % pendant 6 jours.', 'warn');
+    say(`Goulot de production : ${TYPES[c.t].name.toLowerCase()} perd 25 % pendant 6 jours.`, 'warn');
   }
   if (cc.bank && Math.random() < 0.03 && S.day > S.boomUntil) {
     S.boomUntil = S.day + 8;
     say('Boom boursier : les entreprises gagnent 25 % de plus pendant 8 jours.', 'good');
   }
-  const stepsPop = [50, 100, 200, 400, 800];
+  const stepsPop = [100, 250, 500, 1000, 2000, 4000];
   const pop = Math.floor(S.pop);
   if (S.milestone < stepsPop.length && pop >= stepsPop[S.milestone]) {
-    say(`Palier de population : ${stepsPop[S.milestone]} habitants.`, 'good');
+    say(`Palier de population : ${fmt(stepsPop[S.milestone])} habitants.`, 'good');
     S.milestone++;
   }
   if (unemp > 0.3 && S.day - S.lastWarn > 25 && S.pop > 20) {
-    S.lastWarn = S.day;
-    say('Chômage élevé : construis des commerces, une raffinerie ou une usine.', 'warn');
-  } else if (sat < 0.5 && demandGoods > 3 && S.day - S.lastWarn > 25) {
-    S.lastWarn = S.day;
-    say('Les habitants manquent de biens : ajoute une usine ou un commerce.', 'warn');
+    S.lastWarn = S.day; say('Chômage élevé : ouvre des mines, des usines ou des commerces.', 'warn');
+  } else if (sat < 0.5 && dem.basic > 3 && S.day - S.lastWarn > 25) {
+    S.lastWarn = S.day; say('Les habitants manquent de biens : vérifie usines, matières premières et commerces.', 'warn');
   }
   if (S.cash < 0 && S.day - S.lastWarn > 25) {
-    S.lastWarn = S.day;
-    say('Trésorerie négative : démolis des bâtiments coûteux ou attends les revenus.', 'bad');
+    S.lastWarn = S.day; say('Trésorerie négative : démolis des bâtiments coûteux ou attends les revenus.', 'bad');
   }
 
   const worth = worthOf(ev, happy);
   S.hist.push(Math.round(worth));
   if (S.hist.length > 80) S.hist.shift();
   S.stats = {
-    pop, cap, jobs, workforce, employed, unemp, happy, income: taxIncome, upkeep, net, worth, cn, cc, sold, demandGoods,
+    pop, cap, jobs, workforce, employed, unemp, happy, income: taxIncome, upkeep, net, worth, cn, cc, sold: S.sold, soldDay: soldTotal, dem,
     demR: clamp((jobs - workforce) / Math.max(20, jobs + 10) + 0.25, -1, 1),
-    demC: clamp(1 - (un.shop * 16) / Math.max(1, demandGoods), -1, 1),
-    demI: clamp(unemp * 2 - 0.2, -1, 1),
-    oilProd, goodsProd, revOil, revFact, revShop
+    demC: clamp(1 - (retUnits * (0.4 + 0.6 * staff)) / Math.max(1, dem.basic + dem.std + dem.lux), -1, 1),
+    demI: clamp(unemp * 2 - 0.2, -1, 1)
   };
   checkMissions();
   if (S.day % 5 === 0) save();
@@ -579,7 +845,10 @@ function step() {
 
 function missionCtx() {
   const st = S.stats || {};
-  return { pop: st.pop || 0, cn: st.cn || { oil: 0, fact: 0, shop: 0, tech: 0, bank: 0 }, sold: S.sold, worth: st.worth || 0 };
+  const none = {}; Object.keys(TYPES).forEach(k => none[k] = 0);
+  let prodOn_ = 0, maxShare = 0;
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps && ps.st === 'on') { prodOn_++; maxShare = Math.max(maxShare, ps.share || 0); } });
+  return { pop: st.pop || 0, cn: st.cn || none, sold: S.sold, worth: st.worth || 0, prodOn: prodOn_, maxShare };
 }
 function checkMissions() {
   const c = missionCtx();
@@ -588,7 +857,7 @@ function checkMissions() {
     S.done.push(m.id);
     S.cash += m.r;
     say(`Mission accomplie : ${m.t}${m.r ? ' (+' + fmt(m.r) + ' $)' : ''}`, 'gold');
-    if (m.id === 'm10' && !S.won) { S.won = true; el('win').hidden = false; }
+    if (m.id === 'm16' && !S.won) { S.won = true; el('win').hidden = false; }
   });
 }
 
@@ -597,12 +866,30 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierOf(S.stats.worth || 0) < T.tier);
 }
+// vérifie si l'emprise est libre ; renvoie un message d'erreur ou ''
+function footprintError(x, y, key) {
+  const T = TYPES[key], w = T.w || 1, h = T.h || 1;
+  for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
+    if (!inb(x + ox, y + oy)) return 'Hors de la carte.';
+    if (S.grid[idx(x + ox, y + oy)]) return 'Case occupée.';
+    const d = S.dep[idx(x + ox, y + oy)];
+    if (T.ext) { if (!d || d.k !== T.ext) return `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
+    else if (d) return 'Cette case est un gisement : réserve-la à une mine.';
+  }
+  return '';
+}
+function placeBuilding(x, y, key) {
+  const T = TYPES[key], w = T.w || 1, h = T.h || 1;
+  const c = mkCell(key); c.x = x; c.y = y;
+  for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) S.grid[idx(x + ox, y + oy)] = (ox || oy) ? { t: 'part', ai: idx(x, y), ox, oy } : c;
+  return c;
+}
 function place(x, y, key) {
   if (!inb(x, y)) return false;
-  const c = cell(x, y);
+  const rc = rawCell(x, y), c = anchorOf(rc);
   if (key === 'bull') {
     if (!c) return false;
-    S.grid[idx(x, y)] = null;
+    for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) S.grid[idx(c.x + ox, c.y + oy)] = null;
     refreshStats(); updateHUD(); save();
     return true;
   }
@@ -614,19 +901,22 @@ function place(x, y, key) {
     S.cash -= cost;
     if (c.t === 'res') c.floors++; else c.lvl++;
     c.born = performance.now() - 300;
-    flyers.push({ x, y, text: '-' + fmt(cost), t: performance.now(), col: '#ff8a8e' });
+    flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cost), t: performance.now(), col: '#ff8a8e' });
     refreshStats(); checkMissions(); updateHUD();
     return true;
   }
-  if (c) return false;
   const T = TYPES[key];
   if (!T) return false;
   if (toolLocked(key)) { say(`${T.name} se débloque au palier ${TIERS[T.tier].n}.`, 'warn'); return false; }
+  const err = key === 'road' ? (rc ? 'Case occupée.' : '') : footprintError(x, y, key);
+  if (err) { if (!(key === 'road' && err === 'Case occupée.')) say(err, 'warn'); return false; }
   if (S.cash < T.cost) { say('Trésorerie insuffisante pour ' + T.name.toLowerCase() + '.', 'bad'); return false; }
   S.cash -= T.cost;
-  S.grid[idx(x, y)] = mkCell(key);
+  let b;
+  if (key === 'road') { b = mkCell('road'); b.x = x; b.y = y; S.grid[idx(x, y)] = b; }
+  else b = placeBuilding(x, y, key);
   flyers.push({ x, y, text: '-' + fmt(T.cost), t: performance.now(), col: '#ff8a8e' });
-  if (key !== 'road' && !connected(x, y)) say('Ce bâtiment ne touche aucune route : il ne produira rien.', 'warn');
+  if (key !== 'road' && !footConn(b)) say('Ce bâtiment ne touche aucune route : il ne produira rien.', 'warn');
   refreshStats(); checkMissions(); updateHUD();
   return true;
 }
@@ -647,18 +937,25 @@ function refreshStats() {
 function inspect(x, y) {
   const c = cell(x, y);
   selected = { x, y };
-  if (!c) { say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info'); return; }
+  const d = S.dep[idx(x, y)];
+  if (!c) {
+    if (d) say(`Gisement de ${DEPOSITS[d.k].name} · réserve ${fmt(d.r)} unités. Pose une mine dessus.`, 'info');
+    else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
+    return;
+  }
   if (c.t === 'road') { say(`Route (${x + 1}, ${y + 1}) · entretien 0,3 $/jour.`, 'info'); return; }
   const T = TYPES[c.t];
   const parts = [`${T.name} · ${T.sub}`];
   if (!c.conn) parts.push('non reliée à une route');
   else {
     parts.push(`impôts +${fmt(c.rev)} $/jour`);
-    const uc = upgradeCost(c); if (uc) parts.push(`amélioration ${money(uc)}`);
     if (T.jobs) parts.push(`${Math.round(T.jobs * levelMult(c))} emplois`);
     if (c.t === 'res') parts.push(`${6 + 4 * c.floors} logements, ${c.floors} étages`);
     else parts.push(`niveau ${c.lvl + 1}/${MAX_LVL + 1}`);
-    if (c.t === 'oil') parts.push(`${c.out.toFixed(1).replace('.', ',')} bbl/jour`);
+    if (T.ext) { const dd = S.dep[idx(c.x, c.y)]; parts.push(`${c.out.toFixed(1).replace('.', ',')} ${DEPOSITS[T.ext].name}/jour`); if (dd) parts.push(`réserve ${fmt(dd.r)}`); }
+    if (T.rec) { const k = Object.keys(T.rec.out)[0]; parts.push(`${c.out.toFixed(1).replace('.', ',')} ${GOODS[k].name.toLowerCase()}/jour`); }
+    const uc = upgradeCost(c); if (uc) parts.push(`amélioration ${money(uc)}`);
+    if (c.prod && PRODUCTS[c.prod]) parts.push('produit : ' + PRODUCTS[c.prod].name);
     if (S.day <= c.alertUntil) parts.push('goulot en cours');
   }
   say(parts.join(' · '), c.conn ? 'info' : 'warn');
@@ -677,10 +974,10 @@ function say(text, kind) {
 
 /* ---------- HUD et panneau ---------- */
 const goodsBox = el('goods');
-Object.keys(GOODS).forEach(g => {
+GKEYS.forEach(g => {
   const d = document.createElement('div');
   d.className = 'goods'; d.id = 'g-' + g;
-  d.innerHTML = `<span class="nm"><i style="background:${GOODS[g].color}"></i>${GOODS[g].name}</span><span class="px" id="gp-${g}">–</span><small id="gs-${g}"></small><small id="gt-${g}" style="text-align:right"></small><canvas id="gc-${g}" width="600" height="60"></canvas>`;
+  d.innerHTML = `<span class="nm"><i style="background:${GOODS[g].color}"></i>${GOODS[g].name}</span><span class="px" id="gp-${g}">–</span><canvas id="gc-${g}" width="116" height="56"></canvas><small id="gs-${g}"></small>`;
   goodsBox.appendChild(d);
 });
 const missionsEl = el('missions');
@@ -727,35 +1024,33 @@ function updateHUD() {
     const lock = toolLocked(k);
     b.classList.toggle('locked', lock);
     b.classList.toggle('poor', !lock && S.cash < T.cost);
-    const sm = b.querySelector('small');
-    sm.textContent = lock ? TIERS[T.tier].n : money(T.cost);
+    b.querySelector('small').textContent = lock ? TIERS[T.tier].n : money(T.cost);
   });
 
   S.done.forEach(id => { const li = el('ms-' + id); if (li) li.classList.add('done'); });
-  Object.keys(GOODS).forEach(g => {
-    const ph = S.ph[g], p = S.price[g], prev = ph.length > 1 ? ph[ph.length - 2] : p;
-    el('gp-' + g).textContent = p.toFixed(1).replace('.', ',') + ' $';
-    const d = prev ? (p - prev) / prev * 100 : 0;
-    const t = el('gt-' + g);
-    t.textContent = (d >= 0 ? '▲ +' : '▼ ') + d.toFixed(1).replace('.', ',') + ' %';
-    t.className = d >= 0 ? 'pos' : 'neg';
-    el('gs-' + g).textContent = 'stock ' + fmt(S.stock[g]) + (g === 'oil' ? ' bbl' : ' unités');
-    drawSeries(el('gc-' + g), ph, GOODS[g].color);
-  });
-  el('tax').value = Math.round(S.tax * 100);
-  el('taxV').textContent = Math.round(S.tax * 100) + ' %';
-  el('taxNote').textContent = S.tax > 0.3 ? 'Impôt élevé : plus de recettes, mais l\'humeur baisse.' : S.tax < 0.2 ? 'Impôt bas : les habitants sont plus heureux, mais la ville gagne moins.' : 'Impôt équilibré.';
-
-  const h = S.hist;
-  if (h.length) {
-    const last = h[h.length - 1], prev = h.length > 1 ? h[h.length - 2] : last;
-    el('gtiV').textContent = fmt(last / 100);
-    const d = prev ? ((last - prev) / Math.abs(prev)) * 100 : 0;
-    el('gtiD').textContent = (d >= 0 ? '+' : '') + d.toFixed(1).replace('.', ',') + ' %';
-    el('gtiD').className = d >= 0 ? 'pos' : 'neg';
+  if (!el('pview').hidden && !pvDrag) renderProducts();
+  if (!el('panel').hidden) {
+    GKEYS.forEach(g => {
+      const ph = S.ph[g], p = S.price[g], prev = ph.length > 1 ? ph[ph.length - 2] : p;
+      const d = prev ? (p - prev) / prev * 100 : 0;
+      el('gp-' + g).innerHTML = p.toFixed(1).replace('.', ',') + ' $ <span class="' + (d >= 0 ? 'pos' : 'neg') + '" style="font-size:10.5px">' + (d >= 0 ? '▲' : '▼') + '</span>';
+      el('gs-' + g).textContent = 'stock ' + fmt(S.stock[g]);
+      drawSeries(el('gc-' + g), ph, GOODS[g].color, true);
+    });
+    el('tax').value = Math.round(S.tax * 100);
+    el('taxV').textContent = Math.round(S.tax * 100) + ' %';
+    el('taxNote').textContent = S.tax > 0.3 ? 'Impôt élevé : plus de recettes, mais l\'humeur baisse.' : S.tax < 0.2 ? 'Impôt bas : les habitants sont plus heureux, mais la ville gagne moins.' : 'Impôt équilibré.';
+    const h = S.hist;
+    if (h.length) {
+      const last = h[h.length - 1], prev = h.length > 1 ? h[h.length - 2] : last;
+      el('gtiV').textContent = fmt(last / 100);
+      const d = prev ? ((last - prev) / Math.abs(prev)) * 100 : 0;
+      el('gtiD').textContent = (d >= 0 ? '+' : '') + d.toFixed(1).replace('.', ',') + ' %';
+      el('gtiD').className = d >= 0 ? 'pos' : 'neg';
+    }
+    setBar('dR', st.demR || 0); setBar('dC', st.demC || 0); setBar('dI', st.demI || 0);
+    drawSeries(el('spark'), h, '#f2b84b');
   }
-  setBar('dR', st.demR || 0); setBar('dC', st.demC || 0); setBar('dI', st.demI || 0);
-  if (!el('panel').hidden) drawSeries(el('spark'), h, '#f2b84b');
 }
 function setBar(id, v) {
   const e = el(id);
@@ -763,42 +1058,163 @@ function setBar(id, v) {
   e.style.width = Math.abs(v) * 50 + '%';
   e.style.left = v < 0 ? (50 - Math.abs(v) * 50) + '%' : '50%';
 }
-function drawSeries(c, h, col) {
+function drawSeries(c, h, col, small) {
   const g = c.getContext('2d'), W = c.width, H = c.height;
   g.clearRect(0, 0, W, H);
-  g.strokeStyle = 'rgba(143,154,203,.18)'; g.lineWidth = 1;
-  for (let i = 1; i < 3; i++) { g.beginPath(); g.moveTo(0, H * i / 3); g.lineTo(W, H * i / 3); g.stroke(); }
+  if (!small) {
+    g.strokeStyle = 'rgba(143,154,203,.18)'; g.lineWidth = 1;
+    for (let i = 1; i < 3; i++) { g.beginPath(); g.moveTo(0, H * i / 3); g.lineTo(W, H * i / 3); g.stroke(); }
+  }
   if (h.length < 2) return;
   const mn = Math.min(...h), mx = Math.max(...h), rg = Math.max(1e-6, mx - mn);
-  const pts = h.map((v, i) => [i / (h.length - 1) * (W - 12) + 3, H - 8 - (v - mn) / rg * (H - 18)]);
+  const pad = small ? 4 : 8;
+  const pts = h.map((v, i) => [i / (h.length - 1) * (W - 2 * pad) + pad, H - pad - (v - mn) / rg * (H - 2 * pad)]);
   const grad = g.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, col + '59'); grad.addColorStop(1, col + '00');
   g.beginPath(); g.moveTo(pts[0][0], H);
   pts.forEach(p => g.lineTo(p[0], p[1]));
   g.lineTo(pts[pts.length - 1][0], H); g.closePath(); g.fillStyle = grad; g.fill();
   g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]));
-  g.strokeStyle = col; g.lineWidth = 2.5; g.lineJoin = 'round'; g.stroke();
+  g.strokeStyle = col; g.lineWidth = small ? 3 : 2.5; g.lineJoin = 'round'; g.stroke();
   const e = pts[pts.length - 1];
   g.beginPath(); g.arc(e[0], e[1], 4.5, 0, 7); g.fillStyle = col; g.fill();
 }
 
+/* ---------- Vue Produits ---------- */
+let selProd = 'utensils', pvDrag = false;
+function facCounts(pk) {
+  const f = PRODUCTS[pk].fac; let total = 0, mine = 0, free = 0;
+  eachBuilding(c => { if (c.t !== f || !c.conn) return; total++; if (c.prod === pk) mine++; else if (!c.prod || !prodOn(c.prod)) free++; });
+  return { total, mine, free };
+}
+function launchProduct(pk) {
+  const pr = PRODUCTS[pk], ps = S.prod[pk];
+  const cost = Math.round(pr.rnd * QTIER[ps.q].rnd);
+  if (ps.st !== 'locked') return false;
+  if (pr.tier > tierOf(S.stats.worth || 0)) { say(`${pr.name} se débloque au palier ${TIERS[pr.tier].n}.`, 'warn'); return false; }
+  if (S.cash < cost) { say(`Il faut ${money(cost)} pour développer ${pr.name.toLowerCase()}.`, 'bad'); return false; }
+  S.cash -= cost; ps.st = 'rnd'; ps.rnd = pr.days; ps.brand = 0; ps.stock = 0;
+  say(`Développement lancé : ${pr.name} (${pr.days} jours).`, 'info');
+  refreshStats(); updateHUD(); return true;
+}
+function assignProduct(pk) {
+  let n = 0;
+  eachBuilding(c => { if (c.t === PRODUCTS[pk].fac && c.conn && c.prod !== pk && (!c.prod || !prodOn(c.prod))) { c.prod = pk; n++; } });
+  if (!n) say('Aucune usine libre de ce type. Construis-en ou libère-en une.', 'warn'); else say(`${n} usine(s) affectée(s) à ${PRODUCTS[pk].name.toLowerCase()}.`, 'good');
+  updateHUD(); return n;
+}
+function unassignProduct(pk) { eachBuilding(c => { if (c.prod === pk) c.prod = null; }); updateHUD(); }
+function stopProduct(pk) { unassignProduct(pk); const ps = S.prod[pk]; ps.st = 'locked'; ps.stock = 0; ps.brand = 0; ps.ph = []; updateHUD(); }
+function detailHTML(pk) {
+  const pr = PRODUCTS[pk], ps = S.prod[pk], col = CLS[pr.cls].color;
+  const recipe = Object.keys(pr.in).map(g => `${pr.in[g]} ${GOODS[g].name.toLowerCase()}`).join(' + ');
+  const facName = TYPES[pr.fac].name;
+  const head = `<h3 style="color:${col}">${pr.name}</h3><p class="note">${pr.desc} Catégorie ${CLS[pr.cls].name.toLowerCase()}, produit dans une ${facName.toLowerCase()}, vendu en ${pr.cls === 'lux' ? 'hypermarché' : pr.cls === 'std' ? 'supermarché ou hypermarché' : 'tout magasin'}.</p>`;
+  const rec = `<div class="kv"><div><small>Recette par cycle</small><b>${recipe}</b></div><div><small>Production</small><b>${pr.out} unités</b></div><div><small>Prix de référence</small><b>${money(pr.ref)}</b></div><div><small>Usines ${facName.toLowerCase()}</small><b>${facCounts(pk).total}</b></div></div>`;
+  if (ps.st === 'locked') {
+    const cost = Math.round(pr.rnd * QTIER[ps.q].rnd), lock = pr.tier > tierOf(S.stats.worth || 0);
+    return head + rec + `<span class="lbl">Niveau de qualité</span><div class="seg">${QTIER.map((q, i) => `<button type="button" data-act="q" data-v="${i}" aria-pressed="${ps.q === i}">${q.n}</button>`).join('')}</div>
+      <p class="note">Qualité ${QTIER[ps.q].q}/100 · intrants ×${QTIER[ps.q].inMult} · R&D ${pr.days} jours.</p>
+      <div class="actions"><button class="btn" data-act="launch" ${lock || S.cash < cost ? 'disabled' : ''}>${lock ? 'Palier ' + TIERS[pr.tier].n : 'Développer · ' + money(cost)}</button></div>`;
+  }
+  if (ps.st === 'rnd') {
+    return head + rec + `<span class="lbl">Développement en cours</span><div class="bar" style="margin-top:6px"><i style="width:${Math.round((1 - ps.rnd / pr.days) * 100)}%"></i></div><p class="note">Encore ${ps.rnd} jour(s) avant le lancement.</p>`;
+  }
+  const fc = facCounts(pk), price = prodPrice(pk);
+  return head + rec + `
+    <div class="kv">
+      <div><small>Prix de vente</small><b id="pd-price">${money(price)}</b></div>
+      <div><small>Qualité</small><b>${QTIER[ps.q].n} · ${QTIER[ps.q].q}/100</b></div>
+      <div><small>Part de marché</small><b>${Math.round(ps.share * 100)} %</b></div>
+      <div><small>Notoriété</small><b>${Math.round(ps.brand)}/100</b></div>
+      <div><small>Ventes par jour</small><b>${ps.sold.toFixed(1).replace('.', ',')}</b></div>
+      <div><small>Production par jour</small><b>${ps.made.toFixed(1).replace('.', ',')}</b></div>
+      <div><small>Stock</small><b>${fmt(ps.stock)}</b></div>
+      <div><small>Chiffre d'affaires / jour</small><b>${money(ps.rev)}</b></div>
+    </div>
+    <span class="lbl">Prix : ${Math.round(ps.pf * 100)} % du prix de référence</span>
+    <input type="range" id="pd-pf" min="60" max="160" step="5" value="${Math.round(ps.pf * 100)}" aria-label="Prix du produit">
+    <span class="lbl">Publicité</span>
+    <div class="seg">${ADV.map((a, i) => `<button type="button" data-act="adv" data-v="${i}" aria-pressed="${ps.adv === i}">${a.n}${a.cost ? ' · ' + a.cost + ' $/j' : ''}</button>`).join('')}</div>
+    <span class="lbl">Part de marché (historique)</span><canvas id="pd-spark" width="480" height="92"></canvas>
+    <p class="note">${fc.mine} usine(s) affectée(s), ${fc.free} libre(s) sur ${fc.total}. Une usine non affectée produit la marchandise générique.</p>
+    <div class="actions"><button class="btn" data-act="assign" ${fc.free ? '' : 'disabled'}>Affecter les usines libres (${fc.free})</button><button class="btn sec" data-act="unassign" ${fc.mine ? '' : 'disabled'}>Retirer des usines</button><button class="btn sec" data-act="stop">Arrêter le produit</button></div>`;
+}
+function renderProducts() {
+  if (el('pview').hidden) return;
+  const tr = tierOf(S.stats.worth || 0);
+  el('plist').innerHTML = PKEYS.map(pk => {
+    const pr = PRODUCTS[pk], ps = S.prod[pk], locked = pr.tier > tr && ps.st === 'locked';
+    const status = locked ? 'Palier ' + TIERS[pr.tier].n : ps.st === 'locked' ? 'À développer' : ps.st === 'rnd' ? 'R&D ' + ps.rnd + ' j' : 'Lancé · ' + Math.round(ps.share * 100) + ' %';
+    return `<button type="button" class="prow${pk === selProd ? ' sel' : ''}${locked ? ' lock' : ''}" data-p="${pk}"><i style="background:${CLS[pr.cls].color}"></i><span class="pn">${pr.name}</span><span class="pc">${CLS[pr.cls].name}</span><span class="ps">${status}</span></button>`;
+  }).join('');
+  el('pdetail').innerHTML = detailHTML(selProd);
+  const ps = S.prod[selProd];
+  if (ps.st === 'on') drawSeries(el('pd-spark'), ps.ph, CLS[PRODUCTS[selProd].cls].color);
+}
+el('plist').addEventListener('click', e => { const b = e.target.closest('.prow'); if (b) { selProd = b.dataset.p; renderProducts(); } });
+el('pdetail').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
+  const ps = S.prod[selProd], v = +b.dataset.v;
+  switch (b.dataset.act) {
+    case 'q': ps.q = v; break;
+    case 'launch': launchProduct(selProd); break;
+    case 'adv': ps.adv = v; break;
+    case 'assign': assignProduct(selProd); break;
+    case 'unassign': unassignProduct(selProd); break;
+    case 'stop': stopProduct(selProd); break;
+  }
+  renderProducts();
+});
+el('pdetail').addEventListener('input', e => {
+  if (e.target.id !== 'pd-pf') return;
+  S.prod[selProd].pf = +e.target.value / 100;
+  const pr = el('pd-price'); if (pr) pr.textContent = money(prodPrice(selProd));
+  e.target.previousElementSibling.textContent = 'Prix : ' + e.target.value + ' % du prix de référence';
+});
+['pointerdown', 'touchstart'].forEach(t => el('pdetail').addEventListener(t, e => { if (e.target.id === 'pd-pf') pvDrag = true; }, { passive: true }));
+['pointerup', 'touchend', 'change'].forEach(t => el('pdetail').addEventListener(t, () => { pvDrag = false; }, { passive: true }));
+function setPview(open) {
+  el('pview').hidden = !open;
+  el('pv').setAttribute('aria-pressed', open ? 'true' : 'false');
+  if (open) renderProducts();
+}
+el('pv').onclick = () => setPview(el('pview').hidden);
+el('pvclose').onclick = () => setPview(false);
+
 /* ---------- Barre d'outils ---------- */
-const toolsEl = $('#tools');
-TOOL_ORDER.forEach(k => {
+const catsEl = $('#cats'), toolsEl = $('#tools');
+CATS.forEach(c => {
+  const b = document.createElement('button');
+  b.className = 'cat'; b.type = 'button'; b.dataset.c = c.id; b.textContent = c.name;
+  b.setAttribute('aria-pressed', c.id === cat ? 'true' : 'false');
+  b.onclick = () => { cat = c.id; buildTools(); };
+  catsEl.appendChild(b);
+});
+function toolButton(k) {
   const T = TYPES[k] || TOOL_META[k];
   const b = document.createElement('button');
   b.className = 'tool'; b.dataset.k = k; b.type = 'button';
   b.style.color = T.color;
   b.setAttribute('aria-pressed', k === tool ? 'true' : 'false');
-  b.setAttribute('aria-label', T.name);
+  b.setAttribute('aria-label', T.name + (T.sub ? ' · ' + T.sub : ''));
+  b.title = T.name + (T.sub ? ' · ' + T.sub : '');
   const cost = TYPES[k] ? money(TYPES[k].cost) : T.sub;
-  b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg><span style="color:var(--fg)">${T.name}</span><small>${cost}</small>`;
+  b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[ICON_OF[k] || k]}</svg><span style="color:var(--fg)">${T.name}</span><small>${cost}</small>`;
   b.addEventListener('click', () => setTool(k));
-  toolsEl.appendChild(b);
-});
+  return b;
+}
+function buildTools() {
+  document.querySelectorAll('.cat').forEach(b => b.setAttribute('aria-pressed', b.dataset.c === cat ? 'true' : 'false'));
+  toolsEl.innerHTML = '';
+  ['view'].concat(CATS.find(c => c.id === cat).tools, ['up', 'bull']).forEach(k => toolsEl.appendChild(toolButton(k)));
+  if (S) updateHUD();
+}
 function setTool(k) {
   if (TYPES[k] && toolLocked(k)) { say(`${TYPES[k].name} se débloque au palier ${TIERS[TYPES[k].tier].n}.`, 'warn'); return; }
   tool = k;
+  const owner = CATS.find(c => c.tools.indexOf(k) >= 0);
+  if (owner && owner.id !== cat) { cat = owner.id; buildTools(); }
   document.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k ? 'true' : 'false'));
   const act = document.querySelector('.tool[aria-pressed="true"]');
   if (act && act.scrollIntoView) { try { act.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} }
@@ -819,7 +1235,7 @@ function setPanel(open) {
   el('panel').hidden = !open;
   el('pn').setAttribute('aria-pressed', open ? 'true' : 'false');
   if (open) updateHUD();
-  if (typeof resize === 'function' && W) resize();
+  if (W) resize();
 }
 el('pn').onclick = () => setPanel(el('panel').hidden);
 el('pclose').onclick = () => setPanel(false);
@@ -834,7 +1250,7 @@ el('rst').onclick = () => {
     return;
   }
   clearTimeout(rstTimer); rstTimer = 0; b.textContent = 'Reset'; b.classList.remove('warn');
-  S = newCity(); makeDecor(); cars = []; refreshStats(); S.hist = [Math.round(S.stats.worth)]; updateHUD(); save();
+  newCity(); makeDecor(); cars = []; refreshStats(); S.hist = [Math.round(S.stats.worth)]; centerOn(MID, MID); updateHUD(); save();
   say('Nouvelle ville créée.', 'info');
 };
 
@@ -842,12 +1258,14 @@ el('rst').onclick = () => {
 const cvs = $('#view');
 const ctx = cvs.getContext('2d');
 let W = 0, H = 0, dpr = 1, vx = 0, vy = 0, z = 0.3;
-const cam = { x: 0, y: N * TH / 2 - 40 };
+const cam = { x: 0, y: 0 };
 let fitted = false;
 const stars = Array.from({ length: 90 }, (_, i) => ({ x: hash(i, 1, 2), y: hash(i, 3, 4) * 0.62, r: 0.5 + hash(i, 5, 6) * 1.3, tw: hash(i, 7, 8) * 6 }));
 const flakes = Array.from({ length: 70 }, (_, i) => ({ x: hash(i, 9, 1), y: hash(i, 2, 9), r: 0.8 + hash(i, 4, 4) * 1.8, v: 0.3 + hash(i, 6, 3) * 0.7 }));
 const flyers = [];
 let cars = [];
+const iso = (x, y) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 });
+function centerOn(tx, ty) { const c = iso(tx + 0.5, ty + 0.5); cam.x = c.x; cam.y = c.y - 10; }
 
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -862,22 +1280,23 @@ function resize() {
   vx = (W - pw) / 2; vy = (topH + (H - botH)) / 2 + 20;
   if (!fitted) {
     const availW = W - 24, availH = (H - topH - botH) - 16;
-    z = clamp(Math.min(availW / (9 * TW + 60), availH / (9 * TH + SLAB + 260)), 0.16, 1.1);
-    const c0 = iso(6, 5.4); cam.x = c0.x; cam.y = c0.y - 10;
+    z = clamp(Math.min(availW / (9 * TW + 60), availH / (9 * TH + 260)), 0.18, 1.1);
+    centerOn(MID, MID);
   }
 }
 function zoomBy(f, px, py) {
   fitted = true;
   px = px == null ? vx : px; py = py == null ? vy : py;
   const wx = (px - vx) / z + cam.x, wy = (py - vy) / z + cam.y;
-  z = clamp(z * f, 0.16, 1.8);
+  z = clamp(z * f, 0.14, 1.8);
   cam.x = wx - (px - vx) / z; cam.y = wy - (py - vy) / z;
 }
-const iso = (x, y) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 });
-function screenToTile(px, py) {
+function screenToTileF(px, py) {
   const wx = (px - vx) / z + cam.x, wy = (py - vy) / z + cam.y;
-  const gx = (wx / (TW / 2) + wy / (TH / 2)) / 2, gy = (wy / (TH / 2) - wx / (TW / 2)) / 2;
-  const x = Math.floor(gx), y = Math.floor(gy);
+  return { gx: (wx / (TW / 2) + wy / (TH / 2)) / 2, gy: (wy / (TH / 2) - wx / (TW / 2)) / 2 };
+}
+function screenToTile(px, py) {
+  const t = screenToTileF(px, py), x = Math.floor(t.gx), y = Math.floor(t.gy);
   return inb(x, y) ? { x, y } : null;
 }
 
@@ -898,68 +1317,180 @@ function poly(pts, fill, stroke) {
 function roadMask(x, y) {
   return (isRoad(x + 1, y) ? 1 : 0) | (isRoad(x - 1, y) ? 2 : 0) | (isRoad(x, y + 1) ? 4 : 0) | (isRoad(x, y - 1) ? 8 : 0);
 }
+const mixCache = new Map();
+function mixC(a, b, t) {
+  const k = a + b + t; let v = mixCache.get(k); if (v) return v;
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  v = `rgb(${Math.round(lerp(pa >> 16, pb >> 16, t))},${Math.round(lerp((pa >> 8) & 255, (pb >> 8) & 255, t))},${Math.round(lerp(pa & 255, pb & 255, t))})`;
+  mixCache.set(k, v); return v;
+}
 
-// ancrages : sol 132x99 en (p.x-66, p.y) ; bâtiments sur socle 133x127 alignés par le bas ; sans socle 99x85 centrés sur la case
-function drawBuilding(c, x, y, o) {
+// gisements dessinés sur le sol
+function drawDeposit(p, d, now, x, y) {
+  const cx = p.x, cy = p.y + TH / 2, k = d.k;
+  ctx.save(); ctx.globalAlpha = d.r > 0 ? 1 : 0.35;
+  if (k === 'oil') {
+    ctx.fillStyle = '#241a3d'; ctx.beginPath(); ctx.ellipse(cx, cy, 44, 21, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#4b3b78'; ctx.beginPath(); ctx.ellipse(cx - 12, cy - 5, 16, 6, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#7b6cc0'; ctx.beginPath(); ctx.ellipse(cx - 18, cy - 7, 5, 2, 0, 0, 7); ctx.fill();
+  } else if (k === 'gold') {
+    ctx.fillStyle = '#c9972f'; ctx.beginPath(); ctx.ellipse(cx, cy, 40, 19, 0, 0, 7); ctx.fill();
+    for (let i = 0; i < 6; i++) {
+      const a = hash(x, y, i) * 6.28, r = hash(i, x, y) * 0.8;
+      const tw = 0.5 + 0.5 * Math.sin(now / 400 + i * 2 + x);
+      ctx.fillStyle = `rgba(255,236,150,${0.5 + 0.5 * tw})`;
+      const sx = cx + Math.cos(a) * r * 34, sy = cy + Math.sin(a) * r * 15;
+      ctx.beginPath(); ctx.moveTo(sx, sy - 6); ctx.lineTo(sx + 3, sy); ctx.lineTo(sx, sy + 6); ctx.lineTo(sx - 3, sy); ctx.closePath(); ctx.fill();
+    }
+  } else {
+    const col = k === 'iron' ? ['#8a4630', '#b4614a'] : k === 'coal' ? ['#1d1f2b', '#3a3d52'] : ['#1f8f7d', '#46d3bb'];
+    ctx.fillStyle = col[0]; ctx.beginPath(); ctx.ellipse(cx, cy, 42, 20, 0, 0, 7); ctx.fill();
+    for (let i = 0; i < 5; i++) {
+      const sx = cx + (hash(x, y, i) - 0.5) * 56, sy = cy + (hash(y, x, i + 7) - 0.5) * 22;
+      ctx.fillStyle = col[1]; ctx.beginPath();
+      ctx.moveTo(sx, sy - 6); ctx.lineTo(sx + 8, sy - 2); ctx.lineTo(sx, sy + 3); ctx.lineTo(sx - 8, sy - 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = col[0]; ctx.beginPath(); ctx.moveTo(sx - 8, sy - 2); ctx.lineTo(sx, sy + 3); ctx.lineTo(sx, sy + 7); ctx.lineTo(sx - 8, sy + 2); ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+// tas de minerai (petits cubes)
+function drawPile(cx, cy, col) {
+  const cube = (x, y, s) => {
+    ctx.fillStyle = mixC(col, '#ffffff', 0.25); ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x + s, y - s / 2); ctx.lineTo(x, y); ctx.lineTo(x - s, y - s / 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - s, y - s / 2); ctx.lineTo(x, y); ctx.lineTo(x, y + s * 0.9); ctx.lineTo(x - s, y + s * 0.4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = mixC(col, '#000000', 0.35); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s, y - s / 2); ctx.lineTo(x + s, y + s * 0.4); ctx.lineTo(x, y + s * 0.9); ctx.closePath(); ctx.fill();
+  };
+  cube(cx - 8, cy, 10); cube(cx + 8, cy + 4, 10); cube(cx, cy - 8, 9);
+}
+
+function drawPumpjack(cx, cy, now, seed, active) {
+  ctx.fillStyle = '#2a3150'; ctx.beginPath(); ctx.moveTo(cx, cy - 16); ctx.lineTo(cx + 34, cy); ctx.lineTo(cx, cy + 16); ctx.lineTo(cx - 34, cy); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#3b4670'; ctx.beginPath(); ctx.moveTo(cx - 34, cy); ctx.lineTo(cx, cy + 16); ctx.lineTo(cx, cy + 22); ctx.lineTo(cx - 34, cy + 6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#222845'; ctx.beginPath(); ctx.moveTo(cx, cy + 16); ctx.lineTo(cx + 34, cy); ctx.lineTo(cx + 34, cy + 6); ctx.lineTo(cx, cy + 22); ctx.closePath(); ctx.fill();
+  const ang = active ? Math.sin(now / 520 + seed * 6) * 0.2 : 0.05;
+  const px = cx, py = cy - 48;
+  ctx.strokeStyle = '#8a97bd'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - 14, cy + 2); ctx.lineTo(px, py); ctx.lineTo(cx + 14, cy + 2); ctx.stroke();
+  const L = 40, ca = Math.cos(ang), sa = Math.sin(ang);
+  const hx = px - L * ca, hy = py - L * sa + 4, bx = px + L * 0.8 * ca, by = py + L * 0.8 * sa + 4;
+  ctx.strokeStyle = '#ffb15c'; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(bx, by); ctx.stroke();
+  ctx.fillStyle = '#ff8a3d'; ctx.beginPath(); ctx.moveTo(hx - 2, hy - 8); ctx.lineTo(hx + 8, hy - 2); ctx.lineTo(hx - 2, hy + 14); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ff5a5f'; ctx.fillRect(bx - 4, by - 6, 12, 14);
+  ctx.strokeStyle = '#c9d2ee'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(hx, hy + 12); ctx.lineTo(hx, cy - 4); ctx.stroke();
+  ctx.fillStyle = '#e9edff'; ctx.beginPath(); ctx.arc(px, py + 4, 4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#8e95a8'; ctx.fillRect(cx + 16, cy - 16, 16, 18);
+  ctx.fillStyle = '#b7bdcc'; ctx.beginPath(); ctx.ellipse(cx + 24, cy - 16, 8, 4, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#ff8a3d'; ctx.fillRect(cx + 16, cy - 9, 16, 3);
+}
+
+function chimney(cx, cy, h, now, seed, glow, conn, alpha) {
+  ctx.fillStyle = '#6b6f7c'; ctx.fillRect(cx - 4, cy - h, 9, h);
+  ctx.fillStyle = '#ff5a5f'; ctx.fillRect(cx - 4, cy - h, 9, 6);
+  ctx.fillStyle = '#e9edff'; ctx.fillRect(cx - 4, cy - h + 6, 9, 6);
+  if (!conn) return;
+  if (glow) {
+    const fl = 4 + Math.sin(now / 120 + seed * 20) * 1.4;
+    ctx.shadowColor = glow; ctx.shadowBlur = 14; ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cx, cy - h - 4, fl, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+  }
+  for (let i = 0; i < 3; i++) {
+    const tt = ((now / 1900) + i / 3 + seed) % 1;
+    ctx.globalAlpha = alpha * (1 - tt) * 0.45;
+    ctx.fillStyle = '#d7dbea';
+    ctx.beginPath(); ctx.arc(cx + tt * 18, cy - h - 6 - tt * 40, 5 + tt * 9, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = alpha;
+}
+function sign(cx, cy, text, col) {
+  ctx.font = '800 22px "Big Shoulders Display", Arial';
+  const w = ctx.measureText(text).width + 18;
+  ctx.fillStyle = 'rgba(9,13,28,.92)'; ctx.strokeStyle = col; ctx.lineWidth = 3;
+  ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(cx - w / 2, cy - 14, w, 28, 6); else ctx.rect(cx - w / 2, cy - 14, w, 28); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, cx, cy + 1);
+}
+
+// sprite d'une case de l'emprise
+function tileSprite(a, ox, oy) {
+  const k = Math.floor(a.seed * 997) + ox * 3 + oy * 5;
+  switch (a.t) {
+    case 'f1': return 'fsmall' + (k % 2);
+    case 'f2': case 'f3': return 'fact' + (k % 2);
+    case 'foundry': return 'oil' + (k % 2);
+    case 's1': return 'shop' + [0, 4, 5, 6][k % 4];
+    case 's2': return 'shop' + [7, 8][k % 2];
+    case 's3': return 'shop' + [9, 10, 11, 1][k % 4];
+    case 'miron': case 'mcoal': case 'mcopper': case 'mgold': return 'mine' + (k % 2);
+  }
+  return null;
+}
+function drawTileOf(a, x, y, ox, oy, o) {
   const p = iso(x, y);
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
-  const alpha = (o.alpha == null ? 1 : o.alpha) * (o.conn ? 1 : 0.7);
-  ctx.globalAlpha = alpha;
-  const k = Math.floor(c.seed * 997);
-  let topY = p.y;
-  if (c.t === 'res' || c.t === 'tech' || c.t === 'bank') {
-    const name = c.t === 'res' ? 'res' + (k % 9) : c.t === 'tech' ? 'tech' + (k % 2) : 'bank' + (k % 2);
-    const floors = Math.max(1, Math.round((c.floors + (c.t === 'res' ? 0 : c.lvl)) * (c.t === 'res' ? 1 : grow)));
+  ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
+  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank') {
+    const k = Math.floor(a.seed * 997);
+    const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' ? 'tech' + (k % 2) : 'bank' + (k % 2);
+    const floors = Math.max(1, Math.round((a.floors + (a.t === 'res' ? 0 : a.lvl)) * (a.t === 'res' ? 1 : grow)));
     const bx = p.x - 50, by = p.y - 27;
     for (let i = 0; i < floors; i++) blit(name, bx, by - i * FH);
-    topY = by - (floors - 1) * FH;
-    if (c.t === 'tech' && o.conn) { // balise rouge clignotante
-      if (Math.sin(o.now / 350 + c.seed * 9) > 0.2) {
-        ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 10; ctx.fillStyle = '#ff5a5f';
-        ctx.beginPath(); ctx.arc(p.x, topY + 26, 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
-      }
+    a._top = by - (floors - 1) * FH;
+  } else {
+    const name = tileSprite(a, ox, oy), s = name && SP[name];
+    if (s) ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] / 2, p.y + 99 - s[3] + (1 - grow) * 30, s[2], s[3] * grow);
+    if (ox === 0 && oy === 0) a._top = p.y - 28;
+  }
+  ctx.globalAlpha = 1;
+}
+function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
+  const fx = a.x + a.w - 1, fy = a.y + a.h - 1, p = iso(fx, fy), now = o.now;
+  const grow = o.born != null ? easeOut(clamp((now - o.born) / 600, 0, 1)) : 1;
+  const conn = a.conn || o.ghost, alpha = (o.alpha == null ? 1 : o.alpha) * (conn ? 1 : 0.7);
+  ctx.globalAlpha = alpha;
+  const T = TYPES[a.t];
+  let topY = a._top == null ? p.y - 28 : a._top;
+  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank') {
+    if (a.t === 'tech' && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
+      ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 10; ctx.fillStyle = '#ff5a5f';
+      ctx.beginPath(); ctx.arc(p.x, topY + 26, 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
     }
-    if (c.t === 'bank' && o.conn) {
+    if (a.t === 'bank' && conn) {
       ctx.shadowColor = '#f2b84b'; ctx.shadowBlur = 12; ctx.fillStyle = '#ffe08a';
       ctx.font = '800 20px "Big Shoulders Display", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('$', p.x, topY + 22); ctx.shadowBlur = 0;
     }
-  } else {
-    const name = c.t === 'shop' ? 'shop' + (k % 12) : c.t === 'fact' ? 'fact' + (k % 2) : 'oil' + (k % 2);
-    const s = SP[name];
-    if (s) { const sc = grow; ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] / 2, p.y + 99 - s[3] + (1 - sc) * 30, s[2], s[3] * sc); }
-    topY = p.y - 28;
-    if ((c.t === 'oil' || c.t === 'fact') && grow >= 1) { // cheminée et fumée
-      const cx = p.x + 22, cy = p.y + 6;
-      ctx.fillStyle = '#6b6f7c'; ctx.fillRect(cx - 4, cy - 52, 9, 52);
-      ctx.fillStyle = '#ff5a5f'; ctx.fillRect(cx - 4, cy - 52, 9, 6);
-      ctx.fillStyle = '#e9edff'; ctx.fillRect(cx - 4, cy - 46, 9, 6);
-      topY = cy - 52;
-      if (o.conn) {
-        if (c.t === 'oil') {
-          const fl = 4 + Math.sin(o.now / 120 + c.seed * 20) * 1.4;
-          ctx.shadowColor = '#ff8a3d'; ctx.shadowBlur = 14; ctx.fillStyle = '#ffb15c';
-          ctx.beginPath(); ctx.arc(cx, cy - 56, fl, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
-        }
-        for (let i = 0; i < 3; i++) {
-          const tt = ((o.now / 1900) + i / 3 + c.seed) % 1;
-          ctx.globalAlpha = alpha * (1 - tt) * 0.45;
-          ctx.fillStyle = '#d7dbea';
-          ctx.beginPath(); ctx.arc(cx + tt * 18, cy - 58 - tt * 40, 5 + tt * 9, 0, 7); ctx.fill();
-        }
-        ctx.globalAlpha = alpha;
-      }
+  } else if (a.t === 'well') {
+    drawPumpjack(p.x, p.y + 33, now, a.seed, conn && a.out > 0.01); topY = p.y - 50;
+  } else if (T.ext) {
+    const col = { miron: '#b4614a', mcoal: '#2a2c3a', mcopper: '#2fb89d', mgold: '#f2b84b' }[a.t];
+    if (grow >= 1) {
+      if (a.t === 'mgold' && conn) { ctx.shadowColor = '#f2b84b'; ctx.shadowBlur = 16; }
+      drawPile(p.x + 36, p.y + 56, col); ctx.shadowBlur = 0;
     }
+    topY = p.y - 28;
+  } else if (grow >= 1) {
+    if (a.t === 'f1') { chimney(p.x + 24, p.y + 14, 40, now, a.seed, null, conn, alpha); topY = p.y - 30; }
+    else if (a.t === 'f2') { chimney(p.x + 6, p.y + 6, 52, now, a.seed, null, conn, alpha); chimney(p.x - 30, p.y - 8, 44, now, a.seed + 0.3, null, conn, alpha); topY = p.y - 50; }
+    else if (a.t === 'f3') {
+      chimney(p.x + 20, p.y + 8, 60, now, a.seed, null, conn, alpha); chimney(p.x - 28, p.y - 6, 54, now, a.seed + 0.3, null, conn, alpha);
+      chimney(p.x - 62, p.y - 38, 48, now, a.seed + 0.6, null, conn, alpha);
+      sign(p.x - 10, p.y - 62, 'USINE', '#ff4fa3'); topY = p.y - 90;
+    }
+    else if (a.t === 'foundry') { chimney(p.x + 22, p.y + 6, 52, now, a.seed, '#ffd76a', conn, alpha); topY = p.y - 50; }
+    else if (a.t === 's2') { sign(p.x - 30, p.y - 36, 'SUPER', '#7f96ff'); topY = p.y - 60; }
+    else if (a.t === 's3') { sign(p.x - 28, p.y - 62, 'HYPER', '#ff4fa3'); topY = p.y - 90; }
   }
   ctx.globalAlpha = 1;
-  if (c.lvl > 0 && c.t !== 'res') {      // étoiles de niveau
+  if (a.lvl > 0 && a.t !== 'res') {
     ctx.fillStyle = '#f2b84b'; ctx.shadowColor = '#f2b84b'; ctx.shadowBlur = 8;
     ctx.font = '700 22px "IBM Plex Sans", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('★'.repeat(c.lvl), p.x, topY - (o.alert ? 52 : 14)); ctx.shadowBlur = 0;
+    ctx.fillText('★'.repeat(a.lvl), p.x, topY - (o.alert ? 52 : 14)); ctx.shadowBlur = 0;
   }
   if (o.alert) {
-    const bob = Math.sin(o.now / 220) * 3;
-    const ay = topY - 22 + bob;
+    const bob = Math.sin(now / 220) * 3, ay = topY - 22 + bob;
     ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 14;
     ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(p.x, ay, 13, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
     ctx.fillStyle = '#fff'; ctx.font = '700 17px "IBM Plex Sans", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -968,12 +1499,15 @@ function drawBuilding(c, x, y, o) {
 }
 
 const CAR_MODELS = ['Red-Sedan1', 'Blue-Sedan2', 'Green-Sedan3', 'Black-Sedan4', 'Silver-Pick-up1', 'Black-Truck1'];
+let roadList = [];
+function refreshRoadList() {
+  roadList = [];
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') roadList.push([i % N, Math.floor(i / N)]); }
+}
 function spawnCars() {
-  const roads = [];
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (isRoad(x, y)) roads.push([x, y]);
-  const want = Math.min(30, Math.floor(roads.length * 0.6));
-  while (cars.length < want && roads.length) {
-    const r = roads[Math.floor(Math.random() * roads.length)];
+  const want = Math.min(110, Math.floor(roadList.length * 0.25));
+  while (cars.length < want && roadList.length) {
+    const r = roadList[Math.floor(Math.random() * roadList.length)];
     cars.push({ x: r[0], y: r[1], nx: r[0], ny: r[1], px: -1, py: -1, t: 1, sp: 0.5 + Math.random() * 0.6, m: CAR_MODELS[Math.floor(Math.random() * CAR_MODELS.length)] });
   }
   if (cars.length > want) cars.length = want;
@@ -985,9 +1519,8 @@ function updateCars(dt) {
   spawnCars();
   for (const c of cars) {
     if (!isRoad(c.x, c.y)) {
-      const roads = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (isRoad(x, y)) roads.push([x, y]);
-      if (!roads.length) continue;
-      const r = roads[Math.floor(Math.random() * roads.length)]; c.x = c.nx = r[0]; c.y = c.ny = r[1]; c.t = 1;
+      if (!roadList.length) continue;
+      const r = roadList[Math.floor(Math.random() * roadList.length)]; c.x = c.nx = r[0]; c.y = c.ny = r[1]; c.t = 1;
     }
     c.t += c.sp * dt * speedFactor();
     if (c.t >= 1) {
@@ -1020,16 +1553,26 @@ function drawSky(now) {
     ctx.fillStyle = '#dfe6ff'; ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, 7); ctx.fill();
   }
   ctx.globalAlpha = 1;
-  const rg = ctx.createRadialGradient(vx, vy, 10, vx, vy, Math.max(W, H) * 0.6);
-  rg.addColorStop(0, 'rgba(255,140,100,.16)'); rg.addColorStop(1, 'rgba(255,140,100,0)');
-  ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+}
+
+// bornes de la grille visibles à l'écran (marge pour les bâtiments hauts)
+function visibleRange() {
+  const pts = [screenToTileF(0, 0), screenToTileF(W, 0), screenToTileF(0, H), screenToTileF(W, H)];
+  let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
+  pts.forEach(p => { minx = Math.min(minx, p.gx); maxx = Math.max(maxx, p.gx); miny = Math.min(miny, p.gy); maxy = Math.max(maxy, p.gy); });
+  const m = 4;
+  return { x0: clamp(Math.floor(minx) - 1, 0, N - 1), x1: clamp(Math.ceil(maxx) + 1 + m, 0, N - 1), y0: clamp(Math.floor(miny) - 1, 0, N - 1), y1: clamp(Math.ceil(maxy) + 1 + m, 0, N - 1) };
+}
+function eachVisible(vr, fn) {
+  const dmin = vr.x0 + vr.y0, dmax = vr.x1 + vr.y1;
+  for (let d = dmin; d <= dmax; d++) for (let x = Math.max(vr.x0, d - vr.y1); x <= Math.min(vr.x1, d - vr.y0); x++) fn(x, d - x);
 }
 
 function frame(now) {
   requestAnimationFrame(frame);
   if (!S) return;
   const dt = Math.min(0.1, (now - (frame.last || now)) / 1000); frame.last = now;
-  if (speed) { frame.acc = (frame.acc || 0) + dt * 1000 * (speed === 3 ? 3 : 1); while (frame.acc >= DAY_MS) { frame.acc -= DAY_MS; step(); } }
+  if (speed) { frame.acc = (frame.acc || 0) + dt * 1000 * (speed === 3 ? 3 : 1); let g = 0; while (frame.acc >= DAY_MS && g++ < 5) { frame.acc -= DAY_MS; step(); } }
   updateCars(dt);
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1040,46 +1583,74 @@ function frame(now) {
   ctx.translate(vx - cam.x * z, vy - cam.y * z); ctx.scale(z, z);
 
   if (atlasReady) {
-    // socle sous la grille : masque les micro-interstices entre tuiles
-    poly([iso(0, 0), iso(N, 0), iso(N, N), iso(0, N)].map((p, i) => ({ x: p.x, y: p.y })), '#d8d3bf');
-    // passe 1 : sol, routes
-    for (let d = 0; d <= 2 * N - 2; d++) for (let x = Math.max(0, d - N + 1); x <= Math.min(N - 1, d); x++) {
-      const y = d - x, p = iso(x, y), c = S.grid[idx(x, y)];
-      if (c && c.t === 'road') blit('road' + roadMask(x, y), p.x - 66, p.y);
+    poly([iso(0, 0), iso(N, 0), iso(N, N), iso(0, N)], '#d8d3bf');
+    const vr = visibleRange();
+    const pulse = 0.5 + 0.5 * Math.sin(now / 300);
+    const wantDep = TYPES[tool] && TYPES[tool].ext;
+    // passe 1 : sol, routes, gisements
+    eachVisible(vr, (x, y) => {
+      const p = iso(x, y), rc = S.grid[idx(x, y)];
+      if (rc && rc.t === 'road') blit('road' + roadMask(x, y), p.x - 66, p.y);
       else blit('ground', p.x - 66, p.y);
       ctx.fillStyle = SEASON_TINT[season];
       ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill();
-      if (c && c.t !== 'road' && !c.conn) { ctx.setLineDash([8, 6]); ctx.lineWidth = 3; poly(tilePts(p, 0.86), null, 'rgba(255,90,95,' + (0.6 + 0.35 * Math.sin(now / 300)) + ')'); ctx.setLineDash([]); }
+      const d = S.dep[idx(x, y)];
+      if (d) {
+        drawDeposit(p, d, now, x, y);
+        if (wantDep === d.k && !rc) { ctx.lineWidth = 4; poly(tilePts(p, 0.92), null, `rgba(255,255,255,${0.35 + 0.5 * pulse})`); }
+      }
+      if (rc && rc.t === 'part') return;
+      if (rc && rc.t !== 'road' && !rc.conn) { ctx.setLineDash([8, 6]); ctx.lineWidth = 3; poly(tilePts(p, 0.86), null, 'rgba(255,90,95,' + (0.6 + 0.35 * pulse) + ')'); ctx.setLineDash([]); }
+    });
+    // voitures visibles
+    for (const car of cars) {
+      const a = iso(car.x, car.y), sx = (a.x - cam.x) * z + vx, sy = (a.y - cam.y) * z + vy;
+      if (sx < -80 || sx > W + 80 || sy < -80 || sy > H + 80) continue;
+      drawCar(car);
     }
-    for (const car of cars) drawCar(car);
 
     // survol / aperçu
     let ghost = null;
     if (hover) {
-      const c = cell(hover.x, hover.y), p = iso(hover.x, hover.y);
-      let ok = false;
+      const rc = rawCell(hover.x, hover.y), c = anchorOf(rc);
+      let ok = false, w = 1, h = 1;
+      const T = TYPES[tool];
+      if (T && T.w) { w = T.w; h = T.h; }
       if (tool === 'bull') ok = !!c;
       else if (tool === 'up') ok = !!c && c.t !== 'road' && upgradeCost(c) > 0 && S.cash >= upgradeCost(c);
-      else if (tool !== 'view') ok = !c && S.cash >= TYPES[tool].cost && !toolLocked(tool);
+      else if (tool !== 'view') ok = !toolLocked(tool) && S.cash >= T.cost && (tool === 'road' ? !rc : !footprintError(hover.x, hover.y, tool));
       const col = tool === 'view' ? 'rgba(233,237,255,.9)' : ok ? 'rgba(70,211,154,.95)' : 'rgba(255,90,95,.95)';
       ctx.lineWidth = 4;
-      poly(tilePts(p), tool === 'view' ? null : (ok ? 'rgba(70,211,154,.22)' : 'rgba(255,90,95,.22)'), col);
-      if (ok && tool !== 'view' && tool !== 'bull' && tool !== 'up' && tool !== 'road') ghost = { x: hover.x, y: hover.y, key: tool };
+      for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
+        poly(tilePts(iso(hover.x + ox, hover.y + oy)), tool === 'view' ? null : (ok ? 'rgba(70,211,154,.22)' : 'rgba(255,90,95,.22)'), col);
+      }
+      if (ok && T && !T.ext && tool !== 'road') { const g = mkCell(tool, 0.5); g.x = hover.x; g.y = hover.y; ghost = g; }
     }
     if (selected && tool === 'view') { ctx.lineWidth = 4; poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }
 
-    // passe 2 : arbres et bâtiments, dans l'ordre de profondeur
+    // passe 2 : arbres et bâtiments dans l'ordre de profondeur
     const treeCol = season === 3 ? 0.6 : 1;
-    for (let d = 0; d <= 2 * N - 2; d++) for (let x = Math.max(0, d - N + 1); x <= Math.min(N - 1, d); x++) {
-      const y = d - x, c = S.grid[idx(x, y)], p = iso(x, y);
-      if (c) {
-        if (c.t !== 'road') drawBuilding(c, x, y, { now, born: c.born, conn: c.conn, alert: S.day <= c.alertUntil });
-      } else if (decor[idx(x, y)]) {
-        const dc = decor[idx(x, y)];
+    eachVisible(vr, (x, y) => {
+      const i = idx(x, y), rc = S.grid[i], p = iso(x, y);
+      if (rc) {
+        if (rc.t !== 'road') {
+          const a = anchorOf(rc);
+          if (a) {
+            const ox = rc.t === 'part' ? rc.ox : 0, oy = rc.t === 'part' ? rc.oy : 0;
+            const o = { now, born: a.born, alert: S.day <= a.alertUntil };
+            drawTileOf(a, x, y, ox, oy, o);
+            if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawOverlay(a, o);
+          }
+        }
+      } else if (decor[i] && !S.dep[i]) {
+        const dc = decor[i];
         ctx.globalAlpha = treeCol; blit('tree', p.x - 16 + dc.dx, p.y + 33 - 42 + dc.dy); ctx.globalAlpha = 1;
       }
-      if (ghost && ghost.x === x && ghost.y === y) drawBuilding(mkCell(ghost.key, 0.5), x, y, { now, conn: true, alpha: 0.65 });
-    }
+      if (ghost && x === ghost.x + ghost.w - 1 && y === ghost.y + ghost.h - 1) {
+        for (let gx = 0; gx < ghost.w; gx++) for (let gy = 0; gy < ghost.h; gy++) drawTileOf(ghost, ghost.x + gx, ghost.y + gy, gx, gy, { now, alpha: 0.65, ghost: true });
+        drawOverlay(ghost, { now, alpha: 0.65, ghost: true });
+      }
+    });
     // flyers (-$)
     for (let i = flyers.length - 1; i >= 0; i--) {
       const f = flyers[i], age = (now - f.t) / 900;
@@ -1101,12 +1672,53 @@ function frame(now) {
   }
 }
 
+/* ---------- Minimap ---------- */
+const mmOff = document.createElement('canvas'); mmOff.width = N; mmOff.height = N;
+const mmOffCtx = mmOff.getContext('2d');
+const MM_COL = { road: [120, 128, 170], res: [127, 150, 255], tech: [63, 216, 255], bank: [242, 184, 75], well: [255, 138, 61], miron: [196, 102, 74], mcoal: [143, 154, 203], mcopper: [63, 216, 192], mgold: [242, 184, 75], foundry: [255, 215, 106], f1: [70, 211, 154], f2: [127, 150, 255], f3: [255, 79, 163], s1: [70, 211, 154], s2: [127, 150, 255], s3: [255, 79, 163] };
+const DEP_COL = { oil: [60, 40, 110], iron: [150, 80, 55], coal: [60, 62, 80], copper: [40, 150, 130], gold: [220, 170, 50] };
+function drawMinimap() {
+  if (!S) return;
+  const img = mmOffCtx.createImageData(N, N), d = img.data;
+  for (let i = 0; i < N * N; i++) {
+    const c = S.grid[i], a = c && c.t === 'part' ? S.grid[c.ai] : c, dep = S.dep[i];
+    let col = [60, 66, 100];
+    if (dep) col = DEP_COL[dep.k];
+    if (a) col = MM_COL[a.t] || col;
+    d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255;
+  }
+  mmOffCtx.putImageData(img, 0, 0);
+  ['mm', 'mm2'].forEach(id => {
+    const cv = el(id);
+    if (!cv || cv.offsetParent === null) return;
+    const g = cv.getContext('2d'), sc = cv.width / N;
+    g.imageSmoothingEnabled = false;
+    g.clearRect(0, 0, cv.width, cv.height);
+    g.drawImage(mmOff, 0, 0, cv.width, cv.height);
+    const pts = [screenToTileF(0, 0), screenToTileF(W, 0), screenToTileF(W, H), screenToTileF(0, H)];
+    g.beginPath(); pts.forEach((p, i) => { const x = p.gx * sc, y = p.gy * sc; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
+    g.strokeStyle = '#ffffff'; g.lineWidth = 1.5; g.stroke();
+  });
+}
+['mm', 'mm2'].forEach(id => {
+  const cv = el(id);
+  const go = e => {
+    const r = cv.getBoundingClientRect();
+    const tx = (e.clientX - r.left) / r.width * N, ty = (e.clientY - r.top) / r.height * N;
+    fitted = true; centerOn(clamp(tx, 0, N - 1), clamp(ty, 0, N - 1));
+  };
+  let down = false;
+  cv.addEventListener('pointerdown', e => { down = true; cv.setPointerCapture(e.pointerId); go(e); });
+  cv.addEventListener('pointermove', e => { if (down) go(e); });
+  cv.addEventListener('pointerup', () => { down = false; });
+});
+
 /* ---------- Entrées ---------- */
 const pointers = new Map();
 let gesture = null, lastTile = null, spaceDown = false;
 const hint = $('#hint');
 function dismissHint() { if (hint && !hint.hidden) hint.hidden = true; }
-setTimeout(dismissHint, 25000);
+setTimeout(dismissHint, 30000);
 const pos = e => { const r = cvs.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
 function applyAt(p) {
   const t = screenToTile(p.x, p.y);
@@ -1141,7 +1753,7 @@ cvs.addEventListener('pointermove', e => {
     const [a, b] = [...pointers.values()];
     const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    zoomBy(clamp(gesture.z0 * d / gesture.d0, 0.16, 1.8) / z, mx, my);
+    zoomBy(clamp(gesture.z0 * d / gesture.d0, 0.14, 1.8) / z, mx, my);
   } else if (gesture.mode === 'pan') {
     const dx = p.x - gesture.sx, dy = p.y - gesture.sy;
     if (Math.abs(dx) + Math.abs(dy) > 6) gesture.moved = true;
@@ -1168,8 +1780,13 @@ window.addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return;
   if (e.code === 'Space') { spaceDown = true; e.preventDefault(); }
   const n = parseInt(e.key, 10);
-  if (n >= 1 && n <= TOOL_ORDER.length) setTool(TOOL_ORDER[n - 1]);
+  if (n >= 1 && n <= 9) setTool(TOOL_KEYS[n - 1]);
   if (e.key === 'Escape') setTool('view');
+  const st = 80 / z;
+  if (e.key === 'ArrowLeft') cam.x -= st;
+  if (e.key === 'ArrowRight') cam.x += st;
+  if (e.key === 'ArrowUp') cam.y -= st;
+  if (e.key === 'ArrowDown') cam.y += st;
 });
 window.addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
 window.addEventListener('resize', resize);
@@ -1180,15 +1797,18 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && S) 
 /* ---------- Démarrage ---------- */
 S = load() || newCity();
 makeDecor();
+buildTools();
 resize();
 refreshStats();
 if (!S.hist.length) S.hist.push(Math.round(S.stats.worth));
 checkMissions();
+refreshRoadList();
+setInterval(() => { refreshRoadList(); drawMinimap(); }, 700);
 updateHUD();
 setTool('res');
 if (window.innerWidth >= 1000) setPanel(true);
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats };
+window.WSE = { get S() { return S; }, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice };
 })();
 </script>
 </body>

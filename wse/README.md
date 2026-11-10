@@ -1,42 +1,47 @@
-# Wall Street Empire — prototype jouable (V0.2)
+# Wall Street Empire — prototype jouable (V0.3)
 
-Mini-ville isométrique avec une économie en chaîne, jouable dans le navigateur (téléphone ou ordinateur).
-Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
+Ville isométrique de 64×64 cases avec gisements, extraction, industrie, commerces et **produits finis**, jouable dans le navigateur
+(téléphone ou ordinateur). Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
 
 ## Ce que fait le jeu
 
-Une ville de 12×12 cases. Le joueur construit, relie par des routes, règle l'impôt et améliore ses bâtiments.
+**Carte** : 64×64 = 4 096 cases (SimCity 2000 en proposait 128×128). Des gisements de pétrole, fer, charbon, cuivre et or sont répartis sur la carte, avec une réserve limitée
+par case. Une minimap permet de naviguer.
 
 **Chaîne de production**
 
 ```
-Raffinerie ──pétrole──▶ Usine ──biens──▶ Commerce ──ventes──▶ Habitants
-     ▲                                                  │
-     └────── travail (55 % des habitants) ◀─────────────┘        Impôts ▶ trésorerie
+Gisements ─▶ Puits / Mines ─▶ matières premières ─▶ Fonderie / Usines ─▶ marchandises ou produits finis ─▶ Commerces ─▶ Habitants ─▶ travail et impôts
 ```
 
-- **Logements** : 6 + 4 par étage de capacité. La population grandit vers la capacité selon l'humeur.
-- **Raffinerie** : 14 barils par jour (à pleine dotation en personnel). **Usine** : transforme 10 barils en 12 biens.
-- **Commerce** : vend jusqu'à 16 biens par jour, dans la limite de la demande (0,12 bien par habitant).
-- **Tour Tech** (palier Entrepreneur) et **Banque** (palier Industriel) : revenus propres. Chaque banque donne +10 % de revenus
-  aux entreprises (plafonné à +30 %).
-- **Prix du marché** : pétrole et biens évoluent selon l'offre et la demande, puis reviennent lentement vers leur prix de base.
-- **Impôt** : la ville touche un pourcentage du chiffre d'affaires des secteurs, plus un impôt par habitant employé.
-  Un taux élevé rapporte plus mais fait baisser l'humeur.
-- **Humeur** : biens disponibles, chômage, pollution (raffinerie et usine à moins de 2 cases d'un logement) et impôt.
-- **Améliorer** : un étage de plus pour un logement (jusqu'à 6), un niveau pour les autres (jusqu'à 3 : +50 % de capacité par niveau).
-- **Événements** : goulot de production (−25 % pendant 6 jours), boom boursier (+25 % pendant 8 jours), saisons (neige l'hiver).
+| Catégorie | Bâtiments | Notes |
+|---|---|---|
+| Extraction | Puits de pétrole, mines de fer, de charbon, de cuivre, d'or | à poser sur un gisement du bon type ; la réserve s'épuise |
+| Fonderie | Fonderie d'or | or brut ➜ lingots (palier Entrepreneur) |
+| Usines | Petite (1×1), Moyenne (2×1), Grande (2×2) | biens de base, manufacturés, de luxe ; recettes à plusieurs intrants |
+| Commerces | Petit marché (1×1), Supermarché (2×1), Hypermarché (2×2) | chaque type ne vend que ses catégories |
+| Ville | Logements (étages), Tour Tech, Banque | paliers Entrepreneur et Industriel |
 
-**Paliers** (calculés sur la capitalisation) : Citoyen, Entrepreneur (30 k$), Industriel (80 k$), Magnat (250 k$), Oligarque (800 k$).
-Dix missions guident la progression et donnent des primes. Le palier Oligarque est la victoire (le jeu continue ensuite).
+**Marchandises** (9, avec prix variables selon l'offre et la demande) : pétrole, fer, charbon, cuivre, or brut, lingots d'or, biens de base, biens manufacturés, produits de luxe.
+
+**Vue Produits** (comme dans Capitalism Lab) : 7 produits finis à développer (ustensiles, jouets, vélo, lave-linge, téléviseur, smartphone, montre de luxe).
+- Choisir un niveau de qualité (économique, standard, premium), payer la R&D, attendre le lancement.
+- Affecter des usines compatibles au produit, fixer le prix (60 à 160 % du prix de référence), régler la publicité.
+- Les habitants répartissent leur demande entre la marchandise générique, vos produits et des marques rivales, selon la qualité, le prix et la notoriété.
+- Suivre part de marché, notoriété, ventes, production, stock et chiffre d'affaires de chaque produit.
+
+**Économie de la ville** : emplois (55 % des habitants travaillent), humeur (biens disponibles, chômage, pollution, impôt), impôt réglable, banque qui dope les entreprises,
+amélioration des bâtiments, événements (goulots, boom boursier), saisons.
+
+**Paliers** (sur la capitalisation) : Citoyen, Entrepreneur (40 k$), Industriel (150 k$), Magnat (500 k$), Oligarque (1,5 M$). Dix-neuf missions guident la progression.
 
 ## Commandes
 
 | Action | Tactile | Souris / clavier |
 |---|---|---|
-| Construire | choisir l'outil, toucher une case | clic |
+| Construire | choisir une catégorie puis un outil, toucher une case | clic |
 | Tracer des routes | outil Route, glisser | clic maintenu |
-| Déplacer la vue | outil Main, glisser | glisser, ou clic droit |
+| Déplacer la vue | outil Main, glisser ; ou toucher la minimap | glisser, clic droit, flèches |
 | Inspecter | outil Main, toucher une case | clic (outil Main) |
 | Zoom | deux doigts, boutons + et − | molette |
 | Raccourcis | | 1 à 9 pour les outils, Échap pour la main |
@@ -53,14 +58,16 @@ Dix missions guident la progression et donnent des primes. Le palier Oligarque e
 
 Pour régénérer : `python3 wse/tools/build.py` (nécessite Python 3 et Pillow).
 
-## Équilibrage vérifié
+## Vérifications
 
-Un robot joueur (construit autour d'une grille de routes, puis améliore au plus rentable) atteint l'Oligarque vers le jour 400 à 2 s par jour.
-Un joueur humain y mettra nettement plus longtemps. Sans l'outil Améliorer, l'argent s'accumulait sans usage une fois la carte pleine.
+- Un joueur automatique tient 600 jours sans valeur aberrante ni effondrement (les gisements s'épuisent vers le jour 500).
+- Le flux produit (développement, affectation, ventes, part de marché) est testé en navigateur.
+- Les gestes tactiles (poser, tracer, démolir, déplacer, zoomer) fonctionnent sur téléphone.
 
 ## Limites connues et pistes
 
-- Un seul joueur contre l'économie. Les mécaniques multijoueur du pitch (cartel, Conseil, OPA) ne sont pas encore là.
+- Un seul joueur contre l'économie : pas encore de multijoueur, de cartel, de Conseil ni d'OPA (voir le pitch).
+- Les rivaux sont une pression abstraite par catégorie, pas des entreprises simulées.
 - Les prix et rendements sont des premières valeurs, pas un équilibrage final.
 - Les véhicules ne sont pas toujours parfaitement orientés selon leur sens de marche.
-- Pas encore d'électronique, de ressources autres que le pétrole, ni de concurrents IA.
+- Le rendu reste stylisé (sprites Kenney) : pas de rendu photoréaliste.

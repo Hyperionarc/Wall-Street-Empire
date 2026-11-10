@@ -27,6 +27,9 @@ road_for_mask = {
 for m, n in road_for_mask.items():
     sprites[f'road{m}'] = load(f'{KC}/cityTiles_{n}.png')
 sprites['tree'] = load(f'{KC}/cityDetails_010.png')
+# Entrées de mine (tunnels dans un bloc)
+sprites['mine0'] = load(f'{KC}/cityTiles_033.png')
+sprites['mine1'] = load(f'{KC}/cityTiles_026.png')
 
 # --- Logements (sprites sans socle 99x85, empilables par étages), commerces (sprites avec socle)
 for i, n in enumerate(['043', '044', '045', '047', '048', '049', '051', '052', '054']):
@@ -44,6 +47,14 @@ for i, roof in enumerate(['097', '104']):
     sprites[f'fact{i}'] = hall(roof)
 for i, roof in enumerate(['105', '112']):
     sprites[f'oil{i}'] = hall(roof)
+# Petite usine : bâtiment bas en brique + toit industriel
+def small(base, roof):
+    b = load(f'{KB}/buildingTiles_{base}.png')
+    r = load(f'{KB}/buildingTiles_{roof}.png')
+    b.alpha_composite(r, ((b.width - r.width) // 2, 0))
+    return b
+sprites['fsmall0'] = small('092', '104')
+sprites['fsmall1'] = small('093', '112')
 
 # --- Tours : sprites sans socle empilés par le jeu. Tech = verre teinté cyan, Banque = pierre claire
 def tint(im, rgb, amt):
