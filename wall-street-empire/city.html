@@ -418,6 +418,8 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     <div id="goods"></div>
     <h3>CONCURRENTS</h3>
     <div id="rivals"></div>
+    <h3>BOURSE</h3>
+    <div id="bourse"></div>
     <h3>FINANCES</h3>
     <div id="fin"></div>
     <div class="loanrow"><span id="loanV"></span><button class="btn sec" id="loanUp">Emprunter 20 k</button><button class="btn sec" id="loanDn">Rembourser</button></div>
@@ -904,9 +906,9 @@ function newCity() {
 }
 function save() {
   try {
-    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []]]);
+    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []]]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -920,7 +922,7 @@ function load() {
       if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
       if (r[0] === 'road') return { t: 'road', own: true, x: i % N, y: Math.floor(i / N) };
       if (!TYPES[r[0]]) return null;
-      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (Array.isArray(r[13][1]) && r[13][1].length) { c.shelf = {}; r[13][1].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
+      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
     genRoads(grid);
     const npcInfo = genNpc(grid);
@@ -934,7 +936,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1027,6 +1029,8 @@ const WAGE = [{ n: 'Bas', m: 0.8, attr: 0.85, prod: 0.93 }, { n: 'Normal', m: 1,
 const WAGE_RATE = 3.5;                       // salaire de base par emploi et par jour
 const PORT_HUB = { x: 75, y: 69 }, TRANS = 0.01;   // coût de transport par unité et par case
 const DEP_DAYS = 1500;
+const SHARES = 10000;
+const IPO_MIN = 250000;
 const shelfOk = (c, key) => !c.shelf || c.shelf[key] !== false;
 // Publicité : canaux, budgets quotidiens et notoriété du magasin
 const AD_CH = { tv: { n: 'Télévision', gain: 0.9, scale: 300, max: 1500, step: 50, d: 'Audience massive, très coûteuse. Idéale pour les grandes surfaces.' }, radio: { n: 'Radio', gain: 0.45, scale: 80, max: 500, step: 25, d: 'Peu chère, audience locale. Le meilleur rapport pour un petit marché.' }, net: { n: 'Internet', gain: 0.6, scale: 140, max: 800, step: 25, d: 'Ciblage précis, budget souple. Efficace partout.' } };
@@ -1118,8 +1122,8 @@ function step() {
   const dem = { basic: S.pop * DEM_PER_POP.basic, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100), lux: S.pop * DEM_PER_POP.lux, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) };
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)); retUnits += R.cap * u; c._left = c._cap; c._sold = 0; c._rev = 0; c._imp = 0; c.sales = {}; } });
-  buildings.forEach(c => { if (TYPES[c.t].ret) { c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
-  const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF; } }); return w > 0 ? s / w : 1; };
+  buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow(1 / (c.pf || 1), 1.6) * (1 + 0.06 * (c.qual || 0)); c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
+  const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF * c.pw; } }); return w > 0 ? s / w : 1; };
   const importRate = Math.max(0.6, 0.85 - 0.06 * (cn.port || 0));   // les terminaux portuaires du joueur baissent le coût des importations
   let importCost = 0, importUnits = 0;
   const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
@@ -1138,20 +1142,20 @@ function step() {
       const car = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0 && shelfOk(c, key); });
       let need = wi, got = 0, stockLeft = it.stock, fromStock = 0;
       for (let pass = 0; pass < 2 && need > 1e-6; pass++) {
-        const ws = car.reduce((a, c) => a + (c._left > 0.01 ? c._cap * c.adF : 0), 0); if (ws <= 0) break;
+        const ws = car.reduce((a, c) => a + (c._left > 0.01 ? c._cap * c.adF * c.pw : 0), 0); if (ws <= 0) break;
         const n0 = need;
         car.forEach(c => {
           if (c._left <= 0.01) return;
-          const share = n0 * c._cap * c.adF / ws; let q = Math.min(share, c._left);
+          const share = n0 * c._cap * c.adF * c.pw / ws; let q = Math.min(share, c._left);
           const fs = Math.min(q, stockLeft), rest = q - fs;
           if (rest > 1e-9) { if (gen && c.imp !== false) { c._imp += rest; importUnits += rest; const ic = rest * it.price * importRate; importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
-          stockLeft -= fs; fromStock += fs; c._left -= q; c._sold += q; c._rev += q * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
+          stockLeft -= fs; fromStock += fs; c._left -= q; c._sold += q; c._rev += q * it.price * (c.pf || 1); c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
         });
       }
       addressed[cls] += wi;
       if (gen) S.stock[cls] -= fromStock;
       else { const ps = S.prod[it.k]; ps.stock -= got; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
-      sold[cls] += got; revRetVal += got * it.price;
+      sold[cls] += got; revRetVal += got * it.price * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * (c.pf || 1), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
     });
     if (cls !== 'estate') want[cls] += dem[cls] * 0.5;
   });
@@ -1201,7 +1205,8 @@ function step() {
   const corpTax = Math.max(0, preTax) * rate;
   const net = preTax - corpTax;
   S.cash += net;
-  S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep, transport: transportTotal, adv: advCost, interest, imports: importCost, tax: corpTax, net };
+  const div = (S.float > 0 && net > 0) ? S.float * net * (S.payout || 0) : 0; S.cash -= div;
+  S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep, transport: transportTotal, adv: advCost, interest, imports: importCost, div, tax: corpTax, net };
 
   // 6. Compte de résultat par bâtiment (prix de cession internes au prix du marché)
   let retOut = 0; buildings.forEach(c => { if (TYPES[c.t].ret) retOut += c.out; });
@@ -1284,11 +1289,18 @@ function step() {
     S.lastWarn = S.day; say('Trésorerie négative : emprunte (panneau Ville) ou réduis tes coûts.', 'bad');
   }
 
-  const worth = worthOf(ev, happy) - S.loan;
+  const rawWorth = worthOf(ev, happy) - S.loan;
+  S.float = S.float || 0;
+  if (S.float > 0) {
+    S.prem = S.prem || 1.1;
+    S.prem += (clamp(1 + 60 * net / Math.max(10000, rawWorth) + 0.15 * (S.payout || 0), 0.7, 1.7) - S.prem) * 0.05;
+    S.sp = S.sp || []; S.sp.push(rawWorth * S.prem / SHARES); if (S.sp.length > 60) S.sp.shift();
+  }
+  const worth = rawWorth * (1 - S.float);
   S.hist.push(Math.round(worth));
   if (S.hist.length > 80) S.hist.shift();
   S.stats = {
-    pop, cap, jobs, playerJobs: ev.playerJobs, workforce, employed, unemp, happy, income: revRetail + revExport + revTech + revBank, upkeep, net, worth, cn, cc, sold: S.sold, soldDay: soldTotal, dem,
+    raw: rawWorth, pop, cap, jobs, playerJobs: ev.playerJobs, workforce, employed, unemp, happy, income: revRetail + revExport + revTech + revBank, upkeep, net, worth, cn, cc, sold: S.sold, soldDay: soldTotal, dem,
     demR: clamp((jobs - workforce) / Math.max(20, jobs + 10) + 0.25, -1, 1),
     demC: clamp(1 - (retUnits * (0.4 + 0.6 * staff)) / Math.max(1, dem.basic + dem.std + dem.lux), -1, 1),
     demI: clamp(unemp * 2 - 0.2, -1, 1)
@@ -1582,8 +1594,16 @@ function updateHUD() {
     const F = S.fin;
     if (F) {
       const row = (n, v, neg) => `<div class="finrow"><span>${n}</span><b class="${neg ? 'neg' : 'pos'}">${neg ? '−' : '+'}${money(Math.abs(v))}</b></div>`;
-      el('fin').innerHTML = row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech et banques', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Entretien', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + `<div class="finrow"><span><b>Résultat / jour</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${money(Math.abs(F.net))}</b></div>`;
+      el('fin').innerHTML = row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech et banques', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Entretien', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + (F.div ? row('Dividendes versés', F.div, 1) : '') + `<div class="finrow"><span><b>Résultat / jour</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${money(Math.abs(F.net))}</b></div>`;
     } else el('fin').innerHTML = '<p class="note">Le compte de résultat apparaît après le premier jour.</p>';
+    const raw = (S.stats && S.stats.raw) || 0, listed = S.float > 0, price = raw * (S.prem || 1.1) / SHARES;
+    let bh;
+    if (!listed) bh = `<p class="note">Introduis ta société en bourse pour lever des capitaux : tu cèdes 30 % du capital (et des dividendes). Disponible à partir de ${money(IPO_MIN)} de capitalisation.</p><button class="btn" id="ipo" ${raw >= IPO_MIN ? '' : 'disabled'}>Introduction en bourse · 30 %</button>`;
+    else bh = `<div class="finrow"><span>Cours de l'action</span><b class="${(S.sp || []).length > 1 && S.sp[S.sp.length - 1] >= S.sp[S.sp.length - 2] ? 'pos' : 'neg'}">${price.toFixed(2).replace('.', ',')} $</b></div><div class="finrow"><span>Capitalisation boursière</span><b>${money(raw * (S.prem || 1.1))}</b></div><div class="finrow"><span>Flottant (actionnaires extérieurs)</span><b>${Math.round(S.float * 100)} %</b></div><div class="finrow"><span>Prime de marché</span><b>${Math.round((S.prem - 1) * 100)} %</b></div><canvas id="spk" width="320" height="50" style="width:100%;height:46px"></canvas>
+      <div class="taxrow"><span>Dividendes</span><input type="range" id="payout" min="0" max="60" step="5" value="${Math.round((S.payout || 0) * 100)}" aria-label="Part des bénéfices distribuée"><b>${Math.round((S.payout || 0) * 100)} %</b></div><p class="note">Les dividendes (part des bénéfices distribuée) soutiennent le cours mais sortent de ta trésorerie, à hauteur du flottant.</p>
+      <button class="btn sec" id="buyback" ${S.float >= 0.1 && S.cash >= 0.1 * raw * S.prem ? '' : 'disabled'}>Racheter 10 % du capital · ${money(0.1 * raw * (S.prem || 1.1))}</button>`;
+    if (!document.activeElement || document.activeElement.id !== 'payout') { if (el('bourse').dataset.h !== bh) { el('bourse').innerHTML = bh; el('bourse').dataset.h = bh; } }
+    if (listed && el('spk')) drawSeries(el('spk'), S.sp || [], '#46d39a', true);
     const lim = creditLimit();
     el('loanV').textContent = `Dette ${money(S.loan || 0)} · plafond ${money(lim)}`;
     el('loanUp').disabled = (S.loan || 0) + 20000 > lim;
@@ -1604,6 +1624,12 @@ function updateHUD() {
   }
 }
 el('rivals').addEventListener('click', e => { const b = e.target.closest('[data-buy]'); if (!b || b.disabled) return; const r = (S.rivals || []).find(x => x.id === b.dataset.buy); if (!r) return; const v = rivalValue(r); if (S.cash < v) return; S.cash -= v; S.rivals = S.rivals.filter(x => x !== r); say(`Rachat de ${r.name} pour ${money(v)} : sa clientèle est à prendre.`, 'gold'); updateHUD(); save(); });
+el('bourse').addEventListener('click', e => {
+  const raw = (S.stats && S.stats.raw) || 0;
+  if (e.target.id === 'ipo' && !(S.float > 0) && raw >= IPO_MIN) { const f = 0.3, prem = 1.1, post = raw / (1 - f * prem); S.cash += post - raw; S.float = f; S.prem = prem; S.sp = []; say(`Introduction en bourse réussie : ${money(post - raw)} levés pour 30 % du capital.`, 'gold'); refreshStats(); updateHUD(); save(); }
+  if (e.target.id === 'buyback' && S.float >= 0.1) { const c = 0.1 * raw * (S.prem || 1.1); if (S.cash >= c) { S.cash -= c; S.float = Math.max(0, S.float - 0.1); if (S.float < 0.001) { S.float = 0; S.sp = []; } say(`Rachat de 10 % du capital pour ${money(c)}.`, 'info'); refreshStats(); updateHUD(); save(); } }
+});
+el('bourse').addEventListener('input', e => { if (e.target.id === 'payout') { S.payout = +e.target.value / 100; e.target.nextElementSibling.textContent = e.target.value + ' %'; } });
 function creditLimit() { return Math.max(0, Math.round(0.5 * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
 el('loanUp').onclick = () => { if ((S.loan || 0) + 20000 <= creditLimit()) { S.loan = (S.loan || 0) + 20000; S.cash += 20000; say('Emprunt de 20 000 $ (intérêts 0,06 %/jour).', 'info'); updateHUD(); save(); } };
 el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, 20000, Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
@@ -2189,6 +2215,7 @@ function renderBuilding(force) {
     <div class="lever"><h4>Efficacité <span class="pip">${pips(c.eff || 0)}</span></h4><small>Production +8 % par niveau (machines, organisation).</small><button class="btn" data-act="eff" ${ec && S.cash >= ec ? '' : 'disabled'}>${ec ? 'Optimiser · ' + money(ec) : 'Efficacité max'}</button></div>
     ${T.ext && c.linked === false ? `<div class="lever"><h4>Logistique</h4><small>Hors réseau : rendement 65 %, transport plus cher.</small><button class="btn" data-act="link">Relier au réseau</button></div>` : ''}
     ${recipes}
+    ${T.ret ? priceCard(c) : ''}
     ${shelfCard(c)}
   </div>
   <div class="actions"><button class="btn sec" data-act="bull">Démolir</button></div>`;
@@ -2220,8 +2247,8 @@ function bAct(a) {
   else if (a.indexOf('info:') === 0) say('Construis : ' + a.slice(5).toLowerCase() + '.', 'info');
   refreshStats(); updateHUD(); renderBuilding(true);
 }
-el('bview').addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.ad; if (!k || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; adOf(c)[k] = +e.target.value; const o = el('adv-' + k); if (o) o.textContent = money(+e.target.value) + ' / jour'; });
-el('bview').addEventListener('change', e => { if (e.target.dataset && e.target.dataset.ad) { bvHtml = ''; updateHUD(); renderBuilding(true); } });
+el('bview').addEventListener('input', e => { if (e.target.dataset && e.target.dataset.pf && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) c0.pf = +e.target.value / 100; return; } const k = e.target.dataset && e.target.dataset.ad; if (!k || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; adOf(c)[k] = +e.target.value; const o = el('adv-' + k); if (o) o.textContent = money(+e.target.value) + ' / jour'; });
+el('bview').addEventListener('change', e => { if (e.target.dataset && (e.target.dataset.ad || e.target.dataset.pf)) { bvHtml = ''; updateHUD(); renderBuilding(true); } });
 el('bview').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) bAct(b.dataset.act); });
 ['pointerdown'].forEach(t => el('bview').addEventListener(t, () => { bvDown = true; }, { passive: true }));
 ['pointerup', 'pointercancel'].forEach(t => window.addEventListener(t, () => { setTimeout(() => { bvDown = false; }, 60); }, { passive: true }));
@@ -2597,6 +2624,11 @@ function sceneLoop(ts) {
 function sceneStart() { if (!scRaf) { scLast = performance.now(); scRaf = requestAnimationFrame(sceneLoop); } }
 
 
+function priceCard(c) {
+  const pf = c.pf || 1;
+  return `<div class="lever"><h4>Prix de vente <span class="pip">${Math.round(pf * 100)} %</span></h4><small>Du prix du marché. Bas : plus de clients mais moins de marge. Haut : marge élevée mais les clients vont ailleurs.</small>
+    <input type="range" data-pf="1" min="70" max="140" step="5" value="${Math.round(pf * 100)}" aria-label="Prix de vente"><div class="finrow"><span>Attractivité prix</span><b>${pf <= 1 ? '+' : '−'}${Math.abs(Math.round((Math.pow(1 / pf, 1.6) - 1) * 100))} %</b></div></div>`;
+}
 function shelfItems(c) {
   const R = TYPES[c.t].ret, out = [];
   if (!R) return out;
