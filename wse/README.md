@@ -1,14 +1,17 @@
 # Wall Street Empire — prototype jouable (V0.4)
 
-Ville isométrique de 64×64 cases avec réseau de rues, gisements, chaîne de production complète et **fiches produits**, jouable dans le navigateur
+Ville isométrique de 64×64 cases avec campagne et gisements, gisements, chaîne de production complète et **fiches produits**, jouable dans le navigateur
 (téléphone ou ordinateur). Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
 
 ## Ce que fait le jeu
 
-**Une ville déjà viabilisée** : la ville fournit un réseau de rues qui court jusqu'aux bords de la carte (une rue toutes les 4 cases, blocs de 3×3).
-Le joueur est un promoteur : il construit à côté des rues, sans en tracer. Un bâtiment doit toucher une rue.
+**Ville et campagne** : la mairie quadrille la ville (zone centrale de 33×33 cases : une rue toutes les 4 cases, blocs de 3×3) et paie les rues.
+Le promoteur y construit à côté d'une rue ; tout bâtiment (hors extraction) doit être dans la ville et toucher une rue.
+Hors de la ville, il n'y a aucune route : puits et mines se posent sur les gisements en pleine campagne et fonctionnent sans route, mais à **65 %** de rendement.
+En les reliant au réseau urbain par **ses propres routes** (outil Route ou outil Relier, 120 $ par tronçon, 0,4 $ par jour d'entretien), le rendement passe à **100 %**.
+L'outil Relier trace automatiquement le plus court chemin, en réutilisant les routes déjà posées. Les rues de la ville ne peuvent ni être construites ni démolies par le joueur.
 
-**Gisements** : pétrole, fer, charbon, cuivre et or, dans des blocs de la carte, avec une réserve limitée par case.
+**Gisements** : pétrole, fer, charbon, cuivre et or. Trois blocs sont dans la ville de départ, les autres sont des amas irréguliers dans la campagne, avec une réserve limitée par case.
 
 **Chaîne de production** (cartographiée dans la fiche de chaque produit) :
 
@@ -42,6 +45,7 @@ Les habitants répartissent leur demande entre la marchandise générique, les p
 | Action | Tactile | Souris / clavier |
 |---|---|---|
 | Construire | choisir une catégorie puis un outil, toucher une case | clic |
+| Route de desserte (campagne) | catégorie Extraction, outil Route, glisser en ligne droite ; ou outil Relier sur une mine | clic maintenu |
 | Déplacer la vue | outil Main, glisser ; ou toucher la minimap | glisser, clic droit, flèches |
 | Inspecter | outil Main, toucher une case | clic (outil Main) |
 | Zoom | deux doigts, boutons + et − | molette |
@@ -62,7 +66,7 @@ Les visuels des produits sont des illustrations vectorielles dessinées dans le 
 ## Vérifications
 
 - Chaîne du lave-linge testée en navigateur : composants (acier, plastique, câbles, emballages, moteurs, cartes électroniques) puis produit fini.
-- Réseau de rues : construction refusée sur une rue ou un gisement.
+- Ville et campagne : construction refusée hors de la ville (hors mines) et sur une rue ; une mine rurale passe de 65 % à 100 % une fois reliée.
 - Un joueur automatique tient 600 jours sans valeur aberrante.
 
 ## Limites connues et pistes

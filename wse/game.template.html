@@ -363,7 +363,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
   <div id="hint">
     <b>BIENVENUE À NEW DOLLARTON</b>
     <p>Une grande carte, des gisements (pétrole, fer, charbon, cuivre, or) et une chaîne complète : extraction, fonderie et usines, commerces, habitants, impôts.</p>
-    <p>Choisis une catégorie en bas, puis un bâtiment, et touche une case. Les mines se posent sur un gisement de la même couleur. La ville fournit les rues : construis simplement à côté d'une rue, un bâtiment doit la toucher. Ouvre « Ville » pour la carte, les missions et les prix, et « Produits » pour lancer des produits finis (montre, téléviseur, smartphone...).</p>
+    <p>Choisis une catégorie en bas, puis un bâtiment, et touche une case. Les mines se posent sur un gisement de la même couleur. La mairie fournit les rues de la ville : construis à côté d'une rue. Mines et puits se posent sur les gisements, en campagne : sans route ils tournent à 65 %, reliés à la ville par tes propres routes ils atteignent 100 %. Ouvre « Ville » pour la carte, les missions et les prix, et « Produits » pour lancer des produits finis (montre, téléviseur, smartphone...).</p>
   </div>
   <div id="win" hidden>
     <b>SIÈGE AU CONSEIL</b>
@@ -422,7 +422,7 @@ const DEPOSITS = {
 };
 
 const TYPES = {
-  road:    { name: 'Rue',           sub: 'Voirie publique', cost: 0,     color: '#9aa4d6', upkeep: 0 },
+  road:    { name: 'Route',         sub: 'Desserte rurale', cost: 120,   color: '#9aa4d6', upkeep: 0.4 },
   res:     { name: 'Logements',     sub: 'Résidentiel',     cost: 500,   color: '#7f96ff', jobs: 0,  upkeep: 1 },
   tech:    { name: 'Tour Tech',     sub: 'Tech Composite',  cost: 3500,  color: '#3fd8ff', jobs: 14, upkeep: 5,  tier: 1 },
   bank:    { name: 'Banque',        sub: 'London Gold',     cost: 6000,  color: '#f2b84b', jobs: 12, upkeep: 6,  tier: 2 },
@@ -534,7 +534,7 @@ const TOOL_META = {
 };
 const CATS = [
   { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank'] },
-  { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold'] },
+  { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'road', 'link'] },
   { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3'] },
   { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3'] }
 ];
@@ -547,6 +547,7 @@ const MISSIONS = [
   { id: 'mp1', t: 'Lancer un produit fini (vue Produits)',         r: 3000,  ok: c => c.prodOn >= 1 },
   { id: 'mc1', t: 'Fabriquer 3 composants différents (acier, plastique...)', r: 3000, ok: c => c.comp >= 3 },
   { id: 'mw',  t: 'Fabriquer un lave-linge complet',               r: 6000,  ok: c => c.washerMade },
+  { id: 'mr',  t: 'Relier une mine à la ville par tes propres routes', r: 3000, ok: c => c.linkedRural >= 1 },
   { id: 'm4',  t: 'Vendre 300 biens aux habitants',                r: 2000,  ok: c => c.sold >= 300 },
   { id: 'm5',  t: 'Atteindre 200 habitants',                       r: 3000,  ok: c => c.pop >= 200 },
   { id: 'm6',  t: 'Capitalisation de 100 000 $',                   r: 4000,  ok: c => c.worth >= 100000 },
@@ -615,38 +616,60 @@ function mkCell(t, seed) {
 }
 
 // Gisements : amas fixes près du départ, puis amas aléatoires répartis sur la carte
-// La ville fournit un réseau de rues continu : une rue toutes les 4 cases, plus les bords
-const isRoadPos = (x, y) => x % 4 === 0 || y % 4 === 0 || x === N - 1 || y === N - 1;
+// Zone urbaine : la mairie y fournit un réseau de rues (une rue toutes les 4 cases, blocs de 3x3), gratuitement.
+// Hors de la ville, aucune route : mines et puits se posent sur les gisements et le joueur les relie lui-même.
+const CITY = { x0: 16, y0: 16, x1: 48, y1: 48 };
+const inCity = (x, y) => x >= CITY.x0 && x <= CITY.x1 && y >= CITY.y0 && y <= CITY.y1;
+const isRoadPos = (x, y) => inCity(x, y) && (x % 4 === 0 || y % 4 === 0);
+const UNLINKED_EFF = 0.65;   // rendement d'une installation d'extraction sans route jusqu'à la ville
 function genRoads(grid) {
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (isRoadPos(x, y) && !grid[idx(x, y)]) grid[idx(x, y)] = { t: 'road', x, y };
+  for (let y = CITY.y0; y <= CITY.y1; y++) for (let x = CITY.x0; x <= CITY.x1; x++) if (isRoadPos(x, y) && !grid[idx(x, y)]) grid[idx(x, y)] = { t: 'road', x, y };
 }
 function genDeposits() {
   const dep = new Array(N * N).fill(null);
   const R = rng(MAP_SEED);
-  // un gisement occupe (une partie d') un bloc de 3x3 cases entre deux rues
-  const fillBlock = (bx, by, k, frac) => {
-    for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) {
-      const x = 4 * bx + 1 + dx, y = 4 * by + 1 + dy;
-      if (inb(x, y) && !isRoadPos(x, y) && !dep[idx(x, y)] && (frac >= 1 || R() < frac)) dep[idx(x, y)] = { k, r: DEPOSITS[k].res };
-    }
+  const add = (x, y, k) => { if (inb(x, y) && !dep[idx(x, y)]) dep[idx(x, y)] = { k, r: DEPOSITS[k].res }; };
+  // départ : trois blocs de la ville (pétrole, fer, charbon) à côté du carrefour central
+  [[8, 7, 'oil'], [7, 7, 'iron'], [6, 7, 'coal']].forEach(b => {
+    for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) { const x = 4 * b[0] + 1 + dx, y = 4 * b[1] + 1 + dy; if (!isRoadPos(x, y)) add(x, y, b[2]); }
+  });
+  // gisements ruraux : amas irréguliers hors de la ville
+  const rural = (x, y) => x >= 1 && y >= 1 && x < N - 1 && y < N - 1 && !(x >= CITY.x0 - 3 && x <= CITY.x1 + 3 && y >= CITY.y0 - 3 && y <= CITY.y1 + 3);
+  const blob = (cx, cy, k, size) => {
+    let x = cx, y = cy;
+    for (let i = 0; i < size; i++) { if (rural(x, y)) add(x, y, k); const d = Math.floor(R() * 4); x += [1, -1, 0, 0][d]; y += [0, 0, 1, -1][d]; }
   };
-  const taken = new Set();
-  const take = (bx, by, k, frac) => { taken.add(bx + ',' + by); fillBlock(bx, by, k, frac); };
-  // près du départ : pétrole, fer, charbon ; cuivre et or un peu plus loin
-  take(8, 7, 'oil', 1); take(7, 7, 'iron', 1); take(6, 7, 'coal', 1);
-  take(10, 10, 'copper', 0.9); take(5, 10, 'gold', 0.8);
-  // blocs réservés à la ville de départ
-  [[8, 8], [7, 8], [9, 7]].forEach(b => taken.add(b[0] + ',' + b[1]));
-  const spec = [['oil', 6], ['iron', 6], ['coal', 6], ['copper', 6], ['gold', 5]];
-  spec.forEach(sp => {
-    for (let n = 0, tries = 0; n < sp[1] && tries < 400; tries++) {
-      const bx = 1 + Math.floor(R() * 14), by = 1 + Math.floor(R() * 14);
-      if (Math.abs(bx - 8) <= 2 && Math.abs(by - 8) <= 2) continue;
-      if (taken.has(bx + ',' + by)) continue;
-      take(bx, by, sp[0], 0.85); n++;
+  // amas proches de la ville, pour que les premières mines soient à portée
+  [['oil', 55, 28], ['iron', 55, 44], ['coal', 8, 26], ['copper', 8, 42], ['gold', 28, 8], ['oil', 28, 56], ['iron', 40, 57], ['coal', 10, 54], ['copper', 52, 10], ['gold', 56, 56]].forEach(a => blob(a[1], a[2], a[0], 9 + Math.floor(R() * 4)));
+  [['oil', 4], ['iron', 4], ['coal', 4], ['copper', 4], ['gold', 3]].forEach(sp => {
+    for (let n = 0, tries = 0; n < sp[1] && tries < 500; tries++) {
+      const cx = 1 + Math.floor(R() * (N - 2)), cy = 1 + Math.floor(R() * (N - 2));
+      if (!rural(cx, cy) || dep[idx(cx, cy)]) continue;
+      blob(cx, cy, sp[0], 8 + Math.floor(R() * 4)); n++;
     }
   });
   return dep;
+}
+// routes reliées au réseau urbain (les rues de la ville sont les sources)
+function linkedMask() {
+  const m = new Uint8Array(N * N), q = [];
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road' && !c.own) { m[i] = 1; q.push(i); } }
+  while (q.length) {
+    const i = q.pop(), x = i % N, y = (i / N) | 0;
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(d => {
+      const nx = x + d[0], ny = y + d[1]; if (!inb(nx, ny)) return;
+      const j = idx(nx, ny);
+      if (!m[j]) { const c = S.grid[j]; if (c && c.t === 'road') { m[j] = 1; q.push(j); } }
+    });
+  }
+  return m;
+}
+function extLinked(c, lm) {
+  for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) {
+    const x = c.x + ox, y = c.y + oy;
+    if ((inb(x + 1, y) && lm[idx(x + 1, y)]) || (inb(x - 1, y) && lm[idx(x - 1, y)]) || (inb(x, y + 1) && lm[idx(x, y + 1)]) || (inb(x, y - 1) && lm[idx(x, y - 1)])) return true;
+  }
+  return false;
 }
 
 function newCity() {
@@ -676,7 +699,7 @@ function newCity() {
 }
 function save() {
   try {
-    const g = S.grid.map(c => !c || c.t === 'road' ? 0 : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0]);
+    const g = S.grid.map(c => !c || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
     localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 4, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
@@ -690,6 +713,7 @@ function load() {
     const grid = d.g.map((r, i) => {
       if (!r) return null;
       if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
+      if (r[0] === 'road') return { t: 'road', own: true, x: i % N, y: Math.floor(i / N) };
       if (!TYPES[r[0]]) return null;
       const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
@@ -756,10 +780,12 @@ function evaluate() {
   Object.keys(TYPES).forEach(k => { cn[k] = 0; cc[k] = 0; un[k] = 0; });
   let roads = 0, cap = 0, jobs = 0, upkeep = 0, value = 0, polluted = 0, nres = 0;
   const smog = new Uint8Array(N * N);
-  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') roads++; }
+  let ownRoads = 0;
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') { roads++; if (c.own) ownRoads++; } }
+  const lm = linkedMask();
   eachBuilding(c => {
     const T = TYPES[c.t], m = levelMult(c);
-    c.conn = footConn(c);
+    if (T.ext) { c.linked = extLinked(c, lm); c.conn = true; } else c.conn = footConn(c);
     cc[c.t]++;
     upkeep += T.upkeep * (c.t === 'res' ? 1 : m);
     value += T.cost * 0.9 + upgradeSpent(c) * 0.6;
@@ -776,9 +802,9 @@ function evaluate() {
         }
     }
   });
-  upkeep += roads * TYPES.road.upkeep;
+  upkeep += ownRoads * TYPES.road.upkeep;
   eachBuilding(c => { if (c.t === 'res' && c.conn) { nres++; if (smog[idx(c.x, c.y)]) polluted++; } });
-  return { cc, cn, un, roads, cap, jobs, upkeep, value, polluted, nres };
+  return { cc, cn, un, roads, ownRoads, cap, jobs, upkeep, value, polluted, nres };
 }
 function worthOf(ev, happy) { return S.cash + ev.value * (1 + (happy == null ? 60 : happy) / 400); }
 
@@ -802,7 +828,7 @@ function step() {
     const T = TYPES[c.t];
     if (!T.ext) return;
     const d = S.dep[idx(c.x, c.y)];
-    let out = T.rate * levelMult(c) * staff * (S.day <= c.alertUntil ? 0.75 : 1);
+    let out = T.rate * levelMult(c) * staff * (S.day <= c.alertUntil ? 0.75 : 1) * (c.linked === false ? UNLINKED_EFF : 1);
     if (!d || d.k !== T.ext) out = 0; else { out = Math.min(out, d.r); d.r -= out; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} à l'arrêt. Ouvre une nouvelle mine ailleurs.`, 'bad'); } }
     c.out = out; S.stock[T.ext] += out; made[T.ext] += out;
   });
@@ -972,9 +998,10 @@ function step() {
 function missionCtx() {
   const st = S.stats || {};
   const none = {}; Object.keys(TYPES).forEach(k => none[k] = 0);
-  let prodOn_ = 0, maxShare = 0;
+  let prodOn_ = 0, maxShare = 0, linkedRural_ = 0;
+  eachBuilding(c => { if (TYPES[c.t].ext && !inCity(c.x, c.y) && c.linked) linkedRural_++; });
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps && ps.st === 'on') { prodOn_++; maxShare = Math.max(maxShare, ps.share || 0); } });
-  return { pop: st.pop || 0, cn: st.cn || none, sold: S.sold, worth: st.worth || 0, prodOn: prodOn_, maxShare, comp: Object.keys(S.cm || {}).filter(k => RECIPES[k]).length, washerMade: !!(S.prod.washer && (S.prod.washer.made > 0 || S.prod.washer.sold > 0)) };
+  return { pop: st.pop || 0, cn: st.cn || none, sold: S.sold, worth: st.worth || 0, prodOn: prodOn_, maxShare, linkedRural: linkedRural_, comp: Object.keys(S.cm || {}).filter(k => RECIPES[k]).length, washerMade: !!(S.prod.washer && (S.prod.washer.made > 0 || S.prod.washer.sold > 0)) };
 }
 function checkMissions() {
   const c = missionCtx();
@@ -997,11 +1024,20 @@ function footprintError(x, y, key) {
   const T = TYPES[key], w = T.w || 1, h = T.h || 1;
   for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
     if (!inb(x + ox, y + oy)) return 'Hors de la carte.';
+    if (!T.ext && !inCity(x + ox, y + oy)) return 'Hors de la ville : seuls les puits et les mines se posent en pleine campagne.';
     { const o = S.grid[idx(x + ox, y + oy)]; if (o) return o.t === 'road' ? 'C\'est une rue : construis dans les blocs.' : 'Case occupée.'; }
     const d = S.dep[idx(x + ox, y + oy)];
     if (T.ext) { if (!d || d.k !== T.ext) return `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
     else if (d) return 'Cette case est un gisement : réserve-la à une mine.';
   }
+  return '';
+}
+let lastRoadMsg = 0;
+function roadError(x, y) {
+  if (!inb(x, y)) return 'Hors de la carte.';
+  if (S.grid[idx(x, y)]) return 'Case occupée.';
+  if (inCity(x, y)) return 'Les rues de la ville sont fournies par la mairie : construis dans les blocs.';
+  if (S.dep[idx(x, y)]) return 'Cette case est un gisement : pas de route dessus.';
   return '';
 }
 function placeBuilding(x, y, key) {
@@ -1014,12 +1050,16 @@ function place(x, y, key) {
   if (!inb(x, y)) return false;
   const rc = rawCell(x, y), c = anchorOf(rc);
   if (key === 'bull') {
-    if (!c || c.t === 'road') return false;
+    if (!c) return false;
+    if (c.t === 'road') {
+      if (!c.own) { say('Les rues de la ville appartiennent à la mairie.', 'info'); return false; }
+      S.grid[idx(x, y)] = null; refreshStats(); updateHUD(); save(); return true;
+    }
     for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) S.grid[idx(c.x + ox, c.y + oy)] = null;
     refreshStats(); updateHUD(); save();
     return true;
   }
-  if (key === 'link' || key === 'road') return false;
+  if (key === 'link') return autoConnect(x, y);
   if (key === 'up') {
     if (!c || c.t === 'road') return false;
     const cost = upgradeCost(c);
@@ -1035,57 +1075,68 @@ function place(x, y, key) {
   const T = TYPES[key];
   if (!T) return false;
   if (toolLocked(key)) { say(`${T.name} se débloque au palier ${TIERS[T.tier].n}.`, 'warn'); return false; }
-  const err = key === 'road' ? (rc ? 'Case occupée.' : (S.dep[idx(x, y)] ? 'Cette case est un gisement : pas de route dessus.' : '')) : footprintError(x, y, key);
-  if (err) { if (!(key === 'road' && err === 'Case occupée.')) say(err, 'warn'); return false; }
+  const err = key === 'road' ? roadError(x, y) : footprintError(x, y, key);
+  if (err) {
+    const quiet = key === 'road' && (err === 'Case occupée.' || performance.now() - lastRoadMsg < 2000);
+    if (!quiet) { say(err, 'warn'); if (key === 'road') lastRoadMsg = performance.now(); }
+    return false;
+  }
   if (S.cash < T.cost) { say('Trésorerie insuffisante pour ' + T.name.toLowerCase() + '.', 'bad'); return false; }
   S.cash -= T.cost;
   let b;
-  if (key === 'road') { b = mkCell('road'); b.x = x; b.y = y; S.grid[idx(x, y)] = b; }
+  if (key === 'road') { b = mkCell('road'); b.x = x; b.y = y; b.own = true; S.grid[idx(x, y)] = b; }
   else b = placeBuilding(x, y, key);
   flyers.push({ x, y, text: '-' + fmt(T.cost), t: performance.now(), col: '#ff8a8e' });
-  if (key !== 'road' && !footConn(b)) say('Ce bâtiment ne touche aucune rue : il ne produira rien. Choisis une case au bord d\'un bloc.', 'warn');
+  if (T.ext) { if (!extLinked(b, linkedMask())) say('Hors réseau : rendement de ' + Math.round(UNLINKED_EFF * 100) + ' %. Relie-la à la ville avec l\'outil Relier pour atteindre 100 %.', 'info'); }
+  else if (key !== 'road' && !footConn(b)) say('Ce bâtiment ne touche aucune rue : il ne produira rien. Choisis une case au bord d\'un bloc.', 'warn');
   refreshStats(); checkMissions(); updateHUD();
   return true;
 }
-// plus court chemin (Dijkstra avec pénalité de virage) du bâtiment jusqu'au réseau routier
+// plus court chemin (Dijkstra avec pénalité de virage) d'une installation d'extraction jusqu'au réseau relié à la ville
 function autoConnect(x, y) {
   const a = cell(x, y);
-  if (!a || a.t === 'road') return false;
-  if (footConn(a)) { say('Ce bâtiment est déjà relié à une route.', 'info'); return false; }
-  const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && !S.dep[idx(X, Y)];
+  if (!a || a.t === 'road' || !TYPES[a.t].ext) { say('L\'outil Relier raccorde une mine ou un puits à la ville.', 'info'); return false; }
+  const lm = linkedMask();
+  if (extLinked(a, lm)) { say('Cette installation est déjà reliée à la ville.', 'info'); return false; }
+  const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && !S.dep[idx(X, Y)] && !inCity(X, Y);
+  const ownRoad = (X, Y) => { const c = rawCell(X, Y); return !!c && c.t === 'road' && c.own; };
+  const pass = (X, Y) => free(X, Y) || ownRoad(X, Y);
+  const linkedAt = (X, Y) => inb(X, Y) && lm[idx(X, Y)] === 1;
+  const touchesLinked = (X, Y) => linkedAt(X, Y) || linkedAt(X + 1, Y) || linkedAt(X - 1, Y) || linkedAt(X, Y + 1) || linkedAt(X, Y - 1);
   const dist = new Map(), prev = new Map(), open = [];
   const key = (X, Y, d) => (Y * N + X) * 5 + d;
+  const D = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   for (let ox = 0; ox < a.w; ox++) for (let oy = 0; oy < a.h; oy++) {
-    const X = a.x + ox, Y = a.y + oy;
-    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach((d, di) => {
-      const nx = X + d[0], ny = Y + d[1];
+    D.forEach((d, di) => {
+      const nx = a.x + ox + d[0], ny = a.y + oy + d[1];
       if (ox + d[0] >= 0 && ox + d[0] < a.w && oy + d[1] >= 0 && oy + d[1] < a.h) return;
-      if (!free(nx, ny)) return;
-      const k = key(nx, ny, di);
-      if (!dist.has(k)) { dist.set(k, 1); open.push([1, nx, ny, di]); }
+      if (!pass(nx, ny)) return;
+      const k = key(nx, ny, di), c0 = ownRoad(nx, ny) ? 0.2 : 1;
+      if (!dist.has(k)) { dist.set(k, c0); open.push([c0, nx, ny, di]); }
     });
   }
-  const touchesRoad = (X, Y) => isRoad(X + 1, Y) || isRoad(X - 1, Y) || isRoad(X, Y + 1) || isRoad(X, Y - 1);
-  let goal = null;
-  while (open.length) {
+  let goal = null, guard = 0;
+  while (open.length && guard++ < 40000) {
     open.sort((p, q) => p[0] - q[0]);
     const [c, X, Y, di] = open.shift();
     if (c > (dist.get(key(X, Y, di)) || 1e9)) continue;
-    if (touchesRoad(X, Y)) { goal = [X, Y, di]; break; }
-    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach((d, ndi) => {
+    if (touchesLinked(X, Y)) { goal = [X, Y, di]; break; }
+    D.forEach((d, ndi) => {
       const nx = X + d[0], ny = Y + d[1];
-      if (!free(nx, ny)) return;
-      const nc = c + 1 + (ndi !== di ? 0.5 : 0), k = key(nx, ny, ndi);
+      if (!pass(nx, ny)) return;
+      const nc = c + (ownRoad(nx, ny) ? 0.2 : 1) + (ndi !== di ? 0.5 : 0), k = key(nx, ny, ndi);
       if (nc < (dist.get(k) || 1e9)) { dist.set(k, nc); prev.set(k, key(X, Y, di)); open.push([nc, nx, ny, ndi]); }
     });
   }
-  if (!goal) { say('Aucun chemin libre vers une route.', 'warn'); return false; }
+  if (!goal) { say('Aucun chemin libre jusqu\'à la ville depuis cette installation.', 'warn'); return false; }
   const path = []; let k = key(goal[0], goal[1], goal[2]);
-  while (k !== undefined) { const d = k % 5, t = Math.floor(k / 5); path.push([t % N, Math.floor(t / N)]); k = prev.get(k); }
-  const cost = path.length * TYPES.road.cost;
-  if (S.cash < cost) { say(`Il faut ${money(cost)} pour relier ce bâtiment (${path.length} routes).`, 'bad'); return false; }
-  path.forEach(pt => place(pt[0], pt[1], 'road'));
-  say(`Bâtiment relié : ${path.length} route(s) pour ${money(cost)}.`, 'good');
+  while (k !== undefined) { const t = Math.floor(k / 5); path.push([t % N, Math.floor(t / N)]); k = prev.get(k); }
+  const todo = path.filter(pt => free(pt[0], pt[1]));
+  const cost = todo.length * TYPES.road.cost;
+  if (S.cash < cost) { say(`Il faut ${money(cost)} pour relier cette installation (${todo.length} tronçons de route).`, 'bad'); return false; }
+  todo.forEach(pt => place(pt[0], pt[1], 'road'));
+  refreshStats(); updateHUD();
+  say(`Route construite : ${todo.length} tronçon(s) pour ${money(cost)}. Rendement porté à 100 %.`, 'good');
   return true;
 }
 function refreshStats() {
@@ -1111,7 +1162,7 @@ function inspect(x, y) {
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
   }
-  if (c.t === 'road') { say('Rue publique, entretenue par la ville.', 'info'); return; }
+  if (c.t === 'road') { say(c.own ? 'Route de desserte : entretien 0,4 $/jour.' : 'Rue publique, entretenue par la mairie.', 'info'); return; }
   const T = TYPES[c.t];
   const parts = [`${T.name} · ${T.sub}`];
   if (!c.conn) parts.push('non reliée à une route');
@@ -1120,7 +1171,7 @@ function inspect(x, y) {
     if (T.jobs) parts.push(`${Math.round(T.jobs * levelMult(c))} emplois`);
     if (c.t === 'res') parts.push(`${6 + 4 * c.floors} logements, ${c.floors} étages`);
     else parts.push(`niveau ${c.lvl + 1}/${MAX_LVL + 1}`);
-    if (T.ext) { const dd = S.dep[idx(c.x, c.y)]; parts.push(`${c.out.toFixed(1).replace('.', ',')} ${DEPOSITS[T.ext].name}/jour`); if (dd) parts.push(`réserve ${fmt(dd.r)}`); }
+    if (T.ext) { const dd = S.dep[idx(c.x, c.y)]; parts.push(`${c.out.toFixed(1).replace('.', ',')} ${DEPOSITS[T.ext].name}/jour`); if (dd) parts.push(`réserve ${fmt(dd.r)}`); if (c.linked === false) parts.push('hors réseau : rendement ' + Math.round(UNLINKED_EFF * 100) + ' %'); }
     if (T.rec) { const k = Object.keys(T.rec.out)[0]; parts.push(`${c.out.toFixed(1).replace('.', ',')} ${GOODS[k].name.toLowerCase()}/jour`); }
     const uc = upgradeCost(c); if (uc) parts.push(`amélioration ${money(uc)}`);
     if (c.prod && recipeOf(c.prod)) parts.push('fabrique : ' + recipeOf(c.prod).name);
@@ -1981,7 +2032,8 @@ function frame(now) {
         if (wantDep === d.k && !rc) { ctx.lineWidth = 4; poly(tilePts(p, 0.92), null, `rgba(255,255,255,${0.35 + 0.5 * pulse})`); }
       }
       if (rc && rc.t === 'part') return;
-      if (rc && rc.t !== 'road' && !rc.conn) { ctx.setLineDash([8, 6]); ctx.lineWidth = 3; poly(tilePts(p, 0.86), null, 'rgba(255,90,95,' + (0.6 + 0.35 * pulse) + ')'); ctx.setLineDash([]); }
+      if (rc && rc.t !== 'road' && rc.linked === false) { ctx.setLineDash([8, 6]); ctx.lineWidth = 3; poly(tilePts(p, 0.86), null, 'rgba(255,177,92,' + (0.55 + 0.35 * pulse) + ')'); ctx.setLineDash([]); }
+      else if (rc && rc.t !== 'road' && !rc.conn) { ctx.setLineDash([8, 6]); ctx.lineWidth = 3; poly(tilePts(p, 0.86), null, 'rgba(255,90,95,' + (0.6 + 0.35 * pulse) + ')'); ctx.setLineDash([]); }
     });
     // voitures visibles
     for (const car of cars) {
@@ -1999,8 +2051,9 @@ function frame(now) {
       if (T && T.w) { w = T.w; h = T.h; }
       if (tool === 'bull') ok = !!c;
       else if (tool === 'link') ok = !!c && c.t !== 'road' && !footConn(c);
+      else if (tool === 'link') ok = !!c && c.t !== 'road' && c.linked === false;
       else if (tool === 'up') ok = !!c && c.t !== 'road' && upgradeCost(c) > 0 && S.cash >= upgradeCost(c);
-      else if (tool !== 'view') ok = !toolLocked(tool) && S.cash >= T.cost && (tool === 'road' ? !rc : !footprintError(hover.x, hover.y, tool));
+      else if (tool !== 'view') ok = !toolLocked(tool) && S.cash >= T.cost && (tool === 'road' ? !roadError(hover.x, hover.y) : !footprintError(hover.x, hover.y, tool));
       const col = tool === 'view' ? 'rgba(233,237,255,.9)' : ok ? 'rgba(70,211,154,.95)' : 'rgba(255,90,95,.95)';
       ctx.lineWidth = 4;
       for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
@@ -2113,7 +2166,7 @@ cvs.addEventListener('pointerdown', e => {
     gesture = { mode: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: z };
     return;
   }
-  const panning = tool === 'view' || tool === 'road' || tool === 'link' || e.button === 1 || e.button === 2 || spaceDown;
+  const panning = tool === 'view' || e.button === 1 || e.button === 2 || spaceDown;
   if (panning) gesture = { mode: 'pan', sx: p.x, sy: p.y, cx: cam.x, cy: cam.y, moved: false, tool: tool };
   else { gesture = { mode: 'paint', start: screenToTile(p.x, p.y), axis: null, cur: null }; lastTile = null; applyAt(p); if (tool === 'road') gesture.cur = gesture.start; }
 });
@@ -2194,7 +2247,7 @@ updateHUD();
 setTool('res');
 if (window.innerWidth >= 1000) setPanel(true);
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { get S() { return S; }, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
