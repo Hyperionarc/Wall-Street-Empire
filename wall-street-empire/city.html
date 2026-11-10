@@ -471,6 +471,14 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .pmcard .rth{width:64px;height:64px;border-radius:8px;background:#12163a;overflow:hidden}.pmcard .rth svg,.pmcard .rth img{width:100%;height:100%}
 .pmcard table{width:100%;font-size:11.5px;border-collapse:collapse}.pmcard td,.pmcard th{padding:1px 4px;text-align:right}.pmcard th{color:var(--mut);font-weight:500;font-size:10px}.pmcard td:first-child,.pmcard th:first-child{text-align:left}
 @media (max-width:520px){.pmcard{grid-template-columns:64px 1fr}.pmcard canvas{display:none}}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:8px 0}
+.slot{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px;border-radius:8px;background:#e9e3d2;color:#1a2040;border:2px solid #b9ad8f;min-height:150px}
+.slot b{font-size:11.5px;text-align:center;line-height:1.15}.slot small{font-size:10.5px;color:#4a4f6a}
+.slot .sth{width:72px;height:72px;background:#fff;border:1px solid #b9ad8f;display:flex;align-items:center;justify-content:center;overflow:hidden}.slot .sth svg,.slot .sth img{width:100%;height:100%;object-fit:contain}
+.slot .sbars{position:absolute;right:6px;top:34px;width:20px;height:40px;display:flex;align-items:flex-end;gap:2px}.slot .sbars i{display:block;width:8px;min-height:2px}.slot .sb1{background:#e0c020}.slot .sb2{background:#e8742a}
+.slot.sel{border-color:#2f7ee8;box-shadow:0 0 0 2px #2f7ee8}
+.slot.empty{background:rgba(255,255,255,.06);color:var(--mut);border:2px dashed var(--line);justify-content:center}.slot.empty .plus{font-size:28px;color:var(--gold)}
+.pickbox{padding:8px;margin-top:6px;border-radius:8px;background:rgba(47,126,232,.12);border:1px solid #2f7ee8;font-size:12px}
 .bil{display:grid;grid-template-columns:1fr;gap:6px}
 .rcard{padding:8px 10px;margin:8px 0;border-radius:8px;background:var(--panel-hi)}
 .rtop{display:flex;align-items:center;gap:8px}.rtop i{width:10px;height:10px;border-radius:3px}.rtop small{margin-left:auto;color:var(--mut)}
@@ -1068,7 +1076,7 @@ function newCity() {
 }
 function save() {
   try {
-    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0)]);
+    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
     localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
@@ -1084,7 +1092,8 @@ function load() {
       if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
       if (r[0] === 'road') return { t: 'road', own: true, x: i % N, y: Math.floor(i / N) };
       if (!TYPES[r[0]]) return null;
-      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
+      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
+      if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
     genRoads(grid);
@@ -1276,7 +1285,17 @@ function irEvent(k) {
   updateHUD(); return true;
 }
 const IPO_MIN = 250000;
-const shelfOk = (c, key) => !c.shelf || c.shelf[key] !== false;
+// Rayons : un magasin ne vend qu'un nombre limité de produits selon sa taille (4, 8 ou 12)
+const SLOTS = { s1: 4, s2: 8, s3: 12, immo: 4 };
+const slotsN = c => SLOTS[c.t] || 4;
+function shelfKeys(c) {
+  if (c.slots) return c.slots.filter(Boolean);
+  let items = shelfItems(c).map(i => i.key);
+  if (c.shelf) items = items.filter(k => c.shelf[k] !== false);
+  return items.slice(0, slotsN(c));
+}
+const shelfOk = (c, key) => shelfKeys(c).indexOf(key) >= 0;
+let bPick = -1;
 // Publicité : canaux, budgets quotidiens et notoriété du magasin
 const AD_CH = { tv: { n: 'Télévision', gain: 0.9, scale: 300, max: 1500, step: 50, d: 'Audience massive, très coûteuse. Idéale pour les grandes surfaces.' }, radio: { n: 'Radio', gain: 0.45, scale: 80, max: 500, step: 25, d: 'Peu chère, audience locale. Le meilleur rapport pour un petit marché.' }, net: { n: 'Internet', gain: 0.6, scale: 140, max: 800, step: 25, d: 'Ciblage précis, budget souple. Efficace partout.' } };
 const AD_KEYS = ['tv', 'radio', 'net'];
@@ -2517,6 +2536,7 @@ function recOf(c) {
 function qualCost(c) { return (c.qual || 0) >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.5 * (1 + (c.qual || 0))); }
 function effCost(c) { return (c.eff || 0) >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.4 * (1 + (c.eff || 0))); }
 function openBuilding(x, y) {
+  bPick = -1;
   const c = cell(x, y); if (!c) return;
   bsel = { x: c.x, y: c.y }; selected = { x: c.x, y: c.y };
   el('pview').hidden = true; el('pv').setAttribute('aria-pressed', 'false');
@@ -2585,7 +2605,7 @@ function renderBuilding(force) {
     return `<div class="lever wide"><h4>Réorganiser la chaîne</h4><small>Affecte ce bâtiment à une autre recette (niveau ${lv}).</small><div class="rlist">${opts.map(o => `<button class="chip2" data-act="recipe:${o[0]}" aria-pressed="${(c.prod || '') === o[0]}">${o[1]}</button>`).join('')}</div></div>`;
   })() : '';
   const htmlInt = `
-  ${FLEVEL[c.t] ? prodHeader(c) : ''}
+  ${FLEVEL[c.t] ? prodHeader(c) : ''}${T.ret ? shelfCard(c) : ''}
   <div class="kpis">
     <div><small>Production</small><b>${T.ext || T.rec ? f1(c.out) + ' /j' : T.ret ? f1(c.out) + ' ventes/j' : money(c.pRev || 0)}</b></div>
     <div><small>Utilisation</small><b>${pct(clamp(c.util || 0, 0, 1))}</b></div>
@@ -2605,7 +2625,6 @@ function renderBuilding(force) {
     <div class="lever"><h4>Efficacité <span class="pip">${pips(c.eff || 0)}</span></h4><small>Production +8 % par niveau (machines, organisation).</small><button class="btn" data-act="eff" ${ec && S.cash >= ec ? '' : 'disabled'}>${ec ? 'Optimiser · ' + money(ec) : 'Efficacité max'}</button></div>
     ${T.ext && c.linked === false ? `<div class="lever"><h4>Logistique</h4><small>Hors réseau : rendement 65 %, transport plus cher.</small><button class="btn" data-act="link">Relier au réseau</button></div>` : ''}
     ${T.ret ? priceCard(c) : ''}
-    ${shelfCard(c)}
   </div>
   <div class="actions"><button class="btn sec" data-act="bull">Démolir</button></div>`;
   const html = bTab === 'int' ? htmlInt : bTab === 'lg' ? lgTab(c) : bTab === 'st' ? stTab(c) : bTab === 'ad' ? adTab(c) : bTab === 'ex' ? exTab(c) : finTab(c, bTab);
@@ -2633,7 +2652,10 @@ function bAct(a) {
   else if (a.indexOf('launch:') === 0) { const k = a.slice(7); if (launchProduct(k)) c.prod = k; }
   else if (a.indexOf('train:') === 0) { const k = a.slice(6), cst = trainCost(c, k); if (cst && S.cash >= cst) { S.cash -= cst; c.invest = investOf(c) + cst; c.train = c.train || {}; c.train[k] = (c.train[k] | 0) + 1; flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cst), t: performance.now(), col: '#ff8a8e' }); } }
   else if (a === 'imp') c.imp = c.imp === false ? true : false;
-  else if (a.indexOf('shelf:') === 0) { const k = a.slice(6); c.shelf = c.shelf || {}; c.shelf[k] = shelfOk(c, k) ? false : true; }
+  else if (a.indexOf('slot:') === 0) { const i = +a.slice(5); bPick = bPick === i ? -1 : i; }
+  else if (a.indexOf('setslot:') === 0) { const [, i, k] = a.split(':'); const N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[+i] = k; bPick = -1; }
+  else if (a.indexOf('clrslot:') === 0) { const i = +a.slice(8), N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[i] = null; bPick = -1; }
+  else if (a === 'autoslots') { c.slots = null; c.shelf = null; bPick = -1; }
   else if (a.indexOf('tab:') === 0) { /* géré plus haut */ }
   else if (a.indexOf('recipe:') === 0) c.prod = a.slice(7) || null;
   else if (a.indexOf('make:') === 0) { const n = assignRecipe(a.slice(5), 1); say(n ? 'Usine affectée à ' + RECIPES[a.slice(5)].name.toLowerCase() + '.' : 'Aucune usine libre : construis-en une.', n ? 'good' : 'warn'); }
@@ -2928,6 +2950,9 @@ function drawItem(g, k, x, y, s) {
   const R = (a, b, w, h, r, c) => { g.fillStyle = c; rrect(g, a, b, w, h, r); g.fill(); };
   const sd = hash(k.length * 7, k.charCodeAt(0), 5);
   switch (k) {
+    case 'basic': R(-12, -24, 24, 24, 3, '#d9b27c'); R(-12, -24, 24, 6, 2, '#c99a58'); g.fillStyle = '#69db7c'; g.beginPath(); g.arc(-4, -26, 4, 0, 7); g.fill(); g.fillStyle = '#ff6b6b'; g.beginPath(); g.arc(4, -27, 4, 0, 7); g.fill(); break;
+    case 'std': R(-14, -26, 28, 26, 3, '#e3e8f5'); R(-14, -26, 28, 6, 2, '#9aa4d6'); g.fillStyle = '#7f96ff'; g.beginPath(); g.arc(0, -11, 7, 0, 7); g.fill(); g.fillStyle = '#e3e8f5'; g.beginPath(); g.arc(0, -11, 4, 0, 7); g.fill(); break;
+    case 'lux': R(-14, -22, 28, 22, 2, '#2b3358'); R(-14, -22, 28, 5, 1, '#f2b84b'); R(-2, -22, 4, 22, 0, '#f2b84b'); g.fillStyle = '#f2b84b'; g.beginPath(); g.arc(-5, -25, 4, 0, 7); g.arc(5, -25, 4, 0, 7); g.fill(); break;
     case 'wood':
       R(-24, -15, 46, 16, 7, '#7a4e2a'); g.strokeStyle = '#5a3a1e'; g.lineWidth = 1; for (let i = -16; i < 18; i += 8) { g.beginPath(); g.moveTo(i, -13); g.lineTo(i + 3, -3); g.stroke(); }
       g.fillStyle = '#e0b878'; g.beginPath(); g.ellipse(22, -7, 5, 8, 0, 0, 7); g.fill(); g.strokeStyle = '#a97a40'; g.beginPath(); g.ellipse(22, -7, 2.5, 4.5, 0, 0, 7); g.stroke(); break;
@@ -3276,15 +3301,21 @@ function shelfItems(c) {
   });
   return out;
 }
+function slotThumb(key) { return PRODUCTS[key] ? productSVG(key, S.prod[key].q) : `<img alt="" src="${compIcon(key.replace('g_', ''))}">`; }
 function shelfCard(c) {
   if (!TYPES[c.t].ret) return '';
-  const its = shelfItems(c), ir = Math.max(0.6, 0.85 - 0.06 * (S.stats && S.stats.cn && S.stats.cn.port || 0));
-  const rows = its.map(it => { const on = shelfOk(c, it.key), s = c.sales && c.sales[it.key] || 0;
-    const src = it.gen ? (it.stock > 0.5 ? 'stock local ' + fmt(it.stock) : (c.imp === false ? 'rupture' : 'import port ' + f1(it.price * ir) + ' $')) : (it.stock > 0.5 ? 'stock ' + fmt(it.stock) : 'rupture');
-    return `<button class="chip2 shelf" data-act="shelf:${it.key}" aria-pressed="${on}"><b>${it.name}</b><small>${f1(it.price)} $ · ${src} · ${f1(s)} vendus/j</small></button>`; }).join('');
-  return `<div class="lever wide"><h4>Marchandises vendues</h4><small>Choisis ce que ce magasin met en rayon. Les produits que tu as lancés (vue Produits) apparaissent ici.</small><div class="rlist">${rows || '<small>Rien à vendre ici pour l\'instant.</small>'}</div>
-    <div class="seg2"><button class="btn sec" data-act="imp" aria-pressed="${c.imp !== false}">Importation par le port : ${c.imp === false ? 'coupée' : 'active'}</button></div>
-    <small>Quand ton stock est vide, le port importe les marchandises de base au prix du marché −${Math.round((1 - ir) * 100)} % (moins cher avec tes propres terminaux portuaires). Produire toi-même reste plus rentable.</small></div>`;
+  const N = slotsN(c), all = shelfItems(c), keys = c.slots ? c.slots : shelfKeys(c).concat(Array(N).fill(null)).slice(0, N);
+  const ir = Math.max(0.6, 0.85 - 0.06 * (S.stats && S.stats.cn && S.stats.cn.port || 0)), by = {}; all.forEach(i => { by[i.key] = i; });
+  const slots = Array.from({ length: N }, (_, i) => { const k = keys[i], it = k && by[k];
+    if (!it) return `<button class="slot empty ${bPick === i ? 'sel' : ''}" data-act="slot:${i}"><span class="plus">＋</span><small>Emplacement ${i + 1}</small></button>`;
+    const s = c.sales && c.sales[k] || 0, st = it.stock, mx = Math.max(10, st, s * 2);
+    return `<button class="slot ${bPick === i ? 'sel' : ''}" data-act="slot:${i}"><span class="sth">${slotThumb(k)}</span><b>${it.name.replace(' (génériques)', '')}</b><small>${f1(it.price * (c.pf || 1))} $</small><span class="sbars"><i class="sb1" style="height:${Math.round(clamp(st / mx, 0, 1) * 100)}%" title="Stock"></i><i class="sb2" style="height:${Math.round(clamp(s / mx * 2, 0, 1) * 100)}%" title="Ventes"></i></span><small>${f1(s)} vendus/j</small></button>`; }).join('');
+  let pick = '';
+  if (bPick >= 0 && bPick < N) { const placed = keys.filter(Boolean), opts = all.filter(i => placed.indexOf(i.key) < 0);
+    pick = `<div class="pickbox"><b>Emplacement ${bPick + 1}</b> : choisis le produit à mettre en rayon ${keys[bPick] ? `<button class="btn sec" data-act="clrslot:${bPick}" style="min-height:28px;padding:2px 10px">Vider</button>` : ''}<div class="rlist" style="margin-top:6px">${opts.map(i => `<button class="chip2 shelf" data-act="setslot:${bPick}:${i.key}"><b>${i.name}</b><small>${f1(i.price)} $ · ${i.stock > 0.5 ? 'stock ' + fmt(i.stock) : (i.gen && c.imp !== false ? 'import port' : 'rupture')}</small></button>`).join('') || '<small>Aucun autre produit disponible : lance de nouveaux produits dans les usines.</small>'}</div></div>`; }
+  return `<div class="lever wide" style="margin:8px 0"><h4>Rayons · ${N} emplacements <span class="pip">${keys.filter(Boolean).length} / ${N}</span></h4><small>Un magasin ne présente qu'un nombre limité de produits selon sa taille : 4 (petit marché), 8 (supermarché), 12 (hypermarché). Clique un emplacement pour choisir le produit. Barres : stock (jaune) et ventes (orange).</small><div class="slots">${slots}</div>${pick}
+    <div class="seg2" style="margin-top:6px"><button class="btn sec" data-act="autoslots">Remplissage automatique</button><button class="btn sec" data-act="imp" aria-pressed="${c.imp !== false}">Importation par le port : ${c.imp === false ? 'coupée' : 'active'}</button></div>
+    <small>Quand ton stock est vide, le port importe les marchandises de base au prix du marché −${Math.round((1 - ir) * 100)} % (moins cher avec tes terminaux portuaires).</small></div>`;
 }
 function trainCost(c, k) { const l = (c.train && c.train[k]) | 0; return l >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.2 * (1 + l)); }
 function stTab(c) {
