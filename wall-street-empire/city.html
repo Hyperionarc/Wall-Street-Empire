@@ -359,6 +359,15 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .rlist{display:flex;flex-wrap:wrap;gap:6px}
 .chip2{min-height:30px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:12px}
 .chip2[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
+.chip2.shelf{display:flex;flex-direction:column;align-items:flex-start;border-radius:10px;padding:5px 10px;text-align:left}
+.chip2.shelf small{color:var(--mut);font-size:10.5px;font-weight:400}
+.chip2.shelf[aria-pressed="false"]{opacity:.55;text-decoration:line-through}
+.mk{margin:6px 0}.mk small{font-size:11px;color:var(--mut)}
+.mkbar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:rgba(143,154,203,.25);margin-top:3px}
+.mkbar i{display:block;height:100%}
+.rv{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line);font-size:12px}
+.rv span{display:flex;flex-direction:column;min-width:0}.rv span i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+.rv small{color:var(--mut);font-size:10.5px}.rv .btn{min-height:30px;padding:2px 8px;font-size:11.5px}
 .finrow{display:flex;justify-content:space-between;font-size:12px;padding:1px 0}
 .finrow b{font-family:var(--font-m);font-weight:600}
 .loanrow{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
@@ -407,6 +416,8 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     <ul id="missions"></ul>
     <h3>MARCHÉ</h3>
     <div id="goods"></div>
+    <h3>CONCURRENTS</h3>
+    <div id="rivals"></div>
     <h3>FINANCES</h3>
     <div id="fin"></div>
     <div class="loanrow"><span id="loanV"></span><button class="btn sec" id="loanUp">Emprunter 20 k</button><button class="btn sec" id="loanDn">Rembourser</button></div>
@@ -593,7 +604,33 @@ const QTIER = [
 const ADV = [{ n: 'Aucune', cost: 0, gain: 0 }, { n: 'Moyenne', cost: 150, gain: 0.5 }, { n: 'Forte', cost: 400, gain: 1.1 }];
 // Emballage : nombre d'emballages par unité (composant « Emballages »), effet sur l'attrait
 const PACK = [{ n: 'Vrac', per: 0, attr: 0.85, tag: 'Sans emballage' }, { n: 'Carton', per: 1, attr: 1, tag: 'Carton standard' }, { n: 'Coffret premium', per: 2, attr: 1.15, tag: 'Coffret soigné' }];
-const RIVAL = 0.5;   // poids des marques rivales dans chaque catégorie
+// Concurrents IA : chacun a une part d'attractivité par catégorie, une trésorerie, et investit ou fait faillite selon ses ventes
+const RIV_CLS = ['basic', 'std', 'lux', 'estate'];
+function initRivals() {
+  return [
+    { id: 'r1', name: 'Mega Mart', col: '#ff8a3d', cash: 60000, att: { basic: 0.22, std: 0.12, lux: 0, estate: 0.1 } },
+    { id: 'r2', name: 'Luxor & Fils', col: '#ff4fa3', cash: 90000, att: { basic: 0.02, std: 0.12, lux: 0.3, estate: 0.2 } },
+    { id: 'r3', name: 'DiscountCo', col: '#3fd8ff', cash: 40000, att: { basic: 0.26, std: 0.26, lux: 0.2, estate: 0.2 } }
+  ];
+}
+const rivalSum = r => RIV_CLS.reduce((a, k) => a + r.att[k], 0);
+const rivalAttr = cls => (S.rivals || []).reduce((a, r) => a + r.att[cls], 0);
+const rivalValue = r => Math.round((Math.max(0, r.cash) + 90000 * rivalSum(r)) / 500) * 500;
+function stepRivals(rivalPart) {
+  const rs = S.rivals || [];
+  rs.forEach(r => {
+    let rev = 0;
+    RIV_CLS.forEach(cls => { const A = rivalAttr(cls); if (A > 0 && rivalPart[cls] > 0) rev += rivalPart[cls] * (r.att[cls] / A) * (S.price[cls] || 300); });
+    r.rev = rev; r.cash += rev * 0.2 - rivalSum(r) * 420;
+    if (S.day % 5 === 0 && r.cash > 8000) {
+      const w = RIV_CLS.map(k => r.att[k] + 0.05); let tot = w.reduce((a, b) => a + b, 0), x = Math.random() * tot, i = 0;
+      while (x > w[i] && i < 3) { x -= w[i]; i++; }
+      const k = RIV_CLS[i]; if (r.att[k] < 0.7) { r.att[k] += 0.012; r.cash -= 6000; }
+    }
+    if (r.cash < -4000) RIV_CLS.forEach(k => { r.att[k] *= 0.97; });
+  });
+  S.rivals = rs.filter(r => { if (r.cash < -4000 && rivalSum(r) < 0.12) { say(`${r.name} fait faillite : ses clients se tournent vers toi et ses rivaux.`, 'good'); return false; } return true; });
+}
 const recipeOf = k => RECIPES[k] || PRODUCTS[k];
 function initProd() {
   const o = {};
@@ -860,16 +897,16 @@ function newCity() {
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
   const npc = genNpc(grid);
-  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors);
+  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors); S0.rivals = initRivals();
   S0.pop = Math.round(npc.cap * 0.85);
   S0.cash = 150000;
   return S0;
 }
 function save() {
   try {
-    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)]]);
+    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []]]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -883,7 +920,7 @@ function load() {
       if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
       if (r[0] === 'road') return { t: 'road', own: true, x: i % N, y: Math.floor(i / N) };
       if (!TYPES[r[0]]) return null;
-      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
+      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (Array.isArray(r[13][1]) && r[13][1].length) { c.shelf = {}; r[13][1].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
     genRoads(grid);
     const npcInfo = genNpc(grid);
@@ -897,7 +934,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.loan = +d.loan || 0; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -990,6 +1027,7 @@ const WAGE = [{ n: 'Bas', m: 0.8, attr: 0.85, prod: 0.93 }, { n: 'Normal', m: 1,
 const WAGE_RATE = 3.5;                       // salaire de base par emploi et par jour
 const PORT_HUB = { x: 75, y: 69 }, TRANS = 0.01;   // coût de transport par unité et par case
 const DEP_DAYS = 1500;
+const shelfOk = (c, key) => !c.shelf || c.shelf[key] !== false;
 // Publicité : canaux, budgets quotidiens et notoriété du magasin
 const AD_CH = { tv: { n: 'Télévision', gain: 0.9, scale: 300, max: 1500, step: 50, d: 'Audience massive, très coûteuse. Idéale pour les grandes surfaces.' }, radio: { n: 'Radio', gain: 0.45, scale: 80, max: 500, step: 25, d: 'Peu chère, audience locale. Le meilleur rapport pour un petit marché.' }, net: { n: 'Internet', gain: 0.6, scale: 140, max: 800, step: 25, d: 'Ciblage précis, budget souple. Efficace partout.' } };
 const AD_KEYS = ['tv', 'radio', 'net'];
@@ -1078,13 +1116,12 @@ function step() {
   // 3. Commerce : la demande se répartit entre la marchandise générique, les produits lancés et les rivaux
   const happyPrev = S.stats.happy == null ? 60 : S.stats.happy;
   const dem = { basic: S.pop * DEM_PER_POP.basic, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100), lux: S.pop * DEM_PER_POP.lux, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) };
-  const capR = { s1: 0, s2: 0, s3: 0, immo: 0 };
   let retUnits = 0;
-  buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)); capR[c.t] += c._cap; retUnits += R.cap * u; } });
+  buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)); retUnits += R.cap * u; c._left = c._cap; c._sold = 0; c._rev = 0; c._imp = 0; c.sales = {}; } });
   buildings.forEach(c => { if (TYPES[c.t].ret) { c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
   const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF; } }); return w > 0 ? s / w : 1; };
-  const capInit = Object.assign({}, capR);
-  const sells = { basic: ['s1', 's2', 's3'], std: ['s2', 's3'], lux: ['s3'], estate: ['immo'] };
+  const importRate = Math.max(0.6, 0.85 - 0.06 * (cn.port || 0));   // les terminaux portuaires du joueur baissent le coût des importations
+  let importCost = 0, importUnits = 0;
   const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
   let revRetVal = 0;
   PKEYS.forEach(pk => { const ps = S.prod[pk]; ps.sold = 0; ps.rev = 0; ps.share = 0; });
@@ -1093,27 +1130,46 @@ function step() {
     const mine = PKEYS.filter(pk => PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on');
     mine.forEach(pk => items.push({ k: pk, attr: attractiveness(pk), stock: S.prod[pk].stock, price: prodPrice(pk) }));
     const adC = adAvg(cls); items.forEach(it => { it.attr *= adC; });
-    const totalAttr = items.reduce((a, i) => a + i.attr, 0) + RIVAL;
+    const RIVAL = rivalAttr(cls), totalAttr = Math.max(0.001, items.reduce((a, i) => a + i.attr, 0) + RIVAL);
     const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length));
     Dtot[cls] = Dc; rivalPart[cls] = Dc * RIVAL / totalAttr;
     items.forEach(it => {
-      const wi = Dc * it.attr / totalAttr;
-      let need = Math.min(wi, it.stock), got = 0;
-      sells[cls].forEach(p => { const q = Math.min(need, capR[p]); capR[p] -= q; need -= q; got += q; });
+      const key = it.k === 'g' ? 'g_' + cls : it.k, wi = Dc * it.attr / totalAttr, gen = it.k === 'g';
+      const car = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0 && shelfOk(c, key); });
+      let need = wi, got = 0, stockLeft = it.stock, fromStock = 0;
+      for (let pass = 0; pass < 2 && need > 1e-6; pass++) {
+        const ws = car.reduce((a, c) => a + (c._left > 0.01 ? c._cap * c.adF : 0), 0); if (ws <= 0) break;
+        const n0 = need;
+        car.forEach(c => {
+          if (c._left <= 0.01) return;
+          const share = n0 * c._cap * c.adF / ws; let q = Math.min(share, c._left);
+          const fs = Math.min(q, stockLeft), rest = q - fs;
+          if (rest > 1e-9) { if (gen && c.imp !== false) { c._imp += rest; importUnits += rest; const ic = rest * it.price * importRate; importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
+          stockLeft -= fs; fromStock += fs; c._left -= q; c._sold += q; c._rev += q * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
+        });
+      }
       addressed[cls] += wi;
-      if (it.k === 'g') S.stock[cls] -= got;
+      if (gen) S.stock[cls] -= fromStock;
       else { const ps = S.prod[it.k]; ps.stock -= got; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
       sold[cls] += got; revRetVal += got * it.price;
     });
     if (cls !== 'estate') want[cls] += dem[cls] * 0.5;
   });
-  const wsum = {}; buildings.forEach(c => { if (TYPES[c.t].ret) wsum[c.t] = (wsum[c.t] || 0) + c._cap * c.adF; });
   buildings.forEach(c => {
     const R = TYPES[c.t].ret; if (!R) return;
-    const used = capInit[c.t] - capR[c.t], frac = capInit[c.t] > 0 ? used / capInit[c.t] : 0;
-    c.out = wsum[c.t] > 0 ? used * c._cap * c.adF / wsum[c.t] : 0; c.util = c._cap > 0 ? clamp(c.out / c._cap, 0, 1) : 0;
-    c.limit = c.out <= 0.01 ? 'demand' : frac > 0.96 ? 'capacity' : fillOf(c) < 0.97 ? 'staff' : null;
+    c.out = c._sold; c.util = c._cap > 0 ? clamp(c._sold / c._cap, 0, 1) : 0;
+    if (c.out > 0.01) c.limit = c._left < 0.04 * c._cap ? 'capacity' : fillOf(c) < 0.97 ? 'staff' : null;
+    else {
+      let on = 0, avail = false;
+      R.sells.forEach(cls => {
+        if (cls !== 'estate' && shelfOk(c, 'g_' + cls)) { on++; if (c.imp !== false || S.stock[cls] > 0.5) avail = true; }
+        PKEYS.forEach(pk => { if (PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on' && shelfOk(c, pk)) { on++; if (S.prod[pk].stock > 0.5) avail = true; } });
+      });
+      c.limit = !on ? 'noshelf' : !avail ? 'stock' : 'demand';
+    }
   });
+  S.mkt = {}; RIV_CLS.forEach(cls => { const D = Math.max(0.001, Dtot[cls]); S.mkt[cls] = { you: sold[cls] / D, riv: (S.rivals || []).map(r => ({ id: r.id, s: rivalPart[cls] * (rivalAttr(cls) > 0 ? r.att[cls] / rivalAttr(cls) : 0) / D })) }; });
+  stepRivals(rivalPart);
   const soldTotal = sold.basic + sold.std + sold.lux;
   S.sold += soldTotal;
   S.houses = (S.houses || 0) + sold.estate; S.lots = S.lots || 0;
@@ -1141,11 +1197,11 @@ function step() {
   S.loan = S.loan || 0;
   const interest = S.loan * 0.0006;
   const rate = S.tax;
-  const preTax = revRetail + revExport + revTech + revBank - wagesTotal - upkeep - transportTotal - advCost - interest;
+  const preTax = revRetail + revExport + revTech + revBank - wagesTotal - upkeep - transportTotal - advCost - interest - importCost;
   const corpTax = Math.max(0, preTax) * rate;
   const net = preTax - corpTax;
   S.cash += net;
-  S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep, transport: transportTotal, adv: advCost, interest, tax: corpTax, net };
+  S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep, transport: transportTotal, adv: advCost, interest, imports: importCost, tax: corpTax, net };
 
   // 6. Compte de résultat par bâtiment (prix de cession internes au prix du marché)
   let retOut = 0; buildings.forEach(c => { if (TYPES[c.t].ret) retOut += c.out; });
@@ -1154,7 +1210,7 @@ function step() {
     const T = TYPES[c.t];
     if (T.ext) c.pRev = c.out * P[T.ext] * qualMult(c);
     else if (T.rec) c.pRev = c.out * outPrice(c) * qualMult(c);
-    else if (T.ret) c.pRev = retOut > 0 ? revRetVal * mult * (c.out / retOut) : 0;
+    else if (T.ret) c.pRev = (c._rev || 0) * mult;
     else if (c.t === 'port') c.pRev = revExport / Math.max(1, portN);
     const up = T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0)));
     c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
@@ -1514,10 +1570,19 @@ function updateHUD() {
       el('gs-' + g).textContent = 'stock ' + fmt(S.stock[g]);
       drawSeries(el('gc-' + g), ph, GOODS[g].color, true);
     });
+    const names = { basic: 'Biens de base', std: 'Manufacturés', lux: 'Luxe', estate: 'Immobilier' };
+    let rh = '';
+    ['basic', 'std', 'lux', 'estate'].forEach(cls => {
+      const m = S.mkt && S.mkt[cls]; if (!m) return;
+      const segs = [['#f2b84b', m.you, 'Toi']].concat(m.riv.map(r => { const rv = (S.rivals || []).find(x => x.id === r.id); return [rv ? rv.col : '#888', r.s, rv ? rv.name : '']; }));
+      rh += `<div class="mk"><small>${names[cls]} · tu détiens ${Math.round(m.you * 100)} %</small><div class="mkbar">${segs.map(s => `<i title="${s[2]} ${Math.round(s[1] * 100)} %" style="width:${(s[1] * 100).toFixed(1)}%;background:${s[0]}"></i>`).join('')}</div></div>`;
+    });
+    rh += (S.rivals || []).map(r => { const v = rivalValue(r); return `<div class="rv"><span><i style="background:${r.col}"></i><b>${r.name}</b><small>${money(r.cash)} · ${Math.round(r.rev || 0)} $/j de ventes</small></span><button class="btn sec" data-buy="${r.id}" ${S.cash >= v ? '' : 'disabled'}>Racheter ${money(v)}</button></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
+    if (el('rivals').innerHTML !== rh) el('rivals').innerHTML = rh;
     const F = S.fin;
     if (F) {
       const row = (n, v, neg) => `<div class="finrow"><span>${n}</span><b class="${neg ? 'neg' : 'pos'}">${neg ? '−' : '+'}${money(Math.abs(v))}</b></div>`;
-      el('fin').innerHTML = row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech et banques', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Entretien', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + row('Impôt sociétés', F.tax, 1) + `<div class="finrow"><span><b>Résultat / jour</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${money(Math.abs(F.net))}</b></div>`;
+      el('fin').innerHTML = row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech et banques', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Entretien', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + `<div class="finrow"><span><b>Résultat / jour</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${money(Math.abs(F.net))}</b></div>`;
     } else el('fin').innerHTML = '<p class="note">Le compte de résultat apparaît après le premier jour.</p>';
     const lim = creditLimit();
     el('loanV').textContent = `Dette ${money(S.loan || 0)} · plafond ${money(lim)}`;
@@ -1538,6 +1603,7 @@ function updateHUD() {
     drawSeries(el('spark'), h, '#f2b84b');
   }
 }
+el('rivals').addEventListener('click', e => { const b = e.target.closest('[data-buy]'); if (!b || b.disabled) return; const r = (S.rivals || []).find(x => x.id === b.dataset.buy); if (!r) return; const v = rivalValue(r); if (S.cash < v) return; S.cash -= v; S.rivals = S.rivals.filter(x => x !== r); say(`Rachat de ${r.name} pour ${money(v)} : sa clientèle est à prendre.`, 'gold'); updateHUD(); save(); });
 function creditLimit() { return Math.max(0, Math.round(0.5 * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
 el('loanUp').onclick = () => { if ((S.loan || 0) + 20000 <= creditLimit()) { S.loan = (S.loan || 0) + 20000; S.cash += 20000; say('Emprunt de 20 000 $ (intérêts 0,06 %/jour).', 'info'); updateHUD(); save(); } };
 el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, 20000, Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
@@ -2054,7 +2120,9 @@ function bottleneck(c) {
   if (L === 'alert') return { sev: 'warn', t: 'Incident de production en cours', d: 'Perte de 25 % pendant quelques jours. Ça passera.', acts: [] };
   if (L === 'staff') return { sev: 'warn', t: `Manque de personnel : ${pct(clamp(STAFF * wageOf(c).attr, 0, 1))} des postes pourvus`, d: 'La ville manque de bras. Un salaire élevé attire plus de monde ; construis aussi des logements.', acts: [['wage2', 'Salaires élevés']] };
   if (L === '_full') return { sev: 'warn', t: 'Stock plein : l\'atelier s\'arrête', d: 'La production n\'est pas écoulée. Ouvre des débouchés (commerces, port) ou change de recette.', acts: [] };
-  if (L === 'demand') return { sev: 'warn', t: 'Demande insuffisante', d: 'Les clients ne viennent pas assez : fournis la marchandise, baisse les prix ou construis des logements.', acts: [] };
+  if (L === 'demand') return { sev: 'warn', t: 'Demande insuffisante', d: 'Les rayons sont garnis mais peu de clients achètent : fais de la publicité, améliore la qualité, ou construis des logements.', acts: [['tab:ad', 'Ouvrir la publicité']] };
+  if (L === 'stock') return { sev: 'bad', t: 'Rupture de stock : plus aucune marchandise à vendre', d: 'Ni stock produit localement, ni importation. Autorise l\'importation par le port, ou produis la marchandise dans tes usines.', acts: [['imp', c.imp === false ? 'Autoriser l\'import' : 'Import actif']] };
+  if (L === 'noshelf') return { sev: 'bad', t: 'Aucune marchandise sélectionnée', d: 'Coche au moins une marchandise dans « Marchandises vendues » ci-dessous.', acts: [] };
   if (L === 'capacity') return { sev: 'ok', t: 'Capacité saturée : la demande dépasse ce magasin', d: 'Agrandis-le ou construis-en un autre.', acts: [['up', 'Agrandir']] };
   const acts = [];
   if (RECIPES[L]) acts.push(['make:' + L, 'Affecter une usine à ' + RECIPES[L].name.toLowerCase()]);
@@ -2121,6 +2189,7 @@ function renderBuilding(force) {
     <div class="lever"><h4>Efficacité <span class="pip">${pips(c.eff || 0)}</span></h4><small>Production +8 % par niveau (machines, organisation).</small><button class="btn" data-act="eff" ${ec && S.cash >= ec ? '' : 'disabled'}>${ec ? 'Optimiser · ' + money(ec) : 'Efficacité max'}</button></div>
     ${T.ext && c.linked === false ? `<div class="lever"><h4>Logistique</h4><small>Hors réseau : rendement 65 %, transport plus cher.</small><button class="btn" data-act="link">Relier au réseau</button></div>` : ''}
     ${recipes}
+    ${shelfCard(c)}
   </div>
   <div class="actions"><button class="btn sec" data-act="bull">Démolir</button></div>`;
   const html = bTab === 'int' ? htmlInt : bTab === 'ad' ? adTab(c) : finTab(c, bTab);
@@ -2143,6 +2212,9 @@ function bAct(a) {
   else if (a.indexOf('wage') === 0) c.wage = +a.slice(4);
   else if (a === 'qual') { const q = qualCost(c); if (q && spend(q)) c.qual = (c.qual || 0) + 1; }
   else if (a === 'eff') { const q = effCost(c); if (q && spend(q)) c.eff = (c.eff || 0) + 1; }
+  else if (a === 'imp') c.imp = c.imp === false ? true : false;
+  else if (a.indexOf('shelf:') === 0) { const k = a.slice(6); c.shelf = c.shelf || {}; c.shelf[k] = shelfOk(c, k) ? false : true; }
+  else if (a.indexOf('tab:') === 0) { /* géré plus haut */ }
   else if (a.indexOf('recipe:') === 0) c.prod = a.slice(7) || null;
   else if (a.indexOf('make:') === 0) { const n = assignRecipe(a.slice(5), 1); say(n ? 'Usine affectée à ' + RECIPES[a.slice(5)].name.toLowerCase() + '.' : 'Aucune usine libre : construis-en une.', n ? 'good' : 'warn'); }
   else if (a.indexOf('info:') === 0) say('Construis : ' + a.slice(5).toLowerCase() + '.', 'info');
@@ -2338,6 +2410,7 @@ function drawRetail(sc, c, g) {
   quad(g, [P(0.9, sc.GH, 52), P(2.5, sc.GH, 52), P(2.5, sc.GH, 0), P(0.9, sc.GH, 0)], 'rgba(150,215,255,.16)', 'rgba(200,230,255,.8)');
   g.fillStyle = 'rgba(8,10,30,.6)'; rrect(g, 10, 6, 220, 22, 6); g.fill(); g.fillStyle = '#e9edff'; g.font = '600 11px sans-serif'; g.textAlign = 'left';
   g.fillText(`${sc.cust.length} clients en magasin · ${f1(c.out)} ventes/j${adSpend(c) ? ' · pub ' + Math.round(c.aw || 0) + ' %' : ''}`, 18, 21);
+  if (c.limit === 'stock' || c.limit === 'noshelf') { g.fillStyle = 'rgba(255,90,95,.9)'; rrect(g, 10, 32, 190, 20, 6); g.fill(); g.fillStyle = '#fff'; g.font = '700 11px sans-serif'; g.fillText(c.limit === 'stock' ? 'RUPTURE DE STOCK' : 'AUCUN PRODUIT EN RAYON', 18, 46); }
 }
 function lighten(col) { const n = parseInt(col.slice(1), 16), r = Math.min(255, (n >> 16) + 50), gg = Math.min(255, ((n >> 8) & 255) + 50), b = Math.min(255, (n & 255) + 50); return `rgb(${r},${gg},${b})`; }
 
@@ -2524,6 +2597,25 @@ function sceneLoop(ts) {
 function sceneStart() { if (!scRaf) { scLast = performance.now(); scRaf = requestAnimationFrame(sceneLoop); } }
 
 
+function shelfItems(c) {
+  const R = TYPES[c.t].ret, out = [];
+  if (!R) return out;
+  R.sells.forEach(cls => {
+    if (cls !== 'estate') out.push({ key: 'g_' + cls, name: GOODS[cls].name + ' (génériques)', stock: S.stock[cls], price: S.price[cls], gen: true });
+    PKEYS.forEach(pk => { if (PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on') out.push({ key: pk, name: PRODUCTS[pk].name, stock: S.prod[pk].stock, price: prodPrice(pk), gen: false }); });
+  });
+  return out;
+}
+function shelfCard(c) {
+  if (!TYPES[c.t].ret) return '';
+  const its = shelfItems(c), ir = Math.max(0.6, 0.85 - 0.06 * (S.stats && S.stats.cn && S.stats.cn.port || 0));
+  const rows = its.map(it => { const on = shelfOk(c, it.key), s = c.sales && c.sales[it.key] || 0;
+    const src = it.gen ? (it.stock > 0.5 ? 'stock local ' + fmt(it.stock) : (c.imp === false ? 'rupture' : 'import port ' + f1(it.price * ir) + ' $')) : (it.stock > 0.5 ? 'stock ' + fmt(it.stock) : 'rupture');
+    return `<button class="chip2 shelf" data-act="shelf:${it.key}" aria-pressed="${on}"><b>${it.name}</b><small>${f1(it.price)} $ · ${src} · ${f1(s)} vendus/j</small></button>`; }).join('');
+  return `<div class="lever wide"><h4>Marchandises vendues</h4><small>Choisis ce que ce magasin met en rayon. Les produits que tu as lancés (vue Produits) apparaissent ici.</small><div class="rlist">${rows || '<small>Rien à vendre ici pour l\'instant.</small>'}</div>
+    <div class="seg2"><button class="btn sec" data-act="imp" aria-pressed="${c.imp !== false}">Importation par le port : ${c.imp === false ? 'coupée' : 'active'}</button></div>
+    <small>Quand ton stock est vide, le port importe les marchandises de base au prix du marché −${Math.round((1 - ir) * 100)} % (moins cher avec tes propres terminaux portuaires). Produire toi-même reste plus rentable.</small></div>`;
+}
 function adTab(c) {
   const ad = adOf(c), tot = adSpend(c), aw = c.aw || 0, tgt = adTarget(c), up = Math.round(0.9 * aw);
   const card = k => { const C = AD_CH[k], b = ad[k] || 0, eff = Math.round(100 * C.gain * (1 - Math.exp(-b / (C.scale * adScaleOf(c)))) / 1.5);
@@ -2531,7 +2623,8 @@ function adTab(c) {
       <input type="range" data-ad="${k}" min="0" max="${C.max}" step="${C.step}" value="${b}" aria-label="Budget ${C.n}">
       <div class="finrow"><span>Budget</span><b id="adv-${k}">${money(b)} / jour</b></div><div class="finrow"><span>Effet sur la notoriété</span><b>${eff} %</b></div></div>`; };
   const ratio = (c.pRev || 0) > 0 ? Math.round(tot / c.pRev * 100) : null;
-  return `<p class="fnote">Chaque canal diffuse une campagne pour ce magasin. La notoriété monte progressivement avec le budget, puis retombe doucement si tu coupes. Plus elle est haute, plus les clients préfèrent ton enseigne aux marques rivales et plus ils sont nombreux.</p>
+  const warn = c.limit === 'capacity' ? '<div class="bnbanner warn"><b>Magasin saturé</b><span>La capacité est pleine : plus de publicité n\'ajoutera pas de ventes. Agrandis-le d\'abord.</span></div>' : c.limit === 'stock' ? '<div class="bnbanner bad"><b>Rupture de stock</b><span>Les clients viennent mais les rayons sont vides : règle l\'approvisionnement avant de payer de la pub.</span></div>' : '';
+  return warn + `<p class="fnote">Chaque canal diffuse une campagne pour ce magasin. La notoriété monte progressivement avec le budget, puis retombe doucement si tu coupes. Plus elle est haute, plus les clients préfèrent ton enseigne aux marques rivales et plus ils sont nombreux.</p>
     <div class="kpis"><div><small>Budget total</small><b class="neg">${money(tot)} /j</b></div><div><small>Notoriété</small><b>${Math.round(aw)} %</b></div><div><small>Cible</small><b>${Math.round(tgt)} %</b></div><div><small>Affluence</small><b class="pos">+${up} %</b></div><div><small>Ventes / jour</small><b>${f1(c.out)}</b></div><div><small>Pub / recettes</small><b>${ratio == null ? '–' : ratio + ' %'}</b></div></div>
     <div class="bar" style="margin:6px 0 10px"><i style="width:${Math.round(aw)}%"></i></div>
     <div class="levers">${AD_KEYS.map(card).join('')}</div>`;
