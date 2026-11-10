@@ -695,6 +695,7 @@ const TYPES = {
   road:    { name: 'Route',         sub: 'Desserte rurale', cost: 120,   color: '#9aa4d6', upkeep: 0.4 },
   res:     { name: 'Logements',     sub: 'Résidentiel',     cost: 500,   color: '#7f96ff', jobs: 0,  upkeep: 1 },
   tech:    { name: 'Tour Tech',     sub: 'Tech Composite',  cost: 3500,  color: '#3fd8ff', jobs: 14, upkeep: 5,  tier: 1 },
+  wh:      { name: 'Entrepôt',     sub: 'Capacité de stockage +200', cost: 6000, color: '#9a9aa5', jobs: 6, upkeep: 3 },
   hq:      { name: 'Siège social', sub: 'Direction du groupe', cost: 25000, color: '#ffd76a', jobs: 20, upkeep: 8, tier: 1 },
   bank:    { name: 'Banque',        sub: 'London Gold',     cost: 6000,  color: '#f2b84b', jobs: 12, upkeep: 6,  tier: 2 },
   well:    { name: 'Puits pétrole', sub: 'NYMEX Oil',       cost: 1200,  color: '#ff8a3d', jobs: 8,  upkeep: 2,  ext: 'oil',    rate: 14 },
@@ -746,10 +747,10 @@ const RAW_SRC = { wood: 'logging', gravel: 'qgravel', sand: 'qsand', limestone: 
 // Produits finis : catégorie de vente, niveau d'usine, composants par cycle, prix de référence, R&D
 const PRODUCTS = {
   utensils: { name: 'Ustensiles de cuisine', cls: 'basic', lvl: 1, in: { steel: 4, plastic: 2 },                      out: 8, ref: 22,   rnd: 1500,  days: 5,  tier: 0, desc: 'Casseroles et poêles en acier. Un classique du quotidien.' },
-  toys:     { name: 'Jouets en plastique',   cls: 'basic', lvl: 1, in: { plastic: 5, wire: 1 },                       out: 10, ref: 20,  rnd: 1200,  days: 4,  tier: 0, desc: 'Jeux de construction en plastique pour les familles.' },
+  toys:     { name: 'Jouets en plastique',   cls: 'basic', lvl: 1, in: { plastic: 6 },                       out: 10, ref: 20,  rnd: 1200,  days: 4,  tier: 0, desc: 'Jeux de construction en plastique pour les familles.' },
   woodtoys: { name: 'Jouets en bois',        cls: 'basic', lvl: 1, in: { plank: 5 },                                  out: 8,  ref: 26,  rnd: 1300,  days: 4,  tier: 0, desc: 'Petits trains et cubes en bois massif.' },
   chair:    { name: 'Chaise',                cls: 'basic', lvl: 1, in: { plank: 4, steel: 1 },                        out: 6,  ref: 48,  rnd: 1800,  days: 6,  tier: 0, desc: 'Chaise en bois à assise rembourrée.' },
-  bed:      { name: 'Lit',                   cls: 'std',   lvl: 2, in: { plank: 8, steel: 2, plastic: 2 },            out: 4,  ref: 260, rnd: 5000,  days: 10, tier: 1, desc: 'Lit double : tête de lit et sommier en bois, matelas et literie.' },
+  bed:      { name: 'Lit',                   cls: 'std',   lvl: 2, in: { plank: 9, steel: 3 },                      out: 4,  ref: 260, rnd: 5000,  days: 10, tier: 1, desc: 'Lit double : tête de lit et sommier en bois, matelas et literie.' },
   house_wood: { name: 'Maison à ossature bois', cls: 'estate', lvl: 2, in: { stud: 16, osb: 10, concrete: 12, plank: 6, steel: 2 }, out: 1, ref: 6500, rnd: 8000, days: 14, tier: 1, desc: 'Maison individuelle : fondations en béton, ossature en montants de bois, panneaux OSB.' },
   house_concrete: { name: 'Maison en béton', cls: 'estate', lvl: 2, in: { concrete: 26, steel: 5, plank: 4 },           out: 1, ref: 7500, rnd: 9000, days: 14, tier: 1, desc: 'Maison individuelle en béton armé, vendue clé en main.' },
   bike:     { name: 'Vélo',                  cls: 'std',   lvl: 2, in: { steel: 6, plastic: 2 },                      out: 6, ref: 140,  rnd: 4000,  days: 9,  tier: 1, desc: 'Un vélo robuste pour les trajets en ville.' },
@@ -803,7 +804,8 @@ function initProd() {
   PKEYS.forEach(pk => { o[pk] = { st: 'locked', q: 1, pack: 1, rnd: 0, pf: 1, brand: 0, adv: 0, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
   return o;
 }
-const prodPrice = pk => PRODUCTS[pk].ref * QTIER[S.prod[pk].q].ref * S.prod[pk].pf;
+const cpi = () => (S && S.cpi) || 1;
+const prodPrice = pk => PRODUCTS[pk].ref * QTIER[S.prod[pk].q].ref * S.prod[pk].pf * cpi();
 const prodOn = pk => S.prod[pk] && S.prod[pk].st === 'on';
 // composants par cycle de production, avec l'effet de la gamme et de l'emballage
 function productInputs(pk) {
@@ -817,10 +819,17 @@ function outPrice(c) {
   if (c.prod && prodOn(c.prod)) return prodPrice(c.prod);
   return S.price[Object.keys(TYPES[c.t].rec.out)[0]];
 }
+// Note produit : marque, qualité et prix pondérés selon la catégorie (comme Capitalism Lab)
+const SCORE_W = { basic: { price: 0.45, quality: 0.30, brand: 0.25 }, std: { price: 0.33, quality: 0.40, brand: 0.27 }, lux: { price: 0.15, quality: 0.35, brand: 0.50 }, estate: { price: 0.40, quality: 0.45, brand: 0.15 } };
+function productScore(pk) {
+  const ps = S.prod[pk], pr = PRODUCTS[pk], w = SCORE_W[pr.cls], avgP = pr.ref * QTIER[1].ref * cpi();
+  const price = clamp(50 * Math.pow(avgP / prodPrice(pk), 1.2), 0, 100), quality = QTIER[ps.q].q, brand = clamp(ps.brand, 0, 100);
+  return { price, quality, brand, overall: w.price * price + w.quality * quality + w.brand * brand, w };
+}
 function attractiveness(pk) {
   const ps = S.prod[pk], pr = PRODUCTS[pk], happy = (S.stats && S.stats.happy != null ? S.stats.happy : 60);
   const wealth = 1 + (ps.q - 1) * (happy - 60) / 250;   // une population heureuse préfère le haut de gamme
-  return Math.pow(QTIER[ps.q].q / 50, 1.4) * (1 + ps.brand / 100) * Math.pow(pr.ref / prodPrice(pk), 1.8) * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth;
+  return Math.pow(productScore(pk).overall / 50, 1.6) * 1.6 * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth;
 }
 
 const ICONS = {
@@ -829,6 +838,7 @@ const ICONS = {
   res:  '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M9.5 7h1M13.5 7h1M9.5 11h1M13.5 11h1M9.5 15h1M13.5 15h1"/>',
   tech: '<path d="M8 21V6l4-3 4 3v15"/><path d="M12 3V1.5"/><path d="M10.5 9h3M10.5 12.5h3M10.5 16h3"/>',
   hq: '<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6M9 10h1M14 10h1"/>',
+  wh: '<path d="M3 10l9-6 9 6v10H3z"/><path d="M8 20v-6h8v6M8 17h8"/>',
   bank: '<path d="M3 9l9-5 9 5"/><path d="M5 20h14M6.5 11v6M10 11v6M14 11v6M17.5 11v6"/>',
   logging: '<path d="M12 21v-5M12 3l5 7h-3l4 6H6l4-6H7z"/>',
   qgravel: '<path d="M3 21l4-8 4 4 4-9 6 13z"/><circle cx="6" cy="9" r="1.5"/><circle cx="12" cy="6" r="1.5"/>',
@@ -859,7 +869,7 @@ const CATS = [
   { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank', 'hq'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
-  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'port'] },
+  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'wh', 'port'] },
   { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 'immo'] }
 ];
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
@@ -1069,7 +1079,7 @@ function newCity() {
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
   const npc = genNpc(grid);
-  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.tech = {}; S0.research = null; S0.mods = [];
+  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.tech = {}; S0.research = null; S0.mods = []; S0.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] }; S0.cpi = 1;
   S0.pop = Math.round(npc.cap * 0.85);
   S0.cash = 150000;
   return S0;
@@ -1078,7 +1088,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1108,7 +1118,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1199,6 +1209,18 @@ function worthOf(ev, happy) { return S.cash + ev.value * (1 + (happy == null ? 6
 let STAFF = 1;
 const WAGE = [{ n: 'Bas', m: 0.8, attr: 0.85, prod: 0.93 }, { n: 'Normal', m: 1, attr: 1, prod: 1 }, { n: 'Élevé', m: 1.35, attr: 1.12, prod: 1.08 }];
 const WAGE_RATE = 3.5;                       // salaire de base par emploi et par jour
+// Macro-économie : cycle du PIB, inflation, taux d'intérêt
+function stepMacro() {
+  const m = S.macro || (S.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] });
+  m.phase += 0.0115 * (0.8 + 0.4 * Math.random());
+  const tg = 0.03 + 0.045 * Math.sin(m.phase) + (Math.random() - 0.5) * 0.006;
+  m.gdp += (tg - m.gdp) * 0.1;
+  m.infl = clamp(m.infl + (0.02 + 0.6 * (m.gdp - 0.03) - m.infl) * 0.02, -0.01, 0.12);
+  m.rate = clamp(m.rate + (0.035 + 1.4 * (m.infl - 0.02) - m.rate) * 0.02, 0.005, 0.14);
+  S.cpi = (S.cpi || 1) * (1 + m.infl / 360);
+  m.h = m.h || []; m.h.push(m.gdp); if (m.h.length > 120) m.h.shift();
+}
+const macroState = () => { const g = S.macro ? S.macro.gdp : 0.03; return g > 0.05 ? 'Boom' : g > 0.02 ? 'Expansion' : g > 0 ? 'Ralentissement' : 'Récession'; };
 // Recherche : arbre de technologies en 3 ères (une recherche à la fois)
 const TECHS = [
   { id: 'saw1', era: 1, n: 'Scierie mécanisée', c: 6000, d: 6, req: [], d2: 'Camps de bûcherons +15 % de bois.', fx: { wood: 1.15 } },
@@ -1339,7 +1361,7 @@ function step() {
   const ev = evaluate();
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
-  TM = techMults();
+  stepMacro(); TM = techMults();
   if (S.research) { S.research.left--; if (S.research.left <= 0) { S.tech = S.tech || {}; S.tech[S.research.id] = S.day; say(`Recherche terminée : ${TECH_BY[S.research.id].n}. ${TECH_BY[S.research.id].d2}`, 'gold'); S.research = null; TM = techMults(); } }
   maybeEvent();
   const workforce = S.pop * 0.55;
@@ -1375,7 +1397,7 @@ function step() {
     list.forEach(c => { c._un = unitsOf(c); c._u = c._un * fillOf(c); units += c._u; });
     let r = units, lim = null;
     Object.keys(inp).forEach(g => { want[g] += units * inp[g]; const rr = S.stock[g] / inp[g]; if (rr < r) { r = rr; lim = g; } });
-    if (tgt.good) { const room = Math.max(0, (STOCK_CAP + 150 * (cn.port || 0) - S.stock[tgt.good]) / tgt.qty); if (room < r) { r = room; lim = '_full'; } }   // l'atelier s'arrête quand le stock est plein
+    if (tgt.good) { const room = Math.max(0, (STOCK_CAP + 150 * (cn.port || 0) + 200 * (cn.wh || 0) - S.stock[tgt.good]) / tgt.qty); if (room < r) { r = room; lim = '_full'; } }   // l'atelier s'arrête quand le stock est plein
     r = Math.max(0, r);
     Object.keys(inp).forEach(g => { S.stock[g] -= r * inp[g]; used[g] = (used[g] || 0) + r * inp[g]; });
     const wavg = units > 0 ? list.reduce((a, c) => a + (c._u / units) * wasteOf(c), 0) : 0;
@@ -1404,7 +1426,7 @@ function step() {
   if (S.day % 6 === 0) offerContract();
   // 3. Commerce : la demande se répartit entre la marchandise générique, les produits lancés et les rivaux
   const happyPrev = S.stats.happy == null ? 60 : S.stats.happy;
-  const dMul = TM.demand * modOf('demand');
+  const dMul = TM.demand * modOf('demand') * clamp(1 + 4 * (S.macro.gdp - 0.03), 0.8, 1.2);
   const dem = { basic: S.pop * DEM_PER_POP.basic * dMul, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100) * dMul, lux: S.pop * DEM_PER_POP.lux * dMul, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) * dMul };
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; retUnits += R.cap * u; c._left = c._cap; c._sold = 0; c._rev = 0; c._imp = 0; c.sales = {}; } });
@@ -1466,7 +1488,7 @@ function step() {
   while (Math.floor(S.houses / 8) > S.lots) { S.lots++; addNpcTower('res', 3); }
   // 4. Surplus exporté au-delà du plafond de stock
   let revExp = 0;
-  const portN = cn.port || 0, expRate = Math.min(0.95, (0.6 + 0.15 * portN) * TM.export), stockCap = STOCK_CAP + 150 * portN;
+  const portN = cn.port || 0, expRate = Math.min(0.95, Math.max(0.6 + 0.15 * portN, (S.rivals && S.rivals.length) ? 0.78 : 0) * TM.export), stockCap = STOCK_CAP + 150 * portN + 200 * (cn.wh || 0);
   GKEYS.forEach(g => { const ex = Math.max(0, S.stock[g] - stockCap); if (ex > 0) { S.stock[g] -= ex; revExp += ex * S.price[g] * expRate; } });
   PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 80); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } });
 
@@ -1477,22 +1499,23 @@ function step() {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
     if (c.t === 'tech') { c.pRev = 260 * u * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = Math.min(500, 180 + Math.max(0, S.cash) * 0.0008) * u * qualMult(c); revBank += c.pRev; }
-    if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * wageOf(c).m * TM.wage * modOf('wage'); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0); wagesTotal += c.wages; }
-    c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) / deptMult(c).stock * TM.transport;
+    if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0); wagesTotal += c.wages; }
+    c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) / deptMult(c).stock * TM.transport * cpi();
     c.adCost = adSpend(c); adTotal += c.adCost;
     transportTotal += c.transport;
   });
   const revRetail = revRetVal * mult, revExport = revExp * mult;
   let advCost = adTotal; PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') advCost += ADV[S.prod[pk].adv].cost; });
   S.loan = S.loan || 0;
-  const interest = S.loan * 0.0006 * (execOn('cfo') ? 0.75 : 1) * TM.interest;
+  const interest = S.loan * (S.macro.rate + 0.02) / 360 * (execOn('cfo') ? 0.75 : 1) * TM.interest;
   const rate = S.tax;
-  const preTax = revRetail + revExport + revTech + revBank - wagesTotal - upkeep - transportTotal - advCost - interest - importCost;
+  const upkeepI = upkeep * cpi();
+  const preTax = revRetail + revExport + revTech + revBank - wagesTotal - upkeepI - transportTotal - advCost - interest - importCost;
   const corpTax = Math.max(0, preTax) * rate;
   const net = preTax - corpTax;
   S.cash += net;
   const div = (S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0; S.cash -= div;
-  S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep, transport: transportTotal, adv: advCost, interest, imports: importCost, div, tax: corpTax, net };
+  S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep: upkeepI, transport: transportTotal, adv: advCost, interest, imports: importCost, div, tax: corpTax, net };
 
   // 6. Compte de résultat par bâtiment (prix de cession internes au prix du marché)
   let retOut = 0; buildings.forEach(c => { if (TYPES[c.t].ret) retOut += c.out; });
@@ -1503,7 +1526,7 @@ function step() {
     else if (T.rec) c.pRev = c.out * outPrice(c) * qualMult(c) * (1 + 0.5 * (deptMult(c).sell - 1));
     else if (T.ret) c.pRev = (c._rev || 0) * mult;
     else if (c.t === 'port') c.pRev = revExport / Math.max(1, portN);
-    const up = T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0)));
+    const up = T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))) * cpi();
     c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
     c.profit = c.pRev - c.cost;
     c.rev = c.profit;
@@ -1516,7 +1539,7 @@ function step() {
 
   // 7. Prix : offre et demande
   GKEYS.forEach(g => {
-    const base = GOODS[g].base, m = Math.max(want[g], made[g], 1);
+    const base = GOODS[g].base * cpi(), m = Math.max(want[g], made[g], 1);
     const pressure = clamp((want[g] - made[g]) / m, -1, 1);
     let p = P[g] * (1 + 0.08 * pressure);
     p += (base - p) * 0.04;
@@ -1581,7 +1604,7 @@ function step() {
   if (S.float > 0) {
     S.prem = S.prem || 1.1;
     S.pb = (S.pb || 0) * 0.94; S.mood = clamp((S.mood || 0) * 0.96 + (Math.random() - 0.5) * (execOn('ir') ? 0.02 : 0.045), -0.15, 0.15);
-    S.prem += (clamp(1 + 60 * net / Math.max(10000, rawWorth) + 0.15 * (execOn('cfo') ? S.payout || 0 : 0) + S.pb + S.mood, 0.6, 1.9) - S.prem) * 0.05;
+    S.prem += (clamp(1 + 60 * net / Math.max(10000, rawWorth) + 0.15 * (execOn('cfo') ? S.payout || 0 : 0) + S.pb + S.mood - 2 * (S.macro.rate - 0.04) + 3 * (S.macro.gdp - 0.03), 0.6, 1.9) - S.prem) * 0.05;
     S.sp = S.sp || []; S.sp.push(rawWorth * S.prem / SHARES); if (S.sp.length > 60) S.sp.shift();
   }
   const worth = rawWorth * (1 - S.float);
@@ -1623,7 +1646,7 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierOf(S.stats.worth || 0) < T.tier);
 }
-const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
+const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, wh: 2, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
 // vérifie si l'emprise est libre ; renvoie un message d'erreur ou ''
 function footprintError(x, y, key) {
@@ -1996,8 +2019,8 @@ function renderProdScreen() {
   if (el('prodscreen').closest('section').hidden) return;
   const on = PKEYS.filter(pk => S.prod[pk].st !== 'locked');
   const mk = S.mkt || {};
-  const cards = on.map(pk => { const pr = PRODUCTS[pk], ps = S.prod[pk], avgP = pr.ref * QTIER[1].ref, m = mk[pr.cls];
-    return `<div class="pmcard"><span class="rth">${gThumb(pk)}</span><div><b>${pr.name}</b> <small style="color:var(--mut)">${ps.st === 'on' ? CLSN[pr.cls] : 'R&D en cours'}</small><table><tr><th></th><th>Toi</th><th>Marché moyen</th></tr><tr><td>Prix</td><td>${f1(prodPrice(pk))} $</td><td>${f1(avgP)} $</td></tr><tr><td>Qualité</td><td>${QTIER[ps.q].q}</td><td>${QTIER[1].q}</td></tr><tr><td>Notoriété</td><td>${Math.round(ps.brand)}</td><td>40</td></tr><tr><td>Ventes / j</td><td>${f1(ps.sold || 0)}</td><td>stock ${fmt(ps.stock)}</td></tr></table></div><canvas id="pie-${pk}" width="100" height="100" title="Part de marché de la catégorie"></canvas></div>`; }).join('');
+  const cards = on.map(pk => { const pr = PRODUCTS[pk], ps = S.prod[pk], avgP = pr.ref * QTIER[1].ref * cpi(), m = mk[pr.cls];
+    return `<div class="pmcard"><span class="rth">${gThumb(pk)}</span><div><b>${pr.name}</b> <small style="color:var(--mut)">${ps.st === 'on' ? CLSN[pr.cls] : 'R&D en cours'}</small><table><tr><th>Note globale ${Math.round(productScore(pk).overall)} / 100</th><th>Score</th><th>Poids</th></tr><tr><td>Prix</td><td>${Math.round(productScore(pk).price)}</td><td>${Math.round(productScore(pk).w.price * 100)} %</td></tr><tr><td>Qualité</td><td>${Math.round(productScore(pk).quality)}</td><td>${Math.round(productScore(pk).w.quality * 100)} %</td></tr><tr><td>Marque</td><td>${Math.round(productScore(pk).brand)}</td><td>${Math.round(productScore(pk).w.brand * 100)} %</td></tr></table><table><tr><th></th><th>Toi</th><th>Marché moyen</th></tr><tr><td>Prix</td><td>${f1(prodPrice(pk))} $</td><td>${f1(avgP)} $</td></tr><tr><td>Qualité</td><td>${QTIER[ps.q].q}</td><td>${QTIER[1].q}</td></tr><tr><td>Notoriété</td><td>${Math.round(ps.brand)}</td><td>40</td></tr><tr><td>Ventes / j</td><td>${f1(ps.sold || 0)}</td><td>stock ${fmt(ps.stock)}</td></tr></table></div><canvas id="pie-${pk}" width="100" height="100" title="Part de marché de la catégorie"></canvas></div>`; }).join('');
   const h = cards || '<p class="note">Aucun produit lancé. Utilise « Choisir la production » dans une usine pour développer un produit.</p>';
   if (el('prodscreen').dataset.h !== h) { el('prodscreen').innerHTML = h; el('prodscreen').dataset.h = h; }
   on.forEach(pk => { const cv = el('pie-' + pk); if (!cv) return; const m = mk[PRODUCTS[pk].cls]; if (!m) return; drawPie(cv, [[m.you, '#f2b84b']].concat(m.riv.map(r => { const rv = (S.rivals || []).find(x => x.id === r.id); return [r.s, rv ? rv.col : '#888']; })).concat([[Math.max(0, 1 - m.you - m.riv.reduce((a, r) => a + r.s, 0)), '#3b4262']])); });
@@ -2022,6 +2045,8 @@ function renderEmpire() {
   const px = fl > 0 ? raw * (S.prem || 1.1) / SHARES : null;
   const kp = (l, v, c, s) => `<div><small>${l}</small><b class="${c || ''}">${v}</b>${s ? `<small>${s}</small>` : ''}</div>`;
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / jour', (F.net >= 0 ? '+' : '−') + money(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : px.toFixed(2).replace('.', ',') + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Population / emplois', fmt(st.pop || 0) + ' / ' + fmt(st.playerJobs || 0), '', 'emplois chez toi')}</div>`;
+  const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
+  h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
   h += `<h3>VALEUR DE L'EMPIRE</h3><canvas id="empspark" width="640" height="110" style="width:100%;height:80px"></canvas>`;
   h += `<h3>BILAN CONSOLIDÉ</h3><div class="bil"><table class="fint"><tr><th>Actif</th><th>$</th></tr><tr><td>Trésorerie</td><td>${money(Math.max(0, cash))}</td></tr><tr><td>Immobilisations (bâtiments, équipements)</td><td>${money(fixed)}</td></tr><tr><td>Stocks de marchandises</td><td>${money(stocks)}</td></tr><tr class="tot"><td>Total actif</td><td>${money(actif)}</td></tr></table>
     <table class="fint"><tr><th>Passif</th><th>$</th></tr><tr><td>Dettes bancaires</td><td>${money(debt + Math.max(0, -cash))}</td></tr><tr><td>Capitaux propres (toi)</td><td>${money(equity * (1 - fl))}</td></tr>${fl > 0 ? `<tr><td>Capitaux propres (actionnaires, ${Math.round(fl * 100)} %)</td><td>${money(equity * fl)}</td></tr>` : ''}<tr class="tot"><td>Total passif</td><td>${money(actif)}</td></tr></table></div>`;
@@ -2036,6 +2061,7 @@ function renderEmpire() {
   h += `<h3>TES BÂTIMENTS</h3>${bl.length ? bl.slice(0, 4).map(brow).join('') + (bl.length > 6 ? '<div class="cgrp">Les moins rentables</div>' + bl.slice(-3).reverse().map(brow).join('') : '') : '<p class="note">Tu n\'as encore aucun bâtiment actif.</p>'}`;
   if (el('empire').dataset.h !== h) { el('empire').innerHTML = h; el('empire').dataset.h = h; }
   if (el('empspark')) drawSeries(el('empspark'), S.hist, '#f2b84b');
+  if (el('macspark') && M.h && M.h.length > 1) drawSeries(el('macspark'), M.h, '#46d39a');
 }
 el('empire').addEventListener('click', e => { const b = e.target.closest('[data-open]'); if (!b) return; const [x, y] = b.dataset.open.split(',').map(Number); openBuilding(x, y); });
 function creditLimit() { return Math.max(0, Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
@@ -3336,7 +3362,7 @@ function suppliersOf(g) { const o = []; eachBuilding(b => { if (!b.conn || b.t =
 function consumersOf(g) { const o = []; eachBuilding(b => { if (!b.conn || b.t === 'npc') return; const T = TYPES[b.t]; if (FLEVEL[b.t] || b.t === 'foundry') { const r = recOf(b); if (r && r.in[g] && (b._u || 0) > 0) o.push({ b, need: r.in[g] * b._u }); } else if (T.ret && /^(basic|std|lux)$/.test(g) && T.ret.sells.indexOf(g) >= 0 && b.sales && b.sales['g_' + g] > 0.01) o.push({ b, need: b.sales['g_' + g] }); }); return o; }
 function silo(label, st, cap, col, extra) { const p = clamp(st / cap, 0, 1); return `<div class="silo"><div class="tank"><i style="height:${Math.round(p * 100)}%;background:${col}"></i><span>${Math.round(p * 100)} %</span></div><b>${label}</b><small>${fmt(st)} / ${fmt(cap)}</small>${extra || ''}</div>`; }
 function lgTab(c) {
-  const T = TYPES[c.t], rec = recOf(c), cap = STOCK_CAP + 150 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0), links = b => `<button class="crow" data-open="${b.x},${b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[b.t].name}</b><small>case ${b.x + 1}, ${b.y + 1}</small></span><span class="mg">${f1(b.out)}/j</span></button>`;
+  const T = TYPES[c.t], rec = recOf(c), cap = STOCK_CAP + 150 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0) + 200 * ((S.stats && S.stats.cn && S.stats.cn.wh) || 0), links = b => `<button class="crow" data-open="${b.x},${b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[b.t].name}</b><small>case ${b.x + 1}, ${b.y + 1}</small></span><span class="mg">${f1(b.out)}/j</span></button>`;
   let ins = '', outs = '';
   if (rec) ins = Object.keys(rec.in).map(g => { const need = rec.in[g] * (c._u || 0), st = gStock(g), sup = suppliersOf(g), supply = sup.reduce((a, b) => a + b.out, 0), aut = need > 0.01 ? st / need : null; return `<div class="lcol">${silo(gName(g), st, cap, GOODS[g] ? GOODS[g].color : '#8f9acb', `<small class="${aut != null && aut < 2 ? 'neg' : 'pos'}">${aut == null ? 'inutilisé' : 'autonomie ' + (aut > 99 ? '99+' : f1(aut)) + ' j'}</small>`)}<div class="lsub"><small>Besoin ${f1(need)}/j · offre ${f1(supply)}/j · <b class="${supply >= need ? 'pos' : 'neg'}">${supply >= need ? 'excédent' : 'déficit'}</b></small>${sup.slice(0, 4).map(links).join('') || '<small class="neg">Aucun fournisseur</small>'}</div></div>`; }).join('');
   else if (T.ext) ins = `<div class="lcol">${(() => { const d = S.dep[idx(c.x, c.y)], full = DEPOSITS[T.ext].res; return silo('Gisement · ' + DEPOSITS[T.ext].name, d ? d.r : 0, full, '#8a6a3a', `<small>${T.ext === 'wood' ? 'repousse +8/j' : 'non renouvelable'}</small>`); })()}</div>`;
@@ -3684,6 +3710,7 @@ function tileSprite(a, ox, oy) {
     case 'f2': case 'f3': return 'fact' + (k % 2);
     case 'foundry': return 'oil' + (k % 2);
     case 'btp': return 'fact' + (k % 2);
+    case 'wh': return 'fsmall' + (k % 2);
     case 'immo': return 'shop' + [1, 3, 4, 5][k % 4];
     case 's1': return 'shop' + [0, 4, 5, 6][k % 4];
     case 's2': return 'shop' + [7, 8][k % 2];
@@ -4248,6 +4275,7 @@ makeDecor();
 buildTools();
 resize();
 updateZoomUI();
+if (!S.macro) S.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] };
 TM = techMults(); if (S.event) showEvent();
 refreshStats();
 if (!S.hist.length) S.hist.push(Math.round(S.stats.worth));
