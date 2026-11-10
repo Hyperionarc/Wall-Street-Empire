@@ -1,4 +1,4 @@
-# Wall Street Empire — prototype jouable (V0.5)
+# Wall Street Empire — prototype jouable (V0.6)
 
 Carte isométrique de 96×96 cases (une case ≈ 150 m) : une grande ville de gratte-ciel, une campagne presque sans routes avec de rares gisements,
 la mer à l'est, un port et sa zone industrielle, le tout jouable dans le navigateur (téléphone ou ordinateur).
@@ -16,6 +16,22 @@ Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
 Les rues de la ville et du port appartiennent à la mairie : elles sont gratuites et on ne peut pas les modifier.
 Les mines et puits fonctionnent sans route à **65 %** ; reliés au réseau public par tes propres routes de campagne (outils Route ou Relier, 120 $ le tronçon, 0,4 $ par jour d'entretien), ils atteignent **100 %**.
 
+## Forêts et BTP (bâtiment et travaux publics)
+
+**Forêts** : de grands massifs en campagne, qui **repoussent lentement** (8 unités de bois par jour et par case). Un **camp de bûcherons** se pose sur une case de forêt et produit du **bois** ;
+comme une mine, il tourne à 65 % sans route et à 100 % une fois relié au réseau. Le bois donne des **planches**, des **montants d'ossature bois** et des **panneaux OSB**.
+Produits en bois : jouets en bois, chaise, lit.
+
+**Carrières** (catégorie BTP) : gravier, sable (surtout près de la côte) et calcaire, des gisements plus fréquents que les métaux.
+**Ciment** = calcaire + charbon (usine moyenne) ; **béton** = ciment + sable + gravier (petite usine).
+
+**Vente de maisons** : maison à ossature bois (montants, OSB, béton, planches, acier) et maison en béton. Ce sont des produits de la classe *Immobilier*, vendus par des **agences immobilières** en ville.
+Chaque maison vendue ajoute 4 places de logement, et 8 maisons font apparaître un petit immeuble supplémentaire en ville.
+
+**Chantiers pour les entreprises** : une **entreprise de BTP** (en ville) permet d'accepter des appels d'offres (entrepôt, résidence, immeuble de bureaux, tour de 20 étages).
+Chaque chantier réclame des matériaux (béton, acier, OSB, planches, montants), une échéance et rapporte une somme à la livraison (pénalité de 10 % si abandon ou retard).
+L'immeuble livré **apparaît dans la ville**, qui s'agrandit (plus d'emplois ou de logements).
+
 ## Chaîne de production
 
 ```
@@ -31,12 +47,12 @@ Gisements ─▶ Puits / Mines ─▶ matières premières ─▶ Fonderie / Usi
 | Port | Terminal portuaire (2×2, sur le quai) : relève le prix d'export des surplus et le plafond de stock |
 | Ville | Logements (étages), Tour Tech, Banque |
 
-**Composants** (9) : acier, plastique, câbles de cuivre, emballages ; moteurs, batteries, cartes électroniques, boîtiers en or ; écrans.
-18 marchandises au total, avec des prix qui varient selon l'offre et la demande.
+**Composants** (14) : acier, planches, montants, OSB, ciment, béton, plastique, câbles de cuivre, emballages ; moteurs, batteries, cartes électroniques, boîtiers en or ; écrans.
+27 marchandises au total, avec des prix qui varient selon l'offre et la demande.
 
 **Fiche produit** (vue Produits) : visuel du produit, gamme (Premier prix, Premium, Haut de gamme), emballage (vrac, carton, coffret premium), éléments nécessaires,
 caractéristiques, arbre de la chaîne d'approvisionnement avec les maillons manquants, configuration automatique.
-7 produits : ustensiles de cuisine, jouets, vélo, lave-linge, téléviseur, smartphone, montre de luxe.
+12 produits : ustensiles, jouets en plastique, jouets en bois, chaise, vélo, lit, lave-linge, téléviseur, smartphone, montre de luxe, maison à ossature bois, maison en béton.
 Les habitants répartissent leur demande entre la marchandise générique, tes produits et des marques rivales, selon qualité, prix, emballage et notoriété.
 
 **Économie** : la ville emploie déjà la majorité de ses actifs ; tes entreprises recrutent le reste (au-delà, la main-d'œuvre manque). Humeur, impôt réglable, banque qui dope les entreprises,

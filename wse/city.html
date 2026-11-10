@@ -260,6 +260,16 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .kv2 small{display:block;color:var(--mut);font-size:10px;letter-spacing:.06em;text-transform:uppercase}.kv2 b{font-family:var(--font-m);font-size:13px}
 .btn.big{width:100%;margin-top:8px;min-height:42px;font-size:14px}
 @media (max-width:759px){.sheet{grid-template-columns:1fr}.sheet-side{order:-1}.tiers,.packs{grid-template-columns:repeat(3,1fr)}.sheet h2{font-size:26px}}
+/* Chantiers BTP */
+.ctc{margin:6px 0;padding:8px 10px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.ctc.active{border-color:var(--green)}
+.cth{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ctc small{color:var(--mut);font-size:11px}
+.cmats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px 12px;margin:6px 0}
+.cm{display:grid;grid-template-columns:9px 1fr auto;gap:2px 6px;align-items:center;font-size:11.5px}
+.cm i:first-child{width:9px;height:9px;border-radius:3px}
+.cm .bar{grid-column:1 / -1}
+.cta{display:flex;align-items:center;justify-content:space-between;gap:8px}
 /* Vue Produits */
 #pview{
   position:absolute;z-index:7;left:max(12px,env(safe-area-inset-left,0px));
@@ -380,7 +390,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 
 /* ---------- Constantes ---------- */
 const N = 96, TW = 132, TH = 66, FH = 32, DAY_MS = 2000, START = { x: 74, y: 63 };
-const SAVE_KEY = 'wse-city-v5';
+const SAVE_KEY = 'wse-city-v7';
 const SUMMER_TINT = 'rgba(112,188,92,.30)';   // herbe d'été : saison unique
 const ZONE_TINT = ['rgba(112,188,92,.30)', 'rgba(205,208,222,.30)', 'rgba(128,122,130,.45)', '', 'rgba(96,102,118,.55)'];   // campagne, ville, zone portuaire, mer, quai
 const ZONE_COL = [[58, 92, 66], [96, 100, 125], [96, 90, 98], [34, 86, 152], [82, 86, 106]];
@@ -396,8 +406,17 @@ const GOODS = {
   coal:    { name: 'Charbon',              base: 6,   color: '#8f9acb', grp: 'raw' },
   copper:  { name: 'Cuivre',               base: 14,  color: '#3fd8c0', grp: 'raw' },
   gold:    { name: 'Or brut',              base: 90,  color: '#f2b84b', grp: 'raw' },
+  wood:    { name: 'Bois',                 base: 9,   color: '#9b6b3a', grp: 'raw' },
+  gravel:  { name: 'Gravier',              base: 5,   color: '#9a9aa5', grp: 'raw' },
+  sand:    { name: 'Sable',                base: 4,   color: '#e6cf8f', grp: 'raw' },
+  limestone: { name: 'Calcaire',           base: 6,   color: '#e8e4d8', grp: 'raw' },
   ingot:   { name: 'Lingots d\'or',        base: 150, color: '#ffd76a', grp: 'comp' },
   steel:   { name: 'Acier',                base: 12,  color: '#9aa4d6', grp: 'comp' },
+  plank:   { name: 'Planches',             base: 16,  color: '#d9b27c', grp: 'comp' },
+  stud:    { name: 'Montants d\'ossature bois', base: 18, color: '#c79a5d', grp: 'comp' },
+  osb:     { name: 'Panneaux OSB',         base: 30,  color: '#b98a54', grp: 'comp' },
+  cement:  { name: 'Ciment',               base: 22,  color: '#c2c2c8', grp: 'comp' },
+  concrete: { name: 'Béton',               base: 24,  color: '#a0a0a8', grp: 'comp' },
   plastic: { name: 'Plastique',            base: 14,  color: '#b78cff', grp: 'comp' },
   wire:    { name: 'Câbles de cuivre',     base: 16,  color: '#e0905a', grp: 'comp' },
   pack:    { name: 'Emballages',           base: 7,   color: '#c9b58a', grp: 'comp' },
@@ -420,7 +439,11 @@ const DEPOSITS = {
   iron:   { name: 'fer',     res: 9000 },
   coal:   { name: 'charbon', res: 9000 },
   copper: { name: 'cuivre',  res: 6000 },
-  gold:   { name: 'or',      res: 1800 }
+  gold:   { name: 'or',      res: 1800 },
+  wood:   { name: 'bois',    res: 4000 },
+  gravel: { name: 'gravier', res: 9000 },
+  sand:   { name: 'sable',   res: 9000 },
+  limestone: { name: 'calcaire', res: 8000 }
 };
 
 const TYPES = {
@@ -433,6 +456,12 @@ const TYPES = {
   mcoal:   { name: 'Mine charbon',  sub: 'Extraction',      cost: 900,   color: '#8f9acb', jobs: 10, upkeep: 2,  ext: 'coal',   rate: 16 },
   mcopper: { name: 'Mine cuivre',   sub: 'Extraction',      cost: 1400,  color: '#3fd8c0', jobs: 10, upkeep: 2.5, ext: 'copper', rate: 12 },
   mgold:   { name: 'Mine d\'or',    sub: 'Extraction',      cost: 2200,  color: '#f2b84b', jobs: 12, upkeep: 3,  ext: 'gold',   rate: 5, tier: 1 },
+  logging: { name: 'Camp bûcherons', sub: 'Forêt',        cost: 900,  color: '#9b6b3a', jobs: 8,  upkeep: 2, ext: 'wood',      rate: 14 },
+  qgravel: { name: 'Carrière gravier', sub: 'BTP',       cost: 1100, color: '#9a9aa5', jobs: 10, upkeep: 2, ext: 'gravel',    rate: 24 },
+  qsand:   { name: 'Sablière',      sub: 'BTP',           cost: 900,  color: '#e6cf8f', jobs: 8,  upkeep: 2, ext: 'sand',      rate: 24 },
+  qlime:   { name: 'Carrière calcaire', sub: 'BTP',       cost: 1500, color: '#e8e4d8', jobs: 10, upkeep: 2.5, ext: 'limestone', rate: 18 },
+  btp:     { name: 'Entreprise de BTP', sub: 'Chantiers', cost: 6000, color: '#ffb347', jobs: 25, upkeep: 6, w: 2, h: 1, tier: 1 },
+  immo:    { name: 'Agence immobilière', sub: 'Vente de maisons', cost: 3500, color: '#ffb347', jobs: 10, upkeep: 4, tier: 1, ret: { cap: 2, sells: ['estate'] } },
   foundry: { name: 'Fonderie d\'or', sub: 'Or brut → lingots', cost: 3000, color: '#ffd76a', jobs: 8, upkeep: 3.5, tier: 1, rec: { in: { gold: 4 }, out: { ingot: 4 } } },
   f1:      { name: 'Petite usine',  sub: 'Biens de base',   cost: 2500,  color: '#46d39a', jobs: 8,  upkeep: 3,  rec: { in: { oil: 6, iron: 6 }, out: { basic: 14 } } },
   f2:      { name: 'Usine moyenne', sub: 'Biens manufact.', cost: 6000,  color: '#7f96ff', jobs: 16, upkeep: 6,  w: 2, h: 1, tier: 1, rec: { in: { iron: 10, coal: 8, copper: 6 }, out: { std: 12 } } },
@@ -446,12 +475,17 @@ const TYPES = {
 const INDUSTRIAL = ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3'];
 const FACT_ORDER = ['foundry', 'f1', 'f2', 'f3'];
 const DEM_PER_POP = { basic: 0.014, std: 0.005, lux: 0.0018 };
-const CLS = { basic: { name: 'Base', color: '#46d39a' }, std: { name: 'Manufacturé', color: '#7f96ff' }, lux: { name: 'Luxe', color: '#ff4fa3' } };
+const CLS = { basic: { name: 'Base', color: '#46d39a' }, std: { name: 'Manufacturé', color: '#7f96ff' }, lux: { name: 'Luxe', color: '#ff4fa3' }, estate: { name: 'Immobilier', color: '#ffb347' } };
 // Composants : niveau d'usine requis (1 petite, 2 moyenne, 3 grande), recette par cycle. L'ordre est l'ordre de traitement.
 const RECIPES = {
   steel:   { name: 'Acier',                lvl: 1, in: { iron: 2, coal: 1 },                out: 3 },
   plastic: { name: 'Plastique',            lvl: 1, in: { oil: 3 },                          out: 4 },
   wire:    { name: 'Câbles de cuivre',     lvl: 1, in: { copper: 2 },                       out: 3 },
+  plank:   { name: 'Planches',             lvl: 1, in: { wood: 3 },                         out: 4 },
+  stud:    { name: 'Montants d\'ossature bois', lvl: 1, in: { wood: 4 },                    out: 5 },
+  osb:     { name: 'Panneaux OSB',         lvl: 2, in: { wood: 4, plastic: 1 },             out: 4 },
+  cement:  { name: 'Ciment',               lvl: 2, in: { limestone: 4, coal: 1 },           out: 3 },
+  concrete: { name: 'Béton',               lvl: 1, in: { cement: 1, sand: 2, gravel: 3 },   out: 6 },
   pack:    { name: 'Emballages',           lvl: 1, in: { plastic: 1, coal: 1 },             out: 5 },
   motor:   { name: 'Moteurs électriques',  lvl: 2, in: { steel: 2, wire: 2 },               out: 2 },
   battery: { name: 'Batteries',            lvl: 2, in: { wire: 2, plastic: 1, coal: 1 },    out: 3 },
@@ -462,11 +496,16 @@ const RECIPES = {
 const RKEYS = Object.keys(RECIPES);
 const FLEVEL = { f1: 1, f2: 2, f3: 3 };
 const LVL_NAME = { 1: 'petite usine', 2: 'usine moyenne', 3: 'grande usine' };
-const RAW_SRC = { oil: 'well', iron: 'miron', coal: 'mcoal', copper: 'mcopper', gold: 'mgold' };
+const RAW_SRC = { wood: 'logging', gravel: 'qgravel', sand: 'qsand', limestone: 'qlime', oil: 'well', iron: 'miron', coal: 'mcoal', copper: 'mcopper', gold: 'mgold' };
 // Produits finis : catégorie de vente, niveau d'usine, composants par cycle, prix de référence, R&D
 const PRODUCTS = {
   utensils: { name: 'Ustensiles de cuisine', cls: 'basic', lvl: 1, in: { steel: 4, plastic: 2 },                      out: 8, ref: 22,   rnd: 1500,  days: 5,  tier: 0, desc: 'Casseroles et poêles en acier. Un classique du quotidien.' },
-  toys:     { name: 'Jouets',                cls: 'basic', lvl: 1, in: { plastic: 5, wire: 1 },                       out: 10, ref: 20,  rnd: 1200,  days: 4,  tier: 0, desc: 'Jeux de construction en plastique pour les familles.' },
+  toys:     { name: 'Jouets en plastique',   cls: 'basic', lvl: 1, in: { plastic: 5, wire: 1 },                       out: 10, ref: 20,  rnd: 1200,  days: 4,  tier: 0, desc: 'Jeux de construction en plastique pour les familles.' },
+  woodtoys: { name: 'Jouets en bois',        cls: 'basic', lvl: 1, in: { plank: 5 },                                  out: 8,  ref: 26,  rnd: 1300,  days: 4,  tier: 0, desc: 'Petits trains et cubes en bois massif.' },
+  chair:    { name: 'Chaise',                cls: 'basic', lvl: 1, in: { plank: 4, steel: 1 },                        out: 6,  ref: 48,  rnd: 1800,  days: 6,  tier: 0, desc: 'Chaise en bois à assise rembourrée.' },
+  bed:      { name: 'Lit',                   cls: 'std',   lvl: 2, in: { plank: 8, steel: 2, plastic: 2 },            out: 4,  ref: 260, rnd: 5000,  days: 10, tier: 1, desc: 'Lit double : tête de lit et sommier en bois, matelas et literie.' },
+  house_wood: { name: 'Maison à ossature bois', cls: 'estate', lvl: 2, in: { stud: 16, osb: 10, concrete: 12, plank: 6, steel: 2 }, out: 1, ref: 6500, rnd: 8000, days: 14, tier: 1, desc: 'Maison individuelle : fondations en béton, ossature en montants de bois, panneaux OSB.' },
+  house_concrete: { name: 'Maison en béton', cls: 'estate', lvl: 2, in: { concrete: 26, steel: 5, plank: 4 },           out: 1, ref: 7500, rnd: 9000, days: 14, tier: 1, desc: 'Maison individuelle en béton armé, vendue clé en main.' },
   bike:     { name: 'Vélo',                  cls: 'std',   lvl: 2, in: { steel: 6, plastic: 2 },                      out: 6, ref: 140,  rnd: 4000,  days: 9,  tier: 1, desc: 'Un vélo robuste pour les trajets en ville.' },
   washer:   { name: 'Lave-linge',            cls: 'std',   lvl: 2, in: { steel: 4, motor: 2, plastic: 2, circuit: 1 }, out: 5, ref: 330, rnd: 6000,  days: 12, tier: 1, desc: 'Lave-linge à chargement frontal : carrosserie en acier, moteur, cuve plastique et carte de commande.' },
   tv:       { name: 'Téléviseur',            cls: 'lux',   lvl: 3, in: { screen: 5, circuit: 3, plastic: 3 },          out: 5, ref: 520,  rnd: 14000, days: 16, tier: 2, desc: 'Écran plat connecté pour le salon.' },
@@ -496,7 +535,7 @@ const prodOn = pk => S.prod[pk] && S.prod[pk].st === 'on';
 function productInputs(pk) {
   const pr = PRODUCTS[pk], ps = S.prod[pk], inp = {};
   Object.keys(pr.in).forEach(g => { inp[g] = pr.in[g] * QTIER[ps.q].inMult; });
-  if (PACK[ps.pack].per) inp.pack = (inp.pack || 0) + pr.out * PACK[ps.pack].per;
+  if (pr.cls !== 'estate' && PACK[ps.pack].per) inp.pack = (inp.pack || 0) + pr.out * PACK[ps.pack].per;
   return inp;
 }
 function outPrice(c) {
@@ -507,7 +546,7 @@ function outPrice(c) {
 function attractiveness(pk) {
   const ps = S.prod[pk], pr = PRODUCTS[pk], happy = (S.stats && S.stats.happy != null ? S.stats.happy : 60);
   const wealth = 1 + (ps.q - 1) * (happy - 60) / 250;   // une population heureuse préfère le haut de gamme
-  return Math.pow(QTIER[ps.q].q / 50, 1.4) * (1 + ps.brand / 100) * Math.pow(pr.ref / prodPrice(pk), 1.8) * PACK[ps.pack].attr * wealth;
+  return Math.pow(QTIER[ps.q].q / 50, 1.4) * (1 + ps.brand / 100) * Math.pow(pr.ref / prodPrice(pk), 1.8) * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth;
 }
 
 const ICONS = {
@@ -516,6 +555,10 @@ const ICONS = {
   res:  '<rect x="6" y="3" width="12" height="18" rx="1"/><path d="M9.5 7h1M13.5 7h1M9.5 11h1M13.5 11h1M9.5 15h1M13.5 15h1"/>',
   tech: '<path d="M8 21V6l4-3 4 3v15"/><path d="M12 3V1.5"/><path d="M10.5 9h3M10.5 12.5h3M10.5 16h3"/>',
   bank: '<path d="M3 9l9-5 9 5"/><path d="M5 20h14M6.5 11v6M10 11v6M14 11v6M17.5 11v6"/>',
+  logging: '<path d="M12 21v-5M12 3l5 7h-3l4 6H6l4-6H7z"/>',
+  qgravel: '<path d="M3 21l4-8 4 4 4-9 6 13z"/><circle cx="6" cy="9" r="1.5"/><circle cx="12" cy="6" r="1.5"/>',
+  btp: '<path d="M12 3v18M12 5h9M12 5H4M18 5v6M7 21h10"/><rect x="16" y="11" width="4" height="3"/>',
+  immo: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10M10 20v-6h4v6"/>',
   well: '<path d="M4 21h16"/><path d="M12 21V9"/><path d="M3 9l8-3 8 2"/><path d="M19 8v6M4.5 9v6"/>',
   mine: '<path d="M3 21l5-12h8l5 12z"/><path d="M9.5 21v-5a2.5 2.5 0 015 0v5"/>',
   foundry: '<path d="M3 21V9l5 3V9l5 3V5h4v16z"/><path d="M19 9h2"/><circle cx="8" cy="17" r="1.5"/>',
@@ -530,7 +573,7 @@ const ICONS = {
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const ICON_OF = { miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+const ICON_OF = { qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
@@ -539,19 +582,26 @@ const TOOL_META = {
 };
 const CATS = [
   { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank'] },
-  { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'road', 'link'] },
+  { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'link'] },
+  { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
   { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'port'] },
-  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3'] }
+  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 'immo'] }
 ];
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
 
 const MISSIONS = [
   { id: 'm1',  t: 'Poser un puits ou une mine sur un gisement',     r: 1500,  ok: c => c.cn.well + c.cn.miron + c.cn.mcoal + c.cn.mcopper + c.cn.mgold >= 1 },
   { id: 'mr',  t: 'Relier une mine au réseau par tes propres routes', r: 3000, ok: c => c.linkedRural >= 1 },
+  { id: 'mwood', t: 'Ouvrir un camp de bûcherons dans une forêt',   r: 2000,  ok: c => c.cn.logging >= 1 },
+  { id: 'mwp', t: 'Lancer un produit en bois (chaise, lit, jouets en bois)', r: 5000, ok: c => c.woodProd },
   { id: 'm3',  t: 'Ouvrir une petite usine dans la zone du port',   r: 2500,  ok: c => c.cn.f1 >= 1 },
   { id: 'mc1', t: 'Fabriquer 3 composants différents (acier, plastique...)', r: 3000, ok: c => c.comp >= 3 },
   { id: 'm2',  t: 'Ouvrir un petit marché en ville',                r: 2000,  ok: c => c.cn.s1 >= 1 },
   { id: 'mp1', t: 'Lancer un produit fini (vue Produits)',          r: 4000,  ok: c => c.prodOn >= 1 },
+  { id: 'mq',  t: 'Ouvrir une carrière (gravier, sable ou calcaire)', r: 2500, ok: c => c.cn.qgravel + c.cn.qsand + c.cn.qlime >= 1 },
+  { id: 'mbtp', t: 'Ouvrir une entreprise de BTP',                 r: 5000,  ok: c => c.cn.btp >= 1 },
+  { id: 'mh',  t: 'Vendre une maison',                              r: 6000,  ok: c => c.housesSold >= 1 },
+  { id: 'mch', t: 'Livrer un premier chantier de construction',     r: 8000,  ok: c => c.contractsDone >= 1 },
   { id: 'm4',  t: 'Vendre 600 biens aux habitants',                 r: 4000,  ok: c => c.sold >= 600 },
   { id: 'mport', t: 'Ouvrir un terminal portuaire',                 r: 5000,  ok: c => c.cn.port >= 1 },
   { id: 'm5',  t: 'Employer 300 personnes dans tes entreprises',    r: 5000,  ok: c => c.jobsPlayer >= 300 },
@@ -659,6 +709,18 @@ function genDeposits() {
       const d = Math.floor(R() * 4); x += [1, -1, 0, 0][d]; y += [0, 0, 1, -1][d];
     }
   });
+  // forêts (grands massifs, coupés par les routes) et carrières de matériaux de construction
+  const disc = (cx, cy, r, k) => {
+    for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) {
+      const x = cx + dx, y = cy + dy;
+      if (!inb(x, y) || ZONE[idx(x, y)] !== 0 || isRoadPos(x, y) || dep[idx(x, y)]) continue;
+      if (Math.hypot(dx, dy) <= r * (0.72 + 0.5 * hash(x, y, 61))) dep[idx(x, y)] = { k, r: DEPOSITS[k].res };
+    }
+  };
+  [[24, 70, 6], [44, 74, 5], [16, 58, 4], [56, 12, 5], [72, 20, 5], [84, 36, 4], [8, 18, 4], [40, 91, 4], [82, 91, 4], [56, 64, 5], [60, 80, 4], [6, 74, 4]].forEach(f => disc(f[0], f[1], f[2], 'wood'));
+  [[64, 28, 3], [10, 50, 3], [36, 60, 3], [78, 12, 3]].forEach(f => disc(f[0], f[1], f[2], 'gravel'));
+  [[86, 50, 3], [86, 14, 3], [50, 84, 3], [14, 84, 3]].forEach(f => disc(f[0], f[1], f[2], 'sand'));
+  [[52, 22, 3], [20, 6, 3], [70, 8, 3]].forEach(f => disc(f[0], f[1], f[2], 'limestone'));
   return dep;
 }
 // ville existante : gratte-ciel (bureaux et résidences) denses au centre, plus bas en périphérie, avec 2 tours-repères
@@ -718,6 +780,7 @@ function newCity() {
   GKEYS.forEach(g => { S0.stock[g] = 0; S0.price[g] = GOODS[g].base; S0.ph[g] = [GOODS[g].base]; });
   S0.prod = initProd();
   S0.cm = {};
+  S0.contracts = []; S0.houses = 0; S0.built = []; S0.cid = 0; S0.cdone = 0; S0.lots = 0;
   S = S0;
   const put = (x, y, t) => {
     const c = mkCell(t, hash(x, y, 5)); c.born = 0; c.x = x; c.y = y;
@@ -735,7 +798,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 5, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -743,7 +806,7 @@ function load() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const d = JSON.parse(raw);
-    if (!d || d.v !== 5 || !Array.isArray(d.g) || d.g.length !== N * N) return null;
+    if (!d || d.v !== 7 || !Array.isArray(d.g) || d.g.length !== N * N) return null;
     const grid = d.g.map((r, i) => {
       if (!r) return null;
       if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
@@ -753,6 +816,7 @@ function load() {
     });
     genRoads(grid);
     const npcInfo = genNpc(grid);
+    (Array.isArray(d.built) ? d.built : []).forEach(b => { const id = idx(b[0], b[1]); if (!grid[id]) grid[id] = { t: 'npc', k: b[2], seed: b[4], floors: b[3], lvl: 0, w: 1, h: 1, x: b[0], y: b[1], born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; });
     const dep = new Array(N * N).fill(null);
     (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) dep[a[0]] = { k: a[1], r: a[2] }; });
     const S0 = {
@@ -762,6 +826,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -842,6 +907,7 @@ function evaluate() {
     }
   });
   upkeep += ownRoads * TYPES.road.upkeep;
+  cap += 4 * Math.floor(S.houses || 0);
   eachBuilding(c => { if (c.t === 'res' && c.conn) { nres++; if (smog[idx(c.x, c.y)]) polluted++; } });
   return { cc, cn, un, roads, ownRoads, cap, jobs: jobs + npcJobs, playerJobs: jobs, upkeep, value, polluted, nres };
 }
@@ -857,11 +923,13 @@ function step() {
   const staff = jobs > 0 ? employed / jobs : 0;
   const boom = S.day <= S.boomUntil ? 0.25 : 0;
   const mult = 1 + Math.min(0.3, cn.bank * 0.1) + boom;
-  const made = {}, want = {}, sold = { basic: 0, std: 0, lux: 0 };
+  const made = {}, want = {}, sold = { basic: 0, std: 0, lux: 0, estate: 0 };
   GKEYS.forEach(g => { made[g] = 0; want[g] = 2; });   // 2 = demande d'export de base
   const buildings = [];
   eachBuilding(c => { if (c.conn && c.t !== 'npc') buildings.push(c); c.out = 0; });
 
+  // 0. Les forêts repoussent lentement
+  for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === 'wood' && d.r < DEPOSITS.wood.res) d.r = Math.min(DEPOSITS.wood.res, d.r + 8); }
   // 1. Extraction (limitée par le personnel, les gisements et les goulots)
   buildings.forEach(c => {
     const T = TYPES[c.t];
@@ -877,6 +945,7 @@ function step() {
     let units = 0; list.forEach(c => units += levelMult(c));
     let r = units * staff;
     Object.keys(inp).forEach(g => { want[g] += units * staff * inp[g]; r = Math.min(r, S.stock[g] / inp[g]); });
+    if (tgt.good) r = Math.min(r, Math.max(0, (STOCK_CAP + 150 * (cn.port || 0) - S.stock[tgt.good]) / tgt.qty));   // l'atelier s'arrête quand le stock est plein
     r = Math.max(0, r);
     Object.keys(inp).forEach(g => { S.stock[g] -= r * inp[g]; });
     const q = r * tgt.qty;
@@ -894,18 +963,20 @@ function step() {
     const T = TYPES[t];
     runRecipe(factories.filter(c => c.t === t && !(c.prod && (RECIPES[c.prod] || prodOn(c.prod)))), T.rec.in, { good: Object.keys(T.rec.out)[0], qty: Object.values(T.rec.out)[0] });
   });
+  runContracts(un.btp || 0);
+  if (S.day % 6 === 0) offerContract();
   // 3. Commerce : la demande se répartit entre la marchandise générique, les produits lancés et les rivaux
   const happyPrev = S.stats.happy == null ? 60 : S.stats.happy;
-  const dem = { basic: S.pop * DEM_PER_POP.basic, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100), lux: S.pop * DEM_PER_POP.lux };
-  const capR = { s1: 0, s2: 0, s3: 0 };
+  const dem = { basic: S.pop * DEM_PER_POP.basic, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100), lux: S.pop * DEM_PER_POP.lux, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) };
+  const capR = { s1: 0, s2: 0, s3: 0, immo: 0 };
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { capR[c.t] += R.cap * levelMult(c) * (0.4 + 0.6 * staff); retUnits += R.cap * levelMult(c); } });
-  const sells = { basic: ['s1', 's2', 's3'], std: ['s2', 's3'], lux: ['s3'] };
-  const addressed = { basic: 0, std: 0, lux: 0 }, Dtot = { basic: 0, std: 0, lux: 0 }, rivalPart = { basic: 0, std: 0, lux: 0 };
+  const sells = { basic: ['s1', 's2', 's3'], std: ['s2', 's3'], lux: ['s3'], estate: ['immo'] };
+  const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
   let revRetVal = 0;
   PKEYS.forEach(pk => { const ps = S.prod[pk]; ps.sold = 0; ps.rev = 0; ps.share = 0; });
-  ['lux', 'std', 'basic'].forEach(cls => {
-    const items = [{ k: 'g', attr: 0.5, stock: S.stock[cls], price: S.price[cls] }];
+  ['estate', 'lux', 'std', 'basic'].forEach(cls => {
+    const items = cls === 'estate' ? [] : [{ k: 'g', attr: 0.5, stock: S.stock[cls], price: S.price[cls] }];
     const mine = PKEYS.filter(pk => PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on');
     mine.forEach(pk => items.push({ k: pk, attr: attractiveness(pk), stock: S.prod[pk].stock, price: prodPrice(pk) }));
     const totalAttr = items.reduce((a, i) => a + i.attr, 0) + RIVAL;
@@ -920,10 +991,12 @@ function step() {
       else { const ps = S.prod[it.k]; ps.stock -= got; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
       sold[cls] += got; revRetVal += got * it.price;
     });
-    want[cls] += dem[cls] * 0.5;
+    if (cls !== 'estate') want[cls] += dem[cls] * 0.5;
   });
   const soldTotal = sold.basic + sold.std + sold.lux;
   S.sold += soldTotal;
+  S.houses = (S.houses || 0) + sold.estate; S.lots = S.lots || 0;
+  while (Math.floor(S.houses / 8) > S.lots) { S.lots++; addNpcTower('res', 3); }
   // 4. Surplus exporté au-delà du plafond de stock
   let revExp = 0;
   const portN = cn.port || 0, expRate = Math.min(0.9, 0.6 + 0.15 * portN), stockCap = STOCK_CAP + 150 * portN;
@@ -1042,7 +1115,7 @@ function missionCtx() {
   let prodOn_ = 0, maxShare = 0, linkedRural_ = 0;
   eachBuilding(c => { if (TYPES[c.t].ext && !inCity(c.x, c.y) && c.linked) linkedRural_++; });
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps && ps.st === 'on') { prodOn_++; maxShare = Math.max(maxShare, ps.share || 0); } });
-  return { pop: st.pop || 0, jobsPlayer: st.playerJobs || 0, cn: st.cn || none, sold: S.sold, worth: st.worth || 0, prodOn: prodOn_, maxShare, linkedRural: linkedRural_, comp: Object.keys(S.cm || {}).filter(k => RECIPES[k]).length, washerMade: !!(S.prod.washer && (S.prod.washer.made > 0 || S.prod.washer.sold > 0)) };
+  return { pop: st.pop || 0, jobsPlayer: st.playerJobs || 0, cn: st.cn || none, sold: S.sold, worth: st.worth || 0, prodOn: prodOn_, maxShare, housesSold: S.houses || 0, contractsDone: S.cdone || 0, woodProd: ['woodtoys', 'chair', 'bed'].some(k => S.prod[k] && S.prod[k].st === 'on'), linkedRural: linkedRural_, comp: Object.keys(S.cm || {}).filter(k => RECIPES[k]).length, washerMade: !!(S.prod.washer && (S.prod.washer.made > 0 || S.prod.washer.sold > 0)) };
 }
 function checkMissions() {
   const c = missionCtx();
@@ -1060,7 +1133,7 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierOf(S.stats.worth || 0) < T.tier);
 }
-const ZONE_NEED = { res: 1, tech: 1, bank: 1, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
+const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
 // vérifie si l'emprise est libre ; renvoie un message d'erreur ou ''
 function footprintError(x, y, key) {
@@ -1070,8 +1143,8 @@ function footprintError(x, y, key) {
     { const z = ZONE[idx(x + ox, y + oy)]; if (z === 3) return 'Impossible de construire sur la mer.'; if (!T.ext && z !== ZONE_NEED[key]) return ZONE_MSG[ZONE_NEED[key]]; }
     { const o = S.grid[idx(x + ox, y + oy)]; if (o) return o.t === 'road' ? 'C\'est une rue : construis dans les blocs.' : 'Case occupée.'; }
     const d = S.dep[idx(x + ox, y + oy)];
-    if (T.ext) { if (!d || d.k !== T.ext) return `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
-    else if (d) return 'Cette case est un gisement : réserve-la à une mine.';
+    if (T.ext) { if (!d || d.k !== T.ext) return T.ext === 'wood' ? 'Il faut une forêt sous un camp de bûcherons.' : `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
+    else if (d) return d.k === 'wood' ? 'Cette case est une forêt : réserve-la à un camp de bûcherons.' : 'Cette case est un gisement : réserve-la à une mine ou une carrière.';
   }
   return '';
 }
@@ -1081,7 +1154,7 @@ function roadError(x, y) {
   if (S.grid[idx(x, y)]) return 'Case occupée.';
   if (ZONE[idx(x, y)] === 3) return 'Impossible de construire sur la mer.';
   if (ZONE[idx(x, y)] !== 0) return 'Zone aménagée : les voies y sont fournies par la mairie.';
-  if (S.dep[idx(x, y)]) return 'Cette case est un gisement : pas de route dessus.';
+  if (S.dep[idx(x, y)] && S.dep[idx(x, y)].k !== 'wood') return 'Cette case est un gisement : pas de route dessus.';
   return '';
 }
 function placeBuilding(x, y, key) {
@@ -1143,7 +1216,7 @@ function autoConnect(x, y) {
   if (!a || a.t === 'road' || !TYPES[a.t].ext) { say('L\'outil Relier raccorde une mine ou un puits à la ville.', 'info'); return false; }
   const lm = linkedMask();
   if (extLinked(a, lm)) { say('Cette installation est déjà reliée à la ville.', 'info'); return false; }
-  const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && !S.dep[idx(X, Y)] && ZONE[idx(X, Y)] === 0;
+  const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && (!S.dep[idx(X, Y)] || S.dep[idx(X, Y)].k === 'wood') && ZONE[idx(X, Y)] === 0;
   const ownRoad = (X, Y) => { const c = rawCell(X, Y); return !!c && c.t === 'road' && c.own; };
   const pass = (X, Y) => free(X, Y) || ownRoad(X, Y);
   const linkedAt = (X, Y) => inb(X, Y) && lm[idx(X, Y)] === 1;
@@ -1203,7 +1276,8 @@ function inspect(x, y) {
   selected = { x, y };
   const d = S.dep[idx(x, y)];
   if (!c) {
-    if (d) say(`Gisement de ${DEPOSITS[d.k].name} · réserve ${fmt(d.r)} unités. Pose une mine dessus.`, 'info');
+    if (d && d.k === 'wood') say(`Forêt · réserve ${fmt(d.r)} unités, elle repousse lentement. Pose un camp de bûcherons.`, 'info');
+    else if (d) say(`Gisement de ${DEPOSITS[d.k].name} · réserve ${fmt(d.r)} unités. Pose une mine ou une carrière dessus.`, 'info');
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
   }
@@ -1347,6 +1421,82 @@ function drawSeries(c, h, col, small) {
   g.beginPath(); g.arc(e[0], e[1], 4.5, 0, 7); g.fillStyle = col; g.fill();
 }
 
+/* ---------- BTP : chantiers pour les entreprises ---------- */
+const CONTRACT_TYPES = [
+  { key: 'warehouse', name: 'Entrepôt logistique',              kind: 'off', floors: 4,  tier: 1, need: { concrete: 60,  steel: 20,  osb: 10 },                       reward: 3600,  days: 40 },
+  { key: 'resi',      name: 'Résidence de 12 logements',        kind: 'res', floors: 8,  tier: 1, need: { concrete: 120, steel: 40,  stud: 40, osb: 30 },             reward: 7600,  days: 50 },
+  { key: 'office',    name: 'Immeuble de bureaux (10 étages)',  kind: 'off', floors: 10, tier: 1, need: { concrete: 150, steel: 60,  plank: 20, osb: 20 },            reward: 8800,  days: 55 },
+  { key: 'tower',     name: 'Tour de bureaux (20 étages)',      kind: 'off', floors: 20, tier: 2, need: { concrete: 360, steel: 150, osb: 30, plank: 30 },             reward: 22000, days: 80 }
+];
+const CLIENTS = ['Groupe Orion', 'Banque Helvetia', 'Logistique Delta', 'Immobilière du Port', 'Tech Horizon', 'Hôtels Meridian', 'Assurances Atlas'];
+function addNpcTower(kind, floors) {
+  for (let t = 0; t < 600; t++) {
+    const x = CITY.x0 + 1 + Math.floor(Math.random() * (CITY.x1 - CITY.x0 - 1)), y = CITY.y0 + 1 + Math.floor(Math.random() * (CITY.y1 - CITY.y0 - 1));
+    const id = idx(x, y);
+    if (ZONE[id] !== 1 || isRoadPos(x, y) || S.grid[id] || S.dep[id]) continue;
+    const seed = Math.random();
+    S.grid[id] = { t: 'npc', k: kind, seed, floors, lvl: 0, w: 1, h: 1, x, y, born: performance.now(), alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false };
+    S.built.push([x, y, kind, floors, +seed.toFixed(4)]);
+    return true;
+  }
+  return false;
+}
+function offerContract() {
+  const open = S.contracts.length;
+  if (open >= 5) return;
+  const tier = tierOf(S.stats.worth || 0);
+  const types = CONTRACT_TYPES.filter(c => c.tier <= tier);
+  if (!types.length) return;
+  const ct = types[Math.floor(Math.random() * types.length)];
+  const j = () => 0.9 + Math.random() * 0.2, need = {};
+  Object.keys(ct.need).forEach(g => { need[g] = Math.round(ct.need[g] * j()); });
+  S.cid = (S.cid || 0) + 1;
+  S.contracts.push({ id: S.cid, client: CLIENTS[Math.floor(Math.random() * CLIENTS.length)], key: ct.key, name: ct.name, kind: ct.kind, floors: ct.floors, need, got: {}, reward: Math.round(ct.reward * (0.9 + Math.random() * 0.3)), days: ct.days, st: 'offer', until: S.day + 25 });
+  say(`Nouvel appel d'offres : ${ct.name} (vue Produits).`, 'info');
+}
+function acceptContract(id) {
+  const c = S.contracts.find(x => x.id === id);
+  if (!c || c.st !== 'offer') return false;
+  if (!((S.stats.cn || {}).btp > 0)) { say('Il faut une entreprise de BTP (catégorie BTP) pour accepter un chantier.', 'warn'); return false; }
+  if (S.contracts.filter(x => x.st === 'active').length >= 3) { say('Trois chantiers maximum en même temps.', 'warn'); return false; }
+  c.st = 'active'; c.due = S.day + c.days; say(`Chantier accepté : ${c.name} pour ${c.client}.`, 'good'); updateHUD(); return true;
+}
+function dropContract(id) {
+  const i = S.contracts.findIndex(x => x.id === id); if (i < 0) return;
+  const c = S.contracts[i];
+  if (c.st === 'active') { S.cash -= Math.round(c.reward * 0.1); say('Chantier abandonné : pénalité de 10 %.', 'bad'); }
+  S.contracts.splice(i, 1); updateHUD();
+}
+function runContracts(btpUnits) {
+  let capLeft = btpUnits * 45;
+  for (let i = S.contracts.length - 1; i >= 0; i--) {
+    const c = S.contracts[i];
+    if (c.st === 'offer') { if (S.day > c.until) S.contracts.splice(i, 1); continue; }
+    if (capLeft > 0) Object.keys(c.need).forEach(g => {
+      const take = Math.max(0, Math.min(c.need[g] - (c.got[g] || 0), S.stock[g] || 0, capLeft));
+      if (take > 0) { S.stock[g] -= take; c.got[g] = (c.got[g] || 0) + take; capLeft -= take; }
+    });
+    if (Object.keys(c.need).every(g => (c.got[g] || 0) >= c.need[g] - 0.001)) {
+      S.cash += c.reward; S.cdone = (S.cdone || 0) + 1; addNpcTower(c.kind, c.floors);
+      say(`Chantier terminé : ${c.name} livré à ${c.client} (+${fmt(c.reward)} $). La ville s'agrandit.`, 'gold');
+      S.contracts.splice(i, 1);
+    } else if (S.day > c.due) {
+      S.cash -= Math.round(c.reward * 0.1); say(`Chantier en retard : ${c.name}, pénalité de 10 %.`, 'bad'); S.contracts.splice(i, 1);
+    }
+  }
+}
+function contractsHTML() {
+  if (tierOf(S.stats.worth || 0) < 1) return '<div class="plh">CHANTIERS BTP</div><p class="note">Les appels d\'offres de construction s\'ouvrent au palier Entrepreneur.</p>';
+  const btp = (S.stats.cn || {}).btp || 0;
+  const cards = S.contracts.map(c => {
+    const mats = Object.keys(c.need).map(g => { const got = c.got[g] || 0, pct = Math.round(Math.min(1, got / c.need[g]) * 100); return `<div class="cm"><i style="background:${GOODS[g].color}"></i><span>${GOODS[g].name}</span><b>${fmt(got)} / ${fmt(c.need[g])}</b><div class="bar"><i style="width:${pct}%"></i></div></div>`; }).join('');
+    const left = c.st === 'offer' ? `offre valable ${Math.max(0, c.until - S.day)} j` : `échéance dans ${Math.max(0, c.due - S.day)} j`;
+    const act = c.st === 'offer' ? `<button class="btn" data-ct="accept" data-id="${c.id}" ${btp ? '' : 'disabled'}>${btp ? 'Accepter' : 'Il faut une entreprise de BTP'}</button>` : `<button class="btn sec" data-ct="drop" data-id="${c.id}">Abandonner</button>`;
+    return `<div class="ctc ${c.st}"><div class="cth"><b>${c.name}</b><span class="ts ${c.st === 'active' ? 'ok' : ''}">${c.st === 'active' ? 'EN COURS' : 'OFFRE'}</span></div><small>${c.client} · ${left} · ${c.floors} étages</small><div class="cmats">${mats}</div><div class="cta"><b class="gold">${money(c.reward)}</b>${act}</div></div>`;
+  }).join('');
+  return `<div class="plh">CHANTIERS BTP · ${S.cdone || 0} livré(s)</div>${cards || '<p class="note">Aucun appel d\'offres pour le moment. Ils arrivent régulièrement.</p>'}`;
+}
+
 /* ---------- Vue Produits : fiche produit et cartographie de la chaîne ---------- */
 let selProd = 'washer', pvDrag = false, pvLast = '';
 const isProd = k => !!PRODUCTS[k];
@@ -1360,6 +1510,61 @@ const TIERPAL = [
   { a: '#e6ebf2', b: '#aab6c6', c: '#3fd8ff', d: '#56657a', acc: '#3fd8ff' },     // premium : acier et cyan
   { a: '#3b4254', b: '#12151d', c: '#f2b84b', d: '#0a0c12', acc: '#f2b84b' }      // haut de gamme : noir et or
 ];
+// illustrations des produits en bois
+function woodSVG(pk, t, id) {
+  const W = [['#e6c690', '#c79a5d', '#a97c43'], ['#c28f58', '#94693b', '#6f4a26'], ['#6d4629', '#47301c', '#2a1a0e']][t];
+  const gold = `url(#gd${id})`;
+  if (pk === 'chair') {
+    const fab = ['#9aa8b8', '#3fd8ff', '#1a1f2c'][t];
+    return `<rect x="96" y="40" width="108" height="112" rx="10" fill="${W[1]}"/>
+      ${[0, 1, 2, 3].map(i => `<rect x="${106 + i * 24}" y="52" width="14" height="88" rx="4" fill="${W[0]}"/>`).join('')}
+      <rect x="88" y="150" width="124" height="22" rx="8" fill="${fab}"/><rect x="88" y="150" width="124" height="8" rx="4" fill="#fff" opacity=".18"/>
+      <rect x="94" y="172" width="112" height="14" rx="4" fill="${W[1]}"/>
+      <rect x="98" y="184" width="14" height="76" rx="4" fill="${W[2]}"/><rect x="188" y="184" width="14" height="76" rx="4" fill="${W[2]}"/>
+      <rect x="116" y="184" width="12" height="70" rx="4" fill="${W[1]}" opacity=".7"/><rect x="172" y="184" width="12" height="70" rx="4" fill="${W[1]}" opacity=".7"/>
+      ${t === 2 ? [0, 1, 2, 3, 4].map(i => `<circle cx="${100 + i * 25}" cy="161" r="3" fill="${gold}"/>`).join('') : ''}`;
+  }
+  if (pk === 'bed') {
+    const duv = ['#aeb6c2', '#5aa0d0', '#8a1f2b'][t];
+    return `<rect x="44" y="64" width="212" height="110" rx="12" fill="${W[1]}"/><rect x="54" y="76" width="192" height="88" rx="8" fill="${W[0]}"/>
+      <rect x="44" y="176" width="212" height="44" rx="10" fill="${W[2]}"/>
+      <rect x="58" y="146" width="184" height="44" rx="14" fill="#f4f1ea"/><rect x="58" y="164" width="184" height="40" rx="12" fill="${duv}"/>
+      <rect x="70" y="128" width="64" height="26" rx="12" fill="#fff"/><rect x="166" y="128" width="64" height="26" rx="12" fill="#fff"/>
+      <rect x="44" y="214" width="16" height="42" rx="4" fill="${W[2]}"/><rect x="240" y="214" width="16" height="42" rx="4" fill="${W[2]}"/>
+      ${t === 2 ? `<circle cx="52" cy="64" r="9" fill="${gold}"/><circle cx="248" cy="64" r="9" fill="${gold}"/><rect x="58" y="196" width="184" height="6" fill="${gold}" opacity=".8"/>` : ''}`;
+  }
+  const cols = ['#d9534f', '#3fd8ff', '#f2b84b'];
+  return `<rect x="40" y="170" width="220" height="14" rx="5" fill="${W[2]}"/>
+    <rect x="56" y="120" width="82" height="52" rx="8" fill="${cols[0]}"/><rect x="100" y="84" width="38" height="40" rx="6" fill="${W[0]}"/><rect x="62" y="96" width="26" height="30" rx="6" fill="${cols[1]}"/>
+    <rect x="70" y="72" width="14" height="30" rx="3" fill="${W[1]}"/>
+    <rect x="152" y="130" width="92" height="44" rx="8" fill="${W[1]}"/><rect x="160" y="112" width="30" height="22" rx="4" fill="${cols[2]}"/><rect x="200" y="112" width="30" height="22" rx="4" fill="${cols[1]}"/>
+    ${[78, 118, 176, 226].map(x => `<circle cx="${x}" cy="186" r="15" fill="${W[2]}"/><circle cx="${x}" cy="186" r="6" fill="${t === 2 ? gold : W[0]}"/>`).join('')}
+    <rect x="136" y="150" width="18" height="6" fill="${W[2]}"/>`;
+}
+
+// illustrations des maisons (produit immobilier)
+function houseSVG(pk, t, id) {
+  const gold = `url(#gd${id})`;
+  const wall = pk === 'house_wood' ? ['#d9b27c', '#b98a54', '#8f6538'][t] : ['#d8dbe2', '#b4bac6', '#2a2f3d'][t];
+  const roof = ['#b5483c', '#4a5f8a', '#14171f'][t];
+  const glass = t === 0 ? '#9ec8e6' : 'url(#gl' + id + ')';
+  let h = `<rect x="40" y="226" width="220" height="14" rx="6" fill="#3d7a4a"/>`;
+  if (t === 2) {
+    h += `<rect x="52" y="140" width="130" height="86" rx="4" fill="${wall}"/><rect x="170" y="108" width="82" height="118" rx="4" fill="${pk === 'house_wood' ? '#6d4629' : '#3b4254'}"/>
+      <rect x="62" y="152" width="108" height="60" rx="3" fill="${glass}"/><rect x="182" y="120" width="60" height="96" rx="3" fill="${glass}"/>
+      <rect x="44" y="132" width="146" height="10" rx="3" fill="${gold}"/><rect x="162" y="100" width="100" height="10" rx="3" fill="${gold}"/>
+      <rect x="40" y="228" width="120" height="16" rx="6" fill="#3fd8ff" opacity=".7"/>`;
+    return h;
+  }
+  h += `<rect x="64" y="130" width="${t ? 172 : 150}" height="96" rx="4" fill="${wall}"/>
+    <path d="M${54} 134 L${64 + (t ? 86 : 75)} 78 L${t ? 246 : 224} 134 Z" fill="${roof}"/>
+    <rect x="${t ? 140 : 128}" y="164" width="34" height="62" rx="4" fill="${pk === 'house_wood' ? '#6d4629' : '#59627a'}"/>
+    <rect x="76" y="152" width="40" height="36" rx="3" fill="${glass}"/><rect x="${t ? 190 : 176}" y="152" width="${t ? 36 : 36}" height="36" rx="3" fill="${glass}"/>
+    ${pk === 'house_wood' ? [0, 1, 2, 3].map(i => `<rect x="64" y="${138 + i * 22}" width="${t ? 172 : 150}" height="2.5" fill="#6f4a26" opacity=".35"/>`).join('') : ''}
+    ${t === 1 ? `<rect x="236" y="176" width="40" height="50" rx="4" fill="${wall}"/><rect x="242" y="186" width="28" height="40" rx="2" fill="#59627a"/>` : ''}
+    <rect x="${t ? 206 : 190}" y="92" width="14" height="30" fill="#7a6e66"/>`;
+  return h;
+}
 function productSVG(pk, t) {
   const P = TIERPAL[t], id = pk + t;
   const defs = `<defs>
@@ -1431,6 +1636,7 @@ function productSVG(pk, t) {
     g = Array.from({ length: n }, (_, i) => { const w = 150 - i * 26, x = 150 - w / 2 + (i % 2 ? 6 : -6), y = 232 - i * 46; return `<rect x="${x}" y="${y}" width="${w}" height="42" rx="7" fill="${cols[i % 4]}"/><rect x="${x}" y="${y}" width="${w}" height="12" rx="6" fill="#fff" opacity=".18"/>${[0, 1, 2].slice(0, Math.max(1, Math.floor(w / 44))).map(k => `<circle cx="${x + 20 + k * 38}" cy="${y - 2}" r="8" fill="${cols[i % 4]}"/>`).join('')}`; }).join('') +
       (t === 2 ? `<path d="M150 ${232 - n * 46 - 16} l7 14 15 2 -11 10 3 15 -14 -7 -14 7 3 -15 -11 -10 15 -2z" fill="#f2b84b"/>` : '');
   }
+  if (!g) g = PRODUCTS[pk].cls === 'estate' ? houseSVG(pk, t, id) : woodSVG(pk, t, id);
   return `<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${PRODUCTS[pk].name}">${defs}<rect width="300" height="300" rx="18" fill="url(#bg${id})"/><ellipse cx="150" cy="268" rx="104" ry="11" fill="#000" opacity=".35"/>${g}</svg>`;
 }
 function packSVG(i) {
@@ -1567,14 +1773,14 @@ function sheetHTML(pk) {
       <p class="desc">${pr.desc}</p>
       <span class="lbl">Gamme</span>
       <div class="tiers">${QTIER.map((q, i) => `<button type="button" class="tcard" data-act="q" data-v="${i}" aria-pressed="${ps.q === i}"><span class="timg">${productSVG(pk, i)}</span><b>${q.n}</b><small>${q.tag}</small><small>Qualité ${q.q} · ${money(pr.ref * q.ref)}</small></button>`).join('')}</div>
-      <span class="lbl">Emballage</span>
-      <div class="packs">${PACK.map((a, i) => `<button type="button" class="pk" data-act="pack" data-v="${i}" aria-pressed="${ps.pack === i}">${packSVG(i)}<b>${a.n}</b><small>${a.per ? a.per + ' emball. / unité' : 'aucun'}</small></button>`).join('')}</div>
+      ${pr.cls === 'estate' ? '' : `<span class="lbl">Emballage</span>
+      <div class="packs">${PACK.map((a, i) => `<button type="button" class="pk" data-act="pack" data-v="${i}" aria-pressed="${ps.pack === i}">${packSVG(i)}<b>${a.n}</b><small>${a.per ? a.per + ' emball. / unité' : 'aucun'}</small></button>`).join('')}</div>`}
       <h4>Éléments nécessaires <small>par cycle de ${pr.out} unités</small></h4>
       <ul class="bom">${bomRowsHTML(inp)}</ul>
       <h4>Caractéristiques</h4>
       <div class="kv"><div><small>Catégorie</small><b>${CLS[pr.cls].name}</b></div><div><small>Usine requise</small><b>${LVL_NAME[pr.lvl]} ou plus</b></div>
         <div><small>Coût des composants / unité</small><b>${px1(unitCost)}</b></div><div><small>Marge brute / unité</small><b class="${margin >= 0 ? 'pos' : 'neg'}">${px1(margin)}</b></div>
-        <div><small>Vendu en</small><b>${pr.cls === 'lux' ? 'hypermarché' : pr.cls === 'std' ? 'super et hypermarché' : 'tout magasin'}</b></div><div><small>Délai de R&amp;D</small><b>${pr.days} jours</b></div>
+        <div><small>Vendu en</small><b>${pr.cls === 'estate' ? 'agence immobilière' : pr.cls === 'lux' ? 'hypermarché' : pr.cls === 'std' ? 'super et hypermarché' : 'tout magasin'}</b></div><div><small>Délai de R&amp;D</small><b>${pr.days} jours</b></div>
         <div><small>Emballage</small><b>${PACK[ps.pack].n}</b></div><div><small>Usines affectées</small><b>${fc.mine} / ${fc.total}</b></div></div>
       <h4>Chaîne d'approvisionnement</h4>
       <ul class="tree">${Object.keys(inp).map(g => treeHTML(g, inp[g], 1)).join('')}</ul>
@@ -1616,7 +1822,7 @@ function renderProducts() {
     return `<button type="button" class="pcard${pk === selProd ? ' sel' : ''}${locked ? ' lock' : ''}" data-p="${pk}"><span class="th">${productSVG(pk, ps.q)}</span><b>${pr.name}</b><small>${status}</small></button>`;
   }).join('');
   const chips = RKEYS.map(k => { const n = sourceInfo(k).n; return `<button type="button" class="pchip${k === selProd ? ' sel' : ''}" data-p="${k}"><i style="background:${GOODS[k].color}"></i>${RECIPES[k].name}<small>${n ? n + ' usine(s)' : 'non produit'}</small></button>`; }).join('');
-  const html = `<div class="plh">PRODUITS FINIS</div><div class="pcards">${cards}</div><div class="plh">COMPOSANTS</div><div class="pchips">${chips}</div>`;
+  const html = `${contractsHTML()}<div class="plh">PRODUITS FINIS</div><div class="pcards">${cards}</div><div class="plh">COMPOSANTS</div><div class="pchips">${chips}</div>`;
   if (html !== pvLast.list) { el('plist').innerHTML = html; pvLast.list = html; }
   const detail = isProd(selProd) ? sheetHTML(selProd) : compSheetHTML(selProd);
   if (detail !== pvLast.detail) {
@@ -1627,7 +1833,11 @@ function renderProducts() {
   }
 }
 pvLast = { list: '', detail: '' };
-el('plist').addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b) { selProd = b.dataset.p; renderProducts(); } });
+el('plist').addEventListener('click', e => {
+  const ct = e.target.closest('[data-ct]');
+  if (ct && !ct.disabled) { const id = +ct.dataset.id; if (ct.dataset.ct === 'accept') acceptContract(id); else dropContract(id); renderProducts(); return; }
+  const b = e.target.closest('[data-p]'); if (b) { selProd = b.dataset.p; renderProducts(); }
+});
 el('pdetail').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
   const v = +b.dataset.v, ps = isProd(selProd) ? S.prod[selProd] : null;
@@ -1820,7 +2030,7 @@ function drawDeposit(p, d, now, x, y) {
       ctx.beginPath(); ctx.moveTo(sx, sy - 6); ctx.lineTo(sx + 3, sy); ctx.lineTo(sx, sy + 6); ctx.lineTo(sx - 3, sy); ctx.closePath(); ctx.fill();
     }
   } else {
-    const col = k === 'iron' ? ['#8a4630', '#b4614a'] : k === 'coal' ? ['#1d1f2b', '#3a3d52'] : ['#1f8f7d', '#46d3bb'];
+    const col = k === 'iron' ? ['#8a4630', '#b4614a'] : k === 'coal' ? ['#1d1f2b', '#3a3d52'] : k === 'gravel' ? ['#6f6f78', '#9d9da8'] : k === 'sand' ? ['#cdb877', '#ecdca6'] : k === 'limestone' ? ['#cfcab8', '#f3f0e4'] : ['#1f8f7d', '#46d3bb'];
     ctx.fillStyle = col[0]; ctx.beginPath(); ctx.ellipse(cx, cy, 42, 20, 0, 0, 7); ctx.fill();
     for (let i = 0; i < 5; i++) {
       const sx = cx + (hash(x, y, i) - 0.5) * 56, sy = cy + (hash(y, x, i + 7) - 0.5) * 22;
@@ -1897,6 +2107,8 @@ function tileSprite(a, ox, oy) {
     case 'f1': return 'fsmall' + (k % 2);
     case 'f2': case 'f3': return 'fact' + (k % 2);
     case 'foundry': return 'oil' + (k % 2);
+    case 'btp': return 'fact' + (k % 2);
+    case 'immo': return 'shop' + [1, 3, 4, 5][k % 4];
     case 's1': return 'shop' + [0, 4, 5, 6][k % 4];
     case 's2': return 'shop' + [7, 8][k % 2];
     case 's3': return 'shop' + [9, 10, 11, 1][k % 4];
@@ -1970,6 +2182,55 @@ const ships = [];
 for (let i = 0; i < 5; i++) ships.push({ x: 91 + (i % 2) * 2.4, y: 8 + i * 17, v: (i % 2 ? 1 : -1) * (0.22 + 0.06 * i), seed: i });
 function updateShips(dt) { ships.forEach(s => { s.y += s.v * dt * speedFactor(); if (s.y > N + 6) s.y = -6; if (s.y < -6) s.y = N + 6; }); }
 
+// --- Forêts et camps de bûcherons ---
+function drawForest(p, x, y, d) {
+  const s = SP.tree; if (!s) return;
+  const n = Math.max(1, Math.ceil(5 * d.r / DEPOSITS.wood.res));
+  const offs = [[-2, -14], [-30, 0], [28, 2], [-16, 16], [14, 18]];
+  for (let k = 0; k < n; k++) {
+    const o = offs[k], sc = 1.5 + hash(x, y, k) * 0.35;
+    ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x + o[0] - s[2] * sc / 2, p.y + 33 + o[1] - s[3] * sc + 8, s[2] * sc, s[3] * sc);
+  }
+}
+function drawLoggingCamp(p, now, seed, active) {
+  const cx = p.x, cy = p.y + 33;
+  isoBox(cx - 12, cy + 4, 0.5, 0.42, 22, '#d0a064', '#a97a44', '#7a5530');          // cabane
+  isoBox(cx - 12, cy - 18, 0.6, 0.5, 5, '#c0453a', '#9e342b', '#7a261f');          // toit
+  isoBox(cx - 4, cy - 22, 0.12, 0.12, 14, '#8a6a52', '#6b4f3b', '#4b3828');        // cheminée
+  for (let i = 0; i < 3; i++) isoBox(cx + 26, cy + 16 - i * 7, 0.55, 0.16, 6, '#e2b678', '#b68a52', '#8a6538');   // pile de grumes
+  for (let i = 0; i < 2; i++) isoBox(cx + 30, cy + 2 - i * 7, 0.5, 0.15, 6, '#e2b678', '#b68a52', '#8a6538');
+  ctx.fillStyle = '#c9a36a'; ctx.beginPath(); ctx.ellipse(cx - 34, cy + 20, 9, 4.5, 0, 0, 7); ctx.fill();   // souche
+  ctx.fillStyle = '#8a6538'; ctx.fillRect(cx - 43, cy + 20, 18, 6);
+  if (active) for (let i = 0; i < 3; i++) {
+    const tt = ((now / 2200) + i / 3 + seed) % 1;
+    ctx.globalAlpha = (1 - tt) * 0.4; ctx.fillStyle = '#d7dbea';
+    ctx.beginPath(); ctx.arc(cx - 4 + tt * 12, cy - 40 - tt * 30, 3 + tt * 7, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+// --- BTP : carrières, grue à tour, engin ---
+function drawQuarry(p, now, seed, active, kind) {
+  const cx = p.x, cy = p.y + 33;
+  const col = { qgravel: '#8e8e98', qsand: '#e0c98a', qlime: '#ebe7da' }[kind];
+  drawPile(cx - 30, cy + 22, col); drawPile(cx + 34, cy + 24, col);
+  // pelle mécanique
+  const sw = Math.sin(now / 700 + seed * 5) * (active ? 8 : 0);
+  isoBox(cx + 4, cy + 8, 0.5, 0.36, 12, '#ffd56a', '#f2b84b', '#b9831f');
+  isoBox(cx + 4, cy - 6, 0.34, 0.3, 14, '#fff2b8', '#ffd56a', '#c99a2a');
+  ctx.strokeStyle = '#f2b84b'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx + 12, cy - 12); ctx.lineTo(cx + 44 + sw, cy - 44); ctx.lineTo(cx + 66 + sw, cy - 14); ctx.stroke();
+  ctx.fillStyle = '#3a3f55'; ctx.beginPath(); ctx.arc(cx + 66 + sw, cy - 10, 7, 0, 7); ctx.fill();
+}
+function drawTowerCrane(cx, cy, now, seed) {
+  ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - 150); ctx.stroke();
+  const ang = Math.sin(now / 3500 + seed * 4) * 0.12;
+  ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(cx - 52, cy - 150 + ang * 60); ctx.lineTo(cx + 96, cy - 150 - ang * 60); ctx.stroke();
+  ctx.strokeStyle = '#e9edff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(cx + 62, cy - 150 - ang * 40); ctx.lineTo(cx + 62, cy - 96); ctx.stroke();
+  isoBox(cx + 62, cy - 86, 0.24, 0.4, 10, '#9a9aa5', '#7d7d88', '#5d5d68');
+  isoBox(cx - 46, cy - 142, 0.2, 0.3, 12, '#5d5d68', '#4a4a54', '#34343c');
+  ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, cy - 154, 3.5, 0, 7); ctx.fill();
+}
 function drawTileOf(a, x, y, ox, oy, o) {
   const p = iso(x, y);
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
@@ -2025,6 +2286,10 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
     drawShip(p.x + 160, p.y + 78, Math.floor(a.seed * 10)); topY = p.y - 120;
   } else if (a.t === 'well') {
     drawPumpjack(p.x, p.y + 33, now, a.seed, conn && a.out > 0.01); topY = p.y - 50;
+  } else if (a.t === 'logging') {
+    drawLoggingCamp(p, now, a.seed, conn && a.out > 0.01); topY = p.y - 24;
+  } else if (a.t === 'qgravel' || a.t === 'qsand' || a.t === 'qlime') {
+    drawQuarry(p, now, a.seed, conn && a.out > 0.01, a.t); topY = p.y - 30;
   } else if (T.ext) {
     const col = { miron: '#b4614a', mcoal: '#2a2c3a', mcopper: '#2fb89d', mgold: '#f2b84b' }[a.t];
     if (grow >= 1) {
@@ -2042,6 +2307,8 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
     }
     else if (a.t === 'foundry') { chimney(p.x + 22, p.y + 6, 52, now, a.seed, '#ffd76a', conn, alpha); topY = p.y - 50; }
     else if (a.t === 's2') { sign(p.x - 30, p.y - 36, 'SUPER', '#7f96ff'); topY = p.y - 60; }
+    else if (a.t === 'immo') { sign(p.x - 6, p.y - 40, 'IMMO', '#ffb347'); topY = p.y - 62; }
+    else if (a.t === 'btp') { drawTowerCrane(p.x - 18, p.y + 36, now, a.seed); sign(p.x - 38, p.y - 36, 'BTP', '#ffb347'); topY = p.y - 160; }
     else if (a.t === 's3') { sign(p.x - 28, p.y - 62, 'HYPER', '#ff4fa3'); topY = p.y - 90; }
   }
   ctx.globalAlpha = 1;
@@ -2161,7 +2428,8 @@ function frame(now) {
       }
       const d = S.dep[idx(x, y)];
       if (d) {
-        drawDeposit(p, d, now, x, y);
+        if (d.k === 'wood') { ctx.fillStyle = 'rgba(28,92,44,.38)'; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill(); }
+        else drawDeposit(p, d, now, x, y);
         if (wantDep === d.k && !rc) { ctx.lineWidth = 4; poly(tilePts(p, 0.92), null, `rgba(255,255,255,${0.35 + 0.5 * pulse})`); }
       }
       if (rc && rc.t === 'part') return;
@@ -2212,6 +2480,8 @@ function frame(now) {
         }
       } else if (ZONE[i] === 4) {
         drawQuayDecor(p, x, y, now);
+      } else if (S.dep[i] && S.dep[i].k === 'wood') {
+        drawForest(p, x, y, S.dep[i]);
       } else if (decor[i] && !S.dep[i]) {
         const dc = decor[i];
         ctx.globalAlpha = treeCol; blit('tree', p.x - 16 + dc.dx, p.y + 33 - 42 + dc.dy); ctx.globalAlpha = 1;
@@ -2238,8 +2508,8 @@ function frame(now) {
 /* ---------- Minimap ---------- */
 const mmOff = document.createElement('canvas'); mmOff.width = N; mmOff.height = N;
 const mmOffCtx = mmOff.getContext('2d');
-const MM_COL = { road: [120, 128, 170], res: [127, 150, 255], tech: [63, 216, 255], bank: [242, 184, 75], well: [255, 138, 61], miron: [196, 102, 74], mcoal: [143, 154, 203], mcopper: [63, 216, 192], mgold: [242, 184, 75], foundry: [255, 215, 106], f1: [70, 211, 154], f2: [127, 150, 255], f3: [255, 79, 163], s1: [70, 211, 154], s2: [127, 150, 255], s3: [255, 79, 163], port: [95, 176, 255] };
-const DEP_COL = { oil: [60, 40, 110], iron: [150, 80, 55], coal: [60, 62, 80], copper: [40, 150, 130], gold: [220, 170, 50] };
+const MM_COL = { road: [120, 128, 170], res: [127, 150, 255], tech: [63, 216, 255], bank: [242, 184, 75], well: [255, 138, 61], miron: [196, 102, 74], mcoal: [143, 154, 203], mcopper: [63, 216, 192], mgold: [242, 184, 75], logging: [110, 170, 90], qgravel: [154, 154, 165], qsand: [230, 207, 143], qlime: [232, 228, 216], btp: [255, 179, 71], immo: [255, 179, 71], foundry: [255, 215, 106], f1: [70, 211, 154], f2: [127, 150, 255], f3: [255, 79, 163], s1: [70, 211, 154], s2: [127, 150, 255], s3: [255, 79, 163], port: [95, 176, 255] };
+const DEP_COL = { oil: [60, 40, 110], iron: [150, 80, 55], coal: [60, 62, 80], copper: [40, 150, 130], gold: [220, 170, 50], wood: [40, 100, 55], gravel: [120, 120, 130], sand: [210, 190, 120], limestone: [215, 212, 200] };
 function drawMinimap() {
   if (!S) return;
   const img = mmOffCtx.createImageData(N, N), d = img.data;
@@ -2384,7 +2654,7 @@ updateHUD();
 setTool('res');
 if (window.innerWidth >= 1000) setPanel(true);
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { get S() { return S; }, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
