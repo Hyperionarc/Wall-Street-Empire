@@ -298,7 +298,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
   <div id="hint">
     <b>BIENVENUE À NEW DOLLARTON</b>
     <p>Une grande carte, des gisements (pétrole, fer, charbon, cuivre, or) et une chaîne complète : extraction, fonderie et usines, commerces, habitants, impôts.</p>
-    <p>Choisis une catégorie en bas, puis un bâtiment, et touche une case. Les mines se posent sur un gisement de la même couleur. Tout bâtiment doit toucher une route. Ouvre « Ville » pour la carte, les missions et les prix, et « Produits » pour lancer des produits finis (montre, téléviseur, smartphone...).</p>
+    <p>Choisis une catégorie en bas, puis un bâtiment, et touche une case. Les mines se posent sur un gisement de la même couleur. Tout bâtiment doit toucher une route : trace-les en ligne droite, ou touche un bâtiment avec l'outil Relier. Ouvre « Ville » pour la carte, les missions et les prix, et « Produits » pour lancer des produits finis (montre, téléviseur, smartphone...).</p>
   </div>
   <div id="win" hidden>
     <b>SIÈGE AU CONSEIL</b>
@@ -316,8 +316,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 /* ---------- Constantes ---------- */
 const N = 64, TW = 132, TH = 66, FH = 32, DAY_MS = 2000, MID = 32;
 const SAVE_KEY = 'wse-city-v3';
-const SEASONS = ['Printemps', 'Été', 'Automne', 'Hiver'];
-const SEASON_TINT = ['rgba(90,200,150,.10)', 'rgba(255,230,120,.06)', 'rgba(230,120,40,.16)', 'rgba(235,245,255,.55)'];
+const SUMMER_TINT = 'rgba(112,188,92,.30)';   // herbe d'été : saison unique
 const TIERS = [
   { n: 'Citoyen', at: 0 }, { n: 'Entrepreneur', at: 40000 }, { n: 'Industriel', at: 150000 },
   { n: 'Magnat', at: 500000 }, { n: 'Oligarque', at: 1500000 }
@@ -408,12 +407,14 @@ const ICONS = {
   s1:   '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9c0 1.7 1.3 2.5 2.7 2.5S9.3 10.7 9.3 9c0 1.7 1.1 2.5 2.7 2.5s2.7-.8 2.7-2.5c0 1.7 1.3 2.5 2.7 2.5S20 10.7 20 9"/><path d="M5.5 12v8h13v-8M10 20v-4h4v4"/>',
   s2:   '<path d="M3 8h18v12H3z"/><path d="M3 12h18M8 8v12M16 8v12"/><path d="M5 5h14"/>',
   s3:   '<path d="M2 7h20v13H2z"/><path d="M2 11h20M7 7v13M12 7v13M17 7v13"/><path d="M4 4h16"/>',
+  link: '<circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="6" r="2.5"/><path d="M7.5 18H14a3 3 0 003-3V9a3 3 0 013-3" stroke-dasharray="2 3"/>',
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
 const ICON_OF = { miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
+  link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
   up:   { name: 'Améliorer', sub: 'Niveau +1', color: '#f2b84b' },
   bull: { name: 'Démolir', sub: 'Gratuit', color: '#ff5a5f' }
 };
@@ -423,7 +424,7 @@ const CATS = [
   { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3'] },
   { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3'] }
 ];
-const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'up', 'bull'];
+const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
 
 const MISSIONS = [
   { id: 'm1',  t: 'Loger 60 habitants',                            r: 1000,  ok: c => c.pop >= 60 },
@@ -893,6 +894,7 @@ function place(x, y, key) {
     refreshStats(); updateHUD(); save();
     return true;
   }
+  if (key === 'link') return autoConnect(x, y);
   if (key === 'up') {
     if (!c || c.t === 'road') return false;
     const cost = upgradeCost(c);
@@ -908,7 +910,7 @@ function place(x, y, key) {
   const T = TYPES[key];
   if (!T) return false;
   if (toolLocked(key)) { say(`${T.name} se débloque au palier ${TIERS[T.tier].n}.`, 'warn'); return false; }
-  const err = key === 'road' ? (rc ? 'Case occupée.' : '') : footprintError(x, y, key);
+  const err = key === 'road' ? (rc ? 'Case occupée.' : (S.dep[idx(x, y)] ? 'Cette case est un gisement : pas de route dessus.' : '')) : footprintError(x, y, key);
   if (err) { if (!(key === 'road' && err === 'Case occupée.')) say(err, 'warn'); return false; }
   if (S.cash < T.cost) { say('Trésorerie insuffisante pour ' + T.name.toLowerCase() + '.', 'bad'); return false; }
   S.cash -= T.cost;
@@ -916,8 +918,49 @@ function place(x, y, key) {
   if (key === 'road') { b = mkCell('road'); b.x = x; b.y = y; S.grid[idx(x, y)] = b; }
   else b = placeBuilding(x, y, key);
   flyers.push({ x, y, text: '-' + fmt(T.cost), t: performance.now(), col: '#ff8a8e' });
-  if (key !== 'road' && !footConn(b)) say('Ce bâtiment ne touche aucune route : il ne produira rien.', 'warn');
+  if (key !== 'road' && !footConn(b)) say('Ce bâtiment ne touche aucune route : utilise l\'outil Relier pour le raccorder.', 'warn');
   refreshStats(); checkMissions(); updateHUD();
+  return true;
+}
+// plus court chemin (Dijkstra avec pénalité de virage) du bâtiment jusqu'au réseau routier
+function autoConnect(x, y) {
+  const a = cell(x, y);
+  if (!a || a.t === 'road') return false;
+  if (footConn(a)) { say('Ce bâtiment est déjà relié à une route.', 'info'); return false; }
+  const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && !S.dep[idx(X, Y)];
+  const dist = new Map(), prev = new Map(), open = [];
+  const key = (X, Y, d) => (Y * N + X) * 5 + d;
+  for (let ox = 0; ox < a.w; ox++) for (let oy = 0; oy < a.h; oy++) {
+    const X = a.x + ox, Y = a.y + oy;
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach((d, di) => {
+      const nx = X + d[0], ny = Y + d[1];
+      if (ox + d[0] >= 0 && ox + d[0] < a.w && oy + d[1] >= 0 && oy + d[1] < a.h) return;
+      if (!free(nx, ny)) return;
+      const k = key(nx, ny, di);
+      if (!dist.has(k)) { dist.set(k, 1); open.push([1, nx, ny, di]); }
+    });
+  }
+  const touchesRoad = (X, Y) => isRoad(X + 1, Y) || isRoad(X - 1, Y) || isRoad(X, Y + 1) || isRoad(X, Y - 1);
+  let goal = null;
+  while (open.length) {
+    open.sort((p, q) => p[0] - q[0]);
+    const [c, X, Y, di] = open.shift();
+    if (c > (dist.get(key(X, Y, di)) || 1e9)) continue;
+    if (touchesRoad(X, Y)) { goal = [X, Y, di]; break; }
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach((d, ndi) => {
+      const nx = X + d[0], ny = Y + d[1];
+      if (!free(nx, ny)) return;
+      const nc = c + 1 + (ndi !== di ? 0.5 : 0), k = key(nx, ny, ndi);
+      if (nc < (dist.get(k) || 1e9)) { dist.set(k, nc); prev.set(k, key(X, Y, di)); open.push([nc, nx, ny, ndi]); }
+    });
+  }
+  if (!goal) { say('Aucun chemin libre vers une route.', 'warn'); return false; }
+  const path = []; let k = key(goal[0], goal[1], goal[2]);
+  while (k !== undefined) { const d = k % 5, t = Math.floor(k / 5); path.push([t % N, Math.floor(t / N)]); k = prev.get(k); }
+  const cost = path.length * TYPES.road.cost;
+  if (S.cash < cost) { say(`Il faut ${money(cost)} pour relier ce bâtiment (${path.length} routes).`, 'bad'); return false; }
+  path.forEach(pt => place(pt[0], pt[1], 'road'));
+  say(`Bâtiment relié : ${path.length} route(s) pour ${money(cost)}.`, 'good');
   return true;
 }
 function refreshStats() {
@@ -1005,9 +1048,8 @@ function updateHUD() {
   el('vHappy').textContent = Math.round(st.happy == null ? 60 : st.happy) + ' %';
   el('vTax').textContent = 'impôt ' + Math.round(S.tax * 100) + ' %';
   el('vTax').className = 'gold';
-  const season = Math.floor((S.day % 120) / 30);
   el('vDate').textContent = `Jour ${S.day % 30 + 1}`;
-  el('vSeason').textContent = `${SEASONS[season]} · An ${Math.floor(S.day / 120) + 1}`;
+  el('vSeason').textContent = `Été · An ${Math.floor(S.day / 120) + 1}`;
   el('vSeason').className = 'gold';
 
   const tr = tierOf(st.worth || 0);
@@ -1207,7 +1249,7 @@ function toolButton(k) {
 function buildTools() {
   document.querySelectorAll('.cat').forEach(b => b.setAttribute('aria-pressed', b.dataset.c === cat ? 'true' : 'false'));
   toolsEl.innerHTML = '';
-  ['view'].concat(CATS.find(c => c.id === cat).tools, ['up', 'bull']).forEach(k => toolsEl.appendChild(toolButton(k)));
+  ['view'].concat(CATS.find(c => c.id === cat).tools, ['link', 'up', 'bull']).forEach(k => toolsEl.appendChild(toolButton(k)));
   if (S) updateHUD();
 }
 function setTool(k) {
@@ -1261,7 +1303,6 @@ let W = 0, H = 0, dpr = 1, vx = 0, vy = 0, z = 0.3;
 const cam = { x: 0, y: 0 };
 let fitted = false;
 const stars = Array.from({ length: 90 }, (_, i) => ({ x: hash(i, 1, 2), y: hash(i, 3, 4) * 0.62, r: 0.5 + hash(i, 5, 6) * 1.3, tw: hash(i, 7, 8) * 6 }));
-const flakes = Array.from({ length: 70 }, (_, i) => ({ x: hash(i, 9, 1), y: hash(i, 2, 9), r: 0.8 + hash(i, 4, 4) * 1.8, v: 0.3 + hash(i, 6, 3) * 0.7 }));
 const flyers = [];
 let cars = [];
 const iso = (x, y) => ({ x: (x - y) * TW / 2, y: (x + y) * TH / 2 });
@@ -1578,12 +1619,11 @@ function frame(now) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   drawSky(now);
-  const season = Math.floor((S.day % 120) / 30);
   ctx.save();
   ctx.translate(vx - cam.x * z, vy - cam.y * z); ctx.scale(z, z);
 
   if (atlasReady) {
-    poly([iso(0, 0), iso(N, 0), iso(N, N), iso(0, N)], '#d8d3bf');
+    poly([iso(0, 0), iso(N, 0), iso(N, N), iso(0, N)], '#a9b98c');
     const vr = visibleRange();
     const pulse = 0.5 + 0.5 * Math.sin(now / 300);
     const wantDep = TYPES[tool] && TYPES[tool].ext;
@@ -1592,8 +1632,10 @@ function frame(now) {
       const p = iso(x, y), rc = S.grid[idx(x, y)];
       if (rc && rc.t === 'road') blit('road' + roadMask(x, y), p.x - 66, p.y);
       else blit('ground', p.x - 66, p.y);
-      ctx.fillStyle = SEASON_TINT[season];
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill();
+      if (!(rc && rc.t === 'road')) {
+        ctx.fillStyle = SUMMER_TINT;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill();
+      }
       const d = S.dep[idx(x, y)];
       if (d) {
         drawDeposit(p, d, now, x, y);
@@ -1617,6 +1659,7 @@ function frame(now) {
       const T = TYPES[tool];
       if (T && T.w) { w = T.w; h = T.h; }
       if (tool === 'bull') ok = !!c;
+      else if (tool === 'link') ok = !!c && c.t !== 'road' && !footConn(c);
       else if (tool === 'up') ok = !!c && c.t !== 'road' && upgradeCost(c) > 0 && S.cash >= upgradeCost(c);
       else if (tool !== 'view') ok = !toolLocked(tool) && S.cash >= T.cost && (tool === 'road' ? !rc : !footprintError(hover.x, hover.y, tool));
       const col = tool === 'view' ? 'rgba(233,237,255,.9)' : ok ? 'rgba(70,211,154,.95)' : 'rgba(255,90,95,.95)';
@@ -1629,7 +1672,7 @@ function frame(now) {
     if (selected && tool === 'view') { ctx.lineWidth = 4; poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }
 
     // passe 2 : arbres et bâtiments dans l'ordre de profondeur
-    const treeCol = season === 3 ? 0.6 : 1;
+    const treeCol = 1;
     eachVisible(vr, (x, y) => {
       const i = idx(x, y), rc = S.grid[i], p = iso(x, y);
       if (rc) {
@@ -1662,14 +1705,6 @@ function frame(now) {
   }
   ctx.restore();
 
-  if (season === 3) {
-    ctx.fillStyle = 'rgba(255,255,255,.85)';
-    for (const f of flakes) {
-      f.y += f.v * dt * 0.09 * (speed ? 1 : 0.2); f.x += Math.sin(now / 900 + f.r * 5) * 0.0003;
-      if (f.y > 1.02) { f.y = -0.02; f.x = Math.random(); }
-      ctx.beginPath(); ctx.arc(f.x * W, f.y * H, f.r, 0, 7); ctx.fill();
-    }
-  }
 }
 
 /* ---------- Minimap ---------- */
@@ -1741,7 +1776,7 @@ cvs.addEventListener('pointerdown', e => {
   }
   const panning = tool === 'view' || e.button === 1 || e.button === 2 || spaceDown;
   if (panning) gesture = { mode: 'pan', sx: p.x, sy: p.y, cx: cam.x, cy: cam.y, moved: false, tool: tool };
-  else { gesture = { mode: 'paint' }; lastTile = null; applyAt(p); }
+  else { gesture = { mode: 'paint', start: screenToTile(p.x, p.y), axis: null, cur: null }; lastTile = null; applyAt(p); if (tool === 'road') gesture.cur = gesture.start; }
 });
 cvs.addEventListener('pointermove', e => {
   const p = pos(e);
@@ -1758,7 +1793,19 @@ cvs.addEventListener('pointermove', e => {
     const dx = p.x - gesture.sx, dy = p.y - gesture.sy;
     if (Math.abs(dx) + Math.abs(dy) > 6) gesture.moved = true;
     if (gesture.moved) { cam.x = gesture.cx - dx / z; cam.y = gesture.cy - dy / z; }
-  } else if (gesture.mode === 'paint' && (tool === 'road' || tool === 'bull')) {
+  } else if (gesture.mode === 'paint' && tool === 'road') {
+    const t = screenToTile(p.x, p.y), g0 = gesture.start;
+    if (!t || !g0) return;
+    if (!gesture.axis && (t.x !== g0.x || t.y !== g0.y)) gesture.axis = Math.abs(t.x - g0.x) >= Math.abs(t.y - g0.y) ? 'x' : 'y';
+    if (!gesture.axis) return;
+    const target = gesture.axis === 'x' ? { x: t.x, y: g0.y } : { x: g0.x, y: t.y };
+    let c = gesture.cur || g0, guard = 0;
+    while ((c.x !== target.x || c.y !== target.y) && guard++ < N * 2) {
+      c = { x: c.x + Math.sign(target.x - c.x), y: c.y + Math.sign(target.y - c.y) };
+      place(c.x, c.y, 'road');
+    }
+    gesture.cur = c;
+  } else if (gesture.mode === 'paint' && tool === 'bull') {
     applyAt(p);
   }
 });
@@ -1808,7 +1855,7 @@ updateHUD();
 setTool('res');
 if (window.innerWidth >= 1000) setPanel(true);
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice };
+window.WSE = { get S() { return S; }, autoConnect, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice };
 })();
 </script>
 </body>

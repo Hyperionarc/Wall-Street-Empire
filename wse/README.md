@@ -31,7 +31,7 @@ Gisements ─▶ Puits / Mines ─▶ matières premières ─▶ Fonderie / Usi
 - Suivre part de marché, notoriété, ventes, production, stock et chiffre d'affaires de chaque produit.
 
 **Économie de la ville** : emplois (55 % des habitants travaillent), humeur (biens disponibles, chômage, pollution, impôt), impôt réglable, banque qui dope les entreprises,
-amélioration des bâtiments, événements (goulots, boom boursier), saisons.
+amélioration des bâtiments, événements (goulots, boom boursier). La saison est fixée à l'été.
 
 **Paliers** (sur la capitalisation) : Citoyen, Entrepreneur (40 k$), Industriel (150 k$), Magnat (500 k$), Oligarque (1,5 M$). Dix-neuf missions guident la progression.
 
@@ -40,7 +40,8 @@ amélioration des bâtiments, événements (goulots, boom boursier), saisons.
 | Action | Tactile | Souris / clavier |
 |---|---|---|
 | Construire | choisir une catégorie puis un outil, toucher une case | clic |
-| Tracer des routes | outil Route, glisser | clic maintenu |
+| Tracer des routes | outil Route, glisser : le tracé reste en ligne droite sur l'axe choisi | clic maintenu |
+| Raccorder un bâtiment | outil Relier, toucher le bâtiment : route par le plus court chemin | clic |
 | Déplacer la vue | outil Main, glisser ; ou toucher la minimap | glisser, clic droit, flèches |
 | Inspecter | outil Main, toucher une case | clic (outil Main) |
 | Zoom | deux doigts, boutons + et − | molette |
