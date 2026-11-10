@@ -318,13 +318,13 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .btabs button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold);background:var(--panel-hi)}
 #bscene{width:100%;height:auto;max-height:54vh;object-fit:contain;display:block;border-radius:10px;border:1px solid var(--line);background:#12163a}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-top:4px}
-.pcard{padding:8px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
-.pcard.sel{border-color:var(--gold)}.pcard.rec{border-color:var(--green)}
-.pcard .pt{display:flex;justify-content:space-between;align-items:center}.pcard .pt b{font-size:13px}.pcard .pt em{font-style:normal;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--green)}
+.rcp{padding:8px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.rcp.sel{border-color:var(--gold)}.rcp.rec{border-color:var(--green)}
+.rcp .pt{display:flex;gap:8px;align-items:center}.rcp .pt b{font-size:13px;flex:1}.rcp .rth{width:46px;height:46px;border-radius:8px;background:#12163a;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 46px}.rcp .rth svg,.rcp .rth img{width:100%;height:100%}.rcp .pt em{font-style:normal;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--green)}
 .ichips{display:flex;flex-wrap:wrap;gap:4px}.ichip{font-size:10.5px;padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
 .ichip small{opacity:.7;margin-left:3px}.ichip.g{border-color:var(--green);color:var(--green)}.ichip.o{border-color:var(--orange);color:var(--orange)}.ichip.r{border-color:var(--red);color:var(--red)}
-.pcard .pm{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut)}.pcard .pm b{font-family:var(--font-m)}
-.pcard .btn{min-height:32px;font-size:12px}
+.rcp .pm{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mut)}.rcp .pm b{font-family:var(--font-m)}
+.rcp .btn{min-height:32px;font-size:12px}
 .fint{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
 .fint th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:600;text-align:right;padding:4px 6px}
 .fint th:first-child{text-align:left}
@@ -2602,52 +2602,191 @@ function drawExt(sc, c, g) {
   g.fillText(`${f1(c.out)} ${DEPOSITS[sc.ext].name}/jour · réserve ${Math.round((sc.ratio || 0) * 100)} %`, 18, 21);
 }
 
-/* --- usine --- */
+/* --- usine : atelier animé selon la recette --- */
+const artImg = {};
+function artOf(pk, t) { const k = pk + t; if (!artImg[k]) { const im = new Image(); im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(productSVG(pk, t)); artImg[k] = im; } return artImg[k]; }
+function drawItem(g, k, x, y, s) {
+  s = s || 1; g.save(); g.translate(x, y); g.scale(s, s);
+  const R = (a, b, w, h, r, c) => { g.fillStyle = c; rrect(g, a, b, w, h, r); g.fill(); };
+  const sd = hash(k.length * 7, k.charCodeAt(0), 5);
+  switch (k) {
+    case 'wood':
+      R(-24, -15, 46, 16, 7, '#7a4e2a'); g.strokeStyle = '#5a3a1e'; g.lineWidth = 1; for (let i = -16; i < 18; i += 8) { g.beginPath(); g.moveTo(i, -13); g.lineTo(i + 3, -3); g.stroke(); }
+      g.fillStyle = '#e0b878'; g.beginPath(); g.ellipse(22, -7, 5, 8, 0, 0, 7); g.fill(); g.strokeStyle = '#a97a40'; g.beginPath(); g.ellipse(22, -7, 2.5, 4.5, 0, 0, 7); g.stroke(); break;
+    case 'plank':
+      for (let i = 0; i < 3; i++) { R(-22, -7 - i * 7, 44, 6.5, 1.5, i % 2 ? '#e3c08a' : '#d9b27c'); g.strokeStyle = '#b98a54'; g.lineWidth = .8; g.beginPath(); g.moveTo(-18, -4 - i * 7); g.lineTo(18, -4.5 - i * 7); g.stroke(); } break;
+    case 'stud':
+      R(-24, -12, 48, 11, 2, '#e0bd85'); R(-24, -12, 7, 11, 2, '#c99a58'); g.strokeStyle = '#b98a54'; g.lineWidth = .8; g.beginPath(); g.moveTo(-12, -8); g.lineTo(20, -8.5); g.stroke();
+      R(-24, -24, 48, 11, 2, '#d8b274'); R(-24, -24, 7, 11, 2, '#c08f4e'); break;
+    case 'osb':
+      R(-24, -9, 48, 9, 1.5, '#c8995a'); for (let i = 0; i < 40; i++) { const a = hash(i, 3, 9), b = hash(i, 5, 2); g.fillStyle = a > .5 ? '#a9763a' : '#e0b878'; g.fillRect(-23 + a * 44, -8.5 + b * 7, 3 + a * 3, 1.5); } break;
+    case 'iron': g.fillStyle = '#a24a30'; g.beginPath(); g.moveTo(-14, 0); g.lineTo(-10, -14); g.lineTo(2, -18); g.lineTo(14, -10); g.lineTo(15, 0); g.closePath(); g.fill(); g.fillStyle = '#c4664a'; g.fillRect(-4, -14, 8, 4); break;
+    case 'coal': g.fillStyle = '#23263a'; for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(-10 + i * 7, -6 - (i % 2) * 5, 6, 0, 7); g.fill(); } g.fillStyle = '#4a4f6a'; g.fillRect(-6, -14, 4, 3); break;
+    case 'copper': R(-22, -10, 44, 7, 3, '#d68a4a'); R(-22, -10, 44, 2.5, 1, '#f2b87a'); break;
+    case 'limestone': g.fillStyle = '#e8e4d8'; g.beginPath(); g.moveTo(-14, 0); g.lineTo(-8, -14); g.lineTo(8, -16); g.lineTo(15, 0); g.closePath(); g.fill(); g.strokeStyle = '#bdb8a6'; g.stroke(); break;
+    case 'sand': g.fillStyle = '#e6cf8f'; g.beginPath(); g.moveTo(-18, 0); g.quadraticCurveTo(0, -26, 18, 0); g.fill(); break;
+    case 'gravel': g.fillStyle = '#9a9aa5'; for (let i = 0; i < 12; i++) { g.beginPath(); g.arc(-12 + (i % 6) * 5, -4 - Math.floor(i / 6) * 6 - (i % 3), 3.4, 0, 7); g.fill(); } break;
+    case 'oil': R(-9, -26, 18, 26, 3, '#2b3358'); R(-9, -17, 18, 5, 0, '#ff8a3d'); R(-9, -8, 18, 2, 0, '#8f9acb'); break;
+    case 'gold': g.fillStyle = '#f2b84b'; g.beginPath(); g.moveTo(-10, 0); g.lineTo(-6, -12); g.lineTo(6, -12); g.lineTo(11, 0); g.fill(); break;
+    case 'ingot': g.fillStyle = '#ffd76a'; g.beginPath(); g.moveTo(-14, 0); g.lineTo(-10, -10); g.lineTo(10, -10); g.lineTo(14, 0); g.fill(); g.fillStyle = '#fff3b0'; g.fillRect(-8, -9, 16, 2); break;
+    case 'steel':
+      for (let i = 0; i < 3; i++) { R(-22, -6 - i * 6, 44, 5, 1, i % 2 ? '#aab3c7' : '#8e97ad'); R(-22, -6 - i * 6, 44, 1.5, 0, '#e4e9f5'); } break;
+    case 'plastic':
+      R(-14, -22, 28, 22, 5, '#3f6fd9'); R(-14, -22, 28, 6, 3, '#5f8aff'); for (let i = 0; i < 9; i++) { g.fillStyle = ['#ff6b6b', '#ffd43b', '#69db7c', '#e9edff'][i % 4]; g.beginPath(); g.arc(-8 + (i % 3) * 8, -13 + Math.floor(i / 3) * 5, 2.2, 0, 7); g.fill(); } break;
+    case 'wire':
+      g.fillStyle = '#6a7399'; g.fillRect(-14, -22, 28, 3); g.fillRect(-14, -3, 28, 3); R(-12, -19, 24, 16, 2, '#d68a4a'); g.strokeStyle = '#f2b87a'; g.lineWidth = 1; for (let i = -9; i < 11; i += 4) { g.beginPath(); g.moveTo(i, -19); g.lineTo(i, -3); g.stroke(); } break;
+    case 'cement':
+      R(-14, -24, 28, 24, 4, '#aeb2c0'); R(-14, -24, 28, 7, 3, '#8f94a6'); R(-9, -14, 18, 7, 1, '#ffd76a'); break;
+    case 'concrete':
+      R(-16, -18, 32, 18, 2, '#9a9ca6'); for (let i = 0; i < 10; i++) { g.fillStyle = hash(i, 1, 4) > .5 ? '#7d808c' : '#b6b8c2'; g.fillRect(-15 + hash(i, 2, 4) * 28, -17 + hash(i, 3, 4) * 15, 2.5, 2.5); } break;
+    case 'pack':
+      R(-18, -20, 36, 20, 2, '#c99a5a'); R(-18, -20, 36, 5, 1, '#e0b878'); R(-4, -20, 8, 20, 0, 'rgba(255,255,255,.35)'); break;
+    case 'motor':
+      R(-16, -18, 30, 18, 4, '#5f6b9a'); R(14, -13, 8, 8, 1, '#c9cfe8'); g.strokeStyle = '#8f9acb'; g.lineWidth = 1.5; for (let i = -11; i < 12; i += 5) { g.beginPath(); g.moveTo(i, -18); g.lineTo(i, 0); g.stroke(); } break;
+    case 'battery':
+      R(-12, -22, 24, 22, 3, '#2f9e6b'); R(-5, -25, 10, 4, 1, '#c9cfe8'); g.fillStyle = '#e9edff'; g.fillRect(-2, -16, 4, 10); g.fillRect(-6, -12, 12, 3); break;
+    case 'circuit':
+      R(-18, -18, 36, 18, 2, '#1f7a4a'); g.strokeStyle = '#7be0a8'; g.lineWidth = 1; g.beginPath(); g.moveTo(-14, -12); g.lineTo(-2, -12); g.lineTo(-2, -5); g.lineTo(12, -5); g.moveTo(-14, -5); g.lineTo(-8, -5); g.stroke(); R(2, -15, 9, 7, 1, '#23263a'); R(-14, -16, 5, 4, 1, '#ffd76a'); break;
+    case 'screen':
+      R(-20, -22, 40, 22, 2, '#12163a'); R(-17, -19, 34, 16, 1, '#3fd8ff'); g.fillStyle = 'rgba(255,79,163,.5)'; g.fillRect(-17, -19, 14, 16); break;
+    case 'gcase':
+      R(-15, -18, 30, 18, 3, '#f2b84b'); R(-15, -18, 30, 5, 2, '#ffe08a'); g.fillStyle = '#b9831f'; g.fillRect(-2, -10, 4, 5); break;
+    default:
+      R(-12, -18, 24, 18, 3, GOODS[k] ? GOODS[k].color : '#8f9acb');
+  }
+  g.restore();
+}
+const compIcons = {};
+function compIcon(k) { if (!compIcons[k]) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); drawItem(g, k, 32, 50, 1.2); compIcons[k] = cv.toDataURL(); } return compIcons[k]; }
+function facKind(rec) {
+  const o = rec.out;
+  if (PRODUCTS[o]) return 'assembly';
+  return ({ plank: 'saw', stud: 'saw', osb: 'press', steel: 'furnace', ingot: 'furnace', gcase: 'furnace', wire: 'spool', plastic: 'reactor', cement: 'kiln', concrete: 'mixer', pack: 'pack', motor: 'assembly', battery: 'assembly', circuit: 'assembly', screen: 'assembly' })[o] || 'generic';
+}
 function mkFac(c) {
   const rec = recOf(c), rnd = mkRnd(c.seed), ins = Object.keys(rec.in).slice(0, 3);
-  const sc = { kind: 'fac', ins, rec, rnd, time: 0, crates: [], outs: [], sp: ins.map(() => 0), ph: 0, smoke: [], ws: [], bg: document.createElement('canvas') };
-  for (let i = 0; i < 2; i++) { const w = newPerson(rnd, 150 + i * 330, 200); w.shirt = '#ff8a3d'; w.hat = '#ffd43b'; w.pants = '#3a4a6b'; sc.ws.push(w); }
+  const sc = { kind: 'fac', fk: facKind(rec), recKey: rec.out, ins, rec, rnd, time: 0, crates: [], outs: [], sp: ins.map(() => 0), ph: 0, smoke: [], ws: [], parts: [], stack: 0, bg: document.createElement('canvas') };
+  for (let i = 0; i < 2; i++) { const w = newPerson(rnd, 150 + i * 330, 205); w.shirt = '#ff8a3d'; w.hat = '#ffd43b'; w.pants = '#3a4a6b'; sc.ws.push(w); }
   sc.bg.width = SCW; sc.bg.height = SCH;
   const g = sc.bg.getContext('2d'), fl = g.createLinearGradient(0, 0, 0, SCH); fl.addColorStop(0, '#2b3358'); fl.addColorStop(1, '#3d466f'); g.fillStyle = fl; g.fillRect(0, 0, SCW, SCH);
   g.fillStyle = 'rgba(255,255,255,.05)'; for (let x = 0; x < SCW; x += 50) g.fillRect(x, 0, 2, SCH);
   g.fillStyle = '#f2b84b'; g.fillRect(0, SCH - 6, SCW, 6);
   ins.forEach((k, i) => { const y = 92 + i * 30; g.fillStyle = '#242a4a'; g.fillRect(14, y, 306, 10); g.fillStyle = '#3d4466'; g.fillRect(14, y, 306, 4); });
-  g.fillStyle = '#242a4a'; g.fillRect(480, 128, 310, 10); g.fillStyle = '#3d4466'; g.fillRect(480, 128, 310, 4);
+  g.fillStyle = '#242a4a'; g.fillRect(480, 128, 160, 10); g.fillStyle = '#3d4466'; g.fillRect(480, 128, 160, 4);
+  // vitrine du produit
+  g.fillStyle = '#12163a'; rrect(g, 648, 14, 142, 188, 10); g.fill(); g.strokeStyle = 'rgba(242,184,75,.6)'; g.lineWidth = 2; rrect(g, 648, 14, 142, 188, 10); g.stroke();
+  g.fillStyle = '#242a4a'; rrect(g, 660, 164, 118, 12, 4); g.fill();
   return sc;
 }
 function updFac(sc, c, dt) {
-  const run = clamp((c.util || 0) * 1.4, 0, 1), rnd = sc.rnd; sc.time += dt; sc.ph += dt * run * 3;
+  const run = clamp((c.util || 0) * 1.4, 0, 1), rnd = sc.rnd; sc.time += dt; sc.ph += dt * run * 3; sc.run = run;
+  const g0 = sc.rec.in;
   sc.ins.forEach((g, i) => {
     const starved = c.limit === g;
-    sc.sp[i] -= dt * run; if (sc.sp[i] <= 0 && !starved && run > 0.02) { sc.crates.push({ x: 18, i, g }); sc.sp[i] = 0.9 + rnd() * 0.5; }
+    sc.sp[i] -= dt * run; if (sc.sp[i] <= 0 && !starved && run > 0.02) { sc.crates.push({ x: 120, i, g }); sc.sp[i] = 0.9 + rnd() * 0.5; }
   });
-  sc.crates.forEach(cr => { cr.x += 70 * run * dt; if (cr.x > 318) { cr.dead = true; if (rnd() < 0.55) sc.outs.push({ x: 484 }); } });
+  sc.crates.forEach(cr => { cr.x += 70 * run * dt; if (cr.x > 318) { cr.dead = true; sc.flash = 0.4; if (rnd() < 0.55) sc.outs.push({ x: 484 }); } });
   sc.crates = sc.crates.filter(cr => !cr.dead);
-  sc.outs.forEach(o => { o.x += 70 * run * dt; });
-  sc.outs = sc.outs.filter(o => o.x < 770);
-  if (run > 0.05 && rnd() < dt * 4) sc.smoke.push({ x: 440 + rnd() * 14, y: 40, a: 1 });
+  sc.outs.forEach(o => { o.x += 70 * run * dt; if (o.x >= 640) { o.dead = true; sc.stack = Math.min(9, sc.stack + 1); sc.stackT = sc.time; } });
+  sc.outs = sc.outs.filter(o => !o.dead);
+  if (sc.stack > 0 && sc.time - (sc.stackT || 0) > 4) { sc.stack--; sc.stackT = sc.time; }
+  const emit = (n, x, y, vx, vy, col, life, sz) => { for (let i = 0; i < n; i++) sc.parts.push({ x: x + (rnd() - .5) * 8, y, vx: vx + (rnd() - .5) * 60, vy: vy - rnd() * 60, col, life: life * (0.6 + rnd() * .6), t: 0, sz: sz || 2 }); };
+  const working = run > 0.05 && sc.crates.some(cr => cr.x > 240) || (sc.flash || 0) > 0;
+  sc.flash = Math.max(0, (sc.flash || 0) - dt);
+  if (run > 0.05) {
+    if (sc.fk === 'saw' && rnd() < dt * 40 * (working ? 1 : 0.2)) { emit(1, 403, 140, 80, -40, '#ffcf70', 0.5, 2); emit(1, 403, 142, 120, -10, '#e0b878', 0.7, 2.5); }
+    if (sc.fk === 'furnace' && rnd() < dt * 18) emit(1, 403, 120, 0, -80, '#ff9a3d', 0.7, 3);
+    if (sc.fk === 'assembly' && working && rnd() < dt * 20) emit(1, 400, 128, 0, -50, '#8fd8ff', 0.4, 2);
+    if (sc.fk === 'press' && rnd() < dt * 5) emit(1, 330, 125, -30, -30, '#e9edff', 1, 4);
+    if (sc.fk === 'reactor' && rnd() < dt * 10) emit(1, 400 + (rnd() - .5) * 30, 150, 0, -40, '#9be7ff', 0.9, 2.5);
+    if (sc.fk === 'kiln' && rnd() < dt * 10) emit(1, 440, 110, 40, -50, '#ffb347', 0.6, 3);
+    if (sc.fk === 'mixer' && rnd() < dt * 6) emit(1, 470, 150, 40, -10, '#b6b8c2', 0.6, 2.5);
+    if (sc.fk === 'spool' && rnd() < dt * 8) emit(1, 380, 130, 0, -20, '#f2b87a', 0.4, 1.8);
+  }
+  sc.parts.forEach(p => { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 140 * dt; }); sc.parts = sc.parts.filter(p => p.t < p.life);
   sc.smoke.forEach(s => { s.y -= 18 * dt; s.x += 6 * dt; s.a -= dt * 0.5; }); sc.smoke = sc.smoke.filter(s => s.a > 0);
+  if (run > 0.05 && ['furnace', 'kiln', 'generic'].indexOf(sc.fk) >= 0 && rnd() < dt * 4) sc.smoke.push({ x: 440 + rnd() * 14, y: 40, a: 1 });
   sc.ws.forEach((w, i) => { w.arm = run > 0.05 ? 0.9 + Math.sin(sc.time * 4 + i * 2) * 0.4 : 0.1; });
 }
 function drawFac(sc, c, g) {
   g.drawImage(sc.bg, 0, 0);
-  const T = TYPES[c.t], run = clamp((c.util || 0) * 1.4, 0, 1);
+  const T = TYPES[c.t], run = sc.run != null ? sc.run : clamp((c.util || 0) * 1.4, 0, 1), t = sc.time, fk = sc.fk, ph = sc.ph;
   sc.smoke.forEach(s => { g.fillStyle = `rgba(200,205,230,${s.a * 0.35})`; g.beginPath(); g.arc(s.x, s.y, 8 + (1 - s.a) * 10, 0, 7); g.fill(); });
-  g.fillStyle = '#4a5382'; rrect(g, 324, 50, 158, 140, 8); g.fill(); g.fillStyle = T.color; rrect(g, 332, 58, 142, 24, 5); g.fill();
-  g.fillStyle = '#1d2140'; rrect(g, 342, 94, 122, 70, 6); g.fill();
-  [[372, 128], [424, 128]].forEach(([x, y], i) => { g.save(); g.translate(x, y); g.rotate(sc.ph * (i ? -1 : 1)); g.fillStyle = '#c9cfe8'; for (let k = 0; k < 8; k++) { g.rotate(Math.PI / 4); g.fillRect(-3, -20, 6, 8); } g.beginPath(); g.arc(0, 0, 14, 0, 7); g.fill(); g.fillStyle = '#1d2140'; g.beginPath(); g.arc(0, 0, 5, 0, 7); g.fill(); g.restore(); });
-  const bad = c.limit && (c.util || 0) < 0.35;
-  g.fillStyle = bad ? (Math.sin(sc.time * 8) > 0 ? '#ff5a5f' : '#7a2a30') : run > 0.05 ? '#46d39a' : '#6b7090'; g.beginPath(); g.arc(466, 70, 5, 0, 7); g.fill();
-  g.fillStyle = '#3d466f'; g.fillRect(432, 14, 16, 38);
-  sc.ins.forEach((k, i) => { const y = 92 + i * 30; g.fillStyle = 'rgba(8,10,30,.55)'; g.fillRect(14, y - 14, 90, 13); g.fillStyle = GOODS[k].color; g.fillRect(18, y - 11, 7, 7); g.fillStyle = '#e9edff'; g.font = '600 10px sans-serif'; g.textAlign = 'left'; g.fillText(GOODS[k].name + (c.limit === k ? ' · PÉNURIE' : ''), 29, y - 3); });
-  sc.crates.forEach(cr => { const y = 92 + cr.i * 30; g.fillStyle = GOODS[cr.g].color; rrect(g, cr.x, y - 14, 16, 16, 3); g.fill(); g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(cr.x + 2, y - 12, 12, 3); });
-  const oc = GOODS[sc.rec.out] ? GOODS[sc.rec.out].color : T.color;
-  sc.outs.forEach(o => { g.fillStyle = oc; rrect(g, o.x, 112, 18, 18, 3); g.fill(); g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(o.x + 2, 114, 14, 3); });
-  g.fillStyle = '#8f9acb'; g.fillRect(740, 140, 50, 6); g.fillStyle = oc; for (let i = 0; i < 6; i++) rrect(g, 744 + (i % 3) * 14, 124 - Math.floor(i / 3) * 14 + 14, 12, 12, 2), g.fill();
-  const ps = sc.ws.map(w => ({ y: w.y, f: () => person(g, w.x, w.y, { shirt: w.shirt, skin: w.skin, hair: w.hair, ph: w.ph, moving: false, arm: w.arm, dir: 1, hat: w.hat, pants: w.pants }) }));
-  ps.forEach(o => o.f());
-  g.fillStyle = 'rgba(8,10,30,.55)'; rrect(g, 560, 6, 232, 22, 6); g.fill(); g.fillStyle = '#e9edff'; g.font = '600 11px sans-serif'; g.textAlign = 'left';
-  g.fillText(`${sc.rec.name} · ${f1(c.out)}/j · utilisation ${pct(clamp(c.util || 0, 0, 1))}`, 568, 21);
+  const cx = 403, bad = c.limit && (c.util || 0) < 0.35;
+  // ----- machine
+  const body = (col) => { g.fillStyle = '#4a5382'; rrect(g, 324, 56, 158, 134, 8); g.fill(); g.fillStyle = col || T.color; rrect(g, 332, 62, 142, 14, 5); g.fill(); };
+  if (fk === 'saw') {
+    body('#8a6a3a'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
+    const discs = sc.recKey === 'stud' ? [[372, 132, 26], [403, 132, 26], [434, 132, 26]] : [[403, 134, 44]];
+    discs.forEach(([x, y, r], i) => { g.save(); g.translate(x, y); g.rotate(ph * 6 * (i % 2 ? -1 : 1)); g.fillStyle = '#cfd5ee'; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.fillStyle = '#e9edff'; for (let k = 0; k < 28; k++) { g.rotate(Math.PI * 2 / 28); g.beginPath(); g.moveTo(r - 1, -2.5); g.lineTo(r + 5, 0); g.lineTo(r - 1, 2.5); g.fill(); } g.fillStyle = '#8f9acb'; g.beginPath(); g.arc(0, 0, r * .55, 0, 7); g.fill(); g.fillStyle = '#4a5382'; g.beginPath(); g.arc(0, 0, 6, 0, 7); g.fill(); g.restore(); });
+    g.fillStyle = 'rgba(255,138,61,.55)'; g.fillRect(340, 84, 126, 14);
+  } else if (fk === 'press') {
+    body('#d9a45a'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
+    const dz = run > 0.05 ? (0.5 + 0.5 * Math.sin(ph * 3)) : 0; const ty = 90 + dz * 38;
+    g.fillStyle = '#8f9acb'; g.fillRect(352, 84, 8, ty - 84); g.fillRect(446, 84, 8, ty - 84);
+    g.fillStyle = '#c9cfe8'; rrect(g, 350, ty, 106, 14, 3); g.fill(); g.fillStyle = '#6a7399'; rrect(g, 350, 154, 106, 14, 3); g.fill();
+    g.fillStyle = '#c8995a'; g.fillRect(358, 146, 90, 8); for (let i = 0; i < 14; i++) { g.fillStyle = hash(i, 1, 1) > .5 ? '#a9763a' : '#e0b878'; g.fillRect(358 + hash(i, 2, 3) * 82, 147 + hash(i, 3, 3) * 5, 5, 2); }
+  } else if (fk === 'furnace') {
+    body('#c4664a'); g.fillStyle = '#8a3b2b'; rrect(g, 340, 84, 126, 96, 6); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.25)'; for (let y = 90; y < 180; y += 12) { g.beginPath(); g.moveTo(340, y); g.lineTo(466, y); g.stroke(); }
+    const fl = run > 0.05 ? 0.7 + 0.3 * Math.sin(t * 14) : 0.15; const gr = g.createRadialGradient(403, 140, 4, 403, 140, 44); gr.addColorStop(0, `rgba(255,230,120,${fl})`); gr.addColorStop(0.5, `rgba(255,120,40,${fl})`); gr.addColorStop(1, 'rgba(120,30,10,0)');
+    g.fillStyle = '#1d1010'; rrect(g, 366, 112, 74, 56, 20); g.fill(); g.fillStyle = gr; g.fillRect(350, 100, 106, 80);
+    g.fillStyle = '#3d466f'; g.fillRect(432, 20, 16, 40);
+  } else if (fk === 'spool') {
+    body('#d68a4a'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
+    g.strokeStyle = '#f2b87a'; g.lineWidth = 2; g.beginPath(); g.moveTo(340, 132); g.lineTo(430, 132); g.stroke();
+    [372, 392, 412].forEach(x => { g.fillStyle = '#c9cfe8'; g.fillRect(x, 124, 6, 16); });
+    g.save(); g.translate(440, 132); g.rotate(ph * 4); g.fillStyle = '#6a7399'; g.beginPath(); g.arc(0, 0, 34, 0, 7); g.fill(); g.fillStyle = '#d68a4a'; g.beginPath(); g.arc(0, 0, 24 + Math.min(8, (sc.stack || 0)), 0, 7); g.fill(); g.strokeStyle = '#f2b87a'; g.lineWidth = 1; for (let k = 0; k < 6; k++) { g.rotate(Math.PI / 3); g.beginPath(); g.moveTo(8, 0); g.lineTo(24, 0); g.stroke(); } g.restore();
+  } else if (fk === 'reactor') {
+    body('#5f8aff'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
+    g.fillStyle = '#9aa4d6'; rrect(g, 366, 62, 74, 114, 14); g.fill(); g.fillStyle = '#12163a'; rrect(g, 372, 68, 62, 102, 10); g.fill();
+    const lv = 40 + 30 * (0.5 + 0.5 * Math.sin(t * 1.5)); g.fillStyle = 'rgba(63,216,255,.55)'; g.fillRect(372, 170 - lv, 62, lv);
+    g.fillStyle = '#c9cfe8'; for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(380 + k * 15 + Math.sin(t * 5 + k) * 3, 170 - ((t * 30 + k * 20) % lv), 2.5, 0, 7); g.fill(); }
+  } else if (fk === 'kiln') {
+    body('#9a9ca6'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
+    g.save(); g.translate(403, 134); g.rotate(-0.12); g.fillStyle = '#8f94a6'; rrect(g, -58, -26, 116, 52, 22); g.fill(); g.strokeStyle = '#6a7090'; g.lineWidth = 3; for (let k = -40; k < 50; k += 22) { g.beginPath(); g.moveTo(k, -26); g.lineTo(k, 26); g.stroke(); }
+    g.fillStyle = 'rgba(255,255,255,.18)'; for (let k = 0; k < 5; k++) { const yy = -20 + ((ph * 20 + k * 11) % 44); g.fillRect(-52, yy, 104, 3); } g.restore();
+    const f = run > 0.05 ? 0.6 + 0.4 * Math.sin(t * 16) : 0; g.fillStyle = `rgba(255,150,40,${f})`; g.beginPath(); g.ellipse(470, 150, 12 + f * 8, 8, 0, 0, 7); g.fill();
+  } else if (fk === 'mixer') {
+    body('#e8e4d8'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
+    g.save(); g.translate(403, 128); g.rotate(-0.25); g.fillStyle = '#ffb347'; g.beginPath(); g.moveTo(-44, -26); g.lineTo(34, -34); g.lineTo(34, 34); g.lineTo(-44, 26); g.closePath(); g.fill();
+    g.strokeStyle = '#c4801f'; g.lineWidth = 5; for (let k = 0; k < 6; k++) { const x = -36 + ((ph * 25 + k * 14) % 80); g.beginPath(); g.moveTo(x, -28 + (x + 36) * 0.0); g.lineTo(x + 12, 28); g.stroke(); } g.restore();
+    g.fillStyle = '#9a9ca6'; g.beginPath(); g.moveTo(440, 150); g.lineTo(470, 134); g.lineTo(478, 160); g.closePath(); g.fill();
+  } else if (fk === 'pack') {
+    body('#c99a5a'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
+    const f = run > 0.05 ? Math.abs(Math.sin(ph * 2)) : 0; g.fillStyle = '#c99a5a'; g.fillRect(376, 130, 54, 40);
+    g.save(); g.translate(376, 130); g.rotate(-f * 1.5); g.fillStyle = '#e0b878'; g.fillRect(0, -6, 27, 6); g.restore(); g.save(); g.translate(430, 130); g.rotate(f * 1.5); g.fillStyle = '#e0b878'; g.fillRect(-27, -6, 27, 6); g.restore();
+    g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(400, 130, 6, 40);
+  } else if (fk === 'assembly') {
+    body(T.color); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
+    g.fillStyle = '#6a7399'; rrect(g, 360, 160, 86, 12, 3); g.fill();
+    // produit en cours d'assemblage (image)
+    const key = sc.recKey, im = PRODUCTS[key] ? artOf(key, S.prod[key].q) : null; const prog = run > 0.05 ? (t * 0.45) % 1 : 0.3;
+    if (im && im.complete) { g.save(); g.beginPath(); g.rect(366, 158 - 70 * prog, 74, 70 * prog + 2); g.clip(); g.drawImage(im, 366, 94, 74, 74); g.restore(); } else { drawItem(g, key, 403, 160, 1.6 * (0.4 + 0.6 * prog)); }
+    const a1 = run > 0.05 ? Math.sin(t * 2.2) * 0.9 : -0.5, a2 = run > 0.05 ? Math.cos(t * 3.1) * 0.8 + 0.8 : 0.9;
+    g.strokeStyle = '#ff8a3d'; g.lineWidth = 9; g.lineCap = 'round'; g.beginPath(); g.moveTo(350, 170); const ex = 350 + Math.sin(a1) * 46 + 30, ey = 170 - Math.cos(a1) * 46 - 10; g.lineTo(ex, ey); const hx = ex + Math.cos(a2) * 34, hy = ey - Math.sin(a2) * 24; g.lineTo(hx, hy); g.stroke();
+    g.fillStyle = '#ffd43b'; g.beginPath(); g.arc(ex, ey, 6, 0, 7); g.fill(); g.fillStyle = '#e9edff'; g.beginPath(); g.arc(hx, hy, 5, 0, 7); g.fill();
+    if (run > 0.05 && Math.sin(t * 14) > 0.6) { g.fillStyle = '#bfe8ff'; g.beginPath(); g.arc(hx, hy, 4, 0, 7); g.fill(); }
+  } else {
+    body(); g.fillStyle = '#1d2140'; rrect(g, 342, 94, 122, 70, 6); g.fill();
+    [[372, 128], [424, 128]].forEach(([x, y], i) => { g.save(); g.translate(x, y); g.rotate(ph * (i ? -1 : 1)); g.fillStyle = '#c9cfe8'; for (let k = 0; k < 8; k++) { g.rotate(Math.PI / 4); g.fillRect(-3, -20, 6, 8); } g.beginPath(); g.arc(0, 0, 14, 0, 7); g.fill(); g.fillStyle = '#1d2140'; g.beginPath(); g.arc(0, 0, 5, 0, 7); g.fill(); g.restore(); });
+  }
+  g.fillStyle = bad ? (Math.sin(t * 8) > 0 ? '#ff5a5f' : '#7a2a30') : run > 0.05 ? '#46d39a' : '#6b7090'; g.beginPath(); g.arc(470, 68, 5, 0, 7); g.fill();
+  // ----- convoyeurs et pièces
+  sc.ins.forEach((k, i) => { const y = 92 + i * 30; g.fillStyle = 'rgba(8,10,30,.7)'; g.fillRect(14, y - 4, 104, 14); g.fillStyle = GOODS[k].color; g.fillRect(18, y - 1, 7, 7); g.fillStyle = c.limit === k ? '#ff8a8e' : '#e9edff'; g.font = '600 10px sans-serif'; g.textAlign = 'left'; g.fillText((GOODS[k].name + (c.limit === k ? ' · PÉNURIE' : '')).slice(0, 18), 29, y + 7); });
+  sc.crates.forEach(cr => drawItem(g, cr.g, cr.x + 8, 92 + cr.i * 30 + 3, 0.9));
+  const ok = sc.recKey, oimg = PRODUCTS[ok] ? artOf(ok, S.prod[ok].q) : null;
+  sc.outs.forEach(o => { if (oimg && oimg.complete) g.drawImage(oimg, o.x, 98, 34, 34); else drawItem(g, ok, o.x + 12, 133, 1); });
+  // ----- particules
+  sc.parts.forEach(p => { g.globalAlpha = Math.max(0, 1 - p.t / p.life); g.fillStyle = p.col; g.fillRect(p.x, p.y, p.sz, p.sz); }); g.globalAlpha = 1;
+  // ----- vitrine : le produit fabriqué
+  g.fillStyle = '#e9edff'; g.textAlign = 'center'; let fs = 11; g.font = `700 ${fs}px sans-serif`; while (g.measureText(sc.rec.name.toUpperCase()).width > 128 && fs > 7) { fs--; g.font = `700 ${fs}px sans-serif`; } g.fillText(sc.rec.name.toUpperCase(), 719, 30);
+  if (oimg && oimg.complete) g.drawImage(oimg, 668, 38, 102, 102); else drawItem(g, ok, 719, 140, 2.2);
+  for (let k = 0; k < sc.stack; k++) { const col = k % 3, row = Math.floor(k / 3); if (oimg && oimg.complete) g.drawImage(oimg, 668 + col * 34, 142 - row * 0 + 0, 0, 0); drawItem(g, PRODUCTS[ok] ? 'pack' : ok, 684 + col * 34, 162 - row * 12, 0.9); }
+  g.fillStyle = 'rgba(255,255,255,.8)'; g.font = '600 10px sans-serif'; g.fillText(`${f1(c.out)} / jour · ${f1(gPrice(ok))} $`, 719, 193);
+  const ps = sc.ws.map(w => ({ y: w.y, f: () => person(g, w.x, w.y, { shirt: w.shirt, skin: w.skin, hair: w.hair, ph: w.ph, moving: false, arm: w.arm, dir: 1, hat: w.hat, pants: w.pants }) })); ps.forEach(o => o.f());
+  g.fillStyle = 'rgba(8,10,30,.55)'; rrect(g, 330, 6, 300, 22, 6); g.fill(); g.fillStyle = '#e9edff'; g.font = '600 11px sans-serif'; g.textAlign = 'left';
+  g.fillText(`${sc.rec.name} · utilisation ${pct(clamp(c.util || 0, 0, 1))}`, 338, 21);
 }
 
 /* --- bureaux (tours, banques, agences, port, BTP...) --- */
@@ -2684,6 +2823,7 @@ function sceneReset(c) {
 }
 function sceneFrame(dt) {
   const c = bsel && cell(bsel.x, bsel.y); if (!c || !scene) return;
+  if (scene.kind === 'fac') { const r = recOf(c); if (r && r.out !== scene.recKey) sceneReset(c); }
   const cv = el('bscene'), g = cv.getContext('2d');
   ({ retail: updRetail, ext: updExt, fac: updFac, off: updOff })[scene.kind](scene, c, dt);
   g.clearRect(0, 0, SCW, cv.height); g.textAlign = 'left';
@@ -2733,7 +2873,7 @@ function prodCard(c) {
     else if (it.st === 'rnd') btn = `<button class="btn sec" data-act="recipe:${it.key}">Affecter (R&D ${it.days} j)</button>`;
     else if ((it.tier || 0) > tierOf(S.stats.worth || 0)) btn = `<button class="btn sec" disabled>Palier ${TIERS[it.tier].n}</button>`;
     else btn = `<button class="btn" data-act="launch:${it.key}" ${S.cash >= it.rnd ? '' : 'disabled'}>Lancer · R&D ${money(it.rnd)}</button>`;
-    return `<div class="pcard ${cur === it.key ? 'sel' : ''} ${best && best.key === it.key ? 'rec' : ''}"><div class="pt"><b>${it.name}</b>${best && best.key === it.key ? '<em>Proposé</em>' : ''}</div><div class="ichips">${chips}</div><div class="pm"><span>${f1(it.out)} × ${f1(it.price)} $</span><b class="${it.margin >= 0 ? 'pos' : 'neg'}">${it.margin >= 0 ? '+' : '−'}${money(Math.abs(it.margin))} / cycle</b></div>${btn}</div>`;
+    return `<div class="rcp ${cur === it.key ? 'sel' : ''} ${best && best.key === it.key ? 'rec' : ''}"><div class="pt"><span class="rth">${it.kind === 'prod' ? productSVG(it.key, S.prod[it.key].q) : `<img alt="" src="${compIcon(it.key)}">`}</span><b>${it.name}</b>${best && best.key === it.key ? '<em>Proposé</em>' : ''}</div><div class="ichips">${chips}</div><div class="pm"><span>${f1(it.out)} × ${f1(it.price)} $</span><b class="${it.margin >= 0 ? 'pos' : 'neg'}">${it.margin >= 0 ? '+' : '−'}${money(Math.abs(it.margin))} / cycle</b></div>${btn}</div>`;
   };
   const comp = items.filter(i => i.kind === 'comp' && i.lvl <= lv), prod = items.filter(i => i.kind === 'prod');
   const rec = best ? `<div class="bnbanner ok"><b>Proposition : ${best.name}</b><span>${best.chips.map(x => gName(x.g).toLowerCase()).join(', ')} : ${best.chips.every(x => x.lvl === 'g') ? 'tout est en stock' : 'une partie des intrants est déjà produite chez toi'}. Marge estimée ${money(best.margin)} par cycle.</span><div class="acts">${cur === best.key ? '' : best.kind === 'prod' && best.st === 'locked' ? `<button class="btn" data-act="launch:${best.key}">Lancer ${best.name.toLowerCase()} · ${money(best.rnd)}</button>` : `<button class="btn" data-act="recipe:${best.key}">Fabriquer ${best.name.toLowerCase()}</button>`}</div></div>` : '';
