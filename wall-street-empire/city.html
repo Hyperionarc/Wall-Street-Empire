@@ -626,6 +626,9 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     <section data-sec="game" hidden>
     <h3>PARTIE</h3>
     <p class="note">La partie est sauvegardée automatiquement dans ce navigateur tous les 5 jours.</p>
+    <h3>ÉVÉNEMENTS ALÉATOIRES</h3>
+    <p class="note">Grèves, krachs, incendies, opportunités... Une décision à prendre tous les 20 à 35 jours.</p>
+    <div class="seg2" id="evtoggle"><button class="btn sec" data-ev2="1">Oui</button><button class="btn sec" data-ev2="0">Non</button></div>
     <div class="actions"><button class="btn" id="mProd">Ouvrir la vue Produits</button><button class="btn sec" id="mNew">Nouvelle ville</button></div>
     <h3>RACCOURCIS</h3>
     <p class="note">Molette ou boutons + et − : 5 niveaux de zoom (1 très près, 5 vue macro). Touches + et − aussi. Flèches : déplacer. Espace + glisser : déplacer. Un clic avec l'outil Main sur un bâtiment ouvre sa vue intérieure.</p>
@@ -1129,7 +1132,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1160,7 +1163,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1378,6 +1381,7 @@ const EVENTS = [
 ];
 function addMod(k, v, days) { S.mods = (S.mods || []).filter(x => x.until >= S.day); S.mods.push({ k, v, until: S.day + days }); }
 function maybeEvent() {
+  if (S.noEv) { if (S.event) { S.event = null; el('evcard').hidden = true; } return; }
   if (S.event) return;
   S.nextEv = S.nextEv || (S.day + 18);
   if (S.day < S.nextEv || S.day < 12) return;
@@ -2010,7 +2014,7 @@ function updateHUD() {
     rh += `<div class="rcard"><div class="rtop"><i style="background:#f2b84b"></i><b>Ta société</b><small>${Math.round(avg('you') * 100)} % du marché</small></div><div class="rshr">${shares('you')}</div></div>`;
     rh += (S.rivals || []).map(r => { const v = rivalValue(r); return `<div class="rcard"><div class="rtop"><i style="background:${r.col}"></i><b>${r.name}</b><small>${Math.round(avg(r.id) * 100)} % du marché</small></div><div class="rshr">${shares(r.id)}</div><div class="rbot"><small>Trésorerie ${money(r.cash)} · ${money(r.rev || 0)} de ventes/j</small><button class="btn sec" data-buy="${r.id}" ${S.cash >= v ? '' : 'disabled'}>Racheter ${money(v)}</button></div></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
     if (el('rivals').innerHTML !== rh) el('rivals').innerHTML = rh;
-    renderEmpire(); renderTechs(); renderProdScreen(); renderGuide(); renderChainSum(); renderChain(); renderTerm();
+    syncEvToggle(); renderEmpire(); renderTechs(); renderProdScreen(); renderGuide(); renderChainSum(); renderChain(); renderTerm();
     const rawP = (S.stats && S.stats.raw) || 0, lrows = [];
     if (S.float > 0) lrows.push({ n: 'Ta société', col: '#f2b84b', px: rawP * (S.prem || 1.1) / SHARES, sp: S.sp || [], cap: rawP * (S.prem || 1.1) });
     else lrows.push({ n: 'Ta société', col: '#f2b84b', px: null, sp: [], cap: 0 });
@@ -3769,6 +3773,8 @@ function setPtab(n) {
 }
 document.querySelectorAll('#panel [data-ptab]').forEach(b => { b.onclick = () => setPtab(b.dataset.ptab); });
 el('mProd').onclick = () => { setPview(true); };
+function syncEvToggle() { document.querySelectorAll('#evtoggle [data-ev2]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.ev2 === '0') === !!S.noEv ? 'true' : 'false')); }
+el('evtoggle').addEventListener('click', e => { const b = e.target.closest('[data-ev2]'); if (!b) return; S.noEv = b.dataset.ev2 === '0'; if (S.noEv) { S.event = null; el('evcard').hidden = true; } syncEvToggle(); save(); });
 el('mNew').onclick = () => { el('rst').click(); };
 el('pclose').onclick = () => setPanel(false);
 el('winok').onclick = () => { el('win').hidden = true; };
