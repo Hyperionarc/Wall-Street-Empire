@@ -583,6 +583,8 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     </section>
     <section data-sec="market" hidden>
     <button class="btn" id="openTerm" style="margin-bottom:8px">Ouvrir le terminal financier</button>
+    <h3>MON PORTEFEUILLE</h3>
+    <div id="portfolio"></div>
     <h3>SOCIÉTÉS COTÉES</h3>
     <div id="listed"></div>
     <h3>MA SOCIÉTÉ EN BOURSE</h3>
@@ -2020,6 +2022,9 @@ function updateHUD() {
     else lrows.push({ n: 'Ta société', col: '#f2b84b', px: null, sp: [], cap: 0 });
     (S.rivals || []).forEach(r => lrows.push({ n: r.name, col: r.col, px: rivalValue(r) / RSH * (1 + (r.mood || 0)), sp: r.sp || [], cap: rivalValue(r) * (1 + (r.mood || 0)) }));
     const lh = lrows.map((r, i) => { const sp = r.sp, d = sp.length > 1 ? (sp[sp.length - 1] - sp[sp.length - 2]) / Math.max(0.01, sp[sp.length - 2]) * 100 : 0; return `<div class="lrow"><span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${r.col};margin-right:6px"></i><b style="font-family:var(--font-b)">${r.n}</b><small>${r.px == null ? 'non cotée · introduction possible plus bas' : 'capitalisation ' + money(r.cap)}</small></span><canvas id="lc-${i}" width="120" height="52"></canvas><span style="text-align:right">${r.px == null ? '–' : `<b>${r.px.toFixed(2).replace('.', ',')} $</b><small class="${d >= 0 ? 'pos' : 'neg'}">${d >= 0 ? '▲' : '▼'} ${Math.abs(d).toFixed(1).replace('.', ',')} %</small>`}</span></div>`; }).join('');
+    { const ids = Object.keys(S.port || {}), rows = ids.map(id => { const x = (S.rivals || []).find(q => q.id === id); if (!x) return ''; const hh = S.port[id], v = hh.n * rivalPx(x), pl = v - hh.cost; return `<div class="lrow" style="grid-template-columns:1fr auto auto"><span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${x.col};margin-right:6px"></i><b style="font-family:var(--font-b)">${x.name}</b><small>${fmt(hh.n)} actions · ${Math.round(hh.n / RSH * 100)} % du capital</small></span><span style="text-align:right"><b>${money(v)}</b><small class="${pl >= 0 ? 'pos' : 'neg'}">${pl >= 0 ? '+' : '−'}${money(Math.abs(pl))}</small></span><button class="btn sec" data-pf="${id}" style="min-height:28px;padding:2px 8px;font-size:11px">Gérer</button></div>`; }).join('');
+      const ph = ids.length ? `<div class="finrow"><span><b>Valeur du portefeuille</b></span><b class="gold">${money(portValue())}</b></div>${rows}` : '<p class="note">Aucune action détenue. Ouvre le terminal financier pour acheter des actions des sociétés cotées.</p>';
+      if (el('portfolio').dataset.h !== ph) { el('portfolio').innerHTML = ph; el('portfolio').dataset.h = ph; } }
     if (el('listed').dataset.h !== lh) { el('listed').innerHTML = lh; el('listed').dataset.h = lh; }
     lrows.forEach((r, i) => { const cv = el('lc-' + i); if (cv && r.sp.length > 1) drawSeries(cv, r.sp, r.col, true); });
     const F = S.fin;
@@ -2232,6 +2237,7 @@ el('tview').addEventListener('change', e => { if (e.target.id === 'tsel') { tSel
 ['pointerdown'].forEach(t2 => el('tview').addEventListener(t2, () => { tDown = true; }, { passive: true }));
 ['pointerup', 'pointercancel'].forEach(t2 => window.addEventListener(t2, () => { setTimeout(() => { tDown = false; }, 80); }, { passive: true }));
 el('openTerm').onclick = () => openTerm();
+el('portfolio').addEventListener('click', e => { const b = e.target.closest('[data-pf]'); if (b) { tSel = b.dataset.pf; openTerm(); } });
 function renderTechs() {
   if (el('techs').closest('section').hidden) return;
   let h = '';
@@ -2248,14 +2254,14 @@ function stockValue() { let v = 0; GKEYS.forEach(g => { v += (S.stock[g] || 0) *
 function renderEmpire() {
   if (el('panel').hidden || el('empire').closest('section').hidden) return;
   const st = S.stats || {}, ev = evaluate(), raw = st.raw || 0, fl = S.float || 0, F = S.fin || {};
-  const fixed = ev.value, stocks = stockValue(), debt = S.loan || 0, cash = S.cash, actif = Math.max(0, cash) + fixed + stocks, equity = actif - debt - Math.max(0, -cash);
+  const fixed = ev.value, stocks = stockValue(), debt = S.loan || 0, cash = S.cash, actif = Math.max(0, cash) + fixed + stocks + portValue(), equity = actif - debt - Math.max(0, -cash);
   const px = fl > 0 ? raw * (S.prem || 1.1) / SHARES : null;
   const kp = (l, v, c, s) => `<div><small>${l}</small><b class="${c || ''}">${v}</b>${s ? `<small>${s}</small>` : ''}</div>`;
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / jour', (F.net >= 0 ? '+' : '−') + money(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : px.toFixed(2).replace('.', ',') + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Population / emplois', fmt(st.pop || 0) + ' / ' + fmt(st.playerJobs || 0), '', 'emplois chez toi')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
   h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
   h += `<h3>VALEUR DE L'EMPIRE</h3><canvas id="empspark" width="640" height="110" style="width:100%;height:80px"></canvas>`;
-  h += `<h3>BILAN CONSOLIDÉ</h3><div class="bil"><table class="fint"><tr><th>Actif</th><th>$</th></tr><tr><td>Trésorerie</td><td>${money(Math.max(0, cash))}</td></tr><tr><td>Immobilisations (bâtiments, équipements)</td><td>${money(fixed)}</td></tr><tr><td>Stocks de marchandises</td><td>${money(stocks)}</td></tr><tr class="tot"><td>Total actif</td><td>${money(actif)}</td></tr></table>
+  h += `<h3>BILAN CONSOLIDÉ</h3><div class="bil"><table class="fint"><tr><th>Actif</th><th>$</th></tr><tr><td>Trésorerie</td><td>${money(Math.max(0, cash))}</td></tr><tr><td>Immobilisations (bâtiments, équipements)</td><td>${money(fixed)}</td></tr><tr><td>Stocks de marchandises</td><td>${money(stocks)}</td></tr>${portValue() > 0 ? `<tr><td>Portefeuille boursier</td><td>${money(portValue())}</td></tr>` : ''}<tr class="tot"><td>Total actif</td><td>${money(actif)}</td></tr></table>
     <table class="fint"><tr><th>Passif</th><th>$</th></tr><tr><td>Dettes bancaires</td><td>${money(debt + Math.max(0, -cash))}</td></tr><tr><td>Capitaux propres (toi)</td><td>${money(equity * (1 - fl))}</td></tr>${fl > 0 ? `<tr><td>Capitaux propres (actionnaires, ${Math.round(fl * 100)} %)</td><td>${money(equity * fl)}</td></tr>` : ''}<tr class="tot"><td>Total passif</td><td>${money(actif)}</td></tr></table></div>`;
   h += `<h3>COMPTE DE RÉSULTAT / JOUR</h3><table class="fint"><tr><td>Chiffre d'affaires (détail, exports, tech, banques)</td><td>${money((F.revRetail || 0) + (F.revExport || 0) + (F.revTech || 0) + (F.revBank || 0))}</td></tr><tr><td>Salaires, entretien, transport</td><td>−${money((F.wages || 0) + (F.upkeep || 0) + (F.transport || 0))}</td></tr><tr><td>Publicité, importations, intérêts</td><td>−${money((F.adv || 0) + (F.imports || 0) + (F.interest || 0))}</td></tr><tr><td>Impôt et dividendes</td><td>−${money((F.tax || 0) + (F.div || 0))}</td></tr><tr class="tot"><td>Résultat net</td><td class="${(F.net || 0) >= 0 ? 'pos' : 'neg'}">${(F.net || 0) >= 0 ? '+' : '−'}${money(Math.abs(F.net || 0))}</td></tr></table>`;
   const fm = (S.flow && S.flow.made) || {}, fu = (S.flow && S.flow.used) || {};
