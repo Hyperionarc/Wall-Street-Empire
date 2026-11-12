@@ -1172,6 +1172,7 @@ function genNpc(grid) {
       if (!isLm && hash(x, y, 41) >= p) continue;
       const r1 = hash(x, y, 42), r3 = hash(x, y, 43);
       let kind, floors;
+      if (!isLm && zone <= 2 && hash(x, y, 49) < 0.1) { grid[id] = { t: 'npc', k: 'park', seed: hash(x, y, 44), floors: 1, lvl: 0, w: 1, h: 1, x, y, born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; continue; }
       if (isLm) { kind = key === '26,26' ? 'off' : 'res'; floors = lm[key]; }
       else if (zone === 0) { kind = r1 < 0.62 ? 'off' : 'res'; floors = Math.round((24 + 40 * (1 - d / 7.5)) * (0.55 + 0.6 * r3)); floors = clamp(floors, 20, 64); }
       else if (zone === 1) { kind = r1 < 0.45 ? 'off' : 'res'; floors = Math.round(7 + 10 * r3); }
@@ -1326,7 +1327,7 @@ function evaluate() {
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') { roads++; if (c.own) ownRoads++; } }
   const lm = linkedMask();
   eachBuilding(c => {
-    if (c.t === 'npc') { c.conn = true; if (c.k === 'res') cap += 5 * c.floors; else if (c.k === 'house') cap += 5; else npcJobs += c.floors * S.jpf; return; }
+    if (c.t === 'npc') { c.conn = true; if (c.k === 'res') cap += 5 * c.floors; else if (c.k === 'house') cap += 5; else if (c.k !== 'park') npcJobs += c.floors * S.jpf; return; }
     const T = TYPES[c.t], m = levelMult(c);
     if (T.ext) { c.linked = extLinked(c, lm); c.conn = true; } else c.conn = footConn(c);
     cc[c.t]++;
@@ -2088,7 +2089,7 @@ function inspect(x, y) {
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
   }
-  if (c.t === 'npc') { say(c.k === 'house' ? 'Maison de la ville existante (5 habitants).' : `Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
+  if (c.t === 'npc') { say(c.k === 'park' ? 'Parc public de la ville : il valorise les quartiers voisins.' : c.k === 'house' ? 'Maison de la ville existante (5 habitants).' : `Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
   if (c.t === 'road') { say(c.own ? 'Route de desserte : entretien 0,4 $/jour.' : 'Rue publique, entretenue par la mairie.', 'info'); return; }
   openBuilding(c.x, c.y); return;
   const T = TYPES[c.t];
@@ -4409,6 +4410,35 @@ function drawIndustrial(a, now, grow) {
   const p = iso(a.x + a.w - 1, a.y + a.h - 1); a._top = p.y - zTop + 40;
 }
 const HCOL = [['#e9dcc0', '#b5483a'], ['#d9e3ee', '#4a5a7a'], ['#f2d9c4', '#8a4a32'], ['#cfe0c8', '#5a6a4a'], ['#efe8d6', '#3f4a62'], ['#f3c9c9', '#7a3a4a']];
+const TSTYLE = [
+  { n: 'verre bleu', c: ['#5f8fc4', '#7fb2dc', '#3f6a9a'], glass: 1 }, { n: 'verre vert', c: ['#4fa08a', '#7fd0b4', '#2f6f60'], glass: 1 }, { n: 'verre sombre', c: ['#2f3a58', '#56688f', '#1d2540'], glass: 1 },
+  { n: 'pierre', c: ['#cfc4a8', '#e6dcc2', '#a39a82'], glass: 0 }, { n: 'brique', c: ['#a84e3a', '#c76a52', '#7e3a2c'], glass: 0 }, { n: 'art déco', c: ['#d8d2c0', '#f0eadb', '#a8a290'], glass: 0, deco: 1 }
+];
+function drawTowerProc(a, p, now) {
+  const st = TSTYLE[Math.floor(a.seed * 977) % TSTYLE.length], x = a.x, y = a.y, F = a.floors, H = Math.min(F * 16, 900), w = 0.34 + 0.2 * hash(a.x, a.y, 5);
+  const bx = x + (1 - w) / 2, by = y + (1 - w) / 2, c = st.c;
+  pQuad([PP(x + 0.04, y + 0.04, 0), PP(x + 0.96, y + 0.04, 0), PP(x + 0.96, y + 0.96, 0), PP(x + 0.04, y + 0.96, 0)], '#c9c3b2');
+  const tiers = st.deco && F > 14 ? [[1, 0.55], [0.82, 0.8], [0.6, 1]] : st.glass && F > 24 ? [[1, 0.8], [0.7, 1]] : [[1, 1]];
+  let z0 = 0, top = 0;
+  tiers.forEach((tr, ti) => { const ww = w * tr[0], bxx = x + (1 - ww) / 2, byy = y + (1 - ww) / 2, z1 = H * tr[1];
+    pQuad([PP(bxx, byy + ww, z1), PP(bxx + ww, byy + ww, z1), PP(bxx + ww, byy + ww, z0), PP(bxx, byy + ww, z0)], c[0]);
+    pQuad([PP(bxx + ww, byy, z1), PP(bxx + ww, byy + ww, z1), PP(bxx + ww, byy + ww, z0), PP(bxx + ww, byy, z0)], shade(c[0], 0.68));
+    if (st.glass) { const g = ctx.createLinearGradient(PP(bxx, byy + ww, z1)[0], PP(bxx, byy + ww, z1)[1], PP(bxx, byy + ww, z0)[0], PP(bxx, byy + ww, z0)[1]); g.addColorStop(0, c[1]); g.addColorStop(1, c[2]); pQuad([PP(bxx, byy + ww, z1), PP(bxx + ww, byy + ww, z1), PP(bxx + ww, byy + ww, z0), PP(bxx, byy + ww, z0)], g); }
+    ctx.lineWidth = 1; ctx.strokeStyle = st.glass ? 'rgba(255,255,255,.28)' : 'rgba(0,0,0,.28)'; ctx.beginPath(); const step = st.glass ? 24 : 48;
+    for (let z = z0 + step; z < z1; z += step) { const q1 = PP(bxx, byy + ww, z), q2 = PP(bxx + ww, byy + ww, z), q3 = PP(bxx + ww, byy, z); ctx.moveTo(q1[0], q1[1]); ctx.lineTo(q2[0], q2[1]); ctx.lineTo(q3[0], q3[1]); } ctx.stroke();
+    if (!st.glass) { ctx.fillStyle = 'rgba(30,40,70,.55)'; for (let k = 1; k < 5; k++) { const u = bxx + ww * k / 5; for (let z = z0 + 14; z < z1 - 6; z += 48) { const q = PP(u, byy + ww, z); ctx.fillRect(q[0] - 3, q[1] - 10, 5, 9); } } }
+    pQuad([PP(bxx, byy, z1), PP(bxx + ww, byy, z1), PP(bxx + ww, byy + ww, z1), PP(bxx, byy + ww, z1)], shade(c[1], 1.05)); z0 = z1 * 0.98; top = z1; });
+  if (F > 24) { const q = PP(bx + w / 2, by + w / 2, top); ctx.strokeStyle = '#d7dbea'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(q[0], q[1] - 34); ctx.stroke(); if (Math.sin(now / 420 + a.seed * 9) > 0) { ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(q[0], q[1] - 36, 3, 0, 7); ctx.fill(); } }
+  a._top = PP(x + 0.5, y + 0.5, top)[1];
+}
+function drawPark(a, now) {
+  const x = a.x, y = a.y, s = a.seed;
+  pQuad([PP(x, y, 0), PP(x + 1, y, 0), PP(x + 1, y + 1, 0), PP(x, y + 1, 0)], '#6fae52'); pQuad([PP(x + 0.06, y + 0.06, 0.4), PP(x + 0.94, y + 0.06, 0.4), PP(x + 0.94, y + 0.94, 0.4), PP(x + 0.06, y + 0.94, 0.4)], '#7fbd5e');
+  pQuad([PP(x + 0.46, y + 0.02, 0.6), PP(x + 0.54, y + 0.02, 0.6), PP(x + 0.54, y + 0.98, 0.6), PP(x + 0.46, y + 0.98, 0.6)], '#e2d8b8'); pQuad([PP(x + 0.02, y + 0.46, 0.6), PP(x + 0.98, y + 0.46, 0.6), PP(x + 0.98, y + 0.54, 0.6), PP(x + 0.02, y + 0.54, 0.6)], '#e2d8b8');
+  if (s > 0.6) { pQuad([PP(x + 0.4, y + 0.4, 1), PP(x + 0.6, y + 0.4, 1), PP(x + 0.6, y + 0.6, 1), PP(x + 0.4, y + 0.6, 1)], '#6fc8f0'); }
+  [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8], [0.3, 0.7]].forEach((q, i) => { const b = PP(x + q[0], y + q[1], 0.4); ctx.fillStyle = '#6b4a2a'; ctx.fillRect(b[0] - 1.5, b[1] - 12, 3, 12); ctx.fillStyle = i % 2 ? '#2f7a45' : '#3f9a55'; ctx.beginPath(); ctx.arc(b[0], b[1] - 17, 9 + (i % 3), 0, 7); ctx.fill(); });
+  a._top = PP(x + 0.5, y + 0.5, 20)[1];
+}
 function drawHouse(a, p, now, grow) {
   const x = a.x, y = a.y, s = a.seed, c = HCOL[Math.floor(s * 997) % HCOL.length], gg = grow == null ? 1 : grow, variant = Math.floor(s * 31) % 4;
   pQuad([PP(x + 0.02, y + 0.02, 0), PP(x + 0.98, y + 0.02, 0), PP(x + 0.98, y + 0.98, 0), PP(x + 0.02, y + 0.98, 0)], '#7fae5a');
@@ -4438,6 +4468,10 @@ function drawTileOf(a, x, y, ox, oy, o) {
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
   if (PROC_IND[a.t]) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
+  } else if (a.t === 'npc' && a.k === 'park') {
+    drawPark(a, o.now);
+  } else if (a.t === 'npc' && !a.lm && a.k !== 'house' && a.floors >= 8 && hash(a.x, a.y, 53) < 0.55) {
+    drawTowerProc(a, p, o.now);
   } else if (a.t === 'npc' && a.k === 'house') {
     drawHouse(a, p, o.now, 1);
   } else if (false) {
