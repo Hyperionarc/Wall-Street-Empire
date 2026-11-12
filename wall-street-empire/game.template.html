@@ -567,6 +567,12 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .ctechs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
 .ctech{padding:8px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;gap:2px}.ctech.own{border-color:var(--cc);background:color-mix(in srgb,var(--cc) 12%,var(--panel))}.ctech b{font-size:12.5px}.ctech small{color:var(--mut);font-size:11px}
 .cbadge{display:inline-flex;align-items:center;gap:6px}.cbadge i{width:10px;height:10px;border-radius:3px;background:var(--cc,var(--gold))}
+.spcard{margin:8px 0;padding:8px;border-radius:10px;background:var(--panel-hi);border:1px solid var(--line)}
+.sph{display:flex;align-items:center;gap:8px;margin-bottom:4px}.sph i{width:10px;height:10px;border-radius:3px}.sph small{color:var(--mut);font-size:11px}
+.sprow{display:grid;grid-template-columns:20px 1fr 54px 64px 78px 70px;gap:6px;align-items:center;width:100%;text-align:left;padding:5px 6px;border-radius:6px;border:1px solid transparent;background:transparent;font-size:12px;font-family:var(--font-m)}
+.sprow .sn{font-family:var(--font-b);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sprow b{text-align:right}.sprow span{text-align:right}.sprow .sn,.sprow .rd{text-align:left}
+.sprow:hover{background:rgba(255,255,255,.05)}.sprow.on{border-color:var(--gold);background:rgba(242,184,75,.1)}.sprow.hd{color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.06em;cursor:default}
+@media (max-width:640px){.sprow{grid-template-columns:18px 1fr 70px}.sprow>span:nth-child(3),.sprow>span:nth-child(4),.sprow>span:nth-child(5){display:none}}
 .bil{display:grid;grid-template-columns:1fr;gap:6px}
 .rcard{padding:8px 10px;margin:8px 0;border-radius:8px;background:var(--panel-hi)}
 .rtop{display:flex;align-items:center;gap:8px}.rtop i{width:10px;height:10px;border-radius:3px}.rtop small{margin-left:auto;color:var(--mut)}
@@ -731,7 +737,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
   <aside id="bview" hidden>
     <div class="ph"><b id="bname"></b><span class="sub" id="bsub"></span><button class="ibtn" data-act="close" aria-label="Fermer la vue intérieure">Fermer</button></div>
     <div class="btabs" role="tablist">
-      <button data-act="tab:int" aria-pressed="true">Intérieur</button><button data-act="tab:wh" aria-pressed="false" id="tabwh" hidden>Stock</button><button data-act="tab:lg" aria-pressed="false" id="tablg">Logistique</button><button data-act="tab:st" aria-pressed="false" id="tabst">Effectifs</button><button data-act="tab:pl" aria-pressed="false">Compte de résultat</button><button data-act="tab:bs" aria-pressed="false">Bilan</button><button data-act="tab:cf" aria-pressed="false">Flux de trésorerie</button><button data-act="tab:ad" aria-pressed="false" id="tabad" hidden>Publicité</button><button data-act="tab:ex" aria-pressed="false" id="tabex" hidden>Direction</button>
+      <button data-act="tab:int" aria-pressed="true">Intérieur</button><button data-act="tab:wh" aria-pressed="false" id="tabwh" hidden>Stock</button><button data-act="tab:pu" aria-pressed="false" id="tabpu" hidden>Achats</button><button data-act="tab:lg" aria-pressed="false" id="tablg">Logistique</button><button data-act="tab:st" aria-pressed="false" id="tabst">Effectifs</button><button data-act="tab:pl" aria-pressed="false">Compte de résultat</button><button data-act="tab:bs" aria-pressed="false">Bilan</button><button data-act="tab:cf" aria-pressed="false">Flux de trésorerie</button><button data-act="tab:ad" aria-pressed="false" id="tabad" hidden>Publicité</button><button data-act="tab:ex" aria-pressed="false" id="tabex" hidden>Direction</button>
     </div>
     <canvas id="bscene" width="800" height="220" aria-label="Scène animée de l'intérieur du bâtiment"></canvas>
     <div id="bbody"></div>
@@ -931,6 +937,21 @@ const ADV = [{ n: 'Aucune', cost: 0, gain: 0 }, { n: 'Moyenne', cost: 150, gain:
 // Emballage : nombre d'emballages par unité (composant « Emballages »), effet sur l'attrait
 const PACK = [{ n: 'Vrac', per: 0, attr: 0.85, tag: 'Sans emballage' }, { n: 'Carton', per: 1, attr: 1, tag: 'Carton standard' }, { n: 'Coffret premium', per: 2, attr: 1.15, tag: 'Coffret soigné' }];
 // Concurrents IA : chacun a une part d'attractivité par catégorie, une trésorerie, et investit ou fait faillite selon ses ventes
+// Fournisseurs : sociétés productrices de chaque bien (réseau local, compagnies externes, import par le port)
+const SUP_POOL = ['Gulf Petroleum', 'Nordic Resources', 'Atlas Mining', 'Pacific Supply', 'Rhine Industries', 'Sahara Energy', 'Andes Metals', 'Baltic Trading', 'Meridian Materials', 'Orient Commodities', 'Helvetia Commodities', 'Cascade Industries'];
+function supplierList(g) {
+  const a = g.charCodeAt(0), b = g.charCodeAt(g.length - 1), out = [];
+  for (let i = 0; i < 5; i++) out.push({ id: 's' + i, name: SUP_POOL[(Math.floor(hash(a, b, 11) * 12) + i * 5) % 12], pf: +(0.86 + 0.3 * hash(i, a, 7)).toFixed(2), q: 40 + Math.round(50 * hash(i, b, 13)), dist: 8 + Math.round(60 * hash(i, a, 17)) });
+  return out;
+}
+const FREIGHT = 0.006;   // part du prix par case de distance
+function supOffer(g, id, haul) {
+  const base = (S.price[g] || GOODS[g].base);
+  if (id === 'local') return { unit: base, freight: 0, total: base, name: 'Mon réseau (stock local)', q: 60 };
+  if (id === 'import') { const pr = Math.max(0.6, 0.85 - 0.06 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)) * 1.12, fr = base * FREIGHT * (45 + (haul || 0) * 0.3); return { unit: base * pr, freight: fr, total: base * pr + fr, name: 'Import par le port', q: 55 }; }
+  const s = supplierList(g).find(x => x.id === id) || supplierList(g)[0], fr = base * FREIGHT * s.dist;
+  return { unit: base * s.pf, freight: fr, total: base * s.pf + fr, name: s.name, q: s.q, dist: s.dist };
+}
 const RIV_CLS = ['basic', 'std', 'lux', 'estate'];
 function initRivals() {
   return [
@@ -1846,8 +1867,8 @@ function step() {
       let tot = 0; list.forEach(c => { tot += c._u * inp[g]; });
       let short = Math.max(0, tot - S.stock[g]);
       list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0;
-        if (mode === 'port') q = need; else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }
-        if (q > 0.01) { const cost = q * S.price[g] * impR * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; indImport += cost; c._impCost = (c._impCost || 0) + cost; c._impIn = (c._impIn || 0) + q; } });
+        if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) q = need; else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }
+        if (q > 0.01) { const of = mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3), c.haul) : null; const cost = of ? q * of.total * TM.buy * modOf('buy') : q * S.price[g] * impR * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; indImport += cost; c._impCost = (c._impCost || 0) + cost; c._impIn = (c._impIn || 0) + q; } });
     });
     let r = units, lim = null;
     Object.keys(inp).forEach(g => { want[g] += units * inp[g]; const rr = S.stock[g] / inp[g]; if (rr < r) { r = rr; lim = g; } });
@@ -1944,7 +1965,7 @@ function step() {
   let revExp = 0;
   const portN = cn.port || 0, expRate = Math.min(0.95, Math.max(0.6 + 0.15 * portN, (S.rivals && S.rivals.length) ? 0.78 : 0) * TM.export), stockCap = STOCK_CAP + 150 * portN + 200 * (cn.wh || 0);
   { const wr = stepWarehouses(portN, expRate); importCost += wr.imp; revExp += wr.rev; }
-  GKEYS.forEach(g => { const ex = Math.max(0, S.stock[g] - capFor(g)); if (ex > 0) { S.stock[g] -= ex; revExp += ex * S.price[g] * expRate; } });
+  GKEYS.forEach(g => { const thr = Math.max(60, 0.5 * capFor(g)), ex = Math.max(0, S.stock[g] - thr); if (ex > 0) { S.stock[g] -= ex; revExp += ex * S.price[g] * expRate; S.expSold = S.expSold || {}; S.expSold[g] = ex; } });
   PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 80); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } });
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
@@ -3175,7 +3196,7 @@ function openBuilding(x, y) {
   bsel = { x: c.x, y: c.y }; selected = { x: c.x, y: c.y };
   el('pview').hidden = true; el('pv').setAttribute('aria-pressed', 'false');
   el('bview').hidden = false; bvHtml = ''; bTab = 'int';
-  el('tabwh').hidden = c.t !== 'wh'; el('tablg').hidden = !(TYPES[c.t].ext || TYPES[c.t].rec || TYPES[c.t].ret); el('tabst').hidden = !TYPES[c.t].jobs; el('tabad').hidden = !TYPES[c.t].ret; el('tabex').hidden = c.t !== 'hq'; el('bname').textContent = TYPES[c.t].name.toUpperCase(); el('bsub').textContent = `${TYPES[c.t].sub} · case ${c.x + 1}, ${c.y + 1}`;
+  el('tabwh').hidden = c.t !== 'wh'; el('tabpu').hidden = !(FLEVEL[c.t] || c.t === 'foundry'); el('tablg').hidden = !(TYPES[c.t].ext || TYPES[c.t].rec || TYPES[c.t].ret); el('tabst').hidden = !TYPES[c.t].jobs; el('tabad').hidden = !TYPES[c.t].ret; el('tabex').hidden = c.t !== 'hq'; el('bname').textContent = TYPES[c.t].name.toUpperCase(); el('bsub').textContent = `${TYPES[c.t].sub} · case ${c.x + 1}, ${c.y + 1}`;
   document.querySelectorAll('.btabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.act === 'tab:int' ? 'true' : 'false'));
   sceneReset(c); renderBuilding(true); sceneStart();
 }
@@ -3262,7 +3283,7 @@ function renderBuilding(force) {
     ${CROPS[T.ext] ? farmCard(c) : ''}
   </div>
   <div class="actions"><button class="btn sec" data-act="bull">Démolir</button></div>`;
-  const html = bTab === 'int' ? htmlInt : bTab === 'wh' ? whTab(c) : bTab === 'lg' ? lgTab(c) : bTab === 'st' ? stTab(c) : bTab === 'ad' ? adTab(c) : bTab === 'ex' ? exTab(c) : finTab(c, bTab);
+  const html = bTab === 'int' ? htmlInt : bTab === 'pu' ? purTab(c) : bTab === 'wh' ? whTab(c) : bTab === 'lg' ? lgTab(c) : bTab === 'st' ? stTab(c) : bTab === 'ad' ? adTab(c) : bTab === 'ex' ? exTab(c) : finTab(c, bTab);
   el('bscene').style.display = bTab === 'int' ? 'block' : 'none';
   if (html === bvHtml) return;
   const top = el('bview').scrollTop;
@@ -3288,6 +3309,7 @@ function bAct(a) {
   else if (a.indexOf('train:') === 0) { const k = a.slice(6), cst = trainCost(c, k); if (cst && S.cash >= cst) { S.cash -= cst; c.invest = investOf(c) + cst; c.train = c.train || {}; c.train[k] = (c.train[k] | 0) + 1; flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cst), t: performance.now(), col: '#ff8a8e' }); } }
   else if (a.indexOf('crop:') === 0) { const g = a.slice(5), nt = CROPS[g]; if (nt && nt !== c.t && S.cash >= 400) { S.cash -= 400; c.t = nt; c.born = performance.now() - 300; refreshStats(); } }
   else if (a === 'irr') { const cst = irrCost((c.irr | 0) + 1); if (cst && S.cash >= cst) { S.cash -= cst; c.irr = (c.irr | 0) + 1; c.invest = investOf(c) + cst; } }
+  else if (a.indexOf('supp:') === 0) { const g = a.split(':')[1], mm = a.slice(a.indexOf(':', 5) + 1); c.src = c.src || {}; c.src[g] = mm; }
   else if (a === 'imp') c.imp = c.imp === false ? true : false;
   else if (a.indexOf('slot:') === 0) { const i = +a.slice(5); bPick = bPick === i ? -1 : i; }
   else if (a.indexOf('setslot:') === 0) { const [, i, k] = a.split(':'); const N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[+i] = k; bPick = -1; }
@@ -4016,6 +4038,19 @@ function whTab(c) {
 }
 el('bview').addEventListener('change', e => { const w = e.target.dataset && e.target.dataset.whc; if (!w || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; const [g, f] = w.split(':'); c.cfg = c.cfg || {}; c.cfg[g] = c.cfg[g] || {}; if (f === 's') c.cfg[g].s = e.target.checked ? 1 : 0; else c.cfg[g][f] = +e.target.value; bvHtml = ''; renderBuilding(true); });
 el('bview').addEventListener('change', e => { const sg = e.target.dataset && e.target.dataset.src; if (!sg || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.src = c0.src || {}; c0.src[sg] = e.target.value; bvHtml = ''; renderBuilding(true); });
+const supLabel = (mode, g) => mode === 'auto' ? 'Auto (stock local puis port)' : mode === 'local' ? 'Mon réseau' : (mode === 'port' || mode === 'import') ? 'Import par le port' : mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3)).name : mode;
+function purTab(c) {
+  const rec = recOf(c); if (!rec) return '<p class="fnote">Ce bâtiment n\'achète rien.</p>';
+  let h = `<p class="fnote">Comme dans Capitalism : choisis, pour chaque intrant, à quelle société tu achètes. Le prix livré = prix de la société + frais de transport selon la distance. L'import par le port est plus cher que ton réseau local (marge du port + fret long).</p>`;
+  Object.keys(rec.in).forEach(g => {
+    const mode = (c.src && c.src[g]) || 'auto', need = rec.in[g] * (c._u || 0), sup = supplierList(g);
+    const opts = [['auto', null], ['local', supOffer(g, 'local')]].concat(sup.map(s => ['co:' + s.id, supOffer(g, s.id)])).concat([['import', supOffer(g, 'import', c.haul)]]);
+    const rows = opts.map(([m, o]) => { const on = m === mode || (mode === 'port' && m === 'import'); const lab = m === 'auto' ? 'Auto : stock local, puis port si rupture' : o.name; const tail = o ? `<span class="pq">Q ${o.q}</span><span>${f1(o.unit)} $</span><span class="${o.freight > 0.2 * o.unit ? 'neg' : ''}">+${f1(o.freight)} fret</span><b>${f1(o.total)} $</b>` : '<span></span><span></span><span></span><span></span>';
+      return `<button class="sprow ${on ? 'on' : ''}" data-act="supp:${g}:${m}"><span class="rd">${on ? '◉' : '○'}</span><span class="sn">${lab}</span>${tail}</button>`; }).join('');
+    h += `<div class="spcard"><div class="sph"><i style="background:${GOODS[g] ? GOODS[g].color : '#8f9acb'}"></i><b>${gName(g)}</b><small>besoin ${f1(need)}/j · stock ${fmt(gStock(g))} · cours ${f1(gPrice(g))} $${c._impIn > 0.01 ? ' · acheté dehors ' + f1(c._impIn) + '/j' : ''}</small></div><div class="sprow hd"><span></span><span class="sn">Fournisseur</span><span>Qualité</span><span>Prix</span><span>Transport</span><b>Livré</b></div>${rows}</div>`;
+  });
+  return h;
+}
 function trainCost(c, k) { const l = (c.train && c.train[k]) | 0; return l >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.2 * (1 + l)); }
 function stTab(c) {
   const T = TYPES[c.t], d = deptOf(c), id = deptIdeal(c), m = deptMult(c), tot = jobsOf(c), fill = fillOf(c), tr = c.train || (c.train = { prod: 0, buy: 0, stock: 0, sell: 0 });
@@ -4037,7 +4072,7 @@ function silo(label, st, cap, col, extra) { const p = clamp(st / cap, 0, 1); ret
 function lgTab(c) {
   const T = TYPES[c.t], rec = recOf(c), cap = baseCap(), links = b => `<button class="crow" data-open="${b.x},${b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[b.t].name}</b><small>case ${b.x + 1}, ${b.y + 1}</small></span><span class="mg">${f1(b.out)}/j</span></button>`;
   let ins = '', outs = '';
-  if (rec) ins = Object.keys(rec.in).map(g => { const need = rec.in[g] * (c._u || 0), st = gStock(g), sup = suppliersOf(g), supply = sup.reduce((a, b) => a + b.out, 0), aut = need > 0.01 ? st / need : null; const mode = (c.src && c.src[g]) || 'auto', impP = S.price[g] * Math.max(0.6, 0.85 - 0.06 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)) * 1.12 * (1 + 0.004 * (c.haul || 0)); const sel = `<select data-src="${g}" aria-label="Fournisseur de ${gName(g)}" style="background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:11.5px"><option value="auto" ${mode === 'auto' ? 'selected' : ''}>Auto : stock local puis port</option><option value="local" ${mode === 'local' ? 'selected' : ''}>Local uniquement (${f1(S.price[g])} $)</option><option value="port" ${mode === 'port' ? 'selected' : ''}>Port : import (${f1(impP)} $ livré)</option></select>`; return `<div class="lcol">${silo(gName(g), st, cap, GOODS[g] ? GOODS[g].color : '#8f9acb', `<small class="${aut != null && aut < 2 ? 'neg' : 'pos'}">${aut == null ? 'inutilisé' : 'autonomie ' + (aut > 99 ? '99+' : f1(aut)) + ' j'}</small>`)}<div class="lsub">${sel}<small>Besoin ${f1(need)}/j · offre ${f1(supply)}/j${c._impIn > 0.01 ? ' · importé ' + f1(c._impIn) + '/j' : ''} · <b class="${supply >= need ? 'pos' : 'neg'}">${supply >= need ? 'excédent' : 'déficit'}</b></small>${sup.slice(0, 4).map(links).join('') || '<small class="neg">Aucun fournisseur</small>'}</div></div>`; }).join('');
+  if (rec) ins = Object.keys(rec.in).map(g => { const need = rec.in[g] * (c._u || 0), st = gStock(g), sup = suppliersOf(g), supply = sup.reduce((a, b) => a + b.out, 0), aut = need > 0.01 ? st / need : null; const mode = (c.src && c.src[g]) || 'auto', sel = `<small>Fournisseur : <b>${supLabel(mode, g)}</b></small><button class="btn sec" data-act="tab:pu" style="min-height:26px;padding:1px 8px;font-size:11px">Changer</button>`; return `<div class="lcol">${silo(gName(g), st, cap, GOODS[g] ? GOODS[g].color : '#8f9acb', `<small class="${aut != null && aut < 2 ? 'neg' : 'pos'}">${aut == null ? 'inutilisé' : 'autonomie ' + (aut > 99 ? '99+' : f1(aut)) + ' j'}</small>`)}<div class="lsub">${sel}<small>Besoin ${f1(need)}/j · offre ${f1(supply)}/j${c._impIn > 0.01 ? ' · importé ' + f1(c._impIn) + '/j' : ''} · <b class="${supply >= need ? 'pos' : 'neg'}">${supply >= need ? 'excédent' : 'déficit'}</b></small>${sup.slice(0, 4).map(links).join('') || '<small class="neg">Aucun fournisseur</small>'}</div></div>`; }).join('');
   else if (T.ext) ins = `<div class="lcol">${(() => { const d = S.dep[idx(c.x, c.y)], full = DEPOSITS[T.ext].res; return silo('Gisement · ' + DEPOSITS[T.ext].name, d ? d.r : 0, full, '#8a6a3a', `<small>${T.ext === 'wood' ? 'repousse +8/j' : 'non renouvelable'}</small>`); })()}</div>`;
   else if (T.ret) ins = shelfItems(c).map(it => `<div class="lcol">${silo(it.name, it.stock, cap, '#7f96ff', `<small>${f1(c.sales && c.sales[it.key] || 0)} vendus/j${it.gen ? ' · ' + (c.imp === false ? 'import coupé' : 'import par le port') : ''}</small>`)}</div>`).join('');
   if (rec) { const g = rec.out, st = gStock(g), cons = consumersOf(g), use = cons.reduce((a, x) => a + x.need, 0); outs = `<div class="lcol">${silo(gName(g), st, g in GOODS ? cap : 80, GOODS[g] ? GOODS[g].color : '#ffd76a', `<small>produit ${f1(c.out)}/j</small>`)}<div class="lsub"><small>Demande ${f1(use)}/j · <b class="${use >= c.out ? 'pos' : 'neg'}">${use >= c.out ? 'tout est écoulé' : 'surproduction'}</b></small>${cons.slice(0, 4).map(x => `<button class="crow" data-open="${x.b.x},${x.b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[x.b.t].name}</b><small>case ${x.b.x + 1}, ${x.b.y + 1}</small></span><span class="mg">${f1(x.need)}/j</span></button>`).join('') || '<small>Vendu aux commerces ou exporté par le port</small>'}</div></div>`; }
