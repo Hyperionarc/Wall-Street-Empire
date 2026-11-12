@@ -1174,6 +1174,7 @@ function genCropFields(dep) {
   [[84, 76, 2], [82, 26, 3], [86, 44, 2]].forEach(f => disc(f[0], f[1], f[2], 'rubber'));
 }
 // ville existante : gratte-ciel (bureaux et résidences) denses au centre, plus bas en périphérie, avec 2 tours-repères
+const MONU = { '45,21': 'stadium', '45,33': 'statue', '33,45': 'hall', '45,45': 'telecom', '21,45': 'stadium2' };
 function genNpc(grid) {
   // Manhattan au centre (très hautes tours), immeubles moyens autour, petits immeubles puis maisons en périphérie
   let cap = 0, offFloors = 0;
@@ -1185,6 +1186,7 @@ function genNpc(grid) {
       const x = ox + i, y = oy + j, id = idx(x, y);
       if (grid[id]) continue;
       const key = x + ',' + y, isLm = lm[key] != null, d = Math.hypot(x - cx, y - cy) + (hash(x, y, 47) - 0.5) * 2.2;
+      if (MONU[key]) { grid[id] = { t: 'npc', k: 'mon', m: MONU[key], seed: hash(x, y, 44), floors: 1, lvl: 0, w: 1, h: 1, x, y, born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; continue; }
       if (!isLm && i >= 3 && j >= 3) continue;                   // coin libre de 2x2 : emplacement pour hypermarché
       const zone = d <= 7.5 ? 0 : d <= 12 ? 1 : d <= 16 ? 2 : 3;
       const p = [0.88, 0.6, 0.5, 0.42][zone];
@@ -1354,7 +1356,7 @@ function evaluate() {
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') { roads++; if (c.own) ownRoads++; } }
   const lm = linkedMask(), pm = pipeMask();
   eachBuilding(c => {
-    if (c.t === 'npc') { c.conn = true; if (c.k === 'res') cap += 5 * c.floors; else if (c.k === 'house') cap += 5; else if (c.k !== 'park') npcJobs += c.floors * S.jpf; return; }
+    if (c.t === 'npc') { c.conn = true; if (c.k === 'res') cap += 5 * c.floors; else if (c.k === 'house') cap += 5; else if (c.k !== 'park' && c.k !== 'mon') npcJobs += c.floors * S.jpf; return; }
     const T = TYPES[c.t], m = levelMult(c);
     if (T.ext) { c.piped = (T.ext === 'oil' || T.ext === 'coal') && pipeAdj(c, pm); c.linked = extLinked(c, lm) || c.piped; c.conn = true; } else if (c.t === 'pipeline') { c.conn = true; } else c.conn = footConn(c);
     cc[c.t]++;
@@ -2210,7 +2212,7 @@ function inspect(x, y) {
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
   }
-  if (c.t === 'npc') { say(c.k === 'park' ? 'Parc public de la ville : il valorise les quartiers voisins.' : c.k === 'house' ? 'Maison de la ville existante (5 habitants).' : `Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
+  if (c.t === 'npc') { say(c.k === 'mon' ? 'Monument de la ville : il fait partie de l\'identité de New Dollarton.' : c.k === 'park' ? 'Parc public de la ville : il valorise les quartiers voisins.' : c.k === 'house' ? 'Maison de la ville existante (5 habitants).' : `Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
   if (c.t === 'road') { say(c.own ? 'Route de desserte : entretien 0,4 $/jour.' : 'Rue publique, entretenue par la mairie.', 'info'); return; }
   openBuilding(c.x, c.y); return;
   const T = TYPES[c.t];
@@ -4577,6 +4579,34 @@ function drawTowerProc(a, p, now) {
   if (F > 24) { const q = PP(bx + w / 2, by + w / 2, top); ctx.strokeStyle = '#d7dbea'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(q[0], q[1] - 34); ctx.stroke(); if (Math.sin(now / 420 + a.seed * 9) > 0) { ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(q[0], q[1] - 36, 3, 0, 7); ctx.fill(); } }
   a._top = PP(x + 0.5, y + 0.5, top)[1];
 }
+function drawMonument(a, now) {
+  const x = a.x, y = a.y, m = a.m;
+  pQuad([PP(x, y, 0), PP(x + 1, y, 0), PP(x + 1, y + 1, 0), PP(x, y + 1, 0)], m === 'statue' ? '#d8d0b8' : '#9fc27a');
+  if (m === 'stadium' || m === 'stadium2') {
+    const c = PP(x + 0.5, y + 0.5, 0), ell = (rx, ry, z, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(c[0], c[1] - z, rx, ry, 0, 0, 7); ctx.fill(); };
+    ell(60, 31, 0, '#7e8296'); ell(60, 31, 14, '#cfd2de'); ell(60, 31, 22, '#e6e9f4'); ell(46, 23, 22, '#3f8a3f'); ell(46, 23, 22.1, '#4aa04a');
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.5; ctx.strokeRect(c[0] - 26, c[1] - 22 - 8, 52, 16); ctx.beginPath(); ctx.moveTo(c[0], c[1] - 30); ctx.lineTo(c[0], c[1] - 14); ctx.stroke();
+    [[-52, -14], [52, -14], [-30, 24], [30, 24]].forEach((q, i) => { ctx.fillStyle = '#8f9acb'; ctx.fillRect(c[0] + q[0] - 1.5, c[1] + q[1] - 48, 3, 40); ctx.fillStyle = Math.sin(now / 500 + i) > -0.5 ? '#fff6b0' : '#d8d28a'; ctx.fillRect(c[0] + q[0] - 6, c[1] + q[1] - 52, 12, 6); });
+    a._top = c[1] - 60;
+  } else if (m === 'statue') {
+    pPrism(x + 0.3, y + 0.3, 0.4, 0.4, 0, 24, '#c9c3ac'); pPrism(x + 0.36, y + 0.36, 0.28, 0.28, 24, 38, '#bdb7a0');
+    const b = PP(x + 0.5, y + 0.5, 38); ctx.fillStyle = '#4fb8a0'; ctx.fillRect(b[0] - 7, b[1] - 40, 14, 40); ctx.beginPath(); ctx.arc(b[0], b[1] - 46, 7, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#4fb8a0'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(b[0] + 5, b[1] - 36); ctx.lineTo(b[0] + 14, b[1] - 66); ctx.stroke(); ctx.fillStyle = '#ffd76a'; ctx.beginPath(); ctx.arc(b[0] + 14, b[1] - 70, 5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#4fb8a0'; ctx.beginPath(); ctx.moveTo(b[0] - 5, b[1] - 52); ctx.lineTo(b[0], b[1] - 62); ctx.lineTo(b[0] + 5, b[1] - 52); ctx.fill();
+    [[0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].forEach((q, i) => { const t2 = PP(x + q[0], y + q[1], 0); ctx.fillStyle = '#6b4a2a'; ctx.fillRect(t2[0] - 1.5, t2[1] - 12, 3, 12); ctx.fillStyle = '#3f9a55'; ctx.beginPath(); ctx.arc(t2[0], t2[1] - 17, 10, 0, 7); ctx.fill(); });
+    a._top = b[1] - 80;
+  } else if (m === 'hall') {
+    pPrism(x + 0.08, y + 0.2, 0.84, 0.6, 0, 40, '#e0d2b0'); pPrism(x + 0.14, y + 0.26, 0.72, 0.48, 40, 46, '#c9b98e');
+    for (let i = 0; i < 6; i++) { const u = x + 0.14 + i * 0.14, A = PP(u, y + 0.8, 36), B = PP(u, y + 0.8, 4); ctx.strokeStyle = '#f4ecd6'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); }
+    pQuad([PP(x + 0.08, y + 0.8, 40), PP(x + 0.92, y + 0.8, 40), PP(x + 0.5, y + 0.8, 54)], '#d8c898');
+    pCyl(x + 0.5, y + 0.45, 0.2, 46, 70, '#e8dcc0', '#c9a24a'); const d = PP(x + 0.5, y + 0.45, 70); ctx.fillStyle = '#d4af37'; ctx.beginPath(); ctx.arc(d[0], d[1] - 2, 15, Math.PI, 0); ctx.fill(); ctx.fillRect(d[0] - 1, d[1] - 32, 2, 16);
+    a._top = d[1] - 40;
+  } else if (m === 'telecom') {
+    pCyl(x + 0.5, y + 0.5, 0.12, 0, 240, '#cfd5e6'); pCyl(x + 0.5, y + 0.5, 0.2, 170, 190, '#aab4cf', '#e6ebfa'); pCyl(x + 0.5, y + 0.5, 0.05, 240, 300, '#e0e4f4');
+    const q = PP(x + 0.5, y + 0.5, 304); if (Math.sin(now / 420) > 0) { ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(q[0], q[1], 3.5, 0, 7); ctx.fill(); }
+    a._top = q[1];
+  }
+}
 function drawPark(a, now) {
   const x = a.x, y = a.y, s = a.seed;
   pQuad([PP(x, y, 0), PP(x + 1, y, 0), PP(x + 1, y + 1, 0), PP(x, y + 1, 0)], '#6fae52'); pQuad([PP(x + 0.06, y + 0.06, 0.4), PP(x + 0.94, y + 0.06, 0.4), PP(x + 0.94, y + 0.94, 0.4), PP(x + 0.06, y + 0.94, 0.4)], '#7fbd5e');
@@ -4614,6 +4644,8 @@ function drawTileOf(a, x, y, ox, oy, o) {
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
   if (PROC_IND[a.t]) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
+  } else if (a.t === 'npc' && a.k === 'mon') {
+    drawMonument(a, o.now);
   } else if (a.t === 'npc' && a.k === 'park') {
     drawPark(a, o.now);
   } else if (a.t === 'npc' && !a.lm && a.k !== 'house' && a.floors >= 8 && hash(a.x, a.y, 53) < 0.55) {
