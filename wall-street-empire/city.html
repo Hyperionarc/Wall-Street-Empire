@@ -436,6 +436,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .chip2{min-height:30px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:12px}
 .chip2[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
 .chip2.shelf{display:flex;flex-direction:column;align-items:flex-start;border-radius:10px;padding:5px 10px;text-align:left}
+.chip2.crp{display:flex;flex-direction:column;align-items:flex-start;border-radius:10px;padding:5px 10px;text-align:left}.chip2.crp small{color:var(--mut);font-size:10.5px;font-weight:400}
 .chip2.shelf small{color:var(--mut);font-size:10.5px;font-weight:400}
 .chip2.shelf[aria-pressed="false"]{opacity:.55;text-decoration:line-through}
 .dept{padding:8px 10px;border-radius:8px;background:var(--panel-hi);display:flex;flex-direction:column;gap:5px}
@@ -1232,7 +1233,7 @@ function newCity() {
 }
 function save() {
   try {
-    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0]);
+    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
     localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
@@ -1249,7 +1250,7 @@ function load() {
       if (r[0] === 'road') return { t: 'road', own: true, x: i % N, y: Math.floor(i / N) };
       if (!TYPES[r[0]]) return null;
       const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
-      if (r[17] && typeof r[17] === 'object') c.cfg = r[17];
+      if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3);
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
@@ -1571,11 +1572,10 @@ function deptMult(c) {
   DEPTS.forEach(([k]) => { const r = id[k] > 0.03 ? d[k] / id[k] : 1; m[k] = clamp(1 + 0.45 * (r - 1), 0.55, 1.3) * (1 + 0.06 * (tr[k] || 0)); });
   return m;
 }
-function soilMult(c) {
-  const k = TYPES[c.t].ext, dc = Math.abs(coastX(c.y) - c.x), fert = 0.85 + 0.3 * hash(c.x, c.y, 71);
-  const aff = k === 'rubber' ? (dc < 16 ? 1.25 : 0.8) : k === 'sugar' ? (dc < 30 ? 1.1 : 0.9) : k === 'cotton' ? (dc > 28 ? 1.15 : 0.9) : 1;
-  return fert * aff;
-}
+const waterDist = (x, y) => Math.max(0, coastX(y) - x);
+function fertility(x, y, k) { const d = S.dep[idx(x, y)], base = 0.6 + 0.6 * hash(x, y, 71), field = d && CROPS[d.k] ? 0.25 : 0; const dc = waterDist(x, y), aff = k === 'rubber' ? (dc < 16 ? 1.2 : 0.75) : k === 'sugar' ? (dc < 30 ? 1.1 : 0.85) : k === 'cotton' ? (dc > 28 ? 1.12 : 0.85) : 1; return clamp((base + field) * aff, 0.35, 1.6); }
+const IRR_COST = [0, 1200, 2600, 4200], droughtNow = () => Math.max(0, -Math.sin((S.macro ? S.macro.phase : 0) * 1.7 + 1));
+function soilMult(c) { const k = TYPES[c.t].ext, irr = c.irr | 0, dr = droughtNow(); return fertility(c.x, c.y, k) * (1 + 0.1 * irr) * (1 - 0.35 * dr * (1 - irr / 3)); }
 const wasteOf = c => 0.05 * TM.waste / deptMult(c).stock;
 const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? 1 - clamp(0.0035 * (c.haul || 0), 0, 0.25) : 1) * levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
@@ -1682,7 +1682,7 @@ function step() {
     if (!T.ext) return;
     const d = S.dep[idx(c.x, c.y)], fill = fillOf(c), nominal = T.rate * unitsOf(c);
     let out = nominal * fill * (S.day <= c.alertUntil ? 0.75 : 1) * (c.linked === false ? UNLINKED_EFF : 1) * (CROPS[T.ext] ? TM.crop * soilMult(c) : T.ext === 'wood' ? TM.wood : T.ext === 'oil' ? TM.oil : TM.ore);
-    if (!d || d.k !== T.ext) out = 0; else { out = Math.min(out, d.r); d.r -= out; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} à l'arrêt. Ouvre une nouvelle mine ailleurs.`, 'bad'); } }
+    if (CROPS[T.ext]) { /* sol renouvelable */ } else if (!d || d.k !== T.ext) out = 0; else { out = Math.min(out, d.r); d.r -= out; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} à l'arrêt. Ouvre une nouvelle mine ailleurs.`, 'bad'); } }
     out *= 1 - wasteOf(c); c.out = out; S.stock[T.ext] += out; made[T.ext] += out;
     c.util = nominal > 0 ? out / nominal : 0;
     c.limit = (d && d.r < 1) ? 'reserve' : c.linked === false ? 'link' : S.day <= c.alertUntil ? 'alert' : fill < 0.97 ? 'staff' : null;
@@ -1957,7 +1957,8 @@ function footprintError(x, y, key) {
     { const z = ZONE[idx(x + ox, y + oy)]; if (z === 3) return 'Impossible de construire sur la mer.'; if (!T.ext && z !== ZONE_NEED[key]) return ZONE_MSG[ZONE_NEED[key]]; }
     { const o = S.grid[idx(x + ox, y + oy)]; if (o) return o.t === 'road' ? 'C\'est une rue : construis dans les blocs.' : 'Case occupée.'; }
     const d = S.dep[idx(x + ox, y + oy)];
-    if (T.ext) { if (!d || d.k !== T.ext) return T.ext === 'wood' ? 'Il faut une forêt sous un camp de bûcherons.' : CROPS[T.ext] ? `Il faut un champ de ${DEPOSITS[T.ext].name} (terre agricole) sous cette exploitation.` : `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
+    if (T.ext && CROPS[T.ext]) { if (d && !CROPS[d.k]) return 'Cette case est un gisement : pas de ferme dessus.'; if (ZONE[idx(x + ox, y + oy)] !== 0) return 'Les fermes se construisent en campagne.'; }
+    else if (T.ext) { if (!d || d.k !== T.ext) return T.ext === 'wood' ? 'Il faut une forêt sous un camp de bûcherons.' : CROPS[T.ext] ? 'Les fermes se construisent en campagne, hors de la ville et du port.' : `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
     else if (d) return d.k === 'wood' ? 'Cette case est une forêt : réserve-la à un camp de bûcherons.' : CROPS[d.k] ? 'Cette case est une terre agricole : réserve-la à une ferme.' : 'Cette case est un gisement : réserve-la à une mine ou une carrière.';
   }
   return '';
@@ -3035,7 +3036,7 @@ function renderBuilding(force) {
   let line = '', inHtml = '', outHtml = '';
   if (T.ext) {
     const d = S.dep[idx(c.x, c.y)], full = DEPOSITS[T.ext].res;
-    inHtml = `<div class="bn"><b>Gisement · ${DEPOSITS[T.ext].name}</b><div class="bar"><i style="width:${d ? Math.round(clamp(d.r / full, 0, 1) * 100) : 0}%"></i></div><small>${d ? fmt(d.r) : 0} / ${fmt(full)}${T.ext === 'wood' ? ' · repousse +8/jour' : ''}</small></div>` +
+    inHtml = CROPS[T.ext] ? `<div class="bn"><b>Sol · ${DEPOSITS[T.ext].name}</b><small>fertilité ${Math.round(fertility(c.x, c.y, T.ext) * 100)} % · irrigation ${c.irr | 0}/3 · inépuisable</small></div><div class="bn"><b>Route</b><small class="${c.linked === false ? 'neg' : 'pos'}">${c.linked === false ? 'non reliée · 65 %' : 'reliée à la ville · 100 %'}</small></div>` : `<div class="bn"><b>Gisement · ${DEPOSITS[T.ext].name}</b><div class="bar"><i style="width:${d ? Math.round(clamp(d.r / full, 0, 1) * 100) : 0}%"></i></div><small>${d ? fmt(d.r) : 0} / ${fmt(full)}${T.ext === 'wood' ? ' · repousse +8/jour' : ''}</small></div>` +
       `<div class="bn"><b>Route</b><small class="${c.linked === false ? 'neg' : 'pos'}">${c.linked === false ? 'non reliée · 65 %' : 'reliée à la ville · 100 %'}</small></div>`;
     outHtml = `<div class="bn"><b>${gName(T.ext)}</b><small>${f1(c.out)} / jour · ${f1(S.price[T.ext])} $ · stock ${fmt(S.stock[T.ext])}</small></div>`;
   } else if (rec) {
@@ -3084,6 +3085,7 @@ function renderBuilding(force) {
     <div class="lever"><h4>Efficacité <span class="pip">${pips(c.eff || 0)}</span></h4><small>Production +8 % par niveau (machines, organisation).</small><button class="btn" data-act="eff" ${ec && S.cash >= ec ? '' : 'disabled'}>${ec ? 'Optimiser · ' + money(ec) : 'Efficacité max'}</button></div>
     ${T.ext && c.linked === false ? `<div class="lever"><h4>Logistique</h4><small>Hors réseau : rendement 65 %, transport plus cher.</small><button class="btn" data-act="link">Relier au réseau</button></div>` : ''}
     ${T.ret ? priceCard(c) : ''}
+    ${CROPS[T.ext] ? farmCard(c) : ''}
   </div>
   <div class="actions"><button class="btn sec" data-act="bull">Démolir</button></div>`;
   const html = bTab === 'int' ? htmlInt : bTab === 'wh' ? whTab(c) : bTab === 'lg' ? lgTab(c) : bTab === 'st' ? stTab(c) : bTab === 'ad' ? adTab(c) : bTab === 'ex' ? exTab(c) : finTab(c, bTab);
@@ -3110,6 +3112,8 @@ function bAct(a) {
   else if (a === 'catalog') { openCatalog(c); return; }
   else if (a.indexOf('launch:') === 0) { const k = a.slice(7); if (launchProduct(k)) c.prod = k; }
   else if (a.indexOf('train:') === 0) { const k = a.slice(6), cst = trainCost(c, k); if (cst && S.cash >= cst) { S.cash -= cst; c.invest = investOf(c) + cst; c.train = c.train || {}; c.train[k] = (c.train[k] | 0) + 1; flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cst), t: performance.now(), col: '#ff8a8e' }); } }
+  else if (a.indexOf('crop:') === 0) { const g = a.slice(5), nt = CROPS[g]; if (nt && nt !== c.t && S.cash >= 400) { S.cash -= 400; c.t = nt; c.w = 1; c.h = 1; c.born = performance.now() - 300; refreshStats(); } }
+  else if (a === 'irr') { const cst = IRR_COST[(c.irr | 0) + 1]; if (cst && S.cash >= cst) { S.cash -= cst; c.irr = (c.irr | 0) + 1; c.invest = investOf(c) + cst; } }
   else if (a === 'imp') c.imp = c.imp === false ? true : false;
   else if (a.indexOf('slot:') === 0) { const i = +a.slice(5); bPick = bPick === i ? -1 : i; }
   else if (a.indexOf('setslot:') === 0) { const [, i, k] = a.split(':'); const N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[+i] = k; bPick = -1; }
@@ -3791,6 +3795,14 @@ el('cview').addEventListener('click', e => {
 });
 ['pointerdown'].forEach(t2 => el('cview').addEventListener(t2, () => { cvDown = true; }, { passive: true }));
 ['pointerup', 'pointercancel'].forEach(t2 => window.addEventListener(t2, () => { setTimeout(() => { cvDown = false; }, 60); }, { passive: true }));
+function farmCard(c) {
+  const k = TYPES[c.t].ext, f = fertility(c.x, c.y, k), irr = c.irr | 0, dr = droughtNow(), dc = waterDist(c.x, c.y), cost = irr >= 3 ? 0 : IRR_COST[irr + 1];
+  const crops = Object.keys(CROPS).map(g => `<button class="chip2 crp" data-act="crop:${g}" aria-pressed="${g === k}"><b>${GOODS[g].name}</b><small>fertilité ${Math.round(fertility(c.x, c.y, g) * 100)} % · ${f1(GOODS[g].base)} $</small></button>`).join('');
+  return `<div class="lever wide"><h4>Culture et sol</h4><small>Choisis la culture adaptée à ta parcelle. Changer de culture coûte 400 $ (labour et semences).</small><div class="rlist">${crops}</div>
+    <div class="kpis" style="margin-top:8px"><div><small>Fertilité</small><b class="${f > 0.95 ? 'pos' : f < 0.65 ? 'neg' : ''}">${Math.round(f * 100)} %</b></div><div><small>Eau (distance à la mer)</small><b>${dc} cases</b></div><div><small>Irrigation</small><b>${'●'.repeat(irr)}${'○'.repeat(3 - irr)}</b></div><div><small>Sécheresse en cours</small><b class="${dr > 0.3 ? 'neg' : 'pos'}">${Math.round(dr * 100)} %</b></div><div><small>Rendement</small><b>${Math.round(soilMult(c) * 100)} %</b></div></div>
+    <div class="seg2" style="margin-top:6px"><button class="btn" data-act="irr" ${cost && S.cash >= cost ? '' : 'disabled'}>${cost ? 'Irriguer · ' + money(cost) : 'Irrigation maximale'}</button></div>
+    <small>${irr === 0 && dr > 0.2 ? 'Conseil : une sécheresse te coûte jusqu\'à ' + Math.round(35 * dr) + ' % de récolte, irrigue.' : f < 0.65 ? 'Conseil : sol pauvre pour cette culture, essaie une autre culture.' : 'Parcelle bien exploitée.'}</small></div>`;
+}
 function shelfItems(c) {
   const R = TYPES[c.t].ret, out = [];
   if (!R) return out;
@@ -4680,6 +4692,7 @@ function updateSiteTip() {
   if (i.kind === 'ret') { const tr = Math.round(i.traffic * 100); h += row('Fréquentation', `${tr} / 100 · ${tr > 66 ? 'forte' : tr > 33 ? 'moyenne' : 'faible'}`, tr > 66 ? 'pos' : tr < 33 ? 'neg' : '') + row('Habitants à 8 cases', fmt(i.res)) + row('Magasins concurrents à 4 cases', i.comp, i.comp > 1 ? 'neg' : '') + row('Clients estimés', `≈ ${fmt(i.cust)} / jour`); h += `<div class="adv2">${tr < 33 ? 'Zone peu fréquentée : cherche un emplacement plus dense (calque vert).' : i.comp > 1 ? 'Tu cannibalises tes propres magasins ici.' : 'Bon emplacement : la clientèle est proche.'}</div>`; }
   else if (i.kind === 'ind') { h += row('Distance moyenne de transport', `${i.haul} cases`) + row('Port / marché', `${i.dPort} / ${i.dMarket} cases`) + row('Frais de transport', `${money(i.transport)} / jour`) + row('Perte de rendement (délais)', `${(i.loss * 100).toFixed(1).replace('.', ',')} % ≈ ${money(i.lossV)} / jour`, i.loss > 0.1 ? 'neg' : '') + row('Accès routier', i.access <= 1 ? 'sur la rue' : `ruelle de ${i.access - 1} case(s) (+${money(2500 * (i.access - 1))}/an)`, i.access > 2 ? 'neg' : '') + row('Coût sur 1 an (terrain + accès + logistique)', money(i.year));
     bestTile = bestSite(hover.x, hover.y, tool); h += bestTile && bestTile.year < i.year - 50 ? `<div class="adv2">★ Meilleur emplacement proche : case (${bestTile.x + 1}, ${bestTile.y + 1}), ${money(i.year - bestTile.year)} d'économie sur 1 an.</div>` : '<div class="adv2">Tu es déjà sur un très bon emplacement.</div>'; if (!(bestTile && bestTile.year < i.year - 50)) bestTile = null; }
+  else if (i.kind === 'ext' && CROPS[T0.ext]) { const f = fertility(hover.x, hover.y, T0.ext), dc = waterDist(hover.x, hover.y); h += row('Fertilité du sol', Math.round(f * 100) + ' %', f > 0.95 ? 'pos' : f < 0.65 ? 'neg' : '') + row('Distance à la mer (eau)', dc + ' cases') + row('Distance au port', i.dPort + ' cases') + `<div class="adv2">${f < 0.65 ? 'Sol pauvre pour cette culture.' : 'Terre fertile.'} Irrigation possible ensuite (+10 % par niveau, protège de la sécheresse).</div>`; }
   else if (i.kind === 'ext') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Une route reliée au réseau évite 35 % de pertes de rendement.</div>';
   else if (i.kind === 'wh') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Plus près du port : imports et exports moins chers.</div>';
   tip.innerHTML = h; tip.hidden = false;
