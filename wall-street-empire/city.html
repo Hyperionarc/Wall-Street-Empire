@@ -756,6 +756,13 @@ const GOODS = {
   gravel:  { name: 'Gravier',              base: 5,   color: '#9a9aa5', grp: 'raw' },
   sand:    { name: 'Sable',                base: 4,   color: '#e6cf8f', grp: 'raw' },
   limestone: { name: 'Calcaire',           base: 6,   color: '#e8e4d8', grp: 'raw' },
+  wheat:   { name: 'Blé',                 base: 7,   color: '#e6c35c', grp: 'raw' },
+  sugar:   { name: 'Canne à sucre',        base: 9,   color: '#9fe08a', grp: 'raw' },
+  cotton:  { name: 'Coton',                base: 11,  color: '#eef2ff', grp: 'raw' },
+  rubber:  { name: 'Caoutchouc naturel',   base: 15,  color: '#4a4658', grp: 'raw' },
+  flour:   { name: 'Farine',               base: 14,  color: '#efe3c8', grp: 'comp' },
+  fabric:  { name: 'Tissu',                base: 26,  color: '#e86fa0', grp: 'comp' },
+  tire:    { name: 'Pneus',                base: 38,  color: '#2b2f3f', grp: 'comp' },
   ingot:   { name: 'Lingots d\'or',        base: 150, color: '#ffd76a', grp: 'comp' },
   steel:   { name: 'Acier',                base: 12,  color: '#9aa4d6', grp: 'comp' },
   plank:   { name: 'Planches',             base: 16,  color: '#d9b27c', grp: 'comp' },
@@ -789,7 +796,8 @@ const DEPOSITS = {
   wood:   { name: 'bois',    res: 4000 },
   gravel: { name: 'gravier', res: 9000 },
   sand:   { name: 'sable',   res: 9000 },
-  limestone: { name: 'calcaire', res: 8000 }
+  limestone: { name: 'calcaire', res: 8000 },
+  wheat: { name: 'blé', res: 3000 }, sugar: { name: 'canne à sucre', res: 3000 }, cotton: { name: 'coton', res: 3000 }, rubber: { name: 'caoutchouc', res: 3000 }
 };
 
 const TYPES = {
@@ -804,6 +812,10 @@ const TYPES = {
   mcoal:   { name: 'Mine charbon',  sub: 'Extraction',      cost: 900,   color: '#8f9acb', jobs: 10, upkeep: 2,  ext: 'coal',   rate: 16 },
   mcopper: { name: 'Mine cuivre',   sub: 'Extraction',      cost: 1400,  color: '#3fd8c0', jobs: 10, upkeep: 2.5, ext: 'copper', rate: 12 },
   mgold:   { name: 'Mine d\'or',    sub: 'Extraction',      cost: 2200,  color: '#f2b84b', jobs: 12, upkeep: 3,  ext: 'gold',   rate: 5, tier: 1 },
+  fwheat:  { name: 'Ferme de blé',   sub: 'Champ',         cost: 700,  color: '#e6c35c', jobs: 6, upkeep: 1.5, ext: 'wheat',  rate: 16 },
+  fsugar:  { name: 'Plantation de canne', sub: 'Champ',    cost: 800,  color: '#9fe08a', jobs: 6, upkeep: 1.5, ext: 'sugar',  rate: 16 },
+  fcotton: { name: 'Plantation de coton', sub: 'Champ',    cost: 800,  color: '#eef2ff', jobs: 6, upkeep: 1.5, ext: 'cotton', rate: 14 },
+  frubber: { name: 'Plantation d\'hévéas', sub: 'Champ',   cost: 1000, color: '#4a4658', jobs: 6, upkeep: 2,   ext: 'rubber', rate: 10 },
   logging: { name: 'Camp bûcherons', sub: 'Forêt',        cost: 900,  color: '#9b6b3a', jobs: 8,  upkeep: 2, ext: 'wood',      rate: 14 },
   qgravel: { name: 'Carrière gravier', sub: 'BTP',       cost: 1100, color: '#9a9aa5', jobs: 10, upkeep: 2, ext: 'gravel',    rate: 24 },
   qsand:   { name: 'Sablière',      sub: 'BTP',           cost: 900,  color: '#e6cf8f', jobs: 8,  upkeep: 2, ext: 'sand',      rate: 24 },
@@ -834,6 +846,9 @@ const RECIPES = {
   osb:     { name: 'Panneaux OSB',         lvl: 2, in: { wood: 4, plastic: 1 },             out: 4 },
   cement:  { name: 'Ciment',               lvl: 2, in: { limestone: 4, coal: 1 },           out: 3 },
   concrete: { name: 'Béton',               lvl: 1, in: { cement: 1, sand: 2, gravel: 3 },   out: 6 },
+  flour:   { name: 'Farine',               lvl: 1, in: { wheat: 3 },                         out: 4 },
+  fabric:  { name: 'Tissu',                lvl: 1, in: { cotton: 3 },                        out: 4 },
+  tire:    { name: 'Pneus',                lvl: 2, in: { rubber: 3, steel: 1 },              out: 2 },
   pack:    { name: 'Emballages',           lvl: 1, in: { plastic: 1, coal: 1 },             out: 5 },
   motor:   { name: 'Moteurs électriques',  lvl: 2, in: { steel: 2, wire: 2 },               out: 2 },
   battery: { name: 'Batteries',            lvl: 2, in: { wire: 2, plastic: 1, coal: 1 },    out: 3 },
@@ -844,10 +859,20 @@ const RECIPES = {
 const RKEYS = Object.keys(RECIPES);
 const FLEVEL = { f1: 1, f2: 2, f3: 3 };
 const LVL_NAME = { 1: 'petite usine', 2: 'usine moyenne', 3: 'grande usine' };
-const RAW_SRC = { wood: 'logging', gravel: 'qgravel', sand: 'qsand', limestone: 'qlime', oil: 'well', iron: 'miron', coal: 'mcoal', copper: 'mcopper', gold: 'mgold' };
+const CROPS = { wheat: 'fwheat', sugar: 'fsugar', cotton: 'fcotton', rubber: 'frubber' };
+const CROP_COL = { wheat: '#d9c25a', sugar: '#7fcf6a', cotton: '#86b861', rubber: '#2f8a4a' };
+const RAW_SRC = { wheat: 'fwheat', sugar: 'fsugar', cotton: 'fcotton', rubber: 'frubber', wood: 'logging', gravel: 'qgravel', sand: 'qsand', limestone: 'qlime', oil: 'well', iron: 'miron', coal: 'mcoal', copper: 'mcopper', gold: 'mgold' };
 // Produits finis : catégorie de vente, niveau d'usine, composants par cycle, prix de référence, R&D
 const PRODUCTS = {
   utensils: { name: 'Ustensiles de cuisine', cls: 'basic', lvl: 1, in: { steel: 4, plastic: 2 },                      out: 8, ref: 22,   rnd: 1500,  days: 5,  tier: 0, desc: 'Casseroles et poêles en acier. Un classique du quotidien.' },
+  bread:    { name: 'Pain',                  cls: 'basic', lvl: 1, in: { flour: 3 },                                 out: 10, ref: 13,  rnd: 900,   days: 3,  tier: 0, desc: 'Pains frais cuits chaque jour : un produit de première nécessité.' },
+  biscuits: { name: 'Biscuits',              cls: 'basic', lvl: 1, in: { flour: 2, sugar: 3 },                       out: 8,  ref: 24,  rnd: 1100,  days: 4,  tier: 0, desc: 'Biscuits sucrés en paquet, très demandés des familles.' },
+  candy:    { name: 'Bonbons',               cls: 'basic', lvl: 1, in: { sugar: 4, plastic: 1 },                     out: 10, ref: 18,  rnd: 1000,  days: 3,  tier: 0, desc: 'Confiserie colorée en sachet.' },
+  tshirt:   { name: 'T-shirts',              cls: 'basic', lvl: 1, in: { fabric: 3 },                                out: 6,  ref: 28,  rnd: 1200,  days: 4,  tier: 0, desc: 'T-shirts en coton pour tous les jours.' },
+  jeans:    { name: 'Jeans',                 cls: 'std',   lvl: 2, in: { fabric: 5 },                                out: 4,  ref: 85,  rnd: 3500,  days: 8,  tier: 1, desc: 'Jeans en coton épais, un classique de la mode.' },
+  sneakers: { name: 'Baskets',               cls: 'std',   lvl: 2, in: { fabric: 3, tire: 2 },                       out: 4,  ref: 140, rnd: 4500,  days: 9,  tier: 1, desc: 'Baskets en toile avec semelle en caoutchouc.' },
+  tyres:    { name: 'Pneus automobiles',     cls: 'std',   lvl: 2, in: { tire: 4 },                                  out: 4,  ref: 110, rnd: 4200,  days: 9,  tier: 1, desc: 'Pneus pour voitures, vendus en jeux de quatre.' },
+  mattress: { name: 'Matelas',               cls: 'std',   lvl: 2, in: { fabric: 5, steel: 2 },                      out: 3,  ref: 190, rnd: 4800,  days: 10, tier: 1, desc: 'Matelas à ressorts, housse en coton.' },
   toys:     { name: 'Jouets en plastique',   cls: 'basic', lvl: 1, in: { plastic: 6 },                       out: 10, ref: 20,  rnd: 1200,  days: 4,  tier: 0, desc: 'Jeux de construction en plastique pour les familles.' },
   woodtoys: { name: 'Jouets en bois',        cls: 'basic', lvl: 1, in: { plank: 5 },                                  out: 8,  ref: 26,  rnd: 1300,  days: 4,  tier: 0, desc: 'Petits trains et cubes en bois massif.' },
   chair:    { name: 'Chaise',                cls: 'basic', lvl: 1, in: { plank: 4, steel: 1 },                        out: 6,  ref: 48,  rnd: 1800,  days: 6,  tier: 0, desc: 'Chaise en bois à assise rembourrée.' },
@@ -942,6 +967,10 @@ const ICONS = {
   wh: '<path d="M3 10l9-6 9 6v10H3z"/><path d="M8 20v-6h8v6M8 17h8"/>',
   bank: '<path d="M3 9l9-5 9 5"/><path d="M5 20h14M6.5 11v6M10 11v6M14 11v6M17.5 11v6"/>',
   logging: '<path d="M12 21v-5M12 3l5 7h-3l4 6H6l4-6H7z"/>',
+  fwheat: '<path d="M12 21V8M12 8c-3-1-4-3-4-5 3 0 4 2 4 5zM12 8c3-1 4-3 4-5-3 0-4 2-4 5zM12 14c-3-1-4-3-4-5M12 14c3-1 4-3 4-5"/>',
+  fsugar: '<path d="M8 21l2-18M14 21l-2-18M6 9h12M7 15h10"/>',
+  fcotton: '<circle cx="8" cy="10" r="3"/><circle cx="15" cy="9" r="3"/><circle cx="12" cy="14" r="3"/><path d="M12 17v4"/>',
+  frubber: '<path d="M12 21V9M12 3c4 0 6 3 6 6-3 0-6-1-6-6zM12 3c-4 0-6 3-6 6 3 0 6-1 6-6zM9 16h6"/>',
   qgravel: '<path d="M3 21l4-8 4 4 4-9 6 13z"/><circle cx="6" cy="9" r="1.5"/><circle cx="12" cy="6" r="1.5"/>',
   btp: '<path d="M12 3v18M12 5h9M12 5H4M18 5v6M7 21h10"/><rect x="16" y="11" width="4" height="3"/>',
   immo: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10M10 20v-6h4v6"/>',
@@ -968,6 +997,7 @@ const TOOL_META = {
 };
 const CATS = [
   { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank', 'hq'] },
+  { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'road', 'link'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
   { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'wh', 'port'] },
@@ -1108,7 +1138,15 @@ function genDeposits() {
   [[64, 28, 3], [10, 50, 3], [36, 60, 3], [78, 12, 3]].forEach(f => disc(f[0], f[1], f[2], 'gravel'));
   [[86, 50, 3], [86, 14, 3], [50, 84, 3], [14, 84, 3]].forEach(f => disc(f[0], f[1], f[2], 'sand'));
   [[52, 22, 3], [20, 6, 3], [70, 8, 3]].forEach(f => disc(f[0], f[1], f[2], 'limestone'));
+  genCropFields(dep);
   return dep;
+}
+function genCropFields(dep) {
+  const disc = (cx, cy, r, k) => { for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const x = cx + dx, y = cy + dy; if (!inb(x, y) || ZONE[idx(x, y)] !== 0 || isRoadPos(x, y) || dep[idx(x, y)]) continue; if (Math.hypot(dx, dy) <= r * (0.72 + 0.5 * hash(x, y, 63))) dep[idx(x, y)] = { k, r: DEPOSITS[k].res }; } };
+  [[44, 60, 5], [28, 80, 4], [56, 38, 4], [90, 90, 1]].forEach(f => disc(f[0], f[1], f[2], 'wheat'));
+  [[66, 12, 4], [80, 62, 3], [60, 92, 3]].forEach(f => disc(f[0], f[1], f[2], 'sugar'));
+  [[12, 40, 4], [38, 18, 4], [8, 58, 3], [24, 92, 3]].forEach(f => disc(f[0], f[1], f[2], 'cotton'));
+  [[84, 76, 2], [82, 26, 3], [86, 44, 2]].forEach(f => disc(f[0], f[1], f[2], 'rubber'));
 }
 // ville existante : gratte-ciel (bureaux et résidences) denses au centre, plus bas en périphérie, avec 2 tours-repères
 function genNpc(grid) {
@@ -1213,6 +1251,7 @@ function load() {
     (Array.isArray(d.built) ? d.built : []).forEach(b => { const id = idx(b[0], b[1]); if (!grid[id]) grid[id] = { t: 'npc', k: b[2], seed: b[4], floors: b[3], lvl: 0, w: 1, h: 1, x: b[0], y: b[1], born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; });
     const dep = new Array(N * N).fill(null);
     (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) dep[a[0]] = { k: a[1], r: a[2] }; });
+    if (!dep.some(q => q && CROPS[q.k])) genCropFields(dep);
     const S0 = {
       cash: +d.cash, pop: +d.pop, day: d.day | 0, grid, dep, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: -1,
       milestone: 99, lastWarn: -99, tax: clamp(+d.tax || 0.25, 0.05, 0.45),
@@ -1406,6 +1445,8 @@ const TECHS = [
   { id: 'buy1', era: 1, n: 'Centrale d\'achat', c: 8000, d: 7, req: [], d2: 'Intrants et importations −6 %.', fx: { buy: 0.94 } },
   { id: 'truck1', era: 1, n: 'Flotte de camions', c: 6500, d: 6, req: [], d2: 'Coût du transport −20 %.', fx: { transport: 0.8 } },
   { id: 'till1', era: 1, n: 'Caisses automatiques', c: 7500, d: 7, req: [], d2: 'Capacité des magasins +10 %.', fx: { retail: 1.1 } },
+  { id: 'agri1', era: 1, n: 'Mécanisation agricole', c: 6500, d: 6, req: [], d2: 'Fermes et plantations +15 %.', fx: { crop: 1.15 } },
+  { id: 'agri2', era: 2, n: 'Agriculture raisonnée', c: 16000, d: 9, req: ['agri1'], d2: 'Fermes et plantations +12 %.', fx: { crop: 1.12 } },
   { id: 'blast2', era: 2, n: 'Hauts-fourneaux', c: 18000, d: 10, req: ['blast1', 'drill1'], d2: 'Toutes les usines produisent +10 %.', fx: { fac: 1.1 } },
   { id: 'wms', era: 2, n: 'Gestion des stocks (WMS)', c: 16000, d: 9, req: ['truck1'], d2: 'Pertes de production −40 %.', fx: { waste: 0.6 } },
   { id: 'crm', era: 2, n: 'Fidélisation client (CRM)', c: 17000, d: 9, req: ['till1'], d2: 'Attrait de tes magasins +10 %.', fx: { attract: 1.1 } },
@@ -1418,9 +1459,9 @@ const TECHS = [
 ];
 const TECH_BY = {}; TECHS.forEach(x => { TECH_BY[x.id] = x; });
 const ERA_N = { 1: 'Ère I · Artisanat', 2: 'Ère II · Industrie', 3: 'Ère III · Mondialisation' };
-let TM = { wood: 1, oil: 1, ore: 1, buy: 1, transport: 1, retail: 1, fac: 1, waste: 1, attract: 1, wage: 1, interest: 1, demand: 1, export: 1 };
+let TM = { crop: 1, wood: 1, oil: 1, ore: 1, buy: 1, transport: 1, retail: 1, fac: 1, waste: 1, attract: 1, wage: 1, interest: 1, demand: 1, export: 1 };
 function techMults() {
-  const m = { wood: 1, oil: 1, ore: 1, buy: 1, transport: 1, retail: 1, fac: 1, waste: 1, attract: 1, wage: 1, interest: 1, demand: 1, export: 1 };
+  const m = { crop: 1, wood: 1, oil: 1, ore: 1, buy: 1, transport: 1, retail: 1, fac: 1, waste: 1, attract: 1, wage: 1, interest: 1, demand: 1, export: 1 };
   Object.keys(S.tech || {}).forEach(id => { const T = TECH_BY[id]; if (T) Object.keys(T.fx).forEach(k => { m[k] *= T.fx[k]; }); });
   Object.keys(SKILLS).forEach(k => { const l = skillOf(k); if (l) { const fx = SKILLS[k].fx(l); Object.keys(fx).forEach(q => { m[q] *= fx[q]; }); } });
   (S.mods || []).forEach(x => { if (x.until >= S.day) m[x.k] = (m[x.k] || 1) * x.v; });
@@ -1523,6 +1564,11 @@ function deptMult(c) {
   DEPTS.forEach(([k]) => { const r = id[k] > 0.03 ? d[k] / id[k] : 1; m[k] = clamp(1 + 0.45 * (r - 1), 0.55, 1.3) * (1 + 0.06 * (tr[k] || 0)); });
   return m;
 }
+function soilMult(c) {
+  const k = TYPES[c.t].ext, dc = Math.abs(coastX(c.y) - c.x), fert = 0.85 + 0.3 * hash(c.x, c.y, 71);
+  const aff = k === 'rubber' ? (dc < 16 ? 1.25 : 0.8) : k === 'sugar' ? (dc < 30 ? 1.1 : 0.9) : k === 'cotton' ? (dc > 28 ? 1.15 : 0.9) : 1;
+  return fert * aff;
+}
 const wasteOf = c => 0.05 * TM.waste / deptMult(c).stock;
 const unitsOf = c => levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
@@ -1558,13 +1604,13 @@ function step() {
   eachBuilding(c => { c.out = 0; c.inCost = 0; c.limit = null; c.util = 0; c.pRev = 0; c.wages = 0; c.transport = 0; if (c.conn && c.t !== 'npc') buildings.push(c); });
 
   // 0. Les forêts repoussent lentement
-  for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === 'wood' && d.r < DEPOSITS.wood.res) d.r = Math.min(DEPOSITS.wood.res, d.r + 8); }
+  for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === 'wood' && d.r < DEPOSITS.wood.res) d.r = Math.min(DEPOSITS.wood.res, d.r + 8); else if (d && CROPS[d.k] && d.r < DEPOSITS[d.k].res) d.r = Math.min(DEPOSITS[d.k].res, d.r + 60); }
   // 1. Extraction (limitée par l'effectif, les gisements et les goulots)
   buildings.forEach(c => {
     const T = TYPES[c.t];
     if (!T.ext) return;
     const d = S.dep[idx(c.x, c.y)], fill = fillOf(c), nominal = T.rate * unitsOf(c);
-    let out = nominal * fill * (S.day <= c.alertUntil ? 0.75 : 1) * (c.linked === false ? UNLINKED_EFF : 1) * (T.ext === 'wood' ? TM.wood : T.ext === 'oil' ? TM.oil : TM.ore);
+    let out = nominal * fill * (S.day <= c.alertUntil ? 0.75 : 1) * (c.linked === false ? UNLINKED_EFF : 1) * (CROPS[T.ext] ? TM.crop * soilMult(c) : T.ext === 'wood' ? TM.wood : T.ext === 'oil' ? TM.oil : TM.ore);
     if (!d || d.k !== T.ext) out = 0; else { out = Math.min(out, d.r); d.r -= out; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} à l'arrêt. Ouvre une nouvelle mine ailleurs.`, 'bad'); } }
     out *= 1 - wasteOf(c); c.out = out; S.stock[T.ext] += out; made[T.ext] += out;
     c.util = nominal > 0 ? out / nominal : 0;
@@ -1840,8 +1886,8 @@ function footprintError(x, y, key) {
     { const z = ZONE[idx(x + ox, y + oy)]; if (z === 3) return 'Impossible de construire sur la mer.'; if (!T.ext && z !== ZONE_NEED[key]) return ZONE_MSG[ZONE_NEED[key]]; }
     { const o = S.grid[idx(x + ox, y + oy)]; if (o) return o.t === 'road' ? 'C\'est une rue : construis dans les blocs.' : 'Case occupée.'; }
     const d = S.dep[idx(x + ox, y + oy)];
-    if (T.ext) { if (!d || d.k !== T.ext) return T.ext === 'wood' ? 'Il faut une forêt sous un camp de bûcherons.' : `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
-    else if (d) return d.k === 'wood' ? 'Cette case est une forêt : réserve-la à un camp de bûcherons.' : 'Cette case est un gisement : réserve-la à une mine ou une carrière.';
+    if (T.ext) { if (!d || d.k !== T.ext) return T.ext === 'wood' ? 'Il faut une forêt sous un camp de bûcherons.' : CROPS[T.ext] ? `Il faut un champ de ${DEPOSITS[T.ext].name} (terre agricole) sous cette exploitation.` : `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
+    else if (d) return d.k === 'wood' ? 'Cette case est une forêt : réserve-la à un camp de bûcherons.' : CROPS[d.k] ? 'Cette case est une terre agricole : réserve-la à une ferme.' : 'Cette case est un gisement : réserve-la à une mine ou une carrière.';
   }
   return '';
 }
@@ -1851,7 +1897,7 @@ function roadError(x, y) {
   if (S.grid[idx(x, y)]) return 'Case occupée.';
   if (ZONE[idx(x, y)] === 3) return 'Impossible de construire sur la mer.';
   if (ZONE[idx(x, y)] !== 0) return 'Zone aménagée : les voies y sont fournies par la mairie.';
-  if (S.dep[idx(x, y)] && S.dep[idx(x, y)].k !== 'wood') return 'Cette case est un gisement : pas de route dessus.';
+  if (S.dep[idx(x, y)] && S.dep[idx(x, y)].k !== 'wood' && !CROPS[S.dep[idx(x, y)].k]) return 'Cette case est un gisement : pas de route dessus.';
   return '';
 }
 function placeBuilding(x, y, key) {
@@ -1914,7 +1960,7 @@ function autoConnect(x, y) {
   if (!a || a.t === 'road' || !TYPES[a.t].ext) { say('L\'outil Relier raccorde une mine ou un puits à la ville.', 'info'); return false; }
   const lm = linkedMask();
   if (extLinked(a, lm)) { say('Cette installation est déjà reliée à la ville.', 'info'); return false; }
-  const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && (!S.dep[idx(X, Y)] || S.dep[idx(X, Y)].k === 'wood') && ZONE[idx(X, Y)] === 0;
+  const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && (!S.dep[idx(X, Y)] || S.dep[idx(X, Y)].k === 'wood' || CROPS[S.dep[idx(X, Y)].k]) && ZONE[idx(X, Y)] === 0;
   const ownRoad = (X, Y) => { const c = rawCell(X, Y); return !!c && c.t === 'road' && c.own; };
   const pass = (X, Y) => free(X, Y) || ownRoad(X, Y);
   const linkedAt = (X, Y) => inb(X, Y) && lm[idx(X, Y)] === 1;
@@ -1975,6 +2021,7 @@ function inspect(x, y) {
   const d = S.dep[idx(x, y)];
   if (!c) {
     if (d && d.k === 'wood') say(`Forêt · réserve ${fmt(d.r)} unités, elle repousse lentement. Pose un camp de bûcherons.`, 'info');
+    else if (d && CROPS[d.k]) say(`Terre agricole · ${DEPOSITS[d.k].name}. Pose une exploitation dessus : le sol se renouvelle.`, 'info');
     else if (d) say(`Gisement de ${DEPOSITS[d.k].name} · réserve ${fmt(d.r)} unités. Pose une mine ou une carrière dessus.`, 'info');
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
@@ -3197,8 +3244,8 @@ function lighten(col) { const n = parseInt(col.slice(1), 16), r = Math.min(255, 
 
 /* --- extraction (forêt, mines, puits) --- */
 function mkExt(c) {
-  const T = TYPES[c.t], rnd = mkRnd(c.seed), wood = T.ext === 'wood', oil = T.ext === 'oil';
-  const sc = { kind: 'ext', ext: T.ext, wood, oil, rnd, time: 0, trees: [], ws: [], truck: { x: 640, st: 'load', load: 0, t: 0 }, bg: document.createElement('canvas'), col: GOODS[T.ext].color };
+  const T = TYPES[c.t], rnd = mkRnd(c.seed), wood = T.ext === 'wood', oil = T.ext === 'oil', crop = !!CROPS[T.ext];
+  const sc = { kind: 'ext', ext: T.ext, wood, oil, crop, rnd, time: 0, trees: [], ws: [], truck: { x: 640, st: 'load', load: 0, t: 0 }, bg: document.createElement('canvas'), col: GOODS[T.ext].color };
   for (let i = 0; i < 14; i++) sc.trees.push({ x: 60 + rnd() * 460, y: 108 + rnd() * 90, h: 46 + rnd() * 30, alive: true, fall: 0, regrow: 0, v: rnd() });
   sc.trees.sort((a, b) => a.y - b.y);
   const spots = []; for (let i = 0; i < 6; i++) spots.push({ x: 110 + i * 48, y: 150 + (i % 2) * 22 });
@@ -3209,7 +3256,7 @@ function mkExt(c) {
   const g = sc.bg.getContext('2d');
   const sky = g.createLinearGradient(0, 0, 0, 100); sky.addColorStop(0, '#26306a'); sky.addColorStop(1, '#8a6a9a'); g.fillStyle = sky; g.fillRect(0, 0, SCW, 100);
   g.fillStyle = '#1d2a4a'; g.beginPath(); g.moveTo(0, 100); for (let x = 0; x <= SCW; x += 40) g.lineTo(x, 70 + Math.sin(x * 0.013 + c.seed * 9) * 18 + Math.sin(x * 0.04) * 6); g.lineTo(SCW, 100); g.fill();
-  const gr = g.createLinearGradient(0, 96, 0, SCH); if (wood) { gr.addColorStop(0, '#4a8a3a'); gr.addColorStop(1, '#2f6a2a'); } else { gr.addColorStop(0, '#8a7a5c'); gr.addColorStop(1, '#5e5038'); }
+  const gr = g.createLinearGradient(0, 96, 0, SCH); if (wood || crop) { gr.addColorStop(0, crop ? '#8fb050' : '#4a8a3a'); gr.addColorStop(1, crop ? '#5f8a35' : '#2f6a2a'); } else { gr.addColorStop(0, '#8a7a5c'); gr.addColorStop(1, '#5e5038'); }
   g.fillStyle = gr; g.fillRect(0, 96, SCW, SCH);
   g.fillStyle = '#6b6f88'; g.fillRect(560, 168, 240, 26); g.fillStyle = 'rgba(255,255,255,.35)'; for (let x = 566; x < 800; x += 28) g.fillRect(x, 180, 14, 2);
   return sc;
@@ -3267,6 +3314,12 @@ function drawExt(sc, c, g) {
     for (let i = 0; i < 4; i++) { const x = 100 + i * 120, y = 176, a = Math.sin(t * (0.8 + clamp(c.util || 0, 0, 1) * 1.6) + i) * 0.35;
       items.push({ y, f: () => { g.save(); g.translate(x, y); g.fillStyle = '#394066'; g.fillRect(-16, -6, 32, 6); g.fillStyle = '#c4c9e8'; g.beginPath(); g.moveTo(-8, -6); g.lineTo(0, -40); g.lineTo(8, -6); g.fill(); g.save(); g.translate(0, -40); g.rotate(a); g.fillStyle = '#ff8a3d'; rrect(g, -28, -4, 52, 8, 3); g.fill(); g.fillStyle = '#233'; g.beginPath(); g.arc(-28, 0, 7, 0, 7); g.fill(); g.restore(); g.restore(); } }); }
     items.push({ y: 160, f: () => { g.fillStyle = '#9aa4d6'; rrect(g, 520, 120, 54, 48, 6); g.fill(); g.fillStyle = '#ff8a3d'; g.fillRect(526, 168 - 40 * clamp(sc.truck.st === 'load' ? 1 - sc.truck.load / 5 * 0.6 : 0.4, 0, 1), 42, 40 * clamp(sc.truck.st === 'load' ? 1 - sc.truck.load / 5 * 0.6 : 0.4, 0, 1)); } });
+  } else if (sc.crop) {
+    items.push({ y: 120, f: () => { const col = CROP_COL[sc.ext]; for (let r = 0; r < 5; r++) { const yy = 118 + r * 17; g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(60, yy + 4, 470, 3); for (let i = 0; i < 18; i++) { const xx = 70 + i * 26 + (r % 2) * 10;
+      if (sc.ext === 'wheat') { g.strokeStyle = '#a8861f'; g.lineWidth = 2; g.beginPath(); g.moveTo(xx, yy + 4); g.lineTo(xx, yy - 12); g.stroke(); g.fillStyle = '#f2d35a'; g.fillRect(xx - 2, yy - 17, 5, 8); }
+      else if (sc.ext === 'sugar') { g.strokeStyle = '#3f9a3a'; g.lineWidth = 3; g.beginPath(); g.moveTo(xx, yy + 4); g.lineTo(xx + 1, yy - 24); g.stroke(); g.strokeStyle = '#9fe08a'; g.lineWidth = 2; g.beginPath(); g.moveTo(xx + 1, yy - 24); g.lineTo(xx - 7, yy - 30); g.moveTo(xx + 1, yy - 24); g.lineTo(xx + 9, yy - 30); g.stroke(); }
+      else if (sc.ext === 'cotton') { g.fillStyle = '#5a9a45'; g.beginPath(); g.arc(xx, yy - 4, 8, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(xx - 3, yy - 7, 3.4, 0, 7); g.arc(xx + 4, yy - 3, 3.4, 0, 7); g.arc(xx + 1, yy - 9, 3, 0, 7); g.fill(); }
+      else { g.fillStyle = '#6b4a2a'; g.fillRect(xx - 2, yy - 18, 4, 22); g.fillStyle = '#1f7a40'; g.beginPath(); g.arc(xx, yy - 22, 10, 0, 7); g.fill(); g.fillStyle = '#e9edff'; g.fillRect(xx + 3, yy - 6, 4, 4); } } } } });
   } else {
     items.push({ y: 140, f: () => {
       const k = 0.75 + 0.25 * (sc.ratio || 0); g.save(); g.translate(120, 160);
@@ -3292,6 +3345,13 @@ function drawItem(g, k, x, y, s) {
     case 'basic': R(-12, -24, 24, 24, 3, '#d9b27c'); R(-12, -24, 24, 6, 2, '#c99a58'); g.fillStyle = '#69db7c'; g.beginPath(); g.arc(-4, -26, 4, 0, 7); g.fill(); g.fillStyle = '#ff6b6b'; g.beginPath(); g.arc(4, -27, 4, 0, 7); g.fill(); break;
     case 'std': R(-14, -26, 28, 26, 3, '#e3e8f5'); R(-14, -26, 28, 6, 2, '#9aa4d6'); g.fillStyle = '#7f96ff'; g.beginPath(); g.arc(0, -11, 7, 0, 7); g.fill(); g.fillStyle = '#e3e8f5'; g.beginPath(); g.arc(0, -11, 4, 0, 7); g.fill(); break;
     case 'lux': R(-14, -22, 28, 22, 2, '#2b3358'); R(-14, -22, 28, 5, 1, '#f2b84b'); R(-2, -22, 4, 22, 0, '#f2b84b'); g.fillStyle = '#f2b84b'; g.beginPath(); g.arc(-5, -25, 4, 0, 7); g.arc(5, -25, 4, 0, 7); g.fill(); break;
+    case 'wheat': g.strokeStyle = '#a8861f'; g.lineWidth = 2; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 6, 0); g.lineTo(i * 6, -20); g.stroke(); g.fillStyle = '#f2d35a'; g.fillRect(i * 6 - 2, -28, 5, 10); } break;
+    case 'sugar': g.strokeStyle = '#3f9a3a'; g.lineWidth = 4; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(i * 8, 0); g.lineTo(i * 8 + 2, -26); g.stroke(); } g.strokeStyle = '#d6f5c8'; g.lineWidth = 2; g.beginPath(); g.moveTo(-9, -10); g.lineTo(-5, -10); g.moveTo(-1, -16); g.lineTo(3, -16); g.stroke(); break;
+    case 'cotton': g.fillStyle = '#5a9a45'; g.beginPath(); g.arc(0, -6, 9, 0, 7); g.fill(); g.fillStyle = '#fff'; [[-4, -10], [4, -6], [0, -14], [-5, -4]].forEach(a => { g.beginPath(); g.arc(a[0], a[1], 4.5, 0, 7); g.fill(); }); break;
+    case 'rubber': g.fillStyle = '#3d3a45'; g.beginPath(); g.ellipse(0, -8, 14, 8, 0, 0, 7); g.fill(); g.fillStyle = '#6a6678'; g.beginPath(); g.ellipse(-3, -11, 5, 3, 0, 0, 7); g.fill(); break;
+    case 'flour': R(-13, -24, 26, 24, 4, '#efe3c8'); R(-13, -24, 26, 6, 3, '#d9c9a0'); R(-8, -14, 16, 7, 1, '#c98a3a'); break;
+    case 'fabric': g.fillStyle = '#e86fa0'; g.beginPath(); g.ellipse(0, -12, 16, 12, 0, 0, 7); g.fill(); g.fillStyle = '#f6a6c6'; g.beginPath(); g.ellipse(0, -12, 7, 5, 0, 0, 7); g.fill(); g.fillStyle = '#c94a82'; g.fillRect(-16, -12, 32, 12); g.fillStyle = '#e86fa0'; g.beginPath(); g.ellipse(0, 0, 16, 5, 0, 0, 7); g.fill(); break;
+    case 'tire': g.fillStyle = '#23262f'; g.beginPath(); g.arc(0, -14, 14, 0, 7); g.fill(); g.fillStyle = '#8f9acb'; g.beginPath(); g.arc(0, -14, 6, 0, 7); g.fill(); g.strokeStyle = '#3d4150'; g.lineWidth = 2; g.beginPath(); g.arc(0, -14, 10, 0, 7); g.stroke(); break;
     case 'wood':
       R(-24, -15, 46, 16, 7, '#7a4e2a'); g.strokeStyle = '#5a3a1e'; g.lineWidth = 1; for (let i = -16; i < 18; i += 8) { g.beginPath(); g.moveTo(i, -13); g.lineTo(i + 3, -3); g.stroke(); }
       g.fillStyle = '#e0b878'; g.beginPath(); g.ellipse(22, -7, 5, 8, 0, 0, 7); g.fill(); g.strokeStyle = '#a97a40'; g.beginPath(); g.ellipse(22, -7, 2.5, 4.5, 0, 0, 7); g.stroke(); break;
@@ -3343,7 +3403,7 @@ function compIcon(k) { if (!compIcons[k]) { const cv = document.createElement('c
 function facKind(rec) {
   const o = rec.out;
   if (PRODUCTS[o]) return 'assembly';
-  return ({ plank: 'saw', stud: 'saw', osb: 'press', steel: 'furnace', ingot: 'furnace', gcase: 'furnace', wire: 'spool', plastic: 'reactor', cement: 'kiln', concrete: 'mixer', pack: 'pack', motor: 'assembly', battery: 'assembly', circuit: 'assembly', screen: 'assembly' })[o] || 'generic';
+  return ({ plank: 'saw', stud: 'saw', osb: 'press', steel: 'furnace', ingot: 'furnace', gcase: 'furnace', wire: 'spool', plastic: 'reactor', cement: 'kiln', concrete: 'mixer', pack: 'pack', flour: 'mixer', fabric: 'spool', tire: 'press', motor: 'assembly', battery: 'assembly', circuit: 'assembly', screen: 'assembly' })[o] || 'generic';
 }
 function mkFac(c) {
   const rec = recOf(c), rnd = mkRnd(c.seed), ins = Object.keys(rec.in).slice(0, 3);
@@ -3560,7 +3620,7 @@ function hasSource(g) {
   else if (g === 'ingot') eachBuilding(b => { if (b.t === 'foundry') ok = true; });
   return ok;
 }
-const RGRP = { plank: 'Bois et construction', stud: 'Bois et construction', osb: 'Bois et construction', cement: 'Bois et construction', concrete: 'Bois et construction', steel: 'Métal, énergie, emballage', plastic: 'Métal, énergie, emballage', wire: 'Métal, énergie, emballage', pack: 'Métal, énergie, emballage', motor: 'Électronique', battery: 'Électronique', circuit: 'Électronique', screen: 'Électronique', gcase: 'Électronique' };
+const RGRP = { flour: 'Agriculture et textile', fabric: 'Agriculture et textile', tire: 'Agriculture et textile', plank: 'Bois et construction', stud: 'Bois et construction', osb: 'Bois et construction', cement: 'Bois et construction', concrete: 'Bois et construction', steel: 'Métal, énergie, emballage', plastic: 'Métal, énergie, emballage', wire: 'Métal, énergie, emballage', pack: 'Métal, énergie, emballage', motor: 'Électronique', battery: 'Électronique', circuit: 'Électronique', screen: 'Électronique', gcase: 'Électronique' };
 const CLSN = { basic: 'Biens de base', std: 'Biens manufacturés', lux: 'Produits de luxe', estate: 'Immobilier' };
 const gPriceAny = g => GOODS[g] ? S.price[g] : (PRODUCTS[g] ? prodPrice(g) : 0);
 function recipeItems(c) {
@@ -3984,6 +4044,16 @@ function mixC(a, b, t) {
 }
 
 // gisements dessinés sur le sol
+function drawField(p, d, x, y) {
+  const col = CROP_COL[d.k];
+  ctx.fillStyle = col; ctx.globalAlpha *= 0.72; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill(); ctx.globalAlpha /= 0.72;
+  ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 2; for (let k = 1; k < 4; k++) { const a = iso(x, y + k / 4), b = iso(x + 1, y + k / 4); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+  for (let k = 1; k < 4; k++) for (let j = 0; j < 3; j++) { const q = iso(x + (j + 0.5) / 3, y + k / 4);
+    if (d.k === 'wheat') { ctx.strokeStyle = '#a8861f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x, q.y - 10); ctx.stroke(); ctx.fillStyle = '#f2d35a'; ctx.fillRect(q.x - 2, q.y - 14, 4, 6); }
+    else if (d.k === 'sugar') { ctx.strokeStyle = '#3f9a3a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x + 1, q.y - 18); ctx.stroke(); ctx.strokeStyle = '#9fe08a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q.x + 1, q.y - 18); ctx.lineTo(q.x - 5, q.y - 22); ctx.moveTo(q.x + 1, q.y - 18); ctx.lineTo(q.x + 7, q.y - 22); ctx.stroke(); }
+    else if (d.k === 'cotton') { ctx.fillStyle = '#5a9a45'; ctx.beginPath(); ctx.arc(q.x, q.y - 5, 6, 0, 7); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(q.x - 2, q.y - 7, 2.6, 0, 7); ctx.arc(q.x + 3, q.y - 4, 2.6, 0, 7); ctx.fill(); }
+    else { ctx.fillStyle = '#6b4a2a'; ctx.fillRect(q.x - 1.5, q.y - 14, 3, 14); ctx.fillStyle = '#1f7a40'; ctx.beginPath(); ctx.arc(q.x, q.y - 17, 8, 0, 7); ctx.fill(); ctx.fillStyle = '#e9edff'; ctx.fillRect(q.x + 2, q.y - 6, 3, 3); } }
+}
 function drawDeposit(p, d, now, x, y) {
   const cx = p.x, cy = p.y + TH / 2, k = d.k;
   ctx.save(); ctx.globalAlpha = d.r > 0 ? 1 : 0.35;
@@ -4204,7 +4274,7 @@ function drawTowerCrane(cx, cy, now, seed) {
   ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, cy - 154, 3.5, 0, 7); ctx.fill();
 }
 /* ---------- Bâtiments procéduraux : usines, entrepôts, fonderie ; toits des tours ---------- */
-const PROC_IND = { f1: 1, f2: 1, f3: 1, wh: 1, foundry: 1 };
+const PROC_IND = { f1: 1, f2: 1, f3: 1, wh: 1, foundry: 1, fwheat: 1, fsugar: 1, fcotton: 1, frubber: 1 };
 const WALLS = { f1: ['#d8c9a8', '#c9d2dc', '#d4a98f', '#bfd0c0'], f2: ['#b9c6d6', '#c5ccb4', '#cdbba6'], f3: ['#a9b4c6', '#b9bfc9'], wh: ['#c8cfd9', '#d9c6a0', '#b7c9c4'], foundry: ['#a8605a', '#9a6a52'] };
 function shade(hex, k) { const n = parseInt(hex.slice(1, 7), 16), c = v => Math.min(255, Math.max(0, v | 0)).toString(16).padStart(2, '0'); return '#' + c((n >> 16) * k) + c(((n >> 8) & 255) * k) + c((n & 255) * k); }
 function pQuad(pts, fill) { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); }
@@ -4260,6 +4330,12 @@ function drawIndustrial(a, now, grow) {
     pPrism(x + 0.62, y + 0.02, 0.28, 0.2, 0, 14, ['#ff8a3d', '#3fd8ff', '#ff4fa3', '#69db7c'][Math.floor(seed * 4)]); pPrism(x + 0.62, y + 0.02, 0.28, 0.2, 14, 28, ['#46d39a', '#ffd43b', '#7f96ff'][Math.floor(seed * 3)]);
     if (act || Math.sin(now / 400 + seed * 9) > 0) { const q = PP(x + 0.5, y + 0.9, 52); ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(q[0], q[1], 3, 0, 7); ctx.fill(); }
     zTop = 56;
+  } else if (CROPS[TYPES[a.t].ext]) {
+    const cc = { wheat: '#d9a441', sugar: '#6fbf5a', cotton: '#e9edff', rubber: '#2f8a4a' }[TYPES[a.t].ext];
+    pPrism(x + 0.12, y + 0.14, 0.46, 0.42, 0, 20 * gg, '#b5483a'); pPrism(x + 0.1, y + 0.12, 0.5, 0.46, 20 * gg, 26 * gg, '#7a2f26'); pPrism(x + 0.18, y + 0.2, 0.34, 0.3, 26 * gg, 31 * gg, '#9a3a2e');
+    pCyl(x + 0.74, y + 0.3, 0.1, 0, 44 * gg, '#cfd5e6'); pQuad([PP(x + 0.14, y + 0.6, 12), PP(x + 0.3, y + 0.6, 12), PP(x + 0.3, y + 0.6, 0), PP(x + 0.14, y + 0.6, 0)], '#4a2a20');
+    pPrism(x + 0.62, y + 0.62, 0.3, 0.2, 0, 7, cc); const q = PP(x + 0.2, y + 0.7, 16); ctx.fillStyle = cc; ctx.fillRect(q[0] - 1, q[1] - 14, 3, 14); ctx.fillRect(q[0], q[1] - 14, 14, 8);
+    zTop = 46;
   } else if (a.t === 'foundry') {
     pPrism(x + 0.12, y + 0.14, 0.76, 0.72, 0, 34 * gg, wall); pPrism(x + 0.1, y + 0.12, 0.8, 0.76, 34 * gg, 40 * gg, '#6a5148');
     const gl = act ? 0.7 + 0.3 * Math.sin(now / 120) : 0.2, q1 = PP(x + 0.3, y + 0.86, 24), q2 = PP(x + 0.7, y + 0.86, 4);
@@ -4343,7 +4419,7 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
     drawLoggingCamp(p, now, a.seed, conn && a.out > 0.01); topY = p.y - 24;
   } else if (a.t === 'qgravel' || a.t === 'qsand' || a.t === 'qlime') {
     drawQuarry(p, now, a.seed, conn && a.out > 0.01, a.t); topY = p.y - 30;
-  } else if (T.ext) {
+  } else if (T.ext && !PROC_IND[a.t]) {
     const col = { miron: '#b4614a', mcoal: '#2a2c3a', mcopper: '#2fb89d', mgold: '#f2b84b' }[a.t];
     if (grow >= 1) {
       if (a.t === 'mgold' && conn) { ctx.shadowColor = '#f2b84b'; ctx.shadowBlur = 16; }
@@ -4501,6 +4577,7 @@ function frame(now) {
       const d = S.dep[idx(x, y)];
       if (d) {
         if (d.k === 'wood') { ctx.fillStyle = 'rgba(28,92,44,.38)'; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill(); }
+        else if (CROPS[d.k]) drawField(p, d, x, y);
         else drawDeposit(p, d, now, x, y);
         if (wantDep === d.k && !rc) { ctx.lineWidth = 4; poly(tilePts(p, 0.92), null, `rgba(255,255,255,${0.35 + 0.5 * pulse})`); }
       }
@@ -4581,7 +4658,7 @@ function frame(now) {
 const mmOff = document.createElement('canvas'); mmOff.width = N; mmOff.height = N;
 const mmOffCtx = mmOff.getContext('2d');
 const MM_COL = { hq: [255, 215, 106], road: [120, 128, 170], res: [127, 150, 255], tech: [63, 216, 255], bank: [242, 184, 75], well: [255, 138, 61], miron: [196, 102, 74], mcoal: [143, 154, 203], mcopper: [63, 216, 192], mgold: [242, 184, 75], logging: [110, 170, 90], qgravel: [154, 154, 165], qsand: [230, 207, 143], qlime: [232, 228, 216], btp: [255, 179, 71], immo: [255, 179, 71], foundry: [255, 215, 106], f1: [70, 211, 154], f2: [127, 150, 255], f3: [255, 79, 163], s1: [70, 211, 154], s2: [127, 150, 255], s3: [255, 79, 163], port: [95, 176, 255] };
-const DEP_COL = { oil: [60, 40, 110], iron: [150, 80, 55], coal: [60, 62, 80], copper: [40, 150, 130], gold: [220, 170, 50], wood: [40, 100, 55], gravel: [120, 120, 130], sand: [210, 190, 120], limestone: [215, 212, 200] };
+const DEP_COL = { wheat: [217, 194, 90], sugar: [127, 207, 106], cotton: [160, 196, 140], rubber: [47, 138, 74], oil: [60, 40, 110], iron: [150, 80, 55], coal: [60, 62, 80], copper: [40, 150, 130], gold: [220, 170, 50], wood: [40, 100, 55], gravel: [120, 120, 130], sand: [210, 190, 120], limestone: [215, 212, 200] };
 function drawMinimap() {
   if (!S) return;
   const img = mmOffCtx.createImageData(N, N), d = img.data;
