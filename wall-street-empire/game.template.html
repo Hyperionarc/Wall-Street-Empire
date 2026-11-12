@@ -1629,16 +1629,26 @@ function siteInfo(x, y, key) {
   else if (FLEVEL[key] || key === 'foundry') {
     const rec = T.rec, haul = facHaul(x, y, rec), loss = clamp(0.0035 * haul, 0, 0.25), outU = Object.values(rec.out)[0], price = S.price[Object.keys(rec.out)[0]] || 20;
     const inU = Object.values(rec.in).reduce((a, b) => a + b, 0), transport = (inU + outU) * haul * TRANS * cpi(), lossV = outU * price * loss;
-    info.kind = 'ind'; info.haul = haul; info.loss = loss; info.transport = transport; info.lossV = lossV; info.year = land + 360 * (transport + lossV);
+    info.kind = 'ind'; info.haul = haul; info.loss = loss; info.transport = transport; info.lossV = lossV; info.access = roadDist(x, y, key); info.year = land + 360 * (transport + lossV) + 2500 * Math.max(0, info.access - 1);
     info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); info.dMarket = marketDist(x, y);
   } else if (T.ext) { info.kind = 'ext'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
   else if (key === 'wh') { info.kind = 'wh'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
   else info.kind = 'oth';
   return info;
 }
+function roadDist(x, y, key) {
+  const T = TYPES[key], w = T.w || 1, h = T.h || 1; let best = 9;
+  for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) for (let dx = -REACH; dx <= REACH; dx++) for (let dy = -REACH; dy <= REACH; dy++) { const d = Math.abs(dx) + Math.abs(dy); if (d <= REACH && d < best && isRoad(x + ox + dx, y + oy + dy)) best = d; }
+  return best;
+}
+function roadNear(x, y, key) {
+  const T = TYPES[key], w = T.w || 1, h = T.h || 1;
+  for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) for (let dx = -REACH; dx <= REACH; dx++) for (let dy = -REACH; dy <= REACH; dy++) { if (Math.abs(dx) + Math.abs(dy) <= REACH && isRoad(x + ox + dx, y + oy + dy)) return true; }
+  return false;
+}
 function bestSite(x, y, key) {
   const T = TYPES[key]; if (!(FLEVEL[key] || key === 'foundry')) return null; let best = null;
-  for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const X = x + dx, Y = y + dy; if (!inb(X, Y) || footprintError(X, Y, key)) continue; const i = siteInfo(X, Y, key); if (i && (!best || i.year < best.year)) best = { x: X, y: Y, year: i.year }; }
+  for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const X = x + dx, Y = y + dy; if (!inb(X, Y) || footprintError(X, Y, key) || !roadNear(X, Y, key)) continue; const i = siteInfo(X, Y, key); if (i && (!best || i.year < best.year)) best = { x: X, y: Y, year: i.year }; }
   return best;
 }
 
@@ -4666,8 +4676,9 @@ function updateSiteTip() {
   const i = siteInfo(hover.x, hover.y, tool); if (!i) { tip.hidden = true; return; }
   const row = (a, b, c) => `<div class="r"><span>${a}</span><span class="${c || ''}">${b}</span></div>`;
   let h = `<b>Analyse de l'emplacement · ${T0.name}</b>` + row('Construction', money(i.build)) + row('Terrain', money(i.land), i.land > 1500 ? 'neg' : '') + row('Coût total', money(i.total), S.cash >= i.total ? 'pos' : 'neg');
+  if (!TYPES[tool].ext && !roadNear(hover.x, hover.y, tool)) h += '<div class="adv2" style="color:var(--red)">⚠ Aucune rue à moins de 3 cases : ce bâtiment ne produirait rien. Rapproche-toi d\'un axe routier.</div>';
   if (i.kind === 'ret') { const tr = Math.round(i.traffic * 100); h += row('Fréquentation', `${tr} / 100 · ${tr > 66 ? 'forte' : tr > 33 ? 'moyenne' : 'faible'}`, tr > 66 ? 'pos' : tr < 33 ? 'neg' : '') + row('Habitants à 8 cases', fmt(i.res)) + row('Magasins concurrents à 4 cases', i.comp, i.comp > 1 ? 'neg' : '') + row('Clients estimés', `≈ ${fmt(i.cust)} / jour`); h += `<div class="adv2">${tr < 33 ? 'Zone peu fréquentée : cherche un emplacement plus dense (calque vert).' : i.comp > 1 ? 'Tu cannibalises tes propres magasins ici.' : 'Bon emplacement : la clientèle est proche.'}</div>`; }
-  else if (i.kind === 'ind') { h += row('Distance moyenne de transport', `${i.haul} cases`) + row('Port / marché', `${i.dPort} / ${i.dMarket} cases`) + row('Frais de transport', `${money(i.transport)} / jour`) + row('Perte de rendement (délais)', `${(i.loss * 100).toFixed(1).replace('.', ',')} % ≈ ${money(i.lossV)} / jour`, i.loss > 0.1 ? 'neg' : '') + row('Coût sur 1 an (terrain + logistique)', money(i.year));
+  else if (i.kind === 'ind') { h += row('Distance moyenne de transport', `${i.haul} cases`) + row('Port / marché', `${i.dPort} / ${i.dMarket} cases`) + row('Frais de transport', `${money(i.transport)} / jour`) + row('Perte de rendement (délais)', `${(i.loss * 100).toFixed(1).replace('.', ',')} % ≈ ${money(i.lossV)} / jour`, i.loss > 0.1 ? 'neg' : '') + row('Accès routier', i.access <= 1 ? 'sur la rue' : `ruelle de ${i.access - 1} case(s) (+${money(2500 * (i.access - 1))}/an)`, i.access > 2 ? 'neg' : '') + row('Coût sur 1 an (terrain + accès + logistique)', money(i.year));
     bestTile = bestSite(hover.x, hover.y, tool); h += bestTile && bestTile.year < i.year - 50 ? `<div class="adv2">★ Meilleur emplacement proche : case (${bestTile.x + 1}, ${bestTile.y + 1}), ${money(i.year - bestTile.year)} d'économie sur 1 an.</div>` : '<div class="adv2">Tu es déjà sur un très bon emplacement.</div>'; if (!(bestTile && bestTile.year < i.year - 50)) bestTile = null; }
   else if (i.kind === 'ext') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Une route reliée au réseau évite 35 % de pertes de rendement.</div>';
   else if (i.kind === 'wh') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Plus près du port : imports et exports moins chers.</div>';
