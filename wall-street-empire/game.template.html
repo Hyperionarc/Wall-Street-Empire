@@ -1268,7 +1268,7 @@ function newCity() {
 }
 function save() {
   try {
-    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0]);
+    const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
     localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
@@ -1285,7 +1285,7 @@ function load() {
       if (r[0] === 'road') return { t: 'road', own: true, x: i % N, y: Math.floor(i / N) };
       if (!TYPES[r[0]]) return null;
       const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
-      if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3);
+      if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3); if (r[19] && typeof r[19] === 'object') c.src = r[19];
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
@@ -1815,7 +1815,7 @@ function step() {
   STAFF = staff;
   const boom = S.day <= S.boomUntil ? 0.25 : 0;
   const mult = 1 + Math.min(0.3, cn.bank * 0.1) + boom;
-  const used = {};
+  const used = {}; let indImport = 0;
   const made = {}, want = {}, sold = { basic: 0, std: 0, lux: 0, estate: 0 };
   GKEYS.forEach(g => { made[g] = 0; want[g] = 2; });   // 2 = demande d'export de base
   const buildings = [];
@@ -1839,6 +1839,16 @@ function step() {
     if (!list.length) return;
     let units = 0;
     list.forEach(c => { c._un = unitsOf(c); c._u = c._un * fillOf(c); units += c._u; });
+    list.forEach(c => { c._impCost = 0; c._impIn = 0; });
+    // fournisseurs : chaque usine choisit pour chaque intrant Auto (stock local puis port), Port (import) ou Local (stock seulement)
+    Object.keys(inp).forEach(g => {
+      const impR = Math.max(0.6, 0.85 - 0.06 * (cn.port || 0)) * 1.12 * TM.buy * modOf('buy');
+      let tot = 0; list.forEach(c => { tot += c._u * inp[g]; });
+      let short = Math.max(0, tot - S.stock[g]);
+      list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0;
+        if (mode === 'port') q = need; else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }
+        if (q > 0.01) { const cost = q * S.price[g] * impR * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; indImport += cost; c._impCost = (c._impCost || 0) + cost; c._impIn = (c._impIn || 0) + q; } });
+    });
     let r = units, lim = null;
     Object.keys(inp).forEach(g => { want[g] += units * inp[g]; const rr = S.stock[g] / inp[g]; if (rr < r) { r = rr; lim = g; } });
     if (tgt.good) { const room = roomFor(tgt.good) / tgt.qty; if (room < r) { r = room; lim = '_full'; } }   // l'atelier s'arrête quand le stock est plein
@@ -1852,7 +1862,7 @@ function step() {
       const share = units > 0 ? c._u / units : 0;
       c.out = r * share * tgt.qty * (1 - wasteOf(c));
       c.util = c._un > 0 ? r * share / c._un : 0;
-      let ic = 0; Object.keys(inp).forEach(g => { ic += r * share * inp[g] * S.price[g]; }); c.inCost = ic / deptMult(c).buy * TM.buy;
+      let ic = 0; Object.keys(inp).forEach(g => { ic += r * share * inp[g] * S.price[g]; }); c.inCost = ic / deptMult(c).buy * TM.buy + (c._impCost || 0);
       c.limit = r < units - 1e-6 ? lim : (fillOf(c) < 0.97 ? 'staff' : null);
     });
   };
@@ -1877,7 +1887,7 @@ function step() {
   buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow(1 / (c.pf || 1), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (0.65 + 0.7 * (c.traffic == null ? 0.5 : c.traffic)); c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
   const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF * c.pw; } }); return w > 0 ? s / w : 1; };
   const importRate = Math.max(0.6, 0.85 - 0.06 * (cn.port || 0));   // les terminaux portuaires du joueur baissent le coût des importations
-  let importCost = 0, importUnits = 0;
+  let importCost = indImport, importUnits = 0;
   const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
   let revRetVal = 0;
   PKEYS.forEach(pk => { const ps = S.prod[pk]; ps.sold = 0; ps.rev = 0; ps.share = 0; });
@@ -4005,6 +4015,7 @@ function whTab(c) {
     <table class="fint whtab"><tr><th>Bien</th><th>Stocker</th><th>En stock ici</th><th>Importer</th><th>Exporter</th></tr>${rows}</table>`;
 }
 el('bview').addEventListener('change', e => { const w = e.target.dataset && e.target.dataset.whc; if (!w || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; const [g, f] = w.split(':'); c.cfg = c.cfg || {}; c.cfg[g] = c.cfg[g] || {}; if (f === 's') c.cfg[g].s = e.target.checked ? 1 : 0; else c.cfg[g][f] = +e.target.value; bvHtml = ''; renderBuilding(true); });
+el('bview').addEventListener('change', e => { const sg = e.target.dataset && e.target.dataset.src; if (!sg || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.src = c0.src || {}; c0.src[sg] = e.target.value; bvHtml = ''; renderBuilding(true); });
 function trainCost(c, k) { const l = (c.train && c.train[k]) | 0; return l >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.2 * (1 + l)); }
 function stTab(c) {
   const T = TYPES[c.t], d = deptOf(c), id = deptIdeal(c), m = deptMult(c), tot = jobsOf(c), fill = fillOf(c), tr = c.train || (c.train = { prod: 0, buy: 0, stock: 0, sell: 0 });
@@ -4026,7 +4037,7 @@ function silo(label, st, cap, col, extra) { const p = clamp(st / cap, 0, 1); ret
 function lgTab(c) {
   const T = TYPES[c.t], rec = recOf(c), cap = baseCap(), links = b => `<button class="crow" data-open="${b.x},${b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[b.t].name}</b><small>case ${b.x + 1}, ${b.y + 1}</small></span><span class="mg">${f1(b.out)}/j</span></button>`;
   let ins = '', outs = '';
-  if (rec) ins = Object.keys(rec.in).map(g => { const need = rec.in[g] * (c._u || 0), st = gStock(g), sup = suppliersOf(g), supply = sup.reduce((a, b) => a + b.out, 0), aut = need > 0.01 ? st / need : null; return `<div class="lcol">${silo(gName(g), st, cap, GOODS[g] ? GOODS[g].color : '#8f9acb', `<small class="${aut != null && aut < 2 ? 'neg' : 'pos'}">${aut == null ? 'inutilisé' : 'autonomie ' + (aut > 99 ? '99+' : f1(aut)) + ' j'}</small>`)}<div class="lsub"><small>Besoin ${f1(need)}/j · offre ${f1(supply)}/j · <b class="${supply >= need ? 'pos' : 'neg'}">${supply >= need ? 'excédent' : 'déficit'}</b></small>${sup.slice(0, 4).map(links).join('') || '<small class="neg">Aucun fournisseur</small>'}</div></div>`; }).join('');
+  if (rec) ins = Object.keys(rec.in).map(g => { const need = rec.in[g] * (c._u || 0), st = gStock(g), sup = suppliersOf(g), supply = sup.reduce((a, b) => a + b.out, 0), aut = need > 0.01 ? st / need : null; const mode = (c.src && c.src[g]) || 'auto', impP = S.price[g] * Math.max(0.6, 0.85 - 0.06 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)) * 1.12 * (1 + 0.004 * (c.haul || 0)); const sel = `<select data-src="${g}" aria-label="Fournisseur de ${gName(g)}" style="background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:11.5px"><option value="auto" ${mode === 'auto' ? 'selected' : ''}>Auto : stock local puis port</option><option value="local" ${mode === 'local' ? 'selected' : ''}>Local uniquement (${f1(S.price[g])} $)</option><option value="port" ${mode === 'port' ? 'selected' : ''}>Port : import (${f1(impP)} $ livré)</option></select>`; return `<div class="lcol">${silo(gName(g), st, cap, GOODS[g] ? GOODS[g].color : '#8f9acb', `<small class="${aut != null && aut < 2 ? 'neg' : 'pos'}">${aut == null ? 'inutilisé' : 'autonomie ' + (aut > 99 ? '99+' : f1(aut)) + ' j'}</small>`)}<div class="lsub">${sel}<small>Besoin ${f1(need)}/j · offre ${f1(supply)}/j${c._impIn > 0.01 ? ' · importé ' + f1(c._impIn) + '/j' : ''} · <b class="${supply >= need ? 'pos' : 'neg'}">${supply >= need ? 'excédent' : 'déficit'}</b></small>${sup.slice(0, 4).map(links).join('') || '<small class="neg">Aucun fournisseur</small>'}</div></div>`; }).join('');
   else if (T.ext) ins = `<div class="lcol">${(() => { const d = S.dep[idx(c.x, c.y)], full = DEPOSITS[T.ext].res; return silo('Gisement · ' + DEPOSITS[T.ext].name, d ? d.r : 0, full, '#8a6a3a', `<small>${T.ext === 'wood' ? 'repousse +8/j' : 'non renouvelable'}</small>`); })()}</div>`;
   else if (T.ret) ins = shelfItems(c).map(it => `<div class="lcol">${silo(it.name, it.stock, cap, '#7f96ff', `<small>${f1(c.sales && c.sales[it.key] || 0)} vendus/j${it.gen ? ' · ' + (c.imp === false ? 'import coupé' : 'import par le port') : ''}</small>`)}</div>`).join('');
   if (rec) { const g = rec.out, st = gStock(g), cons = consumersOf(g), use = cons.reduce((a, x) => a + x.need, 0); outs = `<div class="lcol">${silo(gName(g), st, g in GOODS ? cap : 80, GOODS[g] ? GOODS[g].color : '#ffd76a', `<small>produit ${f1(c.out)}/j</small>`)}<div class="lsub"><small>Demande ${f1(use)}/j · <b class="${use >= c.out ? 'pos' : 'neg'}">${use >= c.out ? 'tout est écoulé' : 'surproduction'}</b></small>${cons.slice(0, 4).map(x => `<button class="crow" data-open="${x.b.x},${x.b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[x.b.t].name}</b><small>case ${x.b.x + 1}, ${x.b.y + 1}</small></span><span class="mg">${f1(x.need)}/j</span></button>`).join('') || '<small>Vendu aux commerces ou exporté par le port</small>'}</div></div>`; }
