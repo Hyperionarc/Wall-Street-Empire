@@ -1186,7 +1186,10 @@ function genCropFields(dep) {
   [[84, 76, 2], [82, 26, 3], [86, 44, 2]].forEach(f => disc(f[0], f[1], f[2], 'rubber'));
 }
 // ville existante : gratte-ciel (bureaux et résidences) denses au centre, plus bas en périphérie, avec 2 tours-repères
-const MONU = { '45,21': 'stadium', '45,33': 'statue', '33,45': 'hall', '45,45': 'telecom', '21,45': 'stadium2' };
+const MONU = { '45,21': 'stadium', '21,45': 'stadium2', '33,45': 'hall', '45,45': 'telecom', '45,33': 'hospital', '15,21': 'police', '21,15': 'fire', '39,15': 'lycee', '27,15': 'college', '15,39': 'maternelle', '27,45': 'garderie' };
+const PUB = { stadium: ['Stade', 'sport', 'Loisirs : +1,5 d\'humeur'], stadium2: ['Stade', 'sport', 'Loisirs'], hall: ['Hôtel de ville', 'admin', 'Administration : +1,5 d\'humeur'], telecom: ['Tour de télécommunications', 'telecom', 'Réseau : +2 d\'humeur'], hospital: ['Hôpital', 'sante', 'Santé : +2,5 d\'humeur'], police: ['Commissariat de police', 'secu', 'Sécurité : +2 d\'humeur'], fire: ['Caserne de pompiers', 'secu2', 'Sécurité : +1,5 d\'humeur'], lycee: ['Lycée', 'edu', 'Éducation : +1,5 d\'humeur'], college: ['Collège', 'edu', 'Éducation : +1,5 d\'humeur'], maternelle: ['École maternelle', 'edu2', 'Familles : +2 d\'humeur'], garderie: ['Crèche et garderie', 'edu2', 'Familles : +2 d\'humeur'] };
+const PUB_BONUS = { sport: 1.5, admin: 1.5, telecom: 1, sante: 2.5, secu: 2, secu2: 1.5, edu: 1.5, edu2: 1 };
+function pubBonus() { const seen = {}; let b = 0; S.grid.forEach(c => { if (c && c.t === 'npc' && c.k === 'mon' && PUB[c.m]) { const g = PUB[c.m][1]; if (!seen[g]) { seen[g] = 1; b += PUB_BONUS[g] || 0; } } }); return b; }
 function genNpc(grid) {
   // Manhattan au centre (très hautes tours), immeubles moyens autour, petits immeubles puis maisons en périphérie
   let cap = 0, offFloors = 0;
@@ -1998,7 +2001,7 @@ function step() {
   const satL = Dtot.lux > 0.2 ? (rivalPart.lux + sold.lux) / Dtot.lux : 1;
   const sat = satB * 0.6 + satS * 0.25 + satL * 0.15;
   const pol = nres ? polluted / nres : 0;
-  const happy = clamp(55 + sat * 25 - unemp * 50 - pol * 25 + (jobs > workforce ? 6 : 0) + (rate - 0.25) * 60, 0, 100);
+  const happy = clamp(55 + sat * 25 - unemp * 50 - pol * 25 + (jobs > workforce ? 6 : 0) + pubBonus() + (rate - 0.25) * 60, 0, 100);
   const target = cap * (0.35 + 0.65 * happy / 100);
   S.pop += (target - S.pop) * 0.07 + (target > S.pop ? 0.3 : 0);
   if (S.pop > cap) S.pop = Math.max(cap, S.pop - 1);
@@ -2254,7 +2257,7 @@ function inspect(x, y) {
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
   }
-  if (c.t === 'npc') { say(c.k === 'mon' ? 'Monument de la ville : il fait partie de l\'identité de New Dollarton.' : c.k === 'park' ? 'Parc public de la ville : il valorise les quartiers voisins.' : c.k === 'house' ? 'Maison de la ville existante (5 habitants).' : `Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
+  if (c.t === 'npc') { say(c.k === 'mon' ? `${PUB[c.m][0]} : ${PUB[c.m][2]}. Les services publics sont financés par la mairie.` : c.k === 'park' ? 'Parc public de la ville : il valorise les quartiers voisins.' : c.k === 'house' ? 'Maison de la ville existante (5 habitants).' : `Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
   if (c.t === 'road') { say(c.own ? 'Route de desserte : entretien 0,4 $/jour.' : 'Rue publique, entretenue par la mairie.', 'info'); return; }
   openBuilding(c.x, c.y); return;
   const T = TYPES[c.t];
@@ -4631,13 +4634,36 @@ function drawMonument(a, now) {
     ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.5; ctx.strokeRect(c[0] - 26, c[1] - 22 - 8, 52, 16); ctx.beginPath(); ctx.moveTo(c[0], c[1] - 30); ctx.lineTo(c[0], c[1] - 14); ctx.stroke();
     [[-52, -14], [52, -14], [-30, 24], [30, 24]].forEach((q, i) => { ctx.fillStyle = '#8f9acb'; ctx.fillRect(c[0] + q[0] - 1.5, c[1] + q[1] - 48, 3, 40); ctx.fillStyle = Math.sin(now / 500 + i) > -0.5 ? '#fff6b0' : '#d8d28a'; ctx.fillRect(c[0] + q[0] - 6, c[1] + q[1] - 52, 12, 6); });
     a._top = c[1] - 60;
-  } else if (m === 'statue') {
-    pPrism(x + 0.3, y + 0.3, 0.4, 0.4, 0, 24, '#c9c3ac'); pPrism(x + 0.36, y + 0.36, 0.28, 0.28, 24, 38, '#bdb7a0');
-    const b = PP(x + 0.5, y + 0.5, 38); ctx.fillStyle = '#4fb8a0'; ctx.fillRect(b[0] - 7, b[1] - 40, 14, 40); ctx.beginPath(); ctx.arc(b[0], b[1] - 46, 7, 0, 7); ctx.fill();
-    ctx.strokeStyle = '#4fb8a0'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(b[0] + 5, b[1] - 36); ctx.lineTo(b[0] + 14, b[1] - 66); ctx.stroke(); ctx.fillStyle = '#ffd76a'; ctx.beginPath(); ctx.arc(b[0] + 14, b[1] - 70, 5, 0, 7); ctx.fill();
-    ctx.fillStyle = '#4fb8a0'; ctx.beginPath(); ctx.moveTo(b[0] - 5, b[1] - 52); ctx.lineTo(b[0], b[1] - 62); ctx.lineTo(b[0] + 5, b[1] - 52); ctx.fill();
-    [[0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].forEach((q, i) => { const t2 = PP(x + q[0], y + q[1], 0); ctx.fillStyle = '#6b4a2a'; ctx.fillRect(t2[0] - 1.5, t2[1] - 12, 3, 12); ctx.fillStyle = '#3f9a55'; ctx.beginPath(); ctx.arc(t2[0], t2[1] - 17, 10, 0, 7); ctx.fill(); });
-    a._top = b[1] - 80;
+  } else if (m === 'hospital') {
+    pPrism(x + 0.1, y + 0.18, 0.8, 0.64, 0, 52, '#f2f5fa'); pPrism(x + 0.1, y + 0.18, 0.8, 0.64, 52, 56, '#c9d2e0'); pPrism(x + 0.62, y + 0.1, 0.3, 0.3, 56, 66, '#dde3ee');
+    pWindows(x + 0.1, y + 0.18, 0.8, 0.64, 12, 44, 7, true);
+    const cc = PP(x + 0.5, y + 0.82, 38); ctx.fillStyle = '#e03a3a'; ctx.fillRect(cc[0] - 9, cc[1] - 3, 18, 6); ctx.fillRect(cc[0] - 3, cc[1] - 9, 6, 18);
+    const hp = PP(x + 0.3, y + 0.4, 56); ctx.fillStyle = '#3d466f'; ctx.beginPath(); ctx.ellipse(hp[0], hp[1], 15, 8, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#ffd43b'; ctx.font = '700 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('H', hp[0], hp[1] + 3);
+    a._top = PP(x + 0.5, y + 0.5, 70)[1];
+  } else if (m === 'police') {
+    pPrism(x + 0.12, y + 0.2, 0.76, 0.6, 0, 36, '#6f86b8'); pPrism(x + 0.1, y + 0.18, 0.8, 0.64, 36, 40, '#3b4a78'); pWindows(x + 0.12, y + 0.2, 0.76, 0.6, 10, 28, 5, true);
+    pQuad([PP(x + 0.4, y + 0.8, 24), PP(x + 0.6, y + 0.8, 24), PP(x + 0.6, y + 0.8, 0), PP(x + 0.4, y + 0.8, 0)], '#2a3566');
+    const fl = PP(x + 0.2, y + 0.3, 40); ctx.strokeStyle = '#9aa4d6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fl[0], fl[1]); ctx.lineTo(fl[0], fl[1] - 34); ctx.stroke(); ctx.fillStyle = '#3f6fd9'; ctx.fillRect(fl[0], fl[1] - 34, 18, 11);
+    const lt = PP(x + 0.5, y + 0.5, 40); ctx.fillStyle = Math.sin(now / 160) > 0 ? '#ff4d4d' : '#3f8fff'; ctx.beginPath(); ctx.arc(lt[0], lt[1] - 4, 5, 0, 7); ctx.fill();
+    a._top = PP(x + 0.5, y + 0.5, 56)[1];
+  } else if (m === 'fire') {
+    pPrism(x + 0.1, y + 0.2, 0.8, 0.6, 0, 34, '#c2403a'); pPrism(x + 0.1, y + 0.18, 0.8, 0.64, 34, 38, '#8a2a26');
+    for (let k = 0; k < 2; k++) { const u = x + 0.18 + k * 0.38; pQuad([PP(u, y + 0.8, 26), PP(u + 0.28, y + 0.8, 26), PP(u + 0.28, y + 0.8, 0), PP(u, y + 0.8, 0)], '#f2d36a'); for (let q = 1; q < 5; q++) pQuad([PP(u, y + 0.8, 26 - q * 5), PP(u + 0.28, y + 0.8, 26 - q * 5), PP(u + 0.28, y + 0.8, 25 - q * 5), PP(u, y + 0.8, 25 - q * 5)], 'rgba(0,0,0,.25)'); }
+    pPrism(x + 0.72, y + 0.22, 0.2, 0.2, 38, 76, '#d9544a'); pPrism(x + 0.7, y + 0.2, 0.24, 0.24, 76, 80, '#8a2a26');
+    a._top = PP(x + 0.8, y + 0.3, 90)[1];
+  } else if (m === 'lycee' || m === 'college') {
+    const big = m === 'lycee';
+    pPrism(x + 0.08, y + 0.2, 0.84, 0.5, 0, big ? 40 : 30, big ? '#d9b184' : '#e0a070'); pPrism(x + 0.06, y + 0.18, 0.88, 0.54, big ? 40 : 30, (big ? 44 : 34), '#8f5a3a'); pWindows(x + 0.08, y + 0.2, 0.84, 0.5, 8, big ? 34 : 24, big ? 8 : 6, true);
+    if (big) { pPrism(x + 0.4, y + 0.14, 0.2, 0.2, 44, 70, '#d9b184'); const ck = PP(x + 0.5, y + 0.34, 62); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ck[0], ck[1], 6, 0, 7); ctx.fill(); ctx.strokeStyle = '#222'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ck[0], ck[1]); ctx.lineTo(ck[0], ck[1] - 4); ctx.moveTo(ck[0], ck[1]); ctx.lineTo(ck[0] + 3, ck[1]); ctx.stroke(); }
+    pQuad([PP(x + 0.1, y + 0.76, 0.5), PP(x + 0.9, y + 0.76, 0.5), PP(x + 0.9, y + 0.96, 0.5), PP(x + 0.1, y + 0.96, 0.5)], '#c9794a'); pQuad([PP(x + 0.12, y + 0.78, 0.6), PP(x + 0.88, y + 0.78, 0.6), PP(x + 0.88, y + 0.8, 0.6), PP(x + 0.12, y + 0.8, 0.6)], '#fff');
+    a._top = PP(x + 0.5, y + 0.5, big ? 76 : 40)[1];
+  } else if (m === 'maternelle' || m === 'garderie') {
+    const cl = m === 'maternelle' ? ['#ffd76a', '#ff8a3d'] : ['#9fe0a8', '#46b480'];
+    pPrism(x + 0.1, y + 0.1, 0.55, 0.45, 0, 18, cl[0]); pPrism(x + 0.08, y + 0.08, 0.59, 0.49, 18, 21, cl[1]); pWindows(x + 0.1, y + 0.1, 0.55, 0.45, 5, 14, 3, true);
+    pQuad([PP(x + 0.05, y + 0.62, 0.3), PP(x + 0.95, y + 0.62, 0.3), PP(x + 0.95, y + 0.95, 0.3), PP(x + 0.05, y + 0.95, 0.3)], '#8fcf6a');
+    const sl = PP(x + 0.3, y + 0.78, 0.3); ctx.strokeStyle = '#e0605c'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(sl[0] - 8, sl[1]); ctx.lineTo(sl[0] - 2, sl[1] - 14); ctx.lineTo(sl[0] + 8, sl[1]); ctx.stroke(); ctx.strokeStyle = '#3f8fff'; ctx.beginPath(); ctx.moveTo(sl[0] + 12, sl[1] - 12); ctx.lineTo(sl[0] + 12, sl[1] + 2); ctx.moveTo(sl[0] + 24, sl[1] - 12); ctx.lineTo(sl[0] + 24, sl[1] + 2); ctx.moveTo(sl[0] + 10, sl[1] - 12); ctx.lineTo(sl[0] + 26, sl[1] - 12); ctx.stroke();
+    ctx.fillStyle = '#ffd43b'; ctx.beginPath(); ctx.arc(sl[0] + 36, sl[1] - 6, 5, 0, 7); ctx.fill(); ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.arc(sl[0] + 44, sl[1] - 3, 4, 0, 7); ctx.fill();
+    a._top = PP(x + 0.4, y + 0.3, 30)[1];
   } else if (m === 'hall') {
     pPrism(x + 0.08, y + 0.2, 0.84, 0.6, 0, 40, '#e0d2b0'); pPrism(x + 0.14, y + 0.26, 0.72, 0.48, 40, 46, '#c9b98e');
     for (let i = 0; i < 6; i++) { const u = x + 0.14 + i * 0.14, A = PP(u, y + 0.8, 36), B = PP(u, y + 0.8, 4); ctx.strokeStyle = '#f4ecd6'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); }
