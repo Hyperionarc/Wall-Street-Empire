@@ -648,6 +648,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     </div>
     </section>
     <section data-sec="market" hidden>
+    <div id="bankbox"></div>
     <button class="btn" id="openTerm" style="margin-bottom:8px">Ouvrir le terminal financier</button>
     <h3>MON PORTEFEUILLE</h3>
     <div id="portfolio"></div>
@@ -741,7 +742,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
   </div>
   <div id="win" hidden>
     <b>SIÈGE AU CONSEIL</b>
-    <p>Ton groupe vaut 7 millions de dollars. Tu es Oligarque : un siège au Conseil de sécurité économique t'attend.</p>
+    <p>Ton groupe vaut 35 millions de dollars. Tu es Oligarque : un siège au Conseil de sécurité économique t'attend.</p>
     <button class="ibtn" id="winok">Continuer à jouer</button>
   </div>
 
@@ -759,8 +760,8 @@ const SUMMER_TINT = 'rgba(112,188,92,.30)';   // herbe d'été : saison unique
 const ZONE_TINT = ['rgba(112,188,92,.30)', 'rgba(205,208,222,.30)', 'rgba(128,122,130,.45)', '', 'rgba(96,102,118,.55)'];   // campagne, ville, zone portuaire, mer, quai
 const ZONE_COL = [[58, 92, 66], [96, 100, 125], [96, 90, 98], [34, 86, 152], [82, 86, 106]];
 const TIERS = [
-  { n: 'Citoyen', at: 0 }, { n: 'Entrepreneur', at: 250000 }, { n: 'Industriel', at: 700000 },
-  { n: 'Magnat', at: 2500000 }, { n: 'Oligarque', at: 7000000 }
+  { n: 'Citoyen', at: 0 }, { n: 'Entrepreneur', at: 1250000 }, { n: 'Industriel', at: 3500000 },
+  { n: 'Magnat', at: 12500000 }, { n: 'Oligarque', at: 35000000 }
 ];
 
 // Marchandises : prix de base, couleur
@@ -824,6 +825,7 @@ const TYPES = {
   tech:    { name: 'Tour Tech',     sub: 'Tech Composite',  cost: 3500,  color: '#3fd8ff', jobs: 14, upkeep: 5,  tier: 1 },
   wh:      { name: 'Entrepôt',     sub: 'Stockage, import, export', cost: 6000, color: '#9a9aa5', jobs: 6, upkeep: 3 },
   plant:   { name: 'Centrale électrique', sub: 'Charbon → électricité', cost: 7000, color: '#ffd43b', jobs: 10, upkeep: 4, w: 2, h: 1 },
+  pipeline: { name: 'Pipeline', sub: 'Pétrole et charbon', cost: 140, color: '#ffd43b', jobs: 0, upkeep: 0.3 },
   hq:      { name: 'Siège social', sub: 'Direction du groupe', cost: 25000, color: '#ffd76a', jobs: 20, upkeep: 8, tier: 1 },
   bank:    { name: 'Banque',        sub: 'London Gold',     cost: 6000,  color: '#f2b84b', jobs: 12, upkeep: 6,  tier: 2 },
   well:    { name: 'Puits pétrole', sub: 'NYMEX Oil',       cost: 1200,  color: '#ff8a3d', jobs: 8,  upkeep: 2,  ext: 'oil',    rate: 14 },
@@ -925,7 +927,7 @@ function initRivals() {
 }
 const rivalSum = r => RIV_CLS.reduce((a, k) => a + r.att[k], 0);
 const rivalAttr = cls => (S.rivals || []).reduce((a, r) => a + r.att[cls] * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
-const rivalValue = r => Math.round((Math.max(0, r.cash) + 90000 * rivalSum(r)) * (casteIs('tycoon') ? 0.85 : 1) / 500) * 500;
+const rivalValue = r => Math.round((Math.max(0, r.cash) + 90000 * rivalSum(r)) * (casteIs('industriel') ? 0.85 : 1) / 500) * 500;
 function stepRivals(rivalPart) {
   const rs = S.rivals || [];
   rs.forEach(r => {
@@ -1007,7 +1009,7 @@ const ICONS = {
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const ICON_OF = { plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+const ICON_OF = { pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
@@ -1018,9 +1020,9 @@ const TOOL_META = {
 const CATS = [
   { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank', 'hq', 'buyout'] },
   { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'road', 'link'] },
-  { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'link'] },
+  { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
-  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'plant', 'wh', 'port'] },
+  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'plant', 'wh', 'port', 'pipeline'] },
   { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 'immo'] }
 ];
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
@@ -1053,7 +1055,7 @@ const MISSIONS = [
   { id: 'm13', t: 'Ouvrir un hypermarché',                          r: 25000, ok: c => c.cn.s3 >= 1 },
   { id: 'm14', t: 'Ouvrir une Banque',                              r: 25000, ok: c => c.cn.bank >= 1 },
   { id: 'm15', t: 'Employer 3 000 personnes dans tes entreprises',  r: 60000, ok: c => c.jobsPlayer >= 3000 },
-  { id: 'm16', t: 'Devenir Oligarque (7 M$)',                       r: 0,     ok: c => c.worth >= 7000000 }
+  { id: 'm16', t: 'Devenir Oligarque (35 M$)',                      r: 0,     ok: c => c.worth >= 35000000 }
 ];
 
 /* ---------- Atlas de sprites (CC0, Kenney) ---------- */
@@ -1241,14 +1243,14 @@ function newCity() {
   const npc = genNpc(grid);
   S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] }; S0.cpi = 1;
   S0.pop = Math.round(npc.cap * 0.85);
-  S0.cash = 150000;
+  S0.cash = 1000000;
   return S0;
 }
 function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, caste: S.caste || '', npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1281,7 +1283,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.caste = CASTES[d.caste] ? d.caste : ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1316,6 +1318,13 @@ function footConn(a) {
   }
   return false;
 }
+function pipeMask() {
+  const m = new Uint8Array(N * N), q = [];
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'pipeline') { const x = i % N, y = (i / N) | 0; let term = false; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { if (inb(x + dx, y + dy)) { const z = ZONE[idx(x + dx, y + dy)]; if (z === 2 || z === 4) term = true; const o = S.grid[idx(x + dx, y + dy)]; if (o && (o.t === 'plant' || o.t === 'port' || o.t === 'foundry' || o.t === 'wh')) term = true; } } if (term) { m[i] = 1; q.push(i); } } }
+  while (q.length) { const i = q.pop(), x = i % N, y = (i / N) | 0; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(d => { for (let s = 1; s <= 2; s++) { const nx = x + d[0] * s, ny = y + d[1] * s; if (!inb(nx, ny)) return; const j = idx(nx, ny), c = S.grid[j]; if (c && c.t === 'pipeline') { if (!m[j]) { m[j] = 1; q.push(j); } return; } if (!(c && c.t === 'road')) return; } }); }
+  return m;
+}
+function pipeAdj(c, pm) { for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = c.x + ox + d[0], y = c.y + oy + d[1]; if (inb(x, y) && pm[idx(x, y)]) return true; } return false; }
 function eachBuilding(fn) {
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t !== 'road' && c.t !== 'part') fn(c); }
 }
@@ -1340,11 +1349,11 @@ function evaluate() {
   const smog = new Uint8Array(N * N);
   let ownRoads = 0;
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') { roads++; if (c.own) ownRoads++; } }
-  const lm = linkedMask();
+  const lm = linkedMask(), pm = pipeMask();
   eachBuilding(c => {
     if (c.t === 'npc') { c.conn = true; if (c.k === 'res') cap += 5 * c.floors; else if (c.k === 'house') cap += 5; else if (c.k !== 'park') npcJobs += c.floors * S.jpf; return; }
     const T = TYPES[c.t], m = levelMult(c);
-    if (T.ext) { c.linked = extLinked(c, lm); c.conn = true; } else c.conn = footConn(c);
+    if (T.ext) { c.piped = (T.ext === 'oil' || T.ext === 'coal') && pipeAdj(c, pm); c.linked = extLinked(c, lm) || c.piped; c.conn = true; } else if (c.t === 'pipeline') { c.conn = true; } else c.conn = footConn(c);
     cc[c.t]++;
     upkeep += T.upkeep * (c.t === 'res' ? 1 : m * (1 + 0.1 * (c.qual || 0)));
     value += T.cost * 0.9 + upgradeSpent(c) * 0.6;
@@ -1403,11 +1412,11 @@ function stepWarehouses(portN, expRate) {
 }
 // Castes : le profil du joueur choisi au départ (inspiré du pitch : promoteurs, banquiers, énergéticiens, tycoons)
 const CASTES = {
-  industriel: { n: 'Baron industriel', col: '#7f96ff', tag: 'Usines et matières premières', d: 'Tu domines la production. Usines et fonderies 12 % moins chères, production +5 %.', cash: 0, fx: { fac: 1.05 }, cost: { f1: 0.88, f2: 0.88, f3: 0.88, foundry: 0.88 } },
-  promoteur: { n: 'Promoteur BTP', col: '#ff7a45', tag: 'Villes, quartiers, immobilier', d: 'Tu fais bouger la ville. Constructions urbaines 15 % moins chères, outil Racheter 30 % moins cher (rachète un immeuble, rase, reconstruis), commandes de chantier plus rentables.', cash: 0, fx: {}, cost: { res: 0.85, tech: 0.85, bank: 0.85, hq: 0.85, s1: 0.85, s2: 0.85, s3: 0.85, immo: 0.85, btp: 0.85, wh: 0.85 } },
-  banquier: { n: 'Banquier d\'affaires', col: '#3fd8ff', tag: 'Crédit et marchés', d: 'Tu finances les autres. +30 000 $ de départ, intérêts 40 % moins chers, plafond d\'emprunt ×1,6, revenus de prêts aux rivaux.', cash: 30000, fx: { interest: 0.6 }, cost: {} },
-  energeticien: { n: 'Magnat de l\'énergie', col: '#46d39a', tag: 'Charbon, pétrole, électricité', d: 'Tu alimentes l\'île. Centrales électriques 20 % moins chères, revenus d\'électricité +30 %, pétrole et charbon +10 %.', cash: 0, fx: { oil: 1.1 }, cost: { plant: 0.8 } },
-  tycoon: { n: 'Tycoon', col: '#ff4fa3', tag: 'Rachats et prises de contrôle', d: 'Tu achètes tout. +60 000 $ de départ, OPA dès 10 % du capital avec une prime de 20 %, rachat de rivaux 15 % moins cher.', cash: 60000, fx: {}, cost: {} }
+  industriel: { n: 'Baron industriel', col: '#7f96ff', tag: 'Usines, rachats, OPA', d: 'Tu bâtis et tu rachètes. Usines et fonderies 12 % moins chères, production +5 %, OPA dès 10 % du capital avec une prime de 20 %, rivaux rachetés 15 % moins cher.', cash: 0, fx: { fac: 1.05 }, cost: { f1: 0.88, f2: 0.88, f3: 0.88, foundry: 0.88 } },
+  promoteur: { n: 'Promoteur BTP', col: '#ff7a45', tag: 'Villes, quartiers, immobilier', d: 'Tu fais bouger la ville. Constructions urbaines 15 % moins chères, outil Racheter 30 % moins cher (rachète un immeuble, rase, reconstruis).', cash: 0, fx: {}, cost: { res: 0.85, tech: 0.85, bank: 0.85, hq: 0.85, s1: 0.85, s2: 0.85, s3: 0.85, immo: 0.85, btp: 0.85, wh: 0.85 } },
+  banquier: { n: 'Banquier d\'affaires', col: '#3fd8ff', tag: 'Crédit, levier, marchés', d: 'Ta banque dispose de 100 M$ de ressources propres, dont 20 % tradables. Tu prêtes sur collatéral avec un levier qui monte avec ton niveau (×5, ×10 monopole, ×20 mania : exigence de fonds propres de 20 % à 5 %). Plus le levier est haut, plus la chute est dure.', cash: 0, fx: { interest: 0.6 }, cost: {} },
+  energeticien: { n: 'Magnat de l\'énergie', col: '#46d39a', tag: 'Pétrole, charbon, pipelines, électricité', d: 'Tu alimentes l\'île. Centrales 20 % moins chères, électricité +30 %, pétrole +10 %, pipelines 40 % moins chers : ils remplacent les camions et divisent le coût de transport par 5.', cash: 0, fx: { oil: 1.1 }, cost: { plant: 0.8, pipeline: 0.6 } },
+  geopoliticien: { n: 'Géopoliticien', col: '#ff4fa3', tag: 'Cartels, embargos, exportations', d: 'Tu joues le rapport de force. Cartels et embargos 50 % moins chers, exportations +15 %, prix des matières premières plus stables.', cash: 0, fx: { export: 1.15 }, cost: {} }
 };
 const casteOf = () => (S && S.caste) || '';
 const casteIs = k => casteOf() === k;
@@ -1428,6 +1437,22 @@ function casteSVG(k) {
     <path d="M52 70q2-26 28-26 26 0 28 26-6-14-28-14T52 70z" fill="${hair}"/>
     <circle cx="68" cy="80" r="3" fill="#222"/><circle cx="92" cy="80" r="3" fill="#222"/><path d="M70 96q10 7 20 0" fill="none" stroke="#7a3a2a" stroke-width="3" stroke-linecap="round"/>${acc}</svg>`;
 }
+// Banque : 100 M$ de ressources propres, levier selon le niveau, crédits sur collatéral
+const BK_LVL = [{ n: 'Banque régionale', ratio: 0.2, loss: 0.0003 }, { n: 'Monopole', ratio: 0.1, loss: 0.0006 }, { n: 'Mania', ratio: 0.05, loss: 0.0012 }];
+const BK_REQ = [0, 12e6, 22e6];
+function bkInit() { S.bk = S.bk || { res: 100e6, lvl: 0, loans: 0, coll: 0, inc: 0 }; return S.bk; }
+const bkDemand = () => Math.round((S.pop || 0) * 3000 * (1 + 0.5 * (S.bk ? S.bk.lvl : 0)));
+function bkCap() { const b = bkInit(), L = BK_LVL[b.lvl]; return Math.max(0, Math.min(b.res / L.ratio, bkDemand()) - b.loans); }
+function bkLend(n) { if (!casteIs('banquier')) return; const b = bkInit(), q = Math.min(n, bkCap()); if (q <= 0) { say('Plus de demande de crédit ou levier maximal atteint.', 'warn'); return; } b.loans += q; say(`Crédit de ${money(q)} accordé (sur collatéral). Il rapporte des intérêts chaque jour.`, 'info'); updateHUD(); }
+function bkRepay(n) { const b = bkInit(), q = Math.min(n, b.loans); b.loans -= q; updateHUD(); }
+function bkUp() { const b = bkInit(); if (b.lvl >= 2) return; if (b.loans < BK_REQ[b.lvl + 1]) { say(`Il faut un portefeuille de crédits d'au moins ${money(BK_REQ[b.lvl + 1])} pour passer ${BK_LVL[b.lvl + 1].n}.`, 'warn'); return; } b.lvl++; say(`Niveau ${BK_LVL[b.lvl].n} : exigence de fonds propres ${Math.round(BK_LVL[b.lvl].ratio * 100)} %, levier ×${Math.round(1 / BK_LVL[b.lvl].ratio)}. Les pertes sur crédits montent aussi.`, 'gold'); updateHUD(); }
+function stepBank() {
+  if (!casteIs('banquier')) return 0; const b = bkInit(), L = BK_LVL[b.lvl], M = S.macro || { rate: 0.04, gdp: 0.03 };
+  const inc = b.loans * (M.rate + 0.03 + 0.01 * b.lvl) / 360, loss = b.loans * L.loss * (M.gdp < 0 ? 3 : 1) * (0.7 + Math.random() * 0.6);
+  b.loans = Math.max(0, b.loans - loss); b.res += inc - loss; b.inc = inc;
+  if (b.res < 0.3 * 100e6 && b.lvl > 0 && Math.random() < 0.02) { b.lvl--; say('Contrôle prudentiel : ta banque est rétrogradée, trop de pertes sur crédits.', 'bad'); }
+  return inc * 0.2;
+}
 function setCaste(k) {
   if (!CASTES[k]) return; const first = !S.caste;
   S.caste = k; if (first && S.day < 6) S.cash += CASTES[k].cash;
@@ -1444,7 +1469,7 @@ const skillOf = k => ((S && S.skills) || {})[k] | 0;
 const SKILL_MAX = 5;
 const skillCost = l => l + 1;
 function addKp(n, why) { S.kp = (S.kp || 0) + n; say(`+${n} point de connaissance (${why}). Dépense-le dans Menu > Objectifs.`, 'gold'); }
-const GOALS = { sandbox: { n: 'Bac à sable', d: 'Aucune limite de temps : construis ton empire librement.' }, race: { n: 'Course à la fortune', d: 'Atteins 5 M$ de capitalisation avant le jour 720.', target: 5e6, deadline: 720 }, monopoly: { n: 'Monopole', d: 'Détiens plus de 50 % du marché pendant 30 jours d\'affilée.', target: 0.5, streak: 30 } };
+const GOALS = { sandbox: { n: 'Bac à sable', d: 'Aucune limite de temps : construis ton empire librement.' }, race: { n: 'Course à la fortune', d: 'Atteins 25 M$ de capitalisation avant le jour 720.', target: 25e6, deadline: 720 }, monopoly: { n: 'Monopole', d: 'Détiens plus de 50 % du marché pendant 30 jours d\'affilée.', target: 0.5, streak: 30 } };
 const NPC_TOP = [['Apex Holdings', 9.2e6, 0.0006], ['Nordic Steel', 6.1e6, 0.0004], ['Sakura Industries', 4.4e6, 0.0007], ['Atlas Commodities', 3.1e6, 0.0005], ['Meridian Capital', 2.2e6, 0.0006], ['Zenith Retail', 1.4e6, 0.0004], ['Orion Motors', 0.9e6, 0.0005]];
 function marketShareAvg() { const mk = S.mkt || {}; return RIV_CLS.reduce((a, c) => a + (mk[c] ? mk[c].you : 0), 0) / 4; }
 function playerScore() { const st = S.stats || {}; return Math.round((st.worth || 0) / 1000 + marketShareAvg() * 500 + (st.playerJobs || 0) * 0.5 + (S.done ? S.done.length : 0) * 20 + (S.houses || 0) * 2 + Object.keys(S.tech || {}).length * 25); }
@@ -1466,6 +1491,7 @@ function gtiValue() {
 function stepIndex() { S.gtiH = S.gtiH || []; S.gtiH.push(gtiValue()); if (S.gtiH.length > 240) S.gtiH.shift(); const sb = S.subs || []; S.subInc = sb.reduce((a, x) => a + x.inc, 0) * cpi(); }
 function seedGti() { S.gtiH = S.gtiH || []; if (S.gtiH.length >= 40) return; let v = (S.gtiH[0] || gtiValue()), pre = []; for (let i = 0; i < 60 - S.gtiH.length; i++) { v *= 1 + (Math.random() - 0.5) * 0.02; pre.push(v); } pre.reverse(); const base = S.gtiH[0] || gtiValue(), k = base / (pre[pre.length - 1] || base); S.gtiH = pre.map(x => x * k).concat(S.gtiH); }
 const FIN_ACTIONS = { cartel: { cost: 6000, days: 20 }, embargo: { cost: 8000, days: 6 } };
+const finCost = k => Math.round(FIN_ACTIONS[k].cost * (casteIs('geopoliticien') ? 0.5 : 1));
 function tradeShares(id, qty, buy) {
   const r = (S.rivals || []).find(x => x.id === id); if (!r || !(qty > 0)) return false; S.port = S.port || {}; const h = S.port[id] || (S.port[id] = { n: 0, cost: 0 });
   const px = rivalPx(r), spread = Math.max(0.01, px * 0.004);
@@ -1475,15 +1501,15 @@ function tradeShares(id, qty, buy) {
 }
 function launchOpa(id) {
   const r = (S.rivals || []).find(x => x.id === id), h = (S.port || {})[id]; if (!r) return false;
-  const stake = h ? h.n / RSH : 0, minS = casteIs('tycoon') ? 0.1 : 0.2; if (stake < minS) { say(`Il faut détenir au moins ${Math.round(minS * 100)} % du capital pour lancer une OPA.`, 'warn'); return false; }
-  const cost = (1 - stake) * RSH * rivalPx(r) * (casteIs('tycoon') ? 1.2 : 1.35); if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter le reste du capital avec une prime de 35 %.`, 'bad'); return false; }
+  const stake = h ? h.n / RSH : 0, minS = casteIs('industriel') ? 0.1 : 0.2; if (stake < minS) { say(`Il faut détenir au moins ${Math.round(minS * 100)} % du capital pour lancer une OPA.`, 'warn'); return false; }
+  const cost = (1 - stake) * RSH * rivalPx(r) * (casteIs('industriel') ? 1.2 : 1.35); if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter le reste du capital avec une prime de 35 %.`, 'bad'); return false; }
   const p = 0.55 + 0.4 * stake;
   if (Math.random() < p) { S.cash -= cost; S.cash += Math.max(0, r.cash) * 0.5; S.subs = S.subs || []; S.subs.push({ name: r.name, inc: Math.max(40, (r.rev || 0) * 0.12) }); delete S.port[id]; S.rivals = S.rivals.filter(x => x !== r); say(`OPA réussie sur ${r.name} : la société devient ta filiale (${money(cost)}).`, 'gold'); }
   else { const fees = cost * 0.08; S.cash -= fees; r.mood = clamp((r.mood || 0) + 0.1, -0.2, 0.35); say(`OPA sur ${r.name} repoussée par le conseil : frais de ${money(fees)}.`, 'bad'); }
   updateHUD(); return true;
 }
-function cartelOn(g) { const a = FIN_ACTIONS.cartel; if (S.cash < a.cost) { say(`Il faut ${money(a.cost)} pour former un cartel.`, 'bad'); return false; } if (modOf('px_' + g) > 1) { say('Un cartel est déjà actif sur ce bien.', 'info'); return false; } S.cash -= a.cost; addMod('px_' + g, 1.18, a.days); say(`Cartel formé sur ${GOODS[g].name.toLowerCase()} : le cours cible monte de 18 % pendant ${a.days} jours.`, 'gold'); updateHUD(); return true; }
-function embargoOn(id) { const a = FIN_ACTIONS.embargo, r = (S.rivals || []).find(x => x.id === id); if (!r) return false; if (S.cash < a.cost) { say(`Il faut ${money(a.cost)} pour un embargo.`, 'bad'); return false; } S.cash -= a.cost; r.emb = S.day + a.days; say(`Embargo sur ${r.name} : son attractivité est divisée par deux pendant ${a.days} jours.`, 'gold'); updateHUD(); return true; }
+function cartelOn(g) { const a = FIN_ACTIONS.cartel, fc = finCost('cartel'); if (S.cash < fc) { say(`Il faut ${money(fc)} pour former un cartel.`, 'bad'); return false; } if (modOf('px_' + g) > 1) { say('Un cartel est déjà actif sur ce bien.', 'info'); return false; } S.cash -= fc; addMod('px_' + g, 1.18, a.days); say(`Cartel formé sur ${GOODS[g].name.toLowerCase()} : le cours cible monte de 18 % pendant ${a.days} jours.`, 'gold'); updateHUD(); return true; }
+function embargoOn(id) { const a = FIN_ACTIONS.embargo, fe = finCost('embargo'), r = (S.rivals || []).find(x => x.id === id); if (!r) return false; if (S.cash < fe) { say(`Il faut ${money(fe)} pour un embargo.`, 'bad'); return false; } S.cash -= fe; r.emb = S.day + a.days; say(`Embargo sur ${r.name} : son attractivité est divisée par deux pendant ${a.days} jours.`, 'gold'); updateHUD(); return true; }
 const DEVS = [{ n: 'Urbania Promotion', col: '#c07aff' }, { n: 'Skyline Développement', col: '#ffb347' }, { n: 'Terra Immobilier', col: '#5fd0a0' }];
 function stepDevs() {
   if (S.day % 6 !== 0 || (S.npcMods || []).length > 70) return;
@@ -1595,7 +1621,7 @@ function irEvent(k) {
   say(k === 'comm' && net <= 0 ? 'Communiqué mal reçu : tes résultats sont négatifs, le cours baisse.' : `${E.n} : le marché réagit positivement.`, k === 'comm' && net <= 0 ? 'bad' : 'good');
   updateHUD(); return true;
 }
-const IPO_MIN = 250000;
+const IPO_MIN = 1250000;
 // Rayons : un magasin ne vend qu'un nombre limité de produits selon sa taille (4, 8 ou 12)
 const SLOTS = { s1: 4, s2: 8, s3: 12, immo: 4 };
 const slotsN = c => SLOTS[c.t] || 4;
@@ -1853,7 +1879,7 @@ function step() {
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
   const P = S.price;
-  let revTech = 0, revBank = (S.subInc || 0) + (casteIs('banquier') ? Math.min(400, 60 + Math.max(0, S.cash) * 0.0006) : 0), wagesTotal = 0, transportTotal = 0, adTotal = 0;
+  let revTech = 0, revBank = (S.subInc || 0) + stepBank(), wagesTotal = 0, transportTotal = 0, adTotal = 0;
   buildings.forEach(c => {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
     if (c.t === 'plant') { const need = 6 * u, burn = Math.min(need, Math.max(0, S.stock.coal)); S.stock.coal -= burn; want.coal += need; c.out = burn; c.util = need > 0 ? burn / need : 0; c.limit = burn < need - 1e-6 ? 'coal' : null; c.inCost = burn * S.price.coal; c.pRev = burn * 30 * (casteIs('energeticien') ? 1.3 : 1) * cpi(); revTech += c.pRev; }
@@ -1861,7 +1887,7 @@ function step() {
     if (c.t === 'bank') { c.pRev = Math.min(500, 180 + Math.max(0, S.cash) * 0.0008) * u * qualMult(c); revBank += c.pRev; }
     if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0); wagesTotal += c.wages; }
     if (c.t === 'wh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
-    c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) / deptMult(c).stock * TM.transport * cpi();
+    c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
     c.adCost = adSpend(c); adTotal += c.adCost;
     transportTotal += c.transport;
   });
@@ -2009,7 +2035,7 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierOf(S.stats.worth || 0) < T.tier);
 }
-const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, wh: 2, plant: 2, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
+const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
 // vérifie si l'emprise est libre ; renvoie un message d'erreur ou ''
 function footprintError(x, y, key) {
@@ -2021,7 +2047,7 @@ function footprintError(x, y, key) {
     const d = S.dep[idx(x + ox, y + oy)];
     if (T.ext && CROPS[T.ext]) { if (d && !CROPS[d.k]) return 'Cette case est un gisement : pas de ferme dessus.'; if (ZONE[idx(x + ox, y + oy)] !== 0) return 'Les fermes se construisent en campagne.'; }
     else if (T.ext) { if (!d || d.k !== T.ext) return T.ext === 'wood' ? 'Il faut une forêt sous un camp de bûcherons.' : CROPS[T.ext] ? 'Les fermes se construisent en campagne, hors de la ville et du port.' : `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
-    else if (d) return d.k === 'wood' ? 'Cette case est une forêt : réserve-la à un camp de bûcherons.' : CROPS[d.k] ? 'Cette case est une terre agricole : réserve-la à une ferme.' : 'Cette case est un gisement : réserve-la à une mine ou une carrière.';
+    else if (d && key !== 'pipeline') return d.k === 'wood' ? 'Cette case est une forêt : réserve-la à un camp de bûcherons.' : CROPS[d.k] ? 'Cette case est une terre agricole : réserve-la à une ferme.' : 'Cette case est un gisement : réserve-la à une mine ou une carrière.';
   }
   return '';
 }
@@ -2315,6 +2341,7 @@ function updateHUD() {
     if (!document.activeElement || document.activeElement.id !== 'payout') { if (el('bourse').dataset.h !== bh) { el('bourse').innerHTML = bh; el('bourse').dataset.h = bh; } }
     if (listed && el('spk')) drawSeries(el('spk'), S.sp || [], '#46d39a', true);
     const lim = creditLimit();
+    { const bkEl = el('bankbox'); if (bkEl) { let bh = ''; if (casteIs('banquier')) { const b = bkInit(), L = BK_LVL[b.lvl], nxt = BK_LVL[b.lvl + 1]; bh = `<div class="fcard" style="border:1px solid ${CASTES.banquier.col}"><h4>Ma banque · ${L.n}</h4><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Ressources propres</small><b>${money(b.res)}</b></div><div><small>Tradable (20 %)</small><b>${money(b.res * 0.2)}</b></div><div><small>Exigence fonds propres</small><b>${Math.round(L.ratio * 100)} %</b></div><div><small>Levier</small><b>×${Math.round(1 / L.ratio)}</b></div><div><small>Crédits octroyés</small><b>${money(b.loans)}</b></div><div><small>Intérêts / jour</small><b class="pos">+${money(b.inc || 0)}</b></div><div><small>Capacité restante</small><b>${money(bkCap())}</b></div><div><small>Demande de crédit</small><b>${money(bkDemand())}</b></div></div><div class="seg2" style="margin-top:6px"><button class="btn" data-bk="lend">Prêter 1 M$</button><button class="btn sec" data-bk="lend5">Prêter 5 M$</button><button class="btn sec" data-bk="repay">Récupérer 1 M$</button></div>${nxt ? `<button class="btn sec" data-bk="up" style="margin-top:6px">Passer ${nxt.n} : fonds propres ${Math.round(nxt.ratio * 100)} % (requiert ${money(BK_REQ[b.lvl + 1])} de crédits)</button>` : ''}<small class="note">Les crédits rapportent taux + 3 % ; plus le levier est haut, plus les pertes sont élevées, surtout en récession. Ton portefeuille d'actions peut servir de collatéral pour emprunter (plafond d'emprunt +50 %).</small></div>`; } if (bkEl.dataset.h !== bh) { bkEl.innerHTML = bh; bkEl.dataset.h = bh; } } }
     el('loanV').textContent = `Dette ${money(S.loan || 0)} · plafond ${money(lim)}`;
     el('loanUp').disabled = (S.loan || 0) + 20000 > lim;
     el('loanDn').disabled = !(S.loan > 0) || S.cash < 1000;
@@ -2507,6 +2534,7 @@ el('tview').addEventListener('change', e => { if (e.target.id === 'tsel') { tSel
 ['pointerdown'].forEach(t2 => el('tview').addEventListener(t2, () => { tDown = true; }, { passive: true }));
 ['pointerup', 'pointercancel'].forEach(t2 => window.addEventListener(t2, () => { setTimeout(() => { tDown = false; }, 80); }, { passive: true }));
 el('openTerm').onclick = () => openTerm();
+el('bankbox').addEventListener('click', e => { const b = e.target.closest('[data-bk]'); if (!b) return; const a = b.dataset.bk; if (a === 'lend') bkLend(1e6); else if (a === 'lend5') bkLend(5e6); else if (a === 'repay') bkRepay(1e6); else if (a === 'up') bkUp(); });
 el('portfolio').addEventListener('click', e => { const b = e.target.closest('[data-pf]'); if (b) { tSel = b.dataset.pf; openTerm(); } });
 /* ---------- Objectifs, score, classement, PDG ---------- */
 function renderGoals() {
@@ -2570,7 +2598,7 @@ function renderEmpire() {
   if (el('macspark') && M.h && M.h.length > 1) drawSeries(el('macspark'), M.h, '#46d39a');
 }
 el('empire').addEventListener('click', e => { const b = e.target.closest('[data-open]'); if (!b) return; const [x, y] = b.dataset.open.split(',').map(Number); openBuilding(x, y); });
-function creditLimit() { return Math.max(0, Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.6 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
+function creditLimit() { return Math.max(0, (casteIs('banquier') ? Math.round(0.5 * portValue() / 1000) * 1000 : 0) + Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.5 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
 el('loanUp').onclick = () => { if ((S.loan || 0) + 20000 <= creditLimit()) { S.loan = (S.loan || 0) + 20000; S.cash += 20000; say('Emprunt de 20 000 $ (intérêts 0,06 %/jour).', 'info'); updateHUD(); save(); } };
 el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, 20000, Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
 function setBar(id, v) {
@@ -4435,7 +4463,7 @@ function drawTowerCrane(cx, cy, now, seed) {
   ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, cy - 154, 3.5, 0, 7); ctx.fill();
 }
 /* ---------- Bâtiments procéduraux : usines, entrepôts, fonderie ; toits des tours ---------- */
-const PROC_IND = { f1: 1, f2: 1, f3: 1, wh: 1, foundry: 1, fwheat: 1, fsugar: 1, fcotton: 1, frubber: 1 };
+const PROC_IND = { pipeline: 1, f1: 1, f2: 1, f3: 1, wh: 1, foundry: 1, fwheat: 1, fsugar: 1, fcotton: 1, frubber: 1 };
 const WALLS = { f1: ['#d8c9a8', '#c9d2dc', '#d4a98f', '#bfd0c0'], f2: ['#b9c6d6', '#c5ccb4', '#cdbba6'], f3: ['#a9b4c6', '#b9bfc9'], wh: ['#c8cfd9', '#d9c6a0', '#b7c9c4'], foundry: ['#a8605a', '#9a6a52'] };
 function shade(hex, k) { const n = parseInt(hex.slice(1, 7), 16), c = v => Math.min(255, Math.max(0, v | 0)).toString(16).padStart(2, '0'); return '#' + c((n >> 16) * k) + c(((n >> 8) & 255) * k) + c((n & 255) * k); }
 function pQuad(pts, fill) { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); }
@@ -4461,6 +4489,12 @@ function smoke(sx, sy, now, active, seed) {
   for (let i = 0; i < 5; i++) { const age = ((now / 1600) + i * 0.2 + seed) % 1; ctx.fillStyle = `rgba(214,218,236,${(1 - age) * 0.45})`; ctx.beginPath(); ctx.arc(sx + age * 26, sy - age * 80, 7 + age * 14, 0, 7); ctx.fill(); }
 }
 function drawIndustrial(a, now, grow) {
+  if (a.t === 'pipeline') {
+    const x = a.x, y = a.y, nb = (dx, dy) => { if (!inb(x + dx, y + dy)) return false; const q = S.grid[idx(x + dx, y + dy)]; if (q && q.t === 'pipeline') return true; if (q && q.t === 'road' && inb(x + 2 * dx, y + 2 * dy)) { const q2 = S.grid[idx(x + 2 * dx, y + 2 * dy)]; return !!(q2 && q2.t === 'pipeline'); } return false; }, tube = (u0, v0, u1, v1) => { const A = PP(u0, v0, 9), B = PP(u1, v1, 9); ctx.strokeStyle = '#6a7090'; ctx.lineWidth = 11; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); ctx.strokeStyle = a.conn ? '#ffd43b' : '#9aa4d6'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(A[0], A[1] - 1); ctx.lineTo(B[0], B[1] - 1); ctx.stroke(); ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(A[0], A[1] - 3); ctx.lineTo(B[0], B[1] - 3); ctx.stroke(); };
+    let any = false; if (nb(1, 0)) { tube(x + 0.5, y + 0.5, x + 1.5, y + 0.5); any = true; } if (nb(-1, 0)) { tube(x + 0.5, y + 0.5, x - 0.5, y + 0.5); any = true; } if (nb(0, 1)) { tube(x + 0.5, y + 0.5, x + 0.5, y + 1.5); any = true; } if (nb(0, -1)) { tube(x + 0.5, y + 0.5, x + 0.5, y - 0.5); any = true; }
+    if (!any) tube(x + 0.3, y + 0.5, x + 0.7, y + 0.5);
+    const c0 = PP(x + 0.5, y + 0.5, 9); ctx.fillStyle = '#4a4f6a'; ctx.beginPath(); ctx.arc(c0[0], c0[1] - 1, 7, 0, 7); ctx.fill(); a._top = c0[1] - 8; return;
+  }
   const x = a.x, y = a.y, w = a.w, h = a.h, seed = a.seed, pal = WALLS[a.t] || WALLS.f1, wall = pal[Math.floor(seed * 997) % pal.length], roof = '#7d8599', act = (a.util || 0) > 0.05 && a.conn;
   const gg = grow == null ? 1 : grow; let zTop = 40;
   if (a.t === 'f1') {
@@ -5051,7 +5085,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, get scene() { return scene; }, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
