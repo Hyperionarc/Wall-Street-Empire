@@ -113,6 +113,13 @@ print(f'atlas {ATLAS_W}x{H}, {len(pos)} sprites')
 # --- Génération de city.html ---
 tpl = open(os.path.join(ROOT, 'game.template.html'), encoding='utf-8').read()
 b64 = base64.b64encode(open(os.path.join(ROOT, 'assets', 'atlas.png'), 'rb').read()).decode()
-out = tpl.replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+pj = {}
+PD = os.path.join(ROOT, 'assets', 'portraits')
+if os.path.isdir(PD):
+    for f in sorted(os.listdir(PD)):
+        if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+            mt = 'image/png' if f.lower().endswith('.png') else 'image/webp' if f.lower().endswith('.webp') else 'image/jpeg'
+            pj[os.path.splitext(f)[0]] = 'data:%s;base64,' % mt + base64.b64encode(open(os.path.join(PD, f), 'rb').read()).decode()
+out = tpl.replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
 open(os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')
