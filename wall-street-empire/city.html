@@ -545,6 +545,16 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 #sitetip[hidden]{display:none}#sitetip b{color:var(--cyan);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:4px}
 #sitetip .r{display:flex;justify-content:space-between;gap:10px;padding:1px 0}#sitetip .r span:last-child{font-family:var(--font-m)}
 #sitetip .adv2{margin-top:5px;padding-top:5px;border-top:1px solid var(--line);color:var(--gold)}
+.caste,#caste{position:absolute;z-index:20;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(4,6,20,.86);backdrop-filter:blur(6px);overflow-y:auto;padding:16px}
+#caste[hidden]{display:none}
+#caste .cbox{max-width:1080px;width:100%;text-align:center}
+#caste h2{margin:0 0 6px;font-family:var(--font-d);font-weight:800;font-size:32px;letter-spacing:.12em;color:var(--gold)}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:12px}
+.ccard{display:flex;flex-direction:column;gap:6px;text-align:left;padding:10px;border-radius:12px;background:var(--panel);border:2px solid var(--cc);transition:transform .15s,box-shadow .15s}
+.ccard:hover{transform:translateY(-3px);box-shadow:0 8px 28px color-mix(in srgb,var(--cc) 40%,transparent)}
+.ccard .cpic{display:block;border-radius:8px;overflow:hidden;aspect-ratio:1}.ccard .cpic svg{width:100%;height:100%;display:block}
+.ccard b{font-family:var(--font-d);font-size:19px;letter-spacing:.05em;color:var(--cc)}.ccard em{font-style:normal;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}.ccard small{font-size:11.5px;color:var(--fg);line-height:1.35}
+.cbadge{display:inline-flex;align-items:center;gap:6px}.cbadge i{width:10px;height:10px;border-radius:3px;background:var(--cc,var(--gold))}
 .bil{display:grid;grid-template-columns:1fr;gap:6px}
 .rcard{padding:8px 10px;margin:8px 0;border-radius:8px;background:var(--panel-hi)}
 .rtop{display:flex;align-items:center;gap:8px}.rtop i{width:10px;height:10px;border-radius:3px}.rtop small{margin-left:auto;color:var(--mut)}
@@ -691,7 +701,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     <h3>ÉVÉNEMENTS ALÉATOIRES</h3>
     <p class="note">Grèves, krachs, incendies, opportunités... Une décision à prendre tous les 20 à 35 jours.</p>
     <div class="seg2" id="evtoggle"><button class="btn sec" data-ev2="1">Oui</button><button class="btn sec" data-ev2="0">Non</button></div>
-    <div class="actions"><button class="btn" id="mProd">Ouvrir la vue Produits</button><button class="btn sec" id="mNew">Nouvelle ville</button></div>
+    <div class="actions"><button class="btn" id="mCaste">Changer de caste</button><button class="btn" id="mProd">Ouvrir la vue Produits</button><button class="btn sec" id="mNew">Nouvelle ville</button></div>
     <h3>RACCOURCIS</h3>
     <p class="note">Molette ou boutons + et − : 5 niveaux de zoom (1 très près, 5 vue macro). Touches + et − aussi. Flèches : déplacer. Espace + glisser : déplacer. Un clic avec l'outil Main sur un bâtiment ouvre sa vue intérieure.</p>
     </section>
@@ -718,6 +728,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
   <aside id="gview" hidden></aside>
   <aside id="svview" hidden></aside>
   <aside id="tview" hidden></aside>
+  <div id="caste" hidden></div>
   <div id="evcard" hidden role="alertdialog" aria-live="assertive"></div>
 
   <div id="sitetip" hidden></div>
@@ -812,6 +823,7 @@ const TYPES = {
   res:     { name: 'Logements',     sub: 'Résidentiel',     cost: 500,   color: '#7f96ff', jobs: 0,  upkeep: 1 },
   tech:    { name: 'Tour Tech',     sub: 'Tech Composite',  cost: 3500,  color: '#3fd8ff', jobs: 14, upkeep: 5,  tier: 1 },
   wh:      { name: 'Entrepôt',     sub: 'Stockage, import, export', cost: 6000, color: '#9a9aa5', jobs: 6, upkeep: 3 },
+  plant:   { name: 'Centrale électrique', sub: 'Charbon → électricité', cost: 7000, color: '#ffd43b', jobs: 10, upkeep: 4, w: 2, h: 1 },
   hq:      { name: 'Siège social', sub: 'Direction du groupe', cost: 25000, color: '#ffd76a', jobs: 20, upkeep: 8, tier: 1 },
   bank:    { name: 'Banque',        sub: 'London Gold',     cost: 6000,  color: '#f2b84b', jobs: 12, upkeep: 6,  tier: 2 },
   well:    { name: 'Puits pétrole', sub: 'NYMEX Oil',       cost: 1200,  color: '#ff8a3d', jobs: 8,  upkeep: 2,  ext: 'oil',    rate: 14 },
@@ -913,7 +925,7 @@ function initRivals() {
 }
 const rivalSum = r => RIV_CLS.reduce((a, k) => a + r.att[k], 0);
 const rivalAttr = cls => (S.rivals || []).reduce((a, r) => a + r.att[cls] * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
-const rivalValue = r => Math.round((Math.max(0, r.cash) + 90000 * rivalSum(r)) / 500) * 500;
+const rivalValue = r => Math.round((Math.max(0, r.cash) + 90000 * rivalSum(r)) * (casteIs('tycoon') ? 0.85 : 1) / 500) * 500;
 function stepRivals(rivalPart) {
   const rs = S.rivals || [];
   rs.forEach(r => {
@@ -995,19 +1007,20 @@ const ICONS = {
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const ICON_OF = { qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+const ICON_OF = { plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
+  buyout: { name: 'Racheter', sub: 'Immeuble', color: '#ff7a45' },
   up:   { name: 'Améliorer', sub: 'Niveau +1', color: '#f2b84b' },
   bull: { name: 'Démolir', sub: 'Gratuit', color: '#ff5a5f' }
 };
 const CATS = [
-  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank', 'hq'] },
+  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank', 'hq', 'buyout'] },
   { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'road', 'link'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
-  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'wh', 'port'] },
+  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'plant', 'wh', 'port'] },
   { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 'immo'] }
 ];
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
@@ -1226,7 +1239,7 @@ function newCity() {
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
   const npc = genNpc(grid);
-  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] }; S0.cpi = 1;
+  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] }; S0.cpi = 1;
   S0.pop = Math.round(npc.cap * 0.85);
   S0.cash = 150000;
   return S0;
@@ -1235,7 +1248,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, caste: S.caste || '', npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1257,6 +1270,7 @@ function load() {
     genRoads(grid);
     const npcInfo = genNpc(grid);
     (Array.isArray(d.built) ? d.built : []).forEach(b => { const id = idx(b[0], b[1]); if (!grid[id]) grid[id] = { t: 'npc', k: b[2], seed: b[4], floors: b[3], lvl: 0, w: 1, h: 1, x: b[0], y: b[1], born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; });
+    (Array.isArray(d.npcMods) ? d.npcMods : []).forEach(m => { const c = grid[idx(m[0], m[1])]; if (!c || c.t !== 'npc') return; if (m[2] === 'x') grid[idx(m[0], m[1])] = null; else { c.k = m[2]; c.floors = m[3]; } });
     const dep = new Array(N * N).fill(null);
     (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) dep[a[0]] = { k: a[1], r: a[2] }; });
     if (!dep.some(q => q && CROPS[q.k])) genCropFields(dep);
@@ -1267,7 +1281,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.caste = CASTES[d.caste] ? d.caste : ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1387,6 +1401,43 @@ function stepWarehouses(portN, expRate) {
   whs.forEach(c => { c._fee = c._used * 0.015 * cpi(); });
   return { imp, rev };
 }
+// Castes : le profil du joueur choisi au départ (inspiré du pitch : promoteurs, banquiers, énergéticiens, tycoons)
+const CASTES = {
+  industriel: { n: 'Baron industriel', col: '#7f96ff', tag: 'Usines et matières premières', d: 'Tu domines la production. Usines et fonderies 12 % moins chères, production +5 %.', cash: 0, fx: { fac: 1.05 }, cost: { f1: 0.88, f2: 0.88, f3: 0.88, foundry: 0.88 } },
+  promoteur: { n: 'Promoteur BTP', col: '#ff7a45', tag: 'Villes, quartiers, immobilier', d: 'Tu fais bouger la ville. Constructions urbaines 15 % moins chères, outil Racheter 30 % moins cher (rachète un immeuble, rase, reconstruis), commandes de chantier plus rentables.', cash: 0, fx: {}, cost: { res: 0.85, tech: 0.85, bank: 0.85, hq: 0.85, s1: 0.85, s2: 0.85, s3: 0.85, immo: 0.85, btp: 0.85, wh: 0.85 } },
+  banquier: { n: 'Banquier d\'affaires', col: '#3fd8ff', tag: 'Crédit et marchés', d: 'Tu finances les autres. +30 000 $ de départ, intérêts 40 % moins chers, plafond d\'emprunt ×1,6, revenus de prêts aux rivaux.', cash: 30000, fx: { interest: 0.6 }, cost: {} },
+  energeticien: { n: 'Magnat de l\'énergie', col: '#46d39a', tag: 'Charbon, pétrole, électricité', d: 'Tu alimentes l\'île. Centrales électriques 20 % moins chères, revenus d\'électricité +30 %, pétrole et charbon +10 %.', cash: 0, fx: { oil: 1.1 }, cost: { plant: 0.8 } },
+  tycoon: { n: 'Tycoon', col: '#ff4fa3', tag: 'Rachats et prises de contrôle', d: 'Tu achètes tout. +60 000 $ de départ, OPA dès 10 % du capital avec une prime de 20 %, rachat de rivaux 15 % moins cher.', cash: 60000, fx: {}, cost: {} }
+};
+const casteOf = () => (S && S.caste) || '';
+const casteIs = k => casteOf() === k;
+const casteCost = key => { const c = CASTES[casteOf()]; return c && c.cost[key] ? c.cost[key] : 1; };
+function casteSVG(k) {
+  const C = CASTES[k], col = C.col, skin = { industriel: '#e0b08a', promoteur: '#c98e68', banquier: '#f0c8a0', energeticien: '#8a5a3a', tycoon: '#e8b890' }[k], hair = { industriel: '#3a2a1a', promoteur: '#1f1a18', banquier: '#9a9aa8', energeticien: '#151515', tycoon: '#d8c068' }[k];
+  let acc = '';
+  if (k === 'industriel') acc = '<path d="M52 58q28-34 56 0z" fill="#ffd43b"/><rect x="48" y="56" width="64" height="8" rx="3" fill="#e0b020"/>';
+  else if (k === 'promoteur') acc = '<path d="M50 56q30-36 60 0z" fill="#ff7a45"/><rect x="46" y="55" width="68" height="8" rx="3" fill="#d85a2a"/><rect x="74" y="34" width="12" height="10" fill="#ff7a45"/>';
+  else if (k === 'banquier') acc = '<rect x="58" y="76" width="18" height="12" rx="6" fill="none" stroke="#222" stroke-width="2.5"/><rect x="84" y="76" width="18" height="12" rx="6" fill="none" stroke="#222" stroke-width="2.5"/><path d="M76 82h8" stroke="#222" stroke-width="2.5"/>';
+  else if (k === 'energeticien') acc = '<path d="M52 58q28-34 56 0z" fill="#46d39a"/><path d="M82 30l-8 14h8l-6 14 14-18h-8l6-10z" fill="#fff" opacity=".9"/>';
+  else acc = '<rect x="64" y="104" width="32" height="5" rx="2.5" fill="#6a3a1a"/><rect x="96" y="102" width="14" height="4" rx="2" fill="#a86a2a"/><circle cx="112" cy="104" r="3" fill="#ff8a3d"/><path d="M54 62q26-28 52 0" fill="none" stroke="#d8c068" stroke-width="5"/>';
+  const suit = k === 'energeticien' ? '#1f5a46' : k === 'tycoon' ? '#2a1a2a' : k === 'banquier' ? '#1d2a4a' : k === 'promoteur' ? '#3a2a2a' : '#26305a';
+  return `<svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${C.n}"><defs><linearGradient id="cg${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".9"/><stop offset="1" stop-color="#0a0e28"/></linearGradient></defs><rect width="160" height="160" fill="url(#cg${k})"/>
+    <g opacity=".35" fill="${col}"><rect x="8" y="70" width="18" height="90"/><rect x="30" y="50" width="14" height="110"/><rect x="118" y="60" width="16" height="100"/><rect x="138" y="84" width="16" height="76"/></g>
+    <path d="M18 160q4-44 62-48 58 4 62 48z" fill="${suit}"/><path d="M80 112l-16 20 16 28 16-28z" fill="#f4f4f8"/><path d="M80 118l-6 14 6 20 6-20z" fill="${col}"/>
+    <rect x="70" y="96" width="20" height="18" rx="6" fill="${skin}"/><ellipse cx="80" cy="76" rx="28" ry="32" fill="${skin}"/>
+    <path d="M52 70q2-26 28-26 26 0 28 26-6-14-28-14T52 70z" fill="${hair}"/>
+    <circle cx="68" cy="80" r="3" fill="#222"/><circle cx="92" cy="80" r="3" fill="#222"/><path d="M70 96q10 7 20 0" fill="none" stroke="#7a3a2a" stroke-width="3" stroke-linecap="round"/>${acc}</svg>`;
+}
+function setCaste(k) {
+  if (!CASTES[k]) return; const first = !S.caste;
+  S.caste = k; if (first && S.day < 6) S.cash += CASTES[k].cash;
+  TM = techMults(); el('caste').hidden = true; say(`Tu joues : ${CASTES[k].n}.`, 'gold'); refreshStats(); updateHUD(); save();
+}
+function showCaste(force) {
+  if (!force && S.caste) return;
+  el('caste').innerHTML = `<div class="cbox"><h2>CHOISIS TA CASTE</h2><p class="note">Qui es-tu sur l'île de New Dollarton ? Chaque caste change ta façon de jouer. Tu pourras en changer plus tard dans Menu > Partie.</p><div class="cgrid">${Object.keys(CASTES).map(k => { const C = CASTES[k]; return `<button class="ccard" data-caste="${k}" style="--cc:${C.col}"><span class="cpic">${casteSVG(k)}</span><b>${C.n}</b><em>${C.tag}</em><small>${C.d}</small></button>`; }).join('')}</div>${S.caste ? '<button class="btn sec" data-caste="" style="margin-top:10px">Garder ma caste actuelle</button>' : ''}</div>`;
+  el('caste').hidden = false;
+}
 // PDG : points de connaissance et compétences (comme Capitalism Lab)
 const SKILLS = { neg: { n: 'Négociation', d: 'Intrants et importations −2 % par niveau.', fx: l => ({ buy: 1 - 0.02 * l }) }, lead: { n: 'Leadership', d: 'Production des usines et des mines +2 % par niveau.', fx: l => ({ fac: 1 + 0.02 * l, wood: 1 + 0.02 * l, oil: 1 + 0.02 * l, ore: 1 + 0.02 * l }) }, fin: { n: 'Finance', d: 'Intérêts des emprunts −6 % par niveau.', fx: l => ({ interest: 1 - 0.06 * l }) }, mkt: { n: 'Marketing', d: 'Attrait de tes magasins +3 % par niveau.', fx: l => ({ attract: 1 + 0.03 * l }) } };
 const skillOf = k => ((S && S.skills) || {})[k] | 0;
@@ -1424,8 +1475,8 @@ function tradeShares(id, qty, buy) {
 }
 function launchOpa(id) {
   const r = (S.rivals || []).find(x => x.id === id), h = (S.port || {})[id]; if (!r) return false;
-  const stake = h ? h.n / RSH : 0; if (stake < 0.2) { say('Il faut détenir au moins 20 % du capital pour lancer une OPA.', 'warn'); return false; }
-  const cost = (1 - stake) * RSH * rivalPx(r) * 1.35; if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter le reste du capital avec une prime de 35 %.`, 'bad'); return false; }
+  const stake = h ? h.n / RSH : 0, minS = casteIs('tycoon') ? 0.1 : 0.2; if (stake < minS) { say(`Il faut détenir au moins ${Math.round(minS * 100)} % du capital pour lancer une OPA.`, 'warn'); return false; }
+  const cost = (1 - stake) * RSH * rivalPx(r) * (casteIs('tycoon') ? 1.2 : 1.35); if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter le reste du capital avec une prime de 35 %.`, 'bad'); return false; }
   const p = 0.55 + 0.4 * stake;
   if (Math.random() < p) { S.cash -= cost; S.cash += Math.max(0, r.cash) * 0.5; S.subs = S.subs || []; S.subs.push({ name: r.name, inc: Math.max(40, (r.rev || 0) * 0.12) }); delete S.port[id]; S.rivals = S.rivals.filter(x => x !== r); say(`OPA réussie sur ${r.name} : la société devient ta filiale (${money(cost)}).`, 'gold'); }
   else { const fees = cost * 0.08; S.cash -= fees; r.mood = clamp((r.mood || 0) + 0.1, -0.2, 0.35); say(`OPA sur ${r.name} repoussée par le conseil : frais de ${money(fees)}.`, 'bad'); }
@@ -1433,6 +1484,15 @@ function launchOpa(id) {
 }
 function cartelOn(g) { const a = FIN_ACTIONS.cartel; if (S.cash < a.cost) { say(`Il faut ${money(a.cost)} pour former un cartel.`, 'bad'); return false; } if (modOf('px_' + g) > 1) { say('Un cartel est déjà actif sur ce bien.', 'info'); return false; } S.cash -= a.cost; addMod('px_' + g, 1.18, a.days); say(`Cartel formé sur ${GOODS[g].name.toLowerCase()} : le cours cible monte de 18 % pendant ${a.days} jours.`, 'gold'); updateHUD(); return true; }
 function embargoOn(id) { const a = FIN_ACTIONS.embargo, r = (S.rivals || []).find(x => x.id === id); if (!r) return false; if (S.cash < a.cost) { say(`Il faut ${money(a.cost)} pour un embargo.`, 'bad'); return false; } S.cash -= a.cost; r.emb = S.day + a.days; say(`Embargo sur ${r.name} : son attractivité est divisée par deux pendant ${a.days} jours.`, 'gold'); updateHUD(); return true; }
+const DEVS = [{ n: 'Urbania Promotion', col: '#c07aff' }, { n: 'Skyline Développement', col: '#ffb347' }, { n: 'Terra Immobilier', col: '#5fd0a0' }];
+function stepDevs() {
+  if (S.day % 6 !== 0 || (S.npcMods || []).length > 70) return;
+  const cand = []; eachBuilding(c => { if (c.t === 'npc' && !c.lm && inCity(c.x, c.y) && (c.k === 'house' || (c.k === 'res' && c.floors < 10) || c.k === 'park')) cand.push(c); });
+  if (!cand.length || Math.random() < 0.35) return; const c = cand[Math.floor(Math.random() * cand.length)], dev = DEVS[Math.floor(Math.random() * DEVS.length)];
+  const k = c.k === 'house' || c.k === 'park' ? (Math.random() < 0.8 ? 'res' : 'off') : c.k, fl = c.k === 'house' || c.k === 'park' ? 3 + Math.floor(Math.random() * 4) : c.floors + 3;
+  c.k = k; c.floors = fl; c.born = performance.now() - 300; (S.npcMods = S.npcMods || []).push([c.x, c.y, k, fl]);
+  say(`${dev.n} rénove un îlot (${fl} étages, ${k === 'res' ? 'logements' : 'bureaux'}) en (${c.x + 1}, ${c.y + 1}).`, 'info');
+}
 // Macro-économie : cycle du PIB, inflation, taux d'intérêt
 function stepMacro() {
   const m = S.macro || (S.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] });
@@ -1471,6 +1531,7 @@ let TM = { crop: 1, wood: 1, oil: 1, ore: 1, buy: 1, transport: 1, retail: 1, fa
 function techMults() {
   const m = { crop: 1, wood: 1, oil: 1, ore: 1, buy: 1, transport: 1, retail: 1, fac: 1, waste: 1, attract: 1, wage: 1, interest: 1, demand: 1, export: 1 };
   Object.keys(S.tech || {}).forEach(id => { const T = TECH_BY[id]; if (T) Object.keys(T.fx).forEach(k => { m[k] *= T.fx[k]; }); });
+  { const cf = CASTES[casteOf()]; if (cf) Object.keys(cf.fx).forEach(q => { m[q] *= cf.fx[q]; }); }
   Object.keys(SKILLS).forEach(k => { const l = skillOf(k); if (l) { const fx = SKILLS[k].fx(l); Object.keys(fx).forEach(q => { m[q] *= fx[q]; }); } });
   (S.mods || []).forEach(x => { if (x.until >= S.day) m[x.k] = (m[x.k] || 1) * x.v; });
   return m;
@@ -1656,7 +1717,7 @@ function step() {
   const ev = evaluate();
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
-  stepMacro(); TM = techMults();
+  stepMacro(); TM = techMults(); stepDevs();
   if (S.day % 5 === 0) { trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }
   if (S.day % 5 === 0) stepGoal();
   if (S.research) { S.research.left--; if (S.research.left <= 0) { S.tech = S.tech || {}; S.tech[S.research.id] = S.day; say(`Recherche terminée : ${TECH_BY[S.research.id].n}. ${TECH_BY[S.research.id].d2}`, 'gold'); S.research = null; TM = techMults(); } }
@@ -1792,9 +1853,10 @@ function step() {
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
   const P = S.price;
-  let revTech = 0, revBank = (S.subInc || 0), wagesTotal = 0, transportTotal = 0, adTotal = 0;
+  let revTech = 0, revBank = (S.subInc || 0) + (casteIs('banquier') ? Math.min(400, 60 + Math.max(0, S.cash) * 0.0006) : 0), wagesTotal = 0, transportTotal = 0, adTotal = 0;
   buildings.forEach(c => {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
+    if (c.t === 'plant') { const need = 6 * u, burn = Math.min(need, Math.max(0, S.stock.coal)); S.stock.coal -= burn; want.coal += need; c.out = burn; c.util = need > 0 ? burn / need : 0; c.limit = burn < need - 1e-6 ? 'coal' : null; c.inCost = burn * S.price.coal; c.pRev = burn * 30 * (casteIs('energeticien') ? 1.3 : 1) * cpi(); revTech += c.pRev; }
     if (c.t === 'tech') { c.pRev = 260 * u * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = Math.min(500, 180 + Math.max(0, S.cash) * 0.0008) * u * qualMult(c); revBank += c.pRev; }
     if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0); wagesTotal += c.wages; }
@@ -1947,7 +2009,7 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierOf(S.stats.worth || 0) < T.tier);
 }
-const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, wh: 2, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
+const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, wh: 2, plant: 2, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
 // vérifie si l'emprise est libre ; renvoie un message d'erreur ou ''
 function footprintError(x, y, key) {
@@ -1978,6 +2040,7 @@ function placeBuilding(x, y, key) {
   for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) S.grid[idx(x + ox, y + oy)] = (ox || oy) ? { t: 'part', ai: idx(x, y), ox, oy } : c;
   return c;
 }
+const buyoutCost = c => Math.round((c.k === 'house' ? 900 : c.floors * 380 * (0.6 + landValue(c.x, c.y))) * (casteIs('promoteur') ? 0.7 : 1) / 10) * 10;
 function place(x, y, key) {
   if (!inb(x, y)) return false;
   const rc = rawCell(x, y), c = anchorOf(rc);
@@ -1991,6 +2054,14 @@ function place(x, y, key) {
     for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) S.grid[idx(c.x + ox, c.y + oy)] = null;
     refreshStats(); updateHUD(); save();
     return true;
+  }
+  if (key === 'buyout') {
+    if (!c || c.t !== 'npc') { say('Racheter : clique un immeuble ou une maison de la ville existante.', 'info'); return false; }
+    const cost = buyoutCost(c); if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter cet immeuble.`, 'bad'); return false; }
+    S.cash -= cost; S.grid[idx(c.x, c.y)] = null; (S.npcMods = S.npcMods || []).push([c.x, c.y, 'x', 0]); trfDirty = true; siteC.dirty = true;
+    flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cost), t: performance.now(), col: '#ff8a8e' });
+    say(`Immeuble racheté et rasé (${money(cost)}) : le terrain est libre pour ton projet. ${c.k === 'res' ? 'Les habitants sont relogés ailleurs (population -' + 5 * c.floors + ' de capacité).' : c.k === 'house' ? '' : 'Les emplois disparaissent avec lui.'}`, 'gold');
+    refreshStats(); updateHUD(); save(); return true;
   }
   if (key === 'link') return autoConnect(x, y);
   if (key === 'up') {
@@ -2015,7 +2086,7 @@ function place(x, y, key) {
     if (!quiet) { say(err, 'warn'); if (key === 'road') lastRoadMsg = performance.now(); }
     return false;
   }
-  const land = landCostFor(x, y, key), tot = T.cost + land;
+  const land = landCostFor(x, y, key), tot = Math.round(T.cost * casteCost(key)) + land;
   if (S.cash < tot) { say(`Trésorerie insuffisante pour ${T.name.toLowerCase()} : ${money(T.cost)} de construction + ${money(land)} de terrain.`, 'bad'); return false; }
   S.cash -= tot; trfDirty = true; siteC.dirty = true;
   let b;
@@ -2211,7 +2282,8 @@ function updateHUD() {
     rh += `<div class="rcard"><div class="rtop"><i style="background:#f2b84b"></i><b>Ta société</b><small>${Math.round(avg('you') * 100)} % du marché</small></div><div class="rshr">${shares('you')}</div></div>`;
     rh += (S.rivals || []).map(r => { const v = rivalValue(r); return `<div class="rcard"><div class="rtop"><i style="background:${r.col}"></i><b>${r.name}</b><small>${Math.round(avg(r.id) * 100)} % du marché</small></div><div class="rshr">${shares(r.id)}</div><div class="rbot"><small>Trésorerie ${money(r.cash)} · ${money(r.rev || 0)} de ventes/j</small><button class="btn sec" data-buy="${r.id}" ${S.cash >= v ? '' : 'disabled'}>Racheter ${money(v)}</button></div></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
     if (el('rivals').innerHTML !== rh) el('rivals').innerHTML = rh;
-    { const F2 = S.fin || {}, w2 = (S.stats && S.stats.worth) || 0; el('psCash').textContent = money(S.cash); el('psCash').className = S.cash >= 0 ? 'pos' : 'neg'; el('psWorth').textContent = money(w2); el('psNet').textContent = (F2.net >= 0 ? '+' : '−') + money(Math.abs(F2.net || 0)); el('psNet').className = (F2.net || 0) >= 0 ? 'pos' : 'neg'; el('psDate').textContent = `Jour ${S.day % 30 + 1} · An ${Math.floor(S.day / 120) + 1}`;
+    { const cf = CASTES[casteOf()]; el('ptitleSub').innerHTML = cf ? `<span class="cbadge" style="--cc:${cf.col}"><i></i>${cf.n}</span>` : 'New Dollarton'; if (cf) el('tierLine').textContent = 'New Dollarton · ' + cf.n; }
+  { const F2 = S.fin || {}, w2 = (S.stats && S.stats.worth) || 0; el('psCash').textContent = money(S.cash); el('psCash').className = S.cash >= 0 ? 'pos' : 'neg'; el('psWorth').textContent = money(w2); el('psNet').textContent = (F2.net >= 0 ? '+' : '−') + money(Math.abs(F2.net || 0)); el('psNet').className = (F2.net || 0) >= 0 ? 'pos' : 'neg'; el('psDate').textContent = `Jour ${S.day % 30 + 1} · An ${Math.floor(S.day / 120) + 1}`;
     const tp = advisorTips(), adv = '<b>Conseiller</b>' + tp.map(x => `<p>${x}</p>`).join(''); if (el('advisor').dataset.h !== adv) { el('advisor').innerHTML = adv; el('advisor').dataset.h = adv; } const ab = '<b>Conseiller</b>' + tp.map(x => `<span>${x}</span>`).join(''); if (el('advbar').dataset.h !== ab) { el('advbar').innerHTML = ab; el('advbar').dataset.h = ab; } }
   syncEvToggle(); renderGoals(); renderEmpire(); renderTechs(); renderProdScreen(); renderGuide(); renderChainSum(); renderChain(); renderTerm();
     const rawP = (S.stats && S.stats.raw) || 0, lrows = [];
@@ -2498,7 +2570,7 @@ function renderEmpire() {
   if (el('macspark') && M.h && M.h.length > 1) drawSeries(el('macspark'), M.h, '#46d39a');
 }
 el('empire').addEventListener('click', e => { const b = e.target.closest('[data-open]'); if (!b) return; const [x, y] = b.dataset.open.split(',').map(Number); openBuilding(x, y); });
-function creditLimit() { return Math.max(0, Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
+function creditLimit() { return Math.max(0, Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.6 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
 el('loanUp').onclick = () => { if ((S.loan || 0) + 20000 <= creditLimit()) { S.loan = (S.loan || 0) + 20000; S.cash += 20000; say('Emprunt de 20 000 $ (intérêts 0,06 %/jour).', 'info'); updateHUD(); save(); } };
 el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, 20000, Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
 function setBar(id, v) {
@@ -4038,6 +4110,8 @@ function setPtab(n) {
 }
 document.querySelectorAll('#panel [data-ptab]').forEach(b => { b.onclick = () => setPtab(b.dataset.ptab); });
 el('mProd').onclick = () => { setPview(true); };
+el('mCaste').onclick = () => { setPanel(false); showCaste(true); };
+el('caste').addEventListener('click', e => { const b = e.target.closest('[data-caste]'); if (!b) return; if (b.dataset.caste) setCaste(b.dataset.caste); else el('caste').hidden = true; });
 function syncEvToggle() { document.querySelectorAll('#evtoggle [data-ev2]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.ev2 === '0') === !!S.noEv ? 'true' : 'false')); }
 el('evtoggle').addEventListener('click', e => { const b = e.target.closest('[data-ev2]'); if (!b) return; S.noEv = b.dataset.ev2 === '0'; if (S.noEv) { S.event = null; el('evcard').hidden = true; } syncEvToggle(); save(); });
 el('mNew').onclick = () => { el('rst').click(); };
@@ -4054,7 +4128,7 @@ el('rst').onclick = () => {
     return;
   }
   clearTimeout(rstTimer); rstTimer = 0; b.textContent = 'Reset'; b.classList.remove('warn');
-  newCity(); makeDecor(); cars = []; refreshStats(); S.hist = [Math.round(S.stats.worth)]; centerOn(START.x, START.y); updateHUD(); save();
+  newCity(); makeDecor(); cars = []; refreshStats(); S.hist = [Math.round(S.stats.worth)]; centerOn(START.x, START.y); updateHUD(); save(); showCaste(false);
   say('Nouvelle ville créée.', 'info');
 };
 
@@ -4236,6 +4310,7 @@ function tileSprite(a, ox, oy) {
     case 'foundry': return 'oil' + (k % 2);
     case 'btp': return 'fact' + (k % 2);
     case 'wh': return 'fsmall' + (k % 2);
+    case 'plant': return 'fact' + (k % 2);
     case 'immo': return 'shop' + [1, 3, 4, 5][k % 4];
     case 's1': return 'shop' + [0, 4, 5, 6][k % 4];
     case 's2': return 'shop' + [7, 8][k % 2];
@@ -4683,7 +4758,7 @@ function drawSatellite(now) {
 }
 function updateSiteTip() {
   const tip = el('sitetip'), T0 = TYPES[tool];
-  if (!hover || !T0 || tool === 'view' || tool === 'road' || ['up', 'bull', 'link'].indexOf(tool) >= 0 || footprintError(hover.x, hover.y, tool)) { tip.hidden = true; bestTile = null; siteKey = ''; return; }
+  if (!hover || !T0 || tool === 'view' || tool === 'road' || ['up', 'bull', 'link', 'buyout'].indexOf(tool) >= 0 || footprintError(hover.x, hover.y, tool)) { tip.hidden = true; bestTile = null; siteKey = ''; return; }
   const k = hover.x + ',' + hover.y + ',' + tool + ',' + S.day + ',' + Math.floor(S.cash / 500); if (k === siteKey) return; siteKey = k;
   const i = siteInfo(hover.x, hover.y, tool); if (!i) { tip.hidden = true; return; }
   const row = (a, b, c) => `<div class="r"><span>${a}</span><span class="${c || ''}">${b}</span></div>`;
@@ -4764,6 +4839,7 @@ function frame(now) {
       const T = TYPES[tool];
       if (T && T.w) { w = T.w; h = T.h; }
       if (tool === 'bull') ok = !!c;
+      else if (tool === 'buyout') ok = !!c && c.t === 'npc' && S.cash >= buyoutCost(c);
       else if (tool === 'link') ok = !!c && c.t !== 'road' && !footConn(c);
       else if (tool === 'link') ok = !!c && c.t !== 'road' && c.linked === false;
       else if (tool === 'up') ok = !!c && c.t !== 'road' && upgradeCost(c) > 0 && S.cash >= upgradeCost(c);
@@ -4964,6 +5040,7 @@ resize();
 updateZoomUI();
 if (!S.macro) S.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] };
 TM = techMults(); if (S.event) showEvent();
+setTimeout(() => showCaste(false), 3200);
 refreshStats();
 if (!S.hist.length) S.hist.push(Math.round(S.stats.worth));
 checkMissions();
@@ -4973,7 +5050,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, get scene() { return scene; }, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { get S() { return S; }, get scene() { return scene; }, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
