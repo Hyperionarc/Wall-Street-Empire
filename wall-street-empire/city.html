@@ -4203,11 +4203,88 @@ function drawTowerCrane(cx, cy, now, seed) {
   isoBox(cx - 46, cy - 142, 0.2, 0.3, 12, '#5d5d68', '#4a4a54', '#34343c');
   ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, cy - 154, 3.5, 0, 7); ctx.fill();
 }
+/* ---------- Bâtiments procéduraux : usines, entrepôts, fonderie ; toits des tours ---------- */
+const PROC_IND = { f1: 1, f2: 1, f3: 1, wh: 1, foundry: 1 };
+const WALLS = { f1: ['#d8c9a8', '#c9d2dc', '#d4a98f', '#bfd0c0'], f2: ['#b9c6d6', '#c5ccb4', '#cdbba6'], f3: ['#a9b4c6', '#b9bfc9'], wh: ['#c8cfd9', '#d9c6a0', '#b7c9c4'], foundry: ['#a8605a', '#9a6a52'] };
+function shade(hex, k) { const n = parseInt(hex.slice(1, 7), 16), c = v => Math.min(255, Math.max(0, v | 0)).toString(16).padStart(2, '0'); return '#' + c((n >> 16) * k) + c(((n >> 8) & 255) * k) + c((n & 255) * k); }
+function pQuad(pts, fill) { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); }
+const PP = (u, v, z) => { const q = iso(u, v); return [q.x, q.y - z]; };
+function pPrism(x, y, w, h, z0, z1, col) {
+  pQuad([PP(x, y + h, z1), PP(x + w, y + h, z1), PP(x + w, y + h, z0), PP(x, y + h, z0)], shade(col, 0.82));
+  pQuad([PP(x + w, y, z1), PP(x + w, y + h, z1), PP(x + w, y + h, z0), PP(x + w, y, z0)], shade(col, 0.62));
+  pQuad([PP(x, y, z1), PP(x + w, y, z1), PP(x + w, y + h, z1), PP(x, y + h, z1)], shade(col, 1.08));
+}
+function pWindows(x, y, w, h, z0, z1, n, lit) {   // bandeau de fenêtres sur la face avant gauche
+  const sw = w / n;
+  for (let i = 0; i < n; i++) pQuad([PP(x + i * sw + sw * 0.18, y + h, z1), PP(x + i * sw + sw * 0.82, y + h, z1), PP(x + i * sw + sw * 0.82, y + h, z0), PP(x + i * sw + sw * 0.18, y + h, z0)], lit && hash(i, Math.floor(x * 10), 3) > 0.35 ? '#ffe08a' : '#243053');
+}
+function pCyl(cx, cy, r, z0, z1, col, topCol) {
+  const b = PP(cx, cy, z0), tp = PP(cx, cy, z1), w = r * TW * 0.9;
+  ctx.fillStyle = shade(col, 0.8); ctx.fillRect(b[0] - w, tp[1], w * 2, b[1] - tp[1]);
+  ctx.fillStyle = shade(col, 0.62); ctx.fillRect(b[0] + w * 0.25, tp[1], w * 0.75, b[1] - tp[1]);
+  ctx.fillStyle = shade(col, 0.8); ctx.beginPath(); ctx.ellipse(b[0], b[1], w, w * 0.5, 0, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = topCol || shade(col, 1.15); ctx.beginPath(); ctx.ellipse(tp[0], tp[1], w, w * 0.5, 0, 0, 7); ctx.fill();
+}
+function smoke(sx, sy, now, active, seed) {
+  if (!active) return;
+  for (let i = 0; i < 5; i++) { const age = ((now / 1600) + i * 0.2 + seed) % 1; ctx.fillStyle = `rgba(214,218,236,${(1 - age) * 0.45})`; ctx.beginPath(); ctx.arc(sx + age * 26, sy - age * 80, 7 + age * 14, 0, 7); ctx.fill(); }
+}
+function drawIndustrial(a, now, grow) {
+  const x = a.x, y = a.y, w = a.w, h = a.h, seed = a.seed, pal = WALLS[a.t] || WALLS.f1, wall = pal[Math.floor(seed * 997) % pal.length], roof = '#7d8599', act = (a.util || 0) > 0.05 && a.conn;
+  const gg = grow == null ? 1 : grow; let zTop = 40;
+  if (a.t === 'f1') {
+    pPrism(x + 0.08, y + 0.1, 0.84, 0.8, 0, 36 * gg, wall); zTop = 36;
+    for (let i = 0; i < 2; i++) pPrism(x + 0.08 + i * 0.42, y + 0.1, 0.42, 0.8, 36 * gg, 46 * gg, i ? roof : shade(roof, 1.15));
+    pWindows(x + 0.08, y + 0.1, 0.84, 0.8, 14, 26, 5, act);
+    pQuad([PP(x + 0.12, y + 0.9, 20), PP(x + 0.32, y + 0.9, 20), PP(x + 0.32, y + 0.9, 0), PP(x + 0.12, y + 0.9, 0)], '#e0a03a');
+    pCyl(x + 0.78, y + 0.22, 0.07, 46, 84 * gg, '#9a6a52'); smoke(PP(x + 0.78, y + 0.22, 86)[0], PP(x + 0.78, y + 0.22, 86)[1], now, act, seed);
+    zTop = 84;
+  } else if (a.t === 'f2') {
+    pPrism(x + 0.08, y + 0.1, 1.84, 0.8, 0, 46 * gg, wall);
+    for (let i = 0; i < 4; i++) pPrism(x + 0.08 + i * 0.46, y + 0.1, 0.46, 0.8, 46 * gg, 58 * gg, i % 2 ? roof : shade(roof, 1.15));
+    pWindows(x + 0.08, y + 0.1, 1.84, 0.8, 16, 32, 9, act);
+    pQuad([PP(x + 0.9, y + 0.9, 26), PP(x + 1.3, y + 0.9, 26), PP(x + 1.3, y + 0.9, 0), PP(x + 0.9, y + 0.9, 0)], '#e0a03a');
+    pCyl(x + 1.72, y + 0.3, 0.14, 0, 78 * gg, '#cfd5e6'); pCyl(x + 0.4, y + 0.3, 0.07, 58, 96 * gg, '#9a6a52');
+    smoke(PP(x + 0.4, y + 0.3, 98)[0], PP(x + 0.4, y + 0.3, 98)[1], now, act, seed); zTop = 98;
+  } else if (a.t === 'f3') {
+    pPrism(x + 0.1, y + 0.1, 1.8, 1.0, 0, 52 * gg, wall);
+    for (let i = 0; i < 4; i++) pPrism(x + 0.1 + i * 0.45, y + 0.1, 0.45, 1.0, 52 * gg, 66 * gg, i % 2 ? roof : shade(roof, 1.15));
+    pPrism(x + 0.1, y + 1.2, 1.1, 0.7, 0, 36 * gg, shade(wall, 0.95)); pPrism(x + 0.1, y + 1.2, 1.1, 0.7, 36 * gg, 42 * gg, roof);
+    pWindows(x + 0.1, y + 1.1, 1.8, 0, 14, 36, 10, act);
+    pCyl(x + 1.55, y + 1.5, 0.3, 0, 40 * gg, '#cfd5e6'); pCyl(x + 1.55, y + 1.5, 0.22, 40 * gg, 78 * gg, '#bfc6d9');
+    pCyl(x + 0.35, y + 0.3, 0.08, 66, 120 * gg, '#9a6a52'); pCyl(x + 0.75, y + 0.3, 0.08, 66, 108 * gg, '#9a6a52');
+    smoke(PP(x + 0.35, y + 0.3, 122)[0], PP(x + 0.35, y + 0.3, 122)[1], now, act, seed); smoke(PP(x + 1.55, y + 1.5, 80)[0], PP(x + 1.55, y + 1.5, 80)[1], now, act, seed + 0.4); zTop = 122;
+  } else if (a.t === 'wh') {
+    pPrism(x + 0.06, y + 0.1, 0.88, 0.8, 0, 42 * gg, wall); pPrism(x + 0.04, y + 0.08, 0.92, 0.84, 42 * gg, 47 * gg, roof);
+    for (let i = 0; i < 3; i++) { const u = x + 0.1 + i * 0.28; pQuad([PP(u, y + 0.9, 28), PP(u + 0.22, y + 0.9, 28), PP(u + 0.22, y + 0.9, 0), PP(u, y + 0.9, 0)], '#e0a03a'); for (let k = 1; k < 5; k++) pQuad([PP(u, y + 0.9, 28 - k * 5.6 + 1), PP(u + 0.22, y + 0.9, 28 - k * 5.6 + 1), PP(u + 0.22, y + 0.9, 28 - k * 5.6), PP(u, y + 0.9, 28 - k * 5.6)], 'rgba(0,0,0,.25)'); }
+    pPrism(x + 0.62, y + 0.02, 0.28, 0.2, 0, 14, ['#ff8a3d', '#3fd8ff', '#ff4fa3', '#69db7c'][Math.floor(seed * 4)]); pPrism(x + 0.62, y + 0.02, 0.28, 0.2, 14, 28, ['#46d39a', '#ffd43b', '#7f96ff'][Math.floor(seed * 3)]);
+    if (act || Math.sin(now / 400 + seed * 9) > 0) { const q = PP(x + 0.5, y + 0.9, 52); ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(q[0], q[1], 3, 0, 7); ctx.fill(); }
+    zTop = 56;
+  } else if (a.t === 'foundry') {
+    pPrism(x + 0.12, y + 0.14, 0.76, 0.72, 0, 34 * gg, wall); pPrism(x + 0.1, y + 0.12, 0.8, 0.76, 34 * gg, 40 * gg, '#6a5148');
+    const gl = act ? 0.7 + 0.3 * Math.sin(now / 120) : 0.2, q1 = PP(x + 0.3, y + 0.86, 24), q2 = PP(x + 0.7, y + 0.86, 4);
+    const gr = ctx.createRadialGradient((q1[0] + q2[0]) / 2, (q1[1] + q2[1]) / 2, 2, (q1[0] + q2[0]) / 2, (q1[1] + q2[1]) / 2, 30); gr.addColorStop(0, `rgba(255,230,120,${gl})`); gr.addColorStop(1, `rgba(255,90,20,0)`);
+    pQuad([PP(x + 0.3, y + 0.86, 24), PP(x + 0.7, y + 0.86, 24), PP(x + 0.7, y + 0.86, 4), PP(x + 0.3, y + 0.86, 4)], `rgba(40,12,8,.95)`); ctx.fillStyle = gr; ctx.fillRect(q1[0] - 36, q1[1] - 10, 100, 60);
+    pCyl(x + 0.75, y + 0.28, 0.09, 40, 98 * gg, '#9a6a52'); smoke(PP(x + 0.75, y + 0.28, 100)[0], PP(x + 0.75, y + 0.28, 100)[1], now, act, seed); zTop = 100;
+  }
+  const p = iso(a.x + a.w - 1, a.y + a.h - 1); a._top = p.y - zTop + 40;
+}
+function roofTop(a, p, now) {
+  if (a.lm) return;
+  const f = a.floors + (a.lvl || 0), k = Math.floor(a.seed * 997) % 6, cx = p.x, ry = a._top + 26;
+  const box = (dx, dy, bw, bh, col) => { ctx.fillStyle = shade(col, 0.82); ctx.fillRect(cx + dx - bw / 2, ry + dy - bh, bw, bh); ctx.fillStyle = shade(col, 1.1); ctx.fillRect(cx + dx - bw / 2, ry + dy - bh, bw, 4); };
+  if (f >= 30) { box(0, 0, 44, 22, '#9aa4c0'); ctx.strokeStyle = '#cfd6ee'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, ry - 22); ctx.lineTo(cx, ry - 70); ctx.stroke(); if (Math.sin(now / 400 + a.seed * 7) > 0) { ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, ry - 72, 3.5, 0, 7); ctx.fill(); } return; }
+  if (f >= 20) { box(0, 0, 36, 16, '#aab4cf'); box(0, -16, 18, 14, '#cfd6ee'); return; }
+  if (f >= 10) { if (k < 2) { ctx.strokeStyle = '#8f9acb'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 6, ry); ctx.lineTo(cx - 6, ry - 30); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx - 14, ry - 24); ctx.lineTo(cx + 2, ry - 24); ctx.stroke(); } else if (k < 4) { box(-8, 0, 20, 16, '#b98a54'); ctx.fillStyle = '#7a5230'; ctx.fillRect(cx - 14, ry, 4, 8); ctx.fillRect(cx - 2, ry, 4, 8); } else { box(-10, 0, 16, 9, '#c9cfe8'); box(10, 2, 14, 8, '#b4bbdb'); } return; }
+  if (f >= 5 && k < 3) box(-8 + k * 8, 2, 14, 9, '#c9cfe8');
+}
 function drawTileOf(a, x, y, ox, oy, o) {
   const p = iso(x, y);
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
-  if (a.t === 'npc' && a.k === 'house') {
+  if (PROC_IND[a.t]) {
+    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
+  } else if (a.t === 'npc' && a.k === 'house') {
     const hn = 'shop' + (Math.floor(a.seed * 997) % 12), hs = SP[hn];
     if (hs) ctx.drawImage(ATLAS, hs[0], hs[1], hs[2], hs[3], p.x - hs[2] / 2, p.y + 99 - hs[3], hs[2], hs[3]);
     a._top = p.y + 99 - (hs ? hs[3] : 60) - 10;
@@ -4218,7 +4295,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
       const sc = a.lm ? 1 - i * 0.0095 : 1;
       ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] * sc / 2, by + s[3] * (1 - sc) - i * FH, s[2] * sc, s[3] * sc);
     }
-    a._top = by - (a.floors - 1) * FH;
+    a._top = by - (a.floors - 1) * FH; roofTop(a, p, o.now);
     if (a.lm) {
       ctx.strokeStyle = '#f2b84b'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(p.x, a._top + 30); ctx.lineTo(p.x, a._top - 50); ctx.stroke();
       ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 12; ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(p.x, a._top - 52, 4, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
@@ -4232,7 +4309,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
     const floors = Math.max(1, Math.round((a.floors + (a.t === 'res' ? 0 : a.lvl)) * (a.t === 'res' ? 1 : grow)));
     const bx = p.x - 50, by = p.y - 27;
     for (let i = 0; i < floors; i++) blit(name, bx, by - i * FH);
-    a._top = by - (floors - 1) * FH;
+    a._top = by - (floors - 1) * FH; roofTop(a, p, o.now);
   } else {
     const name = tileSprite(a, ox, oy), s = name && SP[name];
     if (s) ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] / 2, p.y + 99 - s[3] + (1 - grow) * 30, s[2], s[3] * grow);
@@ -4655,7 +4732,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, get scene() { return scene; }, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { get S() { return S; }, get scene() { return scene; }, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
