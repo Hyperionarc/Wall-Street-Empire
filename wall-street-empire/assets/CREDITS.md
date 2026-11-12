@@ -16,3 +16,7 @@ Un autre pack a été repéré mais non utilisé : le site kenney.nl refuse les 
 récupérés via les pages OpenGameArt correspondantes.
 Aucun pack libre d'usine isométrique n'a été trouvé : les usines sont assemblées à partir d'un grand bloc et
 d'un toit industriel Kenney.
+
+| Isometric Houses (64 tuiles de maisons) | Daniel Cook / auteur CC0 du pack OpenGameArt | https://opengameart.org/content/isometric-houses | maisons de la périphérie (24 variantes) |
+
+Packs examinés mais non retenus : Isometric Town Tiles (SBS, CC0), Isometric Pack (JanaChumi, CC0).

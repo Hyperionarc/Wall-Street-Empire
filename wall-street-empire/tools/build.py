@@ -70,6 +70,12 @@ sprites['tech1'] = tint(load(f'{KB}/buildingTiles_050.png'), (70, 190, 235), 0.4
 sprites['bank0'] = load(f'{KB}/buildingTiles_053.png')
 sprites['bank1'] = tint(load(f'{KB}/buildingTiles_055.png'), (242, 184, 75), 0.25)
 
+KH = os.path.join(SRC, 'isometric-houses')
+for i in range(24):
+    fp = os.path.join(KH, 'house%02d.png' % i)
+    if os.path.exists(fp):
+        sprites['hs%d' % i] = load(fp)
+
 # --- Véhicules : 4 directions iso par modèle (indices de frames, voir DIR_FRAMES dans le jeu)
 veh_dirs = {'SE': 0, 'NW': 0, 'SW': 0, 'NE': 0}  # remplacé ci-dessous
 DIR_FRAMES = json.load(open(os.path.join(ROOT, 'tools', 'vehicle_frames.json')))  # {"SE": n, ...}
