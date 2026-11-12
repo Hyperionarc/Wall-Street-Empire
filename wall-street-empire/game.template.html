@@ -540,6 +540,10 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .ob .dep{background:linear-gradient(90deg,rgba(255,90,95,.25),transparent)}.ob .bid .dep{background:linear-gradient(90deg,rgba(70,211,154,.25),transparent)}
 .sect{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}.sect div{padding:8px;border-radius:8px;background:var(--panel-hi)}.sect small{color:var(--mut);font-size:10px;letter-spacing:.08em;text-transform:uppercase}.sect b{display:block;font-family:var(--font-m);font-size:15px}
 .tact{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-top:10px}
+#sitetip{position:absolute;z-index:7;left:50%;top:calc(var(--hud-h) + 8px);transform:translateX(-50%);width:min(430px,calc(100% - 24px));padding:10px 12px;border-radius:10px;background:rgba(10,14,40,.94);border:1px solid var(--cyan);font-size:12px;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#sitetip[hidden]{display:none}#sitetip b{color:var(--cyan);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:4px}
+#sitetip .r{display:flex;justify-content:space-between;gap:10px;padding:1px 0}#sitetip .r span:last-child{font-family:var(--font-m)}
+#sitetip .adv2{margin-top:5px;padding-top:5px;border-top:1px solid var(--line);color:var(--gold)}
 .bil{display:grid;grid-template-columns:1fr;gap:6px}
 .rcard{padding:8px 10px;margin:8px 0;border-radius:8px;background:var(--panel-hi)}
 .rtop{display:flex;align-items:center;gap:8px}.rtop i{width:10px;height:10px;border-radius:3px}.rtop small{margin-left:auto;color:var(--mut)}
@@ -572,6 +576,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
           <span class="cgrp" role="group" aria-label="Zoom"><span class="loupe" aria-hidden="true" title="Zoom"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></span><button class="ibtn" id="zout" aria-label="Reculer (vue plus large)" title="Reculer">−</button><button class="ibtn" id="zin" aria-label="Avancer (zoomer)" title="Avancer">+</button><span class="zpips" id="zpips" aria-hidden="true"></span></span>
           <button class="ibtn" id="pn" aria-label="Ouvrir le menu" aria-pressed="false">☰ Menu</button>
           <button class="ibtn" id="pv" aria-label="Ouvrir la vue Produits" aria-pressed="false">Produits</button>
+          <button class="ibtn" id="lyr" title="Calque de la carte : fréquentation, terrain, logistique">Calque : Auto</button>
           <button class="ibtn" id="rst" aria-label="Nouvelle ville">Reset</button>
         </div>
       </div>
@@ -714,6 +719,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
   <aside id="tview" hidden></aside>
   <div id="evcard" hidden role="alertdialog" aria-live="assertive"></div>
 
+  <div id="sitetip" hidden></div>
   <div id="feed" aria-live="polite"></div>
 
   <div id="hint">
@@ -1508,7 +1514,7 @@ function showEvent() {
   if (!ev) { box.hidden = true; return; }
   box.innerHTML = `<b>${ev.t}</b><p>${ev.d}</p>${ev.ch.map((c, i) => `<button class="btn ${i ? 'sec' : ''}" data-ev="${i}">${c.l}</button>`).join('')}`; box.hidden = false;
 }
-const PORT_HUB = { x: 75, y: 69 }, TRANS = 0.01;   // coût de transport par unité et par case
+const PORT_HUB = { x: 75, y: 69 }, TRANS = 0.02;   // coût de transport par unité et par case
 const DEP_DAYS = 1500;
 const SHARES = 10000, RSH = 5000;
 const EXEC = { cfo: { n: 'Directeur financier (CFO)', wage: 400, d: 'Pilote les dividendes et les rachats d\'actions par paliers de 5 %, négocie un crédit moins cher (−25 % d\'intérêts) et un plafond d\'emprunt plus haut (+30 %).' }, ir: { n: 'Directeur des relations investisseurs', wage: 300, d: 'Débloque les événements boursiers (communiqués, journée investisseurs, plan de rachat) et calme la volatilité du cours.' } };
@@ -1570,7 +1576,7 @@ function soilMult(c) {
   return fert * aff;
 }
 const wasteOf = c => 0.05 * TM.waste / deptMult(c).stock;
-const unitsOf = c => levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
+const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? 1 - clamp(0.0035 * (c.haul || 0), 0, 0.25) : 1) * levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
 const jobsOf = c => TYPES[c.t].jobs * levelMult(c) * crewOf(c);
 const fillOf = c => clamp(STAFF * wageOf(c).attr, 0, 1);
@@ -1578,8 +1584,61 @@ const qualMult = c => 1 + 0.06 * (c.qual || 0);
 function haulOf(c) {
   const T = TYPES[c.t];
   if (T.ext) return Math.abs(c.x - PORT_HUB.x) + Math.abs(c.y - PORT_HUB.y);
-  if (FLEVEL[c.t] || c.t === 'foundry') return 25;
+  if (FLEVEL[c.t] || c.t === 'foundry') return facHaul(c.x, c.y, (c.t === 'foundry' ? T.rec : recOf(c)) || T.rec);
+  if (c.t === 'wh') return Math.abs(c.x - PORT_HUB.x) + Math.abs(c.y - PORT_HUB.y);
   return 0;
+}
+// ---- Terrain, fréquentation et logistique d'un emplacement
+const LAYER_N = { auto: 'Auto', traffic: 'Fréquentation', land: 'Terrain', logi: 'Logistique', none: 'Aucun' };
+let layer = 'auto', siteC = { day: -1, dirty: true, ext: {}, stores: [] }, trf = null, trfDirty = true, bestTile = null, siteKey = '';
+function landValue(x, y) {
+  const z = ZONE[idx(x, y)]; if (z === 3) return 0;
+  const dc = Math.hypot(x - 30, y - 30), dp = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y);
+  return clamp(z === 1 ? 0.5 + 0.5 * Math.max(0, 1 - dc / 22) : (z === 2 || z === 4) ? 0.3 + 0.35 * Math.max(0, 1 - dp / 30) : 0.06 + 0.3 * Math.max(0, 1 - dc / 45), 0, 1);
+}
+const landPrice = (x, y) => Math.round((150 + 1900 * Math.pow(landValue(x, y), 1.6)) / 10) * 10;
+function landCostFor(x, y, key) { const T = TYPES[key]; if (!T || key === 'road') return 0; let s = 0; for (let ox = 0; ox < (T.w || 1); ox++) for (let oy = 0; oy < (T.h || 1); oy++) s += inb(x + ox, y + oy) ? landPrice(x + ox, y + oy) : 0; return Math.round(s * (T.ext ? 0.3 : 1)); }
+function siteIndex() {
+  if (!siteC.dirty && siteC.day === S.day) return siteC;
+  siteC = { day: S.day, dirty: false, ext: {}, stores: [] };
+  eachBuilding(b => { if (!b.conn || b.t === 'npc') return; const T = TYPES[b.t]; if (T.ext) (siteC.ext[T.ext] = siteC.ext[T.ext] || []).push([b.x, b.y]); else if (FLEVEL[b.t] || b.t === 'foundry') { const r = (b.t === 'foundry' ? T.rec : recOf(b)); if (r && r.out) { const o = typeof r.out === 'string' ? r.out : Object.keys(r.out)[0]; (siteC.ext[o] = siteC.ext[o] || []).push([b.x, b.y]); } } if (T.ret) siteC.stores.push([b.x, b.y]); });
+  return siteC;
+}
+function nearestOf(list, x, y) { let b = null; (list || []).forEach(q => { const d = Math.abs(q[0] - x) + Math.abs(q[1] - y); if (b == null || d < b) b = d; }); return b; }
+function marketDist(x, y) { const si = siteIndex(), d = nearestOf(si.stores, x, y), dc = Math.abs(x - 30) + Math.abs(y - 30), dp = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); return Math.min(d == null ? 99 : d, dc, dp); }
+function facHaul(x, y, rec) {
+  const si = siteIndex(), dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y), ins = Object.keys(rec.in || {});
+  let s = 0; ins.forEach(g => { const d = nearestOf(si.ext[g], x, y); s += d == null ? dPort : Math.min(d, dPort + 6); });
+  return Math.round(((ins.length ? s / ins.length : 0) + marketDist(x, y)) / 2);
+}
+function rebuildTraffic() {
+  trfDirty = false; trf = new Float32Array(N * N); const src = [];
+  eachBuilding(b => { if (b.t === 'npc') { if (b.k === 'res') src.push([b.x, b.y, 5 * b.floors]); else if (b.k === 'house') src.push([b.x, b.y, 5]); else src.push([b.x, b.y, 1.5 * b.floors]); } else if (b.t === 'res') src.push([b.x, b.y, 6 + 4 * b.floors]); else if (b.t === 'tech' || b.t === 'bank' || b.t === 'hq') src.push([b.x, b.y, 4 * b.floors]); });
+  let mx = 1; const x0 = CITY.x0 - 6, x1 = CITY.x1 + 6, y0 = CITY.y0 - 6, y1 = CITY.y1 + 6;
+  for (let y = Math.max(0, y0); y <= Math.min(N - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(N - 1, x1); x++) { let v = 0; for (let i = 0; i < src.length; i++) { const q = src[i], dx = q[0] - x, dy = q[1] - y, d2 = dx * dx + dy * dy; if (d2 < 169) v += q[2] * Math.exp(-Math.sqrt(d2) / 5); } trf[idx(x, y)] = v; if (v > mx) mx = v; }
+  for (let i = 0; i < trf.length; i++) trf[i] = Math.min(1, trf[i] / (mx * 0.8));
+}
+function competitionAt(x, y) { let n = 0; siteIndex().stores.forEach(q => { if (Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 4) n++; }); return n; }
+function trafficAt(x, y) { if (trfDirty || !trf) rebuildTraffic(); return clamp(trf[idx(x, y)] / (1 + 0.3 * competitionAt(x, y)), 0, 1); }
+function residentsNear(x, y, r) { let s = 0; eachBuilding(b => { if (Math.abs(b.x - x) + Math.abs(b.y - y) > r) return; if (b.t === 'npc') { if (b.k === 'res') s += 5 * b.floors; else if (b.k === 'house') s += 5; } else if (b.t === 'res') s += 6 + 4 * b.floors; }); return s; }
+function siteInfo(x, y, key) {
+  const T = TYPES[key]; if (!T || key === 'road') return null;
+  const land = landCostFor(x, y, key), info = { key, land, build: T.cost, total: T.cost + land };
+  if (T.ret) { info.kind = 'ret'; info.traffic = trafficAt(x, y); info.comp = competitionAt(x, y); info.res = residentsNear(x, y, 8); info.cust = Math.round(T.ret.cap * (0.65 + 0.7 * info.traffic)); }
+  else if (FLEVEL[key] || key === 'foundry') {
+    const rec = T.rec, haul = facHaul(x, y, rec), loss = clamp(0.0035 * haul, 0, 0.25), outU = Object.values(rec.out)[0], price = S.price[Object.keys(rec.out)[0]] || 20;
+    const inU = Object.values(rec.in).reduce((a, b) => a + b, 0), transport = (inU + outU) * haul * TRANS * cpi(), lossV = outU * price * loss;
+    info.kind = 'ind'; info.haul = haul; info.loss = loss; info.transport = transport; info.lossV = lossV; info.year = land + 360 * (transport + lossV);
+    info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); info.dMarket = marketDist(x, y);
+  } else if (T.ext) { info.kind = 'ext'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
+  else if (key === 'wh') { info.kind = 'wh'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
+  else info.kind = 'oth';
+  return info;
+}
+function bestSite(x, y, key) {
+  const T = TYPES[key]; if (!(FLEVEL[key] || key === 'foundry')) return null; let best = null;
+  for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const X = x + dx, Y = y + dy; if (!inb(X, Y) || footprintError(X, Y, key)) continue; const i = siteInfo(X, Y, key); if (i && (!best || i.year < best.year)) best = { x: X, y: Y, year: i.year }; }
+  return best;
 }
 
 function step() {
@@ -1587,6 +1646,7 @@ function step() {
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
   stepMacro(); TM = techMults();
+  if (S.day % 5 === 0) { trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }
   if (S.day % 5 === 0) stepGoal();
   if (S.research) { S.research.left--; if (S.research.left <= 0) { S.tech = S.tech || {}; S.tech[S.research.id] = S.day; say(`Recherche terminée : ${TECH_BY[S.research.id].n}. ${TECH_BY[S.research.id].d2}`, 'gold'); S.research = null; TM = techMults(); } }
   maybeEvent();
@@ -1656,7 +1716,7 @@ function step() {
   const dem = { basic: S.pop * DEM_PER_POP.basic * dMul, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100) * dMul, lux: S.pop * DEM_PER_POP.lux * dMul, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) * dMul };
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; retUnits += R.cap * u; c._left = c._cap; c._sold = 0; c._rev = 0; c._imp = 0; c.sales = {}; } });
-  buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow(1 / (c.pf || 1), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract; c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
+  buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow(1 / (c.pf || 1), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (0.65 + 0.7 * (c.traffic == null ? 0.5 : c.traffic)); c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
   const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF * c.pw; } }); return w > 0 ? s / w : 1; };
   const importRate = Math.max(0.6, 0.85 - 0.06 * (cn.port || 0));   // les terminaux portuaires du joueur baissent le coût des importations
   let importCost = 0, importUnits = 0;
@@ -1943,12 +2003,14 @@ function place(x, y, key) {
     if (!quiet) { say(err, 'warn'); if (key === 'road') lastRoadMsg = performance.now(); }
     return false;
   }
-  if (S.cash < T.cost) { say('Trésorerie insuffisante pour ' + T.name.toLowerCase() + '.', 'bad'); return false; }
-  S.cash -= T.cost;
+  const land = landCostFor(x, y, key), tot = T.cost + land;
+  if (S.cash < tot) { say(`Trésorerie insuffisante pour ${T.name.toLowerCase()} : ${money(T.cost)} de construction + ${money(land)} de terrain.`, 'bad'); return false; }
+  S.cash -= tot; trfDirty = true; siteC.dirty = true;
   let b;
   if (key === 'road') { b = mkCell('road'); b.x = x; b.y = y; b.own = true; S.grid[idx(x, y)] = b; }
   else b = placeBuilding(x, y, key);
-  flyers.push({ x, y, text: '-' + fmt(T.cost), t: performance.now(), col: '#ff8a8e' });
+  flyers.push({ x, y, text: '-' + fmt(tot), t: performance.now(), col: '#ff8a8e' });
+  if (T.ret) b.traffic = trafficAt(x, y);
   if (T.ext) { if (!extLinked(b, linkedMask())) say('Hors réseau : rendement de ' + Math.round(UNLINKED_EFF * 100) + ' %. Relie-la à la ville avec l\'outil Relier pour atteindre 100 %.', 'info'); }
   else if (key !== 'road' && !footConn(b)) say('Ce bâtiment ne touche aucune rue : il ne produira rien. Choisis une case au bord d\'un bloc.', 'warn');
   refreshStats(); checkMissions(); updateHUD();
@@ -3957,6 +4019,7 @@ function syncEvToggle() { document.querySelectorAll('#evtoggle [data-ev2]').forE
 el('evtoggle').addEventListener('click', e => { const b = e.target.closest('[data-ev2]'); if (!b) return; S.noEv = b.dataset.ev2 === '0'; if (S.noEv) { S.event = null; el('evcard').hidden = true; } syncEvToggle(); save(); });
 el('mNew').onclick = () => { el('rst').click(); };
 el('pclose').onclick = () => setPanel(false);
+el('lyr').onclick = () => { const L = Object.keys(LAYER_N); layer = L[(L.indexOf(layer) + 1) % L.length]; el('lyr').textContent = 'Calque : ' + LAYER_N[layer]; };
 el('winok').onclick = () => { el('win').hidden = true; };
 el('tax').addEventListener('input', e => { S.tax = clamp(+e.target.value / 100, 0.05, 0.45); updateHUD(); });
 let rstTimer = 0;
@@ -4345,6 +4408,21 @@ function drawIndustrial(a, now, grow) {
   }
   const p = iso(a.x + a.w - 1, a.y + a.h - 1); a._top = p.y - zTop + 40;
 }
+const HCOL = [['#e9dcc0', '#b5483a'], ['#d9e3ee', '#4a5a7a'], ['#f2d9c4', '#8a4a32'], ['#cfe0c8', '#5a6a4a'], ['#efe8d6', '#3f4a62'], ['#f3c9c9', '#7a3a4a']];
+function drawHouse(a, p, now, grow) {
+  const x = a.x, y = a.y, s = a.seed, c = HCOL[Math.floor(s * 997) % HCOL.length], gg = grow == null ? 1 : grow, variant = Math.floor(s * 31) % 4;
+  pQuad([PP(x + 0.02, y + 0.02, 0), PP(x + 0.98, y + 0.02, 0), PP(x + 0.98, y + 0.98, 0), PP(x + 0.02, y + 0.98, 0)], '#7fae5a');
+  if (variant === 0 || variant === 2) { pQuad([PP(x + 0.55, y + 0.55, 0.5), PP(x + 0.92, y + 0.55, 0.5), PP(x + 0.92, y + 0.92, 0.5), PP(x + 0.55, y + 0.92, 0.5)], '#5fc8e8'); pQuad([PP(x + 0.58, y + 0.58, 0.6), PP(x + 0.7, y + 0.58, 0.6), PP(x + 0.7, y + 0.7, 0.6), PP(x + 0.58, y + 0.7, 0.6)], 'rgba(255,255,255,.35)'); }
+  const hw = variant === 3 ? 0.62 : 0.5, hh = 0.46, hx = x + 0.08, hy = y + 0.08;
+  pPrism(hx, hy, hw, hh, 0, 22 * gg, c[0]);
+  pWindows(hx, hy, hw, hh, 6, 15, 3, now % 8000 > 5000);
+  const rz = 22 * gg, pk = 18 * gg;   // toit à deux pans
+  pQuad([PP(hx - 0.03, hy + hh + 0.03, rz), PP(hx + hw + 0.03, hy + hh + 0.03, rz), PP(hx + hw + 0.03, hy + hh / 2, rz + pk), PP(hx - 0.03, hy + hh / 2, rz + pk)], shade(c[1], 0.9));
+  pQuad([PP(hx + hw + 0.03, hy - 0.03, rz), PP(hx + hw + 0.03, hy + hh + 0.03, rz), PP(hx + hw + 0.03, hy + hh / 2, rz + pk)], shade(c[1], 0.65));
+  pQuad([PP(hx - 0.03, hy - 0.03, rz), PP(hx + hw + 0.03, hy - 0.03, rz), PP(hx + hw + 0.03, hy + hh / 2, rz + pk), PP(hx - 0.03, hy + hh / 2, rz + pk)], shade(c[1], 1.1));
+  const tr = PP(x + 0.2, y + 0.82, 0); ctx.fillStyle = '#6b4a2a'; ctx.fillRect(tr[0] - 1.5, tr[1] - 12, 3, 12); ctx.fillStyle = variant % 2 ? '#2f7a45' : '#3f9a55'; ctx.beginPath(); ctx.arc(tr[0], tr[1] - 17, 9, 0, 7); ctx.fill();
+  a._top = PP(hx, hy + hh, rz + pk)[1] - 6;
+}
 function roofTop(a, p, now) {
   if (a.lm) return;
   const f = a.floors + (a.lvl || 0), k = Math.floor(a.seed * 997) % 6, cx = p.x, ry = a._top + 26;
@@ -4361,6 +4439,8 @@ function drawTileOf(a, x, y, ox, oy, o) {
   if (PROC_IND[a.t]) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
   } else if (a.t === 'npc' && a.k === 'house') {
+    drawHouse(a, p, o.now, 1);
+  } else if (false) {
     const hn = 'shop' + (Math.floor(a.seed * 997) % 12), hs = SP[hn];
     if (hs) ctx.drawImage(ATLAS, hs[0], hs[1], hs[2], hs[3], p.x - hs[2] / 2, p.y + 99 - hs[3], hs[2], hs[3]);
     a._top = p.y + 99 - (hs ? hs[3] : 60) - 10;
@@ -4545,7 +4625,22 @@ function drawSatellite(now) {
   });
   if (selected && tool === 'view') { ctx.lineWidth = 6; poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }
 }
+function updateSiteTip() {
+  const tip = el('sitetip'), T0 = TYPES[tool];
+  if (!hover || !T0 || tool === 'view' || tool === 'road' || ['up', 'bull', 'link'].indexOf(tool) >= 0 || footprintError(hover.x, hover.y, tool)) { tip.hidden = true; bestTile = null; siteKey = ''; return; }
+  const k = hover.x + ',' + hover.y + ',' + tool + ',' + S.day + ',' + Math.floor(S.cash / 500); if (k === siteKey) return; siteKey = k;
+  const i = siteInfo(hover.x, hover.y, tool); if (!i) { tip.hidden = true; return; }
+  const row = (a, b, c) => `<div class="r"><span>${a}</span><span class="${c || ''}">${b}</span></div>`;
+  let h = `<b>Analyse de l'emplacement · ${T0.name}</b>` + row('Construction', money(i.build)) + row('Terrain', money(i.land), i.land > 1500 ? 'neg' : '') + row('Coût total', money(i.total), S.cash >= i.total ? 'pos' : 'neg');
+  if (i.kind === 'ret') { const tr = Math.round(i.traffic * 100); h += row('Fréquentation', `${tr} / 100 · ${tr > 66 ? 'forte' : tr > 33 ? 'moyenne' : 'faible'}`, tr > 66 ? 'pos' : tr < 33 ? 'neg' : '') + row('Habitants à 8 cases', fmt(i.res)) + row('Magasins concurrents à 4 cases', i.comp, i.comp > 1 ? 'neg' : '') + row('Clients estimés', `≈ ${fmt(i.cust)} / jour`); h += `<div class="adv2">${tr < 33 ? 'Zone peu fréquentée : cherche un emplacement plus dense (calque vert).' : i.comp > 1 ? 'Tu cannibalises tes propres magasins ici.' : 'Bon emplacement : la clientèle est proche.'}</div>`; }
+  else if (i.kind === 'ind') { h += row('Distance moyenne de transport', `${i.haul} cases`) + row('Port / marché', `${i.dPort} / ${i.dMarket} cases`) + row('Frais de transport', `${money(i.transport)} / jour`) + row('Perte de rendement (délais)', `${(i.loss * 100).toFixed(1).replace('.', ',')} % ≈ ${money(i.lossV)} / jour`, i.loss > 0.1 ? 'neg' : '') + row('Coût sur 1 an (terrain + logistique)', money(i.year));
+    bestTile = bestSite(hover.x, hover.y, tool); h += bestTile && bestTile.year < i.year - 50 ? `<div class="adv2">★ Meilleur emplacement proche : case (${bestTile.x + 1}, ${bestTile.y + 1}), ${money(i.year - bestTile.year)} d'économie sur 1 an.</div>` : '<div class="adv2">Tu es déjà sur un très bon emplacement.</div>'; if (!(bestTile && bestTile.year < i.year - 50)) bestTile = null; }
+  else if (i.kind === 'ext') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Une route reliée au réseau évite 35 % de pertes de rendement.</div>';
+  else if (i.kind === 'wh') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Plus près du port : imports et exports moins chers.</div>';
+  tip.innerHTML = h; tip.hidden = false;
+}
 function frame(now) {
+  if (S && now - (frame.tipT || 0) > 120) { frame.tipT = now; try { updateSiteTip(); } catch (e) {} }
   requestAnimationFrame(frame);
   if (!S) return;
   const dt = Math.min(0.1, (now - (frame.last || now)) / 1000); frame.last = now;
@@ -4592,6 +4687,17 @@ function frame(now) {
       drawCar(car);
     }
 
+    // calques : fréquentation, valeur du terrain, logistique
+    { const T0 = TYPES[tool], lay = layer === 'auto' ? (T0 && T0.ret ? 'traffic' : (T0 && (FLEVEL[tool] || tool === 'foundry' || tool === 'wh')) ? 'logi' : 'none') : layer;
+      if (lay !== 'none' && z >= SAT_Z) {
+        const key = (T0 && (FLEVEL[tool] || tool === 'foundry')) ? tool : 'f1', rec = TYPES[key].rec;
+        eachVisible(vr, (x, y) => { const zn = ZONE[idx(x, y)]; if (zn === 3 || S.grid[idx(x, y)]) return; let v, h;
+          if (lay === 'traffic') { if (zn !== 1) return; v = trafficAt(x, y); h = 120 - 120 * v; }
+          else if (lay === 'land') { v = landValue(x, y); h = 215 - 215 * v; }
+          else { if (zn !== 2 && zn !== 4) return; const hl = facHaul(x, y, rec); v = clamp(hl / 70, 0, 1); h = 120 - 120 * v; }
+          poly(tilePts(iso(x, y), 0.96), `hsla(${h},85%,52%,${0.16 + 0.28 * (lay === 'logi' ? 1 - v : v)})`, null); });
+      }
+      if (bestTile && T0 && (FLEVEL[tool] || tool === 'foundry')) { const q = iso(bestTile.x, bestTile.y); ctx.lineWidth = 5; poly(tilePts(q, 0.9), 'rgba(255,215,106,.25)', 'rgba(255,215,106,.95)'); ctx.fillStyle = '#ffd76a'; ctx.font = '700 34px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('★', q.x, q.y + 44); } }
     // survol / aperçu
     let ghost = null;
     if (hover) {
@@ -4603,7 +4709,7 @@ function frame(now) {
       else if (tool === 'link') ok = !!c && c.t !== 'road' && !footConn(c);
       else if (tool === 'link') ok = !!c && c.t !== 'road' && c.linked === false;
       else if (tool === 'up') ok = !!c && c.t !== 'road' && upgradeCost(c) > 0 && S.cash >= upgradeCost(c);
-      else if (tool !== 'view') ok = !toolLocked(tool) && S.cash >= T.cost && (tool === 'road' ? !roadError(hover.x, hover.y) : !footprintError(hover.x, hover.y, tool));
+      else if (tool !== 'view') ok = !toolLocked(tool) && S.cash >= T.cost + landCostFor(hover.x, hover.y, tool) && (tool === 'road' ? !roadError(hover.x, hover.y) : !footprintError(hover.x, hover.y, tool));
       const col = tool === 'view' ? 'rgba(233,237,255,.9)' : ok ? 'rgba(70,211,154,.95)' : 'rgba(255,90,95,.95)';
       ctx.lineWidth = 4;
       for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
@@ -4809,7 +4915,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { get S() { return S; }, get scene() { return scene; }, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { get S() { return S; }, get scene() { return scene; }, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
