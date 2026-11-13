@@ -72,8 +72,9 @@ Gisements ─▶ Puits / Mines ─▶ matières premières ─▶ Fonderie / Usi
 |---|---|
 | Extraction | Puits de pétrole, mines de fer, de charbon, de cuivre, d'or |
 | Fonderie | Fonderie d'or : or brut ➜ lingots (zone du port) |
-| Usines | Petite (1×1), Moyenne (2×1), Grande (2×2), toutes dans la zone du port. Chacune fabrique un composant ou un produit affecté, sinon une marchandise générique |
-| Commerces | Petit marché (1×1), Supermarché (2×1), Hypermarché (2×2), en ville : chacun ne vend que ses catégories |
+| Usines | Petite (1×1), Moyenne (2×1), Grande (2×2), **Méga-usine** (3×3, palier Magnat : recettes de la grande usine, capacité ×8, tour étagée et trois cheminées), toutes dans la zone du port. Chacune fabrique un composant ou un produit affecté, sinon une marchandise générique |
+| Commerces | Petit marché (1×1), Supermarché (2×1), Hypermarché (2×2), **Méga-centre commercial** (3×3, palier Magnat : base + manufacturé + luxe, capacité ×4), en ville : chacun ne vend que ses catégories |
+| Niveaux | « Améliorer » : 5 niveaux L1 à L5 (capacité et effectifs ×1 / 1,6 / 2,4 / 3,2 / 4, coût 0,7 à 1,5 × le capex) ; le bâtiment grandit (étages d'usine, tours +2 étages par niveau). Les tours de bureaux PNJ gagnent des étages quand la ville prospère. |
 | Port | Terminal portuaire (2×2, sur le quai) : relève le prix d'export des surplus et le plafond de stock |
 | Ville | Logements (étages), Tour Tech, Banque |
 
