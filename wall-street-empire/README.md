@@ -156,3 +156,9 @@ Les ventes de détail dépendent du prix pratiqué : élasticité −0,9 (base),
 
 ## Fiche produit en rayon (part de marché)
 Dans la vue d'un magasin, un produit sélectionné affiche : camembert de part de marché (toi / tes autres produits / rivaux / non servi), comparaison Marque · Qualité · Prix · Note globale **toi vs moyenne de la ville**, coût d'approvisionnement, marge unitaire, ventes, état offre/demande et accès à la vue fournisseurs (qui fonctionne désormais aussi pour les magasins : le fournisseur choisi détermine le coût des marchandises de base).
+
+## Énergie : réseau, pylônes, câbles enterrés, centrales (R&D)
+- **Réseau électrique** : un opérateur historique couvre la ville ; l'industrie du joueur élargit la demande. Déficit = coupures qui ralentissent les usines ; excédent = prix de l'électricité en baisse. Bloc « Énergie » dans l'onglet Empire.
+- **Centrale à charbon** (dès le départ, 400 k$) puis, par R&D : **éoliennes** (selon le vent), **solaire** (saisonnier), **nucléaire** (très puissant, 6 M$).
+- **Raccordement obligatoire** : chaque centrale doit être reliée au bord de la zone urbaine par des **pylônes** (aérien, pertes 0,6 %/case, coupés par les tempêtes, franchissent les rues) ou des **câbles enterrés** (R&D, pertes 0,2 %/case, insensibles aux tempêtes).
+- **Fermes** : les terres agricoles ne sont plus dessinées « vides » ; elles apparaissent quand un concurrent PNJ local (ex. Heartland) y installe une ferme (le terrain devient occupé).

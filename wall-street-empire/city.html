@@ -873,7 +873,12 @@ const TYPES = {
   res:     { name: 'Logements',     sub: 'Résidentiel',     cost: 500,   color: '#7f96ff', jobs: 0,  upkeep: 1 },
   tech:    { name: 'Tour Tech',     sub: 'Tech Composite',  cost: 3500,  color: '#3fd8ff', jobs: 14, upkeep: 5,  tier: 1 },
   wh:      { name: 'Entrepôt',     sub: 'Stockage, import, export', cost: 6000, color: '#9a9aa5', jobs: 6, upkeep: 3 },
-  plant:   { name: 'Centrale électrique', sub: 'Charbon → électricité', cost: 7000, color: '#ffd43b', jobs: 10, upkeep: 4, w: 2, h: 1 },
+  plant:   { name: 'Centrale électrique', sub: 'Charbon → électricité', cost: 400000, color: '#ffd43b', jobs: 30, upkeep: 300, w: 2, h: 1 },
+  solar:   { name: 'Centrale solaire', sub: 'R&D · intermittente', cost: 900000, color: '#ffe066', jobs: 8, upkeep: 150, w: 2, h: 2, tech: 'solar' },
+  wind:    { name: 'Éolienne', sub: 'R&D · selon le vent', cost: 350000, color: '#b8f0ff', jobs: 4, upkeep: 60, tech: 'wind' },
+  nuclear: { name: 'Centrale nucléaire', sub: 'R&D · très puissante', cost: 6000000, color: '#c3ff6b', jobs: 70, upkeep: 2500, w: 3, h: 2, tech: 'nuclear', tier: 1 },
+  pylon:   { name: 'Pylône / ligne aérienne', sub: 'Réseau haute tension', cost: 400, color: '#e9edff', jobs: 0, upkeep: 1 },
+  cable:   { name: 'Câble enterré', sub: 'R&D · sans pertes ni tempêtes', cost: 1800, color: '#ffd43b', jobs: 0, upkeep: 0.3, tech: 'cables' },
   pipeline: { name: 'Pipeline', sub: 'Pétrole et charbon', cost: 140, color: '#ffd43b', jobs: 0, upkeep: 0.3 },
   rd:      { name: 'Centre de R&D', sub: 'Recherche, brevets', cost: 12000, color: '#b78cff', jobs: 20, upkeep: 8 },
   dc:      { name: 'Data center', sub: 'Calcul et IA', cost: 22000, color: '#3fd8ff', jobs: 12, upkeep: 12 },
@@ -1023,9 +1028,9 @@ function stepLocalMarket(made, want) {
   Object.keys(LOCAL_D).forEach(g => {
     if (!GOODS[g]) return;
     const Dl = LOCAL_D[g] * (S.pop / 10000) * gdpm * clamp(Math.pow(Math.max(0.2, (S.price[g] || GOODS[g].base) / (GOODS[g].base * cpi())), -elRaw(g)), 0.4, 1.8), n = npcs[g] || (npcs[g] = { cap: 0, days: 0 });
-    if (n.cap > 0) n.cap = Math.min(Dl * (0.9 + 0.05 * dif), n.cap * (1 + 0.004 * (1 + dif)));
+    if (n.cap > 0) { const c0 = n.cap; n.cap = Math.min(Dl * (0.9 + 0.05 * dif), n.cap * (1 + 0.004 * (1 + dif))); if (CROPS[g] && Math.floor(n.cap / (Dl * 0.2)) > Math.floor(c0 / (Dl * 0.2)) && Math.random() < 0.6) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); }
     const hadSale = (S.locSold[g] || 0) > 5; n.days = hadSale ? n.days + 1 : Math.max(0, n.days - 1);
-    if (!n.cap && n.days > 18 && Math.random() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * 0.3; say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
+    if (!n.cap && n.days > 18 && Math.random() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * 0.3; if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
     const myCap = Math.max(1, made[g] + Math.max(0, S.stock[g] - 30) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1;
     want[g] += Dl; made[g] += n.cap;
     const avail = Math.max(0, S.stock[g] - 30), q = Math.min(avail, Dl * share);
@@ -1047,6 +1052,14 @@ function syncRivals() {
 }
 function optHTML() {
   return '<h3>PARAMÈTRES DE LA PARTIE</h3><div class="tcard"><small>Réglables à tout moment. Plus les IA sont fortes, plus le marché est disputé.</small>' + Object.keys(OPT_LBL).map(k => `<div style="margin-top:8px"><small>${OPT_LBL[k]}</small><div class="seg2" style="flex-wrap:wrap">${OPT_LV.map((l, i) => `<button class="btn ${((S.opt && S.opt[k] !== undefined) ? S.opt[k] : OPT_DEF[k]) === i ? '' : 'sec'}" data-opt="${k}:${i}" style="min-height:28px;padding:3px 8px;font-size:11px">${l}</button>`).join('')}</div></div>`).join('') + '</div>';
+}
+function placeNpcFarm(g, owner) {
+  S.npcFarm = S.npcFarm || {}; const tiles = [];
+  for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === g && !S.grid[i] && !S.npcFarm[i]) tiles.push(i); }
+  if (!tiles.length) return false;
+  const s = tiles[Math.floor(Math.random() * tiles.length)], sx = s % N, sy = (s / N) | 0; let n = 0;
+  for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 3; dx++) { const x = sx + dx, y = sy + dy; if (!inb(x, y)) continue; const j = idx(x, y), d = S.dep[j]; if (d && d.k === g && !S.grid[j] && !S.npcFarm[j]) { S.npcFarm[j] = { o: owner, g }; n++; } }
+  return n > 0;
 }
 const FREIGHT = 0.006;   // part du prix par case de distance
 const SUP_CITY = ['Houston', 'Rotterdam', 'Shenzhen', 'Dubaï', 'Santiago', 'Norilsk', 'Singapour', 'Hambourg', 'Lagos', 'Sydney', 'Zurich', 'Mumbai'];
@@ -1172,7 +1185,7 @@ const ICONS = {
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const ICON_OF = { rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+const ICON_OF = { solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
@@ -1185,7 +1198,7 @@ const CATS = [
   { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'road', 'link'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
-  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'plant', 'wh', 'port', 'pipeline'] },
+  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'plant', 'solar', 'wind', 'nuclear', 'pylon', 'cable', 'wh', 'port', 'pipeline'] },
   { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 'immo'] }
 ];
 // Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
@@ -1194,7 +1207,7 @@ const FAMS = {
   agri: [['Fermes', ['fwheat', 'fsugar', 'fcotton', 'frubber']], ['Accès', ['road', 'link']]],
   extr: [['Énergie', ['well', 'mcoal', 'pipeline']], ['Métaux', ['miron', 'mcopper', 'mgold']], ['Bois', ['logging']], ['Accès', ['road', 'link']]],
   btp: [['Carrières', ['qgravel', 'qsand', 'qlime']], ['Chantiers', ['btp']]],
-  indus: [['Usines', ['f1', 'f2', 'f3']], ['Fonderie', ['foundry']], ['Énergie', ['plant', 'pipeline']], ['Logistique', ['wh', 'port']]],
+  indus: [['Usines', ['f1', 'f2', 'f3']], ['Fonderie', ['foundry']], ['Centrales', ['plant', 'wind', 'solar', 'nuclear']], ['Réseau', ['pylon', 'cable', 'pipeline']], ['Logistique', ['wh', 'port']]],
   com: [['Magasins', ['s1', 's2', 's3']], ['Immobilier', ['immo']]]
 };
 let famOpen = -1;
@@ -1432,7 +1445,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1465,7 +1478,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1531,11 +1544,12 @@ function evaluate() {
   const smog = new Uint8Array(N * N);
   let ownRoads = 0;
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') { roads++; if (c.own) ownRoads++; } }
-  const lm = linkedMask(), pm = pipeMask();
+  const lm = linkedMask(), pm = pipeMask(), gm = gridMask();
   eachBuilding(c => {
     if (c.t === 'npc') { c.conn = true; if (c.k === 'res') cap += 5 * c.floors; else if (c.k === 'house') cap += 5; else if (c.k !== 'park' && c.k !== 'mon') npcJobs += c.floors * S.jpf; return; }
     const T = TYPES[c.t], m = levelMult(c);
-    if (T.ext) { c.piped = (T.ext === 'oil' || T.ext === 'coal') && pipeAdj(c, pm); c.linked = extLinked(c, lm) || c.piped; c.conn = true; } else if (c.t === 'pipeline') { c.conn = true; } else c.conn = footConn(c);
+    if (T.ext) { c.piped = (T.ext === 'oil' || T.ext === 'coal') && pipeAdj(c, pm); c.linked = extLinked(c, lm) || c.piped; c.conn = true; } else if (c.t === 'pipeline' || c.t === 'pylon' || c.t === 'cable') { c.conn = true; } else c.conn = footConn(c);
+    if (isPlant(c.t)) gridEval(c, gm);
     cc[c.t]++;
     upkeep += T.upkeep * (c.t === 'res' ? 1 : m * (1 + 0.1 * (c.qual || 0)));
     value += T.cost * 0.9 + upgradeSpent(c) * 0.6;
@@ -1722,6 +1736,29 @@ function stepDevs() {
 // Macro-économie : cycle du PIB, inflation, taux d'intérêt
 const BOOM_DAYS = 420;
 const boomOn = () => !!(S && S.macro && S.macro.boom && S.day < BOOM_DAYS);
+// Réseau électrique : un opérateur historique couvre la demande de la ville ; ton industrie l'élargit. Déficit = coupures qui ralentissent les usines ; tes centrales vendent au réseau au prix du marché.
+const ELEC_BASE = 30, PLANT_MWH = 5;
+function gridMask() {
+  const dist = new Int16Array(N * N).fill(-1), loss = new Float32Array(N * N), over = new Uint8Array(N * N), q = [], isL = c => c && (c.t === 'pylon' || c.t === 'cable'), rate = c => c.t === 'cable' ? 0.002 : 0.006;
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!isL(c)) continue; const x = i % N, y = (i / N) | 0; let edge = false; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (inb(x + dx, y + dy) && ZONE[idx(x + dx, y + dy)] === 1) edge = true; if (edge) { dist[i] = 0; loss[i] = rate(c); over[i] = c.t === 'pylon' ? 1 : 0; q.push(i); } }
+  for (let h = 0; h < q.length; h++) { const i = q[h], x = i % N, y = (i / N) | 0; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { if (!dx && !dy) continue; for (let s = 1; s <= 2; s++) { if (s === 2 && (dx && dy)) break; const nx = x + dx * s, ny = y + dy * s; if (!inb(nx, ny)) break; const j = idx(nx, ny), c = S.grid[j]; if (s === 1 && c && c.t === 'road') continue; if (!isL(c)) break; if (dist[j] < 0) { dist[j] = dist[i] + s; loss[j] = loss[i] + rate(c) * s; over[j] = over[i] || (c.t === 'pylon' ? 1 : 0); q.push(j); } break; } } }
+  return { dist, loss, over };
+}
+const isPlant = t => t === 'plant' || t === 'solar' || t === 'wind' || t === 'nuclear';
+function gridEval(c, gm) {
+  let best = -1; const w = c.w || 1, h = c.h || 1;
+  for (let x = c.x - 1; x <= c.x + w; x++) for (let y = c.y - 1; y <= c.y + h; y++) { if (!inb(x, y)) continue; const j = idx(x, y); if (gm.dist[j] >= 0 && (best < 0 || gm.dist[j] < gm.dist[best])) best = j; }
+  c.gridOk = best >= 0; c.gridLoss = best >= 0 ? clamp(gm.loss[best], 0, 0.6) : 0; c.gridOver = best >= 0 && gm.over[best] === 1; c.gridLen = best >= 0 ? gm.dist[best] + 1 : 0;
+}
+function stepPower() {
+  S.wind = clamp((S.wind == null ? 0.6 : S.wind) + (Math.random() - 0.5) * 0.25, 0.1, 1);
+  if ((S.storm || 0) < S.day && Math.random() < 0.004) { S.storm = S.day + 5; say('Tempête : les lignes aériennes sont coupées pendant 5 jours. Les câbles enterrés résistent.', 'warn'); }
+  const sup = S._pSup || 0, draw = S._pDraw || 0, pop = S.pop || 0;
+  const D = pop * 0.05 + draw, B = 380 + 0.25 * (S.day || 0), tot = B + sup, r = D > 0 ? tot / D : 1;
+  const price = ELEC_BASE * cpi() * (r < 1 ? 1 + 1.6 * (1 - r) : clamp(1 / r, 0.45, 1));
+  S.power = { sup, draw, D, B, r, price, mult: r >= 1 ? 1 : clamp(0.7 + 0.3 * r, 0.7, 1) };
+}
+const powerMult = () => (S && S.power) ? S.power.mult : 1;
 function stepMacro() {
   const m = S.macro || (S.macro = { phase: 0.6, gdp: 0.06, infl: 0.025, rate: 0.03, h: [], boom: 1 });
   if (m.boom === undefined) m.boom = S.day < BOOM_DAYS ? 1 : 0;
@@ -1769,6 +1806,10 @@ const TECHS = [
   { id: 'hr1', era: 2, n: 'Culture d\'entreprise', c: 15000, d: 8, req: ['buy1'], d2: 'Salaires −8 %.', fx: { wage: 0.92 } },
   { id: 'fin1', era: 2, n: 'Trésorerie centralisée', c: 14000, d: 8, req: ['buy1'], d2: 'Intérêts des emprunts −30 %.', fx: { interest: 0.7 } },
   { id: 'insilico', era: 3, n: 'Recherche in silico (IA)', c: 120000, d: 30, req: [], d2: 'Le développement des médicaments est 4 fois plus rapide (molécules générées et testées par IA).', fx: { pharma: 4 } },
+  { id: 'wind', era: 2, n: 'Éoliennes', c: 70000, d: 20, req: [], d2: 'Débloque l\'éolienne : production selon le vent, aucun combustible.', fx: {} },
+  { id: 'cables', era: 2, n: 'Câbles enterrés haute tension', c: 60000, d: 20, req: [], d2: 'Débloque la ligne enterrée : pertes réduites de 70 % et insensible aux tempêtes.', fx: {} },
+  { id: 'solar', era: 3, n: 'Photovoltaïque industriel', c: 110000, d: 28, req: [], d2: 'Débloque la centrale solaire : puissante l\'été, faible l\'hiver.', fx: {} },
+  { id: 'nuclear', era: 3, n: 'Électronucléaire', c: 300000, d: 60, req: ['solar', 'cables'], d2: 'Débloque la centrale nucléaire : énorme production constante, très coûteuse.', fx: {} },
   { id: 'auto', era: 3, n: 'Automatisation', c: 45000, d: 14, req: ['blast2', 'wms'], d2: 'Production de toutes les usines et mines +12 %.', fx: { fac: 1.12, wood: 1.12, oil: 1.12, ore: 1.12 } },
   { id: 'ecom', era: 3, n: 'Commerce en ligne', c: 40000, d: 12, req: ['crm'], d2: 'Demande des habitants +12 %.', fx: { demand: 1.12 } },
   { id: 'cont', era: 3, n: 'Conteneurs XXL', c: 38000, d: 12, req: ['truck1', 'wms'], d2: 'Exports +20 %, importations −5 %.', fx: { export: 1.2, buy: 0.95 } },
@@ -1963,7 +2004,7 @@ function fertility(x, y, k) { const d = S.dep[idx(x, y)], base = 0.6 + 0.6 * has
 const IRR_COST = [0, 1200, 2600, 4200], irrCost = l => Math.round(IRR_COST[l] * (casteIs('agriculteur') ? 0.7 : 1)), droughtNow = () => Math.max(0, -Math.sin((S.macro ? S.macro.phase : 0) * 1.7 + 1));
 function soilMult(c) { const k = TYPES[c.t].ext, irr = c.irr | 0, dr = droughtNow(); return fertility(c.x, c.y, k) * (casteIs('agriculteur') ? 1.08 : 1) * (1 + 0.1 * irr) * (1 - 0.35 * dr * (casteIs('agriculteur') ? 0.5 : 1) * (1 - irr / 3)); }
 const wasteOf = c => 0.05 * TM.waste / deptMult(c).stock;
-const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? 1 - clamp(0.0035 * (c.haul || 0), 0, 0.25) : 1) * levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
+const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? powerMult() * (1 - clamp(0.0035 * (c.haul || 0), 0, 0.25)) : 1) * levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
 const jobsOf = c => TYPES[c.t].jobs * levelMult(c) * crewOf(c);
 const fillOf = c => clamp(STAFF * wageOf(c).attr, 0, 1);
@@ -2061,7 +2102,8 @@ function step() {
   const made = {}, want = {}, sold = { basic: 0, std: 0, lux: 0, estate: 0 };
   GKEYS.forEach(g => { made[g] = 0; want[g] = 2; });   // 2 = demande d'export de base
   const buildings = [];
-  eachBuilding(c => { c.out = 0; c.inCost = 0; c.limit = null; c.util = 0; c.pRev = 0; c.wages = 0; c.transport = 0; if (c.conn && c.t !== 'npc') buildings.push(c); });
+  stepPower(); S._pSup = 0; S._pDraw = 0;
+  eachBuilding(c => { c.out = 0; c.inCost = 0; c.limit = null; c.util = 0; c.pRev = 0; c.wages = 0; c.transport = 0; if (c.conn && c.t !== 'npc') { buildings.push(c); const T0 = TYPES[c.t]; if (T0 && T0.jobs && c.t !== 'plant') S._pDraw += T0.jobs * (FLEVEL[c.t] || c.t === 'foundry' ? 1.6 : T0.ext ? 1.2 : T0.ret ? 0.5 : 0.35); } });
 
   // 0. Les forêts repoussent lentement
   for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === 'wood' && d.r < DEPOSITS.wood.res) d.r = Math.min(DEPOSITS.wood.res, d.r + 8); else if (d && CROPS[d.k] && d.r < DEPOSITS[d.k].res) d.r = Math.min(DEPOSITS[d.k].res, d.r + 60); }
@@ -2205,7 +2247,16 @@ function step() {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
     if (c.t === 'rd') { c._pat = (c._pat || 0) + u * 0.4 / 30; if (c._pat >= 1) { c._pat -= 1; S.patents = (S.patents || 0) + 1; say('Un brevet est déposé : il rapporte des royalties chaque jour.', 'gold'); } c.out = u; c.util = fill; c.pRev = 0; }
     if (c.t === 'dc') { const rent = 160 * u * fill * (casteIs('innovateur') ? 1.5 : 1) * cpi(); c.out = 10 * u; c.util = fill; c.pRev = rent; revTech += rent; c.transport = 20 * u * cpi(); transportTotal += c.transport; }
-    if (c.t === 'plant') { const need = 6 * u, burn = Math.min(need, Math.max(0, S.stock.coal)); S.stock.coal -= burn; want.coal += need; c.out = burn; c.util = need > 0 ? burn / need : 0; c.limit = burn < need - 1e-6 ? 'coal' : null; c.inCost = burn * S.price.coal; c.pRev = burn * 30 * (casteIs('negociant') ? 1.3 : 1) * cpi(); revTech += c.pRev; }
+    if (isPlant(c.t)) {
+      const storm = c.gridOver && (S.storm || 0) >= S.day, live = c.gridOk && !storm, loss = 1 - (c.gridLoss || 0), sf = 0.55 + 0.45 * Math.sin((S.day - 60) / 360 * 2 * Math.PI);
+      let mwh = 0; c.limit = null; c.inCost = 0;
+      if (c.t === 'plant') { const need = 40 * u, burn = live ? Math.min(need, Math.max(0, S.stock.coal)) : 0; S.stock.coal -= burn; want.coal += need; c.out = burn; c.util = need > 0 ? burn / need : 0; c.inCost = burn * S.price.coal; mwh = burn * PLANT_MWH * fillOf(c); if (live && burn < need - 1e-6) c.limit = 'coal'; }
+      else if (c.t === 'solar') { mwh = live ? 260 * u * sf * fillOf(c) : 0; c.out = mwh; c.util = sf; }
+      else if (c.t === 'wind') { mwh = live ? 150 * u * (S.wind || 0.6) * fillOf(c) : 0; c.out = mwh; c.util = S.wind || 0.6; }
+      else { mwh = live ? 1500 * u * fillOf(c) : 0; c.out = mwh; c.util = live ? fillOf(c) : 0; }
+      if (!c.gridOk) c.limit = 'grid'; else if (storm) c.limit = 'storm';
+      mwh *= loss; S._pSup += mwh; c.pRev = mwh * (S.power ? S.power.price : ELEC_BASE) * (casteIs('negociant') ? 1.3 : 1); revTech += c.pRev;
+    }
     if (c.t === 'tech') { c.pRev = 260 * u * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = Math.min(500, 180 + Math.max(0, S.cash) * 0.0008) * u * qualMult(c); revBank += c.pRev; }
     if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
@@ -2359,18 +2410,22 @@ function toolLocked(k) {
   return !!(T && T.tier && tierOf(S.stats.worth || 0) < T.tier);
 }
 const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
+ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
+const zoneOk = (key, z) => (key === 'pylon' || key === 'cable') ? (z === 0 || z === 2 || z === 4) : z === ZONE_NEED[key];
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
 // vérifie si l'emprise est libre ; renvoie un message d'erreur ou ''
 function footprintError(x, y, key) {
   const T = TYPES[key], w = T.w || 1, h = T.h || 1;
+  if (T.tech && !(S.tech && S.tech[T.tech])) return `Recherche requise : ${(TECH_BY[T.tech] || { n: T.tech }).n} (Menu > Recherche).`;
   for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
     if (!inb(x + ox, y + oy)) return 'Hors de la carte.';
-    { const z = ZONE[idx(x + ox, y + oy)]; if (z === 3) return 'Impossible de construire sur la mer.'; if (!T.ext && z !== ZONE_NEED[key]) return ZONE_MSG[ZONE_NEED[key]]; }
+    { const z = ZONE[idx(x + ox, y + oy)]; if (z === 3) return 'Impossible de construire sur la mer.'; if (!T.ext && !zoneOk(key, z)) return ZONE_MSG[ZONE_NEED[key]]; }
     { const o = S.grid[idx(x + ox, y + oy)]; if (o) return o.t === 'road' ? 'C\'est une rue : construis dans les blocs.' : 'Case occupée.'; }
     const d = S.dep[idx(x + ox, y + oy)];
+    { let nf = null; for (let oy2 = 0; oy2 < (T.h || 1) && !nf; oy2++) for (let ox2 = 0; ox2 < (T.w || 1); ox2++) { const q = S.npcFarm && S.npcFarm[idx(x + ox2, y + oy2)]; if (q) { nf = q; break; } } if (nf) return `Terre exploitée par ${nf.o} : une ferme concurrente est déjà là.`; }
     if (T.ext && CROPS[T.ext]) { if (d && !CROPS[d.k]) return 'Cette case est un gisement : pas de ferme dessus.'; if (ZONE[idx(x + ox, y + oy)] !== 0) return 'Les fermes se construisent en campagne.'; }
     else if (T.ext) { if (!d || d.k !== T.ext) return T.ext === 'wood' ? 'Il faut une forêt sous un camp de bûcherons.' : CROPS[T.ext] ? 'Les fermes se construisent en campagne, hors de la ville et du port.' : `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
-    else if (d && key !== 'pipeline') return d.k === 'wood' ? 'Cette case est une forêt : réserve-la à un camp de bûcherons.' : CROPS[d.k] ? 'Cette case est une terre agricole : réserve-la à une ferme.' : 'Cette case est un gisement : réserve-la à une mine ou une carrière.';
+    else if (d && key !== 'pipeline' && key !== 'pylon' && key !== 'cable') return d.k === 'wood' ? 'Cette case est une forêt : réserve-la à un camp de bûcherons.' : CROPS[d.k] ? 'Cette case est une terre agricole : réserve-la à une ferme.' : 'Cette case est un gisement : réserve-la à une mine ou une carrière.';
   }
   return '';
 }
@@ -2985,6 +3040,11 @@ function forcesHTML() {
   const top = L.slice().sort((a, b) => f[b[0]] - f[a[0]])[0];
   return `<h3>CINQ FORCES DE PORTER</h3><div class="tcard">${L.map(([k, n, d]) => `<div class="finrow" title="${d}"><span>${n}</span><b class="${f[k] > 65 ? 'neg' : f[k] < 35 ? 'pos' : ''}">${Math.round(f[k])}</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(f[k])}%;background:${f[k] > 65 ? '#ff5a5f' : f[k] < 35 ? '#46d39a' : '#f2b84b'}"></i></div>`).join('')}<div class="finrow"><span><b>Attractivité du secteur</b></span><b class="${f.attract > 55 ? 'pos' : f.attract < 40 ? 'neg' : ''}">${f.attract} / 100</b></div><small>Force dominante : <b>${top[1]}</b>. ${top[2]}</small></div>`;
 }
+function energyHTML() {
+  const P = S.power; if (!P) return '';
+  const pct = Math.round(P.r * 100);
+  return `<h3>ÉNERGIE</h3><div class="tcard"><div class="finrow"><span>Demande du réseau</span><b>${fmt(Math.round(P.D))} MWh/j</b></div><div class="finrow"><span>Opérateur historique</span><b>${fmt(Math.round(P.B))} MWh/j</b></div><div class="finrow"><span>Tes centrales</span><b class="${P.sup > 0 ? 'pos' : ''}">${fmt(Math.round(P.sup))} MWh/j</b></div><div class="finrow"><span>Couverture</span><b class="${pct >= 100 ? 'pos' : 'neg'}">${pct} %</b></div><div class="finrow"><span>Prix de l'électricité</span><b>${P.price.toFixed(1).replace('.', ',')} $/MWh</b></div><small>${pct >= 100 ? 'Réseau suffisant : l\'électricité excédentaire se vend moins cher.' : 'Déficit : coupures, tes usines tournent à ' + Math.round(P.mult * 100) + ' %. Construis une centrale à charbon (menu Industrie > Énergie) : elle vend au réseau au cours en vigueur.'}</small></div>`;
+}
 function brandHTML() {
   const b = brandOf(), st = brandStrat(), g = (l, v, tip) => `<div class="finrow" title="${tip}"><span>${l}</span><b>${Math.round(v)} / 100</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(v)}%"></i></div>`;
   return `<h3>MARQUE</h3><div class="tcard"><small>${BRAND_STRAT[st][1]}</small><div class="seg2" style="margin:6px 0;flex-wrap:wrap">${Object.keys(BRAND_STRAT).map(k => `<button class="btn ${k === st ? '' : 'sec'}" data-brand="${k}" style="min-height:28px;padding:3px 8px;font-size:11px">${BRAND_STRAT[k][0]}</button>`).join('')}</div>${g('Notoriété de la marque', b.aw, 'Part de clients qui te connaissent (télé, radio, internet)')}${g('Fidélité à la marque', b.loy, 'Clients qui reviennent : qualité, personnel, prix doux')}${g('Perception de qualité', b.rt, 'Image du produit (presse, influenceurs, qualité réelle)')}<small>${b.n ? 'Moyenne pondérée sur ' + b.n + ' magasin(s). Règle les budgets de chaque canal dans l\'onglet Publicité du magasin.' : 'Aucun magasin en service.'}</small></div>`;
@@ -2998,6 +3058,7 @@ function renderEmpire() {
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / jour', (F.net >= 0 ? '+' : '−') + money(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : px.toFixed(2).replace('.', ',') + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Population / emplois', fmt(st.pop || 0) + ' / ' + fmt(st.playerJobs || 0), '', 'emplois chez toi')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
   h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
+  h += energyHTML();
   h += brandHTML();
   h += forcesHTML();
   h += foreignHTML();
@@ -3545,6 +3606,8 @@ function bottleneck(c) {
   if (L === 'alert') return { sev: 'warn', t: 'Incident de production en cours', d: 'Perte de 25 % pendant quelques jours. Ça passera.', acts: [] };
   if (L === 'staff') return { sev: 'warn', t: `Manque de personnel : ${pct(clamp(STAFF * wageOf(c).attr, 0, 1))} des postes pourvus`, d: 'La ville manque de bras. Un salaire élevé attire plus de monde ; construis aussi des logements.', acts: [['wage2', 'Salaires élevés']] };
   if (L === '_full') return { sev: 'warn', t: 'Stock plein : l\'atelier s\'arrête', d: 'La production n\'est pas écoulée. Ouvre des débouchés (commerces, port) ou change de recette.', acts: [] };
+  if (L === 'grid') return { sev: 'bad', t: 'Centrale non raccordée au réseau', d: 'Relie la centrale à la ville par une ligne de pylônes (ou de câbles enterrés, par R&D) qui touche le bord de la zone urbaine : sans raccordement, rien n\'est vendu.', acts: [] };
+  if (L === 'storm') return { sev: 'warn', t: 'Tempête : ligne aérienne coupée', d: 'Les pylônes sont hors service quelques jours. Les câbles enterrés (R&D) sont insensibles aux tempêtes.', acts: [] };
   if (L === 'demand') return { sev: 'warn', t: 'Demande insuffisante', d: 'Les rayons sont garnis mais peu de clients achètent : fais de la publicité, améliore la qualité, ou construis des logements.', acts: [['tab:ad', 'Ouvrir la publicité']] };
   if (L === 'stock') return { sev: 'bad', t: 'Rupture de stock : plus aucune marchandise à vendre', d: 'Ni stock produit localement, ni importation. Autorise l\'importation par le port, ou produis la marchandise dans tes usines.', acts: [['imp', c.imp === false ? 'Autoriser l\'import' : 'Import actif']] };
   if (L === 'noshelf') return { sev: 'bad', t: 'Aucune marchandise sélectionnée', d: 'Coche au moins une marchandise dans « Marchandises vendues » ci-dessous.', acts: [] };
@@ -5017,7 +5080,7 @@ function drawTowerCrane(cx, cy, now, seed) {
   ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, cy - 154, 3.5, 0, 7); ctx.fill();
 }
 /* ---------- Bâtiments procéduraux : usines, entrepôts, fonderie ; toits des tours ---------- */
-const PROC_IND = { pipeline: 1, f1: 1, f2: 1, f3: 1, wh: 1, foundry: 1, fwheat: 1, fsugar: 1, fcotton: 1, frubber: 1 };
+const PROC_IND = { solar: 1, wind: 1, nuclear: 1, pylon: 1, cable: 1, pipeline: 1, f1: 1, f2: 1, f3: 1, wh: 1, foundry: 1, fwheat: 1, fsugar: 1, fcotton: 1, frubber: 1 };
 const WALLS = { f1: ['#d8c9a8', '#c9d2dc', '#d4a98f', '#bfd0c0'], f2: ['#b9c6d6', '#c5ccb4', '#cdbba6'], f3: ['#a9b4c6', '#b9bfc9'], wh: ['#c8cfd9', '#d9c6a0', '#b7c9c4'], foundry: ['#a8605a', '#9a6a52'] };
 function shade(hex, k) { const n = parseInt(hex.slice(1, 7), 16), c = v => Math.min(255, Math.max(0, v | 0)).toString(16).padStart(2, '0'); return '#' + c((n >> 16) * k) + c(((n >> 8) & 255) * k) + c((n & 255) * k); }
 function pQuad(pts, fill) { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); }
@@ -5043,6 +5106,32 @@ function smoke(sx, sy, now, active, seed) {
   for (let i = 0; i < 5; i++) { const age = ((now / 1600) + i * 0.2 + seed) % 1; ctx.fillStyle = `rgba(214,218,236,${(1 - age) * 0.45})`; ctx.beginPath(); ctx.arc(sx + age * 26, sy - age * 80, 7 + age * 14, 0, 7); ctx.fill(); }
 }
 function drawIndustrial(a, now, grow) {
+  if (a.t === 'pylon' || a.t === 'cable') {
+    const x = a.x, y = a.y, isL = q => q && (q.t === 'pylon' || q.t === 'cable'), nbs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => { if (inb(x + dx, y + dy) && isL(S.grid[idx(x + dx, y + dy)])) return [dx, dy]; if (!(dx && dy) && inb(x + 2 * dx, y + 2 * dy) && S.grid[idx(x + dx, y + dy)] && S.grid[idx(x + dx, y + dy)].t === 'road' && isL(S.grid[idx(x + 2 * dx, y + 2 * dy)])) return [2 * dx, 2 * dy]; return null; }).filter(Boolean);
+    if (a.t === 'cable') { ctx.strokeStyle = 'rgba(255,211,59,.9)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.beginPath(); nbs.forEach(([dx, dy]) => { const p0 = PP(x + 0.5, y + 0.5, 1), p1 = PP(x + 0.5 + dx * 0.5, y + 0.5 + dy * 0.5, 1); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }); ctx.stroke(); ctx.setLineDash([]); const c0 = PP(x + 0.5, y + 0.5, 1); ctx.fillStyle = '#ffd43b'; ctx.fillRect(c0[0] - 3, c0[1] - 2, 6, 4); return; }
+    const b = PP(x + 0.5, y + 0.5, 0), tp = PP(x + 0.5, y + 0.5, 36), dead = (S.storm || 0) >= S.day;
+    ctx.strokeStyle = '#3a3f58'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(tp[0], tp[1]); ctx.stroke(); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(tp[0] - 9, tp[1] + 4); ctx.lineTo(tp[0] + 9, tp[1] + 4); ctx.stroke();
+    ctx.strokeStyle = dead ? 'rgba(255,90,95,.7)' : 'rgba(20,24,40,.85)'; ctx.lineWidth = 1.3; nbs.filter(([dx, dy]) => dx > 0 || (dx === 0 && dy > 0)).forEach(([dx, dy]) => { const q = PP(x + 0.5 + dx, y + 0.5 + dy, 36); ctx.beginPath(); ctx.moveTo(tp[0], tp[1] + 4); ctx.quadraticCurveTo((tp[0] + q[0]) / 2, (tp[1] + q[1]) / 2 + 12, q[0], q[1] + 4); ctx.stroke(); });
+    a._top = tp[1] - 4; return;
+  }
+  if (a.t === 'solar') {
+    const x = a.x, y = a.y; pQuad([PP(x, y, 0.3), PP(x + 2, y, 0.3), PP(x + 2, y + 2, 0.3), PP(x, y + 2, 0.3)], '#7f8a5a');
+    for (let gx = 0; gx < 2; gx++) for (let gy = 0; gy < 2; gy++) { const u = x + gx + 0.08, v = y + gy + 0.1, qd = [PP(u, v, 13), PP(u + 0.84, v, 13), PP(u + 0.84, v + 0.8, 5), PP(u, v + 0.8, 5)]; pQuad(qd, '#1f4a9a'); ctx.strokeStyle = 'rgba(160,200,255,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo((qd[0][0] + qd[1][0]) / 2, (qd[0][1] + qd[1][1]) / 2); ctx.lineTo((qd[3][0] + qd[2][0]) / 2, (qd[3][1] + qd[2][1]) / 2); ctx.stroke(); }
+    a._top = PP(x + 1, y + 1, 14)[1]; return;
+  }
+  if (a.t === 'wind') {
+    const x = a.x, y = a.y, b = PP(x + 0.5, y + 0.5, 0), hub = PP(x + 0.5, y + 0.5, 70), ang = now / (700 / Math.max(0.15, S.wind || 0.6));
+    ctx.strokeStyle = '#e9edff'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(hub[0], hub[1]); ctx.stroke();
+    ctx.lineWidth = 3; for (let i = 0; i < 3; i++) { const an = ang + i * 2.094; ctx.beginPath(); ctx.moveTo(hub[0], hub[1]); ctx.lineTo(hub[0] + Math.cos(an) * 26, hub[1] + Math.sin(an) * 26); ctx.stroke(); }
+    ctx.fillStyle = '#c9ced9'; ctx.beginPath(); ctx.arc(hub[0], hub[1], 4, 0, 7); ctx.fill(); a._top = hub[1] - 28; return;
+  }
+  if (a.t === 'nuclear') {
+    const x = a.x, y = a.y; pPrism(x + 0.1, y + 0.1, 0.9, 0.9, 0, 52, '#cfd3de'); pPrism(x + 0.25, y + 0.25, 0.6, 0.6, 52, 58, '#9aa2b5'); pPrism(x + 1.1, y + 0.1, 0.9, 0.9, 0, 52, '#cfd3de'); pPrism(x + 1.25, y + 0.25, 0.6, 0.6, 52, 58, '#9aa2b5');
+    pPrism(x + 2.0, y + 0.2, 0.9, 1.2, 0, 26, '#aab2c5'); pPrism(x + 2.15, y + 0.4, 0.6, 0.8, 26, 32, '#8a93a8');
+    pPrism(x + 0.1, y + 1.2, 1.8, 0.7, 0, 14, '#8f98ad');
+    for (let i = 0; i < 4; i++) { const age = ((now / 1800) + i * 0.25) % 1, p0 = PP(x + 0.55, y + 0.55, 58); ctx.fillStyle = `rgba(235,240,255,${(1 - age) * 0.5})`; ctx.beginPath(); ctx.arc(p0[0] + age * 14, p0[1] - age * 70, 8 + age * 12, 0, 7); ctx.fill(); }
+    const gl = PP(x + 2.45, y + 0.8, 20); ctx.fillStyle = '#c3ff6b'; ctx.fillRect(gl[0] - 3, gl[1] - 3, 6, 6); a._top = PP(x + 0.5, y + 0.5, 60)[1] - 70; return;
+  }
   if (a.t === 'pipeline') {
     const x = a.x, y = a.y, nb = (dx, dy) => { if (!inb(x + dx, y + dy)) return false; const q = S.grid[idx(x + dx, y + dy)]; if (q && q.t === 'pipeline') return true; if (q && q.t === 'road' && inb(x + 2 * dx, y + 2 * dy)) { const q2 = S.grid[idx(x + 2 * dx, y + 2 * dy)]; return !!(q2 && q2.t === 'pipeline'); } return false; }, tube = (u0, v0, u1, v1) => { const A = PP(u0, v0, 9), B = PP(u1, v1, 9); ctx.strokeStyle = '#6a7090'; ctx.lineWidth = 11; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); ctx.strokeStyle = a.conn ? '#ffd43b' : '#9aa4d6'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(A[0], A[1] - 1); ctx.lineTo(B[0], B[1] - 1); ctx.stroke(); ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(A[0], A[1] - 3); ctx.lineTo(B[0], B[1] - 3); ctx.stroke(); };
     let any = false; if (nb(1, 0)) { tube(x + 0.5, y + 0.5, x + 1.5, y + 0.5); any = true; } if (nb(-1, 0)) { tube(x + 0.5, y + 0.5, x - 0.5, y + 0.5); any = true; } if (nb(0, 1)) { tube(x + 0.5, y + 0.5, x + 0.5, y + 1.5); any = true; } if (nb(0, -1)) { tube(x + 0.5, y + 0.5, x + 0.5, y - 0.5); any = true; }
@@ -5455,7 +5544,7 @@ function frame(now) {
       const d = S.dep[idx(x, y)];
       if (d) {
         if (d.k === 'wood') { ctx.fillStyle = 'rgba(28,92,44,.38)'; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill(); }
-        else if (CROPS[d.k]) drawField(p, d, x, y);
+        else if (CROPS[d.k]) { if ((S.npcFarm && S.npcFarm[idx(x, y)]) || wantDep === d.k) drawField(p, d, x, y); }
         else drawDeposit(p, d, now, x, y);
         if (wantDep === d.k && !rc) { ctx.lineWidth = 4; poly(tilePts(p, 0.92), null, `rgba(255,255,255,${0.35 + 0.5 * pulse})`); }
       }
