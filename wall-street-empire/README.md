@@ -138,3 +138,6 @@ Les visuels des produits, la mer, le port, les grues et les navires sont dessin�
 - **Concurrents PNJ locaux** (Lone Star Oil, Gulf Polymers, Great Lakes Steel…) s'installent après ~18 jours de ventes et se partagent la demande ; ils grossissent plus vite si le joueur s'enrichit trop.
 - Plastique : 1,6 pétrole → 5 plastique (≈ 70 % de marge brute).
 - L'import coûte toujours plus cher que le local (×1,05 à ×1,3 + fret).
+
+## Paramètres de la partie (inspirés de Capitalism Lab)
+Menu > Objectifs > « Paramètres de la partie » : nombre de concurrents (0–8), capital de départ, agressivité d'expansion et tarifaire des IA, compétence des producteurs locaux, activité des puissances étrangères (5 niveaux, modifiables en cours de partie).

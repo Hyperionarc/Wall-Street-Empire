@@ -972,7 +972,7 @@ function stepForeign() {
     f.cash *= 1 + (gdp - 0.01) / 90 + (Math.random() - 0.5) * 0.004;
     f.str = clamp(f.str * (1 + (gdp - 0.03) / 200 + (Math.random() - 0.5) * 0.003), 0.4, 3);
     if (f.stance !== 'neutral' && S.day > f.until) f.stance = 'neutral';
-    if (f.stance === 'neutral' && S.day > 40 && Math.random() < 0.012 + 0.004 * Math.max(0, dif)) {
+    if (f.stance === 'neutral' && S.day > 40 && Math.random() < (0.012 + 0.004 * Math.max(0, dif)) * optV('foreign', OPT_LOC)) {
       const gn = GOODS[f.g].name.toLowerCase(), r = Math.random();
       if (r < 0.4 + 0.1 * Math.max(0, dif)) { f.stance = 'dump'; f.until = S.day + 25; addMod('px_' + f.g, 0.82, 25); say(`${f.name} (${f.city}) inonde le marché du ${gn} : les cours chutent !`, 'warn'); }
       else if (r < 0.75) { f.stance = 'squeeze'; f.until = S.day + 25; addMod('px_' + f.g, 1.22, 25); say(`${f.name} retient son ${gn} : pénurie, les cours montent.`, 'info'); }
@@ -996,13 +996,28 @@ function stepLocalMarket(made, want) {
     const Dl = LOCAL_D[g] * (S.pop / 10000) * gdpm, n = npcs[g] || (npcs[g] = { cap: 0, days: 0 });
     if (n.cap > 0) n.cap = Math.min(Dl * (0.9 + 0.05 * dif), n.cap * (1 + 0.004 * (1 + dif)));
     const hadSale = (S.locSold[g] || 0) > 5; n.days = hadSale ? n.days + 1 : Math.max(0, n.days - 1);
-    if (!n.cap && n.days > 18 && Math.random() < 0.03 + 0.015 * dif) { n.cap = Dl * 0.3; say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
+    if (!n.cap && n.days > 18 && Math.random() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC)) { n.cap = Dl * 0.3; say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
     const myCap = Math.max(1, made[g] + Math.max(0, S.stock[g] - 30) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1;
     want[g] += Dl; made[g] += n.cap;
     const avail = Math.max(0, S.stock[g] - 30), q = Math.min(avail, Dl * share);
     S.locSold[g] = q; if (q > 0.01) { S.stock[g] -= q; v += q * S.price[g] * 0.97; }
   });
   return v;
+}
+// Options de partie (inspirées de l'écran « Competitors » de Capitalism Lab) : niveaux 0..4 = Très bas, Bas, Modéré, Élevé, Très élevé
+const OPT_DEF = { n: 2, cap: 2, exp: 2, price: 2, local: 2, foreign: 2 };
+const OPT_LBL = { n: 'Nombre de concurrents', cap: 'Capital de départ des concurrents', exp: 'Agressivité d\'expansion des IA', price: 'Agressivité tarifaire des IA', local: 'Compétence des producteurs locaux', foreign: 'Activité des puissances étrangères' };
+const OPT_LV = ['Très bas', 'Bas', 'Modéré', 'Élevé', 'Très élevé'];
+const optV = (k, tab) => tab[((S && S.opt && S.opt[k] !== undefined) ? S.opt[k] : OPT_DEF[k])];
+const OPT_NRIV = [0, 2, 3, 5, 8], OPT_EXP = [0.3, 0.6, 1, 1.6, 2.4], OPT_PRICE = [0.8, 0.9, 1, 1.15, 1.3], OPT_LOC = [0, 0.5, 1, 1.6, 2.4], OPT_CAP = [0.3, 0.6, 1, 2, 4];
+const RIV_EXTRA = [['Walmark', '#9be05a'], ['Prime Retail', '#ffd23f'], ['EuroShop', '#b78cff'], ['CityMart', '#ff6b6b'], ['Pacific Stores', '#4fd1c5']];
+function syncRivals() {
+  const want = optV('n', OPT_NRIV); S.rivals = S.rivals || [];
+  while (S.rivals.length > want) S.rivals.pop();
+  while (S.rivals.length < want) { const i = S.rivals.length, ex = RIV_EXTRA[(i - 3 + 5) % 5], a = () => 0.04 + 0.2 * Math.random(); S.rivals.push({ id: 'r' + (i + 1) + 'x' + S.day, name: i < 3 ? initRivals()[i].name : ex[0], col: i < 3 ? initRivals()[i].col : ex[1], cash: 50000 * optV('cap', OPT_CAP), att: { basic: a(), std: a(), lux: a() * 0.6, estate: a() * 0.6 } }); }
+}
+function optHTML() {
+  return '<h3>PARAMÈTRES DE LA PARTIE</h3><div class="tcard"><small>Réglables à tout moment. Plus les IA sont fortes, plus le marché est disputé.</small>' + Object.keys(OPT_LBL).map(k => `<div style="margin-top:8px"><small>${OPT_LBL[k]}</small><div class="seg2" style="flex-wrap:wrap">${OPT_LV.map((l, i) => `<button class="btn ${((S.opt && S.opt[k] !== undefined) ? S.opt[k] : OPT_DEF[k]) === i ? '' : 'sec'}" data-opt="${k}:${i}" style="min-height:28px;padding:3px 8px;font-size:11px">${l}</button>`).join('')}</div></div>`).join('') + '</div>';
 }
 const FREIGHT = 0.006;   // part du prix par case de distance
 function supOffer(g, id, haul) {
@@ -1021,7 +1036,7 @@ function initRivals() {
   ];
 }
 const rivalSum = r => RIV_CLS.reduce((a, k) => a + r.att[k], 0);
-const rivalAttr = cls => (S.rivals || []).reduce((a, r) => a + r.att[cls] * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
+const rivalAttr = cls => optV('price', OPT_PRICE) * (S.rivals || []).reduce((a, r) => a + r.att[cls] * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
 const rivalValue = r => Math.round((Math.max(0, r.cash) + 90000 * rivalSum(r)) * (casteIs('industriel') ? 0.85 : 1) / 500) * 500;
 function stepRivals(rivalPart) {
   const rs = S.rivals || [];
@@ -1032,7 +1047,7 @@ function stepRivals(rivalPart) {
     if (S.day % 5 === 0 && r.cash > 8000) {
       const w = RIV_CLS.map(k => r.att[k] + 0.05); let tot = w.reduce((a, b) => a + b, 0), x = Math.random() * tot, i = 0;
       while (x > w[i] && i < 3) { x -= w[i]; i++; }
-      const k = RIV_CLS[i]; if (r.att[k] < 0.7) { r.att[k] += 0.012 * (1 + 0.5 * Math.max(0, S.diff || 0)); r.cash -= 6000; }
+      const k = RIV_CLS[i]; if (r.att[k] < 0.7) { r.att[k] += 0.012 * optV('exp', OPT_EXP) * (1 + 0.5 * Math.max(0, S.diff || 0)); r.cash -= 6000; }
     }
     if (r.cash < -4000) RIV_CLS.forEach(k => { r.att[k] *= 0.97; });
     r.mood = clamp((r.mood || 0) * 0.95 + (Math.random() - 0.5) * 0.04, -0.2, 0.2);
@@ -1364,7 +1379,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1397,7 +1412,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -2741,12 +2756,14 @@ function renderGoals() {
   const rk = rows.slice(0, 10).map((r, i) => `<div class="finrow" style="${r.me ? 'color:var(--gold);font-weight:700' : ''}"><span>${i + 1}. ${r.n}</span><b>${money(r.v)}</b></div>`).join('') + (rank > 10 ? `<div class="finrow" style="color:var(--gold)"><span>${rank}. Ton empire</span><b>${money(w)}</b></div>` : '');
   const sk = Object.keys(SKILLS).map(k => { const l = skillOf(k), cost = skillCost(l); return `<div class="tcard"><b>${SKILLS[k].n} <span class="pip" style="color:var(--gold)">${'●'.repeat(l)}${'○'.repeat(SKILL_MAX - l)}</span></b><small>${SKILLS[k].d}</small>${l < SKILL_MAX ? `<button class="btn" data-skill="${k}" ${(S.kp || 0) >= cost ? '' : 'disabled'}>Améliorer · ${cost} point${cost > 1 ? 's' : ''}</button>` : '<small>Maîtrise maximale</small>'}</div>`; }).join('');
   const h = `<h3>OBJECTIF</h3><div class="tcard ${S.goalDone === 'win' ? 'done' : ''}"><b>${G.n}${S.goalDone === 'win' ? ' · victoire ✓' : S.goalDone === 'lose' ? ' · échec' : ''}</b><small>${G.d}</small>${prog}</div><div class="seg2" style="margin:6px 0;flex-wrap:wrap">${sel}</div>
+    ${optHTML()}
     <h3>SCORE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Score</small><b class="gold">${fmt(playerScore())}</b></div><div><small>Classement mondial</small><b>${rank} / ${rows.length}</b></div><div><small>Part de marché</small><b>${Math.round(ms * 100)} %</b></div><div><small>Missions</small><b>${(S.done || []).length} / ${MISSIONS.length}</b></div></div>
     <h3>CLASSEMENT DES EMPIRES</h3>${rk}
     <h3>COMPÉTENCES DU PDG</h3><p class="note">Points de connaissance : <b class="gold">${S.kp || 0}</b>. Tu en gagnes en accomplissant des missions (1 toutes les 3) et en atteignant ton objectif.</p>${sk}`;
   if (el('goals').dataset.h !== h) { el('goals').innerHTML = h; el('goals').dataset.h = h; }
 }
 el('goals').addEventListener('click', e => {
+  const ob = e.target.closest('[data-opt]'); if (ob) { const [k, v] = ob.dataset.opt.split(':'); S.opt = S.opt || {}; S.opt[k] = +v; if (k === 'n') syncRivals(); renderGoals(); save(); return; }
   const gb = e.target.closest('[data-goal]'), sb = e.target.closest('[data-skill]');
   if (gb) { S.goal = gb.dataset.goal; S.goalDone = null; S.streak = 0; say(`Objectif : ${GOALS[S.goal].n}.`, 'info'); renderGoals(); save(); }
   if (sb && !sb.disabled) { const k = sb.dataset.skill, l = skillOf(k), c = skillCost(l); if ((S.kp || 0) >= c && l < SKILL_MAX) { S.kp -= c; S.skills = S.skills || {}; S.skills[k] = l + 1; TM = techMults(); say(`${SKILLS[k].n} niveau ${l + 1}.`, 'good'); renderGoals(); updateHUD(); save(); } }
