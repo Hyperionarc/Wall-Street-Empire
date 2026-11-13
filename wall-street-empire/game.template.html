@@ -2091,6 +2091,10 @@ function padHtml(pk) {
 const adFactor = c => 1 + 0.9 * (c.aw || 0) / 100;
 const investOf = c => c.invest != null ? c.invest : TYPES[c.t].cost + upgradeSpent(c);
 const crewOf = c => c.crew || 1;
+// Recruter : le rendement est décroissant (+65 % de capacité pour le premier doublement partiel, 1,4× à effectif ×2), le salaire par tête monte de 40 % à effectif ×2 (heures sup, primes).
+// Magasins : la capacité effective est plafonnée par la clientèle de la zone (indice client) ; banques : revenu par employé plafonné à 1,3× la base.
+const crewEff = c => { const x = clamp(crewOf(c) - 1, 0, 1), e = 1 + 0.65 * x - 0.25 * x * x, T = TYPES[c.t]; return c.t === 'bank' ? Math.min(e, 1.3) : T.ret ? Math.min(e, 1 + 0.5 * (c.ci == null ? 0.5 : c.ci)) : e; };
+const crewWage = c => 1 + 0.4 * clamp(crewOf(c) - 1, 0, 1);
 const wageOf = c => WAGE[c.wage == null ? 1 : c.wage];
 const DEPTS = [['prod', 'Production'], ['buy', 'Achats'], ['stock', 'Stock et logistique'], ['sell', 'Ventes']];
 function deptIdeal(c) {
@@ -2112,7 +2116,7 @@ const IRR_COST = [0, 1200, 2600, 4200], irrCost = l => Math.round(IRR_COST[l] * 
 function soilMult(c) { const k = TYPES[c.t].ext, irr = c.irr | 0, dr = droughtNow(); return fertility(c.x, c.y, k) * (casteIs('agriculteur') ? 1.08 : 1) * (1 + 0.1 * irr) * (1 - 0.35 * dr * (casteIs('agriculteur') ? 0.5 : 1) * (1 - irr / 3)); }
 const wasteOf = c => 0.05 * TM.waste / deptMult(c).stock;
 const FAC_U = 3.2 * K_SIZE;   // une usine traite FAC_U cycles de recette par jour
-const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? FAC_U * powerMult() * (1 - clamp(0.0035 * (c.haul || 0), 0, 0.25)) : 1) * capOf(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
+const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? FAC_U * powerMult() * (1 - clamp(0.0035 * (c.haul || 0), 0, 0.25)) : 1) * capOf(c) * crewEff(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
 const jobsOf = c => TYPES[c.t].jobs * levelMult(c) * crewOf(c);
 const fillOf = c => clamp(STAFF * wageOf(c).attr, 0, 1);
@@ -2231,7 +2235,7 @@ function step() {
     if (!list.length) return;
     let units = 0;
     list.forEach(c => { c._un = unitsOf(c); c._u = c._un * fillOf(c); units += c._u; });
-    list.forEach(c => { c._impCost = 0; c._impIn = 0; });
+    list.forEach(c => { c._impCost = 0; c._impIn = 0; c._impV = 0; });
     // fournisseurs : chaque usine choisit pour chaque intrant Auto (stock local puis port), Port (import) ou Local (stock seulement)
     Object.keys(inp).forEach(g => {
       const impR = Math.max(1.05, 1.3 - 0.05 * (cn.port || 0)) * TM.buy * modOf('buy');
@@ -2240,7 +2244,7 @@ function step() {
       let short = inV > outV * 1.05 ? 0 : Math.max(0, tot - S.stock[g]);   // l'import automatique n'a lieu que si la fabrication reste rentable
       list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0;
         if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) q = need; else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }
-        if (q > 0.01) { const of = mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3), c.haul) : null; const cost = of ? q * of.total * TM.buy * modOf('buy') : q * S.price[g] * impR * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; indImport += cost; c._impCost = (c._impCost || 0) + cost; c._impIn = (c._impIn || 0) + q; } });
+        if (q > 0.01) { const of = mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3), c.haul) : null; const cost = of ? q * of.total * TM.buy * modOf('buy') : q * S.price[g] * impR * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; indImport += cost; c._impCost = (c._impCost || 0) + cost; c._impIn = (c._impIn || 0) + q; c._impV = (c._impV || 0) + q * S.price[g]; } });
     });
     let r = units, lim = null;
     Object.keys(inp).forEach(g => { want[g] += units * inp[g]; const rr = S.stock[g] / inp[g]; if (rr < r) { r = rr; lim = g; } });
@@ -2255,7 +2259,7 @@ function step() {
       const share = units > 0 ? c._u / units : 0;
       c.out = r * share * tgt.qty * (1 - wasteOf(c));
       c.util = c._un > 0 ? r * share / c._un : 0;
-      let ic = 0; Object.keys(inp).forEach(g => { ic += r * share * inp[g] * S.price[g]; }); c.inCost = ic / deptMult(c).buy * TM.buy + (c._impCost || 0);
+      let ic = 0; Object.keys(inp).forEach(g => { ic += r * share * inp[g] * S.price[g]; }); c._inLocF = Math.max(0, ic / deptMult(c).buy * TM.buy - (c._impV || 0)); c.inCost = c._inLocF + (c._impCost || 0);   // intrants importés comptés une seule fois (au prix payé), le reste vient du stock local
       c.limit = r < units - 1e-6 ? lim : (fillOf(c) < 0.97 ? 'staff' : null);
     });
   };
@@ -2279,7 +2283,7 @@ function step() {
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._capNom = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; c._cap = c._capNom; retUnits += R.cap * u; const df = clamp(Math.pow(pfOf(c), -1.6) * (0.45 + 0.9 * (c.ci == null ? 0.5 : c.ci)) * 0.8, 0.1, 1); c._cap *= df; c._df = df;
     const SH = { s1: { basic: 1 }, s2: { basic: 0.62, std: 0.38 }, s3: { basic: 0.45, std: 0.35, lux: 0.2 }, s4: { basic: 0.45, std: 0.35, lux: 0.2 }, immo: { estate: 1 } }[c.t] || null; c._lc = {};
     R.sells.forEach(k2 => { c._lc[k2] = c._cap * (SH ? (SH[k2] || 0) : 1 / R.sells.length); });
-    c._left = c._cap; c._sold = 0; c._rev = 0; c._cogs = 0; c._imp = 0; c.sales = {}; } });
+    c._left = c._cap; c._sold = 0; c._rev = 0; c._cogs = 0; c._cl = 0; c._imp = 0; c.sales = {}; } });
   buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow((1 + 0.002 * (c.rt || 0)) / pfOf(c), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (c.ci = custIndex(c).idx, 0.6 + 0.9 * c.ci); const st = brandStrat(); c.aw = clamp((c.aw || 0) + (adTarget(c) * (st === 'corp' ? 1.15 : st === 'unique' ? 0.9 : 1) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c);
     const rtT = clamp(0.5 * 100 * clamp(adRt(c) / 1.2, 0, 1) + 0.5 * (prodQualityScore() + 8 * (c.qual || 0)), 0, 100) * (st === 'unique' ? 1.15 : 1);
     c.rt = clamp((c.rt == null ? 30 : c.rt) + (rtT - (c.rt == null ? 30 : c.rt)) * (adOf(c).press > 0 ? 0.045 : 0.03), 0, 100);
@@ -2317,7 +2321,7 @@ function step() {
           const share = n0 * c._cap * c.adF * c.pw / ws; let q = Math.min(share, c._lc[cls] || 0);
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * importRate / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
-          stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key); c._cogs = (c._cogs || 0) + fs * it.price + (gen ? rest * it.price * importRate : 0); c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
+          stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key); c._cl += fs * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
         });
       }
       addressed[cls] += wi;
@@ -2329,6 +2333,7 @@ function step() {
   });
   buildings.forEach(c => {
     const R = TYPES[c.t].ret; if (!R) return;
+    c._inImpR = c.inCost || 0; c.inCost = c._inImpR + c._cl; c._cogs = c.inCost;   // coût des marchandises vendues = import (décaissé) + stock local au prix de gros (transfert interne)
     c.out = c._sold; c.util = c._capNom > 0 ? clamp(c._sold / c._capNom, 0, 1) : 0;   // utilisation nominale : _cap est déjà réduit par la demande (c._df), donc 100 % ne voudrait rien dire
     if (c.out > 0.01) c.limit = c._sold >= 0.96 * c._capNom ? 'capacity' : fillOf(c) < 0.97 ? 'staff' : 'demand';
     else {
@@ -2377,8 +2382,8 @@ function step() {
       mwh *= loss; S._pSup += mwh; c.pRev = mwh * (S.power ? S.power.price : ELEC_BASE) * (casteIs('negociant') ? 1.3 : 1); revTech += c.pRev;
     }
     if (c.t === 'tech') { c.pRev = jobsOf(c) * 1100 * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
-    if (c.t === 'bank') { c.pRev = (jobsOf(c) * 1500 + Math.max(0, S.cash - (S.loan || 0)) * 0.0001) * qualMult(c); revBank += c.pRev; }
-    if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
+    if (c.t === 'bank') { c.pRev = (TYPES.bank.jobs * levelMult(c) * crewEff(c) * 1500 + Math.max(0, S.cash - (S.loan || 0)) * 0.0001) * qualMult(c); revBank += c.pRev; }
+    if (T.jobs) { c.wages = jobsOf(c) * crewWage(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
     if (c.t === 'wh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
     c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
     c.adCost = adSpend(c); adTotal += c.adCost;
@@ -2401,6 +2406,7 @@ function step() {
   // 6. Compte de résultat par bâtiment (prix de cession internes au prix du marché)
   let retOut = 0; buildings.forEach(c => { if (TYPES[c.t].ret) retOut += c.out; });
   const retRev = {}; buildings.forEach(c => { if (TYPES[c.t].ret && retUnits > 0) retRev[c.t] = 1; });
+  const REC = { pInt: 0, pCash: 0, inImp: 0, inLoc: 0, wag: 0, upk: 0, tra: 0, ad: 0, profit: 0 };
   buildings.forEach(c => {
     const T = TYPES[c.t];
     if (T.ext) c.pRev = c.out * P[T.ext] * qualMult(c) * (1 + 0.5 * (deptMult(c).sell - 1));
@@ -2409,15 +2415,21 @@ function step() {
     else if (c.t === 'port') c.pRev = revExport / Math.max(1, portN);
     else if (c.t === 'wh') c.pRev = c._rev || 0;
     const up = T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))) * cpi();
+    // Séparation : production valorisée interne (mines, usines : non encaissée) / chiffre d'affaires encaissé ; intrants importés (décaissés) / prélevés sur stock local (transfert interne)
+    c.pInt = (T.ext || T.rec) ? c.pRev : 0;
+    { const ip = T.ret ? (c._inImpR || 0) : c.t === 'wh' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
+    REC.pInt += c.pInt; REC.pCash += c.pRev - c.pInt; REC.inImp += c.inImp; REC.inLoc += c.inLoc; REC.wag += c.wages; REC.upk += up; REC.tra += c.transport; REC.ad += c.adCost || 0;
     c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
     c.profit = c.pRev - c.cost;
-    c.rev = c.profit;
+    c.rev = c.profit; REC.profit += c.profit;
     c.upk = up; c.days = (c.days || 0) + 1; c.dep = investOf(c) / DEP_DAYS;
     c.taxB = Math.max(0, c.profit - c.dep) * S.tax;
-    const cmv = c.cm && c.cm.length === 9 ? c.cm : (c.cm = (c.cm || []).concat([0, 0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 9));
-    cmv[0] += c.pRev; cmv[1] += c.inCost; cmv[2] += c.wages; cmv[3] += c.transport; cmv[4] += up; cmv[8] += c.adCost || 0; cmv[5] += c.profit; cmv[6] += c.dep; cmv[7] += c.taxB;
+    const cmv = c.cm && c.cm.length === 10 ? c.cm : (c.cm = (c.cm || []).concat([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 10));
+    cmv[0] += c.pRev; cmv[1] += c.inCost; cmv[2] += c.wages; cmv[3] += c.transport; cmv[4] += up; cmv[8] += c.adCost || 0; cmv[5] += c.profit; cmv[6] += c.dep; cmv[7] += c.taxB; cmv[9] += c.inLoc;
     (c.hist || (c.hist = [])).push(c.profit); if (c.hist.length > 40) c.hist.shift();
   });
+
+  S.rec = REC;
 
   // 7. Prix : offre et demande
   GKEYS.forEach(g => {
@@ -2831,7 +2843,7 @@ function updateHUD() {
     const F = S.fin;
     if (F) {
       const row = (n, v, neg) => `<div class="finrow"><span>${n}</span><b class="${neg ? 'neg' : 'pos'}">${neg ? '−' : '+'}${money(Math.abs(v))}</b></div>`;
-      el('fin').innerHTML = row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech, banques, filiales', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Entretien', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + (F.div ? row('Dividendes versés', F.div, 1) : '') + `<div class="finrow"><span><b>Résultat / jour</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${money(Math.abs(F.net))}</b></div>`;
+      el('fin').innerHTML = row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech, banques, filiales', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Entretien', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + (F.div ? row('Dividendes versés', F.div, 1) : '') + `<div class="finrow"><span><b>Résultat net / jour</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${money(Math.abs(F.net))}</b></div>` + recoHTML();
     } else el('fin').innerHTML = '<p class="note">Le compte de résultat apparaît après le premier jour.</p>';
     const raw = (S.stats && S.stats.raw) || 0, listed = S.float > 0, price = raw * (S.prem || 1.1) / SHARES;
     let bh;
@@ -3168,12 +3180,36 @@ function forcesHTML() {
   const top = L.slice().sort((a, b) => f[b[0]] - f[a[0]])[0];
   return `<h3>CINQ FORCES DE PORTER</h3><div class="tcard">${L.map(([k, n, d]) => `<div class="finrow" title="${d}"><span>${n}</span><b class="${f[k] > 65 ? 'neg' : f[k] < 35 ? 'pos' : ''}">${Math.round(f[k])}</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(f[k])}%;background:${f[k] > 65 ? '#ff5a5f' : f[k] < 35 ? '#46d39a' : '#f2b84b'}"></i></div>`).join('')}<div class="finrow"><span><b>Attractivité du secteur</b></span><b class="${f.attract > 55 ? 'pos' : f.attract < 40 ? 'neg' : ''}">${f.attract} / 100</b></div><small>Force dominante : <b>${top[1]}</b>. ${top[2]}</small></div>`;
 }
+function recoHTML() {
+  const F = S.fin, R = S.rec; if (!F || !R) return '';
+  const rv = F.revRetail + F.revExport + F.revTech + F.revBank, sg = v => (v >= 0 ? '+' : '−') + money(Math.abs(v));
+  const costBld = R.wag + R.upk + R.tra + R.ad + R.inImp, costAll = F.wages + F.upkeep + F.transport + F.adv + F.imports, hors = costAll - costBld, rhors = rv - R.pCash;
+  const preTax = rv - costAll - F.interest, cashB = R.profit - R.pInt + R.inLoc;
+  const r = (n, v, cls, tip) => `<tr class="${cls || ''}"${tip ? ` title="${tip}"` : ''}><td>${n}</td><td class="${v >= 0 ? '' : 'neg'}">${sg(v)}</td></tr>`;
+  return `<h3>RÉCONCILIATION BÂTIMENTS / RÉSULTAT NET (par jour)</h3><div class="tcard"><table class="fint"><tr><th>Chiffre d'affaires encaissé</th><th>$ / jour</th></tr>
+    ${r('Ventes au détail', F.revRetail)}${r('Exports (port, entrepôts, surplus)', F.revExport)}${r('Services : tech, énergie, banques, filiales', F.revTech + F.revBank)}${r('Total encaissé', rv, 'tot')}</table>
+    <table class="fint" style="margin-top:8px"><tr><th>Du résultat des bâtiments au résultat net</th><th>$ / jour</th></tr>
+    ${r('Σ résultats des bâtiments (EBE, avant amortissement et impôt)', R.profit, '', 'Somme des profits affichés sur chaque fiche bâtiment')}
+    ${r('− Production valorisée interne des mines et usines (non encaissée)', -R.pInt)}
+    ${r('+ Stock local consommé : intrants et marchandises (transferts internes, non décaissés)', R.inLoc)}
+    ${r('= Résultat encaissé des bâtiments', cashB, 'tot')}
+    ${r('+ Exports et recettes non rattachés à un bâtiment (production vendue hors port)', rhors)}
+    ${r('− Coûts hors bâtiments (voirie, importations hors site, publicité produits)', -hors)}
+    ${r('− Intérêts', -F.interest)}
+    ${r('= Résultat avant impôt', preTax, 'tot')}
+    ${r('− Impôt sur les sociétés', -F.tax)}
+    ${r('= Résultat net', F.net, 'tot')}
+    ${r('− Dividendes versés', -F.div)}
+    ${r('= Variation de trésorerie d\'exploitation', F.net - F.div, 'tot')}</table>
+    <small>Le CA « interne » des mines et usines (valeur produite au prix du marché) n'est pas un revenu : il n'est encaissé que lorsque la production est vendue par les magasins ou exportée. Les investissements et emprunts sont hors de ce tableau.</small></div>`;
+}
 function sectorHTML() {
-  const by = {}; eachBuilding(c => { if (c.t === 'npc' || c.t === 'road' || c.t === 'pylon' || c.t === 'cable' || c.t === 'pipeline' || !(c.pRev > 0 || c.wages > 0)) return; const T = TYPES[c.t], k = c.t, o = by[k] || (by[k] = { n: 0, rev: 0, cogs: 0, wag: 0, oth: 0, name: T.name });
-    o.n++; o.rev += c.pRev || 0; o.cogs += T.ret ? (c._cogs || 0) : (c.inCost || 0); o.wag += c.wages || 0; o.oth += (c.upk || 0) + (c.transport || 0); });
-  const rows = Object.keys(by).map(k => by[k]).filter(o => o.rev > 0).sort((a, b) => b.rev - a.rev); if (!rows.length) return '';
+  // Mêmes définitions que le compte de résultat du bâtiment : CA encaissé, production valorisée interne (mines/usines), coût des marchandises ou intrants (import + stock local), salaires, entretien + transport + publicité.
+  const by = {}; eachBuilding(c => { if (c.t === 'npc' || c.t === 'road' || c.t === 'pylon' || c.t === 'cable' || c.t === 'pipeline' || !(c.pRev > 0 || c.wages > 0)) return; const T = TYPES[c.t], k = c.t, o = by[k] || (by[k] = { n: 0, rev: 0, int: 0, cogs: 0, wag: 0, oth: 0, name: T.name });
+    o.n++; o.rev += (c.pRev || 0) - (c.pInt || 0); o.int += c.pInt || 0; o.cogs += c.inCost || 0; o.wag += c.wages || 0; o.oth += (c.upk || 0) + (c.transport || 0) + (c.adCost || 0); });
+  const rows = Object.keys(by).map(k => by[k]).filter(o => o.rev + o.int > 0).sort((a, b) => (b.rev + b.int) - (a.rev + a.int)); if (!rows.length) return '';
   const pc = v => (v * 100).toFixed(0) + ' %', cl = (v, lo, hi) => v >= hi ? 'pos' : v < lo ? 'neg' : '';
-  return `<h3>ÉCONOMIE DES SECTEURS (par jour)</h3><div class="tcard"><table class="fint"><tr><th>Activité</th><th>CA</th><th>Marge brute</th><th>EBITDA</th><th>CA / salaires</th></tr>${rows.map(o => { const gm = (o.rev - o.cogs) / o.rev, eb = (o.rev - o.cogs - o.wag - o.oth) / o.rev, rw = o.wag > 0 ? o.rev / o.wag : 0; return `<tr><td>${o.name} ×${o.n}</td><td>${money(o.rev)}</td><td class="${cl(gm, 0.4, 0.6)}">${o.cogs > 0 || !o.name ? pc(gm) : '—'}</td><td class="${cl(eb, 0.1, 0.3)}">${pc(eb)}</td><td class="${rw && rw < 3 ? 'neg' : ''}">${rw ? '×' + rw.toFixed(1).replace('.', ',') : '—'}</td></tr>`; }).join('')}</table><small>Repères : marge brute 60-90 % selon le pouvoir de fixation des prix, EBITDA 15-20 % pour le pétrole à 50 % et plus pour le luxe ou la finance, chiffre d'affaires au moins 3 fois les salaires. Pour les usines, le CA est la valeur produite au prix de marché.</small></div>`;
+  return `<h3>ÉCONOMIE DES SECTEURS (par jour)</h3><div class="tcard"><table class="fint"><tr><th>Activité</th><th>CA encaissé</th><th>Production interne</th><th>Marge brute</th><th>EBITDA</th><th>(CA + prod.) / salaires</th></tr>${rows.map(o => { const base = o.rev + o.int, gm = (base - o.cogs) / base, eb = (base - o.cogs - o.wag - o.oth) / base, rw = o.wag > 0 ? base / o.wag : 0; return `<tr><td>${o.name} ×${o.n}</td><td>${o.rev > 0 ? money(o.rev) : '—'}</td><td>${o.int > 0 ? money(o.int) : '—'}</td><td class="${cl(gm, 0.25, 0.5)}">${o.cogs > 0 ? pc(gm) : '—'}</td><td class="${cl(eb, 0.1, 0.3)}">${pc(eb)}</td><td class="${rw && rw < 3 ? 'neg' : ''}">${rw ? '×' + rw.toFixed(1).replace('.', ',') : '—'}</td></tr>`; }).join('')}</table><small>Marge brute = (CA ou valeur produite − coût des marchandises vendues ou des intrants) / CA : pour un magasin, le coût comprend l'import et le stock local pris au prix de gros ; pour une usine ou une mine, la valeur produite est valorisée au prix du marché (production interne, non encaissée). EBITDA = marge brute − salaires − entretien − transport − publicité. Repères : marge brute 25-60 % selon le pouvoir de fixation des prix, EBITDA 10-30 % (davantage pour le luxe ou la finance), CA au moins 3 fois les salaires.</small></div>`;
 }
 function energyHTML() {
   const P = S.power; if (!P) return '';
@@ -4811,7 +4847,7 @@ function adTab(c) {
     <div class="levers">${AD_KEYS.map(card).join('')}</div>`;
 }
 function finTab(c, tab) {
-  const m = (c.cm && c.cm.length >= 9) ? c.cm : (c.cm || []).concat([0, 0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 9), d = Math.max(1, c.days || 0), K = investOf(c), dep = c.dep != null ? c.dep : K / DEP_DAYS;
+  const m = (c.cm && c.cm.length >= 10) ? c.cm : (c.cm || []).concat([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).slice(0, 10), d = Math.max(1, c.days || 0), K = investOf(c), dep = c.dep != null ? c.dep : K / DEP_DAYS;
   const T = TYPES[c.t], tx = S.tax;
   const row = (n, a, b, cls, neg) => `<tr class="${cls || ''}"><td>${n}</td><td>${neg && a ? '−' : ''}${money(a)}</td><td>${neg && b ? '−' : ''}${money(b)}</td></tr>`;
   const bars = (arr) => {
@@ -4819,24 +4855,30 @@ function finTab(c, tab) {
     const mx = Math.max(1, ...arr.map(Math.abs)), w = 760 / Math.max(arr.length, 20);
     return `<svg viewBox="0 0 760 90" width="100%" height="90" role="img" aria-label="Profit des derniers jours"><line x1="0" y1="45" x2="760" y2="45" stroke="rgba(143,154,203,.4)"/>${arr.map((v, i) => { const h = Math.abs(v) / mx * 42; return `<rect x="${(i * w + 1).toFixed(1)}" y="${v >= 0 ? 45 - h : 45}" width="${(w - 2).toFixed(1)}" height="${Math.max(1, h).toFixed(1)}" rx="2" fill="${v >= 0 ? '#46d39a' : '#ff5a5f'}"/>`; }).join('')}</svg>`;
   };
+  const prod = !!(T.ext || T.rec), tot0 = c.pRev || 0, int = c.pInt || 0, cashRev = tot0 - int;
+  const mInt = prod ? m[0] : 0;   // cumul de production interne
+  const mLoc = m[9] || 0, mImp = Math.max(0, m[1] - mLoc);
   if (tab === 'pl') {
-    const j = { rev: c.pRev || 0, inp: c.inCost || 0, wag: c.wages || 0, tra: c.transport || 0, upk: c.upk != null ? c.upk : T.upkeep, ad: c.adCost || 0 };
-    const ebitda = j.rev - j.inp - j.wag - j.tra - j.upk - j.ad, ebit = ebitda - dep, taxj = Math.max(0, ebit) * tx, net = ebit - taxj;
+    const inp = c.inCost || 0, wag = c.wages || 0, tra = c.transport || 0, upk = c.upk != null ? c.upk : T.upkeep, ad = c.adCost || 0;
+    const gm = tot0 - inp, ebitda = gm - wag - tra - upk - ad, ebit = ebitda - dep, taxj = Math.max(0, ebit) * tx, net = ebit - taxj;
     const ceb = m[5], cebit = ceb - m[6], cnet = cebit - m[7];
+    const cogsLbl = T.ret ? 'Coût des marchandises vendues' : prod ? 'Intrants consommés' : 'Achats d\'intrants';
     return `<table class="fint"><tr><th>Compte de résultat</th><th>Par jour</th><th>Cumul (${d} j)</th></tr>
-      ${row('Chiffre d\'affaires', j.rev, m[0])}
-      ${row('Achats d\'intrants', j.inp, m[1], '', 1)}
-      ${row('Salaires', j.wag, m[2], '', 1)}
-      ${row('Transport', j.tra, m[3], '', 1)}
-      ${row('Entretien', j.upk, m[4], '', 1)}
-      ${j.ad || m[8] ? row('Publicité', j.ad, m[8], '', 1) : ''}
-      ${row('Excédent brut d\'exploitation', ebitda, ceb, 'tot')}
+      ${prod ? row('Production valorisée au prix du marché (interne, non encaissée)', int, mInt) : row('Chiffre d\'affaires encaissé', cashRev, m[0])}
+      ${row(cogsLbl, inp, m[1], '', 1)}
+      ${inp > 0 ? row('dont importé / fournisseurs (décaissé)', c.inImp || 0, mImp, 'sub', 1) + row('dont prélevé sur le stock local (transfert interne)', c.inLoc || 0, mLoc, 'sub', 1) : ''}
+      ${row('Marge brute', gm, m[0] - m[1], 'tot')}
+      ${row('Salaires', wag, m[2], '', 1)}
+      ${row('Transport', tra, m[3], '', 1)}
+      ${row('Entretien', upk, m[4], '', 1)}
+      ${ad || m[8] ? row('Publicité', ad, m[8], '', 1) : ''}
+      ${row('Excédent brut d\'exploitation (EBE)', ebitda, ceb, 'tot')}
       ${row('Amortissement', dep, m[6], 'sub', 1)}
       ${row('Résultat d\'exploitation', ebit, cebit, 'tot')}
       ${row('Impôt sur les sociétés (' + Math.round(tx * 100) + ' %)', taxj, m[7], 'sub', 1)}
       ${row('Résultat net', net, cnet, 'tot')}</table>
-      <div class="fcard"><h4>Profit des ${Math.min(40, (c.hist || []).length)} derniers jours</h4>${bars(c.hist || [])}</div>
-      <p class="fnote">Les ventes sont valorisées au prix du marché. L'amortissement répartit l'investissement sur ${DEP_DAYS} jours.</p>`;
+      <div class="fcard"><h4>EBE des ${Math.min(40, (c.hist || []).length)} derniers jours</h4>${bars(c.hist || [])}</div>
+      <p class="fnote">Mêmes définitions que le tableau des secteurs et l'onglet Finances. ${prod ? 'La production est valorisée au prix du marché : elle n\'est encaissée que lorsqu\'elle est vendue (magasins, export). ' : ''}Les marchandises prises sur le stock local sont comptées au prix de gros (transfert interne, sans décaissement). L'amortissement répartit l'investissement sur ${DEP_DAYS} jours.</p>`;
   }
   const cebitda = m[5], ctax = m[7], A = Math.min(K, m[6]), tr = cebitda - ctax, res = tr - A;
   if (tab === 'bs') {
@@ -4845,23 +4887,25 @@ function finTab(c, tab) {
       <tr><td>Immobilisations brutes (bâtiment, équipements)</td><td>${money(K)}</td></tr>
       <tr class="sub"><td>− Amortissements cumulés</td><td>−${money(A)}</td></tr>
       <tr><td>Immobilisations nettes</td><td>${money(K - A)}</td></tr>
-      <tr><td>Trésorerie générée par le site</td><td class="${tr >= 0 ? '' : 'neg'}">${tr < 0 ? '−' : ''}${money(Math.abs(tr))}</td></tr>
+      <tr><td>Résultat cumulé avant amortissement (EBE − impôt)</td><td class="${tr >= 0 ? '' : 'neg'}">${tr < 0 ? '−' : ''}${money(Math.abs(tr))}</td></tr>
       <tr class="tot"><td>Total actif</td><td>${money(actif)}</td></tr></table></div>
       <div><table class="fint"><tr><th>Passif</th><th>Valeur</th></tr>
       <tr><td>Capital investi (apport de la maison mère)</td><td>${money(K)}</td></tr>
-      <tr><td>Résultats cumulés</td><td class="${res >= 0 ? '' : 'neg'}">${res < 0 ? '−' : ''}${money(Math.abs(res))}</td></tr>
+      <tr><td>Résultats cumulés (après amortissement et impôt)</td><td class="${res >= 0 ? '' : 'neg'}">${res < 0 ? '−' : ''}${money(Math.abs(res))}</td></tr>
       <tr class="tot"><td>Total passif</td><td>${money(K + res)}</td></tr></table>
       <div class="fcard"><h4>Rentabilité</h4><div class="kv"><div><small>Rendement annuel</small><b class="${roi >= 0 ? 'pos' : 'neg'}">${Math.round(roi * 100)} %</b></div><div><small>Retour sur investissement</small><b>${pay == null ? 'jamais à ce rythme' : pay < 1 ? 'amorti' : Math.round(pay) + ' jours'}</b></div></div></div></div></div>
-      <p class="fnote">Trésorerie générée = excédent brut cumulé moins l'impôt. L'actif égale le passif par construction.</p>`;
+      <p class="fnote">Même résultat que le compte de résultat (EBE − impôt − amortissement). ${prod ? 'Ce résultat inclut les transferts internes au prix du marché : voir l\'onglet Flux de trésorerie pour la part réellement encaissée. ' : ''}L'actif égale le passif par construction.</p>`;
   }
-  const j = (c.profit || 0) - (c.taxB || 0), cum = tr;
+  const j = (c.profit || 0) - (c.taxB || 0), cumExp = cebitda - ctax, jInt = int - (c.inLoc || 0), cumInt = mInt - mLoc;
   return `<table class="fint"><tr><th>Flux de trésorerie</th><th>Par jour</th><th>Cumul (${d} j)</th></tr>
-    ${row('Flux d\'exploitation (EBE − impôt)', j, cebitda - ctax)}
+    ${row('Flux d\'exploitation valorisé (EBE − impôt)', j, cumExp)}
+    ${jInt || cumInt ? row(prod ? 'Production non encaissée − stock local consommé (interne)' : 'Stock local consommé (transfert interne, non décaissé)', jInt, cumInt, 'sub') : ''}
+    ${row('Flux d\'exploitation encaissé', j - jInt, cumExp - cumInt, 'tot')}
     ${row('Flux d\'investissement', 0, K, 'sub', 1)}
     ${row('Flux de financement (apport de capital)', 0, K, 'sub')}
-    ${row('Variation de trésorerie', j, cum, 'tot')}</table>
-    <div class="fcard"><h4>Flux d'exploitation quotidiens</h4>${bars((c.hist || []).map(v => v))}</div>
-    <p class="fnote">Les amortissements ne sont pas des flux : ils n'apparaissent pas ici. L'investissement initial et les améliorations (taille, qualité, efficacité) sont financés par la trésorerie du groupe.</p>`;
+    ${row('Variation de trésorerie du site', j - jInt, cumExp - cumInt, 'tot')}</table>
+    <div class="fcard"><h4>EBE quotidien</h4>${bars((c.hist || []).map(v => v))}</div>
+    <p class="fnote">Les amortissements ne sont pas des flux. L'investissement initial et les améliorations sont financés par la trésorerie du groupe. Les usines et mines n'encaissent rien directement : leur production est vendue par les magasins et le port, dont les recettes figurent dans leurs propres flux.</p>`;
 }
 /* ---------- Barre d'outils ---------- */
 const catsEl = $('#cats'), toolsEl = $('#tools');
