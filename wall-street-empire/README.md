@@ -227,3 +227,20 @@ Implémentation : tableau `SECTOR_REF` dans le code ; marges par secteur (compos
 - **Double-clic sur un emplacement** : ouvre le choix du produit **et du fournisseur** (prix livré et qualité), puis « Mettre en rayon ».
 
 Les bâtiments de service ont une vue **Intérieur dédiée** (KPI en tête, scène réduite) : entrepôt (stocks par bien, remplissage, frais), centrales (combustible, prix du réseau, raccordement et pertes), R&D (brevets, jours avant le prochain, royalties), siège (cadres, statut en bourse), banque (marge d'intérêt), tours tech et data centers (loyers). L'EBE par jour est distingué du résultat net.
+## Passe 7 : rééquilibrage des chaînes industrielles et de la pharma
+Diagnostic (scénarios Playwright pharma, vélo/acier, bois/meubles, BTP/béton, pétrole/plastique, énergie, multi-produits) : les composants perdaient de l'argent parce que
+(1) les cours des matières étaient gonflés de 25 % et ceux des composants de 8 % seulement, donc les intrants coûtaient plus que prévu ;
+(2) l'offre PNJ (importations de base 0,5 + producteurs 1,4 fois la demande locale) dépassait toujours la demande : les cours restaient collés au plancher ×0,7 ;
+(3) la formation des prix intégrait le déséquilibre jour après jour (fluctuation de 8 % par jour) et butait sur les bornes ;
+(4) les salaires (15/30/60 emplois) pesaient 25 % du CA des petites usines, et le calibrage par marge brute ignorait salaires et entretien ;
+(5) les unités importées étaient comptées deux fois dans le coût de l'usine, et une usine importait à perte (import à ×1,3 sans tenir compte des coûts fixes) ;
+(6) les centrales produisaient 2 400 à 18 000 MWh/j contre 1 100 MWh/j de demande de la ville.
+
+Correctifs :
+- **Prix d'équilibre calibrés sur l'EBITDA du secteur** : `prix = (intrants + coûts fixes du cycle) / (production × (1 − EBITDA − transport 3 %))` (tables `EB_REC`, `EB_GEN`, `EB_PROD`, `EB_EXT`) ; extraction : entretien déduit de l'EBITDA visé, salaires ≈ 7 % du CA.
+- **Formation des prix** (étape 7) : cours visé = base × répercussion du coût des intrants (`inS`) × f(demande / offre lissée), f ∈ [0,82 ; 1,30] (courbe `tanh`, plus de collage aux bornes), plancher à ×0,86 pour un produit transformé, ×0,75 pour une matière.
+- **Marché local PNJ** : importations de base 0,4 et producteurs plafonnés à 0,3 de la demande (`NPC_IMP`, `NPC_CAP`) : une usine du joueur couvre le reste ; demande locale ajoutée pour les composants (chimie, principes actifs, béton, emballages, etc.) et relevée pour les granulats et cultures.
+- Usines : emplois 8/16/32 (fonderie 10), capex 1,2/3,5/9 M$ (fonderie 2 M$) ; transport 0,01 par unité et case ; emballages ×2 par cycle ; l'import automatique n'a lieu que si les intrants ne dépassent pas 85 % du CA ; coût d'import compté une seule fois.
+- Commerce : marge de détail 2,05 / 2,10 / 2,30, effectifs 1 / 5 / 16 : EBITDA d'un supermarché ≈ 14 %, CA/salaires ≈ 4,3.
+- Énergie : centrale à charbon 300 MWh/j (500 t de charbon, 10 emplois), solaire 370, éolien 195, nucléaire 1 000 MWh/j.
+- Bois : camp de bûcherons 600/j, la forêt repousse de 0,6 % par jour.
