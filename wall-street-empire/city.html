@@ -228,6 +228,12 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .tool span{display:block;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tool small{display:block;font-family:var(--font-m);font-size:10.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tool[aria-pressed="true"]{background:var(--panel-hi);border-color:currentColor;box-shadow:0 0 0 1px currentColor,0 0 14px -2px currentColor}
+.tool.fam small{color:var(--mut)}
+#flyout{position:absolute;left:0;right:0;bottom:100%;padding:0 max(12px,env(safe-area-inset-left,0px)) 4px;pointer-events:none;display:flex;flex-direction:column;align-items:center}
+#flyout[hidden]{display:none}
+#flyout .fh{pointer-events:auto;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);background:rgba(10,14,40,.92);border:1px solid rgba(242,184,75,.5);border-bottom:0;border-radius:10px 10px 0 0;padding:4px 12px}
+#flyout .frow{pointer-events:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:10px;border-radius:12px;background:rgba(10,14,40,.94);border:1px solid rgba(242,184,75,.5);box-shadow:0 -8px 30px rgba(0,0,0,.45);max-width:min(920px,100%)}
+.tool.big{width:104px;padding:10px 6px}.tool.big svg{width:38px;height:38px}.tool.big span{font-size:12px}
 .tool.poor small{color:var(--red)}
 .tool.locked{opacity:.45}
 .tool.locked small{color:var(--gold)}
@@ -769,7 +775,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     <button class="ibtn" id="winok">Continuer à jouer</button>
   </div>
 
-  <nav id="bar" aria-label="Outils de construction"><div id="cats"></div><div id="tools"></div></nav>
+  <nav id="bar" aria-label="Outils de construction"><div id="flyout" hidden></div><div id="cats"></div><div id="tools"></div></nav>
 </div>
 
 <script>
@@ -1065,6 +1071,16 @@ const CATS = [
   { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'plant', 'wh', 'port', 'pipeline'] },
   { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 'immo'] }
 ];
+// Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
+const FAMS = {
+  ville: [['Habitat', ['res']], ['Bureaux', ['tech', 'bank']], ['Direction', ['hq', 'rd', 'dc']], ['Rachat', ['buyout']]],
+  agri: [['Fermes', ['fwheat', 'fsugar', 'fcotton', 'frubber']], ['Accès', ['road', 'link']]],
+  extr: [['Énergie', ['well', 'mcoal', 'pipeline']], ['Métaux', ['miron', 'mcopper', 'mgold']], ['Bois', ['logging']], ['Accès', ['road', 'link']]],
+  btp: [['Carrières', ['qgravel', 'qsand', 'qlime']], ['Chantiers', ['btp']]],
+  indus: [['Usines', ['f1', 'f2', 'f3']], ['Fonderie', ['foundry']], ['Énergie', ['plant', 'pipeline']], ['Logistique', ['wh', 'port']]],
+  com: [['Magasins', ['s1', 's2', 's3']], ['Immobilier', ['immo']]]
+};
+let famOpen = -1;
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
 
 const MISSIONS = [
@@ -4172,7 +4188,7 @@ CATS.forEach(c => {
   const b = document.createElement('button');
   b.className = 'cat'; b.type = 'button'; b.dataset.c = c.id; b.textContent = c.name;
   b.setAttribute('aria-pressed', c.id === cat ? 'true' : 'false');
-  b.onclick = () => { cat = c.id; buildTools(); };
+  b.onclick = () => { cat = c.id; famOpen = -1; buildTools(); };
   catsEl.appendChild(b);
 });
 function toolButton(k) {
@@ -4188,17 +4204,37 @@ function toolButton(k) {
   b.addEventListener('click', () => setTool(k));
   return b;
 }
+function famButton(fi, fam) {
+  const [name, ks] = fam, k0 = ks[0], T = TYPES[k0] || TOOL_META[k0], b = document.createElement('button');
+  const act = ks.indexOf(tool) >= 0;
+  b.className = 'tool fam'; b.type = 'button'; b.dataset.f = fi; b.style.color = T.color; b.setAttribute('aria-pressed', act ? 'true' : 'false'); b.setAttribute('aria-expanded', famOpen === fi ? 'true' : 'false');
+  const cur = act ? (TYPES[tool] || TOOL_META[tool]) : T;
+  b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[ICON_OF[act ? tool : k0] || (act ? tool : k0)]}</svg><span style="color:var(--fg)">${name}</span><small>${ks.length > 1 ? ks.length + ' types ▾' : (TYPES[k0] ? money(TYPES[k0].cost) : T.sub)}</small>`;
+  b.addEventListener('click', e => { e.stopPropagation(); if (ks.length === 1) { famOpen = -1; setTool(k0); } else { famOpen = famOpen === fi ? -1 : fi; buildTools(); } });
+  return b;
+}
 function buildTools() {
   document.querySelectorAll('.cat').forEach(b => b.setAttribute('aria-pressed', b.dataset.c === cat ? 'true' : 'false'));
   toolsEl.innerHTML = '';
-  ['view'].concat(CATS.find(c => c.id === cat).tools, ['up', 'bull']).forEach(k => toolsEl.appendChild(toolButton(k)));
+  toolsEl.appendChild(toolButton('view'));
+  (FAMS[cat] || []).forEach((f, i) => toolsEl.appendChild(famButton(i, f)));
+  ['up', 'bull'].forEach(k => toolsEl.appendChild(toolButton(k)));
+  const fly = el('flyout'); fly.innerHTML = '';
+  const fam = famOpen >= 0 && FAMS[cat] ? FAMS[cat][famOpen] : null;
+  if (fam) {
+    const h = document.createElement('div'); h.className = 'fh'; h.textContent = fam[0] + ' · choisis un bâtiment'; fly.appendChild(h);
+    const row = document.createElement('div'); row.className = 'frow'; fam[1].forEach(k => { const b = toolButton(k); b.classList.add('big'); row.appendChild(b); }); fly.appendChild(row);
+    fly.hidden = false;
+  } else fly.hidden = true;
   if (S) updateHUD();
 }
+document.addEventListener('click', e => { if (famOpen >= 0 && !e.target.closest('#bar')) { famOpen = -1; buildTools(); } });
 function setTool(k) {
   if (TYPES[k] && toolLocked(k)) { say(`${TYPES[k].name} se débloque au palier ${TIERS[TYPES[k].tier].n}.`, 'warn'); return; }
-  tool = k;
+  tool = k; famOpen = -1;
   const owner = CATS.find(c => c.tools.indexOf(k) >= 0);
-  if (owner && owner.id !== cat) { cat = owner.id; buildTools(); }
+  if (owner && owner.id !== cat) cat = owner.id;
+  buildTools();
   document.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k ? 'true' : 'false'));
   const act = document.querySelector('.tool[aria-pressed="true"]');
   if (act && act.scrollIntoView) { try { act.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} }
