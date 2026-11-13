@@ -147,3 +147,9 @@ Chaque magasin a un indice 0–100 : emplacement (30 %), prix attractif (20 %), 
 
 ## Élasticité-prix (inspirée de Capitalism Lab)
 Les ventes de détail dépendent du prix pratiqué : élasticité −0,9 (base), −1,4 (manufacturés), −2,2 (luxe), −1,6 (immobilier), appliquée à moitié sur la demande totale en plus de la part de marché. La demande industrielle locale réagit au cours : pétrole −0,5 (inélastique), charbon −0,7, fer −0,8, acier −1, plastique −1,2, or −1,5 ; cela stabilise les cours.
+
+## Marque et marketing (inspirés de Capitalism Lab)
+- Canaux publicitaires par magasin : télévision, radio, **presse écrite**, internet, **influenceurs** (risque de bad buzz).
+- Trois indicateurs de marque : **notoriété**, **fidélité**, **perception de qualité** (qualité réelle des produits + presse/influenceurs). Ils multiplient l'affluence (×0,8 à ×1,2) et rendent les clients moins sensibles au prix.
+- **Stratégie de marque** (Empire > Marque) : marque unique par produit, de gamme, ou d'entreprise.
+- Autres ajouts de cette session : Bourse à la Capitalism Lab (liste filtrable, fiche, actionnaires, graphique, ordre en %, portefeuille), Guide de l'agriculteur, vue « Sélectionner un fournisseur » avec négociation et accords à durée limitée, C-levels et marché des cadres dirigeants.
