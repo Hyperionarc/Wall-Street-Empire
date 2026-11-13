@@ -153,3 +153,6 @@ Les ventes de détail dépendent du prix pratiqué : élasticité −0,9 (base),
 - Trois indicateurs de marque : **notoriété**, **fidélité**, **perception de qualité** (qualité réelle des produits + presse/influenceurs). Ils multiplient l'affluence (×0,8 à ×1,2) et rendent les clients moins sensibles au prix.
 - **Stratégie de marque** (Empire > Marque) : marque unique par produit, de gamme, ou d'entreprise.
 - Autres ajouts de cette session : Bourse à la Capitalism Lab (liste filtrable, fiche, actionnaires, graphique, ordre en %, portefeuille), Guide de l'agriculteur, vue « Sélectionner un fournisseur » avec négociation et accords à durée limitée, C-levels et marché des cadres dirigeants.
+
+## Fiche produit en rayon (part de marché)
+Dans la vue d'un magasin, un produit sélectionné affiche : camembert de part de marché (toi / tes autres produits / rivaux / non servi), comparaison Marque · Qualité · Prix · Note globale **toi vs moyenne de la ville**, coût d'approvisionnement, marge unitaire, ventes, état offre/demande et accès à la vue fournisseurs (qui fonctionne désormais aussi pour les magasins : le fournisseur choisi détermine le coût des marchandises de base).
