@@ -120,6 +120,14 @@ if os.path.isdir(PD):
         if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
             mt = 'image/png' if f.lower().endswith('.png') else 'image/webp' if f.lower().endswith('.webp') else 'image/jpeg'
             pj[os.path.splitext(f)[0]] = 'data:%s;base64,' % mt + base64.b64encode(open(os.path.join(PD, f), 'rb').read()).decode()
-out = tpl.replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+hq = {}
+_hp = os.path.join(ROOT, 'assets', 'hq')
+if os.path.exists(os.path.join(_hp, 'meta.json')):
+    _hm = json.load(open(os.path.join(_hp, 'meta.json')))
+    for _k, _m in _hm.items():
+        _f = os.path.join(_hp, f'hq_{_k}.png')
+        if os.path.exists(_f):
+            _m = dict(_m); _m['src'] = 'data:image/png;base64,' + base64.b64encode(open(_f, 'rb').read()).decode(); hq[_k] = _m
+out = tpl.replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
 open(os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')

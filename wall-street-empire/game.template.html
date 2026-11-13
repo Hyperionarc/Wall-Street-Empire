@@ -882,7 +882,7 @@ const TYPES = {
   pipeline: { name: 'Pipeline', sub: 'Pétrole et charbon', cost: 140, color: '#ffd43b', jobs: 0, upkeep: 0.3 },
   rd:      { name: 'Centre de R&D', sub: 'Recherche, brevets', cost: 12000, color: '#b78cff', jobs: 20, upkeep: 8 },
   dc:      { name: 'Data center', sub: 'Calcul et IA', cost: 22000, color: '#3fd8ff', jobs: 12, upkeep: 12 },
-  hq:      { name: 'Siège social', sub: 'Direction du groupe', cost: 25000, color: '#ffd76a', jobs: 20, upkeep: 8, tier: 1 },
+  hq:      { name: 'Siège social', sub: 'Direction du groupe', cost: 25000, color: '#ffd76a', jobs: 20, upkeep: 8, tier: 1, w: 2, h: 2 },
   bank:    { name: 'Banque',        sub: 'London Gold',     cost: 6000,  color: '#f2b84b', jobs: 12, upkeep: 6,  tier: 2 },
   well:    { name: 'Puits pétrole', sub: 'NYMEX Oil',       cost: 150000, color: '#ff8a3d', jobs: 14, upkeep: 160, ext: 'oil',    rate: 150 },
   miron:   { name: 'Mine de fer',   sub: 'Extraction',      cost: 110000, color: '#c4664a', jobs: 16, upkeep: 110, ext: 'iron',   rate: 140 },
@@ -1639,6 +1639,10 @@ const casteOf = () => (S && S.caste) || '';
 const casteIs = k => casteOf() === k;
 const casteCost = key => { const c = CASTES[casteOf()]; return c && c.cost[key] ? c.cost[key] : 1; };
 const CASTE_IMG = __PORTRAITS_JSON__;
+// Sièges sociaux illustrés (3 formats : small / mid / large), détourés par tools/process_hq.py
+const HQ_IMG = __HQ_JSON__;
+Object.keys(HQ_IMG).forEach(k => { const m = HQ_IMG[k]; m.img = new Image(); m.img.onload = () => { m.ok = true; }; m.img.src = m.src; });
+const hqSprite = a => { const m = HQ_IMG[['small', 'mid', 'large'][Math.min(2, a.lvl || 0)]]; return (m && m.ok) ? m : (HQ_IMG.mid && HQ_IMG.mid.ok ? HQ_IMG.mid : null); };
 function casteSVG(k) {
   if (CASTE_IMG[k]) return `<img alt="${CASTES[k].n}" src="${CASTE_IMG[k]}" style="width:100%;height:100%;object-fit:cover;object-position:50% 20%">`;
   const C = CASTES[k], col = C.col, skin = { industriel: '#e0b08a', promoteur: '#c98e68', banquier: '#f0c8a0', negociant: '#8a5a3a', agriculteur: '#d8a878', innovateur: '#e8c8a8', tycoon: '#e8b890' }[k], hair = { industriel: '#3a2a1a', promoteur: '#1f1a18', banquier: '#9a9aa8', negociant: '#151515', agriculteur: '#7a4a2a', innovateur: '#2a2a4a' }[k];
@@ -5360,6 +5364,12 @@ function drawTileOf(a, x, y, ox, oy, o) {
   } else if (a.t === 'port') {
     drawContainers(p, Math.floor(a.seed * 1000) + ox * 7 + oy * 3, false);
     if (ox === 0 && oy === 0) a._top = p.y - 28;
+  } else if (a.t === 'hq' && hqSprite(a)) {
+    const m = hqSprite(a);
+    if (ox === a.w - 1 && oy === a.h - 1) {
+      const fw = (a.w + a.h) * 66 * 1.06, sc = fw / (m.right - m.left), dw = m.w * sc, dh = m.h * sc * grow, tx = p.x - (m.tipx - m.w / 2) * sc, by = p.y + 66 + 4;
+      ctx.drawImage(m.img, tx - dw / 2, by - dh, dw, dh); a._top = by - dh;
+    }
   } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') {
     const k = Math.floor(a.seed * 997);
     const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' || a.t === 'rd' || a.t === 'dc' ? 'tech' + (k % 2) : 'bank' + (k % 2);

@@ -176,3 +176,6 @@ Objectif « Manche » (Menu > Objectifs) : fin au jour 720 ou dès qu'un empire 
 - **Marché industriel** : « salle de marché » proportionnelle (8 % de la demande) partagée avec les producteurs locaux PNJ ; fournisseurs extérieurs de base pour éviter des prix qui s'envolent.
 - Fixes de structure : élasticité-prix complète, pénalité de difficulté sur un seul canal, report des pertes fiscales.
 - Sauvegarde : clé `wse-city-v8` (les anciennes parties ne sont pas reprises). Capital de départ 3 M$.
+
+## Sièges sociaux illustrés (3 formats)
+`tools/process_hq.py <small|mid|large>` détoure une image du siège (`assets/src/hq/hq_<nom>_src.jpg`, fond blanc ou damier incrusté) vers `assets/hq/hq_<nom>.png` + `meta.json` ; `build.py` les embarque. Le siège fait 2×2 cases. Format `mid` en place ; `small` et `large` seront choisis selon le niveau du bâtiment (Améliorer) dès qu'ils seront fournis.
