@@ -234,6 +234,22 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 #flyout .fh{pointer-events:auto;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);background:rgba(10,14,40,.92);border:1px solid rgba(242,184,75,.5);border-bottom:0;border-radius:10px 10px 0 0;padding:4px 12px}
 #flyout .frow{pointer-events:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:10px;border-radius:12px;background:rgba(10,14,40,.94);border:1px solid rgba(242,184,75,.5);box-shadow:0 -8px 30px rgba(0,0,0,.45);max-width:min(920px,100%)}
 .tool.big{width:104px;padding:10px 6px}.tool.big svg{width:38px;height:38px}.tool.big span{font-size:12px}
+#supview{position:absolute;z-index:12;left:50%;top:calc(var(--hud-h) + 10px);transform:translateX(-50%);width:min(760px,calc(100% - 16px));max-height:calc(100% - var(--hud-h) - 24px);overflow:auto;border-radius:12px;background:linear-gradient(#0f6fb8,#0a4f8f);border:2px solid #7fd0ff;box-shadow:0 14px 50px rgba(0,0,0,.6);padding:10px;color:#e8f6ff}
+#supview[hidden]{display:none}
+#supview .sh{display:flex;gap:8px;align-items:center;justify-content:center;font-family:var(--font-d);letter-spacing:.14em;font-size:17px;margin-bottom:8px}
+#supview select{background:#0b3c6d;color:#e8f6ff;border:1px solid #7fd0ff;border-radius:6px;padding:4px 6px;font-size:12px}
+#supview .sf{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+#supview .sc{display:grid;grid-template-columns:84px 1fr 38px;gap:10px;align-items:center;padding:6px;margin-bottom:6px;border-radius:8px;background:rgba(5,40,80,.55);border:2px solid transparent;cursor:pointer;text-align:left;width:100%;color:inherit;font:inherit}
+#supview .sc.on{border-color:#ffd23f;background:rgba(255,210,63,.14)}
+#supview .sc img{width:84px;height:84px;object-fit:contain;background:#fff;border-radius:6px}
+#supview .sg{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:11.5px}
+#supview .sg span{display:flex;justify-content:space-between;gap:6px}
+#supview .sg .bar{height:6px;border-radius:3px;background:rgba(255,255,255,.2);align-self:center;flex:1;margin-left:6px;overflow:hidden}
+#supview .sg .bar i{display:block;height:100%;background:#46d39a}
+#supview .sc h5{margin:0 0 3px;letter-spacing:.1em;font-size:12px;color:#ffd23f}
+#supview .ov{width:38px;height:38px;border-radius:50%;background:#fff;color:#0a4f8f;display:grid;place-items:center;font-weight:800;font-size:13px}
+#supview .sb{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:8px}
+#supview .neg{background:rgba(5,40,80,.7);border:1px solid #ffd23f;border-radius:8px;padding:8px;margin-top:6px;font-size:12px}
 .tool.poor small{color:var(--red)}
 .tool.locked{opacity:.45}
 .tool.locked small{color:var(--gold)}
@@ -724,6 +740,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     <h3>GUIDE DU FABRICANT</h3>
     <p class="note">De quoi chaque produit est fait, comment la qualité se détermine et où chaque matière est utilisée. Comme dans Capitalism Lab : choisis une classe et un produit, suis la chaîne vers les matières premières, ou inverse la vue pour voir les débouchés.</p>
     <button class="btn" id="openGuide">Ouvrir le Guide du fabricant</button>
+    <button class="btn sec" id="openFarm" style="margin-top:6px">Ouvrir le Guide de l'agriculteur</button>
     </section>
     <section data-sec="game" hidden>
     <h3>PARTIE</h3>
@@ -756,6 +773,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 
   <aside id="cview" hidden></aside>
   <aside id="gview" hidden></aside>
+  <div id="supview" hidden></div>
   <aside id="svview" hidden></aside>
   <aside id="tview" hidden></aside>
   <div id="caste" hidden></div>
@@ -1024,7 +1042,13 @@ function optHTML() {
   return '<h3>PARAMÈTRES DE LA PARTIE</h3><div class="tcard"><small>Réglables à tout moment. Plus les IA sont fortes, plus le marché est disputé.</small>' + Object.keys(OPT_LBL).map(k => `<div style="margin-top:8px"><small>${OPT_LBL[k]}</small><div class="seg2" style="flex-wrap:wrap">${OPT_LV.map((l, i) => `<button class="btn ${((S.opt && S.opt[k] !== undefined) ? S.opt[k] : OPT_DEF[k]) === i ? '' : 'sec'}" data-opt="${k}:${i}" style="min-height:28px;padding:3px 8px;font-size:11px">${l}</button>`).join('')}</div></div>`).join('') + '</div>';
 }
 const FREIGHT = 0.006;   // part du prix par case de distance
+const SUP_CITY = ['Houston', 'Rotterdam', 'Shenzhen', 'Dubaï', 'Santiago', 'Norilsk', 'Singapour', 'Hambourg', 'Lagos', 'Sydney', 'Zurich', 'Mumbai'];
+const dealOf = (g, id) => { const d = (S.deals || {})[g + ':' + id]; return d && d.until >= S.day ? d : null; };
 function supOffer(g, id, haul) {
+  const o = supOffer0(g, id, haul), d = dealOf(g, id); if (d) { o.unit *= d.m; o.total = o.unit + o.freight; o.deal = d; }
+  return o;
+}
+function supOffer0(g, id, haul) {
   const base = (S.price[g] || GOODS[g].base);
   if (id === 'local') return { unit: base, freight: 0, total: base, name: 'Mon réseau (stock local)', q: 60 };
   if (id === 'import') { const pr = Math.max(1.05, 1.3 - 0.05 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)), fr = base * FREIGHT * (45 + (haul || 0) * 0.3); return { unit: base * pr, freight: fr, total: base * pr + fr, name: 'Import par le port', q: 55 }; }
@@ -1383,7 +1407,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1416,7 +1440,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1751,6 +1775,7 @@ function techMults() {
   { const cf = CASTES[casteOf()]; if (cf) Object.keys(cf.fx).forEach(q => { m[q] *= cf.fx[q]; }); }
   if (S.aiBoost) { m.fac *= 1 + S.aiBoost; m.retail *= 1 + S.aiBoost / 2; m.crop *= 1 + S.aiBoost / 2; m.wage *= 1 - S.aiBoost / 2; }
   Object.keys(SKILLS).forEach(k => { const l = skillOf(k); if (l) { const fx = SKILLS[k].fx(l); Object.keys(fx).forEach(q => { m[q] *= fx[q]; }); } });
+  if (S.cx) { m.fac *= 1 + 0.15 * cxF('coo') + 0.04 * cxF('cto'); m.attract *= 1 + 0.15 * cxF('cmo'); m.buy *= 1 - 0.12 * cxF('cpo'); m.retail *= 1 + 0.12 * cxF('cro'); m.crop *= 1 + 0.15 * cxF('cao'); m.wage *= 1 - 0.08 * cxF('chro'); }
   (S.mods || []).forEach(x => { if (x.until >= S.day) m[x.k] = (m[x.k] || 1) * x.v; });
   return m;
 }
@@ -1800,6 +1825,29 @@ const PORT_HUB = { x: 75, y: 69 }, TRANS = 0.02;   // coût de transport par uni
 const DEP_DAYS = 1500;
 const SHARES = 10000, RSH = 5000;
 const EXEC = { cfo: { n: 'Directeur financier (CFO)', wage: 400, d: 'Pilote les dividendes et les rachats d\'actions par paliers de 5 %, négocie un crédit moins cher (−25 % d\'intérêts) et un plafond d\'emprunt plus haut (+30 %).' }, ir: { n: 'Directeur des relations investisseurs', wage: 300, d: 'Débloque les événements boursiers (communiqués, journée investisseurs, plan de rachat) et calme la volatilité du cours.' } };
+// Marché des cadres dirigeants (C-levels) : candidats nommés avec expertise 0-100 dans 7 domaines, comme l'écran « Persons » de Capitalism Lab
+const XDOM = { ret: 'Commerce de détail', farm: 'Agriculture', man: 'Production industrielle', rd: 'Recherche & développement', raw: 'Matières premières', mkt: 'Marketing', trn: 'Formation' };
+const XROLE = { coo: { n: 'Directeur des opérations (COO)', dom: 'man', d: 'Production des usines jusqu\'à +15 %.' }, cmo: { n: 'Directeur marketing (CMO)', dom: 'mkt', d: 'Attractivité des magasins et efficacité publicitaire jusqu\'à +15 %.' }, cto: { n: 'Directeur technique (CTO)', dom: 'rd', d: 'Recherche plus rapide (jusqu\'à +40 %) et production +4 %.' }, cpo: { n: 'Directeur des achats (CPO)', dom: 'raw', d: 'Achats et importations jusqu\'à 12 % moins chers.' }, cro: { n: 'Directeur du commerce (CRO)', dom: 'ret', d: 'Ventes au détail jusqu\'à +12 %.' }, cao: { n: 'Directeur agricole (CAO)', dom: 'farm', d: 'Rendement des fermes jusqu\'à +15 %.' }, chro: { n: 'Directeur des ressources humaines (CHRO)', dom: 'trn', d: 'Masse salariale jusqu\'à −8 %.' } };
+const XFIRST = ['Steve', 'Isabella', 'José', 'Liana', 'Dylan', 'Peter', 'Marcus', 'Nora', 'Camille', 'Hugo', 'Yuki', 'Amara', 'Lucas', 'Elena', 'Omar', 'Sofia', 'Mathieu', 'Chloé', 'Ravi', 'Ingrid'];
+const XLAST = ['Gaben', 'Carter', 'Torres', 'Miranda', 'Green', 'Schmidt', 'Johnson', 'Caldwell', 'Moreau', 'Laurent', 'Tanaka', 'Okafor', 'Weber', 'Rossi', 'Haddad', 'Novak', 'Dubois', 'Lefèvre', 'Patel', 'Larsen'];
+function newCandidate(i) {
+  const r = Math.random, pri = Object.keys(XDOM)[Math.floor(r() * 7)], exp = {};
+  Object.keys(XDOM).forEach(k => { exp[k] = Math.round(k === pri ? 55 + 40 * r() : 25 * r() * r() * 2); });
+  return { id: 'p' + S.day + '_' + i + '_' + Math.floor(r() * 1e4), name: XFIRST[Math.floor(r() * 20)] + ' ' + XLAST[Math.floor(r() * 20)], exp, hair: Math.floor(r() * 5), skin: Math.floor(r() * 4), suit: Math.floor(r() * 5), f: r() < 0.5 };
+}
+function personSVG(p) {
+  const hairC = ['#2b1d14', '#5a3b22', '#b5651d', '#c9c9c9', '#111'][p.hair], skinC = ['#f1c9a5', '#d9a77d', '#b07a53', '#7a4e32'][p.skin], suitC = ['#1d2b64', '#2f3640', '#5b2c6f', '#145a32', '#7b241c'][p.suit];
+  return `<svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true"><rect width="64" height="64" fill="${['#f39c12', '#e67e22', '#3498db', '#1abc9c', '#9b59b6'][(p.suit + p.hair) % 5]}"/><path d="M8 64c2-16 14-20 24-20s22 4 24 20z" fill="${suitC}"/><path d="M26 44l6 10 6-10z" fill="#fff"/><rect x="28" y="36" width="8" height="9" fill="${skinC}"/><ellipse cx="32" cy="27" rx="11" ry="13" fill="${skinC}"/><path d="M20 26c0-12 7-16 13-16s11 5 11 16c-3-6-6-8-12-8s-9 3-12 8z" fill="${hairC}"/>${p.f ? `<path d="M20 26v18c3 0 4-3 4-8zM44 26v18c-3 0-4-3-4-8z" fill="${hairC}"/>` : ''}<circle cx="27.5" cy="28" r="1.2" fill="#222"/><circle cx="36.5" cy="28" r="1.2" fill="#222"/><path d="M28 34q4 3 8 0" stroke="#7a3b2e" stroke-width="1.4" fill="none"/></svg>`;
+}
+const cxOn = r => !!(S.cx && S.cx[r] && hqOf());
+const cxF = r => cxOn(r) ? clamp(S.cx[r].exp[XROLE[r].dom] / 100, 0, 1) : 0;
+const cxSalary = p => Math.round((120 + 9 * Math.max.apply(null, Object.values(p.exp))) * (S.cpi || 1));
+function stepTalent() {
+  S.cx = S.cx || {}; S.talent = S.talent || [];
+  if (!S.talent.length || S.day % 45 === 0) { S.talent = []; for (let i = 0; i < 8; i++) S.talent.push(newCandidate(i)); }
+  Object.keys(S.cx).forEach(r => { const p = S.cx[r]; if (p && S.day % 90 === 0 && p.exp[XROLE[r] ? XROLE[r].dom : 'man'] < 100) p.exp[XROLE[r].dom] += 2; });
+}
+const cxWages = () => Object.keys(S.cx || {}).reduce((a, r) => a + (S.cx[r] ? cxSalary(S.cx[r]) : 0), 0);
 const hqOf = () => { let h = null; eachBuilding(c => { if (c.t === 'hq' && c.conn) h = c; }); return h; };
 const execOn = k => !!(S.exec && S.exec[k] && hqOf());
 const IR_EVENTS = { comm: { n: 'Communiqué de résultats', cost: 2000, cd: 10, d: 'Met en avant tes résultats : +8 % si tu gagnes de l\'argent, −5 % si tu en perds.' }, invday: { n: 'Journée investisseurs', cost: 8000, cd: 20, d: 'Présente ta stratégie aux marchés : +12 % de prime pendant quelques semaines.' }, plan: { n: 'Annoncer un plan de rachat', cost: 1000, cd: 15, d: 'Signal positif sur la valeur : +6 % de prime.' } };
@@ -1958,11 +2006,11 @@ function step() {
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = (S.patents || 0) * 70 * (casteIs('innovateur') ? 1.5 : 1);
-  stepMacro(); stepDifficulty(); TM = techMults(); stepDevs();
+  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs();
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
   if (S.day % 5 === 0) { trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }
   if (S.day % 5 === 0) stepGoal();
-  if (S.research) { S.research.left -= 1 + 0.25 * (S.rdPower || 0); if (S.research.left <= 0) { S.tech = S.tech || {}; S.tech[S.research.id] = S.day; say(`Recherche terminée : ${TECH_BY[S.research.id].n}. ${TECH_BY[S.research.id].d2}`, 'gold'); S.research = null; TM = techMults(); } }
+  if (S.research) { S.research.left -= 1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto'); if (S.research.left <= 0) { S.tech = S.tech || {}; S.tech[S.research.id] = S.day; say(`Recherche terminée : ${TECH_BY[S.research.id].n}. ${TECH_BY[S.research.id].d2}`, 'gold'); S.research = null; TM = techMults(); } }
   maybeEvent();
   const workforce = S.pop * 0.55;
   const employed = Math.min(workforce, jobs);
@@ -2115,7 +2163,7 @@ function step() {
     if (c.t === 'plant') { const need = 6 * u, burn = Math.min(need, Math.max(0, S.stock.coal)); S.stock.coal -= burn; want.coal += need; c.out = burn; c.util = need > 0 ? burn / need : 0; c.limit = burn < need - 1e-6 ? 'coal' : null; c.inCost = burn * S.price.coal; c.pRev = burn * 30 * (casteIs('negociant') ? 1.3 : 1) * cpi(); revTech += c.pRev; }
     if (c.t === 'tech') { c.pRev = 260 * u * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = Math.min(500, 180 + Math.max(0, S.cash) * 0.0008) * u * qualMult(c); revBank += c.pRev; }
-    if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0); wagesTotal += c.wages; }
+    if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
     if (c.t === 'wh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
     c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
     c.adCost = adSpend(c); adTotal += c.adCost;
@@ -2611,10 +2659,39 @@ function gThumb(k, big) { return PRODUCTS[k] ? productSVG(k, S.prod[k].q) : `<im
 function gQual(k) { if (PRODUCTS[k]) return QTIER[S.prod[k].q].q; const sup = suppliersOf(k); let q = 0; sup.forEach(b => { q += b.qual || 0; }); const avg = sup.length ? q / sup.length : 0; return Math.round(30 + 15 * avg); }
 function gTech(k) { let n = 0; Object.keys(S.tech || {}).forEach(() => n++); let e = 0, c = 0; eachBuilding(b => { if (FLEVEL[b.t] && recOf(b) && recOf(b).out === k) { e += b.eff || 0; c++; } }); return clamp(Math.round(10 + 5 * n + (c ? 8 * e / c : 0)), 0, 100); }
 function gRaw(k) { const inp = gInputs(k), ks = Object.keys(inp); if (!ks.length) return gQual(k); return Math.round(ks.reduce((a, g) => a + gQual(g), 0) / ks.length); }
+// Part de marché (toutes villes) de la classe du produit, comme le panneau « Market Share » de Capitalism Lab
+function msHTML(k) {
+  const pr = PRODUCTS[k]; if (!pr || !S.mkt || !S.mkt[pr.cls]) return '';
+  const m = S.mkt[pr.cls], rows = [{ n: 'Ton groupe', v: m.you, c: '#2f9e5a' }].concat((m.riv || []).map(r => { const rv = (S.rivals || []).find(x => x.id === r.id); return { n: rv ? rv.name : r.id, v: r.s, c: rv ? rv.col : '#888' }; }));
+  const rest = Math.max(0, 1 - rows.reduce((a, r) => a + r.v, 0)); rows.push({ n: 'Non servi / importations', v: rest, c: '#9aa4c0' });
+  return `<div class="gqual" style="margin-top:8px"><b>Part de marché · ${(GCLS.find(x => x[0] === pr.cls) || [0, pr.cls])[1]}</b>${rows.map(r => `<div class="qr"><span><i style="display:inline-block;width:9px;height:9px;background:${r.c};margin-right:6px"></i>${r.n}</span><span>${(r.v * 100).toFixed(1).replace('.', ',')} %</span></div><div class="qb"><i style="width:${Math.round(clamp(r.v, 0, 1) * 100)}%;background:${r.c}"></i></div>`).join('')}</div>`;
+}
+// Guide de l'agriculteur (cultures et élevage), sur le modèle de Capitalism Lab
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const FCROPS = [['cocoa', 'Cacao', 9, 3], ['coconut', 'Noix de coco', 7, 3], ['corn', 'Maïs', 3, 8], ['cotton', 'Coton', 3, 9, 'cotton'], ['flax', 'Lin', 2, 7], ['grapes', 'Raisin', 2, 8], ['lemon', 'Citron', 10, 4], ['rubber', 'Caoutchouc', 5, 11, 'rubber'], ['strawberry', 'Fraise', 3, 6], ['sugar', 'Canne à sucre', 1, 11, 'sugar'], ['tobacco', 'Tabac', 4, 9], ['wheat', 'Blé', 9, 6, 'wheat']];
+const FLIVE = [['cattle', 'Bovins', ['Viande surgelée de bœuf', 'Cuir']], ['chicken', 'Poulets', ['Poulet surgelé', 'Œufs']], ['pig', 'Porcs', ['Porc surgelé', 'Cuir']], ['sheep', 'Moutons', ['Viande d\'agneau', 'Laine']]];
+let gFarm = false, gFSel = 'wheat';
+function renderFarm() {
+  const f = FCROPS.find(c => c[0] === gFSel) || FLIVE.find(c => c[0] === gFSel), live = !!FLIVE.find(c => c[0] === gFSel), key = f[4] || '', ok = !!key;
+  let body;
+  if (live) body = `<div class="gqual"><b>Produits de l'élevage :</b>${f[2].map(x => `<div class="qr"><span>${x}</span><span>—</span></div>`).join('')}<p class="note" style="color:#cfe0ff">Élevage : en préparation, pas encore jouable.</p></div>`;
+  else if (!ok) body = `<div class="gqual"><b>Calendrier</b><div class="qr"><span>Mois de semis</span><span>${MOIS[f[2] - 1]}</span></div><div class="qr"><span>Mois de récolte</span><span>${MOIS[f[3] - 1]}</span></div><p class="note" style="color:#cfe0ff">Culture en préparation, pas encore jouable.</p></div>`;
+  else {
+    const T = TYPES[CROPS[key]], users = []; RKEYS.forEach(r => { if (RECIPES[r].in[key]) users.push(gName(r)); }); PKEYS.forEach(pk => { const i = productInputs(pk); if (i[key]) users.push(gName(pk)); });
+    const fert = { rubber: 'Aime la proximité de l\'eau (moins de 16 cases de la mer)', sugar: 'Préfère les terres proches de l\'eau (moins de 30 cases)', cotton: 'Préfère les terres sèches, loin de la côte', wheat: 'Se contente de tous les sols' }[key];
+    body = `<div class="gqual"><b>Calendrier</b><div class="qr"><span>Mois de semis</span><span>${MOIS[f[2] - 1]}</span></div><div class="qr"><span>Mois de récolte</span><span>${MOIS[f[3] - 1]}</span></div></div>
+     <div class="gqual" style="margin-top:8px"><b>Exploitation</b><div class="qr"><span>Ferme</span><span>${T.name} · ${money(T.cost)}</span></div><div class="qr"><span>Rendement nominal</span><span>${T.rate} u / jour</span></div><div class="qr"><span>Emplois</span><span>${T.jobs}</span></div><div class="qr"><span>Cours actuel</span><span>${f1(gPriceAny(key))} $</span></div><div class="qr"><span>Terrain</span><span>${fert}</span></div><div class="qr"><span>Irrigation</span><span>+10 % de rendement par niveau, protège de la sécheresse</span></div></div>
+     <div class="gqual" style="margin-top:8px"><b>Débouchés</b><div class="qr"><span>${users.join(', ') || 'Vente directe et export'}</span><span></span></div></div>`;
+  }
+  const list = (arr, label) => `<div class="glist"><h5>${label}</h5>${arr.map(c => `<button data-g="fsel:${c[0]}" aria-pressed="${c[0] === gFSel}" class="${(c[4] !== undefined || label === 'Élevage') && label !== 'Élevage' ? '' : 'ink'}">${c[1]}${label === 'Cultures' && !c[4] ? ' <small>(à venir)</small>' : ''}${label === 'Élevage' ? ' <small>(à venir)</small>' : ''}</button>`).join('')}</div>`;
+  const html = `<div class="ghead"><b>GUIDE DE L'AGRICULTEUR</b><button class="ibtn" data-g="mfg">Guide du fabricant</button><button class="ibtn" data-g="close">Fermer</button></div><div class="gbody"><div class="glists">${list(FCROPS, 'Cultures')}${list(FLIVE, 'Élevage')}</div><div class="gmain"><div class="gcard" style="margin-bottom:8px"><div class="gimg">${ok ? `<img alt="" src="${compIcon(key)}">` : ''}</div><div><div class="gt">${f[1]}</div></div></div>${body}</div></div>`;
+  if (html !== gHtml) { el('gview').innerHTML = html; gHtml = html; }
+}
 function openGuide(k) { if (k) gSel = k; gStack = []; gMode = 'in'; gHtml = ''; el('cview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('gview').hidden = false; renderGuide(true); }
 function closeGuide() { el('gview').hidden = true; gHtml = ''; }
 function renderGuide(force) {
   if (el('gview').hidden) return;
+  if (gFarm) { if (force) gHtml = ''; return renderFarm(); }
   const k = gSel, cls = gClassOf(k), items = gItems(cls), inp = gInputs(k), pr = PRODUCTS[k];
   const clsL = `<div class="glist"><h5>Classe de produit</h5>${GCLS.map(([c, n]) => `<button data-g="cls:${c}" aria-pressed="${c === cls}">${n}</button>`).join('')}</div>`;
   const typL = `<div class="glist"><h5>Type de produit</h5>${items.map(i => { const locked = PRODUCTS[i] && S.prod[i].st === 'locked'; return `<button data-g="sel:${i}" aria-pressed="${i === k}" class="${locked ? 'ink' : ''}">${gName(i)}</button>`; }).join('')}</div>`;
@@ -2632,7 +2709,7 @@ function renderGuide(force) {
   }
   const crumb = gStack.length ? `<div class="gcrumb">${gStack.map(x => gName(x)).join(' › ')} › <b>${gName(k)}</b></div>` : '';
   const idx2 = items.indexOf(k);
-  const html = `<div class="ghead"><b>GUIDE DU FABRICANT</b><span class="gnav"><button class="ibtn" data-g="prev" aria-label="Produit précédent">◀</button><button class="ibtn" data-g="next" aria-label="Produit suivant">▶</button></span>${gStack.length ? '<button class="ibtn" data-g="back">Retour</button>' : ''}<button class="ibtn" data-g="close">Fermer</button></div><div class="gbody"><div class="glists">${clsL}${typL}</div><div class="gmain">${crumb}${diag}<div class="gio"><button data-g="mode:in" aria-pressed="${gMode === 'in'}">ENTRÉES</button><button data-g="mode:out" aria-pressed="${gMode === 'out'}">SORTIES</button></div><p class="note" style="color:#cfe0ff;margin-top:10px;text-align:center">${gMode === 'in' ? 'Ce qu\'il faut pour fabriquer ce produit.' : 'Où ce produit est utilisé.'} Qualités indicatives : elles montent avec tes améliorations de qualité et tes technologies.</p></div></div>`;
+  const html = `<div class="ghead"><b>GUIDE DU FABRICANT</b><span class="gnav"><button class="ibtn" data-g="prev" aria-label="Produit précédent">◀</button><button class="ibtn" data-g="next" aria-label="Produit suivant">▶</button></span>${gStack.length ? '<button class="ibtn" data-g="back">Retour</button>' : ''}<button class="ibtn" data-g="farm">Guide de l'agriculteur</button><button class="ibtn" data-g="close">Fermer</button></div><div class="gbody"><div class="glists">${clsL}${typL}</div><div class="gmain">${crumb}${diag}${msHTML(k)}<div class="gio"><button data-g="mode:in" aria-pressed="${gMode === 'in'}">ENTRÉES</button><button data-g="mode:out" aria-pressed="${gMode === 'out'}">SORTIES</button></div><p class="note" style="color:#cfe0ff;margin-top:10px;text-align:center">${gMode === 'in' ? 'Ce qu\'il faut pour fabriquer ce produit.' : 'Où ce produit est utilisé.'} Qualités indicatives : elles montent avec tes améliorations de qualité et tes technologies.</p></div></div>`;
   if (!force && html === gHtml) return;
   const lt = el('gview').querySelector('.glists') ? el('gview').querySelector('.glists').scrollTop : 0;
   el('gview').innerHTML = html; gHtml = html;
@@ -2641,7 +2718,8 @@ function renderGuide(force) {
 el('gview').addEventListener('click', e => {
   const b = e.target.closest('[data-g]'); if (!b) return; const a = b.dataset.g, [m, v] = [a.split(':')[0], a.slice(a.indexOf(':') + 1)];
   if (a === 'close') return closeGuide();
-  if (m === 'cls') { const it = gItems(v); gSel = it[0]; gStack = []; }
+  if (a === 'farm') gFarm = true; else if (a === 'mfg') gFarm = false; else if (m === 'fsel') gFSel = v;
+  else if (m === 'cls') { const it = gItems(v); gSel = it[0]; gStack = []; }
   else if (m === 'sel') { gSel = v; gStack = []; }
   else if (m === 'mode') gMode = v;
   else if (m === 'more') { gStack.push(gSel); gSel = v; gMode = 'in'; }
@@ -2649,7 +2727,8 @@ el('gview').addEventListener('click', e => {
   else if (a === 'prev' || a === 'next') { const items = gItems(gClassOf(gSel)), i = items.indexOf(gSel), n = (i + (a === 'next' ? 1 : -1) + items.length) % items.length; gSel = items[n]; gStack = []; }
   renderGuide(true);
 });
-el('openGuide').onclick = () => openGuide();
+el('openGuide').onclick = () => { gFarm = false; openGuide(); };
+if (el('openFarm')) el('openFarm').onclick = () => { gFarm = true; openGuide(); };
 /* ---------- Écran Produits ---------- */
 function drawPie(cv, segs) {
   const g = cv.getContext('2d'), W2 = cv.width, H2 = cv.height, r = Math.min(W2, H2) / 2 - 2; g.clearRect(0, 0, W2, H2);
@@ -2714,7 +2793,25 @@ function drawFlows(cols) {
 el('svview').addEventListener('click', e => { const b = e.target.closest('[data-node],[data-sv]'); if (!b) return; if (b.dataset.sv === 'close') return closeChain(); const [x, y] = b.dataset.node.split(',').map(Number); closeChain(); openBuilding(x, y); });
 el('openChain').onclick = () => openChain();
 /* ---------- Terminal financier ---------- */
-let tSel = 'r1', tHtml = '', tDown = false;
+let tSel = 'r1', tHtml = '', tDown = false, tFilter = 'any', tPer = 60, tPct = 1;
+const TSECT = [['any', 'Toutes'], ['own', 'Possédées'], ['cons', 'Conso'], ['tech', 'Tech'], ['immo', 'Immobilier'], ['media', 'Médias'], ['fin', 'Finance']];
+const sectOf = n => ['cons', 'tech', 'immo', 'media', 'fin'][Math.floor(hash(n.length, n.charCodeAt(0), 5) * 5)];
+function stockStats(r) {
+  const px = rivalPx(r), mc = px * RSH, eps = Math.max(0.01, (r.rev || 0) * 365 * 0.12 / RSH), bv = Math.max(1, (Math.max(0, r.cash) + 90000 * rivalSum(r)) / RSH), sp = r.sp || [px];
+  return { px, mc, eps, bv, per: px / eps, pb: px / bv, ret: sp.length > 1 ? sp[sp.length - 1] / sp[Math.max(0, sp.length - 31)] - 1 : 0, life: sp.length > 1 ? sp[sp.length - 1] / sp[0] - 1 : 0 };
+}
+function holdersOf(r, stake) {
+  const inst = NPC_TOP.slice(0, 4).map((x, i) => ({ n: x[0], s: 0.03 + 0.1 * hash(i, r.name.length, 17) }));
+  const used = inst.reduce((a, h) => a + h.s, 0) + stake;
+  return [{ n: 'Public', s: Math.max(0, 1 - used) }, { n: 'Toi', s: stake }].concat(inst);
+}
+function drawLine(cv, arr) {
+  const g = cv.getContext('2d'), W2 = cv.width, H2 = cv.height; g.clearRect(0, 0, W2, H2); if (!arr || arr.length < 2) return;
+  const mx = Math.max(...arr), mn = Math.min(...arr), Y = v => (1 - (v - mn) / Math.max(1e-6, mx - mn)) * (H2 - 24) + 12;
+  g.strokeStyle = 'rgba(143,154,203,.25)'; for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(0, H2 * i / 4); g.lineTo(W2, H2 * i / 4); g.stroke(); }
+  g.strokeStyle = '#46d39a'; g.lineWidth = 2; g.beginPath(); arr.forEach((v, i) => { const x = i / (arr.length - 1) * (W2 - 4) + 2; i ? g.lineTo(x, Y(v)) : g.moveTo(x, Y(v)); }); g.stroke();
+  g.fillStyle = '#e9edff'; g.font = '11px monospace'; g.textAlign = 'left'; g.fillText('$' + mx.toFixed(2), 4, 11); g.fillText('$' + mn.toFixed(2), 4, H2 - 3);
+}
 function openTerm() { seedGti(); el('cview').hidden = true; el('gview').hidden = true; el('svview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('tview').hidden = false; tHtml = ''; if (!(S.rivals || []).find(r => r.id === tSel) && S.rivals && S.rivals[0]) tSel = S.rivals[0].id; renderTerm(true); }
 function closeTerm() { el('tview').hidden = true; tHtml = ''; }
 function drawCandles(cv, h) {
@@ -2726,6 +2823,26 @@ function drawCandles(cv, h) {
   const Y = v => (1 - (v - mn) / Math.max(1e-6, mx - mn)) * (ph - 10) + 5;
   cs.forEach((c, i) => { const x = i * bw + bw / 2, up = c.c >= c.o, col = up ? '#46d39a' : '#ff5a5f'; g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1; g.beginPath(); g.moveTo(x, Y(c.hi)); g.lineTo(x, Y(c.lo)); g.stroke(); const y1 = Y(Math.max(c.o, c.c)), y2 = Y(Math.min(c.o, c.c)); g.fillRect(x - bw * 0.3, y1, bw * 0.6, Math.max(1.5, y2 - y1)); g.globalAlpha = .6; g.fillRect(x - bw * 0.3, H2 - c.v / vm * vh, bw * 0.6, c.v / vm * vh); g.globalAlpha = 1; });
   g.fillStyle = '#e9edff'; g.font = '11px monospace'; g.textAlign = 'right'; g.fillText(mx.toFixed(0), W2 - 4, 12); g.fillText(mn.toFixed(0), W2 - 4, ph - 2);
+}
+function stockUI(rs, r, hold, stake, px) {
+  const own = S.float > 0 ? [{ id: '_me', name: 'Ton groupe', px: (S.sp && S.sp.length ? S.sp[S.sp.length - 1] : 0), me: 1 }] : [];
+  let list = rs.map(x => ({ id: x.id, name: x.name, col: x.col, px: rivalPx(x), st: stockStats(x), n: ((S.port || {})[x.id] || {}).n || 0 }));
+  list = list.filter(x => tFilter === 'any' ? true : tFilter === 'own' ? x.n > 0 : sectOf(x.name) === tFilter);
+  const tabs = TSECT.map(([k, l]) => `<button class="btn ${tFilter === k ? '' : 'sec'}" data-t="flt:${k}" style="min-height:26px;padding:2px 8px;font-size:11px">${l}</button>`).join('');
+  const rows = list.map(x => `<tr data-t="sel:${x.id}" style="cursor:pointer;${x.id === tSel ? 'background:rgba(242,184,75,.18)' : ''}"><td><i style="display:inline-block;width:9px;height:9px;background:${x.col};margin-right:6px"></i>${x.name}</td><td>${x.px.toFixed(2)} $</td><td>${x.st.per.toFixed(1).replace('.', ',')}</td><td>${(x.n / RSH * 100).toFixed(1).replace('.', ',')} %</td><td>${money(x.n * x.px)}</td></tr>`).join('') || '<tr><td colspan="5"><small>Aucune société dans ce filtre.</small></td></tr>';
+  const s = r ? stockStats(r) : null, f = (v, d) => v.toFixed(d == null ? 2 : d).replace('.', ',');
+  const stats = s ? `<table class="fint"><tr><td>Cours de l'action</td><td>${f(s.px)} $</td></tr><tr><td>Nombre d'actions</td><td>${fmt(RSH)}</td></tr><tr><td>Capitalisation</td><td>${money(s.mc)}</td></tr><tr><td>Bénéfice par action</td><td>${f(s.eps)} $</td></tr><tr><td>Actif net par action</td><td>${f(s.bv)} $</td></tr><tr><td>PER</td><td>${f(s.per)}</td></tr><tr><td>Cours / actif net</td><td>${f(s.pb)}</td></tr><tr><td>Rendement du dividende</td><td>0,00 %</td></tr><tr><td>Rendement mensuel</td><td class="${s.ret >= 0 ? 'pos' : 'neg'}">${f(s.ret * 100)} %</td></tr><tr><td>Rendement depuis le début</td><td class="${s.life >= 0 ? 'pos' : 'neg'}">${f(s.life * 100)} %</td></tr></table>` : '';
+  const hs = r ? holdersOf(r, stake).map(h => `<tr><td>${h.n}</td><td>${fmt(Math.round(h.s * RSH))}</td><td>${f(h.s * 100)} %</td><td>${money(h.s * RSH * px)}</td></tr>`).join('') : '';
+  const qty = Math.round(tPct / 100 * RSH);
+  const ports = Object.keys(S.port || {}).map(id => { const x = rs.find(q => q.id === id); if (!x) return ''; const hh = S.port[id], pxx = rivalPx(x), v = hh.n * pxx, pl = v - hh.cost; return `<tr><td>${x.name}</td><td>${fmt(hh.n)}</td><td>${f(hh.cost / Math.max(1, hh.n))} $</td><td>${f(pxx)} $</td><td>${money(v)}</td><td class="${pl >= 0 ? 'pos' : 'neg'}">${pl >= 0 ? '+' : '−'}${money(Math.abs(pl))}</td><td class="${pl >= 0 ? 'pos' : 'neg'}">${f(pl / Math.max(1, hh.cost) * 100)} %</td></tr>`; }).join('');
+  const tot = Object.keys(S.port || {}).reduce((a, id) => a + S.port[id].cost, 0), val = portValue();
+  return `<div class="tpanel"><h4>BOURSE</h4><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${tabs}</div>
+   <table class="fint"><tr><th>Société</th><th>Cours</th><th>PER</th><th>Détenu</th><th>Valeur</th></tr>${rows}</table></div>
+   <div class="tgrid" style="margin-top:10px"><div class="tpanel"><h4>${r ? r.name : '—'} · fiche</h4>${stats}</div>
+   <div class="tpanel"><h4>Cours · ${r ? r.name : ''}</h4><div style="display:flex;gap:4px;margin-bottom:4px">${[['Court', 15], ['Mois', 30], ['Total', 60]].map(([l, n]) => `<button class="btn ${tPer === n ? '' : 'sec'}" data-t="per:${n}" style="min-height:24px;padding:2px 8px;font-size:11px">${l}</button>`).join('')}</div><canvas id="pcanvas" width="520" height="170" style="width:100%"></canvas></div></div>
+   <div class="tgrid" style="margin-top:10px"><div class="tpanel"><h4>Actionnaires</h4><table class="fint"><tr><th>Actionnaire</th><th>Actions</th><th>%</th><th>Valeur</th></tr>${hs}</table></div>
+   <div class="tpanel"><h4>Ordre de bourse</h4><div class="finrow"><span>Quantité</span><span><button class="btn sec" data-t="pct-" style="min-height:26px;padding:2px 10px">−</button> <b>${tPct} %</b> <button class="btn sec" data-t="pct+" style="min-height:26px;padding:2px 10px">+</button></span></div><small class="note">${tPct} % × ${fmt(RSH)} actions × ${f(px)} $ = <b>${money(qty * px)}</b></small><div class="seg2" style="margin-top:8px"><button class="btn" data-t="buy">Acheter</button><button class="btn sec" data-t="sell" ${hold ? '' : 'disabled'}>Vendre</button></div><small class="note">Tu détiens ${fmt(hold ? hold.n : 0)} actions (${Math.round(stake * 100)} %). Chaque ordre déplace le cours.</small></div></div>
+   <div class="tpanel" style="margin-top:10px"><h4>Portefeuille</h4>${ports ? `<table class="fint"><tr><th>Titre</th><th>Qté</th><th>Coût moyen</th><th>Cours</th><th>Valeur</th><th>Gain</th><th>%</th></tr>${ports}<tr class="tot"><td>Total</td><td></td><td></td><td></td><td>${money(val)}</td><td class="${val - tot >= 0 ? 'pos' : 'neg'}">${val - tot >= 0 ? '+' : '−'}${money(Math.abs(val - tot))}</td><td></td></tr></table>` : '<small>Aucune participation. Achète des actions d\'un rival pour préparer une OPA (20 % minimum).</small>'}</div>`;
 }
 function renderTerm(force) {
   if (el('tview').hidden || (tDown && !force)) return;
@@ -2741,11 +2858,9 @@ function renderTerm(force) {
   const portRows = Object.keys(S.port || {}).map(id => { const x = rs.find(q => q.id === id); if (!x) return ''; const hh = S.port[id], v = hh.n * rivalPx(x), pl = v - hh.cost; return `<tr><td>${x.name}</td><td>${fmt(hh.n)}</td><td>${money(v)}</td><td class="${pl >= 0 ? 'pos' : 'neg'}">${pl >= 0 ? '+' : '−'}${money(Math.abs(pl))}</td><td>${Math.round(hh.n / RSH * 100)} %</td></tr>`; }).join('');
   const goods = GKEYS.filter(g => GOODS[g].grp === 'raw');
   const html = `<div class="thead"><b>TERMINAL FINANCIER</b><button class="ibtn" data-t="close">Fermer</button></div><div class="tbody">
-   <div class="tgrid"><div class="tpanel"><h4>Global Trading Index · ${cur.toFixed(0)} <span class="${chg >= 0 ? 'pos' : 'neg'}">${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg).toFixed(1).replace('.', ',')} %</span></h4><canvas id="tcanvas" width="640" height="260"></canvas></div>
-   <div class="tpanel"><h4>Carnet d'ordres · <select id="tsel" style="background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px">${rs.map(x => `<option value="${x.id}" ${x.id === tSel ? 'selected' : ''}>${x.name}</option>`).join('')}</select></h4>${r ? `<table class="ob">${levels.slice().reverse().map(l => `<tr class="ask"><td>${l.ask.toFixed(2)}</td><td class="dep" style="background-size:${Math.round(l.q / mxq * 100)}% 100%;background-repeat:no-repeat">${l.q}</td></tr>`).join('')}<tr><td colspan="2" style="text-align:center;color:var(--gold)"><b>${px.toFixed(2)} $</b> · écart ${spread.toFixed(2)}</td></tr>${levels.map(l => `<tr class="bid"><td>${l.bid.toFixed(2)}</td><td class="dep" style="background-size:${Math.round(l.q / mxq * 100)}% 100%;background-repeat:no-repeat">${l.q}</td></tr>`).join('')}</table>
-     <div class="seg2" style="margin-top:8px"><input id="tqty" type="number" min="1" max="${RSH}" value="100" style="width:80px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px"><button class="btn" data-t="buy">Acheter</button><button class="btn sec" data-t="sell" ${hold ? '' : 'disabled'}>Vendre</button></div><small class="note">Tu détiens ${fmt(hold ? hold.n : 0)} actions (${Math.round(stake * 100)} %). Chaque ordre déplace le cours.</small>` : '<p class="note">Aucune société cotée.</p>'}</div></div>
+   ${stockUI(rs, r, hold, stake, px)}
+   <div class="tpanel" style="margin-top:10px"><h4>Indice mondial · ${cur.toFixed(0)} <span class="${chg >= 0 ? 'pos' : 'neg'}">${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg).toFixed(1).replace('.', ',')} %</span></h4><canvas id="tcanvas" width="640" height="200"></canvas></div>
    <div class="sect">${sec}</div>
-   <div class="tpanel" style="margin-top:10px"><h4>Portefeuille · ${money(portValue())}</h4>${portRows ? `<table class="fint"><tr><th>Société</th><th>Actions</th><th>Valeur</th><th>Gain</th><th>Capital</th></tr>${portRows}</table>` : '<small>Aucune participation. Achète des actions d\'un rival pour préparer une OPA (20 % minimum).</small>'}</div>
    <h4 class="lh" style="margin:12px 0 4px">ACTIONS FINANCIÈRES</h4><div class="tact">
     <div class="tpanel"><h4>OPA hostile</h4><small class="note">Rachète tout le capital de ${r ? r.name : 'la cible'} avec une prime de 35 % si tu en détiens déjà 20 %. Chances : ${Math.round((0.55 + 0.4 * stake) * 100)} %. La cible devient une filiale qui te rapporte des revenus.</small><button class="btn" data-t="opa" ${stake >= 0.2 ? '' : 'disabled'} style="margin-top:6px">Lancer l'OPA · ${money((1 - stake) * RSH * px * 1.35)}</button></div>
     <div class="tpanel"><h4>Cartel des matières premières</h4><small class="note">Concerte les producteurs pour faire monter le cours cible d'une matière de 18 % pendant ${FIN_ACTIONS.cartel.days} jours (${money(FIN_ACTIONS.cartel.cost)}).</small><div class="seg2" style="margin-top:6px"><select id="tcar" style="flex:1;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px">${goods.map(g => `<option value="${g}">${GOODS[g].name}${modOf('px_' + g) > 1 ? ' (actif)' : ''}</option>`).join('')}</select><button class="btn" data-t="cartel">Former</button></div></div>
@@ -2754,11 +2869,13 @@ function renderTerm(force) {
   if (!force && html === tHtml) return;
   const top = el('tview').querySelector('.tbody') ? el('tview').querySelector('.tbody').scrollTop : 0;
   el('tview').innerHTML = html; tHtml = html; const tb = el('tview').querySelector('.tbody'); if (tb) tb.scrollTop = top;
-  const cv = el('tcanvas'); if (cv) drawCandles(cv, gt);
+  const cv = el('tcanvas'); if (cv) drawLine(cv, gt.slice(-120)); const pc = el('pcanvas'); if (pc && r) drawLine(pc, (r.sp || []).slice(-tPer));
 }
 el('tview').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b || b.disabled) return; const a = b.dataset.t;
   if (a === 'close') return closeTerm();
-  if (a === 'buy') tradeShares(tSel, +el('tqty').value, true); else if (a === 'sell') tradeShares(tSel, +el('tqty').value, false);
+  if (a === 'buy') tradeShares(tSel, Math.round(tPct / 100 * RSH), true); else if (a === 'sell') tradeShares(tSel, Math.round(tPct / 100 * RSH), false);
+  else if (a === 'pct+') tPct = Math.min(20, tPct + 1); else if (a === 'pct-') tPct = Math.max(1, tPct - 1);
+  else if (a.indexOf('flt:') === 0) tFilter = a.slice(4); else if (a.indexOf('per:') === 0) tPer = +a.slice(4); else if (a.indexOf('sel:') === 0) tSel = a.slice(4);
   else if (a === 'opa') launchOpa(tSel); else if (a === 'cartel') cartelOn(el('tcar').value); else if (a === 'embargo') embargoOn(tSel);
   renderTerm(true); });
 el('tview').addEventListener('change', e => { if (e.target.id === 'tsel') { tSel = e.target.value; renderTerm(true); } });
@@ -3447,12 +3564,15 @@ function bAct(a) {
   else if (a.indexOf('wage') === 0) c.wage = +a.slice(4);
   else if (a === 'qual') { const q = qualCost(c); if (q && spend(q)) c.qual = (c.qual || 0) + 1; }
   else if (a === 'eff') { const q = effCost(c); if (q && spend(q)) c.eff = (c.eff || 0) + 1; }
+  else if (a.indexOf('hire:') === 0) { const [, r, id] = a.split(':'), p = (S.talent || []).find(x => x.id === id); if (p && XROLE[r] && !(S.cx || {})[r] && hqOf()) { S.cx = S.cx || {}; S.cx[r] = p; S.talent = S.talent.filter(x => x !== p); TM = techMults(); say(`${p.name} devient ${XROLE[r].n}.`, 'good'); } }
+  else if (a.indexOf('fire:') === 0) { const r = a.slice(5); if (S.cx && S.cx[r]) { say(`${S.cx[r].name} quitte la direction.`, 'info'); S.cx[r] = null; TM = techMults(); } }
   else if (a.indexOf('exec:') === 0) { S.exec = S.exec || { cfo: 0, ir: 0 }; const k = a.slice(5); S.exec[k] = S.exec[k] ? 0 : 1; if (S.exec[k]) say(EXEC[k].n + ' recruté.', 'good'); }
   else if (a === 'catalog') { openCatalog(c); return; }
   else if (a.indexOf('launch:') === 0) { const k = a.slice(7); if (launchProduct(k)) c.prod = k; }
   else if (a.indexOf('train:') === 0) { const k = a.slice(6), cst = trainCost(c, k); if (cst && S.cash >= cst) { S.cash -= cst; c.invest = investOf(c) + cst; c.train = c.train || {}; c.train[k] = (c.train[k] | 0) + 1; flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cst), t: performance.now(), col: '#ff8a8e' }); } }
   else if (a.indexOf('crop:') === 0) { const g = a.slice(5), nt = CROPS[g]; if (nt && nt !== c.t && S.cash >= 400) { S.cash -= 400; c.t = nt; c.born = performance.now() - 300; refreshStats(); } }
   else if (a === 'irr') { const cst = irrCost((c.irr | 0) + 1); if (cst && S.cash >= cst) { S.cash -= cst; c.irr = (c.irr | 0) + 1; c.invest = investOf(c) + cst; } }
+  else if (a.indexOf('opensup:') === 0) { openSup(c, a.slice(8)); return; }
   else if (a.indexOf('supp:') === 0) { const g = a.split(':')[1], mm = a.slice(a.indexOf(':', 5) + 1); c.src = c.src || {}; c.src[g] = mm; }
   else if (a === 'imp') c.imp = c.imp === false ? true : false;
   else if (a.indexOf('slot:') === 0) { const i = +a.slice(5); bPick = bPick === i ? -1 : i; }
@@ -4183,6 +4303,52 @@ function whTab(c) {
 el('bview').addEventListener('change', e => { const w = e.target.dataset && e.target.dataset.whc; if (!w || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; const [g, f] = w.split(':'); c.cfg = c.cfg || {}; c.cfg[g] = c.cfg[g] || {}; if (f === 's') c.cfg[g].s = e.target.checked ? 1 : 0; else c.cfg[g][f] = +e.target.value; bvHtml = ''; renderBuilding(true); });
 el('bview').addEventListener('change', e => { const sg = e.target.dataset && e.target.dataset.src; if (!sg || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.src = c0.src || {}; c0.src[sg] = e.target.value; bvHtml = ''; renderBuilding(true); });
 const supLabel = (mode, g) => mode === 'auto' ? 'Auto (stock local puis port)' : mode === 'local' ? 'Mon réseau' : (mode === 'port' || mode === 'import') ? 'Import par le port' : mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3)).name : mode;
+// Vue « Sélectionner un fournisseur » (comme Capitalism Lab) : fiches détaillées, filtres, négociation
+let supB = null, supG = null, supSel = null, supType = 'all', supSort = 'overall', supNeg = false;
+function supCards(c, g) {
+  const base = S.price[g] || GOODS[g].base, need = (recOf(c) ? recOf(c).in[g] : 0) * (c._u || 1), list = [{ id: 'local', type: 'local' }].concat(supplierList(g).map(s => ({ id: 'co:' + s.id, sid: s.id, type: s.name.indexOf('(') > 0 ? 'foreign' : 'co', s }))).concat([{ id: 'import', type: 'import' }]);
+  return list.map((x, i) => {
+    const o = x.id === 'local' ? supOffer(g, 'local') : x.id === 'import' ? supOffer(g, 'import', c.haul) : supOffer(g, x.sid), s = x.s;
+    const city = x.id === 'local' ? 'Ton réseau' : x.id === 'import' ? 'Port' : SUP_CITY[Math.floor(hash(g.length, (s ? s.name.length : 3) + i, 31) * 12)];
+    const dist = x.id === 'local' ? (c.haul || 0) : x.id === 'import' ? 45 + (c.haul || 0) * 0.3 : s.dist;
+    const supply = x.id === 'local' ? clamp(S.stock[g] / 400, 0, 1) : 0.35 + 0.6 * hash(g.length, i, 41), demand = clamp(need / Math.max(1, supply * 300), 0, 1);
+    const overall = Math.round(100 * clamp(0.45 * o.q / 100 + 0.55 * clamp(base / Math.max(0.1, o.total), 0, 1.3) / 1.3 + (o.deal ? 0.03 : 0), 0, 1));
+    return { id: x.id, type: x.type, o, city, dist: Math.round(dist), supply, demand, overall, name: o.name };
+  });
+}
+function renderSup() {
+  const c = supB && cell(supB.x, supB.y); if (!c || el('supview').hidden) return;
+  const rec = recOf(c), ins = rec ? Object.keys(rec.in) : []; if (!ins.length) { el('supview').hidden = true; return; }
+  if (ins.indexOf(supG) < 0) supG = ins[0];
+  const g = supG, mode = (c.src && c.src[g]) || 'auto'; let cards = supCards(c, g);
+  if (supType !== 'all') cards = cards.filter(x => x.type === supType);
+  cards.sort((a, b) => supSort === 'price' ? a.o.total - b.o.total : supSort === 'q' ? b.o.q - a.o.q : supSort === 'dist' ? a.dist - b.dist : b.overall - a.overall);
+  if (!supSel || !cards.find(x => x.id === supSel)) supSel = (cards.find(x => x.id === mode || (mode === 'port' && x.id === 'import')) || cards[0] || {}).id;
+  const sel = cards.find(x => x.id === supSel), bar = v => `<span class="bar"><i style="width:${Math.round(v * 100)}%"></i></span>`;
+  const f = (v) => v.toFixed(2).replace('.', ',');
+  const cardsH = cards.map(x => `<button class="sc ${x.id === supSel ? 'on' : ''}" data-s="pick:${x.id}"><img alt="" src="${compIcon(g)}"><div><h5>${gName(g)} · ${x.name}</h5><div class="sg"><span>Ville<b>${x.city}</b></span><span>Prix<b>${f(x.o.unit)} $${x.o.deal ? ' (−' + Math.round((1 - x.o.deal.m) * 100) + ' %)' : ''}</b></span><span>Distance<b>${x.dist} cases</b></span><span>Qualité<b>${x.o.q}</b></span><span>Transport<b>${f(x.o.freight)} $</b></span><span>Livré<b>${f(x.o.total)} $</b></span><span>Offre${bar(x.supply)}</span><span>Demande${bar(x.demand)}</span></div></div><div class="ov" title="Note globale">${x.overall}</div></button>`).join('');
+  const rel = (S.rel || {})[supSel] || 0;
+  const negH = supNeg && sel && sel.id !== 'local' ? `<div class="neg"><b>Négociation avec ${sel.name}</b><div>Relation : ${rel}/100 · frais de dossier ${money(Math.round(1200 * cpi()))}</div><div class="seg2" style="margin-top:6px;flex-wrap:wrap">${[30, 60, 90].map(d => `<button class="btn sec" data-s="neg:${d}" style="min-height:28px;padding:3px 10px">Contrat ${d} jours</button>`).join('')}</div><small>Plus l'engagement est long et la relation bonne, plus la chance d'obtenir un rabais (4 à 12 %) est élevée.</small></div>` : '';
+  const nav = ins.length > 1 ? `<button class="ibtn" data-s="prev">◀</button>` : '', nav2 = ins.length > 1 ? `<button class="ibtn" data-s="next">▶</button>` : '';
+  el('supview').innerHTML = `<div class="sh">${nav}<span>SÉLECTIONNER UN FOURNISSEUR ${ins.indexOf(g) + 1}/${ins.length}</span>${nav2}</div>
+  <div class="sf"><select data-sf="g">${ins.map(k => `<option value="${k}" ${k === g ? 'selected' : ''}>${gName(k)}</option>`).join('')}</select><select data-sf="type">${[['all', 'Tous les fournisseurs'], ['local', 'Mon réseau'], ['co', 'Compagnies'], ['foreign', 'Puissances étrangères'], ['import', 'Import']].map(([k, l]) => `<option value="${k}" ${k === supType ? 'selected' : ''}>${l}</option>`).join('')}</select><select data-sf="sort">${[['overall', 'Tri : note globale'], ['price', 'Tri : prix livré'], ['q', 'Tri : qualité'], ['dist', 'Tri : distance']].map(([k, l]) => `<option value="${k}" ${k === supSort ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+  ${cardsH}${negH}<div class="sb"><button class="btn sec" data-s="neg">Négocier</button><span><button class="btn sec" data-s="auto">Mode auto</button> <button class="btn" data-s="ok">SÉLECTIONNER</button> <button class="btn sec" data-s="cancel">Annuler</button></span></div>`;
+}
+function openSup(c, g) { supB = { x: c.x, y: c.y }; supG = g; supSel = null; supNeg = false; el('supview').hidden = false; renderSup(); }
+el('supview').addEventListener('click', e => {
+  const b = e.target.closest('[data-s]'); if (!b) return; const a = b.dataset.s, c = supB && cell(supB.x, supB.y); if (!c) return;
+  const ins = Object.keys(recOf(c) ? recOf(c).in : {});
+  if (a === 'cancel') { el('supview').hidden = true; return; }
+  if (a === 'ok') { c.src = c.src || {}; if (supSel) c.src[supG] = supSel; el('supview').hidden = true; renderBuilding(true); save(); return; }
+  if (a === 'auto') { c.src = c.src || {}; c.src[supG] = 'auto'; supSel = 'auto'; el('supview').hidden = true; renderBuilding(true); return; }
+  if (a.indexOf('pick:') === 0) { supSel = a.slice(5); supNeg = false; }
+  else if (a === 'prev' || a === 'next') { const i = ins.indexOf(supG); supG = ins[(i + (a === 'next' ? 1 : -1) + ins.length) % ins.length]; supSel = null; }
+  else if (a === 'neg') supNeg = !supNeg;
+  else if (a.indexOf('neg:') === 0 && supSel && supSel !== 'local') { const days = +a.slice(4), fee = Math.round(1200 * cpi()); if (S.cash < fee) { say('Trésorerie insuffisante pour négocier.', 'bad'); } else { S.cash -= fee; S.rel = S.rel || {}; S.deals = S.deals || {}; const rel = S.rel[supSel] || 0, pr = clamp(0.3 + 0.005 * rel + 0.002 * days + (casteIs('negociant') ? 0.15 : 0), 0.1, 0.92);
+    if (Math.random() < pr) { const d = (4 + 5 * Math.random() + days / 30) / 100, key = supG + ':' + (supSel.indexOf('co:') === 0 ? supSel.slice(3) : supSel); S.deals[key] = { m: 1 - d, until: S.day + days }; S.rel[supSel] = Math.min(100, rel + 8); say(`Accord obtenu : −${Math.round(d * 100)} % pendant ${days} jours.`, 'good'); } else { S.rel[supSel] = Math.min(100, rel + 3); say('Négociation échouée : le fournisseur campe sur ses prix.', 'warn'); } supNeg = false; } }
+  renderSup();
+});
+el('supview').addEventListener('change', e => { const s = e.target.dataset.sf; if (!s) return; if (s === 'g') { supG = e.target.value; supSel = null; } else if (s === 'type') supType = e.target.value; else supSort = e.target.value; renderSup(); });
 function purTab(c) {
   const rec = recOf(c); if (!rec) return '<p class="fnote">Ce bâtiment n\'achète rien.</p>';
   let h = `<p class="fnote">Comme dans Capitalism : choisis, pour chaque intrant, à quelle société tu achètes. Le prix livré = prix de la société + frais de transport selon la distance. L'import par le port est plus cher que ton réseau local (marge du port + fret long).</p>`;
@@ -4191,7 +4357,7 @@ function purTab(c) {
     const opts = [['auto', null], ['local', supOffer(g, 'local')]].concat(sup.map(s => ['co:' + s.id, supOffer(g, s.id)])).concat([['import', supOffer(g, 'import', c.haul)]]);
     const rows = opts.map(([m, o]) => { const on = m === mode || (mode === 'port' && m === 'import'); const lab = m === 'auto' ? 'Auto : stock local, puis port si rupture' : o.name; const tail = o ? `<span class="pq">Q ${o.q}</span><span>${f1(o.unit)} $</span><span class="${o.freight > 0.2 * o.unit ? 'neg' : ''}">+${f1(o.freight)} fret</span><b>${f1(o.total)} $</b>` : '<span></span><span></span><span></span><span></span>';
       return `<button class="sprow ${on ? 'on' : ''}" data-act="supp:${g}:${m}"><span class="rd">${on ? '◉' : '○'}</span><span class="sn">${lab}</span>${tail}</button>`; }).join('');
-    h += `<div class="spcard"><div class="sph"><i style="background:${GOODS[g] ? GOODS[g].color : '#8f9acb'}"></i><b>${gName(g)}</b><small>besoin ${f1(need)}/j · stock ${fmt(gStock(g))} · cours ${f1(gPrice(g))} $${c._impIn > 0.01 ? ' · acheté dehors ' + f1(c._impIn) + '/j' : ''}</small></div><div class="sprow hd"><span></span><span class="sn">Fournisseur</span><span>Qualité</span><span>Prix</span><span>Transport</span><b>Livré</b></div>${rows}</div>`;
+    h += `<div class="spcard"><button class="btn" data-act="opensup:${g}" style="float:right;min-height:28px;padding:3px 10px;font-size:11.5px">Choisir / négocier…</button><div class="sph"><i style="background:${GOODS[g] ? GOODS[g].color : '#8f9acb'}"></i><b>${gName(g)}</b><small>besoin ${f1(need)}/j · stock ${fmt(gStock(g))} · cours ${f1(gPrice(g))} $${c._impIn > 0.01 ? ' · acheté dehors ' + f1(c._impIn) + '/j' : ''}</small></div><div class="sprow hd"><span></span><span class="sn">Fournisseur</span><span>Qualité</span><span>Prix</span><span>Transport</span><b>Livré</b></div>${rows}</div>`;
   });
   return h;
 }
@@ -4227,10 +4393,18 @@ function lgTab(c) {
     <div class="lgrid"><div><h4 class="lh">Entrées</h4>${ins || '<small>Aucune</small>'}</div><div class="larr">▶</div><div class="lmid"><h4 class="lh">${T.name}</h4><div class="bn" style="padding:8px"><b>${f1(c.out)}/j</b><small>utilisation ${pct(clamp(c.util || 0, 0, 1))}</small></div></div><div class="larr">▶</div><div><h4 class="lh">Sorties</h4>${outs || '<small>Aucune</small>'}</div></div>
     <div class="kpis" style="margin-top:10px"><div><small>Distance au port</small><b>${c.haul || 0} cases</b></div><div><small>Camions</small><b>${trucks}</b></div><div><small>Coût transport</small><b class="neg">${money(tcost)} /j</b></div><div><small>Pertes</small><b class="neg">${(wasteOf(c) * 100).toFixed(1).replace('.', ',')} %</b></div><div><small>Route</small><b class="${c.linked === false ? 'neg' : 'pos'}">${c.linked === false ? 'non reliée' : 'reliée'}</b></div><div><small>Réseau</small><b>${c.conn ? 'actif' : 'coupé'}</b></div></div>`;
 }
+function xBars(p) { return Object.keys(XDOM).map(k => `<div class="qr" style="display:flex;justify-content:space-between;font-size:11px"><span>${XDOM[k]}</span><b>${p.exp[k]}</b></div>`).join(''); }
+function cxHTML() {
+  S.cx = S.cx || {}; S.talent = S.talent || [];
+  const hq = !!hqOf(), slots = Object.keys(XROLE).map(r => { const p = S.cx[r], E = XROLE[r]; return `<div class="lever"><h4>${E.n} <span class="pip">${p ? 'en poste' : 'vacant'}</span></h4><small>${E.d}</small>${p ? `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><div style="width:44px;height:44px;border-radius:6px;overflow:hidden">${personSVG(p)}</div><div><b>${p.name}</b><small>${XDOM[E.dom]} : ${p.exp[E.dom]}/100 · ${money(cxSalary(p))}/j</small></div></div><button class="btn sec" data-act="fire:${r}">Licencier</button>` : '<small>Choisis un candidat ci-dessous.</small>'}</div>`; }).join('');
+  const cands = S.talent.map(p => { const best = Object.keys(XDOM).sort((a, b) => p.exp[b] - p.exp[a])[0], roles = Object.keys(XROLE).filter(r => !S.cx[r] && p.exp[XROLE[r].dom] >= 40); return `<div class="lever"><div style="display:flex;gap:8px;align-items:center"><div style="width:52px;height:52px;border-radius:6px;overflow:hidden;flex:none">${personSVG(p)}</div><div><b>${p.name}</b><small>Expert : ${XDOM[best]} (${p.exp[best]}) · ${money(cxSalary(p))}/j</small></div></div>${xBars(p)}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${roles.map(r => `<button class="btn" style="min-height:28px;padding:3px 8px;font-size:11px" data-act="hire:${r}:${p.id}" ${hq ? '' : 'disabled'}>Recruter ${XROLE[r].n.split('(')[1].replace(')', '')}</button>`).join('') || '<small>Aucun poste vacant adapté</small>'}</div></div>`; }).join('');
+  return `<h4 class="lh">Équipe de direction (C-levels)</h4><div class="levers">${slots}</div><h4 class="lh" style="margin-top:10px">Marché des cadres dirigeants</h4><p class="fnote">Les candidats sont renouvelés tous les 45 jours. L'efficacité du dirigeant dépend de son expertise dans son domaine. Il faut un siège social en service.</p><div class="levers">${cands}</div>`;
+}
 function exTab(c) {
   S.exec = S.exec || { cfo: 0, ir: 0 };
   const card = k => { const E = EXEC[k], on = !!S.exec[k]; return `<div class="lever"><h4>${E.n} <span class="pip">${on ? 'en poste' : 'vacant'}</span></h4><small>${E.d}</small><div class="finrow"><span>Salaire</span><b>${money(E.wage)} / jour</b></div><button class="btn ${on ? 'sec' : ''}" data-act="exec:${k}">${on ? 'Licencier' : 'Recruter'}</button></div>`; };
   return `<p class="fnote">Le siège social abrite la direction du groupe. Les dirigeants coûtent un salaire quotidien (inclus dans les coûts du siège) mais débloquent la finance d'entreprise : dividendes, rachats d'actions, événements boursiers.</p><div class="levers">${card('cfo')}${card('ir')}</div>
+    ${cxHTML()}
     <p class="fnote">Statut en bourse : ${S.float > 0 ? 'cotée, flottant ' + Math.round(S.float * 100) + ' %' : 'non cotée : ouvre le panneau Menu, onglet Bourse'}.</p>`;
 }
 function adTab(c) {
