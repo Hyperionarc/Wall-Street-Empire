@@ -2430,6 +2430,7 @@ function step() {
   const net = preTax - corpTax;
   S.cash += net;
   const div = (S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0; S.cash -= div;
+  { const caD = revRetail + revExport + revTech + revBank, ebeD = caD - wagesTotal - upkeepI - transportTotal - advCost - importCost; S.m30 = S.m30 || []; S.m30.push([caD, ebeD, net]); if (S.m30.length > 30) S.m30.shift(); }
   S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep: upkeepI, transport: transportTotal, adv: advCost, interest, imports: importCost, div, tax: corpTax, net };
 
   // 6. Compte de résultat par bâtiment (prix de cession internes au prix du marché)
@@ -2450,6 +2451,7 @@ function step() {
     REC.pInt += c.pInt; REC.pCash += c.pRev - c.pInt; REC.inImp += c.inImp; REC.inLoc += c.inLoc; REC.wag += c.wages; REC.upk += up; REC.tra += c.transport; REC.ad += c.adCost || 0;
     c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
     c.profit = c.pRev - c.cost;
+    (c._m || (c._m = [])).push([c.pRev, c.pRev - c.cost]); if (c._m.length > 30) c._m.shift();
     c.rev = c.profit; REC.profit += c.profit;
     c.upk = up; c.days = (c.days || 0) + 1; c.dep = investOf(c) / DEP_DAYS;
     c.taxB = Math.max(0, c.profit - c.dep) * S.tax;
@@ -2799,7 +2801,7 @@ function updateHUD() {
   el('vCash').textContent = money(S.cash);
   el('vCash').className = S.cash < 0 ? 'neg' : '';
   const net = st.net || 0;
-  el('vNet').textContent = (net >= 0 ? '+' : '') + fmt(net) + ' $/jour';
+  const mo = monthSums(S.m30); el('vNet').textContent = (net >= 0 ? '+' : '') + fmt(net) + ' $/jour' + (mo ? ' · CA ' + money(mo.ca) + '/mois' : ''); el('vNet').title = mo ? `Sur ${mo.n} jours, ramené à 30 jours : CA ${money(mo.ca)}, EBE ${money(mo.ebe)}, résultat net ${money(mo.net)}` : '';
   el('vNet').className = net >= 0 ? 'pos' : 'neg';
   el('vCap').textContent = money(st.worth || S.cash);
   { const px = S.float > 0 ? (st.raw || 0) * (S.prem || 1.1) / SHARES : 0; el('vPx').textContent = S.float > 0 ? `action ${px.toFixed(2).replace('.', ',')} $` : 'non cotée'; el('vPx').className = 'gold'; }
@@ -3251,6 +3253,13 @@ function brandHTML() {
   const b = brandOf(), st = brandStrat(), g = (l, v, tip) => `<div class="finrow" title="${tip}"><span>${l}</span><b>${Math.round(v)} / 100</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(v)}%"></i></div>`;
   return `<h3>MARQUE</h3><div class="tcard"><small>${BRAND_STRAT[st][1]}</small><div class="seg2" style="margin:6px 0;flex-wrap:wrap">${Object.keys(BRAND_STRAT).map(k => `<button class="btn ${k === st ? '' : 'sec'}" data-brand="${k}" style="min-height:28px;padding:3px 8px;font-size:11px">${BRAND_STRAT[k][0]}</button>`).join('')}</div>${g('Notoriété de la marque', b.aw, 'Part de clients qui te connaissent (télé, radio, internet)')}${g('Fidélité à la marque', b.loy, 'Clients qui reviennent : qualité, personnel, prix doux')}${g('Perception de qualité', b.rt, 'Image du produit (presse, influenceurs, qualité réelle)')}<small>${b.n ? 'Moyenne pondérée sur ' + b.n + ' magasin(s). Règle les budgets de chaque canal dans l\'onglet Publicité du magasin.' : 'Aucun magasin en service.'}</small></div>`;
 }
+// Résultats mensuels : somme glissante sur 30 jours (ramenée à 30 jours tant que l'historique est plus court)
+function monthSums(a) { if (!a || !a.length) return null; const n = a.length, k = 30 / n; return { n, ca: a.reduce((s, x) => s + x[0], 0) * k, ebe: a.reduce((s, x) => s + x[1], 0) * k, net: a.reduce((s, x) => s + (x[2] || 0), 0) * k }; }
+function monthlyHTML() {
+  const m = monthSums(S.m30); if (!m) return '';
+  const pc = m.ca > 0 ? Math.round(100 * m.ebe / m.ca) : 0;
+  return `<h3>RÉSULTATS MENSUELS${m.n < 30 ? ' (estimés sur ' + m.n + ' j)' : ' (30 jours glissants)'}</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Chiffre d'affaires / mois</small><b class="gold">${money(m.ca)}</b></div><div><small>EBE / mois</small><b class="${m.ebe >= 0 ? 'pos' : 'neg'}">${m.ebe >= 0 ? '+' : '−'}${money(Math.abs(m.ebe))}</b><small>marge d'EBE ${pc} %</small></div><div><small>Résultat net / mois</small><b class="${m.net >= 0 ? 'pos' : 'neg'}">${m.net >= 0 ? '+' : '−'}${money(Math.abs(m.net))}</b></div><div><small>Résultat net / an (×12)</small><b>${money(m.net * 12)}</b></div></div>`;
+}
 function renderEmpire() {
   if (el('panel').hidden || el('empire').closest('section').hidden) return;
   const st = S.stats || {}, ev = evaluate(), raw = st.raw || 0, fl = S.float || 0, F = S.fin || {};
@@ -3260,6 +3269,7 @@ function renderEmpire() {
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / jour', (F.net >= 0 ? '+' : '−') + money(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : px.toFixed(2).replace('.', ',') + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Habitants', fmt(st.pop || 0), '', fmt(st.playerJobs || 0) + ' emplois dans tes bâtiments')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
   h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
+  h += monthlyHTML();
   h += sectorHTML();
   h += energyHTML();
   h += brandHTML();
@@ -4011,7 +4021,7 @@ function renderBuilding(force) {
     kx('Production', T.ext || T.rec ? f1(c.out) + ' /j' : T.ret ? f1(c.out) + ' ventes/j' : money(c.pRev || 0)),
     kx('Utilisation', pct(utilV)),
     kx('Effectif', fmt(jobsOf(c) * fill) + ' / ' + fmt(jobsOf(c))),
-    kx('Recettes', money(c.pRev || 0), 'pos')]).concat([kx('Coûts', money(c.cost || 0), 'neg'), kx('EBE / jour', (profit >= 0 ? '+' : '') + money(profit), profit >= 0 ? 'pos' : 'neg', ebeTip)]).join('');
+    kx('Recettes', money(c.pRev || 0), 'pos')]).concat([kx('Coûts', money(c.cost || 0), 'neg'), (() => { const mm = monthSums((c._m || []).map(x => [x[0], x[1], 0])); return mm ? kx('CA / mois', money(mm.ca), '', 'Sur ' + mm.n + ' jours, ramené à 30 jours') + kx('EBE / mois', (mm.ebe >= 0 ? '+' : '−') + money(Math.abs(mm.ebe)), mm.ebe >= 0 ? 'pos' : 'neg', 'Excédent brut d\'exploitation sur 30 jours') : ''; })(), kx('EBE / jour', (profit >= 0 ? '+' : '') + money(profit), profit >= 0 ? 'pos' : 'neg', ebeTip)]).join('');
   const kpiHtml = `<div class="kpis bk">${kpis}</div>`;
   const htmlInt = `
   ${FLEVEL[c.t] ? prodHeader(c) : ''}${T.ret ? auditCard(c) + shelfCard(c) : ''}

@@ -244,3 +244,6 @@ Correctifs :
 - Commerce : marge de détail 2,05 / 2,10 / 2,30, effectifs 1 / 5 / 16 : EBITDA d'un supermarché ≈ 14 %, CA/salaires ≈ 4,3.
 - Énergie : centrale à charbon 300 MWh/j (500 t de charbon, 10 emplois), solaire 370, éolien 195, nucléaire 1 000 MWh/j.
 - Bois : camp de bûcherons 600/j, la forêt repousse de 0,6 % par jour.
+
+## CA et EBE mensuels
+Somme glissante sur 30 jours (ramenée à 30 jours tant que l'historique est plus court) : dans la barre du haut (« CA … /mois », infobulle avec EBE et résultat net), dans l'onglet Empire (« Résultats mensuels » : CA, EBE, marge d'EBE, résultat net mensuel et annualisé) et dans chaque bâtiment (« CA / mois », « EBE / mois »).
