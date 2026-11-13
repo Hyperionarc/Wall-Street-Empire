@@ -791,7 +791,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
   </div>
   <div id="win" hidden>
     <b>SIÈGE AU CONSEIL</b>
-    <p>Ton groupe vaut 35 millions de dollars. Tu es Oligarque : un siège au Conseil de sécurité économique t'attend.</p>
+    <p>Ton groupe vaut <span id="winAmt">700 millions</span> de dollars. Tu es Oligarque : un siège au Conseil de sécurité économique t'attend.</p>
     <button class="ibtn" id="winok">Continuer à jouer</button>
   </div>
 
@@ -1049,7 +1049,7 @@ const RIV_EXTRA = [['Walmark', '#9be05a'], ['Prime Retail', '#ffd23f'], ['EuroSh
 function syncRivals() {
   const want = optV('n', OPT_NRIV); S.rivals = S.rivals || [];
   while (S.rivals.length > want) S.rivals.pop();
-  while (S.rivals.length < want) { const i = S.rivals.length, ex = RIV_EXTRA[(i - 3 + 5) % 5], a = () => 0.04 + 0.2 * rnd(); S.rivals.push({ id: 'r' + (i + 1) + 'x' + S.day, name: i < 3 ? initRivals()[i].name : ex[0], col: i < 3 ? initRivals()[i].col : ex[1], cash: 50000 * K_POP * optV('cap', OPT_CAP), att: { basic: a(), std: a(), lux: a() * 0.6, estate: a() * 0.6 } }); }
+  while (S.rivals.length < want) { const i = S.rivals.length, ex = RIV_EXTRA[(i - 3 + 5) % 5], a = () => 0.04 + 0.2 * rnd(); S.rivals.push({ id: 'r' + (i + 1) + 'x' + S.day, name: i < 3 ? initRivals()[i].name : ex[0], col: i < 3 ? initRivals()[i].col : ex[1], cash: 50000 * K_POP * RIV_K * optV('cap', OPT_CAP), att: { basic: a(), std: a(), lux: a() * 0.6, estate: a() * 0.6 } }); }
 }
 function optHTML() {
   return '<h3>PARAMÈTRES DE LA PARTIE</h3><div class="tcard"><small>Réglables à tout moment. Plus les IA sont fortes, plus le marché est disputé.</small>' + Object.keys(OPT_LBL).map(k => `<div style="margin-top:8px"><small>${OPT_LBL[k]}</small><div class="seg2" style="flex-wrap:wrap">${OPT_LV.map((l, i) => `<button class="btn ${((S.opt && S.opt[k] !== undefined) ? S.opt[k] : OPT_DEF[k]) === i ? '' : 'sec'}" data-opt="${k}:${i}" style="min-height:28px;padding:3px 8px;font-size:11px">${l}</button>`).join('')}</div></div>`).join('') + '</div>';
@@ -1082,31 +1082,32 @@ function supOffer0(g, id, haul) {
 const RIV_CLS = ['basic', 'std', 'lux', 'estate'];
 function initRivals() {
   return [
-    { id: 'r1', name: 'Mega Mart', col: '#ff8a3d', cash: 60000 * K_POP, att: { basic: 0.22, std: 0.12, lux: 0, estate: 0.1 } },
-    { id: 'r2', name: 'Luxor & Fils', col: '#ff4fa3', cash: 90000 * K_POP, att: { basic: 0.02, std: 0.12, lux: 0.3, estate: 0.2 } },
-    { id: 'r3', name: 'DiscountCo', col: '#3fd8ff', cash: 40000 * K_POP, att: { basic: 0.26, std: 0.26, lux: 0.2, estate: 0.2 } }
+    { id: 'r1', name: 'Mega Mart', col: '#ff8a3d', cash: 60000 * K_POP * RIV_K, att: { basic: 0.22, std: 0.12, lux: 0, estate: 0.1 } },
+    { id: 'r2', name: 'Luxor & Fils', col: '#ff4fa3', cash: 90000 * K_POP * RIV_K, att: { basic: 0.02, std: 0.12, lux: 0.3, estate: 0.2 } },
+    { id: 'r3', name: 'DiscountCo', col: '#3fd8ff', cash: 40000 * K_POP * RIV_K, att: { basic: 0.26, std: 0.26, lux: 0.2, estate: 0.2 } }
   ];
 }
+// Valeur d'un rival : trésorerie + actifs (≈ 1 an de ventes par point d'attrait : 27 M$ par point à K_SIZE = 5) ; 5 à 100 M$ selon la taille
 const rivalSum = r => RIV_CLS.reduce((a, k) => a + r.att[k], 0);
 const rivalAttr = cls => optV('price', OPT_PRICE) * (S.rivals || []).reduce((a, r) => a + r.att[cls] * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
-const rivalValue = r => Math.round((Math.max(0, r.cash) + 90000 * K_POP * rivalSum(r)) * (casteIs('industriel') ? 0.85 : 1) / 500) * 500;
+const rivalValue = r => Math.round((Math.max(0, r.cash) + RIV_ASSET * rivalSum(r)) * (casteIs('industriel') ? 0.85 : 1) / 5000) * 5000;
 function stepRivals(rivalPart) {
   if (S.day > 0 && S.day % 45 === 0 && (S.rivals || []).length < optV('n', OPT_NRIV)) { syncRivals(); say('Un nouveau concurrent entre sur le marché.', 'warn'); }
   const rs = S.rivals || [];
   rs.forEach(r => {
     let rev = 0;
     RIV_CLS.forEach(cls => { const A = rivalAttr(cls); if (A > 0 && rivalPart[cls] > 0) rev += rivalPart[cls] * (r.att[cls] / A) * (S.price[cls] || 300); });
-    r.rev = rev; r.cash += rev * 0.2 - rivalSum(r) * 420 * K_POP;
-    if (S.day % 5 === 0 && r.cash > 8000) {
+    r.rev = rev; r.cash += rev * 0.2 - rivalSum(r) * RIV_OPEX;
+    if (S.day % 5 === 0 && r.cash > 3 * RIV_EXPAND) {
       const w = RIV_CLS.map(k => r.att[k] + 0.05); let tot = w.reduce((a, b) => a + b, 0), x = rnd() * tot, i = 0;
       while (x > w[i] && i < 3) { x -= w[i]; i++; }
-      const k = RIV_CLS[i]; if (r.att[k] < 0.7) { r.att[k] += 0.012 * optV('exp', OPT_EXP) * forcesCoef('rivalry') * (1 + 0.5 * Math.max(0, S.diff || 0)); r.cash -= 6000 * K_POP; }
+      const k = RIV_CLS[i]; if (r.att[k] < 0.7) { r.att[k] += 0.012 * optV('exp', OPT_EXP) * forcesCoef('rivalry') * (1 + 0.5 * Math.max(0, S.diff || 0)); r.cash -= RIV_EXPAND; }
     }
-    if (r.cash < -4000) RIV_CLS.forEach(k => { r.att[k] *= 0.97; });
+    if (r.cash < 0) { const b4 = rivalSum(r); RIV_CLS.forEach(k => { r.att[k] *= 0.95; }); r.cash += (b4 - rivalSum(r)) * RIV_ASSET * 0.6; }   // vente forcée d'actifs : la trésorerie ne reste jamais négative durablement
     r.mood = clamp((r.mood || 0) * 0.95 + (rnd() - 0.5) * 0.04, -0.2, 0.2);
     r.sp = r.sp || []; r.sp.push(rivalValue(r) / RSH * (1 + r.mood)); if (r.sp.length > 60) r.sp.shift();
   });
-  S.rivals = rs.filter(r => { if (r.cash < -4000 && rivalSum(r) < 0.12) { say(`${r.name} fait faillite : ses clients se tournent vers toi et ses rivaux.`, 'good'); return false; } return true; });
+  S.rivals = rs.filter(r => { if (r.cash < 0 && rivalSum(r) < 0.1) { say(`${r.name} fait faillite : ses clients se tournent vers toi et ses rivaux.`, 'good'); return false; } return true; });
 }
 const recipeOf = k => RECIPES[k] || PRODUCTS[k];
 function initProd() {
@@ -1162,6 +1163,9 @@ function attractiveness(pk) {
 
 // ===== ÉCHELLE ÉCONOMIQUE (audit « Chief Architect ») : population ~340 k, volumes industriels ×25, capex ≈ 1 an de chiffre d'affaires à pleine charge
 const K_POP = 30, K_IND = 25, K_SIZE = 5, ROOM = 0.08, WAGE_K = 120;
+// Échelle commune de la fortune (paliers, missions de capitalisation, victoire, IPO) : les repères d'origine (Entrepreneur 1,25 M$ ... Oligarque 35 M$) sont multipliés par SCALE_M ; rivaux et grands groupes PNJ suivent (RIV_K, NPC_K)
+const SCALE_M = 4 * K_SIZE, RIV_K = 2 * K_SIZE, NPC_K = 100, MISSION_K = 100;
+const RIV_ASSET = 90000 * K_POP * RIV_K, RIV_OPEX = 420 * K_POP, RIV_EXPAND = RIV_ASSET * 0.01;
 // Repères sectoriels (recherche web, exercices 2024-2025 ; détail et sources dans README.md) : marge brute, EBITDA, CA par employé et par an
 const SECTOR_REF = {
   oil:      { gm: null, ebitda: '20 % (major) à 70 % (indépendant de schiste)', rpe: 'TotalEnergies 214,6 Md$ de CA, EBITDA 43 Md$ ; Diamondback EBITDA 70 %' },
@@ -1219,7 +1223,7 @@ const RETAIL_MK = { basic: 1.70, std: 1.80, lux: 2.00, estate: 1 }, retailMk = c
   // Méga-usine (f4, 3×3) et méga-centre commercial (s4, 3×3) : mêmes recettes / rayons que f3 / s3, capacité ×8 et ×4, capex et effectifs en proportion
   TYPES.f4 = Object.assign({}, TYPES.f3, { name: 'Méga-usine', sub: 'Recettes de la grande usine ×8', cost: TYPES.f3.cost * 8, upkeep: TYPES.f3.upkeep * 8, jobs: TYPES.f3.jobs * 8, jobs0: (TYPES.f3.jobs0 || TYPES.f3.jobs) * 8, w: 3, h: 3, tier: 3, capK: 8, color: '#ff7ad0', rec: { in: Object.assign({}, TYPES.f3.rec.in), out: Object.assign({}, TYPES.f3.rec.out) } });
   TYPES.s4 = Object.assign({}, TYPES.s3, { name: 'Méga-centre commercial', sub: 'Base + manufact. + luxe, ×4', cost: TYPES.s3.cost * 4, upkeep: TYPES.s3.upkeep * 4, jobs: TYPES.s3.jobs * 4, w: 3, h: 3, tier: 3, color: '#ff7ad0', ret: { cap: TYPES.s3.ret.cap * 4, sells: TYPES.s3.ret.sells.slice() } });
-  TIERS.forEach(x => { x.at *= 4 * K_SIZE; });
+  TIERS.forEach(x => { x.at *= SCALE_M; });
 })();
 const ICONS = {
   view: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
@@ -1280,6 +1284,7 @@ const FAMS = {
 let famOpen = -1;
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
 
+const mM = v => (v / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' M$';
 const MISSIONS = [
   { id: 'm1',  t: 'Poser un puits ou une mine sur un gisement',     r: 1500,  ok: c => c.cn.well + c.cn.miron + c.cn.mcoal + c.cn.mcopper + c.cn.mgold >= 1 },
   { id: 'mr',  t: 'Relier une mine au réseau par tes propres routes', r: 3000, ok: c => c.linkedRural >= 1 },
@@ -1296,7 +1301,7 @@ const MISSIONS = [
   { id: 'm4',  t: 'Vendre 600 biens aux habitants',                 r: 4000,  ok: c => c.sold >= 600 },
   { id: 'mport', t: 'Ouvrir un terminal portuaire',                 r: 5000,  ok: c => c.cn.port >= 1 },
   { id: 'm5',  t: 'Employer 300 personnes dans tes entreprises',    r: 5000,  ok: c => c.jobsPlayer >= 300 },
-  { id: 'm6',  t: 'Capitalisation de 500 000 $',                    r: 8000,  ok: c => c.worth >= 500000 },
+  { id: 'm6',  t: 'Capitalisation de ' + mM(0.4 * TIERS[1].at),      r: 8000,  ok: c => c.worth >= 0.4 * TIERS[1].at },
   { id: 'm7',  t: 'Ouvrir une mine d\'or et une fonderie',          r: 8000,  ok: c => c.cn.mgold >= 1 && c.cn.foundry >= 1 },
   { id: 'm8',  t: 'Construire une usine moyenne',                   r: 8000,  ok: c => c.cn.f2 >= 1 },
   { id: 'mw',  t: 'Fabriquer un lave-linge complet',                r: 8000,  ok: c => c.washerMade },
@@ -1308,11 +1313,11 @@ const MISSIONS = [
   { id: 'm13', t: 'Ouvrir un hypermarché',                          r: 25000, ok: c => c.cn.s3 >= 1 },
   { id: 'm14', t: 'Ouvrir une Banque',                              r: 25000, ok: c => c.cn.bank >= 1 },
   { id: 'm15', t: 'Employer 3 000 personnes dans tes entreprises',  r: 60000, ok: c => c.jobsPlayer >= 3000 },
-  { id: 'w1', t: 'Capitalisation de 1,5 M$ : tu deviens Entrepreneur', r: 30000, ok: c => c.worth >= 1.5e6 },
-  { id: 'w2', t: 'Capitalisation de 3,5 M$ : tu deviens Industriel',   r: 60000, ok: c => c.worth >= 3.5e6 },
-  { id: 'w3', t: 'Capitalisation de 12,5 M$ : tu deviens Magnat',      r: 150000, ok: c => c.worth >= 12.5e6 },
-  { id: 'm16', t: 'Devenir Oligarque (35 M$)',                      r: 0,     ok: c => c.worth >= 35000000 }
-];MISSIONS.forEach(m => { m.r *= 5 * K_SIZE; });
+  { id: 'w1', t: 'Capitalisation de ' + mM(TIERS[1].at) + ' : tu deviens Entrepreneur', r: 30000, ok: c => c.worth >= TIERS[1].at },
+  { id: 'w2', t: 'Capitalisation de ' + mM(TIERS[2].at) + ' : tu deviens Industriel',   r: 60000, ok: c => c.worth >= TIERS[2].at },
+  { id: 'w3', t: 'Capitalisation de ' + mM(TIERS[3].at) + ' : tu deviens Magnat',      r: 150000, ok: c => c.worth >= TIERS[3].at },
+  { id: 'm16', t: 'Devenir Oligarque (' + mM(TIERS[4].at) + ')',        r: 0,     ok: c => c.worth >= TIERS[4].at }
+];MISSIONS.forEach(m => { m.r *= MISSION_K; });   // récompense ≈ 0,5 à 5 % du capex du palier visé
 
 
 /* ---------- Atlas de sprites (CC0, Kenney) ---------- */
@@ -1761,8 +1766,8 @@ const skillOf = k => ((S && S.skills) || {})[k] | 0;
 const SKILL_MAX = 5;
 const skillCost = l => l + 1;
 function addKp(n, why) { S.kp = (S.kp || 0) + n; say(`+${n} point de connaissance (${why}). Dépense-le dans Menu > Objectifs.`, 'gold'); }
-const GOALS = { match: { n: 'Manche (prépare le multijoueur)', d: 'La manche s\'arrête au jour 720 ou dès qu\'un empire atteint 1 milliard de $ de capitalisation. Le plus riche gagne.', target: 1e9, deadline: 720 }, sandbox: { n: 'Bac à sable', d: 'Aucune limite de temps : construis ton empire librement.' }, race: { n: 'Course à la fortune', d: 'Atteins 25 M$ de capitalisation avant le jour 720.', target: 25e6, deadline: 720 }, monopoly: { n: 'Monopole', d: 'Détiens plus de 50 % du marché pendant 30 jours d\'affilée.', target: 0.5, streak: 30 } };
-const NPC_TOP = [['Apex Holdings', 9.2e6, 0.0006], ['Nordic Steel', 6.1e6, 0.0004], ['Sakura Industries', 4.4e6, 0.0007], ['Atlas Commodities', 3.1e6, 0.0005], ['Meridian Capital', 2.2e6, 0.0006], ['Zenith Retail', 1.4e6, 0.0004], ['Orion Motors', 0.9e6, 0.0005]];
+const GOALS = { match: { n: 'Manche (prépare le multijoueur)', d: 'La manche s\'arrête au jour 720 ou dès qu\'un empire atteint 1 milliard de $ de capitalisation. Le plus riche gagne.', target: 1e9, deadline: 720 }, sandbox: { n: 'Bac à sable', d: 'Aucune limite de temps : construis ton empire librement.' }, race: { n: 'Course à la fortune', d: 'Atteins ' + mM(TIERS[3].at) + ' de capitalisation avant le jour 720.', target: TIERS[3].at, deadline: 720 }, monopoly: { n: 'Monopole', d: 'Détiens plus de 50 % du marché pendant 30 jours d\'affilée.', target: 0.5, streak: 30 } };
+const NPC_TOP = [['Apex Holdings', 9.2e6, 0.0006], ['Nordic Steel', 6.1e6, 0.0004], ['Sakura Industries', 4.4e6, 0.0007], ['Atlas Commodities', 3.1e6, 0.0005], ['Meridian Capital', 2.2e6, 0.0006], ['Zenith Retail', 1.4e6, 0.0004], ['Orion Motors', 0.9e6, 0.0005]].map(x => [x[0], x[1] * NPC_K, x[2]]);   // grands groupes PNJ : 90 M$ à 920 M$ au départ
 function marketShareAvg() { const mk = S.mkt || {}; return RIV_CLS.reduce((a, c) => a + (mk[c] ? mk[c].you : 0), 0) / 4; }
 function playerScore() { const st = S.stats || {}; return Math.round((st.worth || 0) / 1000 + marketShareAvg() * 500 + (st.playerJobs || 0) * 0.5 + (S.done ? S.done.length : 0) * 20 + (S.houses || 0) * 2 + Object.keys(S.tech || {}).length * 25); }
 function stepGoal() {
@@ -1786,7 +1791,7 @@ function gtiValue() {
 }
 function stepIndex() { S.gtiH = S.gtiH || []; S.gtiH.push(gtiValue()); if (S.gtiH.length > 240) S.gtiH.shift(); const sb = S.subs || []; S.subInc = sb.reduce((a, x) => a + x.inc, 0) * cpi(); }
 function seedGti() { S.gtiH = S.gtiH || []; if (S.gtiH.length >= 40) return; let v = (S.gtiH[0] || gtiValue()), pre = []; for (let i = 0; i < 60 - S.gtiH.length; i++) { v *= 1 + (rnd() - 0.5) * 0.02; pre.push(v); } pre.reverse(); const base = S.gtiH[0] || gtiValue(), k = base / (pre[pre.length - 1] || base); S.gtiH = pre.map(x => x * k).concat(S.gtiH); }
-const FIN_ACTIONS = { cartel: { cost: 6000, days: 20 }, embargo: { cost: 8000, days: 6 } };
+const FIN_ACTIONS = { cartel: { cost: 6000 * SCALE_M, days: 20 }, embargo: { cost: 8000 * SCALE_M, days: 6 } };
 const finCost = k => Math.round(FIN_ACTIONS[k].cost * (casteIs('negociant') ? 0.5 : 1));
 function tradeShares(id, qty, buy) {
   const r = (S.rivals || []).find(x => x.id === id); if (!r || !(qty > 0)) return false; S.port = S.port || {}; const h = S.port[id] || (S.port[id] = { n: 0, cost: 0 });
@@ -1871,7 +1876,7 @@ function stepMacro() {
 // Difficulté adaptative : si le joueur s'enrichit trop vite, le monde se durcit ; s'il stagne, le monde l'aide
 function stepDifficulty() {
   if (S.day % 10 !== 0 || S.day < 30) return;
-  const expected = 6e5 * Math.exp(0.0016 * S.day), ratio = ((S.stats && S.stats.worth) || 6e5) / expected;
+  const W0 = 0.9e6 * K_SIZE, expected = W0 * Math.exp(0.0016 * S.day), ratio = ((S.stats && S.stats.worth) || W0) / expected;
   const d = ratio > 3.2 ? 3 : ratio > 2.2 ? 2 : ratio > 1.5 ? 1 : ratio < 0.85 ? -1 : 0;
   if (d !== (S.diff || 0)) {
     const msg = { 3: 'Surchauffe : régulation, impôts, salaires et rivaux montent d\'un cran. L\'indécence a un prix !', 2: 'Tu t\'enrichis très vite : les rivaux contre-attaquent et les coûts montent.', 1: 'Belle croissance : la concurrence se réveille.', 0: 'Le marché retrouve son équilibre.', '-1': 'Les conditions s\'assouplissent pour t\'aider à décoller.' }[String(d)];
@@ -1946,24 +1951,27 @@ function startResearch(id) {
   S.cash -= cc; S.research = { id, left: dd, total: dd }; say(`Recherche lancée : ${T.n} (${dd} jours).`, 'info'); updateHUD(); return true;
 }
 // Événements : une décision de temps en temps
+// Coûts des événements : proportionnels au chiffre d'affaires journalier du groupe (k jours de CA), avec un plancher
+const dayRev = () => { const F = S.fin || {}; return (F.revRetail || 0) + (F.revExport || 0) + (F.revTech || 0) + (F.revBank || 0); };
+const evCost = (k, floor) => Math.round(Math.max(floor * SCALE_M, k * dayRev()) / 1000) * 1000;
 const EVENTS = [
   { id: 'strike', t: 'Mouvement social', d: 'Tes salariés réclament une hausse de salaire de 10 %.', ch: [
     { l: 'Accepter (salaires +10 % pendant 30 jours)', f: () => { addMod('wage', 1.1, 30); say('Accord signé : le climat social s\'apaise.', 'info'); } },
     { l: 'Refuser (production −25 % pendant 8 jours)', f: () => { addMod('prod', 0.75, 8); say('Grève : la production ralentit.', 'warn'); } }] },
   { id: 'crash', t: 'Krach boursier', d: 'Les marchés s\'effondrent : les ménages consomment moins.', ch: [
-    { l: 'Lancer une promotion nationale (−4 000 $)', f: () => { if (S.cash >= 4000) { S.cash -= 4000; addMod('demand', 0.92, 15); say('Ta promotion limite la casse (demande −8 %).', 'info'); } else { addMod('demand', 0.8, 15); } } },
+    { l: () => `Lancer une promotion nationale (−${money(evCost(1, 2000))})`, f: () => { const c = evCost(1, 2000); if (S.cash >= c) { S.cash -= c; addMod('demand', 0.92, 15); say('Ta promotion limite la casse (demande −8 %).', 'info'); } else { addMod('demand', 0.8, 15); } } },
     { l: 'Serrer les dépenses (demande −20 % pendant 15 jours)', f: () => { addMod('demand', 0.8, 15); S.pb = (S.pb || 0) - 0.1; } }] },
-  { id: 'cargo', t: 'Cargaison en promotion', d: 'Un armateur brade une cargaison de marchandises au port.', ch: [
-    { l: 'Acheter (importations −25 % pendant 10 jours)', f: () => { addMod('buy', 0.75, 10); say('Les importations sont moins chères pendant 10 jours.', 'good'); } },
+  { id: 'cargo', t: 'Cargaison en promotion', d: 'Un armateur brade une cargaison de marchandises au port, à condition de la prendre en bloc et de payer comptant.', ch: [
+    { l: () => `Acheter la cargaison (−${money(evCost(2, 2500))}, importations −20 % pendant 10 jours)`, f: () => { const c = evCost(2, 2500); if (S.cash < c) { say(`Trésorerie insuffisante pour la cargaison (${money(c)}).`, 'bad'); return; } S.cash -= c; addMod('buy', 0.8, 10); say('Les importations sont moins chères pendant 10 jours.', 'good'); } },
     { l: 'Passer son tour', f: () => {} }] },
-  { id: 'fire', t: 'Incendie à l\'entrepôt', d: 'Un sinistre menace une partie de ta production.', ch: [
-    { l: 'Payer la franchise (−2 000 $)', f: () => { S.cash -= 2000; say('L\'assurance couvre l\'incendie.', 'info'); } },
+  { id: 'fire', t: 'Incendie à l\'entrepôt', d: 'Un sinistre menace une partie de ta production.', req: () => ((S.stats && S.stats.cn && S.stats.cn.wh) || 0) >= 1, ch: [
+    { l: () => `Payer la franchise (−${money(evCost(1.5, 3000))})`, f: () => { S.cash -= Math.min(Math.max(0, S.cash), evCost(1.5, 3000)); say('L\'assurance couvre l\'incendie.', 'info'); } },
     { l: 'Réparer à tes frais (production −20 % pendant 10 jours)', f: () => { addMod('prod', 0.8, 10); } }] },
   { id: 'boom', t: 'Boom de la consommation', d: 'Un salon professionnel attire des foules : les ventes décollent.', ch: [
     { l: 'Surfer sur la vague (demande +20 % pendant 12 jours)', f: () => { addMod('demand', 1.2, 12); say('Les clients affluent !', 'good'); } },
     { l: 'Investir dans la marque (+8 % de prime boursière)', f: () => { S.pb = (S.pb || 0) + 0.08; addMod('demand', 1.08, 12); } }] },
   { id: 'rival', t: 'Offensive d\'un concurrent', d: 'Un rival lance une campagne de prix agressive.', ch: [
-    { l: 'Riposter (demande +5 %, −3 000 $)', f: () => { if (S.cash >= 3000) { S.cash -= 3000; addMod('demand', 1.05, 15); } } },
+    { l: () => `Riposter (demande +5 %, −${money(evCost(0.6, 1500))})`, f: () => { const c = evCost(0.6, 1500); if (S.cash >= c) { S.cash -= c; addMod('demand', 1.05, 15); } } },
     { l: 'Ignorer (le rival gagne en influence)', f: () => { const r = (S.rivals || [])[0]; if (r) RIV_CLS.forEach(k => { r.att[k] = Math.min(0.7, r.att[k] + 0.03); }); } }] }
 ];
 function addMod(k, v, days) { S.mods = (S.mods || []).filter(x => x.until >= S.day); S.mods.push({ k, v, until: S.day + days }); }
@@ -1972,18 +1980,18 @@ function maybeEvent() {
   if (S.event) return;
   S.nextEv = S.nextEv || (S.day + 18);
   if (S.day < S.nextEv || S.day < 12) return;
-  const ev = EVENTS[Math.floor(rnd() * EVENTS.length)];
+  const pool = EVENTS.filter(e => !e.req || e.req()), ev = pool[Math.floor(rnd() * pool.length)];
   S.event = ev.id; S.nextEv = S.day + 20 + Math.floor(rnd() * 15); showEvent();
 }
 function showEvent() {
   const ev = EVENTS.find(e => e.id === S.event), box = el('evcard');
   if (!ev) { box.hidden = true; return; }
-  box.innerHTML = `<b>${ev.t}</b><p>${ev.d}</p>${ev.ch.map((c, i) => `<button class="btn ${i ? 'sec' : ''}" data-ev="${i}">${c.l}</button>`).join('')}`; box.hidden = false;
+  box.innerHTML = `<b>${ev.t}</b><p>${ev.d}</p>${ev.ch.map((c, i) => `<button class="btn ${i ? 'sec' : ''}" data-ev="${i}">${typeof c.l === 'function' ? c.l() : c.l}</button>`).join('')}`; box.hidden = false;
 }
 const PORT_HUB = { x: 75, y: 69 }, TRANS = 0.02;   // coût de transport par unité et par case
 const DEP_DAYS = 1500;
 const SHARES = 10000, RSH = 5000;
-const EXEC = { cfo: { n: 'Directeur financier (CFO)', wage: 400, d: 'Pilote les dividendes et les rachats d\'actions par paliers de 5 %, négocie un crédit moins cher (−25 % d\'intérêts) et un plafond d\'emprunt plus haut (+30 %).' }, ir: { n: 'Directeur des relations investisseurs', wage: 300, d: 'Débloque les événements boursiers (communiqués, journée investisseurs, plan de rachat) et calme la volatilité du cours.' } };
+const EXEC = { cfo: { n: 'Directeur financier (CFO)', get wage() { return execPay(65); }, d: 'Pilote les dividendes et les rachats d\'actions par paliers de 5 %, négocie un crédit moins cher (−25 % d\'intérêts) et un plafond d\'emprunt plus haut (+30 %).' }, ir: { n: 'Directeur des relations investisseurs', get wage() { return execPay(55); }, d: 'Débloque les événements boursiers (communiqués, journée investisseurs, plan de rachat) et calme la volatilité du cours.' } };
 // Marché des cadres dirigeants (C-levels) : candidats nommés avec expertise 0-100 dans 7 domaines, comme l'écran « Persons » de Capitalism Lab
 const XDOM = { ret: 'Commerce de détail', farm: 'Agriculture', man: 'Production industrielle', rd: 'Recherche & développement', raw: 'Matières premières', mkt: 'Marketing', trn: 'Formation' };
 const XROLE = { coo: { n: 'Directeur des opérations (COO)', dom: 'man', d: 'Production des usines jusqu\'à +15 %.' }, cmo: { n: 'Directeur marketing (CMO)', dom: 'mkt', d: 'Attractivité des magasins et efficacité publicitaire jusqu\'à +15 %.' }, cto: { n: 'Directeur technique (CTO)', dom: 'rd', d: 'Recherche plus rapide (jusqu\'à +40 %) et production +4 %.' }, cpo: { n: 'Directeur des achats (CPO)', dom: 'raw', d: 'Achats et importations jusqu\'à 12 % moins chers.' }, cro: { n: 'Directeur du commerce (CRO)', dom: 'ret', d: 'Ventes au détail jusqu\'à +12 %.' }, cao: { n: 'Directeur agricole (CAO)', dom: 'farm', d: 'Rendement des fermes jusqu\'à +15 %.' }, chro: { n: 'Directeur des ressources humaines (CHRO)', dom: 'trn', d: 'Masse salariale jusqu\'à −8 %.' } };
@@ -2000,7 +2008,9 @@ function personSVG(p) {
 }
 const cxOn = r => !!(S.cx && S.cx[r] && hqOf());
 const cxF = r => cxOn(r) ? clamp(S.cx[r].exp[XROLE[r].dom] / 100, 0, 1) : 0;
-const cxSalary = p => Math.round((150 + 8 * Math.max.apply(null, Object.values(p.exp))) * (S.cpi || 1) * Math.pow(clamp(((S.stats && S.stats.worth) || 1e6) / 1e6, 1, 60), 0.8));
+// Rémunération des dirigeants : une seule fonction (niveau d'expertise 0-100 → $/jour), croissante avec la taille du groupe ; CFO et IR suivent la même grille
+const execPay = lv => Math.round((150 + 8 * lv) * (S.cpi || 1) * Math.pow(clamp(((S.stats && S.stats.worth) || 1e6) / 1e6, 1, 60), 0.8));
+const cxSalary = p => execPay(Math.max.apply(null, Object.values(p.exp)));
 function normGoods() {
   GKEYS.forEach(g => { if (S.stock[g] == null) S.stock[g] = 0; if (S.price[g] == null) S.price[g] = GOODS[g].base * cpi(); if (S.ph && !S.ph[g]) S.ph[g] = []; });
   PKEYS.forEach(pk => { if (!S.prod[pk]) S.prod[pk] = { st: 'locked', q: 1, pack: 1, rnd: 0, pf: 1, brand: 0, loy: 0, rt: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
@@ -2015,7 +2025,7 @@ function stepTalent() {
 const cxWages = () => Object.keys(S.cx || {}).reduce((a, r) => a + (S.cx[r] ? cxSalary(S.cx[r]) : 0), 0);
 const hqOf = () => { let h = null; eachBuilding(c => { if (c.t === 'hq' && c.conn) h = c; }); return h; };
 const execOn = k => !!(S.exec && S.exec[k] && hqOf());
-const IR_EVENTS = { comm: { n: 'Communiqué de résultats', cost: 2000, cd: 10, d: 'Met en avant tes résultats : +8 % si tu gagnes de l\'argent, −5 % si tu en perds.' }, invday: { n: 'Journée investisseurs', cost: 8000, cd: 20, d: 'Présente ta stratégie aux marchés : +12 % de prime pendant quelques semaines.' }, plan: { n: 'Annoncer un plan de rachat', cost: 1000, cd: 15, d: 'Signal positif sur la valeur : +6 % de prime.' } };
+const IR_EVENTS = { comm: { n: 'Communiqué de résultats', cost: 2000 * SCALE_M, cd: 10, d: 'Met en avant tes résultats : +8 % si tu gagnes de l\'argent, −5 % si tu en perds.' }, invday: { n: 'Journée investisseurs', cost: 8000 * SCALE_M, cd: 20, d: 'Présente ta stratégie aux marchés : +12 % de prime pendant quelques semaines.' }, plan: { n: 'Annoncer un plan de rachat', cost: 1000 * SCALE_M, cd: 15, d: 'Signal positif sur la valeur : +6 % de prime.' } };
 function irEvent(k) {
   const E = IR_EVENTS[k]; S.irCd = S.irCd || {};
   if (!execOn('ir') || !(S.float > 0)) return false;
@@ -2027,7 +2037,7 @@ function irEvent(k) {
   say(k === 'comm' && net <= 0 ? 'Communiqué mal reçu : tes résultats sont négatifs, le cours baisse.' : `${E.n} : le marché réagit positivement.`, k === 'comm' && net <= 0 ? 'bad' : 'good');
   updateHUD(); return true;
 }
-const IPO_MIN = 5000000 * K_SIZE;
+const IPO_MIN = TIERS[1].at;   // introduction en bourse : palier Entrepreneur (même repère que les missions)
 // Rayons : un magasin ne vend qu'un nombre limité de produits selon sa taille (4, 8 ou 12)
 const SLOTS = { s1: 4, s2: 8, s3: 12, s4: 16, immo: 4 };
 const slotsN = c => SLOTS[c.t] || 4;
@@ -2526,7 +2536,7 @@ function checkMissions() {
     S.cash += m.r;
     say(`Mission accomplie : ${m.t}${m.r ? ' (+' + fmt(m.r) + ' $)' : ''}`, 'gold');
     if (S.done.length % 3 === 0) addKp(1, 'missions accomplies');
-    if (m.id === 'm16' && !S.won) { S.won = true; el('win').hidden = false; }
+    if (m.id === 'm16' && !S.won) { S.won = true; el('winAmt').textContent = mM(TIERS[4].at).replace(' M$', ' millions'); el('win').hidden = false; }
   });
 }
 
@@ -2837,7 +2847,7 @@ function updateHUD() {
     let bh;
     const hq = hqOf(), cfo = execOn('cfo'), ir = execOn('ir');
     const dir = `<div class="fcard" style="margin:8px 0"><h4>Direction du groupe</h4><div class="finrow"><span>Siège social</span><b class="${hq ? 'pos' : 'neg'}">${hq ? 'en service' : 'à construire (menu Ville)'}</b></div><div class="finrow"><span>${EXEC.cfo.n}</span><b class="${cfo ? 'pos' : ''}">${cfo ? 'en poste' : 'absent'}</b></div><div class="finrow"><span>${EXEC.ir.n}</span><b class="${ir ? 'pos' : ''}">${ir ? 'en poste' : 'absent'}</b></div>${hq ? '<button class="btn sec" id="openhq" style="margin-top:6px">Ouvrir le siège</button>' : ''}</div>`;
-    if (!listed) bh = `<p class="note">Introduis ta société en bourse pour lever des capitaux : tu cèdes 30 % du capital. Il faut un siège social et ${money(IPO_MIN)} de capitalisation.</p><button class="btn" id="ipo" ${raw >= IPO_MIN && hq ? '' : 'disabled'}>Introduction en bourse · 30 %</button>${dir}`;
+    if (!listed) bh = `<p class="note">Introduis ta société en bourse pour lever des capitaux : tu cèdes 30 % du capital. Il faut un siège social et ${money(IPO_MIN)} de capitalisation.</p><button class="btn" id="ipo" ${raw >= IPO_MIN && hq ? '' : 'disabled'}>Introduction en bourse · 30 %${raw >= IPO_MIN && hq ? '' : ' (' + (hq ? '' : 'siège social + ') + money(IPO_MIN) + ' requis)'}</button>${dir}`;
     else bh = `<div class="finrow"><span>Cours de l'action</span><b class="${(S.sp || []).length > 1 && S.sp[S.sp.length - 1] >= S.sp[S.sp.length - 2] ? 'pos' : 'neg'}">${price.toFixed(2).replace('.', ',')} $</b></div><div class="finrow"><span>Capitalisation boursière</span><b>${money(raw * (S.prem || 1.1))}</b></div><div class="finrow"><span>Flottant (actionnaires extérieurs)</span><b>${Math.round(S.float * 100)} %</b></div><div class="finrow"><span>Prime de marché</span><b>${Math.round((S.prem - 1) * 100)} %</b></div><canvas id="spk" width="320" height="50" style="width:100%;height:46px"></canvas>${dir}
       <div class="taxrow"><span>Dividendes</span><input type="range" id="payout" min="0" max="60" step="5" value="${Math.round((S.payout || 0) * 100)}" aria-label="Part des bénéfices distribuée" ${cfo ? '' : 'disabled'}><b>${cfo ? Math.round((S.payout || 0) * 100) + ' %' : 'CFO requis'}</b></div>
       <p class="note">Les dividendes soutiennent le cours mais sortent de ta trésorerie, à hauteur du flottant. Réglage réservé au directeur financier.</p>
@@ -3024,7 +3034,7 @@ let tSel = 'r1', tHtml = '', tDown = false, tFilter = 'any', tPer = 60, tPct = 1
 const TSECT = [['any', 'Toutes'], ['own', 'Possédées'], ['cons', 'Conso'], ['tech', 'Tech'], ['immo', 'Immobilier'], ['media', 'Médias'], ['fin', 'Finance']];
 const sectOf = n => ['cons', 'tech', 'immo', 'media', 'fin'][Math.floor(hash(n.length, n.charCodeAt(0), 5) * 5)];
 function stockStats(r) {
-  const px = rivalPx(r), mc = px * RSH, eps = Math.max(0.01, (r.rev || 0) * 365 * 0.12 / RSH), bv = Math.max(1, (Math.max(0, r.cash) + 90000 * K_POP * rivalSum(r)) / RSH), sp = r.sp || [px];
+  const px = rivalPx(r), mc = px * RSH, eps = Math.max(0.01, (r.rev || 0) * 365 * 0.12 / RSH), bv = Math.max(1, (Math.max(0, r.cash) + RIV_ASSET * rivalSum(r)) / RSH), sp = r.sp || [px];
   return { px, mc, eps, bv, per: px / eps, pb: px / bv, ret: sp.length > 1 ? sp[sp.length - 1] / sp[Math.max(0, sp.length - 31)] - 1 : 0, life: sp.length > 1 ? sp[sp.length - 1] / sp[0] - 1 : 0 };
 }
 function holdersOf(r, stake) {
@@ -3258,7 +3268,8 @@ const CONTRACT_TYPES = [
   { key: 'tower',     name: 'Tour de bureaux (20 étages)',      kind: 'off', floors: 20, tier: 2, need: { concrete: 360, steel: 150, osb: 30, plank: 30 },             reward: 22000, days: 80 }
 ];
 CONTRACT_TYPES.forEach(c => { Object.keys(c.need).forEach(g => { c.need[g] *= K_IND; }); c.reward *= K_IND * K_SIZE; });
-TECHS.forEach(T => { T.c = Math.round(T.c * 6 * K_SIZE); });
+TECHS.forEach(T => { T.c = Math.round(T.c * 8 * K_SIZE); });   // ≈ 2 jours (ère I) à 6 jours (ère II) de CA d'un groupe Industriel (≈ 100 k$/j)
+PKEYS.forEach(k => { PRODUCTS[k].rnd = Math.round(PRODUCTS[k].rnd * 1.5); });   // développement produit ≈ 1 à 15 jours de CA selon la gamme
 const CLIENTS = ['Groupe Orion', 'Banque Helvetia', 'Logistique Delta', 'Immobilière du Port', 'Tech Horizon', 'Hôtels Meridian', 'Assurances Atlas'];
 function addNpcTower(kind, floors) {
   for (let t = 0; t < 600; t++) {
