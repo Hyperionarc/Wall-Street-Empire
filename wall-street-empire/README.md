@@ -141,3 +141,6 @@ Les visuels des produits, la mer, le port, les grues et les navires sont dessin�
 
 ## Paramètres de la partie (inspirés de Capitalism Lab)
 Menu > Objectifs > « Paramètres de la partie » : nombre de concurrents (0–8), capital de départ, agressivité d'expansion et tarifaire des IA, compétence des producteurs locaux, activité des puissances étrangères (5 niveaux, modifiables en cours de partie).
+
+## Indice de fréquentation des magasins (Customer Index)
+Chaque magasin a un indice 0–100 : emplacement (30 %), prix attractif (20 %), notoriété publicitaire (15 %), qualité & personnel (15 %), assortiment (10 %), humeur de la ville (10 %). Il multiplie directement l'affluence (×0,6 à ×1,5) et s'affiche dans l'onglet Publicité du magasin et dans la scène intérieure.

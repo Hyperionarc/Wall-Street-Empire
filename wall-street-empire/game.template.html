@@ -1821,6 +1821,25 @@ function shelfKeys(c) {
   return items.slice(0, slotsN(c));
 }
 const pfOf = c => (c.pf || 1) * (1 - 0.08 * ((S && S.pol && S.pol.price) || 0));
+// Indice de fréquentation (Customer Index) : six facteurs pondérés, 0 à 100, qui pilote directement l'affluence du magasin
+function custIndex(c) {
+  const T = TYPES[c.t], sl = Math.max(1, slotsN(c)), kn = shelfKeys(c).length;
+  const happy = (S.stats && S.stats.happy) || 60, pf = pfOf(c);
+  const parts = [
+    { n: 'Emplacement', w: 30, v: c.traffic == null ? 0.5 : c.traffic, tip: 'Habitants à proximité, routes, services publics, concurrence voisine' },
+    { n: 'Prix attractif', w: 20, v: clamp(1.1 - 0.6 * pf, 0, 1), tip: 'Plus tu vends bas par rapport au marché, plus on vient' },
+    { n: 'Notoriété (publicité)', w: 15, v: clamp((c.aw || 0) / 100, 0, 1), tip: 'Télé, radio, internet' },
+    { n: 'Qualité & personnel', w: 15, v: clamp(0.45 + 0.08 * (c.qual || 0), 0, 1) * 0.6 + 0.4 * clamp(fillOf(c), 0, 1), tip: 'Niveau de service et effectifs' },
+    { n: 'Assortiment', w: 10, v: clamp(kn / sl, 0, 1), tip: 'Rayons remplis sur les emplacements disponibles' },
+    { n: 'Humeur de la ville', w: 10, v: clamp(0.4 + (happy - 55) / 90 + 0.1 * Math.min(3, pubNear(c.x, c.y)), 0, 1), tip: 'Ville heureuse = dépenses plus généreuses' }
+  ];
+  const idx = parts.reduce((a, q) => a + q.w * q.v, 0) / 100;
+  return { idx, parts };
+}
+function ciHTML(c) {
+  const r = custIndex(c), n = Math.round(r.idx * 100), cl = n >= 66 ? 'pos' : n < 40 ? 'neg' : '';
+  return `<div class="lever"><h4>Indice de fréquentation <span class="pip ${cl}">${n} / 100</span></h4>` + r.parts.map(q => `<div class="finrow" title="${q.tip}"><span>${q.n} <small>(${q.w} %)</small></span><b class="${q.v >= 0.66 ? 'pos' : q.v < 0.4 ? 'neg' : ''}">${Math.round(q.v * 100)}</b></div>`).join('') + `<small>Cet indice multiplie l'affluence : de ×0,6 (très faible) à ×1,5 (excellent).</small></div>`;
+}
 const shelfOk = (c, key) => shelfKeys(c).indexOf(key) >= 0;
 let bPick = -1;
 // Publicité : canaux, budgets quotidiens et notoriété du magasin
@@ -2018,7 +2037,7 @@ function step() {
   const dem = { basic: S.pop * DEM_PER_POP.basic * dMul, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100) * dMul, lux: S.pop * DEM_PER_POP.lux * dMul, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) * dMul };
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; retUnits += R.cap * u; c._left = c._cap; c._sold = 0; c._rev = 0; c._imp = 0; c.sales = {}; } });
-  buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow(1 / pfOf(c), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (0.65 + 0.7 * (c.traffic == null ? 0.5 : c.traffic)); c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
+  buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow(1 / pfOf(c), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (c.ci = custIndex(c).idx, 0.6 + 0.9 * c.ci); c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
   const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF * c.pw; } }); return w > 0 ? s / w : 1; };
   const importRate = Math.max(0.95, 1.12 - 0.04 * (cn.port || 0));   // les terminaux portuaires du joueur baissent le coût des importations
   let importCost = indImport, importUnits = 0;
@@ -3630,7 +3649,7 @@ function drawRetail(sc, c, g) {
   objs.sort((a, b) => a.k - b.k).forEach(o => o.f());
   quad(g, [P(0.9, sc.GH, 52), P(2.5, sc.GH, 52), P(2.5, sc.GH, 0), P(0.9, sc.GH, 0)], 'rgba(150,215,255,.16)', 'rgba(200,230,255,.8)');
   g.fillStyle = 'rgba(8,10,30,.6)'; rrect(g, 10, 6, 220, 22, 6); g.fill(); g.fillStyle = '#e9edff'; g.font = '600 11px sans-serif'; g.textAlign = 'left';
-  g.fillText(`${sc.cust.length} clients en magasin · ${f1(c.out)} ventes/j${adSpend(c) ? ' · pub ' + Math.round(c.aw || 0) + ' %' : ''}`, 18, 21);
+  g.fillText(`${sc.cust.length} clients en magasin · fréquentation ${Math.round(custIndex(c).idx * 100)}/100 · ${f1(c.out)} ventes/j${adSpend(c) ? ' · pub ' + Math.round(c.aw || 0) + ' %' : ''}`, 18, 21);
   if (c.limit === 'stock' || c.limit === 'noshelf') { g.fillStyle = 'rgba(255,90,95,.9)'; rrect(g, 10, 32, 190, 20, 6); g.fill(); g.fillStyle = '#fff'; g.font = '700 11px sans-serif'; g.fillText(c.limit === 'stock' ? 'RUPTURE DE STOCK' : 'AUCUN PRODUIT EN RAYON', 18, 46); }
 }
 function lighten(col) { const n = parseInt(col.slice(1), 16), r = Math.min(255, (n >> 16) + 50), gg = Math.min(255, ((n >> 8) & 255) + 50), b = Math.min(255, (n & 255) + 50); return `rgb(${r},${gg},${b})`; }
@@ -4217,7 +4236,7 @@ function adTab(c) {
       <div class="finrow"><span>Budget</span><b id="adv-${k}">${money(b)} / jour</b></div><div class="finrow"><span>Effet sur la notoriété</span><b>${eff} %</b></div></div>`; };
   const ratio = (c.pRev || 0) > 0 ? Math.round(tot / c.pRev * 100) : null;
   const warn = c.limit === 'capacity' ? '<div class="bnbanner warn"><b>Magasin saturé</b><span>La capacité est pleine : plus de publicité n\'ajoutera pas de ventes. Agrandis-le d\'abord.</span></div>' : c.limit === 'stock' ? '<div class="bnbanner bad"><b>Rupture de stock</b><span>Les clients viennent mais les rayons sont vides : règle l\'approvisionnement avant de payer de la pub.</span></div>' : '';
-  return warn + `<p class="fnote">Chaque canal diffuse une campagne pour ce magasin. La notoriété monte progressivement avec le budget, puis retombe doucement si tu coupes. Plus elle est haute, plus les clients préfèrent ton enseigne aux marques rivales et plus ils sont nombreux.</p>
+  return warn + ciHTML(c) + `<p class="fnote">Chaque canal diffuse une campagne pour ce magasin. La notoriété monte progressivement avec le budget, puis retombe doucement si tu coupes. Plus elle est haute, plus les clients préfèrent ton enseigne aux marques rivales et plus ils sont nombreux.</p>
     <div class="kpis"><div><small>Budget total</small><b class="neg">${money(tot)} /j</b></div><div><small>Notoriété</small><b>${Math.round(aw)} %</b></div><div><small>Cible</small><b>${Math.round(tgt)} %</b></div><div><small>Affluence</small><b class="pos">+${up} %</b></div><div><small>Ventes / jour</small><b>${f1(c.out)}</b></div><div><small>Pub / recettes</small><b>${ratio == null ? '–' : ratio + ' %'}</b></div></div>
     <div class="bar" style="margin:6px 0 10px"><i style="width:${Math.round(aw)}%"></i></div>
     <div class="levers">${AD_KEYS.map(card).join('')}</div>`;
