@@ -209,3 +209,17 @@ Objectif « Manche » (Menu > Objectifs) : fin au jour 720 ou dès qu'un empire 
 
 ## Services : repères réels (Euronext, Rexel, Crédit Agricole ≈ 730 k€ de CA par employé et par an)
 Banque, tour tech et data center : 1 500 à 2 000 $ de CA par employé et par jour (≈ 550-730 k$/an), bénéfice par employé ≈ 300 k$/an (Hermès ≈ 200 k$, TotalEnergies ≈ 130 k$, Sanofi ≈ 104 k$), capex 14 à 18 M$.
+
+## Passe 6 : repères sectoriels sourcés et échelle « millions »
+Recherche web (résumés de communiqués 2024-2025, non vérifiés dans les rapports complets) :
+- **Pétrole** : TotalEnergies 214,6 Md$ de CA, EBITDA 20 % ; indépendants de schiste (Diamondback) EBITDA ≈ 70 %, puits ≈ 6,5-7 M$. **Charbon** EBITDA 20-37 % (Peabody, Whitehaven). **Fer** 43-65 % (Rio Tinto, Vale). **Cuivre** 39 % (Freeport). **Or** 48 % (Barrick). **Acier** 11-14 % (ArcelorMittal, Nucor). **Ciment/granulats** marge brute 27 %, EBITDA 21-28 % (Vulcan, Heidelberg). **Électricité** EBITDA 21-57 %, CA ≈ 0,6-0,75 M€ par employé (EDF, Engie).
+- **Distribution alimentaire** : marge brute 20-25 %, EBITDA 5-7 %, CA ≈ 324 k$ par employé (Walmart), 19,9 % de marge brute (Carrefour). **Pharma de marque** : marge brute 72-85 % (Novo 84,7 %, Pfizer ≈ 72 %), R&D 15-20 % du CA, développement d'un médicament 0,7-1,3 Md$. **Santé grand public** 64 % (Haleon). **Luxe** : marge brute ≈ 67 %+ (Richemont 66,9 %), EBITDA 25-45 %. **Cosmétiques** 74 % (L'Oréal). **Chimie** EBITDA 12-15 % (BASF). **Électroménager** marge brute 15-30 %. **Agroalimentaire** 47 % (Nestlé).
+- **Services** : banque ratio coûts/revenus 52-62 % ; data centers : CA par employé ≈ 340 k€ (OVHcloud) à 753 k€ (APL), EBITDA 38-47 %, 8,9-23,3 M$ par MW ; BTP EBITDA 8-18 % ; ports EBITDA 22-27 %.
+- **Important** : la « marge brute de 60 à 90 % » n'est vraie que pour la pharma, le luxe, les cosmétiques et les services numériques ; la distribution et les matières premières sont bien plus basses.
+
+Implémentation : tableau `SECTOR_REF` dans le code ; marges par secteur (composants 30-38 %, marchandises de base 42 %, manufacturées 32 %, luxe 62 %, produits finis 35-67 %, pharma 65-85 %), distribution à marge 40-50 % sur le gros, extraction à EBITDA réaliste, **échelle ×5** (supermarché ≈ 1,75 M$, ≈ 3,8 M$ de CA/an à pleine charge, capital de départ 3 M$, puits ≈ 10 M$, usines 0,75 à 6 M$, banque 40 M$).
+
+## Commerce : prix, publicité, emplacements
+- **Prix par produit** (curseur 60-220 %) dans la fiche produit du magasin ; élasticité appliquée aux ventes.
+- **Canaux de publicité** choisis directement dans la fiche (télé, radio, presse, internet, influenceurs, boutons − / +).
+- **Double-clic sur un emplacement** : ouvre le choix du produit **et du fournisseur** (prix livré et qualité), puis « Mettre en rayon ».

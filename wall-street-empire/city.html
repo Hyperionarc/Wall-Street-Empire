@@ -854,7 +854,7 @@ const GOODS = {
 };
 const GRP_NAME = { raw: 'MATIÈRES PREMIÈRES', comp: 'COMPOSANTS ET INTERMÉDIAIRES', goods: 'MARCHANDISES' };
 const GKEYS = Object.keys(GOODS);
-const STOCK_CAP = 3000;
+const STOCK_CAP = 3000 * 5;
 
 // Gisements : réserve par case
 const DEPOSITS = {
@@ -1162,37 +1162,62 @@ function attractiveness(pk) {
 }
 
 // ===== ÉCHELLE ÉCONOMIQUE (audit « Chief Architect ») : population ~340 k, volumes industriels ×25, capex ≈ 1 an de chiffre d'affaires à pleine charge
-const K_POP = 30, K_IND = 25, ROOM = 0.08, WAGE_K = 120;
-const RETAIL_MK = { basic: 2.5, std: 2.8, lux: 3.6, estate: 1 }, retailMk = cls => RETAIL_MK[cls] || 2.5;   // prix de rayon = prix de gros × marge (marge brute 60-75 %)
+const K_POP = 30, K_IND = 25, K_SIZE = 5, ROOM = 0.08, WAGE_K = 120;
+// Repères sectoriels (recherche web, exercices 2024-2025 ; détail et sources dans README.md) : marge brute, EBITDA, CA par employé et par an
+const SECTOR_REF = {
+  oil:      { gm: null, ebitda: '20 % (major) à 70 % (indépendant de schiste)', rpe: 'TotalEnergies 214,6 Md$ de CA, EBITDA 43 Md$ ; Diamondback EBITDA 70 %' },
+  coal:     { ebitda: '20-37 %', rpe: 'Peabody ≈ 0,76 M$ par employé' },
+  iron:     { ebitda: '43-65 %', rpe: 'Rio Tinto Pilbara 65 % ; Vale capex 16 % du CA' },
+  copper:   { ebitda: '39 %', rpe: 'Freeport 25,5 Md$ de CA, capex 19 %' },
+  gold:     { ebitda: '48 %', rpe: 'Barrick marge EBITDA 48 %' },
+  steel:    { ebitda: '11-14 %', rpe: 'Nucor ≈ 0,94 M$ par employé' },
+  cement:   { gm: 0.27, ebitda: '21-28 %', rpe: 'Vulcan marge brute 27 %' },
+  power:    { ebitda: '21-57 %', rpe: 'EDF ≈ 0,62 M€ par employé, EBITDA 31 %' },
+  grocery:  { gm: '20-25 %', ebitda: '5-7 %', rpe: 'Walmart ≈ 324 k$ par employé ; Carrefour marge brute 19,9 %' },
+  pharma:   { gm: '72-85 %', ebitda: '30-45 %', rpe: 'Novo 84,7 % de marge brute ; Pfizer ≈ 785 k$ par employé' },
+  consumerhealth: { gm: '64 %', ebitda: '22 %', rpe: 'Haleon' },
+  luxury:   { gm: '67 %+', ebitda: '25-45 %', rpe: 'Hermès ≈ 600 k€ par employé, LVMH ≈ 394 k€' },
+  cosmetics:{ gm: '74 %', ebitda: '20-27 %', rpe: "L'Oréal ≈ 480 k€ par employé" },
+  chemicals:{ ebitda: '12-15 %', rpe: 'BASF ≈ 584 k€ par employé, capex 9 %' },
+  appliance:{ gm: '15-30 %', ebitda: '7-12 %', rpe: 'Whirlpool ≈ 377 k$ par employé' },
+  food:     { gm: '47 %', ebitda: '15-20 %', rpe: 'Nestlé 46,7 % de marge brute' },
+  bank:     { ebitda: 'ratio coûts/revenus 52-62 %', rpe: 'JPMorgan 177,6 Md$ de revenus ; Dimon 39 M$ (0,02 % des revenus)' },
+  datacenter:{ ebitda: '38-47 %', rpe: 'OVHcloud ≈ 340 k€ par employé ; APL ≈ 753 k€ ; 8,9-23,3 M$ par MW' },
+  construction:{ ebitda: '8-18 %', rpe: 'Vinci EBITDA 17,7 %, Bouygues 4,5 %' },
+  port:     { ebitda: '22-27 %', rpe: 'DP World ≈ 174 k$ par employé' }
+};
+const RETAIL_MK = { basic: 1.70, std: 1.80, lux: 2.00, estate: 1 }, retailMk = cls => RETAIL_MK[cls] || 1.4;   // prix de rayon = prix de gros × marge (distribution : marge brute 25-35 %)
 (function applyScale() {
   const R2 = o => { Object.keys(o).forEach(g => { o[g] *= K_IND; }); };
   Object.keys(RECIPES).forEach(k => { R2(RECIPES[k].in); RECIPES[k].out *= K_IND; });
-  PKEYS.forEach(k => { R2(PRODUCTS[k].in); PRODUCTS[k].out *= K_IND; PRODUCTS[k].rnd = Math.round(PRODUCTS[k].rnd * 10); });
+  PKEYS.forEach(k => { R2(PRODUCTS[k].in); PRODUCTS[k].out *= K_IND; PRODUCTS[k].rnd = Math.round(PRODUCTS[k].rnd * 10 * K_SIZE); });
   ['foundry', 'f1', 'f2', 'f3'].forEach(k => { const rc = TYPES[k].rec; R2(rc.in); R2(rc.out); TYPES[k].jobs0 = TYPES[k].jobs; });
   const setC = (k, cost, up) => { TYPES[k].cost = cost; TYPES[k].upkeep = up; };
-  setC('f1', 150000, 60); setC('f2', 400000, 160); setC('f3', 1200000, 480); setC('foundry', 250000, 100);
-  setC('s1', 70000, 50); setC('s2', 350000, 140); setC('s3', 1200000, 400);
-  TYPES.s1.ret.cap = 10; TYPES.s2.ret.cap = 40; TYPES.s3.ret.cap = 90; TYPES.s1.jobs = 1; TYPES.s2.jobs = 3; TYPES.s3.jobs = 7;
-  PRODUCTS.headache.ref = 45; PRODUCTS.cough.ref = 90;
-  ['res', 'tech', 'wh', 'rd', 'dc', 'hq', 'bank', 'btp', 'immo', 'port'].forEach(k => { TYPES[k].cost *= 30; TYPES[k].upkeep *= 30; });
-  setC('bank', 2000000, 700); setC('tech', 1800000, 600); setC('dc', 2400000, 900); setC('rd', 1500000, 500);
-  // extraction : capex ≈ 0,9 × chiffre d'affaires annuel à pleine charge
+  // Usines : 5 fois plus grosses (volumes via FAC_U), effectifs et capex en proportion
+  setC('f1', 750000, 300); setC('f2', 2000000, 800); setC('f3', 6000000, 2400); setC('foundry', 1250000, 500);
+  TYPES.f1.jobs = 15; TYPES.f2.jobs = 30; TYPES.f3.jobs = 60; TYPES.foundry.jobs = 20;
+  // Commerces : un supermarché ≈ 3,8 M$ de CA/an, 13 employés (≈ 290 k$ par employé, comme Walmart), 2-3 fois plus grand qu'avant
+  setC('s1', 350000, 150); setC('s2', 1750000, 400); setC('s3', 6000000, 1200);
+  TYPES.s1.ret.cap = 50; TYPES.s2.ret.cap = 240; TYPES.s3.ret.cap = 540; TYPES.s1.jobs = 2; TYPES.s2.jobs = 7; TYPES.s3.jobs = 22;
+  ['res', 'wh', 'hq', 'btp', 'immo', 'port'].forEach(k => { TYPES[k].cost *= 30 * K_SIZE; TYPES[k].upkeep *= 30 * K_SIZE; });
+  ['plant', 'solar', 'wind', 'nuclear'].forEach(k => { TYPES[k].cost *= K_SIZE; TYPES[k].upkeep *= K_SIZE; });
+  // Services : CA par employé et par jour (banque ≈ 1 500, tech ≈ 1 100, data center ≈ 1 000 ≈ OVHcloud) et EBITDA 40-45 %
+  setC('bank', 40000000, 40000); setC('tech', 30000000, 38000); setC('dc', 25000000, 30000); setC('rd', 15000000, 8000);
+  TYPES.bank.jobs = 60; TYPES.tech.jobs = 70; TYPES.dc.jobs = 60; TYPES.rd.jobs = 40;
+  Object.keys(LOCAL_D).forEach(k => { LOCAL_D[k] *= K_SIZE; });
+  // Extraction : EBITDA ≈ 45 % pétrole (indépendant), 25 % charbon, 55 % fer, 40 % cuivre, 48 % or, 27 % carrières, 12-25 % cultures
+  const OPEX = { oil: 0.45, coal: 0.65, iron: 0.35, copper: 0.50, gold: 0.42, wood: 0.70, gravel: 0.63, sand: 0.63, limestone: 0.63, wheat: 0.74, sugar: 0.72, cotton: 0.72, rubber: 0.68 };
   Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; T.jobs0 = T.jobs;
-    const rate = { well: 400, miron: 350, mcoal: 350, qgravel: 450, qsand: 450, qlime: 380, mgold: 9 }[k] || T.rate * 5; T.rate = rate; const gp = GOODS[T.ext].base * (GOODS[T.ext].grp === 'raw' ? 1.25 : 1);
-    T.cost = Math.round(0.9 * rate * gp * 360 / 5000) * 5000; T.upkeep = Math.round(T.cost * 0.0004); T.jobs = Math.max(2, Math.round(rate * gp * 0.12 / WAGE_K)); });
-  Object.keys(DEPOSITS).forEach(k => { DEPOSITS[k].res *= 5; });
-  // Calibrage par marge brute (60-90 % selon le pouvoir de fixation des prix) : prix de vente = coût des intrants / (1 - marge brute)
-  const GMc = { 1: 0.58, 2: 0.65, 3: 0.72 }, inV = rc => Object.keys(rc).reduce((a, g) => a + rc[g] * GOODS[g].base, 0);
+    const rate = ({ well: 400, miron: 350, mcoal: 350, qgravel: 450, qsand: 450, qlime: 380, mgold: 9 }[k] || T.rate * 5) * K_SIZE; T.rate = rate; });
+  Object.keys(DEPOSITS).forEach(k => { DEPOSITS[k].res *= 5 * K_SIZE; });
+  // Marges brutes par secteur : prix de vente = coût des intrants / (1 - marge brute)
+  const GMc = { 1: 0.30, 2: 0.33, 3: 0.38 }, inV = rc => Object.keys(rc).reduce((a, g) => a + rc[g] * GOODS[g].base, 0);
   RKEYS.forEach(k => { const R = RECIPES[k]; GOODS[k].base = Math.max(1, +(inV(R.in) / (R.out * (1 - GMc[R.lvl || 1]))).toFixed(2)); });
-  GOODS.ingot.base = Math.max(GOODS.ingot.base, +(inV(TYPES.foundry.rec.in) / (TYPES.foundry.rec.out.ingot * 0.4)).toFixed(2));
-  [['f1', 'basic', 0.60], ['f2', 'std', 0.66], ['f3', 'lux', 0.75]].forEach(([f, g, gm]) => { const rc = TYPES[f].rec; GOODS[g].base = +(inV(rc.in) / (rc.out[g] * (1 - gm))).toFixed(2); });
-  PKEYS.forEach(k => { const P = PRODUCTS[k]; const gm = P.pharma ? (k === 'obesity' ? 0.9 : 0.85) : ({ basic: 0.70, std: 0.72, lux: 0.82, estate: 0.70 }[P.cls] || 0.7); P.ref = +(inV(P.in) / (P.out * (1 - gm))).toFixed(2); });
-  // Extraction : marge d'EBITDA réaliste (pétrole ≈ 25 %, mines 30-55 %, or 55 %) ; l'entretien/exploitation est proportionnel au chiffre d'affaires
-  const OPEX = { oil: 0.58, coal: 0.50, iron: 0.48, copper: 0.45, gold: 0.30, wood: 0.50, gravel: 0.58, sand: 0.58, limestone: 0.58, wheat: 0.55, sugar: 0.55, cotton: 0.55, rubber: 0.55 };
-  Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; const rev = T.rate * GOODS[T.ext].base; T.cost = Math.round(0.9 * rev * 360 / 5000) * 5000; T.upkeep = Math.round(rev * (OPEX[T.ext] || 0.55)); T.jobs = Math.max(2, Math.round(rev * 0.12 / WAGE_K)); });
-  TYPES.f1.jobs = 6; TYPES.f2.jobs = 12; TYPES.f3.jobs = 24;
-  setC('bank', 14000000, 13500); setC('tech', 15000000, 13500); setC('dc', 18000000, 14500); setC('rd', 6000000, 2500);   // ~730 k$ de CA par employé et par an (Euronext, Crédit Agricole, Rexel)
-  TIERS.forEach(x => { x.at *= 4; });
+  GOODS.ingot.base = Math.max(GOODS.ingot.base, +(inV(TYPES.foundry.rec.in) / (TYPES.foundry.rec.out.ingot * 0.7)).toFixed(2));
+  [['f1', 'basic', 0.42], ['f2', 'std', 0.32], ['f3', 'lux', 0.62]].forEach(([f, g, gm]) => { const rc = TYPES[f].rec; GOODS[g].base = +(inV(rc.in) / (rc.out[g] * (1 - gm))).toFixed(2); });
+  PKEYS.forEach(k => { const P = PRODUCTS[k]; const gm = P.pharma ? (k === 'obesity' ? 0.85 : 0.65) : ({ basic: 0.45, std: 0.35, lux: 0.67, estate: 0.20 }[P.cls] || 0.4); P.ref = +(inV(P.in) / (P.out * (1 - gm))).toFixed(2); });
+  Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; const rev = T.rate * GOODS[T.ext].base; T.cost = Math.round(0.9 * rev * 360 / 50000) * 50000; T.upkeep = Math.round(rev * (OPEX[T.ext] || 0.6)); T.jobs = Math.max(4, Math.round(rev * 0.10 / WAGE_K)); });
+  TIERS.forEach(x => { x.at *= 4 * K_SIZE; });
 })();
 const ICONS = {
   view: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
@@ -1284,7 +1309,7 @@ const MISSIONS = [
   { id: 'w2', t: 'Capitalisation de 3,5 M$ : tu deviens Industriel',   r: 60000, ok: c => c.worth >= 3.5e6 },
   { id: 'w3', t: 'Capitalisation de 12,5 M$ : tu deviens Magnat',      r: 150000, ok: c => c.worth >= 12.5e6 },
   { id: 'm16', t: 'Devenir Oligarque (35 M$)',                      r: 0,     ok: c => c.worth >= 35000000 }
-];MISSIONS.forEach(m => { m.r *= 5; });
+];MISSIONS.forEach(m => { m.r *= 5 * K_SIZE; });
 
 
 /* ---------- Atlas de sprites (CC0, Kenney) ---------- */
@@ -1478,7 +1503,7 @@ function newCity() {
   const npc = genNpc(grid);
   S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap * K_POP / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
   S0.pop = Math.round(npc.cap * K_POP * 0.85);
-  S0.cash = 600000;
+  S0.cash = 600000 * K_SIZE;
   return S0;
 }
 function save() {
@@ -1620,11 +1645,11 @@ const wageMkt = () => clamp(1 + 1.5 * (0.10 - ((S && S.stats && S.stats.unemp) |
 const WAGE_RATE = 120;                        // ≈ 43 000 $/an par salarié                       // salaire de base par emploi et par jour
 // Entrepôts : stockage hors usine, import par le port, export au-dessus d'un seuil
 const SOFT_STOCK = 36;
-const whCap = c => 10000 * levelMult(c);
+const whCap = c => 50000 * levelMult(c);
 const whCfg = (c, g) => (c.cfg && c.cfg[g]) || {};
 const whStores = (c, g) => whCfg(c, g).s !== 0;
 const whList = () => { const a = []; eachBuilding(c => { if (c.t === 'wh' && c.conn) a.push(c); }); return a; };
-const baseCap = () => STOCK_CAP + 4000 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0);
+const baseCap = () => STOCK_CAP + 20000 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0);
 function whInvSum(g) { let s = 0; whList().forEach(c => { s += (c.inv && c.inv[g]) || 0; }); return s; }
 function whFree(c) { let u = 0; Object.keys(c.inv || {}).forEach(g => { u += c.inv[g]; }); return Math.max(0, whCap(c) - u); }
 function capFor(g) { let c0 = baseCap(); whList().forEach(c => { if (whStores(c, g)) c0 += whCap(c); }); return c0; }
@@ -1639,7 +1664,7 @@ function stepWarehouses(portN, expRate) {
     // imports vers les entrepôts qui ont un objectif de stock
     whs.forEach(c => { const cfg = whCfg(c, g); if (cfg.i > 0 && S.stock[g] < cfg.i && whStores(c, g)) { const free = c._used < whCap(c) ? whCap(c) - c._used : 0, q = Math.min(cfg.i - S.stock[g], 60, free); if (q > 0.01) { const cost = q * S.price[g] * impRate * TM.buy; S.stock[g] += q; imp += cost; c.inCost = (c.inCost || 0) + cost; c._imp += q; } } });
     // exports au-dessus du seuil
-    whs.forEach(c => { const cfg = whCfg(c, g); if (cfg.e > 0 && S.stock[g] > cfg.e) { const q = Math.min(S.stock[g] - cfg.e, 2000), gain = q * S.price[g] * expRate; S.stock[g] -= q; rev += gain; c._rev += gain; } });
+    whs.forEach(c => { const cfg = whCfg(c, g); if (cfg.e > 0 && S.stock[g] > cfg.e) { const q = Math.min(S.stock[g] - cfg.e, 10000), gain = q * S.price[g] * expRate; S.stock[g] -= q; rev += gain; c._rev += gain; } });
     // répartition du surplus dans les entrepôts
     let surplus = Math.max(0, S.stock[g] - SOFT_STOCK);
     stor.forEach(c => { const q = Math.min(surplus, Math.max(0, whCap(c) - c._used)); c.inv[g] = q; c._used += q; surplus -= q; });
@@ -1786,7 +1811,7 @@ function stepDevs() {
 const BOOM_DAYS = 420;
 const boomOn = () => !!(S && S.macro && S.macro.boom && S.day < BOOM_DAYS);
 // Réseau électrique : un opérateur historique couvre la demande de la ville ; ton industrie l'élargit. Déficit = coupures qui ralentissent les usines ; tes centrales vendent au réseau au prix du marché.
-const ELEC_BASE = 30, PLANT_MWH = 12;
+const ELEC_BASE = 30, PLANT_MWH = 60;
 function gridMask() {
   const dist = new Int16Array(N * N).fill(-1), loss = new Float32Array(N * N), over = new Uint8Array(N * N), q = [], isL = c => c && (c.t === 'pylon' || c.t === 'cable'), rate = c => c.t === 'cable' ? 0.002 : 0.006;
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!isL(c)) continue; const x = i % N, y = (i / N) | 0; let edge = false; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (inb(x + dx, y + dy) && ZONE[idx(x + dx, y + dy)] === 1) edge = true; if (edge) { dist[i] = 0; loss[i] = rate(c); over[i] = c.t === 'pylon' ? 1 : 0; q.push(i); } }
@@ -1983,7 +2008,7 @@ function irEvent(k) {
   say(k === 'comm' && net <= 0 ? 'Communiqué mal reçu : tes résultats sont négatifs, le cours baisse.' : `${E.n} : le marché réagit positivement.`, k === 'comm' && net <= 0 ? 'bad' : 'good');
   updateHUD(); return true;
 }
-const IPO_MIN = 5000000;
+const IPO_MIN = 5000000 * K_SIZE;
 // Rayons : un magasin ne vend qu'un nombre limité de produits selon sa taille (4, 8 ou 12)
 const SLOTS = { s1: 4, s2: 8, s3: 12, immo: 4 };
 const slotsN = c => SLOTS[c.t] || 4;
@@ -1993,6 +2018,7 @@ function shelfKeys(c) {
   if (c.shelf) items = items.filter(k => c.shelf[k] !== false);
   return items.slice(0, slotsN(c));
 }
+const pfOfK = (c, key) => pfOf(c) * ((c.pk && c.pk[key]) || 1);
 const pfOf = c => (c.pf || 1) * (1 - 0.08 * ((S && S.pol && S.pol.price) || 0));
 // Indice de fréquentation (Customer Index) : six facteurs pondérés, 0 à 100, qui pilote directement l'affluence du magasin
 function custIndex(c) {
@@ -2018,10 +2044,11 @@ let bPick = -1;
 // Publicité : canaux, budgets quotidiens et notoriété du magasin
 const AD_CH = { tv: { n: 'Télévision', gain: 0.9, scale: 300, max: 1500, step: 50, d: 'Audience massive, très coûteuse. Idéale pour les grandes surfaces.' }, radio: { n: 'Radio', gain: 0.45, scale: 80, max: 500, step: 25, d: 'Peu chère, audience locale. Le meilleur rapport pour un petit marché.' }, net: { n: 'Internet', gain: 0.6, scale: 140, max: 800, step: 25, d: 'Ciblage précis, budget souple. Efficace partout.', rt: 0.3 }, press: { n: 'Presse écrite', gain: 0.25, rt: 0.55, scale: 60, max: 400, step: 20, d: 'Journaux locaux et nationaux : peu chère, elle soigne ta réputation et la perception de qualité.' }, infl: { n: 'Influenceurs réseaux sociaux', gain: 0.4, rt: 0.75, scale: 100, max: 600, step: 25, d: 'Fort impact sur l\'image et la fidélité, surtout chez les jeunes. Risque de bad buzz.' } };
 AD_CH.tv.rt = 0.2; AD_CH.radio.rt = 0.25;
+Object.keys(AD_CH).forEach(k => { AD_CH[k].max *= K_SIZE; AD_CH[k].step *= K_SIZE; });
 const AD_KEYS = ['tv', 'radio', 'press', 'net', 'infl'];
 const BRAND_STRAT = { unique: ['Marque unique par produit', 'Chaque produit a sa marque : meilleure perception de qualité (+15 %), mais la notoriété se construit produit par produit (−10 %).'], range: ['Marque de gamme', 'Une marque couvre une gamme de produits : équilibre entre coût et image.'], corp: ['Marque d\'entreprise', 'Une seule marque pour tout : la notoriété est partagée entre tous tes magasins (+15 %), mais une mauvaise image les touche tous.'] };
 const brandStrat = () => (S && S.brandStrat) || 'range';
-const adScaleOf = c => ({ s1: 1, s2: 2.2, s3: 4, immo: 1.5 })[c.t] || 1;
+const adScaleOf = c => (({ s1: 1, s2: 2.2, s3: 4, immo: 1.5 })[c.t] || 1) * K_SIZE;
 const adOf = c => c.ad || (c.ad = { tv: 0, radio: 0, net: 0 });
 const adSpend = c => TYPES[c.t].ret ? AD_KEYS.reduce((a, k) => a + (adOf(c)[k] || 0), 0) : 0;
 function adRt(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] || 0; pw += (AD_CH[k].rt || 0.2) * (1 - Math.exp(-b / (AD_CH[k].scale * adScaleOf(c)))); }); return pw; }
@@ -2053,7 +2080,7 @@ function fertility(x, y, k) { const d = S.dep[idx(x, y)], base = 0.6 + 0.6 * has
 const IRR_COST = [0, 1200, 2600, 4200], irrCost = l => Math.round(IRR_COST[l] * (casteIs('agriculteur') ? 0.7 : 1)), droughtNow = () => Math.max(0, -Math.sin((S.macro ? S.macro.phase : 0) * 1.7 + 1));
 function soilMult(c) { const k = TYPES[c.t].ext, irr = c.irr | 0, dr = droughtNow(); return fertility(c.x, c.y, k) * (casteIs('agriculteur') ? 1.08 : 1) * (1 + 0.1 * irr) * (1 - 0.35 * dr * (casteIs('agriculteur') ? 0.5 : 1) * (1 - irr / 3)); }
 const wasteOf = c => 0.05 * TM.waste / deptMult(c).stock;
-const FAC_U = 3.2;   // une usine traite FAC_U cycles de recette par jour
+const FAC_U = 3.2 * K_SIZE;   // une usine traite FAC_U cycles de recette par jour
 const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? FAC_U * powerMult() * (1 - clamp(0.0035 * (c.haul || 0), 0, 0.25)) : 1) * levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
 const jobsOf = c => TYPES[c.t].jobs * levelMult(c) * crewOf(c);
@@ -2153,7 +2180,7 @@ function step() {
   GKEYS.forEach(g => { made[g] = 0; want[g] = 2; });   // 2 = demande d'export de base
   const buildings = [];
   stepPower(); S._pSup = 0; S._pDraw = 0;
-  eachBuilding(c => { c.out = 0; c.inCost = 0; c.limit = null; c.util = 0; c.pRev = 0; c.wages = 0; c.transport = 0; if (c.conn && c.t !== 'npc') { buildings.push(c); const T0 = TYPES[c.t]; if (T0 && T0.jobs && c.t !== 'plant') S._pDraw += (T0.jobs0 || T0.jobs) * (FLEVEL[c.t] || c.t === 'foundry' ? 1.6 : T0.ext ? 1.2 : T0.ret ? 0.5 : 0.35); } });
+  eachBuilding(c => { c.out = 0; c.inCost = 0; c.limit = null; c.util = 0; c.pRev = 0; c.wages = 0; c.transport = 0; if (c.conn && c.t !== 'npc') { buildings.push(c); const T0 = TYPES[c.t]; if (T0 && T0.jobs && c.t !== 'plant') S._pDraw += (T0.jobs0 ? T0.jobs0 * K_SIZE : T0.jobs) * (FLEVEL[c.t] || c.t === 'foundry' ? 1.6 : T0.ext ? 1.2 : T0.ret ? 0.5 : 0.35); } });
 
   // 0. Les forêts repoussent lentement
   for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === 'wood' && d.r < DEPOSITS.wood.res) d.r = Math.min(DEPOSITS.wood.res, d.r + 8); else if (d && CROPS[d.k] && d.r < DEPOSITS[d.k].res) d.r = Math.min(DEPOSITS[d.k].res, d.r + 60); }
@@ -2231,7 +2258,7 @@ function step() {
     c.bq = (0.8 + 0.4 * clamp((0.55 * c.rt + 0.45 * c.loy) / 100, 0, 1)); c.pw *= c.bq; } });
   S._brandAvg = brandOf();
   const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF * c.pw; } }); return w > 0 ? s / w : 1; };
-  const importRate = Math.max(1.05, 1.25 - 0.04 * (cn.port || 0));   // les terminaux portuaires du joueur baissent le coût des importations
+  const importRate = Math.max(1.0, 1.04 - 0.01 * (cn.port || 0));   // les terminaux portuaires du joueur baissent le coût des importations
   let importCost = indImport, importUnits = 0;
   const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
   let revRetVal = 0;
@@ -2249,7 +2276,8 @@ function step() {
     items.forEach(it => {
       const key = it.k === 'g' ? 'g_' + cls : it.k, wi = Dc * it.attr / totalAttr, gen = it.k === 'g';
       const car = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0 && shelfOk(c, key); });
-      let need = wi, got = 0, stockLeft = it.stock, fromStock = 0;
+      const pfk = car.length ? car.reduce((a, c) => a + pfOfK(c, key), 0) / car.length : 1;
+      let need = wi * clamp(Math.pow(pfk / Math.max(0.5, car.length ? car.reduce((a, c) => a + pfOf(c), 0) / car.length : 1), -1.4), 0.3, 1.8), got = 0, stockLeft = it.stock, fromStock = 0;
       for (let pass = 0; pass < 2 && need > 1e-6; pass++) {
         const ws = car.reduce((a, c) => a + ((c._lc[cls] || 0) > 0.01 ? c._cap * c.adF * c.pw : 0), 0); if (ws <= 0) break;
         const n0 = need;
@@ -2258,13 +2286,13 @@ function step() {
           const share = n0 * c._cap * c.adF * c.pw / ws; let q = Math.min(share, c._lc[cls] || 0);
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * importRate / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
-          stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOf(c); c._cogs = (c._cogs || 0) + fs * it.price + (gen ? rest * it.price * importRate : 0); c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
+          stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key); c._cogs = (c._cogs || 0) + fs * it.price + (gen ? rest * it.price * importRate : 0); c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
         });
       }
       addressed[cls] += wi;
       if (gen) S.stock[cls] -= fromStock;
       else { const ps = S.prod[it.k]; ps.stock -= got; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
-      sold[cls] += got; revRetVal += got * it.price * retailMk(cls) * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOf(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
+      sold[cls] += got; revRetVal += got * it.price * retailMk(cls) * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOfK(c, key), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
     });
     if (cls !== 'estate') { want[cls] += dem[cls] * 0.5; made[cls] += dem[cls] * 0.47; }   // fournisseurs extérieurs : la ville n'est jamais en pénurie permanente
   });
@@ -2293,12 +2321,12 @@ function step() {
   let revExp = stepLocalMarket(made, want);
   const portN = cn.port || 0, expRate = Math.min(0.95, Math.max(0.6 + 0.15 * portN, (S.rivals && S.rivals.length) ? 0.78 : 0) * TM.export);
   { const wr = stepWarehouses(portN, expRate); importCost += wr.imp; revExp += wr.rev; }
-  { const tp = 6000 * (1 + 2.5 * portN) * (1 + 0.25 * (cn.wh || 0)); let used = 0;   // débit portuaire total par jour
-    GKEYS.forEach(g => { const thr = Math.max(1500, 0.5 * capFor(g)); let ex = Math.max(0, S.stock[g] - thr); if (!(ex > 0)) return;
-      const foreign = Math.max(800, (LOCAL_D[g] || 100) * 4 * (S.pop / 10000) * 0.1), q = Math.min(ex, Math.max(0, tp - used), foreign * 1.5); if (q <= 0) return; used += q;
+  { const tp = 30000 * (1 + 2.5 * portN) * (1 + 0.25 * (cn.wh || 0)); let used = 0;   // débit portuaire total par jour
+    GKEYS.forEach(g => { const thr = Math.max(7500, 0.5 * capFor(g)); let ex = Math.max(0, S.stock[g] - thr); if (!(ex > 0)) return;
+      const foreign = Math.max(4000, (LOCAL_D[g] || 100) * 4 * (S.pop / 10000) * 0.1), q = Math.min(ex, Math.max(0, tp - used), foreign * 1.5); if (q <= 0) return; used += q;
       S.stock[g] -= q; revExp += q * S.price[g] * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)) / (1 + 0.35 * q / foreign); S.expSold = S.expSold || {}; S.expSold[g] = q; });
     S._portUse = used; S._portCap = tp; }
-  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 2000); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } });
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 10000); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } });
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
   const P = S.price;
@@ -2306,19 +2334,19 @@ function step() {
   buildings.forEach(c => {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
     if (c.t === 'rd') { c._pat = (c._pat || 0) + u * 0.4 / 30; if (c._pat >= 1) { c._pat -= 1; S.patents = (S.patents || 0) + 1; say('Un brevet est déposé : il rapporte des royalties chaque jour.', 'gold'); } c.out = u; c.util = fill; c.pRev = 0; }
-    if (c.t === 'dc') { const rent = jobsOf(c) * 2000 * fill * (casteIs('innovateur') ? 1.5 : 1) * cpi(); c.out = 10 * u; c.util = fill; c.pRev = rent; revTech += rent; c.transport = 20 * u * cpi(); transportTotal += c.transport; }
+    if (c.t === 'dc') { const rent = jobsOf(c) * 1000 * fill * (casteIs('innovateur') ? 1.5 : 1) * cpi(); c.out = 10 * u; c.util = fill; c.pRev = rent; revTech += rent; c.transport = 20 * u * cpi(); transportTotal += c.transport; }
     if (isPlant(c.t)) {
       const storm = c.gridOver && (S.storm || 0) >= S.day, live = c.gridOk && !storm, loss = 1 - (c.gridLoss || 0), sf = 0.55 + 0.45 * Math.sin((S.day - 60) / 360 * 2 * Math.PI);
       let mwh = 0; c.limit = null; c.inCost = 0;
       if (c.t === 'plant') { const need = 40 * u, burn = live ? Math.min(need, Math.max(0, S.stock.coal)) : 0; S.stock.coal -= burn; want.coal += need; c.out = burn; c.util = need > 0 ? burn / need : 0; c.inCost = burn * S.price.coal; mwh = burn * PLANT_MWH * fillOf(c); if (live && burn < need - 1e-6) c.limit = 'coal'; }
-      else if (c.t === 'solar') { mwh = live ? 620 * u * sf * fillOf(c) : 0; c.out = mwh; c.util = sf; }
-      else if (c.t === 'wind') { mwh = live ? 360 * u * (S.wind || 0.6) * fillOf(c) : 0; c.out = mwh; c.util = S.wind || 0.6; }
-      else { mwh = live ? 3600 * u * fillOf(c) : 0; c.out = mwh; c.util = live ? fillOf(c) : 0; }
+      else if (c.t === 'solar') { mwh = live ? 3100 * u * sf * fillOf(c) : 0; c.out = mwh; c.util = sf; }
+      else if (c.t === 'wind') { mwh = live ? 1800 * u * (S.wind || 0.6) * fillOf(c) : 0; c.out = mwh; c.util = S.wind || 0.6; }
+      else { mwh = live ? 18000 * u * fillOf(c) : 0; c.out = mwh; c.util = live ? fillOf(c) : 0; }
       if (!c.gridOk) c.limit = 'grid'; else if (storm) c.limit = 'storm';
       mwh *= loss; S._pSup += mwh; c.pRev = mwh * (S.power ? S.power.price : ELEC_BASE) * (casteIs('negociant') ? 1.3 : 1); revTech += c.pRev;
     }
-    if (c.t === 'tech') { c.pRev = jobsOf(c) * 1500 * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
-    if (c.t === 'bank') { c.pRev = (jobsOf(c) * 1800 + Math.max(0, S.cash - (S.loan || 0)) * 0.0001) * qualMult(c); revBank += c.pRev; }
+    if (c.t === 'tech') { c.pRev = jobsOf(c) * 1100 * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
+    if (c.t === 'bank') { c.pRev = (jobsOf(c) * 1500 + Math.max(0, S.cash - (S.loan || 0)) * 0.0001) * qualMult(c); revBank += c.pRev; }
     if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
     if (c.t === 'wh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
     c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
@@ -3192,8 +3220,8 @@ const CONTRACT_TYPES = [
   { key: 'office',    name: 'Immeuble de bureaux (10 étages)',  kind: 'off', floors: 10, tier: 1, need: { concrete: 150, steel: 60,  plank: 20, osb: 20 },            reward: 8800,  days: 55 },
   { key: 'tower',     name: 'Tour de bureaux (20 étages)',      kind: 'off', floors: 20, tier: 2, need: { concrete: 360, steel: 150, osb: 30, plank: 30 },             reward: 22000, days: 80 }
 ];
-CONTRACT_TYPES.forEach(c => { Object.keys(c.need).forEach(g => { c.need[g] *= K_IND; }); c.reward *= K_IND; });
-TECHS.forEach(T => { T.c = Math.round(T.c * 6); });
+CONTRACT_TYPES.forEach(c => { Object.keys(c.need).forEach(g => { c.need[g] *= K_IND; }); c.reward *= K_IND * K_SIZE; });
+TECHS.forEach(T => { T.c = Math.round(T.c * 6 * K_SIZE); });
 const CLIENTS = ['Groupe Orion', 'Banque Helvetia', 'Logistique Delta', 'Immobilière du Port', 'Tech Horizon', 'Hôtels Meridian', 'Assurances Atlas'];
 function addNpcTower(kind, floors) {
   for (let t = 0; t < 600; t++) {
@@ -3782,7 +3810,8 @@ function bAct(a) {
   else if (a.indexOf('train:') === 0) { const k = a.slice(6), cst = trainCost(c, k); if (cst && S.cash >= cst) { S.cash -= cst; c.invest = investOf(c) + cst; c.train = c.train || {}; c.train[k] = (c.train[k] | 0) + 1; flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cst), t: performance.now(), col: '#ff8a8e' }); } }
   else if (a.indexOf('crop:') === 0) { const g = a.slice(5), nt = CROPS[g]; if (nt && nt !== c.t && S.cash >= 400) { S.cash -= 400; c.t = nt; c.born = performance.now() - 300; refreshStats(); } }
   else if (a === 'irr') { const cst = irrCost((c.irr | 0) + 1); if (cst && S.cash >= cst) { S.cash -= cst; c.irr = (c.irr | 0) + 1; c.invest = investOf(c) + cst; } }
-  else if (a.indexOf('opensup:') === 0) { openSup(c, a.slice(8)); return; }
+  else if (a.indexOf('opensup:') === 0) { supMode = 'sup'; openSup(c, a.slice(8)); return; }
+  else if (a.indexOf('adset:') === 0) { const [, ak, dd] = a.split(':'), C = AD_CH[ak]; if (C) { c.ad = c.ad || {}; c.ad[ak] = clamp((c.ad[ak] || 0) + (+dd) * C.step * (dd > 0 && !(c.ad[ak] > 0) ? 2 : 1), 0, C.max); } }
   else if (a.indexOf('supp:') === 0) { const g = a.split(':')[1], mm = a.slice(a.indexOf(':', 5) + 1); c.src = c.src || {}; c.src[g] = mm; }
   else if (a === 'imp') c.imp = c.imp === false ? true : false;
   else if (a.indexOf('slot:') === 0) { const i = +a.slice(5); bPick = bPick === i ? -1 : i; }
@@ -3796,7 +3825,9 @@ function bAct(a) {
   refreshStats(); updateHUD(); renderBuilding(true);
 }
 el('bview').addEventListener('input', e => { if (e.target.dataset && e.target.dataset.dept && bsel) { const c0 = cell(bsel.x, bsel.y); if (!c0) return; const k = e.target.dataset.dept, d = deptOf(c0), v = +e.target.value / 100, others = DEPTS.map(x => x[0]).filter(x => x !== k), rest = 1 - v, sum = others.reduce((a, x) => a + d[x], 0); others.forEach(x => { d[x] = sum > 0.001 ? d[x] / sum * rest : rest / 3; }); d[k] = v; DEPTS.forEach(([x]) => { const o = el('dv-' + x); if (o) o.textContent = Math.round(d[x] * 100) + ' %'; const sl = document.querySelector(`#bview input[data-dept="${x}"]`); if (sl && x !== k) sl.value = Math.round(d[x] * 100); }); return; } if (e.target.dataset && e.target.dataset.pf && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) c0.pf = +e.target.value / 100; return; } const k = e.target.dataset && e.target.dataset.ad; if (!k || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; adOf(c)[k] = +e.target.value; const o = el('adv-' + k); if (o) o.textContent = money(+e.target.value) + ' / jour'; });
-el('bview').addEventListener('change', e => { if (e.target.dataset && (e.target.dataset.ad || e.target.dataset.pf || e.target.dataset.dept)) { bvHtml = ''; updateHUD(); renderBuilding(true); } });
+el('bview').addEventListener('input', e => { const pk = e.target.dataset && e.target.dataset.pk; if (!pk || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.pk = c0.pk || {}; c0.pk[pk] = +e.target.value / 100; const o = el('pkv'); if (o) o.textContent = e.target.value + ' %'; });
+el('bview').addEventListener('change', e => { if (e.target.dataset && (e.target.dataset.pk || e.target.dataset.ad || e.target.dataset.pf || e.target.dataset.dept)) { bvHtml = ''; updateHUD(); renderBuilding(true); } });
+el('bview').addEventListener('dblclick', e => { const b = e.target.closest('[data-act^="slot:"]'); if (!b || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; supB = { x: c.x, y: c.y }; spI = +b.dataset.act.slice(5); supMode = 'slot'; el('supview').hidden = false; renderSlotPick(); });
 el('bview').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) bAct(b.dataset.act); });
 ['pointerdown'].forEach(t => el('bview').addEventListener(t, () => { bvDown = true; }, { passive: true }));
 ['pointerup', 'pointercancel'].forEach(t => window.addEventListener(t, () => { setTimeout(() => { bvDown = false; }, 60); }, { passive: true }));
@@ -4502,6 +4533,8 @@ function prodView(c, k, it) {
    <div style="flex:1;min-width:210px"><table class="fint"><tr><th>Courant</th><th>Toi</th><th>Moyenne ville</th></tr>${row('Marque', brand, cityB, brand >= cityB ? 'pos' : 'neg')}${row('Qualité', q, cityQ, q >= cityQ ? 'pos' : 'neg')}${row('Prix', f(price) + ' $', f(ref) + ' $', price <= ref ? 'pos' : 'neg')}${row('Note globale', ov(q, brand, price), ov(cityQ, cityB, ref), ov(q, brand, price) >= ov(cityQ, cityB, ref) ? 'pos' : 'neg')}</table></div></div>
    ${it.gen ? '' : (() => { const w = scoreW(cls), ps2 = S.prod[k]; return `<div class="finrow"><span>Poids d'achat de la catégorie</span><b>prix ${Math.round(w.price * 100)} % · qualité ${Math.round(w.quality * 100)} % · marque ${Math.round(w.brand * 100)} %</b></div><div class="finrow"><span>Adoption du produit · ${lifeStage(ps2)}</span><b>${Math.round(adoptOf(ps2) * 100)} %</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(adoptOf(ps2) * 100)}%"></i></div>`; })()}
    <div class="finrow"><span>Coût d'approvisionnement</span><b>${f(cost)} $</b></div><div class="finrow"><span>Marge unitaire</span><b class="${mg >= 0 ? 'pos' : 'neg'}">${mg >= 0 ? '+' : '−'}${f(Math.abs(mg))} $ (${Math.round(100 * mg / Math.max(0.01, price))} %)</b></div><div class="finrow"><span>Ventes / jour</span><b>${f1(sold)}</b></div><div class="finrow"><span>Stock · offre / demande</span><b>${fmt(it.stock)} · ${it.stock > sold * 3 ? 'offre abondante' : it.stock < sold ? 'pénurie' : 'équilibré'}</b></div>
+   <div class="lever" style="margin-top:8px"><h4>Prix de vente de ce produit <span class="pip" id="pkv">${Math.round(((c.pk && c.pk[k]) || 1) * 100)} %</span></h4><input type="range" data-pk="${k}" min="60" max="220" step="5" value="${Math.round(((c.pk && c.pk[k]) || 1) * 100)}" aria-label="Prix de vente"><small>100 % = prix de référence du magasin. Plus bas : plus de clients ; plus haut : plus de marge, moins de ventes (élasticité ${EL_CLS[cls]}).</small></div>
+   <div class="lever" style="margin-top:8px"><h4>Publicité du magasin</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${AD_KEYS.map(ak => { const b = ((c.ad || {})[ak]) || 0, C = AD_CH[ak]; return `<span style="display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:8px;padding:3px 6px"><button class="btn sec" data-act="adset:${ak}:-1" style="min-height:24px;padding:0 8px">−</button><span style="min-width:96px;text-align:center;font-size:11px"><b>${C.n}</b><br>${b ? money(b) + '/j' : 'coupé'}</span><button class="btn" data-act="adset:${ak}:1" style="min-height:24px;padding:0 8px">+</button></span>`; }).join('')}</div><small>Choisis tes canaux : télé, radio, presse, internet, influenceurs (détails dans l'onglet Publicité).</small></div>
    ${it.gen ? `<button class="btn" data-act="opensup:${cls}" style="margin-top:6px">Voir les fournisseurs…</button>` : ''}</div>`;
 }
 function shelfCard(c) {
@@ -4536,6 +4569,7 @@ el('bview').addEventListener('change', e => { const w = e.target.dataset && e.ta
 el('bview').addEventListener('change', e => { const sg = e.target.dataset && e.target.dataset.src; if (!sg || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.src = c0.src || {}; c0.src[sg] = e.target.value; bvHtml = ''; renderBuilding(true); });
 const supLabel = (mode, g) => mode === 'auto' ? 'Auto (stock local puis port)' : mode === 'local' ? 'Mon réseau' : (mode === 'port' || mode === 'import') ? 'Import par le port' : mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3)).name : mode;
 // Vue « Sélectionner un fournisseur » (comme Capitalism Lab) : fiches détaillées, filtres, négociation
+let supMode = 'sup', spI = -1;
 let supB = null, supG = null, supSel = null, supType = 'all', supSort = 'overall', supNeg = false;
 const supIns = c => recOf(c) ? Object.keys(recOf(c).in) : (TYPES[c.t].ret ? TYPES[c.t].ret.sells.filter(x => x !== 'estate') : []);
 function supCards(c, g) {
@@ -4549,7 +4583,16 @@ function supCards(c, g) {
     return { id: x.id, type: x.type, o, city, dist: Math.round(dist), supply, demand, overall, name: o.name };
   });
 }
+function renderSlotPick() {
+  const c = supB && cell(supB.x, supB.y); if (!c || el('supview').hidden) return;
+  const N = slotsN(c), all = shelfItems(c), keys = c.slots ? c.slots : shelfKeys(c).concat(Array(N).fill(null)).slice(0, N), placed = keys.filter(Boolean), f = v => v.toFixed(2).replace('.', ',');
+  const cards = all.filter(i => placed.indexOf(i.key) < 0).map(it => { const cls = it.gen ? it.key.slice(2) : PRODUCTS[it.key].cls, mk = retailMk(cls), price = it.price * mk;
+    const sup = it.gen ? `<select data-sps="${cls}" style="margin-top:4px;width:100%"><option value="auto">Fournisseur : automatique</option>${supCards(c, cls).map(x => `<option value="${x.id}" ${((c.src && c.src[cls]) || 'auto') === x.id ? 'selected' : ''}>${x.name} · ${f(x.o.total)} $ livré · Q${x.o.q}</option>`).join('')}</select>` : '<small>Fournisseur : ta propre production</small>';
+    return `<div class="sc" style="cursor:default"><div style="width:84px;height:84px;background:#fff;border-radius:6px;overflow:hidden;display:grid;place-items:center">${slotThumb(it.key)}</div><div><h5>${it.name.replace(' (génériques)', '')}</h5><div class="sg"><span>Prix en rayon<b>${f(price)} $</b></span><span>Coût de gros<b>${f(it.price)} $</b></span><span>Stock<b>${fmt(Math.round(it.stock))}</b></span><span>Marge<b>${Math.round((1 - 1 / mk) * 100)} %</b></span></div>${sup}</div><button class="btn" data-s="slotput:${it.key}">Mettre en rayon</button></div>`; }).join('');
+  el('supview').innerHTML = `<div class="sh"><span>EMPLACEMENT ${spI + 1} : CHOISIS LE PRODUIT ET LE FOURNISSEUR</span></div>${cards || '<p class="note">Tous les produits disponibles sont déjà en rayon.</p>'}<div class="sb"><span></span><button class="btn sec" data-s="cancel">Annuler</button></div>`;
+}
 function renderSup() {
+  if (supMode === 'slot') return renderSlotPick();
   const c = supB && cell(supB.x, supB.y); if (!c || el('supview').hidden) return;
   const ins = supIns(c); if (!ins.length) { el('supview').hidden = true; return; }
   if (ins.indexOf(supG) < 0) supG = ins[0];
@@ -4567,9 +4610,10 @@ function renderSup() {
   <div class="sf"><select data-sf="g">${ins.map(k => `<option value="${k}" ${k === g ? 'selected' : ''}>${gName(k)}</option>`).join('')}</select><select data-sf="type">${[['all', 'Tous les fournisseurs'], ['local', 'Mon réseau'], ['co', 'Compagnies'], ['foreign', 'Puissances étrangères'], ['import', 'Import']].map(([k, l]) => `<option value="${k}" ${k === supType ? 'selected' : ''}>${l}</option>`).join('')}</select><select data-sf="sort">${[['overall', 'Tri : note globale'], ['price', 'Tri : prix livré'], ['q', 'Tri : qualité'], ['dist', 'Tri : distance']].map(([k, l]) => `<option value="${k}" ${k === supSort ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
   ${cardsH}${negH}<div class="sb"><button class="btn sec" data-s="neg">Négocier</button><span><button class="btn sec" data-s="auto">Mode auto</button> <button class="btn" data-s="ok">SÉLECTIONNER</button> <button class="btn sec" data-s="cancel">Annuler</button></span></div>`;
 }
-function openSup(c, g) { supB = { x: c.x, y: c.y }; supG = g; supSel = null; supNeg = false; el('supview').hidden = false; renderSup(); }
+function openSup(c, g) { supMode = 'sup'; supB = { x: c.x, y: c.y }; supG = g; supSel = null; supNeg = false; el('supview').hidden = false; renderSup(); }
 el('supview').addEventListener('click', e => {
   const b = e.target.closest('[data-s]'); if (!b) return; const a = b.dataset.s, c = supB && cell(supB.x, supB.y); if (!c) return;
+  if (a.indexOf('slotput:') === 0) { const key = a.slice(8), N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[spI] = key; el('supview').hidden = true; supMode = 'sup'; bPick = -1; renderBuilding(true); save(); return; }
   const ins = supIns(c);
   if (a === 'cancel') { el('supview').hidden = true; return; }
   if (a === 'ok') { c.src = c.src || {}; if (supSel) c.src[supG] = supSel; el('supview').hidden = true; renderBuilding(true); save(); return; }
@@ -4581,7 +4625,7 @@ el('supview').addEventListener('click', e => {
     if (Math.random() < pr) { const d = (4 + 5 * Math.random() + days / 30) / 100, key = supG + ':' + (supSel.indexOf('co:') === 0 ? supSel.slice(3) : supSel); S.deals[key] = { m: 1 - d, until: S.day + days }; S.rel[supSel] = Math.min(100, rel + 8); say(`Accord obtenu : −${Math.round(d * 100)} % pendant ${days} jours.`, 'good'); } else { S.rel[supSel] = Math.min(100, rel + 3); say('Négociation échouée : le fournisseur campe sur ses prix.', 'warn'); } supNeg = false; } }
   renderSup();
 });
-el('supview').addEventListener('change', e => { const s = e.target.dataset.sf; if (!s) return; if (s === 'g') { supG = e.target.value; supSel = null; } else if (s === 'type') supType = e.target.value; else supSort = e.target.value; renderSup(); });
+el('supview').addEventListener('change', e => { if (e.target.dataset.sps) { const c = supB && cell(supB.x, supB.y); if (c) { c.src = c.src || {}; c.src[e.target.dataset.sps] = e.target.value; } return; } const s = e.target.dataset.sf; if (!s) return; if (s === 'g') { supG = e.target.value; supSel = null; } else if (s === 'type') supType = e.target.value; else supSort = e.target.value; renderSup(); });
 function purTab(c) {
   const rec = recOf(c); if (!rec) return '<p class="fnote">Ce bâtiment n\'achète rien.</p>';
   let h = `<p class="fnote">Comme dans Capitalism : choisis, pour chaque intrant, à quelle société tu achètes. Le prix livré = prix de la société + frais de transport selon la distance. L'import par le port est plus cher que ton réseau local (marge du port + fret long).</p>`;
