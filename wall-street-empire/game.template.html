@@ -2773,7 +2773,7 @@ function inspect(x, y) {
   const parts = [`${T.name} · ${T.sub}`];
   if (!c.conn) parts.push('non reliée à une route');
   else {
-    parts.push(`impôts +${fmt(c.rev)} $/jour`);
+    parts.push(`impôts +${money(c.rev * 30)}/mois`);
     if (T.jobs) parts.push(`${Math.round(T.jobs * levelMult(c))} emplois`);
     if (c.t === 'res') parts.push(`${6 + 4 * c.floors} logements, ${c.floors} étages`);
     else parts.push(`niveau ${(c.lvl || 0) + 1}/${MAX_LVL + 1}`);
@@ -2821,7 +2821,7 @@ function updateHUD() {
   el('vCash').textContent = money(S.cash);
   el('vCash').className = S.cash < 0 ? 'neg' : '';
   const net = st.net || 0;
-  const mo = monthSums(S.m30); el('vNet').textContent = (net >= 0 ? '+' : '') + fmt(net) + ' $/jour' + (mo ? ' · CA ' + money(mo.ca) + '/mois' : ''); el('vNet').title = mo ? `Sur ${mo.n} jours, ramené à 30 jours : CA ${money(mo.ca)}, EBE ${money(mo.ebe)}, résultat net ${money(mo.net)}` : '';
+  const mo = monthSums(S.m30); el('vNet').textContent = mo ? (mo.net >= 0 ? '+' : '') + money(mo.net) + '/mois · CA ' + money(mo.ca) : (net >= 0 ? '+' : '') + money(net * 30) + '/mois (est.)'; el('vNet').title = mo ? `Sur ${mo.n} jours, ramené à 30 jours : CA ${money(mo.ca)}, EBE ${money(mo.ebe)}, résultat net ${money(mo.net)}` : '';
   el('vNet').className = net >= 0 ? 'pos' : 'neg';
   el('vCap').textContent = money(st.worth || S.cash);
   { const px = S.float > 0 ? (st.raw || 0) * (S.prem || 1.1) / SHARES : 0; el('vPx').textContent = S.float > 0 ? `action ${px.toFixed(2).replace('.', ',')} $` : 'non cotée'; el('vPx').className = 'gold'; }
@@ -3038,7 +3038,7 @@ function renderProdScreen() {
     return `<div class="pmcard"><span class="rth">${gThumb(pk)}</span><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap"><span><b>${pr.name}</b> <small style="color:var(--mut)">${ps.st === 'on' ? CLSN[pr.cls] + ' · ' + lifeStage(ps) : 'R&D en cours'}</small></span><span><button class="btn ${gmode === 'qty' ? '' : 'sec'}" data-pg="qty" style="min-height:22px;padding:1px 8px;font-size:10.5px">Quantité vendue</button> <button class="btn ${gmode === 'rev' ? '' : 'sec'}" data-pg="rev" style="min-height:22px;padding:1px 8px;font-size:10.5px">Chiffre d'affaires</button></span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0"><div style="flex:1;min-width:180px">${spark(hist, gmode === 'rev' ? '#f2b84b' : '#46d39a')}<small style="color:var(--mut)">${gmode === 'rev' ? 'CA de détail' : 'Unités vendues'} par mois · 12 derniers mois</small></div><div style="text-align:center"><canvas id="prd-${pk}" width="64" height="64"></canvas><br><small>Production</small></div><div style="text-align:center"><canvas id="pie-${pk}" width="64" height="64" title="Part de marché de la catégorie"></canvas><br><small>Détail</small></div></div>
       <table><tr><th></th><th>Local (toi)</th><th>Moyenne</th><th>Concern</th></tr>${row('Prix en rayon', money(loc), money(avg), Math.round(W.price * 100) + ' %', loc <= avg)}${row('Qualité', Math.round(sc.quality), cityQ, Math.round(W.quality * 100) + ' %', sc.quality >= cityQ)}${row('Marque', Math.round(sc.brand), Math.round(clamp(rivB * 0.6, 0, 80)), Math.round(W.brand * 100) + ' %', sc.brand >= rivB * 0.6)}${row('Note globale', Math.round(sc.overall), ovAvg, '', sc.overall >= ovAvg)}</table>
-      <small>Vendu : <b>${fmt(Math.round(ps.sold || 0))}</b> u/jour · <b>${fmt(Math.round(ps.qm || 0))}</b> u/mois · CA de détail <b>${money(ps.rm || 0)}</b>/mois · stock ${fmt(Math.round(ps.stock || 0))} · fidélité ${Math.round(ps.loy || 0)} · publicité ${padSpend(ps) ? money(padSpend(ps)) + '/j' : 'aucune'}</small></div></div>`; }).join('');
+      <small>Vendu : <b>${fmt(Math.round(ps.qm || 0))}</b> u/mois · CA de détail <b>${money(ps.rm || 0)}</b>/mois · stock ${fmt(Math.round(ps.stock || 0))} · fidélité ${Math.round(ps.loy || 0)} · publicité ${padSpend(ps) ? money(padSpend(ps) * 30) + '/mois' : 'aucune'}</small></div></div>`; }).join('');
   const h = cards || '<p class="note">Aucun produit lancé. Utilise « Choisir la production » dans une usine pour développer un produit.</p>';
   if (el('prodscreen').dataset.h !== h) { el('prodscreen').innerHTML = h; el('prodscreen').dataset.h = h; }
   on.forEach(pk => { const cp = el('prd-' + pk), mp = mk[PRODUCTS[pk].cls]; if (cp && mp) { const ps = S.prod[pk], rivU = mp.riv.reduce((a, r) => a + r.s, 0) * ((S.stats && S.stats.dem && S.stats.dem[PRODUCTS[pk].cls]) || 1), mine = ps.made || ps.sold || 0; drawPie(cp, [[mine, '#f2b84b'], [rivU, '#ff4fa3'], [Math.max(0, ((S.stats && S.stats.dem && S.stats.dem[PRODUCTS[pk].cls]) || 1) * 0.2), '#3b4262']]); }
