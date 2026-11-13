@@ -2311,6 +2311,7 @@ function step() {
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._capNom = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; c._cap = c._capNom; retUnits += R.cap * u; const df = clamp(Math.pow(pfOf(c), -1.6) * (0.45 + 0.9 * (c.ci == null ? 0.5 : c.ci)) * 0.8, 0.1, 1); c._cap *= df; c._df = df;
     const SH = { s1: { basic: 1 }, s2: { basic: 0.62, std: 0.38 }, s3: { basic: 0.45, std: 0.35, lux: 0.2 }, s4: { basic: 0.45, std: 0.35, lux: 0.2 }, immo: { estate: 1 } }[c.t] || null; c._lc = {};
     R.sells.forEach(k2 => { c._lc[k2] = c._cap * (SH ? (SH[k2] || 0) : 1 / R.sells.length); });
+    c._lcI = Object.assign({}, c._lc);
     c._left = c._cap; c._sold = 0; c._rev = 0; c._cogs = 0; c._cl = 0; c._imp = 0; c.sales = {}; } });
   buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow((1 + 0.002 * (c.rt || 0)) / pfOf(c), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (c.ci = custIndex(c).idx, 0.6 + 0.9 * c.ci); const st = brandStrat(); c.aw = clamp((c.aw || 0) + (adTarget(c) * (st === 'corp' ? 1.15 : st === 'unique' ? 0.9 : 1) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c);
     const rtT = clamp(0.5 * 100 * clamp(adRt(c) / 1.2, 0, 1) + 0.5 * (prodQualityScore() + 8 * (c.qual || 0)), 0, 100) * (st === 'unique' ? 1.15 : 1);
@@ -2336,6 +2337,7 @@ function step() {
     const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length)) * (sh0.length ? clamp(Math.pow(pfAvg, -EL_CLS[cls]), 0.5, 1.6) : 1);
     Dtot[cls] = Dc; rivalPart[cls] = Dc * RIVAL / totalAttr;
     items.sort((a, b) => (a.k === 'g' ? 1 : 0) - (b.k === 'g' ? 1 : 0));   // tes produits d'abord, les marchandises génériques ensuite
+    buildings.forEach(c => { const R = TYPES[c.t].ret; if (!R || R.sells.indexOf(cls) < 0 || !c._lc) return; let s = 0; items.forEach(it => { if (shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)) s += it.attr; }); (c._sa || (c._sa = {}))[cls] = s || 1; });
     items.forEach(it => {
       const key = it.k === 'g' ? 'g_' + cls : it.k, wi = Dc * it.attr / totalAttr, gen = it.k === 'g';
       const car = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0 && shelfOk(c, key); });
@@ -2346,7 +2348,7 @@ function step() {
         const n0 = need;
         car.forEach(c => {
           if ((c._lc[cls] || 0) <= 0.01) return;
-          const share = n0 * c._cap * c.adF * c.pw / ws; let q = Math.min(share, c._lc[cls] || 0);
+          const share = n0 * c._cap * c.adF * c.pw / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * Math.pow(Math.max(0.4, (c.pk && c.pk[key]) || 1), -EL_CLS[cls]) - (c.sales[key] || 0); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem));
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * importRate / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
           stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key); c._cl += fs * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
@@ -2362,7 +2364,7 @@ function step() {
   buildings.forEach(c => {
     const R = TYPES[c.t].ret; if (!R) return;
     c._inImpR = c.inCost || 0; c.inCost = c._inImpR + c._cl; c._cogs = c.inCost;   // coût des marchandises vendues = import (décaissé) + stock local au prix de gros (transfert interne)
-    c.out = c._sold; c.util = c._capNom > 0 ? clamp(c._sold / c._capNom, 0, 1) : 0;   // utilisation nominale : _cap est déjà réduit par la demande (c._df), donc 100 % ne voudrait rien dire
+    c.out = c._sold; c.sm = c.sm || {}; Object.keys(c.sm).forEach(k => { c.sm[k] *= 29 / 30; }); Object.keys(c.sales || {}).forEach(k => { c.sm[k] = (c.sm[k] || 0) + c.sales[k]; }); c.util = c._capNom > 0 ? clamp(c._sold / c._capNom, 0, 1) : 0;   // utilisation nominale : _cap est déjà réduit par la demande (c._df), donc 100 % ne voudrait rien dire
     if (c.out > 0.01) c.limit = c._sold >= 0.96 * c._capNom ? 'capacity' : fillOf(c) < 0.97 ? 'staff' : 'demand';
     else {
       let on = 0, avail = false;
@@ -2498,6 +2500,9 @@ function step() {
       const satP = ps.stock > ps.sold ? 100 : 40;
       ps.loy = clamp((ps.loy || 0) + ((0.5 * ps.rt + 0.3 * satP + 0.2 * productScore(pk).price) - (ps.loy || 0)) * 0.02, 0, 100);
       ps.ph.push(ps.share * 100); if (ps.ph.length > 40) ps.ph.shift();
+      { const key = pk; let rr = 0; buildings.forEach(c => { const q = c.sales && c.sales[key]; if (q) rr += q * prodPrice(pk) * retailMk(PRODUCTS[pk].cls) * pfOfK(c, key); });
+        ps.rr = rr; ps.qm = (ps.qm || 0) * (29 / 30) + (ps.sold || 0); ps.rm = (ps.rm || 0) * (29 / 30) + rr; ps._bq = (ps._bq || 0) + (ps.sold || 0); ps._br = (ps._br || 0) + rr;
+        if (S.day % 30 === 29) { (ps.hq || (ps.hq = [])).push(ps._bq); (ps.hr || (ps.hr = [])).push(ps._br); ps._bq = 0; ps._br = 0; if (ps.hq.length > 36) { ps.hq.shift(); ps.hr.shift(); } } }
     } else if (ps.st === 'rnd') {
       ps.rnd -= PRODUCTS[pk].pharma ? TM.pharma * (1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto')) : 1;
       if (ps.rnd <= 0) { ps.st = 'on'; ps.pf = 1; ps.A = 0.03; ps.age = 0; ps._q = ps.q; say(`Produit lancé : ${PRODUCTS[pk].name}. Affecte-lui des usines dans la vue Produits.`, 'gold'); }
@@ -3006,15 +3011,23 @@ function drawPie(cv, segs) {
   let a = -Math.PI / 2; const tot = segs.reduce((s, x) => s + x[0], 0) || 1;
   segs.forEach(([v, col]) => { const d = v / tot * Math.PI * 2; if (d > 0.001) { g.beginPath(); g.moveTo(W2 / 2, H2 / 2); g.arc(W2 / 2, H2 / 2, r, a, a + d); g.closePath(); g.fillStyle = col; g.fill(); } a += d; });
 }
+if (el('prodscreen')) el('prodscreen').addEventListener('click', e => { const b = e.target.closest('[data-pg]'); if (!b) return; S.prodGraph = b.dataset.pg; el('prodscreen').dataset.h = ''; renderProdScreen(); });
 function renderProdScreen() {
   if (el('prodscreen').closest('section').hidden) return;
   const on = PKEYS.filter(pk => S.prod[pk].st !== 'locked');
   const mk = S.mkt || {};
-  const cards = on.map(pk => { const pr = PRODUCTS[pk], ps = S.prod[pk], avgP = pr.ref * QTIER[1].ref * cpi(), m = mk[pr.cls];
-    return `<div class="pmcard"><span class="rth">${gThumb(pk)}</span><div><b>${pr.name}</b> <small style="color:var(--mut)">${ps.st === 'on' ? CLSN[pr.cls] : 'R&D en cours'}</small><table><tr><th>Note globale ${Math.round(productScore(pk).overall)} / 100</th><th>Score</th><th>Poids</th></tr><tr><td>Prix</td><td>${Math.round(productScore(pk).price)}</td><td>${Math.round(productScore(pk).w.price * 100)} %</td></tr><tr><td>Qualité</td><td>${Math.round(productScore(pk).quality)}</td><td>${Math.round(productScore(pk).w.quality * 100)} %</td></tr><tr><td>Marque</td><td>${Math.round(productScore(pk).brand)}</td><td>${Math.round(productScore(pk).w.brand * 100)} %</td></tr></table><table><tr><th></th><th>Toi</th><th>Marché moyen</th></tr><tr><td>Prix</td><td>${f1(prodPrice(pk))} $</td><td>${f1(avgP)} $</td></tr><tr><td>Qualité</td><td>${QTIER[ps.q].q}</td><td>${QTIER[1].q}</td></tr><tr><td>Notoriété</td><td>${Math.round(ps.brand)}</td><td>40</td></tr><tr><td>Fidélité · perception</td><td>${Math.round(ps.loy || 0)} · ${Math.round(ps.rt == null ? QTIER[ps.q].q : ps.rt)}</td><td>—</td></tr><tr><td>Publicité</td><td>${padSpend(ps) ? money(padSpend(ps)) + '/j' : 'aucune'}</td><td>—</td></tr><tr><td>Ventes / j</td><td>${f1(ps.sold || 0)}</td><td>stock ${fmt(ps.stock)}</td></tr></table></div><canvas id="pie-${pk}" width="100" height="100" title="Part de marché de la catégorie"></canvas></div>`; }).join('');
+  const gmode = S.prodGraph || 'qty', spark = (arr, col) => { const w = 250, h = 64; if (!arr || arr.length < 2) return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="64"><text x="8" y="36" fill="#8f9acb" font-size="11">Historique en cours (1 point par mois)</text></svg>`; const mx = Math.max(...arr, 1), pts = arr.map((v, i) => `${(i / (arr.length - 1) * (w - 8) + 4).toFixed(1)},${(h - 6 - v / mx * (h - 14)).toFixed(1)}`).join(' '); return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="64"><polyline fill="none" stroke="${col}" stroke-width="2" points="${pts}"/><text x="4" y="10" fill="#cfe0ff" font-size="10">${fmt(Math.round(mx))}</text></svg>`; };
+  const cards = on.map(pk => { const pr = PRODUCTS[pk], ps = S.prod[pk], m = mk[pr.cls], sc = productScore(pk), W = sc.w, mkp = retailMk(pr.cls), loc = prodPrice(pk) * mkp, avg = pr.ref * QTIER[1].ref * cpi() * mkp, rivB = (S.rivals || []).length ? 100 * (S.rivals.reduce((a, r) => a + (r.att[pr.cls] || 0), 0) / S.rivals.length) * 3 : 0;
+    const cityQ = { basic: 45, std: 55, lux: 70, estate: 60 }[pr.cls] || 50, ovAvg = Math.round(W.price * 50 + W.quality * cityQ + W.brand * clamp(rivB * 0.6, 0, 80)), hist = gmode === 'rev' ? (ps.hr || []).concat([ps._br || 0]) : (ps.hq || []).concat([ps._bq || 0]);
+    const row = (l, a, b2, c2, good) => `<tr><td>${l}</td><td class="${good == null ? '' : good ? 'pos' : 'neg'}">${a}</td><td>${b2}</td><td>${c2}</td></tr>`;
+    return `<div class="pmcard"><span class="rth">${gThumb(pk)}</span><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap"><span><b>${pr.name}</b> <small style="color:var(--mut)">${ps.st === 'on' ? CLSN[pr.cls] + ' · ' + lifeStage(ps) : 'R&D en cours'}</small></span><span><button class="btn ${gmode === 'qty' ? '' : 'sec'}" data-pg="qty" style="min-height:22px;padding:1px 8px;font-size:10.5px">Quantité vendue</button> <button class="btn ${gmode === 'rev' ? '' : 'sec'}" data-pg="rev" style="min-height:22px;padding:1px 8px;font-size:10.5px">Chiffre d'affaires</button></span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0"><div style="flex:1;min-width:180px">${spark(hist, gmode === 'rev' ? '#f2b84b' : '#46d39a')}<small style="color:var(--mut)">${gmode === 'rev' ? 'CA de détail' : 'Unités vendues'} par mois · 12 derniers mois</small></div><div style="text-align:center"><canvas id="prd-${pk}" width="64" height="64"></canvas><br><small>Production</small></div><div style="text-align:center"><canvas id="pie-${pk}" width="64" height="64" title="Part de marché de la catégorie"></canvas><br><small>Détail</small></div></div>
+      <table><tr><th></th><th>Local (toi)</th><th>Moyenne</th><th>Concern</th></tr>${row('Prix en rayon', money(loc), money(avg), Math.round(W.price * 100) + ' %', loc <= avg)}${row('Qualité', Math.round(sc.quality), cityQ, Math.round(W.quality * 100) + ' %', sc.quality >= cityQ)}${row('Marque', Math.round(sc.brand), Math.round(clamp(rivB * 0.6, 0, 80)), Math.round(W.brand * 100) + ' %', sc.brand >= rivB * 0.6)}${row('Note globale', Math.round(sc.overall), ovAvg, '', sc.overall >= ovAvg)}</table>
+      <small>Vendu : <b>${fmt(Math.round(ps.sold || 0))}</b> u/jour · <b>${fmt(Math.round(ps.qm || 0))}</b> u/mois · CA de détail <b>${money(ps.rm || 0)}</b>/mois · stock ${fmt(Math.round(ps.stock || 0))} · fidélité ${Math.round(ps.loy || 0)} · publicité ${padSpend(ps) ? money(padSpend(ps)) + '/j' : 'aucune'}</small></div></div>`; }).join('');
   const h = cards || '<p class="note">Aucun produit lancé. Utilise « Choisir la production » dans une usine pour développer un produit.</p>';
   if (el('prodscreen').dataset.h !== h) { el('prodscreen').innerHTML = h; el('prodscreen').dataset.h = h; }
-  on.forEach(pk => { const cv = el('pie-' + pk); if (!cv) return; const m = mk[PRODUCTS[pk].cls]; if (!m) return; drawPie(cv, [[m.you, '#f2b84b']].concat(m.riv.map(r => { const rv = (S.rivals || []).find(x => x.id === r.id); return [r.s, rv ? rv.col : '#888']; })).concat([[Math.max(0, 1 - m.you - m.riv.reduce((a, r) => a + r.s, 0)), '#3b4262']])); });
+  on.forEach(pk => { const cp = el('prd-' + pk), mp = mk[PRODUCTS[pk].cls]; if (cp && mp) { const ps = S.prod[pk], rivU = mp.riv.reduce((a, r) => a + r.s, 0) * ((S.stats && S.stats.dem && S.stats.dem[PRODUCTS[pk].cls]) || 1), mine = ps.made || ps.sold || 0; drawPie(cp, [[mine, '#f2b84b'], [rivU, '#ff4fa3'], [Math.max(0, ((S.stats && S.stats.dem && S.stats.dem[PRODUCTS[pk].cls]) || 1) * 0.2), '#3b4262']]); }
+    const cv = el('pie-' + pk); if (!cv) return; const m = mk[PRODUCTS[pk].cls]; if (!m) return; drawPie(cv, [[m.you, '#f2b84b']].concat(m.riv.map(r => { const rv = (S.rivals || []).find(x => x.id === r.id); return [r.s, rv ? rv.col : '#888']; })).concat([[Math.max(0, 1 - m.you - m.riv.reduce((a, r) => a + r.s, 0)), '#3b4262']])); });
 }
 /* ---------- Vue d'ensemble de la chaîne d'approvisionnement ---------- */
 let svHtml = '';
@@ -4806,7 +4819,7 @@ function prodView(c, k, it) {
    <small style="display:block;margin-top:4px">${legend}</small>
    <div class="finrow"><span>Poids d'achat de la catégorie</span><b>prix ${Math.round(w.price * 100)} % · qualité ${Math.round(w.quality * 100)} % · marque ${Math.round(w.brand * 100)} %</b></div>
    ${it.gen ? '' : `<div class="finrow"><span>Adoption du produit · ${lifeStage(ps)}</span><b>${Math.round(adoptOf(ps) * 100)} %</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(adoptOf(ps) * 100)}%"></i></div>`}
-   <div class="finrow" title="${costNote}"><span>Coût d'approvisionnement <small>(${costNote})</small></span><b>${f(cost)} $</b></div><div class="finrow"><span>Marge unitaire</span><b class="${mg >= 0 ? 'pos' : 'neg'}">${mg >= 0 ? '+' : '−'}${f(Math.abs(mg))} $ (${Math.round(100 * mg / Math.max(0.01, price))} %)</b></div><div class="finrow"><span>Ventes / jour</span><b>${f1(sold)}</b></div><div class="finrow"><span>Stock · offre / demande</span><b>${fmt(it.stock)} · ${it.stock > sold * 3 ? 'offre abondante' : it.stock < sold ? 'pénurie' : 'équilibré'}</b></div>
+   <div class="finrow" title="${costNote}"><span>Coût d'approvisionnement <small>(${costNote})</small></span><b>${f(cost)} $</b></div><div class="finrow"><span>Marge unitaire</span><b class="${mg >= 0 ? 'pos' : 'neg'}">${mg >= 0 ? '+' : '−'}${f(Math.abs(mg))} $ (${Math.round(100 * mg / Math.max(0.01, price))} %)</b></div><div class="finrow"><span>Ventes / jour · par mois</span><b>${f1(sold)} · ${fmt(Math.round((c.sm && c.sm[k]) || 0))}</b></div><div class="finrow"><span>Stock · offre / demande</span><b>${fmt(it.stock)} · ${it.stock > sold * 3 ? 'offre abondante' : it.stock < sold ? 'pénurie' : 'équilibré'}</b></div>
    <div class="lever" style="margin-top:8px"><h4>Prix de vente de ce produit <span class="pip" id="pkv">${Math.round(((c.pk && c.pk[k]) || 1) * 100)} %</span></h4><input type="range" data-pk="${k}" min="60" max="220" step="5" value="${Math.round(((c.pk && c.pk[k]) || 1) * 100)}" aria-label="Prix de vente"><small>100 % = prix de référence du magasin. Plus bas : plus de clients ; plus haut : plus de marge, moins de ventes (élasticité ${EL_CLS[cls]}).</small></div>
    ${it.gen ? `<p class="note" style="margin:8px 0">Les marchandises génériques n'ont pas de marque : lance ton propre produit dans Produits.</p>` : padHtml(k)}
    ${it.gen ? `<button class="btn" data-act="opensup:${cls}" style="margin-top:6px">Voir les fournisseurs…</button>` : ''}</div>`;
