@@ -802,7 +802,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 
 /* ---------- Constantes ---------- */
 const N = 96, TW = 132, TH = 66, FH = 32, DAY_MS = 2000, START = { x: 74, y: 63 };
-const SAVE_KEY = 'wse-city-v7';
+const SAVE_KEY = 'wse-city-v8';
 const SUMMER_TINT = 'rgba(112,188,92,.30)';   // herbe d'été : saison unique
 const ZONE_TINT = ['rgba(112,188,92,.30)', 'rgba(205,208,222,.30)', 'rgba(128,122,130,.45)', '', 'rgba(96,102,118,.55)'];   // campagne, ville, zone portuaire, mer, quai
 const ZONE_COL = [[58, 92, 66], [96, 100, 125], [96, 90, 98], [34, 86, 152], [82, 86, 106]];
@@ -852,7 +852,7 @@ const GOODS = {
 };
 const GRP_NAME = { raw: 'MATIÈRES PREMIÈRES', comp: 'COMPOSANTS ET INTERMÉDIAIRES', goods: 'MARCHANDISES' };
 const GKEYS = Object.keys(GOODS);
-const STOCK_CAP = 120;
+const STOCK_CAP = 3000;
 
 // Gisements : réserve par case
 const DEPOSITS = {
@@ -1028,12 +1028,12 @@ function stepLocalMarket(made, want) {
   Object.keys(LOCAL_D).forEach(g => {
     if (!GOODS[g]) return;
     const Dl = LOCAL_D[g] * (S.pop / 10000) * gdpm * clamp(Math.pow(Math.max(0.2, (S.price[g] || GOODS[g].base) / (GOODS[g].base * cpi())), -elRaw(g)), 0.4, 1.8), n = npcs[g] || (npcs[g] = { cap: 0, days: 0 });
-    if (n.cap > 0) { const c0 = n.cap; n.cap = Math.min(Dl * (0.9 + 0.05 * dif), n.cap * (1 + 0.004 * (1 + dif))); if (CROPS[g] && Math.floor(n.cap / (Dl * 0.2)) > Math.floor(c0 / (Dl * 0.2)) && Math.random() < 0.6) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); }
+    if (n.cap > 0) { const c0 = n.cap; n.cap = Math.min(Dl * ROOM * (1.4 + 0.1 * dif), n.cap * (1 + 0.004 * (1 + dif))); if (CROPS[g] && Math.floor(n.cap / (Dl * 0.2)) > Math.floor(c0 / (Dl * 0.2)) && Math.random() < 0.6) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); }
     const hadSale = (S.locSold[g] || 0) > 5; n.days = hadSale ? n.days + 1 : Math.max(0, n.days - 1);
-    if (!n.cap && n.days > 18 && Math.random() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * 0.3; if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
-    const myCap = Math.max(1, made[g] + Math.max(0, S.stock[g] - 30) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1;
-    want[g] += Dl; made[g] += n.cap;
-    const avail = Math.max(0, S.stock[g] - 30), q = Math.min(avail, Dl * share);
+    if (!n.cap && n.days > 18 && Math.random() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * ROOM * 0.5; if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
+    const myCap = Math.max(1, made[g] + Math.max(0, S.stock[g] - 750) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1;
+    want[g] += Dl * ROOM; made[g] += n.cap + 0.9 * Dl * ROOM;
+    const avail = Math.max(0, S.stock[g] - 750), q = Math.min(avail, Dl * ROOM * share);
     S.locSold[g] = q; if (q > 0.01) { S.stock[g] -= q; v += q * S.price[g] * 0.97; }
   });
   return v;
@@ -1155,6 +1155,25 @@ function attractiveness(pk) {
   return Math.pow(productScore(pk).overall / 50, 1.6) * 1.6 * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth * (0.2 + 0.8 * adoptOf(ps));
 }
 
+// ===== ÉCHELLE ÉCONOMIQUE (audit « Chief Architect ») : population ~340 k, volumes industriels ×25, capex ≈ 1 an de chiffre d'affaires à pleine charge
+const K_POP = 30, K_IND = 25, RETAIL_MARKUP = 1.5, ROOM = 0.08;
+(function applyScale() {
+  const R2 = o => { Object.keys(o).forEach(g => { o[g] *= K_IND; }); };
+  Object.keys(RECIPES).forEach(k => { R2(RECIPES[k].in); RECIPES[k].out *= K_IND; });
+  PKEYS.forEach(k => { R2(PRODUCTS[k].in); PRODUCTS[k].out *= K_IND; PRODUCTS[k].rnd = Math.round(PRODUCTS[k].rnd * 10); });
+  ['foundry', 'f1', 'f2', 'f3'].forEach(k => { const rc = TYPES[k].rec; R2(rc.in); R2(rc.out); TYPES[k].jobs0 = TYPES[k].jobs; TYPES[k].jobs *= 10; });
+  const setC = (k, cost, up) => { TYPES[k].cost = cost; TYPES[k].upkeep = up; };
+  setC('f1', 150000, 60); setC('f2', 400000, 160); setC('f3', 1200000, 480); setC('foundry', 250000, 100);
+  setC('s1', 70000, 50); setC('s2', 350000, 140); setC('s3', 1200000, 400);
+  TYPES.s1.ret.cap = 10; TYPES.s2.ret.cap = 40; TYPES.s3.ret.cap = 90;
+  ['res', 'tech', 'wh', 'rd', 'dc', 'hq', 'bank', 'btp', 'immo', 'port'].forEach(k => { TYPES[k].cost *= 30; TYPES[k].upkeep *= 30; });
+  // extraction : capex ≈ 0,9 × chiffre d'affaires annuel à pleine charge
+  Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; T.jobs0 = T.jobs; T.jobs *= 4;
+    const rate = { well: 400, miron: 350, mcoal: 350 }[k] || T.rate * 5; T.rate = rate; const gp = GOODS[T.ext].base * (GOODS[T.ext].grp === 'raw' ? 1.25 : 1);
+    T.cost = Math.round(0.9 * rate * gp * 360 / 5000) * 5000; T.upkeep = Math.round(T.cost * 0.0004); });
+  Object.keys(DEPOSITS).forEach(k => { DEPOSITS[k].res *= 5; });
+  TIERS.forEach(x => { x.at *= 4; });
+})();
 const ICONS = {
   view: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
   road: '<path d="M8 3l-3 18M16 3l3 18"/><path d="M12 4v3M12 10.5v3M12 17v3"/>',
@@ -1245,7 +1264,8 @@ const MISSIONS = [
   { id: 'w2', t: 'Capitalisation de 3,5 M$ : tu deviens Industriel',   r: 60000, ok: c => c.worth >= 3.5e6 },
   { id: 'w3', t: 'Capitalisation de 12,5 M$ : tu deviens Magnat',      r: 150000, ok: c => c.worth >= 12.5e6 },
   { id: 'm16', t: 'Devenir Oligarque (35 M$)',                      r: 0,     ok: c => c.worth >= 35000000 }
-];
+];MISSIONS.forEach(m => { m.r *= 5; });
+
 
 /* ---------- Atlas de sprites (CC0, Kenney) ---------- */
 const ATLAS = new Image();
@@ -1436,9 +1456,9 @@ function newCity() {
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
   const npc = genNpc(grid);
-  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
-  S0.pop = Math.round(npc.cap * 0.85);
-  S0.cash = 1000000;
+  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap * K_POP / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
+  S0.pop = Math.round(npc.cap * K_POP * 0.85);
+  S0.cash = 3000000;
   return S0;
 }
 function save() {
@@ -1479,7 +1499,7 @@ function load() {
     };
     S0.cm = d.cm || {};
     S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
-    S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
+    S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
     GKEYS.forEach(g => {
@@ -1546,7 +1566,7 @@ function evaluate() {
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') { roads++; if (c.own) ownRoads++; } }
   const lm = linkedMask(), pm = pipeMask(), gm = gridMask();
   eachBuilding(c => {
-    if (c.t === 'npc') { c.conn = true; if (c.k === 'res') cap += 5 * c.floors; else if (c.k === 'house') cap += 5; else if (c.k !== 'park' && c.k !== 'mon') npcJobs += c.floors * S.jpf; return; }
+    if (c.t === 'npc') { c.conn = true; if (c.k === 'res') cap += 5 * K_POP * c.floors; else if (c.k === 'house') cap += 5 * K_POP; else if (c.k !== 'park' && c.k !== 'mon') npcJobs += c.floors * S.jpf; return; }
     const T = TYPES[c.t], m = levelMult(c);
     if (T.ext) { c.piped = (T.ext === 'oil' || T.ext === 'coal') && pipeAdj(c, pm); c.linked = extLinked(c, lm) || c.piped; c.conn = true; } else if (c.t === 'pipeline' || c.t === 'pylon' || c.t === 'cable') { c.conn = true; } else c.conn = footConn(c);
     if (isPlant(c.t)) gridEval(c, gm);
@@ -1576,14 +1596,14 @@ function worthOf(ev, happy) { return S.cash + ev.value * (1 + (happy == null ? 6
 // ---- Gestion par bâtiment : effectif, salaires, qualité, efficacité ----
 let STAFF = 1;
 const WAGE = [{ n: 'Bas', m: 0.8, attr: 0.85, prod: 0.93 }, { n: 'Normal', m: 1, attr: 1, prod: 1 }, { n: 'Élevé', m: 1.35, attr: 1.12, prod: 1.08 }];
-const WAGE_RATE = 3.5;                       // salaire de base par emploi et par jour
+const WAGE_RATE = 18;                       // salaire de base par emploi et par jour
 // Entrepôts : stockage hors usine, import par le port, export au-dessus d'un seuil
 const SOFT_STOCK = 36;
-const whCap = c => 400 * levelMult(c);
+const whCap = c => 10000 * levelMult(c);
 const whCfg = (c, g) => (c.cfg && c.cfg[g]) || {};
 const whStores = (c, g) => whCfg(c, g).s !== 0;
 const whList = () => { const a = []; eachBuilding(c => { if (c.t === 'wh' && c.conn) a.push(c); }); return a; };
-const baseCap = () => STOCK_CAP + 150 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0);
+const baseCap = () => STOCK_CAP + 4000 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0);
 function whInvSum(g) { let s = 0; whList().forEach(c => { s += (c.inv && c.inv[g]) || 0; }); return s; }
 function whFree(c) { let u = 0; Object.keys(c.inv || {}).forEach(g => { u += c.inv[g]; }); return Math.max(0, whCap(c) - u); }
 function capFor(g) { let c0 = baseCap(); whList().forEach(c => { if (whStores(c, g)) c0 += whCap(c); }); return c0; }
@@ -1598,7 +1618,7 @@ function stepWarehouses(portN, expRate) {
     // imports vers les entrepôts qui ont un objectif de stock
     whs.forEach(c => { const cfg = whCfg(c, g); if (cfg.i > 0 && S.stock[g] < cfg.i && whStores(c, g)) { const free = c._used < whCap(c) ? whCap(c) - c._used : 0, q = Math.min(cfg.i - S.stock[g], 60, free); if (q > 0.01) { const cost = q * S.price[g] * impRate * TM.buy; S.stock[g] += q; imp += cost; c.inCost = (c.inCost || 0) + cost; c._imp += q; } } });
     // exports au-dessus du seuil
-    whs.forEach(c => { const cfg = whCfg(c, g); if (cfg.e > 0 && S.stock[g] > cfg.e) { const q = Math.min(S.stock[g] - cfg.e, 80), gain = q * S.price[g] * expRate; S.stock[g] -= q; rev += gain; c._rev += gain; } });
+    whs.forEach(c => { const cfg = whCfg(c, g); if (cfg.e > 0 && S.stock[g] > cfg.e) { const q = Math.min(S.stock[g] - cfg.e, 2000), gain = q * S.price[g] * expRate; S.stock[g] -= q; rev += gain; c._rev += gain; } });
     // répartition du surplus dans les entrepôts
     let surplus = Math.max(0, S.stock[g] - SOFT_STOCK);
     stor.forEach(c => { const q = Math.min(surplus, Math.max(0, whCap(c) - c._used)); c.inv[g] = q; c._used += q; surplus -= q; });
@@ -1758,7 +1778,7 @@ function stepPower() {
   S.wind = clamp((S.wind == null ? 0.6 : S.wind) + (Math.random() - 0.5) * 0.25, 0.1, 1);
   if ((S.storm || 0) < S.day && Math.random() < 0.004) { S.storm = S.day + 5; say('Tempête : les lignes aériennes sont coupées pendant 5 jours. Les câbles enterrés résistent.', 'warn'); }
   const sup = S._pSup || 0, draw = S._pDraw || 0, pop = S.pop || 0;
-  const D = pop * 0.05 + draw, B = 380 + 0.25 * (S.day || 0), tot = B + sup, r = D > 0 ? tot / D : 1;
+  const D = pop * 0.05 / K_POP + draw, B = 380 + 0.25 * (S.day || 0), tot = B + sup, r = D > 0 ? tot / D : 1;
   const price = ELEC_BASE * cpi() * (r < 1 ? 1 + 1.6 * (1 - r) : clamp(1 / r, 0.45, 1));
   S.power = { sup, draw, D, B, r, price, mult: r >= 1 ? 1 : clamp(0.7 + 0.3 * r, 0.7, 1) };
 }
@@ -1938,7 +1958,7 @@ function irEvent(k) {
   say(k === 'comm' && net <= 0 ? 'Communiqué mal reçu : tes résultats sont négatifs, le cours baisse.' : `${E.n} : le marché réagit positivement.`, k === 'comm' && net <= 0 ? 'bad' : 'good');
   updateHUD(); return true;
 }
-const IPO_MIN = 1250000;
+const IPO_MIN = 5000000;
 // Rayons : un magasin ne vend qu'un nombre limité de produits selon sa taille (4, 8 ou 12)
 const SLOTS = { s1: 4, s2: 8, s3: 12, immo: 4 };
 const slotsN = c => SLOTS[c.t] || 4;
@@ -2053,7 +2073,7 @@ function rebuildTraffic() {
 function competitionAt(x, y) { let n = 0; siteIndex().stores.forEach(q => { if (Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 4) n++; }); return n; }
 function pubNear(x, y) { let n = 0; if (!siteC.pub) { siteC.pub = []; S.grid.forEach(c => { if (c && c.t === 'npc' && c.k === 'mon' && PUB[c.m] && /^(edu|edu2|sante|admin)$/.test(PUB[c.m][1])) siteC.pub.push([c.x, c.y]); }); } siteC.pub.forEach(q => { if (Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 7) n++; }); return n; }
 function trafficAt(x, y) { if (trfDirty || !trf) rebuildTraffic(); return clamp(trf[idx(x, y)] * (1 + 0.12 * Math.min(3, pubNear(x, y))) / (1 + 0.3 * competitionAt(x, y)), 0, 1); }
-function residentsNear(x, y, r) { let s = 0; eachBuilding(b => { if (Math.abs(b.x - x) + Math.abs(b.y - y) > r) return; if (b.t === 'npc') { if (b.k === 'res') s += 5 * b.floors; else if (b.k === 'house') s += 5; } else if (b.t === 'res') s += 6 + 4 * b.floors; }); return s; }
+function residentsNear(x, y, r) { let s = 0; eachBuilding(b => { if (Math.abs(b.x - x) + Math.abs(b.y - y) > r) return; if (b.t === 'npc') { if (b.k === 'res') s += 5 * b.floors; else if (b.k === 'house') s += 5; } else if (b.t === 'res') s += 6 + 4 * b.floors; }); return s * K_POP; }
 function siteInfo(x, y, key) {
   const T = TYPES[key]; if (!T || key === 'road') return null;
   const land = landCostFor(x, y, key), info = { key, land, build: T.cost, total: T.cost + land };
@@ -2107,7 +2127,7 @@ function step() {
   GKEYS.forEach(g => { made[g] = 0; want[g] = 2; });   // 2 = demande d'export de base
   const buildings = [];
   stepPower(); S._pSup = 0; S._pDraw = 0;
-  eachBuilding(c => { c.out = 0; c.inCost = 0; c.limit = null; c.util = 0; c.pRev = 0; c.wages = 0; c.transport = 0; if (c.conn && c.t !== 'npc') { buildings.push(c); const T0 = TYPES[c.t]; if (T0 && T0.jobs && c.t !== 'plant') S._pDraw += T0.jobs * (FLEVEL[c.t] || c.t === 'foundry' ? 1.6 : T0.ext ? 1.2 : T0.ret ? 0.5 : 0.35); } });
+  eachBuilding(c => { c.out = 0; c.inCost = 0; c.limit = null; c.util = 0; c.pRev = 0; c.wages = 0; c.transport = 0; if (c.conn && c.t !== 'npc') { buildings.push(c); const T0 = TYPES[c.t]; if (T0 && T0.jobs && c.t !== 'plant') S._pDraw += (T0.jobs0 || T0.jobs) * (FLEVEL[c.t] || c.t === 'foundry' ? 1.6 : T0.ext ? 1.2 : T0.ret ? 0.5 : 0.35); } });
 
   // 0. Les forêts repoussent lentement
   for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === 'wood' && d.r < DEPOSITS.wood.res) d.r = Math.min(DEPOSITS.wood.res, d.r + 8); else if (d && CROPS[d.k] && d.r < DEPOSITS[d.k].res) d.r = Math.min(DEPOSITS[d.k].res, d.r + 60); }
@@ -2158,7 +2178,7 @@ function step() {
   S.cm = S.cm || {};
   const factories = buildings.filter(c => FLEVEL[c.t]);
   const runsOn = key => factories.filter(c => c.prod === key && FLEVEL[c.t] >= recipeOf(key).lvl);
-  runRecipe(buildings.filter(c => c.t === 'foundry'), TYPES.foundry.rec.in, { good: 'ingot', qty: 4 });
+  runRecipe(buildings.filter(c => c.t === 'foundry'), TYPES.foundry.rec.in, { good: 'ingot', qty: TYPES.foundry.rec.out.ingot });
   RKEYS.forEach(k => runRecipe(runsOn(k), RECIPES[k].in, { good: k, qty: RECIPES[k].out }));
   PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') runRecipe(runsOn(pk), productInputs(pk), { prod: pk, qty: PRODUCTS[pk].out }); });
   ['f1', 'f2', 'f3'].forEach(t => {
@@ -2169,7 +2189,7 @@ function step() {
   if (S.day % 6 === 0) offerContract();
   // 3. Commerce : la demande se répartit entre la marchandise générique, les produits lancés et les rivaux
   const happyPrev = S.stats.happy == null ? 60 : S.stats.happy;
-  const dMul = TM.demand * modOf('demand') * clamp(1 + 4 * (S.macro.gdp - 0.03), 0.8, 1.5) * easeMult() / diffMult();
+  const dMul = TM.demand * modOf('demand') * clamp(1 + 4 * (S.macro.gdp - 0.03), 0.8, 1.5) * easeMult();
   const dem = { basic: S.pop * DEM_PER_POP.basic * dMul, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100) * dMul, lux: S.pop * DEM_PER_POP.lux * dMul, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) * dMul };
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; retUnits += R.cap * u; c._left = c._cap; c._sold = 0; c._rev = 0; c._imp = 0; c.sales = {}; } });
@@ -2194,7 +2214,7 @@ function step() {
     const adC = adAvg(cls); items.forEach(it => { it.attr *= adC; });
     const RIVAL = rivalAttr(cls), totalAttr = Math.max(0.001, items.reduce((a, i) => a + i.attr, 0) + RIVAL);
     const sh0 = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0; }), cw = sh0.reduce((a, c) => a + (c._cap || 1), 0) || 1, pfAvg = sh0.reduce((a, c) => a + (c._cap || 1) * pfOf(c), 0) / cw;
-    const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length)) * (sh0.length ? clamp(Math.pow(pfAvg, -EL_CLS[cls] * 0.5), 0.6, 1.5) : 1);
+    const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length)) * (sh0.length ? clamp(Math.pow(pfAvg, -EL_CLS[cls]), 0.5, 1.6) : 1);
     Dtot[cls] = Dc; rivalPart[cls] = Dc * RIVAL / totalAttr;
     items.forEach(it => {
       const key = it.k === 'g' ? 'g_' + cls : it.k, wi = Dc * it.attr / totalAttr, gen = it.k === 'g';
@@ -2208,15 +2228,15 @@ function step() {
           const share = n0 * c._cap * c.adF * c.pw / ws; let q = Math.min(share, c._left);
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * importRate / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
-          stockLeft -= fs; fromStock += fs; c._left -= q; c._sold += q; c._rev += q * it.price * pfOf(c); c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
+          stockLeft -= fs; fromStock += fs; c._left -= q; c._sold += q; c._rev += q * it.price * RETAIL_MARKUP * pfOf(c); c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
         });
       }
       addressed[cls] += wi;
       if (gen) S.stock[cls] -= fromStock;
       else { const ps = S.prod[it.k]; ps.stock -= got; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
-      sold[cls] += got; revRetVal += got * it.price * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOf(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
+      sold[cls] += got; revRetVal += got * it.price * RETAIL_MARKUP * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOf(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
     });
-    if (cls !== 'estate') want[cls] += dem[cls] * 0.5;
+    if (cls !== 'estate') { want[cls] += dem[cls] * 0.5; made[cls] += dem[cls] * 0.47; }   // fournisseurs extérieurs : la ville n'est jamais en pénurie permanente
   });
   buildings.forEach(c => {
     const R = TYPES[c.t].ret; if (!R) return;
@@ -2241,8 +2261,8 @@ function step() {
   let revExp = stepLocalMarket(made, want);
   const portN = cn.port || 0, expRate = Math.min(0.95, Math.max(0.6 + 0.15 * portN, (S.rivals && S.rivals.length) ? 0.78 : 0) * TM.export), stockCap = STOCK_CAP + 150 * portN + 200 * (cn.wh || 0);
   { const wr = stepWarehouses(portN, expRate); importCost += wr.imp; revExp += wr.rev; }
-  GKEYS.forEach(g => { const thr = Math.max(60, 0.5 * capFor(g)), ex = Math.max(0, S.stock[g] - thr); if (ex > 0) { S.stock[g] -= ex; revExp += ex * S.price[g] * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)); S.expSold = S.expSold || {}; S.expSold[g] = ex; } });
-  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 80); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } });
+  GKEYS.forEach(g => { const thr = Math.max(1500, 0.5 * capFor(g)), ex = Math.max(0, S.stock[g] - thr); if (ex > 0) { S.stock[g] -= ex; revExp += ex * S.price[g] * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)); S.expSold = S.expSold || {}; S.expSold[g] = ex; } });
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 2000); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } });
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
   const P = S.price;
@@ -2276,7 +2296,8 @@ function step() {
   const rate = S.tax;
   const upkeepI = upkeep * cpi();
   const preTax = revRetail + revExport + revTech + revBank - wagesTotal - upkeepI - transportTotal - advCost - interest - importCost;
-  const corpTax = Math.max(0, preTax) * rate;
+  S.lossC = S.lossC || 0; let taxable = preTax; if (preTax < 0) { S.lossC = Math.min(S.lossC - preTax, 5e7); taxable = 0; } else { const used = Math.min(S.lossC, preTax); S.lossC -= used; taxable = preTax - used; }
+  const corpTax = Math.max(0, taxable) * rate;
   const net = preTax - corpTax;
   S.cash += net;
   const div = (S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0; S.cash -= div;
@@ -2350,7 +2371,7 @@ function step() {
     say('Boom boursier : les entreprises gagnent 25 % de plus pendant 8 jours.', 'good');
   }
   S.flow = { made: Object.assign({}, made), used, sold: Object.assign({}, sold) };
-  const stepsPop = [100, 250, 500, 1000, 2000, 4000];
+  const stepsPop = [100, 250, 500, 1000, 2000, 4000].map(v => v * K_POP);
   const pop = Math.floor(S.pop);
   if (S.milestone < stepsPop.length && pop >= stepsPop[S.milestone]) {
     say(`Palier de population : ${fmt(stepsPop[S.milestone])} habitants.`, 'good');
@@ -2758,8 +2779,8 @@ const GCLS = [['raw', 'Matières premières'], ['comp', 'Composants'], ['basic',
 let gSel = 'plank', gMode = 'in', gStack = [], gHtml = '';
 function gClassOf(k) { if (PRODUCTS[k]) return PRODUCTS[k].cls; if (RECIPES[k] || k === 'ingot') return 'comp'; return 'raw'; }
 function gItems(cls) { if (cls === 'raw') return GKEYS.filter(g => GOODS[g].grp === 'raw'); if (cls === 'comp') return RKEYS.concat(['ingot']); return PKEYS.filter(pk => PRODUCTS[pk].cls === cls); }
-function gInputs(k) { if (PRODUCTS[k]) return productInputs(k); if (RECIPES[k]) return RECIPES[k].in; if (k === 'ingot') return { gold: 4 }; return {}; }
-function gOut(k) { return PRODUCTS[k] ? PRODUCTS[k].out : RECIPES[k] ? RECIPES[k].out : k === 'ingot' ? 4 : 1; }
+function gInputs(k) { if (PRODUCTS[k]) return productInputs(k); if (RECIPES[k]) return RECIPES[k].in; if (k === 'ingot') return Object.assign({}, TYPES.foundry.rec.in); return {}; }
+function gOut(k) { return PRODUCTS[k] ? PRODUCTS[k].out : RECIPES[k] ? RECIPES[k].out : k === 'ingot' ? TYPES.foundry.rec.out.ingot : 1; }
 function gThumb(k, big) { return PRODUCTS[k] ? productSVG(k, S.prod[k].q) : `<img alt="" src="${compIcon(k)}">`; }
 function gQual(k) { if (PRODUCTS[k]) return QTIER[S.prod[k].q].q; const sup = suppliersOf(k); let q = 0; sup.forEach(b => { q += b.qual || 0; }); const avg = sup.length ? q / sup.length : 0; return Math.round(30 + 15 * avg); }
 function gTech(k) { let n = 0; Object.keys(S.tech || {}).forEach(() => n++); let e = 0, c = 0; eachBuilding(b => { if (FLEVEL[b.t] && recOf(b) && recOf(b).out === k) { e += b.eff || 0; c++; } }); return clamp(Math.round(10 + 5 * n + (c ? 8 * e / c : 0)), 0, 100); }
@@ -3127,6 +3148,8 @@ const CONTRACT_TYPES = [
   { key: 'office',    name: 'Immeuble de bureaux (10 étages)',  kind: 'off', floors: 10, tier: 1, need: { concrete: 150, steel: 60,  plank: 20, osb: 20 },            reward: 8800,  days: 55 },
   { key: 'tower',     name: 'Tour de bureaux (20 étages)',      kind: 'off', floors: 20, tier: 2, need: { concrete: 360, steel: 150, osb: 30, plank: 30 },             reward: 22000, days: 80 }
 ];
+CONTRACT_TYPES.forEach(c => { Object.keys(c.need).forEach(g => { c.need[g] *= K_IND; }); c.reward *= K_IND; });
+TECHS.forEach(T => { T.c = Math.round(T.c * 6); });
 const CLIENTS = ['Groupe Orion', 'Banque Helvetia', 'Logistique Delta', 'Immobilière du Port', 'Tech Horizon', 'Hôtels Meridian', 'Assurances Atlas'];
 function addNpcTower(kind, floors) {
   for (let t = 0; t < 600; t++) {

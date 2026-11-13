@@ -168,3 +168,11 @@ Menu > « Tout débloquer : oui/non » (actif par défaut, sauvegardé) : tous l
 
 ## Mode « Manche » (prépare le multijoueur)
 Objectif « Manche » (Menu > Objectifs) : fin au jour 720 ou dès qu'un empire atteint 1 milliard de $ de capitalisation ; le plus riche gagne.
+
+## Échelle économique (suite à l'audit « Chief Architect »)
+- **Population ×30** (≈ 290-340 k habitants au départ, K_POP) ; demande, emplois, électricité suivent.
+- **Volumes industriels ×25** (recettes et produits), extraction ×2,5 à ×5, stocks et entrepôts ×25, salaires ×5, capex relevés : un puits ≈ 2,6 M$, une usine 150 k$ à 1,2 M$, un supermarché 350 k$ (≈ 1 an et demi de retour).
+- **Marge de détail** : prix de rayon = prix de gros × 1,5 ; import à ≥ 1,05 × le gros.
+- **Marché industriel** : « salle de marché » proportionnelle (8 % de la demande) partagée avec les producteurs locaux PNJ ; fournisseurs extérieurs de base pour éviter des prix qui s'envolent.
+- Fixes de structure : élasticité-prix complète, pénalité de difficulté sur un seul canal, report des pertes fiscales.
+- Sauvegarde : clé `wse-city-v8` (les anciennes parties ne sont pas reprises). Capital de départ 3 M$.
