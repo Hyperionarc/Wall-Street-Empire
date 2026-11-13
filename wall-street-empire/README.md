@@ -206,3 +206,6 @@ Objectif « Manche » (Menu > Objectifs) : fin au jour 720 ou dès qu'un empire 
 - **Services** : banque 600 $/employé/jour, tour tech 500, data center 700 ; capex 4 à 6,5 M$.
 - **Rémunération des dirigeants** proportionnelle à la taille du groupe (jusqu'à ≈ 9 M$/an par dirigeant pour un grand groupe).
 - Nouveau tableau **« Économie des secteurs »** (Empire) : CA, marge brute, EBITDA et CA/salaires par type de bâtiment.
+
+## Services : repères réels (Euronext, Rexel, Crédit Agricole ≈ 730 k€ de CA par employé et par an)
+Banque, tour tech et data center : 1 500 à 2 000 $ de CA par employé et par jour (≈ 550-730 k$/an), bénéfice par employé ≈ 300 k$/an (Hermès ≈ 200 k$, TotalEnergies ≈ 130 k$, Sanofi ≈ 104 k$), capex 14 à 18 M$.
