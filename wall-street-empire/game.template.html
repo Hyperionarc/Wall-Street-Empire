@@ -911,8 +911,8 @@ const TYPES = {
   port:    { name: 'Terminal portuaire', sub: 'Export à bon prix', cost: 9000, color: '#5fb0ff', jobs: 30, upkeep: 8, w: 2, h: 2 },
   npc:     { name: 'Immeuble',      sub: 'Ville existante', cost: 0,     color: '#8f9acb', jobs: 0,  upkeep: 0 }
 };
-const INDUSTRIAL = ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3'];
-const FACT_ORDER = ['foundry', 'f1', 'f2', 'f3'];
+const INDUSTRIAL = ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 'f4'];
+const FACT_ORDER = ['foundry', 'f1', 'f2', 'f3', 'f4'];
 const DEM_PER_POP = { basic: 0.014, std: 0.005, lux: 0.0018 };
 const CLS = { basic: { name: 'Base', color: '#46d39a' }, std: { name: 'Manufacturé', color: '#7f96ff' }, lux: { name: 'Luxe', color: '#ff4fa3' }, estate: { name: 'Immobilier', color: '#ffb347' } };
 // Composants : niveau d'usine requis (1 petite, 2 moyenne, 3 grande), recette par cycle. L'ordre est l'ordre de traitement.
@@ -938,7 +938,7 @@ const RECIPES = {
   screen:  { name: 'Écrans',               lvl: 3, in: { plastic: 3, circuit: 1, wire: 1 }, out: 3 }
 };
 const RKEYS = Object.keys(RECIPES);
-const FLEVEL = { f1: 1, f2: 2, f3: 3 };
+const FLEVEL = { f1: 1, f2: 2, f3: 3, f4: 3 };   // f4 (méga-usine) : mêmes recettes que f3, capacité ×8
 const LVL_NAME = { 1: 'petite usine', 2: 'usine moyenne', 3: 'grande usine' };
 const CROPS = { wheat: 'fwheat', sugar: 'fsugar', cotton: 'fcotton', rubber: 'frubber' };
 const CROP_COL = { wheat: '#d9c25a', sugar: '#7fcf6a', cotton: '#86b861', rubber: '#2f8a4a' };
@@ -1216,6 +1216,9 @@ const RETAIL_MK = { basic: 1.70, std: 1.80, lux: 2.00, estate: 1 }, retailMk = c
   [['f1', 'basic', 0.42], ['f2', 'std', 0.32], ['f3', 'lux', 0.62]].forEach(([f, g, gm]) => { const rc = TYPES[f].rec; GOODS[g].base = +(inV(rc.in) / (rc.out[g] * (1 - gm))).toFixed(2); });
   PKEYS.forEach(k => { const P = PRODUCTS[k]; const gm = P.pharma ? (k === 'obesity' ? 0.85 : 0.65) : ({ basic: 0.45, std: 0.35, lux: 0.67, estate: 0.20 }[P.cls] || 0.4); P.ref = +(inV(P.in) / (P.out * (1 - gm))).toFixed(2); });
   Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; const rev = T.rate * GOODS[T.ext].base; T.cost = Math.round(0.9 * rev * 360 / 50000) * 50000; T.upkeep = Math.round(rev * (OPEX[T.ext] || 0.6)); T.jobs = Math.max(4, Math.round(rev * 0.10 / WAGE_K)); });
+  // Méga-usine (f4, 3×3) et méga-centre commercial (s4, 3×3) : mêmes recettes / rayons que f3 / s3, capacité ×8 et ×4, capex et effectifs en proportion
+  TYPES.f4 = Object.assign({}, TYPES.f3, { name: 'Méga-usine', sub: 'Recettes de la grande usine ×8', cost: TYPES.f3.cost * 8, upkeep: TYPES.f3.upkeep * 8, jobs: TYPES.f3.jobs * 8, jobs0: (TYPES.f3.jobs0 || TYPES.f3.jobs) * 8, w: 3, h: 3, tier: 3, capK: 8, color: '#ff7ad0', rec: { in: Object.assign({}, TYPES.f3.rec.in), out: Object.assign({}, TYPES.f3.rec.out) } });
+  TYPES.s4 = Object.assign({}, TYPES.s3, { name: 'Méga-centre commercial', sub: 'Base + manufact. + luxe, ×4', cost: TYPES.s3.cost * 4, upkeep: TYPES.s3.upkeep * 4, jobs: TYPES.s3.jobs * 4, w: 3, h: 3, tier: 3, color: '#ff7ad0', ret: { cap: TYPES.s3.ret.cap * 4, sells: TYPES.s3.ret.sells.slice() } });
   TIERS.forEach(x => { x.at *= 4 * K_SIZE; });
 })();
 const ICONS = {
@@ -1240,6 +1243,7 @@ const ICONS = {
   f1:   '<path d="M3 21V10l6 4v-4l6 4V6h4v15z"/><path d="M7 21v-3M12 21v-3"/>',
   f2:   '<path d="M2 21V11l5 3v-3l5 3V7h3v14z"/><path d="M15 11l7 3v7"/><path d="M5 21v-3M10 21v-3"/>',
   f3:   '<path d="M2 21V11l4 3v-3l4 3V6h3v15z"/><path d="M13 10l4 3v-3l4 3v8H13z"/><path d="M5 21v-2M16 21v-3"/>',
+  f4:   '<path d="M1 21V12l3 2v-2l3 2V4h2v17z"/><path d="M9 9l4 3V8l4 3V3h2v18H9z"/><path d="M19 12l4 2v7h-4z"/>',
   s1:   '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9c0 1.7 1.3 2.5 2.7 2.5S9.3 10.7 9.3 9c0 1.7 1.1 2.5 2.7 2.5s2.7-.8 2.7-2.5c0 1.7 1.3 2.5 2.7 2.5S20 10.7 20 9"/><path d="M5.5 12v8h13v-8M10 20v-4h4v4"/>',
   s2:   '<path d="M3 8h18v12H3z"/><path d="M3 12h18M8 8v12M16 8v12"/><path d="M5 5h14"/>',
   s3:   '<path d="M2 7h20v13H2z"/><path d="M2 11h20M7 7v13M12 7v13M17 7v13"/><path d="M4 4h16"/>',
@@ -1248,7 +1252,7 @@ const ICONS = {
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const ICON_OF = { solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+const ICON_OF = { s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
@@ -1261,8 +1265,8 @@ const CATS = [
   { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'road', 'link'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
-  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'plant', 'solar', 'wind', 'nuclear', 'pylon', 'cable', 'wh', 'port', 'pipeline'] },
-  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 'immo'] }
+  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'f4', 'plant', 'solar', 'wind', 'nuclear', 'pylon', 'cable', 'wh', 'port', 'pipeline'] },
+  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 's4', 'immo'] }
 ];
 // Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
 const FAMS = {
@@ -1270,8 +1274,8 @@ const FAMS = {
   agri: [['Fermes', ['fwheat', 'fsugar', 'fcotton', 'frubber']], ['Accès', ['road', 'link']]],
   extr: [['Énergie', ['well', 'mcoal', 'pipeline']], ['Métaux', ['miron', 'mcopper', 'mgold']], ['Bois', ['logging']], ['Accès', ['road', 'link']]],
   btp: [['Carrières', ['qgravel', 'qsand', 'qlime']], ['Chantiers', ['btp']]],
-  indus: [['Usines', ['f1', 'f2', 'f3']], ['Fonderie', ['foundry']], ['Centrales', ['plant', 'wind', 'solar', 'nuclear']], ['Réseau', ['pylon', 'cable', 'pipeline']], ['Logistique', ['wh', 'port']]],
-  com: [['Magasins', ['s1', 's2', 's3']], ['Immobilier', ['immo']]]
+  indus: [['Usines', ['f1', 'f2', 'f3', 'f4']], ['Fonderie', ['foundry']], ['Centrales', ['plant', 'wind', 'solar', 'nuclear']], ['Réseau', ['pylon', 'cable', 'pipeline']], ['Logistique', ['wh', 'port']]],
+  com: [['Magasins', ['s1', 's2', 's3', 's4']], ['Immobilier', ['immo']]]
 };
 let famOpen = -1;
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
@@ -1500,7 +1504,7 @@ function newCity() {
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
   const npc = genNpc(grid);
-  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap * K_POP / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
+  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap * K_POP / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.npcGrow = {}; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
   S0.pop = Math.round(npc.cap * K_POP * 0.85);
   S0.cash = 600000 * K_SIZE;
   return S0;
@@ -1509,7 +1513,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1523,7 +1527,7 @@ function load() {
       if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
       if (r[0] === 'road') return { t: 'road', own: true, x: i % N, y: Math.floor(i / N) };
       if (!TYPES[r[0]]) return null;
-      const c = mkCell(r[0], r[1]); c.lvl = r[2] | 0; if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
+      const c = mkCell(r[0], r[1]); c.lvl = clamp(r[2] | 0, 0, 4); if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
       if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3); if (r[19] && typeof r[19] === 'object') c.src = r[19];
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
@@ -1532,6 +1536,7 @@ function load() {
     const npcInfo = genNpc(grid);
     (Array.isArray(d.built) ? d.built : []).forEach(b => { const id = idx(b[0], b[1]); if (!grid[id]) grid[id] = { t: 'npc', k: b[2], seed: b[4], floors: b[3], lvl: 0, w: 1, h: 1, x: b[0], y: b[1], born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; });
     (Array.isArray(d.npcMods) ? d.npcMods : []).forEach(m => { const c = grid[idx(m[0], m[1])]; if (!c || c.t !== 'npc') return; if (m[2] === 'x') grid[idx(m[0], m[1])] = null; else { c.k = m[2]; c.floors = m[3]; } });
+    if (d.npcGrow) Object.keys(d.npcGrow).forEach(k => { const [gx, gy] = k.split(',').map(Number), c = inb(gx, gy) && grid[idx(gx, gy)], v = d.npcGrow[k]; if (c && c.t === 'npc' && c.k === 'off' && Array.isArray(v)) { c.floors = Math.max(c.floors, v[0] | 0); c.f0 = v[1] | 0 || c.floors; } });
     const dep = new Array(N * N).fill(null);
     (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) dep[a[0]] = { k: a[1], r: a[2] }; });
     if (!dep.some(q => q && CROPS[q.k])) genCropFields(dep);
@@ -1542,7 +1547,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1588,17 +1593,22 @@ function eachBuilding(fn) {
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t !== 'road' && c.t !== 'part') fn(c); }
 }
 
-const MAX_LVL = 3, MAX_FLOORS = 6;
-const levelMult = c => c.t === 'res' ? 1 : 1 + 0.5 * (c.lvl || 0);
+const MAX_LVL = 4, MAX_FLOORS = 6;
+const LVL_MULT = [1, 1.6, 2.4, 3.2, 4.0];            // L1 à L5 : multiplicateur de capacité et d'effectifs
+const LVL_COST = [0.7, 0.9, 1.15, 1.5];              // coût du passage Ln -> Ln+1, en part du capex
+const levelMult = c => c.t === 'res' ? 1 : LVL_MULT[Math.min(MAX_LVL, c.lvl || 0)];
+const capOf = c => levelMult(c) * (TYPES[c.t].capK || 1);
+const lvTxt = c => `Niveau ${(c.lvl || 0) + 1}/${MAX_LVL + 1} · capacité ×${levelMult(c).toFixed(1).replace('.', ',')}` + ((c.lvl || 0) < MAX_LVL ? ` (suivant ×${LVL_MULT[(c.lvl || 0) + 1].toFixed(1).replace('.', ',')})` : '');
+const lvFloors = c => c.t === 'npc' ? c.floors : c.floors + (c.t === 'res' ? 0 : 2 * (c.lvl || 0));   // étages visibles : +2 par niveau pour les tours
 function upgradeCost(c) {
   if (!c || c.t === 'road') return 0;
   if (c.t === 'res') return c.floors >= MAX_FLOORS ? 0 : 350 + 250 * c.floors;
   if (c.lvl >= MAX_LVL) return 0;
-  return Math.round(TYPES[c.t].cost * (0.7 + 0.4 * c.lvl));
+  return Math.round(TYPES[c.t].cost * LVL_COST[c.lvl || 0]);
 }
 function upgradeSpent(c) {
   if (c.t === 'res') return Math.max(0, c.floors - 1) * 400;
-  let t = 0; for (let l = 0; l < (c.lvl || 0); l++) t += Math.round(TYPES[c.t].cost * (0.7 + 0.4 * l)); return t;
+  let t = 0; for (let l = 0; l < (c.lvl || 0); l++) t += Math.round(TYPES[c.t].cost * LVL_COST[l]); return t;
 }
 
 function evaluate() {
@@ -1728,7 +1738,7 @@ function setCaste(k) {
   S.caste = k; if (first && S.day < 6) S.cash += CASTES[k].cash;
   TM = techMults(); el('caste').hidden = true; say(`Tu joues : ${CASTES[k].n}.`, 'gold'); refreshStats(); updateHUD(); save();
 }
-const CASTE_BLD = { industriel: ['f1', 'f2', 'f3', 'foundry', 'port', 'wh'], promoteur: ['res', 'btp', 'immo', 'buyout', 'hq', 'wh'], banquier: ['bank', 'hq', 'tech'], negociant: ['pipeline', 'plant', 'port', 'wh', 'well'], agriculteur: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'wh'], innovateur: ['rd', 'dc', 'tech', 'hq'] };
+const CASTE_BLD = { industriel: ['f1', 'f2', 'f3', 'f4', 'foundry', 'port', 'wh'], promoteur: ['res', 'btp', 'immo', 'buyout', 'hq', 'wh'], banquier: ['bank', 'hq', 'tech'], negociant: ['pipeline', 'plant', 'port', 'wh', 'well'], agriculteur: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'wh'], innovateur: ['rd', 'dc', 'tech', 'hq'] };
 const CASTE_SPEC = { industriel: ['Usines et fonderies −12 % de coût', 'Production +5 %', 'OPA dès 10 % du capital (prime 20 %)', 'Rachat de rivaux −15 %'], promoteur: ['Constructions urbaines −15 %', 'Rachat d\'immeubles −30 %', 'Chantiers BTP payés +25 %', 'Les promoteurs IA te disputent les îlots'], banquier: ['Banque de 100 M$ de ressources propres', 'Levier ×5, ×10 puis ×20', 'Prêts sur collatéral, intérêts −40 %', 'Plafond d\'emprunt ×1,5'], negociant: ['Cartels et embargos −50 %', 'Exports +15 %, intrants −4 %', 'Pipelines −40 %, centrales −20 %', 'Électricité +30 %, pétrole +10 %'], agriculteur: ['Fermes −25 %', 'Cultures +15 %, sols +8 %', 'Irrigation −30 %', 'Sécheresses deux fois moins sévères'], innovateur: ['Recherche −30 % de durée, −20 % de coût', 'R&D et data centers −25 %', 'Brevets +50 %, loyer de calcul +50 %', 'Boost d\'IA jusqu\'à +12 % partout'] };
 function showCasteDetail(k) {
   const C = CASTES[k], img = CASTE_IMG[k] ? `<img alt="${C.n}" src="${CASTE_IMG[k]}">` : casteSVG(k), mine = TECHS.filter(x => x.caste === k), common = TECHS.filter(x => !x.caste);
@@ -1798,6 +1808,15 @@ function launchOpa(id) {
 function cartelOn(g) { const a = FIN_ACTIONS.cartel, fc = finCost('cartel'); if (S.cash < fc) { say(`Il faut ${money(fc)} pour former un cartel.`, 'bad'); return false; } if (modOf('px_' + g) > 1) { say('Un cartel est déjà actif sur ce bien.', 'info'); return false; } S.cash -= fc; addMod('px_' + g, 1.18, a.days); say(`Cartel formé sur ${GOODS[g].name.toLowerCase()} : le cours cible monte de 18 % pendant ${a.days} jours.`, 'gold'); updateHUD(); return true; }
 function embargoOn(id) { const a = FIN_ACTIONS.embargo, fe = finCost('embargo'), r = (S.rivals || []).find(x => x.id === id); if (!r) return false; if (S.cash < fe) { say(`Il faut ${money(fe)} pour un embargo.`, 'bad'); return false; } S.cash -= fe; r.emb = S.day + a.days; say(`Embargo sur ${r.name} : son attractivité est divisée par deux pendant ${a.days} jours.`, 'gold'); updateHUD(); return true; }
 const DEVS = [{ n: 'Urbania Promotion', col: '#c07aff' }, { n: 'Skyline Développement', col: '#ffb347' }, { n: 'Terra Immobilier', col: '#5fd0a0' }];
+function stepNpcDensify() {   // les tours de bureaux PNJ montent d'un étage de temps en temps quand la ville prospère
+  if (S.day % 4 !== 0) return;
+  const M = S.macro || { gdp: 0.03 }, p = clamp(0.2 + 5 * (M.gdp - 0.02) + (((S.stats && S.stats.happy) || 60) - 60) / 120, 0.04, 0.85);
+  if (rnd() > p) return;
+  const cand = []; eachBuilding(c => { if (c.t === 'npc' && c.k === 'off' && inCity(c.x, c.y)) { const f0 = c.f0 || c.floors; if (c.floors < Math.min(96, Math.round(f0 * 1.8) + 4)) cand.push(c); } });
+  if (!cand.length) return;
+  S.npcGrow = S.npcGrow || {};
+  for (let n = 0, m = 1 + (rnd() < p ? 1 : 0); n < m; n++) { const c = cand[Math.floor(rnd() * cand.length)]; c.f0 = c.f0 || c.floors; c.floors++; c.born = performance.now() - 450; S.npcGrow[c.x + ',' + c.y] = [c.floors, c.f0]; }
+}
 function stepDevs() {
   if (S.day % 6 !== 0 || (S.npcMods || []).length > 70) return;
   const cand = []; eachBuilding(c => { if (c.t === 'npc' && !c.lm && inCity(c.x, c.y) && (c.k === 'house' || (c.k === 'res' && c.floors < 10) || c.k === 'park')) cand.push(c); });
@@ -2010,7 +2029,7 @@ function irEvent(k) {
 }
 const IPO_MIN = 5000000 * K_SIZE;
 // Rayons : un magasin ne vend qu'un nombre limité de produits selon sa taille (4, 8 ou 12)
-const SLOTS = { s1: 4, s2: 8, s3: 12, immo: 4 };
+const SLOTS = { s1: 4, s2: 8, s3: 12, s4: 16, immo: 4 };
 const slotsN = c => SLOTS[c.t] || 4;
 function shelfKeys(c) {
   if (c.slots) return c.slots.filter(Boolean);
@@ -2048,7 +2067,7 @@ Object.keys(AD_CH).forEach(k => { AD_CH[k].max *= K_SIZE; AD_CH[k].step *= K_SIZ
 const AD_KEYS = ['tv', 'radio', 'press', 'net', 'infl'];
 const BRAND_STRAT = { unique: ['Marque unique par produit', 'Chaque produit a sa marque : meilleure perception de qualité (+15 %), mais la notoriété se construit produit par produit (−10 %).'], range: ['Marque de gamme', 'Une marque couvre une gamme de produits : équilibre entre coût et image.'], corp: ['Marque d\'entreprise', 'Une seule marque pour tout : la notoriété est partagée entre tous tes magasins (+15 %), mais une mauvaise image les touche tous.'] };
 const brandStrat = () => (S && S.brandStrat) || 'range';
-const adScaleOf = c => (({ s1: 1, s2: 2.2, s3: 4, immo: 1.5 })[c.t] || 1) * K_SIZE;
+const adScaleOf = c => (({ s1: 1, s2: 2.2, s3: 4, s4: 16, immo: 1.5 })[c.t] || 1) * K_SIZE;
 const adOf = c => c.ad || (c.ad = { tv: 0, radio: 0, net: 0 });
 const adSpend = c => TYPES[c.t].ret ? AD_KEYS.reduce((a, k) => a + (adOf(c)[k] || 0), 0) : 0;
 function adRt(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] || 0; pw += (AD_CH[k].rt || 0.2) * (1 - Math.exp(-b / (AD_CH[k].scale * adScaleOf(c)))); }); return pw; }
@@ -2093,7 +2112,7 @@ const IRR_COST = [0, 1200, 2600, 4200], irrCost = l => Math.round(IRR_COST[l] * 
 function soilMult(c) { const k = TYPES[c.t].ext, irr = c.irr | 0, dr = droughtNow(); return fertility(c.x, c.y, k) * (casteIs('agriculteur') ? 1.08 : 1) * (1 + 0.1 * irr) * (1 - 0.35 * dr * (casteIs('agriculteur') ? 0.5 : 1) * (1 - irr / 3)); }
 const wasteOf = c => 0.05 * TM.waste / deptMult(c).stock;
 const FAC_U = 3.2 * K_SIZE;   // une usine traite FAC_U cycles de recette par jour
-const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? FAC_U * powerMult() * (1 - clamp(0.0035 * (c.haul || 0), 0, 0.25)) : 1) * levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
+const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? FAC_U * powerMult() * (1 - clamp(0.0035 * (c.haul || 0), 0, 0.25)) : 1) * capOf(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
 const jobsOf = c => TYPES[c.t].jobs * levelMult(c) * crewOf(c);
 const fillOf = c => clamp(STAFF * wageOf(c).attr, 0, 1);
@@ -2174,7 +2193,7 @@ function step() {
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = (S.patents || 0) * 70 * (casteIs('innovateur') ? 1.5 : 1);
-  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs();
+  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepNpcDensify();
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
   if (S.day % 5 === 0) { trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }
   if (S.day % 5 === 0) stepGoal();
@@ -2246,7 +2265,7 @@ function step() {
   runRecipe(buildings.filter(c => c.t === 'foundry'), TYPES.foundry.rec.in, { good: 'ingot', qty: TYPES.foundry.rec.out.ingot });
   RKEYS.forEach(k => runRecipe(runsOn(k), RECIPES[k].in, { good: k, qty: RECIPES[k].out }));
   PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') runRecipe(runsOn(pk), productInputs(pk), { prod: pk, qty: PRODUCTS[pk].out }); });
-  ['f1', 'f2', 'f3'].forEach(t => {
+  ['f1', 'f2', 'f3', 'f4'].forEach(t => {
     const T = TYPES[t];
     runRecipe(factories.filter(c => c.t === t && !(c.prod && (RECIPES[c.prod] || prodOn(c.prod)))), T.rec.in, { good: Object.keys(T.rec.out)[0], qty: Object.values(T.rec.out)[0] });
   });
@@ -2258,7 +2277,7 @@ function step() {
   const dem = { basic: S.pop * DEM_PER_POP.basic * dMul, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100) * dMul, lux: S.pop * DEM_PER_POP.lux * dMul, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) * dMul };
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._capNom = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; c._cap = c._capNom; retUnits += R.cap * u; const df = clamp(Math.pow(pfOf(c), -1.6) * (0.45 + 0.9 * (c.ci == null ? 0.5 : c.ci)) * 0.8, 0.1, 1); c._cap *= df; c._df = df;
-    const SH = { s1: { basic: 1 }, s2: { basic: 0.62, std: 0.38 }, s3: { basic: 0.45, std: 0.35, lux: 0.2 }, immo: { estate: 1 } }[c.t] || null; c._lc = {};
+    const SH = { s1: { basic: 1 }, s2: { basic: 0.62, std: 0.38 }, s3: { basic: 0.45, std: 0.35, lux: 0.2 }, s4: { basic: 0.45, std: 0.35, lux: 0.2 }, immo: { estate: 1 } }[c.t] || null; c._lc = {};
     R.sells.forEach(k2 => { c._lc[k2] = c._cap * (SH ? (SH[k2] || 0) : 1 / R.sells.length); });
     c._left = c._cap; c._sold = 0; c._rev = 0; c._cogs = 0; c._imp = 0; c.sales = {}; } });
   buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow((1 + 0.002 * (c.rt || 0)) / pfOf(c), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (c.ci = custIndex(c).idx, 0.6 + 0.9 * c.ci); const st = brandStrat(); c.aw = clamp((c.aw || 0) + (adTarget(c) * (st === 'corp' ? 1.15 : st === 'unique' ? 0.9 : 1) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c);
@@ -2517,7 +2536,7 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierNow() < T.tier);
 }
-const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, port: 4 };
+const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
 ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
 const zoneOk = (key, z) => (key === 'pylon' || key === 'cable') ? (z === 0 || z === 2 || z === 4) : z === ZONE_NEED[key];
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
@@ -2693,7 +2712,7 @@ function inspect(x, y) {
     parts.push(`impôts +${fmt(c.rev)} $/jour`);
     if (T.jobs) parts.push(`${Math.round(T.jobs * levelMult(c))} emplois`);
     if (c.t === 'res') parts.push(`${6 + 4 * c.floors} logements, ${c.floors} étages`);
-    else parts.push(`niveau ${c.lvl + 1}/${MAX_LVL + 1}`);
+    else parts.push(`niveau ${(c.lvl || 0) + 1}/${MAX_LVL + 1}`);
     if (T.ext) { const dd = S.dep[idx(c.x, c.y)]; parts.push(`${c.out.toFixed(1).replace('.', ',')} ${DEPOSITS[T.ext].name}/jour`); if (dd) parts.push(`réserve ${fmt(dd.r)}`); if (c.linked === false) parts.push('hors réseau : rendement ' + Math.round(UNLINKED_EFF * 100) + ' %'); }
     if (T.rec) { const k = Object.keys(T.rec.out)[0]; parts.push(`${c.out.toFixed(1).replace('.', ',')} ${GOODS[k].name.toLowerCase()}/jour`); }
     const uc = upgradeCost(c); if (uc) parts.push(`amélioration ${money(uc)}`);
@@ -3466,7 +3485,7 @@ function packSVG(i) {
 // --- Actions ---
 function facCounts(k) {
   const lvl = recipeOf(k).lvl; let total = 0, mine = 0, free = 0, units = 0;
-  eachBuilding(c => { if (!FLEVEL[c.t] || !c.conn || FLEVEL[c.t] < lvl) return; total++; if (c.prod === k) { mine++; units += levelMult(c); } else if (freeFact(c)) free++; });
+  eachBuilding(c => { if (!FLEVEL[c.t] || !c.conn || FLEVEL[c.t] < lvl) return; total++; if (c.prod === k) { mine++; units += capOf(c); } else if (freeFact(c)) free++; });
   return { total, mine, free, units };
 }
 function launchProduct(pk) {
@@ -3535,7 +3554,7 @@ function chainLeaves(pk) {
   Object.keys(productInputs(pk)).forEach(walk);
   return Object.keys(set);
 }
-function unitsOn(g) { let u = 0; eachBuilding(c => { if (c.prod === g && c.conn && FLEVEL[c.t] >= RECIPES[g].lvl) u += levelMult(c); }); return u; }
+function unitsOn(g) { let u = 0; eachBuilding(c => { if (c.prod === g && c.conn && FLEVEL[c.t] >= RECIPES[g].lvl) u += capOf(c); }); return u; }
 function autoChain(pk) {
   const { need } = chainNeeds(pk); let added = 0; const missing = [];
   RKEYS.forEach(g => {
@@ -3804,7 +3823,7 @@ function renderBuilding(force) {
   const T = TYPES[c.t], fill = fillOf(c);
   const bn = bottleneck(c), rec = recOf(c);
   if (T.ret) { const al = auditShop(c), nb = al.filter(a => a.sev === 'bad').length; el('bsub').title = al.length ? 'Audit : ' + al.map(a => a.t).join(' · ') : 'Audit : tout est cohérent'; el('bsub').textContent = `${T.sub} · case ${c.x + 1}, ${c.y + 1} · audit ${al.length ? (nb ? nb + ' alerte(s) grave(s)' : al.length + ' avertissement(s)') : 'cohérent'}`; }
-  const pips = n => '●'.repeat(n) + '○'.repeat(3 - n);
+  const pips = n => '●'.repeat(n) + '○'.repeat(3 - n), pipsL = n => '●'.repeat(n + 1) + '○'.repeat(MAX_LVL - n);
   const profit = c.profit || 0;
   let line = '', inHtml = '', outHtml = '';
   if (T.ext) {
@@ -3851,7 +3870,7 @@ function renderBuilding(force) {
   ${line}
   <p class="cdet">Coûts : intrants ${money(c.inCost || 0)} · salaires ${money(c.wages || 0)} · entretien ${money(T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))))} · transport ${money(c.transport || 0)} (${c.haul || 0} cases)</p>
   <div class="levers">
-    <div class="lever"><h4>Taille <span class="pip">${pips(c.lvl || 0)}</span></h4><small>Niveau ${(c.lvl || 0) + 1}/4 · capacité ×${levelMult(c).toFixed(1).replace('.', ',')}</small><button class="btn" data-act="up" ${uc && S.cash >= uc ? '' : 'disabled'}>${uc ? 'Agrandir · ' + money(uc) : 'Niveau max'}</button></div>
+    <div class="lever"><h4>Taille <span class="pip">${pipsL(c.lvl || 0)}</span></h4><small>${lvTxt(c)}</small><button class="btn" data-act="up" ${uc && S.cash >= uc ? '' : 'disabled'}>${uc ? 'Agrandir · ' + money(uc) : 'Niveau max'}</button></div>
     <div class="lever"><h4>Effectif <span class="pip">×${crewOf(c).toFixed(2).replace('.', ',')}</span></h4><small>${fmt(jobsOf(c))} postes. Plus de monde, plus de production et de salaires.</small><div class="seg2"><button class="btn sec" data-act="crew-" ${crewOf(c) <= 1 ? 'disabled' : ''}>− Réduire</button><button class="btn" data-act="crew+" ${crewOf(c) >= 2 ? 'disabled' : ''}>+ Recruter</button></div></div>
     <div class="lever"><h4>Salaires <span class="pip">${wage.n}</span></h4><small>Attractivité ×${wage.attr.toFixed(2).replace('.', ',')} · productivité ×${wage.prod.toFixed(2).replace('.', ',')} · coût ×${wage.m.toFixed(2).replace('.', ',')}</small><div class="seg2">${WAGE.map((w, i) => `<button class="btn sec" data-act="wage${i}" aria-pressed="${(c.wage == null ? 1 : c.wage) === i}">${w.n}</button>`).join('')}</div></div>
     <div class="lever"><h4>Qualité <span class="pip">${pips(c.qual || 0)}</span></h4><small>Valeur de la production +6 % par niveau, entretien +10 %.</small><button class="btn" data-act="qual" ${qc && S.cash >= qc ? '' : 'disabled'}>${qc ? 'Améliorer · ' + money(qc) : 'Qualité max'}</button></div>
@@ -3954,7 +3973,7 @@ const newPerson = (rnd, x, y) => ({ x, y, ph: rnd() * 6, spd: 42 + rnd() * 22, s
 /* --- magasin en vue isométrique : rayons en 3D, caisses, chariots et paniers --- */
 const PCOL = ['#ff8a3d', '#46d39a', '#7f96ff', '#ffd76a', '#ff4fa3', '#3fd8ff', '#e8e4d8', '#c4664a'];
 function mkRetail(c) {
-  const k = c.t === 's3' ? 2 : c.t === 's2' ? 1 : 0, rnd = mkRnd(c.seed);
+  const k = c.t === 's3' || c.t === 's4' ? 2 : c.t === 's2' ? 1 : 0, rnd = mkRnd(c.seed);
   const GW = [12, 15, 17][k], GH = [9, 11, 13][k], frontY = [4, 6, 8][k], n = k + 1, sum = GW + GH;
   const tw = Math.min(48, Math.floor(1500 / sum)), oy = 78, H = Math.round(oy + sum * tw / 4 + 24), ox = 400 - (GW - GH) * tw / 4;
   const sc = { kind: 'retail', k, GW, GH, frontY, tw, ox, oy, H, cust: [], staff: [], sp: 0.3, hs: [], ks: [], rnd, time: 0, cap: [8, 12, 16][k], rate: [1, 1.5, 2.3][k], XL: 1.2, XR: GW - 2.2, bg: document.createElement('canvas'), aisles: [1.3], gond: [] };
@@ -4533,7 +4552,7 @@ function renderCatalog(force) {
     list += `<button class="crow ${i.key === it.key ? 'sel' : ''} ${i.key === cur ? 'cur' : ''}" data-cat="sel:${i.key}"><span class="rth">${itemThumb(i)}</span><span><b>${i.name}${best && best.key === i.key ? ' ★' : ''}</b><small>${status} · ${f1(i.price)} $</small></span><span class="mg ${i.margin >= 0 ? 'pos' : 'neg'}">${i.margin >= 0 ? '+' : '−'}${money(Math.abs(i.margin))}</span></button>`; });
   const isProd = it.kind === 'prod', pr = isProd ? PRODUCTS[it.key] : null, ps = isProd ? S.prod[it.key] : null, fresh = isProd && it.st === 'locked';
   const rows = it.chips.map(x => { const label = x.g === 'pack' && isProd ? `Emballages <small>(${PACK[ps.pack].n})</small>` : gName(x.g); return `<tr><td>${label}</td><td>×${f1(x.need)}</td><td>${f1(gPriceAny(x.g))} $</td><td>${money(x.need * gPriceAny(x.g))}</td><td class="${x.lvl === 'g' ? 'pos' : x.lvl === 'o' ? '' : 'neg'}">${fmt(x.st)}${x.lvl === 'r' ? ' · aucune source' : ''}</td></tr>`; }).join('');
-  const sellers = isProd ? ({ basic: ['s1', 's2', 's3'], std: ['s2', 's3'], lux: ['s3'], estate: ['immo'] })[pr.cls].map(k => { let n = 0; eachBuilding(b => { if (b.t === k && b.conn) n++; }); return `${TYPES[k].name.toLowerCase()} (${n})`; }).join(', ') : '';
+  const sellers = isProd ? ({ basic: ['s1', 's2', 's3', 's4'], std: ['s2', 's3', 's4'], lux: ['s3', 's4'], estate: ['immo'] })[pr.cls].map(k => { let n = 0; eachBuilding(b => { if (b.t === k && b.conn) n++; }); return `${TYPES[k].name.toLowerCase()} (${n})`; }).join(', ') : '';
   let btns;
   if (it.lvl > lv) btns = `<button class="btn sec" disabled>${LVL_NAME[it.lvl]} requise</button>`;
   else if (cur === it.key) btns = `<button class="btn" disabled>Fabriqué dans cette usine</button>`;
@@ -4655,7 +4674,7 @@ function whTab(c) {
   ['raw', 'comp', 'goods'].forEach(gr => { rows += `<tr class="sub"><td colspan="5"><b>${grp[gr]}</b></td></tr>`; GKEYS.filter(g => GOODS[g].grp === gr).forEach(g => { const cfg = whCfg(c, g), inv = (c.inv && c.inv[g]) || 0;
     rows += `<tr><td>${GOODS[g].name}</td><td><input type="checkbox" data-whc="${g}:s" ${cfg.s === 0 ? '' : 'checked'} aria-label="Stocker ${GOODS[g].name}"></td><td>${fmt(inv)}</td><td><select data-whc="${g}:i">${opt([0, 50, 100, 200, 400], cfg.i || 0, v => v ? 'jusqu\'à ' + v : 'non')}</select></td><td><select data-whc="${g}:e">${opt([0, 100, 200, 400], cfg.e || 0, v => v ? 'au-dessus de ' + v : 'non')}</select></td></tr>`; }); });
   return `<p class="fnote">L'entrepôt stocke les biens en dehors des usines : tes surplus y sont mis de côté (au lieu d'être bradés à l'export), et restitués quand le stock des producteurs baisse. Tu peux aussi lui faire <b>importer</b> par le port un bien jusqu'à un niveau de stock cible (utile avant d'avoir tes propres mines ou usines), ou <b>exporter</b> au-dessus d'un seuil.</p>
-    <div class="kpis"><div><small>Occupation</small><b>${fmt(used)} / ${fmt(cap)}</b></div><div><small>Remplissage</small><b>${pct(clamp(used / cap, 0, 1))}</b></div><div><small>Frais de stockage</small><b class="neg">${money(c._fee || 0)} /j</b></div><div><small>Importé aujourd'hui</small><b>${fmt(c._imp || 0)}</b></div><div><small>Ventes export</small><b class="pos">${money(c._rev || 0)} /j</b></div><div><small>Niveau</small><b>${(c.lvl || 0) + 1} / 4</b></div></div>
+    <div class="kpis"><div><small>Occupation</small><b>${fmt(used)} / ${fmt(cap)}</b></div><div><small>Remplissage</small><b>${pct(clamp(used / cap, 0, 1))}</b></div><div><small>Frais de stockage</small><b class="neg">${money(c._fee || 0)} /j</b></div><div><small>Importé aujourd'hui</small><b>${fmt(c._imp || 0)}</b></div><div><small>Ventes export</small><b class="pos">${money(c._rev || 0)} /j</b></div><div><small>Niveau</small><b>${(c.lvl || 0) + 1} / ${MAX_LVL + 1}</b></div></div>
     <div class="bar" style="margin:6px 0"><i style="width:${Math.round(clamp(used / cap, 0, 1) * 100)}%"></i></div>
     <table class="fint whtab"><tr><th>Bien</th><th>Stocker</th><th>En stock ici</th><th>Importer</th><th>Exporter</th></tr>${rows}</table>`;
 }
@@ -5294,8 +5313,8 @@ function drawTowerCrane(cx, cy, now, seed) {
   ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, cy - 154, 3.5, 0, 7); ctx.fill();
 }
 /* ---------- Bâtiments procéduraux : usines, entrepôts, fonderie ; toits des tours ---------- */
-const PROC_IND = { solar: 1, wind: 1, nuclear: 1, pylon: 1, cable: 1, pipeline: 1, f1: 1, f2: 1, f3: 1, wh: 1, foundry: 1, fwheat: 1, fsugar: 1, fcotton: 1, frubber: 1 };
-const WALLS = { f1: ['#d8c9a8', '#c9d2dc', '#d4a98f', '#bfd0c0'], f2: ['#b9c6d6', '#c5ccb4', '#cdbba6'], f3: ['#a9b4c6', '#b9bfc9'], wh: ['#c8cfd9', '#d9c6a0', '#b7c9c4'], foundry: ['#a8605a', '#9a6a52'] };
+const PROC_IND = { solar: 1, wind: 1, nuclear: 1, pylon: 1, cable: 1, pipeline: 1, f1: 1, f2: 1, f3: 1, f4: 1, s4: 1, wh: 1, foundry: 1, fwheat: 1, fsugar: 1, fcotton: 1, frubber: 1 };
+const WALLS = { f1: ['#d8c9a8', '#c9d2dc', '#d4a98f', '#bfd0c0'], f2: ['#b9c6d6', '#c5ccb4', '#cdbba6'], f3: ['#a9b4c6', '#b9bfc9'], f4: ['#aeb9cc', '#c4c9d4', '#b5c2bb'], s4: ['#efe3d0', '#dfe6f2', '#ecd9e6'], wh: ['#c8cfd9', '#d9c6a0', '#b7c9c4'], foundry: ['#a8605a', '#9a6a52'] };
 function shade(hex, k) { const n = parseInt(hex.slice(1, 7), 16), c = v => Math.min(255, Math.max(0, v | 0)).toString(16).padStart(2, '0'); return '#' + c((n >> 16) * k) + c(((n >> 8) & 255) * k) + c((n & 255) * k); }
 function pQuad(pts, fill) { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); }
 const PP = (u, v, z) => { const q = iso(u, v); return [q.x, q.y - z]; };
@@ -5353,29 +5372,62 @@ function drawIndustrial(a, now, grow) {
     const c0 = PP(x + 0.5, y + 0.5, 9); ctx.fillStyle = '#4a4f6a'; ctx.beginPath(); ctx.arc(c0[0], c0[1] - 1, 7, 0, 7); ctx.fill(); a._top = c0[1] - 8; return;
   }
   const x = a.x, y = a.y, w = a.w, h = a.h, seed = a.seed, pal = WALLS[a.t] || WALLS.f1, wall = pal[Math.floor(seed * 997) % pal.length], roof = '#7d8599', act = (a.util || 0) > 0.05 && a.conn;
-  const gg = grow == null ? 1 : grow; let zTop = 40;
+  const gg = grow == null ? 1 : grow, LV = a.lvl || 0, ex = LV * 16 * gg; let zTop = 40;   // chaque niveau ajoute un étage d'usine
   if (a.t === 'f1') {
-    pPrism(x + 0.08, y + 0.1, 0.84, 0.8, 0, 36 * gg, wall); zTop = 36;
-    for (let i = 0; i < 2; i++) pPrism(x + 0.08 + i * 0.42, y + 0.1, 0.42, 0.8, 36 * gg, 46 * gg, i ? roof : shade(roof, 1.15));
-    pWindows(x + 0.08, y + 0.1, 0.84, 0.8, 14, 26, 5, act);
+    pPrism(x + 0.08, y + 0.1, 0.84, 0.8, 0, 36 * gg + ex, wall); zTop = 36;
+    for (let i = 0; i < 2; i++) pPrism(x + 0.08 + i * 0.42, y + 0.1, 0.42, 0.8, 36 * gg + ex, 46 * gg + ex, i ? roof : shade(roof, 1.15));
+    for (let l = 0; l <= LV; l++) pWindows(x + 0.08, y + 0.1, 0.84, 0.8, 14 + l * 16, 26 + l * 16, 5, act);
     pQuad([PP(x + 0.12, y + 0.9, 20), PP(x + 0.32, y + 0.9, 20), PP(x + 0.32, y + 0.9, 0), PP(x + 0.12, y + 0.9, 0)], '#e0a03a');
-    pCyl(x + 0.78, y + 0.22, 0.07, 46, 84 * gg, '#9a6a52'); smoke(PP(x + 0.78, y + 0.22, 86)[0], PP(x + 0.78, y + 0.22, 86)[1], now, act, seed);
-    zTop = 84;
+    pCyl(x + 0.78, y + 0.22, 0.07, 46 * gg + ex, 84 * gg + ex, '#9a6a52'); smoke(PP(x + 0.78, y + 0.22, 86 * gg + ex)[0], PP(x + 0.78, y + 0.22, 86 * gg + ex)[1], now, act, seed);
+    zTop = 84 + ex;
   } else if (a.t === 'f2') {
-    pPrism(x + 0.08, y + 0.1, 1.84, 0.8, 0, 46 * gg, wall);
-    for (let i = 0; i < 4; i++) pPrism(x + 0.08 + i * 0.46, y + 0.1, 0.46, 0.8, 46 * gg, 58 * gg, i % 2 ? roof : shade(roof, 1.15));
-    pWindows(x + 0.08, y + 0.1, 1.84, 0.8, 16, 32, 9, act);
+    pPrism(x + 0.08, y + 0.1, 1.84, 0.8, 0, 46 * gg + ex, wall);
+    for (let i = 0; i < 4; i++) pPrism(x + 0.08 + i * 0.46, y + 0.1, 0.46, 0.8, 46 * gg + ex, 58 * gg + ex, i % 2 ? roof : shade(roof, 1.15));
+    for (let l = 0; l <= LV; l++) pWindows(x + 0.08, y + 0.1, 1.84, 0.8, 16 + l * 16, 32 + l * 16, 9, act);
     pQuad([PP(x + 0.9, y + 0.9, 26), PP(x + 1.3, y + 0.9, 26), PP(x + 1.3, y + 0.9, 0), PP(x + 0.9, y + 0.9, 0)], '#e0a03a');
-    pCyl(x + 1.72, y + 0.3, 0.14, 0, 78 * gg, '#cfd5e6'); pCyl(x + 0.4, y + 0.3, 0.07, 58, 96 * gg, '#9a6a52');
-    smoke(PP(x + 0.4, y + 0.3, 98)[0], PP(x + 0.4, y + 0.3, 98)[1], now, act, seed); zTop = 98;
+    pCyl(x + 1.72, y + 0.3, 0.14, 0, 78 * gg + ex, '#cfd5e6'); pCyl(x + 0.4, y + 0.3, 0.07, 58 * gg + ex, 96 * gg + ex, '#9a6a52');
+    smoke(PP(x + 0.4, y + 0.3, 98 * gg + ex)[0], PP(x + 0.4, y + 0.3, 98 * gg + ex)[1], now, act, seed); zTop = 98 + ex;
   } else if (a.t === 'f3') {
-    pPrism(x + 0.1, y + 0.1, 1.8, 1.0, 0, 52 * gg, wall);
-    for (let i = 0; i < 4; i++) pPrism(x + 0.1 + i * 0.45, y + 0.1, 0.45, 1.0, 52 * gg, 66 * gg, i % 2 ? roof : shade(roof, 1.15));
+    pPrism(x + 0.1, y + 0.1, 1.8, 1.0, 0, 52 * gg + ex, wall);
+    for (let i = 0; i < 4; i++) pPrism(x + 0.1 + i * 0.45, y + 0.1, 0.45, 1.0, 52 * gg + ex, 66 * gg + ex, i % 2 ? roof : shade(roof, 1.15));
     pPrism(x + 0.1, y + 1.2, 1.1, 0.7, 0, 36 * gg, shade(wall, 0.95)); pPrism(x + 0.1, y + 1.2, 1.1, 0.7, 36 * gg, 42 * gg, roof);
     pWindows(x + 0.1, y + 1.1, 1.8, 0, 14, 36, 10, act);
+    for (let l = 0; l < LV; l++) pWindows(x + 0.1, y + 1.1, 1.8, 0, 44 + l * 16, 56 + l * 16, 10, act);
     pCyl(x + 1.55, y + 1.5, 0.3, 0, 40 * gg, '#cfd5e6'); pCyl(x + 1.55, y + 1.5, 0.22, 40 * gg, 78 * gg, '#bfc6d9');
-    pCyl(x + 0.35, y + 0.3, 0.08, 66, 120 * gg, '#9a6a52'); pCyl(x + 0.75, y + 0.3, 0.08, 66, 108 * gg, '#9a6a52');
-    smoke(PP(x + 0.35, y + 0.3, 122)[0], PP(x + 0.35, y + 0.3, 122)[1], now, act, seed); smoke(PP(x + 1.55, y + 1.5, 80)[0], PP(x + 1.55, y + 1.5, 80)[1], now, act, seed + 0.4); zTop = 122;
+    pCyl(x + 0.35, y + 0.3, 0.08, 66 * gg + ex, 120 * gg + ex, '#9a6a52'); pCyl(x + 0.75, y + 0.3, 0.08, 66 * gg + ex, 108 * gg + ex, '#9a6a52');
+    smoke(PP(x + 0.35, y + 0.3, 122 * gg + ex)[0], PP(x + 0.35, y + 0.3, 122 * gg + ex)[1], now, act, seed); smoke(PP(x + 1.55, y + 1.5, 80)[0], PP(x + 1.55, y + 1.5, 80)[1], now, act, seed + 0.4); zTop = 122 + ex;
+  } else if (a.t === 'f4') {
+    // Méga-usine 3x3 : grande nef à sheds, tour étagée, annexe de bureaux avec entrée, réservoirs, trois cheminées
+    const H1 = 96 * gg + ex, hall = shade(wall, 1.02), tw = shade(wall, 0.96);
+    pQuad([PP(x + 0.03, y + 0.03, 0.4), PP(x + 2.97, y + 0.03, 0.4), PP(x + 2.97, y + 2.97, 0.4), PP(x + 0.03, y + 2.97, 0.4)], '#b4b8c4');
+    pQuad([PP(x + 1.9, y + 1.55, 0.6), PP(x + 2.0, y + 1.55, 0.6), PP(x + 2.0, y + 2.97, 0.6), PP(x + 1.9, y + 2.97, 0.6)], '#d9a63a');   // voie de service
+    pPrism(x + 0.1, y + 0.1, 1.65, 1.2, 0, H1, hall);
+    for (let i = 0; i < 5; i++) pPrism(x + 0.1 + i * 0.33, y + 0.1, 0.33, 1.2, H1, H1 + 14, i % 2 ? roof : shade(roof, 1.15));
+    for (let l = 0; l < 3 + LV; l++) pWindows(x + 0.1, y + 0.1, 1.65, 1.2, 14 + l * 22, 30 + l * 22, 11, act);
+    [[0.38, 0.35, 1.0], [0.72, 0.35, 0.82], [1.06, 0.35, 0.94]].forEach((c3, i) => { const zt = H1 + 14 + 70 + 70 * c3[2]; pCyl(x + c3[0], y + c3[1], 0.1, H1 + 14, zt, '#9a6a52'); pCyl(x + c3[0], y + c3[1], 0.105, zt - 10, zt, i % 2 ? '#e9edff' : '#ff5a5f'); const sq = PP(x + c3[0], y + c3[1], zt + 2); smoke(sq[0], sq[1], now, act, seed + i * 0.31); });
+    pPrism(x + 1.75, y + 0.1, 1.15, 1.2, 0, H1 + 50 * gg, tw); pPrism(x + 1.95, y + 0.3, 0.75, 0.8, H1 + 50 * gg, H1 + 92 * gg, shade(wall, 1.05)); pPrism(x + 1.9, y + 0.25, 0.85, 0.9, H1 + 92 * gg, H1 + 100 * gg, roof);
+    for (let l = 0; l < 4 + LV; l++) pWindows(x + 1.75, y + 0.1, 1.15, 1.2, 16 + l * 24, 32 + l * 24, 6, act);
+    pPrism(x + 0.1, y + 1.5, 1.7, 1.35, 0, 62 * gg, shade(wall, 0.93)); pPrism(x + 0.06, y + 1.46, 1.78, 1.43, 62 * gg, 70 * gg, roof);
+    pWindows(x + 0.1, y + 1.5, 1.7, 1.35, 30, 52, 9, act);
+    pQuad([PP(x + 0.7, y + 2.85, 28), PP(x + 1.2, y + 2.85, 28), PP(x + 1.2, y + 2.85, 0), PP(x + 0.7, y + 2.85, 0)], '#241a14'); pQuad([PP(x + 0.74, y + 2.85, 24), PP(x + 0.96, y + 2.85, 24), PP(x + 0.96, y + 2.85, 0), PP(x + 0.74, y + 2.85, 0)], '#e0a03a');
+    { const q = PP(x + 0.95, y + 2.85, 70); ctx.fillStyle = 'rgba(9,13,28,.92)'; ctx.strokeStyle = '#ff7ad0'; ctx.lineWidth = 2; ctx.fillRect(q[0] - 56, q[1] - 11, 112, 22); ctx.strokeRect(q[0] - 56, q[1] - 11, 112, 22); ctx.fillStyle = '#ff7ad0'; ctx.font = '800 15px "Big Shoulders Display", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MÉGA-USINE', q[0], q[1] + 1); }
+    pCyl(x + 2.3, y + 2.0, 0.3, 0, 64 * gg, '#cfd5e6'); pCyl(x + 2.3, y + 2.0, 0.22, 64 * gg, 84 * gg, '#bfc6d9');
+    pCyl(x + 2.55, y + 2.6, 0.26, 0, 52 * gg, '#d6dbea'); pCyl(x + 2.55, y + 2.6, 0.2, 52 * gg, 66 * gg, '#bfc6d9');
+    pPrism(x + 1.85, y + 1.4, 0.7, 0.14, 26, 32, '#7d8599');   // passerelle de tuyauterie
+    if (Math.sin(now / 420 + seed * 9) > 0) { const q = PP(x + 2.3, y + 0.7, H1 + 112 * gg); ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(q[0], q[1], 3.5, 0, 7); ctx.fill(); }
+    zTop = H1 + 150;
+  } else if (a.t === 's4') {
+    // Méga-centre commercial 3x3 : grande halle, atrium vitré, façade à enseignes, parking avec voitures
+    const H1 = 56 * gg + LV * 12 * gg, mall = shade(wall, 1.0);
+    pQuad([PP(x + 0.03, y + 0.03, 0.4), PP(x + 2.97, y + 0.03, 0.4), PP(x + 2.97, y + 2.97, 0.4), PP(x + 0.03, y + 2.97, 0.4)], '#a8acb8');
+    pPrism(x + 0.08, y + 0.1, 2.84, 2.1, 0, H1, mall); pPrism(x + 0.05, y + 0.07, 2.9, 2.16, H1, H1 + 6, roof);
+    pPrism(x + 0.9, y + 0.6, 1.3, 1.3, H1 + 6, H1 + 46 * gg, '#7fb2dc'); pPrism(x + 0.86, y + 0.56, 1.38, 1.38, H1 + 46 * gg, H1 + 52 * gg, '#9aa2b5');
+    for (let l = 0; l <= LV; l++) pWindows(x + 0.08, y + 0.1, 2.84, 2.1, 10 + l * 12, 22 + l * 12, 14, act);
+    for (let i = 0; i < 4; i++) { const u = x + 0.2 + i * 0.7; pQuad([PP(u, y + 2.2, 26), PP(u + 0.5, y + 2.2, 26), PP(u + 0.5, y + 2.2, 0), PP(u, y + 2.2, 0)], i === 1 ? '#3fd8ff' : '#243053'); }
+    for (let i = 0; i < 12; i++) { const cu = x + 0.2 + (i % 6) * 0.45, cv = y + 2.4 + Math.floor(i / 6) * 0.3; if (hash(i, Math.floor(seed * 100), 7) > 0.45) pPrism(cu, cv, 0.26, 0.14, 0, 6, ['#d94a4a', '#4a7ad9', '#f2f2f2', '#2f2f3a', '#e0a03a'][Math.floor(hash(i, 3, Math.floor(seed * 100)) * 5)]); }
+    { const q = PP(x + 1.55, y + 2.2, H1 + 14); ctx.fillStyle = 'rgba(9,13,28,.92)'; ctx.strokeStyle = '#ff7ad0'; ctx.lineWidth = 2; ctx.fillRect(q[0] - 62, q[1] - 11, 124, 22); ctx.strokeRect(q[0] - 62, q[1] - 11, 124, 22); ctx.fillStyle = '#ff7ad0'; ctx.font = '800 15px "Big Shoulders Display", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MÉGA-CENTRE', q[0], q[1] + 1); }
+    pCyl(x + 2.75, y + 2.7, 0.04, 0, 90, '#cfd5e6'); { const q = PP(x + 2.75, y + 2.7, 94); ctx.fillStyle = '#ff4fa3'; ctx.fillRect(q[0] - 9, q[1] - 12, 18, 12); }
+    zTop = H1 + 52;
   } else if (a.t === 'wh') {
     pPrism(x + 0.06, y + 0.1, 0.88, 0.8, 0, 42 * gg, wall); pPrism(x + 0.04, y + 0.08, 0.92, 0.84, 42 * gg, 47 * gg, roof);
     for (let i = 0; i < 3; i++) { const u = x + 0.1 + i * 0.28; pQuad([PP(u, y + 0.9, 28), PP(u + 0.22, y + 0.9, 28), PP(u + 0.22, y + 0.9, 0), PP(u, y + 0.9, 0)], '#e0a03a'); for (let k = 1; k < 5; k++) pQuad([PP(u, y + 0.9, 28 - k * 5.6 + 1), PP(u + 0.22, y + 0.9, 28 - k * 5.6 + 1), PP(u + 0.22, y + 0.9, 28 - k * 5.6), PP(u, y + 0.9, 28 - k * 5.6)], 'rgba(0,0,0,.25)'); }
@@ -5502,7 +5554,7 @@ function drawHouse(a, p, now, grow) {
 }
 function roofTop(a, p, now) {
   if (a.lm) return;
-  const f = a.floors + (a.lvl || 0), k = Math.floor(a.seed * 997) % 6, cx = p.x, ry = a._top + 26;
+  const f = lvFloors(a), k = Math.floor(a.seed * 997) % 6, cx = p.x, ry = a._top + 26;
   const box = (dx, dy, bw, bh, col) => { ctx.fillStyle = shade(col, 0.82); ctx.fillRect(cx + dx - bw / 2, ry + dy - bh, bw, bh); ctx.fillStyle = shade(col, 1.1); ctx.fillRect(cx + dx - bw / 2, ry + dy - bh, bw, 4); };
   if (f >= 30) { box(0, 0, 44, 22, '#9aa4c0'); ctx.strokeStyle = '#cfd6ee'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, ry - 22); ctx.lineTo(cx, ry - 70); ctx.stroke(); if (Math.sin(now / 400 + a.seed * 7) > 0) { ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, ry - 72, 3.5, 0, 7); ctx.fill(); } return; }
   if (f >= 20) { box(0, 0, 36, 16, '#aab4cf'); box(0, -16, 18, 14, '#cfd6ee'); return; }
@@ -5546,20 +5598,21 @@ function drawTileOf(a, x, y, ox, oy, o) {
   } else if (a.t === 'hq' && hqSprite(a)) {
     const m = hqSprite(a);
     if (ox === a.w - 1 && oy === a.h - 1) {
-      const fw = (a.w + a.h) * 66 * 1.06, sc = fw / (m.right - m.left), dw = m.w * sc, dh = m.h * sc * grow, tx = p.x - (m.tipx - m.w / 2) * sc, by = p.y + 66 + 4;
+      const fw = (a.w + a.h) * 66 * 1.06, sc = fw / (m.right - m.left), dw = m.w * sc, dh = m.h * sc * grow * (1 + 0.1 * (a.lvl || 0)), tx = p.x - (m.tipx - m.w / 2) * sc, by = p.y + 66 + 4;
       ctx.drawImage(m.img, tx - dw / 2, by - dh, dw, dh); a._top = by - dh;
     }
   } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') {
     const k = Math.floor(a.seed * 997);
     const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' || a.t === 'rd' || a.t === 'dc' ? 'tech' + (k % 2) : 'bank' + (k % 2);
-    const floors = Math.max(1, Math.round((a.floors + (a.t === 'res' ? 0 : a.lvl)) * (a.t === 'res' ? 1 : grow)));
+    const floors = Math.max(1, Math.round(lvFloors(a) * (a.t === 'res' ? 1 : grow)));
     const bx = p.x - 50, by = p.y - 27;
     for (let i = 0; i < floors; i++) blit(name, bx, by - i * FH);
     a._top = by - (floors - 1) * FH; roofTop(a, p, o.now);
   } else {
     const name = tileSprite(a, ox, oy), s = name && SP[name];
-    if (s) ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] / 2, p.y + 99 - s[3] + (1 - grow) * 30, s[2], s[3] * grow);
-    if (ox === 0 && oy === 0) a._top = p.y - 28;
+    const hs = TYPES[a.t].ret ? 1 + 0.12 * (a.lvl || 0) : 1;   // les commerces s'élèvent avec leur niveau
+    if (s) ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] / 2, p.y + 99 - s[3] * hs + (1 - grow) * 30, s[2], s[3] * grow * hs);
+    if (ox === 0 && oy === 0) a._top = p.y - 28 - (s ? s[3] * (hs - 1) : 0);
   }
   ctx.globalAlpha = 1;
 }
@@ -5597,18 +5650,19 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
     }
     topY = p.y - 28;
   } else if (grow >= 1) {
-    if (a.t === 'f1') { chimney(p.x + 24, p.y + 14, 40, now, a.seed, null, conn, alpha); topY = p.y - 30; }
-    else if (a.t === 'f2') { chimney(p.x + 6, p.y + 6, 52, now, a.seed, null, conn, alpha); chimney(p.x - 30, p.y - 8, 44, now, a.seed + 0.3, null, conn, alpha); topY = p.y - 50; }
+    const ex = (a.lvl || 0) * 16;
+    if (a.t === 'f1') { chimney(p.x + 24, p.y + 14, 40 + ex, now, a.seed, null, conn, alpha); topY = p.y - 30 - ex; }
+    else if (a.t === 'f2') { chimney(p.x + 6, p.y + 6, 52 + ex, now, a.seed, null, conn, alpha); chimney(p.x - 30, p.y - 8, 44 + ex, now, a.seed + 0.3, null, conn, alpha); topY = p.y - 50 - ex; }
     else if (a.t === 'f3') {
-      chimney(p.x + 20, p.y + 8, 60, now, a.seed, null, conn, alpha); chimney(p.x - 28, p.y - 6, 54, now, a.seed + 0.3, null, conn, alpha);
-      chimney(p.x - 62, p.y - 38, 48, now, a.seed + 0.6, null, conn, alpha);
-      sign(p.x - 10, p.y - 62, 'USINE', '#ff4fa3'); topY = p.y - 90;
+      chimney(p.x + 20, p.y + 8, 60 + ex, now, a.seed, null, conn, alpha); chimney(p.x - 28, p.y - 6, 54 + ex, now, a.seed + 0.3, null, conn, alpha);
+      chimney(p.x - 62, p.y - 38, 48 + ex, now, a.seed + 0.6, null, conn, alpha);
+      sign(p.x - 10, p.y - 62 - ex, 'USINE', '#ff4fa3'); topY = p.y - 90 - ex;
     }
     else if (a.t === 'foundry') { chimney(p.x + 22, p.y + 6, 52, now, a.seed, '#ffd76a', conn, alpha); topY = p.y - 50; }
     else if (a.t === 's2') { sign(p.x - 30, p.y - 36, 'SUPER', '#7f96ff'); topY = p.y - 60; }
     else if (a.t === 'immo') { sign(p.x - 6, p.y - 40, 'IMMO', '#ffb347'); topY = p.y - 62; }
     else if (a.t === 'btp') { drawTowerCrane(p.x - 18, p.y + 36, now, a.seed); sign(p.x - 38, p.y - 36, 'BTP', '#ffb347'); topY = p.y - 160; }
-    else if (a.t === 's3') { sign(p.x - 28, p.y - 62, 'HYPER', '#ff4fa3'); topY = p.y - 90; }
+    else if (a.t === 's3') { sign(p.x - 28, p.y - 62 - (a.lvl || 0) * 10, 'HYPER', '#ff4fa3'); topY = p.y - 90 - (a.lvl || 0) * 10; }
   }
   ctx.globalAlpha = 1;
   if (a.lvl > 0 && a.t !== 'res') {
@@ -5704,7 +5758,7 @@ function drawSatellite(now) {
   eachVisible(vr, (x, y) => {
     const rc = S.grid[idx(x, y)]; if (!rc || rc.t === 'road' || rc.t === 'part') return;
     const a = rc, T = TYPES[a.t]; if (!T) return;
-    const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') ? a.floors + (a.lvl || 0) : 2 + (a.lvl || 0);
+    const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
     const H = fl * 15 + 6, w = a.w || 1, h = a.h || 1;
     const col = a.t === 'npc' ? [175 + (a.seed * 50 | 0) - 25, 185 + (a.seed * 40 | 0) - 20, 215] : (MM_COL[a.t] || [150, 150, 170]);
     const A = iso(x, y), B = iso(x + w, y), C = iso(x + w, y + h), D = iso(x, y + h);
@@ -5856,7 +5910,7 @@ function frame(now) {
 /* ---------- Minimap ---------- */
 const mmOff = document.createElement('canvas'); mmOff.width = N; mmOff.height = N;
 const mmOffCtx = mmOff.getContext('2d');
-const MM_COL = { hq: [255, 215, 106], road: [120, 128, 170], res: [127, 150, 255], tech: [63, 216, 255], bank: [242, 184, 75], well: [255, 138, 61], miron: [196, 102, 74], mcoal: [143, 154, 203], mcopper: [63, 216, 192], mgold: [242, 184, 75], logging: [110, 170, 90], qgravel: [154, 154, 165], qsand: [230, 207, 143], qlime: [232, 228, 216], btp: [255, 179, 71], immo: [255, 179, 71], foundry: [255, 215, 106], f1: [70, 211, 154], f2: [127, 150, 255], f3: [255, 79, 163], s1: [70, 211, 154], s2: [127, 150, 255], s3: [255, 79, 163], port: [95, 176, 255] };
+const MM_COL = { hq: [255, 215, 106], road: [120, 128, 170], res: [127, 150, 255], tech: [63, 216, 255], bank: [242, 184, 75], well: [255, 138, 61], miron: [196, 102, 74], mcoal: [143, 154, 203], mcopper: [63, 216, 192], mgold: [242, 184, 75], logging: [110, 170, 90], qgravel: [154, 154, 165], qsand: [230, 207, 143], qlime: [232, 228, 216], btp: [255, 179, 71], immo: [255, 179, 71], foundry: [255, 215, 106], f1: [70, 211, 154], f2: [127, 150, 255], f3: [255, 79, 163], f4: [255, 122, 208], s4: [255, 122, 208], s1: [70, 211, 154], s2: [127, 150, 255], s3: [255, 79, 163], port: [95, 176, 255] };
 const DEP_COL = { wheat: [217, 194, 90], sugar: [127, 207, 106], cotton: [160, 196, 140], rubber: [47, 138, 74], oil: [60, 40, 110], iron: [150, 80, 55], coal: [60, 62, 80], copper: [40, 150, 130], gold: [220, 170, 50], wood: [40, 100, 55], gravel: [120, 120, 130], sand: [210, 190, 120], limestone: [215, 212, 200] };
 function drawMinimap() {
   if (!S) return;
