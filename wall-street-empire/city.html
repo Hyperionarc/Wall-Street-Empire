@@ -1034,7 +1034,7 @@ function stepLocalMarket(made, want) {
     const hadSale = (S.locSold[g] || 0) > 5; n.days = hadSale ? n.days + 1 : Math.max(0, n.days - 1);
     if (!n.cap && n.days > 18 && rnd() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * ROOM * 0.5; if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
     const myCap = Math.max(1, made[g] + Math.max(0, S.stock[g] - 750) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1;
-    want[g] += Dl * ROOM; made[g] += n.cap + 0.9 * Dl * ROOM;
+    want[g] += Dl * ROOM; made[g] += n.cap + 0.5 * Dl * ROOM;
     const avail = Math.max(0, S.stock[g] - 750), q = Math.min(avail, Dl * ROOM * share);
     S.locSold[g] = q; if (q > 0.01) { S.stock[g] -= q; v += q * S.price[g] * 0.97; }
   });
@@ -1162,7 +1162,8 @@ function attractiveness(pk) {
 }
 
 // ===== ÉCHELLE ÉCONOMIQUE (audit « Chief Architect ») : population ~340 k, volumes industriels ×25, capex ≈ 1 an de chiffre d'affaires à pleine charge
-const K_POP = 30, K_IND = 25, RETAIL_MARKUP = 2.45, ROOM = 0.08, WAGE_K = 120;
+const K_POP = 30, K_IND = 25, ROOM = 0.08, WAGE_K = 120;
+const RETAIL_MK = { basic: 2.5, std: 2.8, lux: 3.6, estate: 1 }, retailMk = cls => RETAIL_MK[cls] || 2.5;   // prix de rayon = prix de gros × marge (marge brute 60-75 %)
 (function applyScale() {
   const R2 = o => { Object.keys(o).forEach(g => { o[g] *= K_IND; }); };
   Object.keys(RECIPES).forEach(k => { R2(RECIPES[k].in); RECIPES[k].out *= K_IND; });
@@ -1171,7 +1172,7 @@ const K_POP = 30, K_IND = 25, RETAIL_MARKUP = 2.45, ROOM = 0.08, WAGE_K = 120;
   const setC = (k, cost, up) => { TYPES[k].cost = cost; TYPES[k].upkeep = up; };
   setC('f1', 150000, 60); setC('f2', 400000, 160); setC('f3', 1200000, 480); setC('foundry', 250000, 100);
   setC('s1', 70000, 50); setC('s2', 350000, 140); setC('s3', 1200000, 400);
-  TYPES.s1.ret.cap = 18; TYPES.s2.ret.cap = 80; TYPES.s3.ret.cap = 170; TYPES.s1.jobs = 1; TYPES.s2.jobs = 5; TYPES.s3.jobs = 11;
+  TYPES.s1.ret.cap = 10; TYPES.s2.ret.cap = 40; TYPES.s3.ret.cap = 90; TYPES.s1.jobs = 1; TYPES.s2.jobs = 3; TYPES.s3.jobs = 7;
   PRODUCTS.headache.ref = 45; PRODUCTS.cough.ref = 90;
   ['res', 'tech', 'wh', 'rd', 'dc', 'hq', 'bank', 'btp', 'immo', 'port'].forEach(k => { TYPES[k].cost *= 30; TYPES[k].upkeep *= 30; });
   setC('bank', 2000000, 700); setC('tech', 1800000, 600); setC('dc', 2400000, 900); setC('rd', 1500000, 500);
@@ -1180,12 +1181,17 @@ const K_POP = 30, K_IND = 25, RETAIL_MARKUP = 2.45, ROOM = 0.08, WAGE_K = 120;
     const rate = { well: 400, miron: 350, mcoal: 350, qgravel: 450, qsand: 450, qlime: 380, mgold: 9 }[k] || T.rate * 5; T.rate = rate; const gp = GOODS[T.ext].base * (GOODS[T.ext].grp === 'raw' ? 1.25 : 1);
     T.cost = Math.round(0.9 * rate * gp * 360 / 5000) * 5000; T.upkeep = Math.round(T.cost * 0.0004); T.jobs = Math.max(2, Math.round(rate * gp * 0.12 / WAGE_K)); });
   Object.keys(DEPOSITS).forEach(k => { DEPOSITS[k].res *= 5; });
-  // Calibrage de la valeur ajoutée : chaque usine-jour doit créer ≈ 2× ses salaires (composants, marchandises génériques, produits finis)
-  const TV = { 1: 3200, 2: 6500, 3: 12000 }, inV = rc => Object.keys(rc).reduce((a, g) => a + rc[g] * GOODS[g].base, 0);
-  RKEYS.forEach(k => { const R = RECIPES[k]; GOODS[k].base = Math.max(1, +((inV(R.in) + TV[R.lvl || 1]) / R.out).toFixed(2)); });
-  GOODS.ingot.base = Math.max(GOODS.ingot.base, +((inV(TYPES.foundry.rec.in) + 4500) / TYPES.foundry.rec.out.ingot).toFixed(2));
-  [['f1', 'basic'], ['f2', 'std'], ['f3', 'lux']].forEach(([f, g]) => { const rc = TYPES[f].rec; GOODS[g].base = +((inV(rc.in) + TV[FLEVEL[f]]) / rc.out[g]).toFixed(2); });
-  PKEYS.forEach(k => { const P = PRODUCTS[k]; P.ref = +((inV(P.in) + TV[P.lvl || 1] * 1.25) / P.out).toFixed(2); });
+  // Calibrage par marge brute (60-90 % selon le pouvoir de fixation des prix) : prix de vente = coût des intrants / (1 - marge brute)
+  const GMc = { 1: 0.58, 2: 0.65, 3: 0.72 }, inV = rc => Object.keys(rc).reduce((a, g) => a + rc[g] * GOODS[g].base, 0);
+  RKEYS.forEach(k => { const R = RECIPES[k]; GOODS[k].base = Math.max(1, +(inV(R.in) / (R.out * (1 - GMc[R.lvl || 1]))).toFixed(2)); });
+  GOODS.ingot.base = Math.max(GOODS.ingot.base, +(inV(TYPES.foundry.rec.in) / (TYPES.foundry.rec.out.ingot * 0.4)).toFixed(2));
+  [['f1', 'basic', 0.60], ['f2', 'std', 0.66], ['f3', 'lux', 0.75]].forEach(([f, g, gm]) => { const rc = TYPES[f].rec; GOODS[g].base = +(inV(rc.in) / (rc.out[g] * (1 - gm))).toFixed(2); });
+  PKEYS.forEach(k => { const P = PRODUCTS[k]; const gm = P.pharma ? (k === 'obesity' ? 0.9 : 0.85) : ({ basic: 0.70, std: 0.72, lux: 0.82, estate: 0.70 }[P.cls] || 0.7); P.ref = +(inV(P.in) / (P.out * (1 - gm))).toFixed(2); });
+  // Extraction : marge d'EBITDA réaliste (pétrole ≈ 25 %, mines 30-55 %, or 55 %) ; l'entretien/exploitation est proportionnel au chiffre d'affaires
+  const OPEX = { oil: 0.58, coal: 0.50, iron: 0.48, copper: 0.45, gold: 0.30, wood: 0.50, gravel: 0.58, sand: 0.58, limestone: 0.58, wheat: 0.55, sugar: 0.55, cotton: 0.55, rubber: 0.55 };
+  Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; const rev = T.rate * GOODS[T.ext].base; T.cost = Math.round(0.9 * rev * 360 / 5000) * 5000; T.upkeep = Math.round(rev * (OPEX[T.ext] || 0.55)); T.jobs = Math.max(2, Math.round(rev * 0.12 / WAGE_K)); });
+  TYPES.f1.jobs = 6; TYPES.f2.jobs = 12; TYPES.f3.jobs = 24;
+  setC('bank', 6000000, 700); setC('tech', 5000000, 600); setC('dc', 6500000, 900); setC('rd', 4000000, 500);
   TIERS.forEach(x => { x.at *= 4; });
 })();
 const ICONS = {
@@ -1951,7 +1957,7 @@ function personSVG(p) {
 }
 const cxOn = r => !!(S.cx && S.cx[r] && hqOf());
 const cxF = r => cxOn(r) ? clamp(S.cx[r].exp[XROLE[r].dom] / 100, 0, 1) : 0;
-const cxSalary = p => Math.round((120 + 9 * Math.max.apply(null, Object.values(p.exp))) * (S.cpi || 1));
+const cxSalary = p => Math.round((150 + 8 * Math.max.apply(null, Object.values(p.exp))) * (S.cpi || 1) * Math.pow(clamp(((S.stats && S.stats.worth) || 1e6) / 1e6, 1, 60), 0.8));
 function normGoods() {
   GKEYS.forEach(g => { if (S.stock[g] == null) S.stock[g] = 0; if (S.price[g] == null) S.price[g] = GOODS[g].base * cpi(); if (S.ph && !S.ph[g]) S.ph[g] = []; });
   PKEYS.forEach(pk => { if (!S.prod[pk]) S.prod[pk] = { st: 'locked', q: 1, pack: 1, rnd: 0, pf: 1, brand: 0, adv: 0, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
@@ -2047,7 +2053,8 @@ function fertility(x, y, k) { const d = S.dep[idx(x, y)], base = 0.6 + 0.6 * has
 const IRR_COST = [0, 1200, 2600, 4200], irrCost = l => Math.round(IRR_COST[l] * (casteIs('agriculteur') ? 0.7 : 1)), droughtNow = () => Math.max(0, -Math.sin((S.macro ? S.macro.phase : 0) * 1.7 + 1));
 function soilMult(c) { const k = TYPES[c.t].ext, irr = c.irr | 0, dr = droughtNow(); return fertility(c.x, c.y, k) * (casteIs('agriculteur') ? 1.08 : 1) * (1 + 0.1 * irr) * (1 - 0.35 * dr * (casteIs('agriculteur') ? 0.5 : 1) * (1 - irr / 3)); }
 const wasteOf = c => 0.05 * TM.waste / deptMult(c).stock;
-const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? powerMult() * (1 - clamp(0.0035 * (c.haul || 0), 0, 0.25)) : 1) * levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
+const FAC_U = 3.2;   // une usine traite FAC_U cycles de recette par jour
+const unitsOf = c => ((FLEVEL[c.t] || c.t === 'foundry') ? FAC_U * powerMult() * (1 - clamp(0.0035 * (c.haul || 0), 0, 0.25)) : 1) * levelMult(c) * crewOf(c) * (1 + 0.08 * (c.eff || 0)) * wageOf(c).prod * deptMult(c).prod * ((FLEVEL[c.t] || c.t === 'foundry') ? TM.fac : 1) * ((TYPES[c.t].ext || FLEVEL[c.t]) ? modOf('prod') : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
 const jobsOf = c => TYPES[c.t].jobs * levelMult(c) * crewOf(c);
 const fillOf = c => clamp(STAFF * wageOf(c).attr, 0, 1);
@@ -2214,7 +2221,7 @@ function step() {
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; retUnits += R.cap * u; const df = clamp(Math.pow(pfOf(c), -1.6) * (0.45 + 0.9 * (c.ci == null ? 0.5 : c.ci)) * 0.8, 0.1, 1); c._cap *= df; c._df = df;
     const SH = { s1: { basic: 1 }, s2: { basic: 0.62, std: 0.38 }, s3: { basic: 0.45, std: 0.35, lux: 0.2 }, immo: { estate: 1 } }[c.t] || null; c._lc = {};
     R.sells.forEach(k2 => { c._lc[k2] = c._cap * (SH ? (SH[k2] || 0) : 1 / R.sells.length); });
-    c._left = c._cap; c._sold = 0; c._rev = 0; c._imp = 0; c.sales = {}; } });
+    c._left = c._cap; c._sold = 0; c._rev = 0; c._cogs = 0; c._imp = 0; c.sales = {}; } });
   buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow((1 + 0.002 * (c.rt || 0)) / pfOf(c), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (c.ci = custIndex(c).idx, 0.6 + 0.9 * c.ci); const st = brandStrat(); c.aw = clamp((c.aw || 0) + (adTarget(c) * (st === 'corp' ? 1.15 : st === 'unique' ? 0.9 : 1) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c);
     const rtT = clamp(0.5 * 100 * clamp(adRt(c) / 1.2, 0, 1) + 0.5 * (prodQualityScore() + 8 * (c.qual || 0)), 0, 100) * (st === 'unique' ? 1.15 : 1);
     c.rt = clamp((c.rt == null ? 30 : c.rt) + (rtT - (c.rt == null ? 30 : c.rt)) * (adOf(c).press > 0 ? 0.045 : 0.03), 0, 100);
@@ -2251,13 +2258,13 @@ function step() {
           const share = n0 * c._cap * c.adF * c.pw / ws; let q = Math.min(share, c._lc[cls] || 0);
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * importRate / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
-          stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * RETAIL_MARKUP * pfOf(c); c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
+          stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOf(c); c._cogs = (c._cogs || 0) + fs * it.price + (gen ? rest * it.price * importRate : 0); c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
         });
       }
       addressed[cls] += wi;
       if (gen) S.stock[cls] -= fromStock;
       else { const ps = S.prod[it.k]; ps.stock -= got; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
-      sold[cls] += got; revRetVal += got * it.price * RETAIL_MARKUP * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOf(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
+      sold[cls] += got; revRetVal += got * it.price * retailMk(cls) * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOf(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
     });
     if (cls !== 'estate') { want[cls] += dem[cls] * 0.5; made[cls] += dem[cls] * 0.47; }   // fournisseurs extérieurs : la ville n'est jamais en pénurie permanente
   });
@@ -2299,7 +2306,7 @@ function step() {
   buildings.forEach(c => {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
     if (c.t === 'rd') { c._pat = (c._pat || 0) + u * 0.4 / 30; if (c._pat >= 1) { c._pat -= 1; S.patents = (S.patents || 0) + 1; say('Un brevet est déposé : il rapporte des royalties chaque jour.', 'gold'); } c.out = u; c.util = fill; c.pRev = 0; }
-    if (c.t === 'dc') { const rent = jobsOf(c) * 300 * fill * (casteIs('innovateur') ? 1.5 : 1) * cpi(); c.out = 10 * u; c.util = fill; c.pRev = rent; revTech += rent; c.transport = 20 * u * cpi(); transportTotal += c.transport; }
+    if (c.t === 'dc') { const rent = jobsOf(c) * 700 * fill * (casteIs('innovateur') ? 1.5 : 1) * cpi(); c.out = 10 * u; c.util = fill; c.pRev = rent; revTech += rent; c.transport = 20 * u * cpi(); transportTotal += c.transport; }
     if (isPlant(c.t)) {
       const storm = c.gridOver && (S.storm || 0) >= S.day, live = c.gridOk && !storm, loss = 1 - (c.gridLoss || 0), sf = 0.55 + 0.45 * Math.sin((S.day - 60) / 360 * 2 * Math.PI);
       let mwh = 0; c.limit = null; c.inCost = 0;
@@ -2310,8 +2317,8 @@ function step() {
       if (!c.gridOk) c.limit = 'grid'; else if (storm) c.limit = 'storm';
       mwh *= loss; S._pSup += mwh; c.pRev = mwh * (S.power ? S.power.price : ELEC_BASE) * (casteIs('negociant') ? 1.3 : 1); revTech += c.pRev;
     }
-    if (c.t === 'tech') { c.pRev = jobsOf(c) * 220 * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
-    if (c.t === 'bank') { c.pRev = (jobsOf(c) * 260 + Math.max(0, S.cash - (S.loan || 0)) * 0.0001) * qualMult(c); revBank += c.pRev; }
+    if (c.t === 'tech') { c.pRev = jobsOf(c) * 500 * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
+    if (c.t === 'bank') { c.pRev = (jobsOf(c) * 600 + Math.max(0, S.cash - (S.loan || 0)) * 0.0001) * qualMult(c); revBank += c.pRev; }
     if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
     if (c.t === 'wh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
     c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
@@ -3096,6 +3103,13 @@ function forcesHTML() {
   const top = L.slice().sort((a, b) => f[b[0]] - f[a[0]])[0];
   return `<h3>CINQ FORCES DE PORTER</h3><div class="tcard">${L.map(([k, n, d]) => `<div class="finrow" title="${d}"><span>${n}</span><b class="${f[k] > 65 ? 'neg' : f[k] < 35 ? 'pos' : ''}">${Math.round(f[k])}</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(f[k])}%;background:${f[k] > 65 ? '#ff5a5f' : f[k] < 35 ? '#46d39a' : '#f2b84b'}"></i></div>`).join('')}<div class="finrow"><span><b>Attractivité du secteur</b></span><b class="${f.attract > 55 ? 'pos' : f.attract < 40 ? 'neg' : ''}">${f.attract} / 100</b></div><small>Force dominante : <b>${top[1]}</b>. ${top[2]}</small></div>`;
 }
+function sectorHTML() {
+  const by = {}; eachBuilding(c => { if (c.t === 'npc' || c.t === 'road' || c.t === 'pylon' || c.t === 'cable' || c.t === 'pipeline' || !(c.pRev > 0 || c.wages > 0)) return; const T = TYPES[c.t], k = c.t, o = by[k] || (by[k] = { n: 0, rev: 0, cogs: 0, wag: 0, oth: 0, name: T.name });
+    o.n++; o.rev += c.pRev || 0; o.cogs += T.ret ? (c._cogs || 0) : (c.inCost || 0); o.wag += c.wages || 0; o.oth += (c.upk || 0) + (c.transport || 0); });
+  const rows = Object.keys(by).map(k => by[k]).filter(o => o.rev > 0).sort((a, b) => b.rev - a.rev); if (!rows.length) return '';
+  const pc = v => (v * 100).toFixed(0) + ' %', cl = (v, lo, hi) => v >= hi ? 'pos' : v < lo ? 'neg' : '';
+  return `<h3>ÉCONOMIE DES SECTEURS (par jour)</h3><div class="tcard"><table class="fint"><tr><th>Activité</th><th>CA</th><th>Marge brute</th><th>EBITDA</th><th>CA / salaires</th></tr>${rows.map(o => { const gm = (o.rev - o.cogs) / o.rev, eb = (o.rev - o.cogs - o.wag - o.oth) / o.rev, rw = o.wag > 0 ? o.rev / o.wag : 0; return `<tr><td>${o.name} ×${o.n}</td><td>${money(o.rev)}</td><td class="${cl(gm, 0.4, 0.6)}">${o.cogs > 0 || !o.name ? pc(gm) : '—'}</td><td class="${cl(eb, 0.1, 0.3)}">${pc(eb)}</td><td class="${rw && rw < 3 ? 'neg' : ''}">${rw ? '×' + rw.toFixed(1).replace('.', ',') : '—'}</td></tr>`; }).join('')}</table><small>Repères : marge brute 60-90 % selon le pouvoir de fixation des prix, EBITDA 15-20 % pour le pétrole à 50 % et plus pour le luxe ou la finance, chiffre d'affaires au moins 3 fois les salaires. Pour les usines, le CA est la valeur produite au prix de marché.</small></div>`;
+}
 function energyHTML() {
   const P = S.power; if (!P) return '';
   const pct = Math.round(P.r * 100);
@@ -3114,6 +3128,7 @@ function renderEmpire() {
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / jour', (F.net >= 0 ? '+' : '−') + money(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : px.toFixed(2).replace('.', ',') + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Population / emplois', fmt(st.pop || 0) + ' / ' + fmt(st.playerJobs || 0), '', 'emplois chez toi')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
   h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
+  h += sectorHTML();
   h += energyHTML();
   h += brandHTML();
   h += forcesHTML();

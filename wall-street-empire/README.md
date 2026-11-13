@@ -198,3 +198,11 @@ Objectif « Manche » (Menu > Objectifs) : fin au jour 720 ou dès qu'un empire 
 - **Migration** : une ville prospère construit de nouvelles tours résidentielles et de bureaux (population ≈ +35 % en 4 ans, chômage ≈ 6 %).
 - Marge de détail ×2,45, supermarché 80 u/j : bot « retail pur + réinvestissement » ≈ 1,1 M$ à 1 an, 1,9 M$ à 2 ans, 7,5 M$ à 5 ans.
 - Multijoueur mis en veille (le calcul déterministe `rnd()` reste en place).
+
+## Passe 5 : marges réalistes (retour de Rémy)
+- **Marge brute 60-90 %** : prix des composants, marchandises et produits fixés par `prix = coût des intrants / (1 − marge brute)` (composants 58-72 %, produits 70-82 %, pharma 85-90 %). Prix de rayon = prix de gros × 2,5 (base), 2,8 (manufacturé), 3,6 (luxe).
+- **CA ≥ 3× les salaires** partout (supermarché ×6, usines ×3,5 à ×14, extraction ×5-7) : effectifs recalés (supermarché 3 employés, usines 6/12/24) et usines à 3,2 cycles de recette par jour.
+- **Extraction** : EBITDA ≈ 25 % pour le pétrole, 30-50 % pour les mines, 55 % pour l'or (coûts d'exploitation proportionnels au CA) ; les cours fluctuent (dumping des étrangers) donc les marges aussi.
+- **Services** : banque 600 $/employé/jour, tour tech 500, data center 700 ; capex 4 à 6,5 M$.
+- **Rémunération des dirigeants** proportionnelle à la taille du groupe (jusqu'à ≈ 9 M$/an par dirigeant pour un grand groupe).
+- Nouveau tableau **« Économie des secteurs »** (Empire) : CA, marge brute, EBITDA et CA/salaires par type de bâtiment.
