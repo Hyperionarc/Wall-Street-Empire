@@ -1682,7 +1682,7 @@ const skillOf = k => ((S && S.skills) || {})[k] | 0;
 const SKILL_MAX = 5;
 const skillCost = l => l + 1;
 function addKp(n, why) { S.kp = (S.kp || 0) + n; say(`+${n} point de connaissance (${why}). Dépense-le dans Menu > Objectifs.`, 'gold'); }
-const GOALS = { sandbox: { n: 'Bac à sable', d: 'Aucune limite de temps : construis ton empire librement.' }, race: { n: 'Course à la fortune', d: 'Atteins 25 M$ de capitalisation avant le jour 720.', target: 25e6, deadline: 720 }, monopoly: { n: 'Monopole', d: 'Détiens plus de 50 % du marché pendant 30 jours d\'affilée.', target: 0.5, streak: 30 } };
+const GOALS = { match: { n: 'Manche (prépare le multijoueur)', d: 'La manche s\'arrête au jour 720 ou dès qu\'un empire atteint 1 milliard de $ de capitalisation. Le plus riche gagne.', target: 1e9, deadline: 720 }, sandbox: { n: 'Bac à sable', d: 'Aucune limite de temps : construis ton empire librement.' }, race: { n: 'Course à la fortune', d: 'Atteins 25 M$ de capitalisation avant le jour 720.', target: 25e6, deadline: 720 }, monopoly: { n: 'Monopole', d: 'Détiens plus de 50 % du marché pendant 30 jours d\'affilée.', target: 0.5, streak: 30 } };
 const NPC_TOP = [['Apex Holdings', 9.2e6, 0.0006], ['Nordic Steel', 6.1e6, 0.0004], ['Sakura Industries', 4.4e6, 0.0007], ['Atlas Commodities', 3.1e6, 0.0005], ['Meridian Capital', 2.2e6, 0.0006], ['Zenith Retail', 1.4e6, 0.0004], ['Orion Motors', 0.9e6, 0.0005]];
 function marketShareAvg() { const mk = S.mkt || {}; return RIV_CLS.reduce((a, c) => a + (mk[c] ? mk[c].you : 0), 0) / 4; }
 function playerScore() { const st = S.stats || {}; return Math.round((st.worth || 0) / 1000 + marketShareAvg() * 500 + (st.playerJobs || 0) * 0.5 + (S.done ? S.done.length : 0) * 20 + (S.houses || 0) * 2 + Object.keys(S.tech || {}).length * 25); }
@@ -1690,6 +1690,10 @@ function stepGoal() {
   const g = S.goal || 'sandbox', G = GOALS[g], w = (S.stats && S.stats.worth) || 0;
   if (S.goalDone) return;
   if (g === 'race') { if (w >= G.target) { S.goalDone = 'win'; addKp(3, 'objectif atteint'); say(`Victoire : ${money(G.target)} atteints au jour ${S.day} !`, 'gold'); } else if (S.day >= G.deadline) { S.goalDone = 'lose'; say(`Temps écoulé : l'objectif de ${money(G.target)} n'est pas atteint. Tu peux continuer en bac à sable.`, 'bad'); } }
+  else if (g === 'match') {
+    const rs = (S.rivals || []).map(r => rivalValue(r)), best = Math.max(0, ...rs);
+    if (w >= G.target || S.day >= G.deadline) { const win = w >= best; S.goalDone = win ? 'win' : 'lose'; if (win) addKp(3, 'manche gagnée'); say(w >= G.target ? `Manche terminée : ${money(w)} atteints au jour ${S.day} !` : `Manche terminée au jour ${S.day} : ${win ? 'tu as la plus grande valorisation' : 'un rival te devance (' + money(best) + ' contre ' + money(w) + ')'}.`, win ? 'gold' : 'bad'); }
+  }
   else if (g === 'monopoly') { S.streak = marketShareAvg() >= G.target ? (S.streak || 0) + 1 : 0; if (S.streak >= G.streak) { S.goalDone = 'win'; addKp(3, 'monopole'); say('Victoire : tu domines le marché depuis 30 jours !', 'gold'); } }
 }
 // Terminal financier : indice, portefeuille, OPA, cartel, embargo
@@ -2990,7 +2994,8 @@ function renderGoals() {
   if (!el('goals') || el('goals').closest('section').hidden) return;
   const g = S.goal || 'sandbox', G = GOALS[g], w = (S.stats && S.stats.worth) || 0, ms = marketShareAvg();
   let prog = '';
-  if (g === 'race') prog = `<div class="bar"><i style="width:${Math.round(clamp(w / G.target, 0, 1) * 100)}%"></i></div><small class="note">${money(w)} / ${money(G.target)} · jour ${S.day} sur ${G.deadline}</small>`;
+  if (g === 'match') prog = `<div class="bar"><i style="width:${Math.round(clamp(w / G.target, 0, 1) * 100)}%"></i></div><small class="note">${money(w)} / ${money(G.target)} · jour ${S.day} sur ${G.deadline}</small>`;
+  else if (g === 'race') prog = `<div class="bar"><i style="width:${Math.round(clamp(w / G.target, 0, 1) * 100)}%"></i></div><small class="note">${money(w)} / ${money(G.target)} · jour ${S.day} sur ${G.deadline}</small>`;
   else if (g === 'monopoly') prog = `<div class="bar"><i style="width:${Math.round(clamp((S.streak || 0) / G.streak, 0, 1) * 100)}%"></i></div><small class="note">Part de marché ${Math.round(ms * 100)} % (objectif ${Math.round(G.target * 100)} %) · série ${S.streak || 0} / ${G.streak} jours</small>`;
   const sel = Object.keys(GOALS).map(k => `<button class="btn ${k === g ? '' : 'sec'}" data-goal="${k}" style="min-height:32px;padding:4px 10px;font-size:12px">${GOALS[k].n}</button>`).join('');
   const rows = [{ n: 'Ton empire', v: w, me: 1 }].concat((S.rivals || []).map(r => ({ n: r.name, v: rivalValue(r) }))).concat(NPC_TOP.map(x => ({ n: x[0], v: x[1] * (1 + x[2] * (S.day || 0)) }))).sort((a, b) => b.v - a.v);

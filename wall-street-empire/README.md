@@ -165,3 +165,6 @@ Dans la vue d'un magasin, un produit sélectionné affiche : camembert de part d
 
 ## Bac à sable : tout débloquer
 Menu > « Tout débloquer : oui/non » (actif par défaut, sauvegardé) : tous les bâtiments (y compris centrales éolienne, solaire, nucléaire, câbles enterrés, BTP, grande usine, hypermarché…), tous les produits (restent à développer) et toutes les recherches sont accessibles sans palier de fortune ni prérequis.
+
+## Mode « Manche » (prépare le multijoueur)
+Objectif « Manche » (Menu > Objectifs) : fin au jour 720 ou dès qu'un empire atteint 1 milliard de $ de capitalisation ; le plus riche gagne.
