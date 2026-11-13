@@ -394,7 +394,9 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .btabs{display:flex;gap:6px;margin:8px 0;overflow-x:auto}
 .btabs button{flex:0 0 auto;min-height:34px;padding:4px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:12.5px;font-weight:600}
 .btabs button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold);background:var(--panel-hi)}
-#bscene{width:100%;height:auto;max-height:54vh;object-fit:contain;display:block;border-radius:10px;border:1px solid var(--line);background:#12163a}
+#bkpi:empty{display:none}
+#bview .kpis.bk{grid-template-columns:repeat(auto-fit,minmax(94px,1fr));margin:8px 0}
+#bscene{width:100%;height:auto;max-height:clamp(150px,21vh,340px);object-fit:contain;display:block;border-radius:10px;border:1px solid var(--line);background:#12163a}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-top:4px}
 .rcp{padding:8px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
 .rcp.sel{border-color:var(--gold)}.rcp.rec{border-color:var(--green)}
@@ -420,6 +422,9 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .fcard{padding:8px 10px;border-radius:8px;background:var(--panel-hi)}
 .fcard h4{margin:0 0 4px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
 #bview{position:absolute;z-index:8;left:max(12px,env(safe-area-inset-left,0px));top:calc(var(--hud-h) + 8px);width:min(820px,calc(100% - 24px));max-height:calc(100% - var(--hud-h) - var(--bar-h) - 20px);overflow-y:auto;overscroll-behavior:contain;padding:10px 12px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--gold);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+@media (max-height:1000px){.pnav button{min-height:32px;padding:6px 10px}.pnav .ng{margin:6px 8px 2px}.pnav .adv{display:none}}
+body.vopen #feed{z-index:9}
+@media (min-width:900px){body.vopen #feed .msg{max-width:156px;font-size:12px}}
 @media (min-width:900px){#bview{left:calc(max(12px,env(safe-area-inset-left,0px)) + 168px);width:min(820px,calc(100% - 192px))}}
 #bview .ph{display:flex;align-items:baseline;gap:10px}
 #bview .ph b{font-family:var(--font-d);font-weight:800;font-size:20px;letter-spacing:.05em;color:var(--gold)}
@@ -637,7 +642,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
         <div class="chip"><small>Trésorerie</small><strong id="vCash">–</strong><em id="vNet"></em></div>
         <div class="chip" id="chipCap" style="cursor:pointer" title="Ouvrir le tableau de bord de ton empire"><small>Capitalisation</small><strong id="vCap" class="gold">–</strong><em id="vPx"></em></div>
         <div class="chip"><small>Population</small><strong id="vPop">–</strong><em id="vPopSub"></em></div>
-        <div class="chip"><small>Emplois</small><strong id="vJobs">–</strong><em id="vUnemp"></em></div>
+        <div class="chip" title="Postes pourvus / postes disponibles dans la ville"><small>Postes pourvus</small><strong id="vJobs">–</strong><em id="vUnemp"></em></div>
         <div class="chip"><small>Humeur</small><strong id="vHappy">–</strong><em id="vTax"></em></div>
         <div class="chip"><small>Date</small><strong id="vDate">–</strong><em id="vSeason"></em></div>
       </div>
@@ -769,6 +774,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
     <div class="btabs" role="tablist">
       <button data-act="tab:int" aria-pressed="true">Intérieur</button><button data-act="tab:wh" aria-pressed="false" id="tabwh" hidden>Stock</button><button data-act="tab:pu" aria-pressed="false" id="tabpu" hidden>Achats</button><button data-act="tab:lg" aria-pressed="false" id="tablg">Logistique</button><button data-act="tab:st" aria-pressed="false" id="tabst">Effectifs</button><button data-act="tab:pl" aria-pressed="false">Compte de résultat</button><button data-act="tab:bs" aria-pressed="false">Bilan</button><button data-act="tab:cf" aria-pressed="false">Flux de trésorerie</button><button data-act="tab:ad" aria-pressed="false" id="tabad" hidden>Publicité</button><button data-act="tab:ex" aria-pressed="false" id="tabex" hidden>Direction</button>
     </div>
+    <div id="bkpi"></div>
     <canvas id="bscene" width="800" height="220" aria-label="Scène animée de l'intérieur du bâtiment"></canvas>
     <div id="bbody"></div>
   </aside>
@@ -2393,6 +2399,7 @@ function step() {
     }
     if (c.t === 'tech') { c.pRev = jobsOf(c) * 1100 * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = (TYPES.bank.jobs * levelMult(c) * crewEff(c) * 1500 + Math.max(0, S.cash - (S.loan || 0)) * 0.0001) * qualMult(c); revBank += c.pRev; }
+    if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && !T.ext && !T.rec && !T.ret) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
     if (T.jobs) { c.wages = jobsOf(c) * crewWage(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
     if (c.t === 'wh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
     c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
@@ -2853,7 +2860,7 @@ function updateHUD() {
     const F = S.fin;
     if (F) {
       const row = (n, v, neg) => `<div class="finrow"><span>${n}</span><b class="${neg ? 'neg' : 'pos'}">${neg ? '−' : '+'}${money(Math.abs(v))}</b></div>`;
-      el('fin').innerHTML = row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech, banques, filiales', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Entretien', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + (F.div ? row('Dividendes versés', F.div, 1) : '') + `<div class="finrow"><span><b>Résultat net / jour</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${money(Math.abs(F.net))}</b></div>` + recoHTML();
+      el('fin').innerHTML = row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech, banques, filiales', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Coûts d\'exploitation', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + (F.div ? row('Dividendes versés', F.div, 1) : '') + `<div class="finrow"><span><b>Résultat net / jour</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${money(Math.abs(F.net))}</b></div>` + recoHTML();
     } else el('fin').innerHTML = '<p class="note">Le compte de résultat apparaît après le premier jour.</p>';
     const raw = (S.stats && S.stats.raw) || 0, listed = S.float > 0, price = raw * (S.prem || 1.1) / SHARES;
     let bh;
@@ -2936,7 +2943,7 @@ function renderFarm() {
   const html = `<div class="ghead"><b>GUIDE DE L'AGRICULTEUR</b><button class="ibtn" data-g="mfg">Guide du fabricant</button><button class="ibtn" data-g="close">Fermer</button></div><div class="gbody"><div class="glists">${list(FCROPS, 'Cultures')}${list(FLIVE, 'Élevage')}</div><div class="gmain"><div class="gcard" style="margin-bottom:8px"><div class="gimg">${ok ? `<img alt="" src="${compIcon(key)}">` : ''}</div><div><div class="gt">${f[1]}</div></div></div>${body}</div></div>`;
   if (html !== gHtml) { el('gview').innerHTML = html; gHtml = html; }
 }
-function openGuide(k) { if (k) gSel = k; gStack = []; gMode = 'in'; gHtml = ''; el('cview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('gview').hidden = false; renderGuide(true); }
+function openGuide(k) { closeViews('g'); if (k) gSel = k; gStack = []; gMode = 'in'; gHtml = ''; el('cview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('gview').hidden = false; renderGuide(true); }
 function closeGuide() { el('gview').hidden = true; gHtml = ''; }
 function renderGuide(force) {
   if (el('gview').hidden) return;
@@ -3008,13 +3015,14 @@ function chainStats() {
   const haul = prod.length ? prod.reduce((a, c) => a + (c.haul || 0), 0) / prod.length : 0;
   return { cols, nodes: all.length + cols.wh.length, eff, bad, lead: Math.round(2 + haul / 6) };
 }
-function limitTxt(c) { const L = c.limit; if (!L) return ''; if (GOODS[L]) return 'pénurie de ' + GOODS[L].name.toLowerCase(); return ({ _full: 'stock plein', staff: 'manque de personnel', link: 'hors réseau', reserve: 'gisement épuisé', alert: 'incident', stock: 'rupture de stock', noshelf: 'rayons vides', demand: 'demande faible', capacity: 'saturé' })[L] || L; }
+const dEl = s => /^[aeiouyhàâéèêîôû]/i.test(s) ? 'd\'' + s : 'de ' + s;
+function limitTxt(c) { const L = c.limit; if (!L) return ''; if (GOODS[L]) return 'pénurie ' + dEl(GOODS[L].name.toLowerCase()); return ({ _full: 'stock plein', staff: 'manque de personnel', link: 'hors réseau', reserve: 'gisement épuisé', alert: 'incident', stock: 'rupture de stock', noshelf: 'rayons vides', demand: 'demande faible', capacity: 'saturé' })[L] || L; }
 function renderChainSum() {
   const cs = el('chainsum'); if (!cs || cs.closest('section').hidden) return;
   const s = chainStats(), h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Efficacité</small><b class="${s.eff > 0.7 ? 'pos' : s.eff > 0.4 ? '' : 'neg'}">${Math.round(s.eff * 100)} %</b></div><div><small>Nœuds actifs</small><b>${s.nodes}</b></div><div><small>Goulots</small><b class="${s.bad.length ? 'neg' : 'pos'}">${s.bad.length}</b></div><div><small>Délai moyen</small><b>${s.lead} jours</b></div></div>`;
   if (cs.dataset.h !== h) { cs.innerHTML = h; cs.dataset.h = h; }
 }
-function openChain() { el('cview').hidden = true; el('gview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('svview').hidden = false; svHtml = ''; renderChain(true); }
+function openChain() { closeViews('s'); el('cview').hidden = true; el('gview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('svview').hidden = false; svHtml = ''; renderChain(true); }
 function closeChain() { el('svview').hidden = true; svHtml = ''; }
 function renderChain(force) {
   if (el('svview').hidden) return;
@@ -3061,7 +3069,7 @@ function drawLine(cv, arr) {
   g.strokeStyle = '#46d39a'; g.lineWidth = 2; g.beginPath(); arr.forEach((v, i) => { const x = i / (arr.length - 1) * (W2 - 4) + 2; i ? g.lineTo(x, Y(v)) : g.moveTo(x, Y(v)); }); g.stroke();
   g.fillStyle = '#e9edff'; g.font = '11px monospace'; g.textAlign = 'left'; g.fillText('$' + mx.toFixed(2), 4, 11); g.fillText('$' + mn.toFixed(2), 4, H2 - 3);
 }
-function openTerm() { seedGti(); el('cview').hidden = true; el('gview').hidden = true; el('svview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('tview').hidden = false; tHtml = ''; if (!(S.rivals || []).find(r => r.id === tSel) && S.rivals && S.rivals[0]) tSel = S.rivals[0].id; renderTerm(true); }
+function openTerm() { closeViews('t'); seedGti(); el('cview').hidden = true; el('gview').hidden = true; el('svview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('tview').hidden = false; tHtml = ''; if (!(S.rivals || []).find(r => r.id === tSel) && S.rivals && S.rivals[0]) tSel = S.rivals[0].id; renderTerm(true); }
 function closeTerm() { el('tview').hidden = true; tHtml = ''; }
 function drawCandles(cv, h) {
   const g = cv.getContext('2d'), W2 = cv.width, H2 = cv.height; g.clearRect(0, 0, W2, H2);
@@ -3236,7 +3244,7 @@ function renderEmpire() {
   const fixed = ev.value, stocks = stockValue(), debt = S.loan || 0, cash = S.cash, actif = Math.max(0, cash) + fixed + stocks + portValue(), equity = actif - debt - Math.max(0, -cash);
   const px = fl > 0 ? raw * (S.prem || 1.1) / SHARES : null;
   const kp = (l, v, c, s) => `<div><small>${l}</small><b class="${c || ''}">${v}</b>${s ? `<small>${s}</small>` : ''}</div>`;
-  let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / jour', (F.net >= 0 ? '+' : '−') + money(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : px.toFixed(2).replace('.', ',') + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Population / emplois', fmt(st.pop || 0) + ' / ' + fmt(st.playerJobs || 0), '', 'emplois chez toi')}</div>`;
+  let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / jour', (F.net >= 0 ? '+' : '−') + money(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : px.toFixed(2).replace('.', ',') + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Habitants', fmt(st.pop || 0), '', fmt(st.playerJobs || 0) + ' emplois dans tes bâtiments')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
   h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
   h += sectorHTML();
@@ -3247,7 +3255,7 @@ function renderEmpire() {
   h += `<h3>VALEUR DE L'EMPIRE</h3><canvas id="empspark" width="640" height="110" style="width:100%;height:80px"></canvas>`;
   h += `<h3>BILAN CONSOLIDÉ</h3><div class="bil"><table class="fint"><tr><th>Actif</th><th>$</th></tr><tr><td>Trésorerie</td><td>${money(Math.max(0, cash))}</td></tr><tr><td>Immobilisations (bâtiments, équipements)</td><td>${money(fixed)}</td></tr><tr><td>Stocks de marchandises</td><td>${money(stocks)}</td></tr>${portValue() > 0 ? `<tr><td>Portefeuille boursier</td><td>${money(portValue())}</td></tr>` : ''}<tr class="tot"><td>Total actif</td><td>${money(actif)}</td></tr></table>
     <table class="fint"><tr><th>Passif</th><th>$</th></tr><tr><td>Dettes bancaires</td><td>${money(debt + Math.max(0, -cash))}</td></tr><tr><td>Capitaux propres (toi)</td><td>${money(equity * (1 - fl))}</td></tr>${fl > 0 ? `<tr><td>Capitaux propres (actionnaires, ${Math.round(fl * 100)} %)</td><td>${money(equity * fl)}</td></tr>` : ''}<tr class="tot"><td>Total passif</td><td>${money(actif)}</td></tr></table></div>`;
-  h += `<h3>COMPTE DE RÉSULTAT / JOUR</h3><table class="fint"><tr><td>Chiffre d'affaires (détail, exports, tech, banques)</td><td>${money((F.revRetail || 0) + (F.revExport || 0) + (F.revTech || 0) + (F.revBank || 0))}</td></tr><tr><td>Salaires, entretien, transport</td><td>−${money((F.wages || 0) + (F.upkeep || 0) + (F.transport || 0))}</td></tr><tr><td>Publicité, importations, intérêts</td><td>−${money((F.adv || 0) + (F.imports || 0) + (F.interest || 0))}</td></tr><tr><td>Impôt et dividendes</td><td>−${money((F.tax || 0) + (F.div || 0))}</td></tr><tr class="tot"><td>Résultat net</td><td class="${(F.net || 0) >= 0 ? 'pos' : 'neg'}">${(F.net || 0) >= 0 ? '+' : '−'}${money(Math.abs(F.net || 0))}</td></tr></table>`;
+  h += `<h3>COMPTE DE RÉSULTAT / JOUR</h3><table class="fint"><tr><td>Chiffre d'affaires (détail, exports, tech, banques)</td><td>${money((F.revRetail || 0) + (F.revExport || 0) + (F.revTech || 0) + (F.revBank || 0))}</td></tr><tr><td>Salaires, coûts d'exploitation, transport</td><td>−${money((F.wages || 0) + (F.upkeep || 0) + (F.transport || 0))}</td></tr><tr><td>Publicité, importations, intérêts</td><td>−${money((F.adv || 0) + (F.imports || 0) + (F.interest || 0))}</td></tr><tr><td>Impôt et dividendes</td><td>−${money((F.tax || 0) + (F.div || 0))}</td></tr><tr class="tot"><td>Résultat net</td><td class="${(F.net || 0) >= 0 ? 'pos' : 'neg'}">${(F.net || 0) >= 0 ? '+' : '−'}${money(Math.abs(F.net || 0))}</td></tr></table>`;
   const fm = (S.flow && S.flow.made) || {}, fu = (S.flow && S.flow.used) || {};
   const rowsG = GKEYS.filter(g => (fm[g] || 0) > 0.05 || (fu[g] || 0) > 0.05 || S.stock[g] > 0.5).map(g => `<tr><td>${GOODS[g].name}</td><td class="pos">${f1(fm[g] || 0)}</td><td>${f1(fu[g] || 0)}</td><td>${fmt(S.stock[g])}</td><td>${f1(S.price[g])} $</td></tr>`).join('');
   const rowsP = PKEYS.filter(pk => S.prod[pk].st === 'on').map(pk => { const ps = S.prod[pk]; return `<tr><td>${PRODUCTS[pk].name}</td><td class="pos">${f1(ps.made || 0)}</td><td>${f1(ps.sold || 0)}</td><td>${fmt(ps.stock)}</td><td>${f1(prodPrice(pk))} $</td></tr>`; }).join('');
@@ -3705,7 +3713,7 @@ function renderProducts() {
     return `<button type="button" class="pcard${pk === selProd ? ' sel' : ''}${locked ? ' lock' : ''}" data-p="${pk}"><span class="th">${productSVG(pk, ps.q)}</span><b>${pr.name}</b><small>${status}</small></button>`;
   }).join('');
   const chips = RKEYS.map(k => { const n = sourceInfo(k).n; return `<button type="button" class="pchip${k === selProd ? ' sel' : ''}" data-p="${k}"><i style="background:${GOODS[k].color}"></i>${RECIPES[k].name}<small>${n ? n + ' usine(s)' : 'non produit'}</small></button>`; }).join('');
-  const html = `${contractsHTML()}<div class="plh">PRODUITS FINIS</div><div class="pcards">${cards}</div><div class="plh">COMPOSANTS</div><div class="pchips">${chips}</div>`;
+  const html = `<div class="plh">PRODUITS FINIS</div><div class="pcards">${cards}</div><div class="plh">COMPOSANTS</div><div class="pchips">${chips}</div>${contractsHTML()}`;
   if (html !== pvLast.list) { el('plist').innerHTML = html; pvLast.list = html; }
   const detail = isProd(selProd) ? sheetHTML(selProd) : compSheetHTML(selProd);
   if (detail !== pvLast.detail) {
@@ -3746,6 +3754,7 @@ el('pdetail').addEventListener('input', e => {
 ['pointerdown', 'touchstart'].forEach(t => el('pdetail').addEventListener(t, e => { if (e.target.id === 'pd-pf') pvDrag = true; }, { passive: true }));
 ['pointerup', 'touchend', 'change'].forEach(t => el('pdetail').addEventListener(t, () => { pvDrag = false; }, { passive: true }));
 function setPview(open) {
+  if (open) closeViews('p');
   el('pview').hidden = !open;
   el('pv').setAttribute('aria-pressed', open ? 'true' : 'false');
   if (open) renderProducts();
@@ -3771,7 +3780,7 @@ function recOf(c) {
 function qualCost(c) { return (c.qual || 0) >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.5 * (1 + (c.qual || 0))); }
 function effCost(c) { return (c.eff || 0) >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.4 * (1 + (c.eff || 0))); }
 function openBuilding(x, y) {
-  bPick = -1;
+  closeViews('b'); bPick = -1;
   const c = cell(x, y); if (!c) return;
   bsel = { x: c.x, y: c.y }; selected = { x: c.x, y: c.y };
   el('pview').hidden = true; el('pv').setAttribute('aria-pressed', 'false');
@@ -3780,6 +3789,18 @@ function openBuilding(x, y) {
   document.querySelectorAll('.btabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.act === 'tab:int' ? 'true' : 'false'));
   sceneReset(c); renderBuilding(true); sceneStart();
 }
+// Une seule vue plein panneau à la fois : ouvrir l'une ferme les autres (Produits, Guide, Chaîne, Terminal, Catalogue, Bâtiment)
+function closeViews(keep) {
+  if (keep !== 'p' && !el('pview').hidden) { el('pview').hidden = true; el('pv').setAttribute('aria-pressed', 'false'); }
+  if (keep !== 'g' && !el('gview').hidden) closeGuide();
+  if (keep !== 's' && !el('svview').hidden) closeChain();
+  if (keep !== 't' && !el('tview').hidden) closeTerm();
+  if (keep !== 'c' && !el('cview').hidden) closeCatalog(false);
+  if (keep !== 'b' && !el('bview').hidden) { if (keep !== 'c') bsel = null; el('bview').hidden = true; bvHtml = ''; }
+}
+const VIEW_IDS = ['panel', 'bview', 'pview', 'gview', 'svview', 'tview', 'cview'];
+function syncVopen() { document.body.classList.toggle('vopen', VIEW_IDS.some(i => { const e = document.getElementById(i); return e && !e.hidden; })); }
+if (window.MutationObserver) { const mo = new MutationObserver(syncVopen); VIEW_IDS.forEach(i => { const e = document.getElementById(i); if (e) mo.observe(e, { attributes: true, attributeFilter: ['hidden'] }); }); }
 function closeBuilding() { if (!el('tview').hidden) closeTerm(); if (!el('svview').hidden) closeChain(); if (!el('cview').hidden) closeCatalog(false); if (!el('gview').hidden) closeGuide(); bsel = null; el('bview').hidden = true; bvHtml = ''; }
 // Auditeur de cohérence du magasin : prix de rayon vs coût d'approvisionnement, marges, utilisation nominale, ruptures, import
 function shopCost(c, key, cls, it) {
@@ -3842,10 +3863,77 @@ function auditCard(c) {
   const btn = f => f ? `<button class="btn" data-act="${f[0]}">${f[1]}</button>` : '';
   return `<div class="lever wide" id="audit"><h4>Auditeur de cohérence <span class="pip ${bad ? 'neg' : ''}">${bad ? bad + ' alerte(s) grave(s)' : ''}${bad && warn ? ' · ' : ''}${warn ? warn + ' avertissement(s)' : ''}</span></h4>` + al.map(a => `<div class="bnbanner ${a.sev}"><b>${a.t}</b><span>${a.d}</span><div class="acts">${btn(a.fix)}${btn(a.fix2)}</div></div>`).join('') + `</div>`;
 }
+/* ---------- Vues dédiées par type de bâtiment (hors extraction, usine, commerce) ---------- */
+const SVC_KIND = t => isPlant(t) ? 'power' : ({ wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
+const svcOf = c => { const T = TYPES[c.t]; return (T.ext || T.rec || T.ret) ? null : SVC_KIND(c.t); };
+const hasBld = t => { let n = 0; eachBuilding(b => { if (b.t === t && b.conn) n++; }); return n; };
+function svcInfo(c) {
+  const k = svcOf(c); if (!k) return null;
+  const T = TYPES[c.t], fill = fillOf(c), jobs = jobsOf(c), u = unitsOf(c), ok = (t, d, sev) => ({ sev: sev || 'ok', t, d, acts: [] });
+  const nb = (b, t) => `<div class="bn"><b>${b}</b><small>${t}</small></div>`;
+  const R = { util: fill, utilLbl: 'taux d\'effectif', kpi: [], inH: '', outH: '' };
+  if (k === 'power') {
+    const P = S.power || {}, price = P.price || ELEC_BASE, neg = casteIs('negociant') ? 1.3 : 1, mwh = price > 0 ? (c.pRev || 0) / (price * neg) : 0, wind = S.wind || 0.6;
+    const sf = 0.55 + 0.45 * Math.sin((S.day - 60) / 360 * 2 * Math.PI);
+    R.inH = (c.t === 'plant' ? nb('Charbon', `besoin ${f1(40 * u)}/j · stock ${fmt(S.stock.coal)} · ${f1(S.price.coal)} $`) : c.t === 'solar' ? nb('Ensoleillement', `${Math.round(sf * 100)} % (saison)`) : c.t === 'wind' ? nb('Vent', `${Math.round(wind * 100)} %`) : nb('Combustible nucléaire', 'compris dans les coûts d\'exploitation'))
+      + nb('Raccordement', c.gridOk ? `ligne de ${c.gridLen} cases · pertes ${pct(c.gridLoss || 0)}${c.gridOver ? ' · aérienne' : ' · enterrée'}` : '<span class="neg">non raccordée au réseau</span>');
+    R.outH = nb('Électricité', `${fmt(mwh)} MWh/j livrés · réseau à ${f1(price)} $/MWh`);
+    R.util = clamp(c.util || 0, 0, 1); R.utilLbl = c.t === 'plant' ? 'combustible brûlé' : c.t === 'solar' ? 'ensoleillement' : c.t === 'wind' ? 'vent' : 'charge';
+    R.kpi = [['Production', fmt(mwh) + ' MWh/j'], [c.t === 'plant' ? 'Combustible' : c.t === 'solar' ? 'Ensoleillement' : c.t === 'wind' ? 'Vent' : 'Charge', pct(R.util)], ['Prix du réseau', f1(price) + ' $/MWh'], ['Recettes', money(c.pRev || 0), 'pos']];
+    R.bn = ok(`Centrale en service : ${fmt(mwh)} MWh/j livrés au réseau`, `Prix du réseau ${f1(price)} $/MWh${c.gridLoss > 0.005 ? ', pertes de ligne ' + pct(c.gridLoss) + ' (câbles enterrés ou ligne plus courte pour les réduire)' : ''}.${P.r != null && P.r < 1 ? ' Le réseau manque d\'électricité : le prix monte.' : ''}`);
+  } else if (k === 'wh') {
+    const inv = c.inv || {}, used = Object.keys(inv).reduce((a, g) => a + inv[g], 0), cap = whCap(c), ratio = cap > 0 ? used / cap : 0;
+    const top = Object.keys(inv).filter(g => inv[g] > 0.5).sort((a, b) => inv[b] - inv[a]).slice(0, 3);
+    R.inH = top.length ? top.map(g => nb(gName(g), fmt(inv[g]) + ' en stock')).join('') : nb('Stocks par bien', 'vide : règle la politique dans l\'onglet Stock');
+    R.outH = nb('Débit du jour', `importé ${fmt(c._imp || 0)} · exporté ${money(c._rev || 0)}`) + nb('Frais de stockage', `${money(c._fee || 0)} /j`);
+    R.util = clamp(ratio, 0, 1); R.utilLbl = 'taux de remplissage';
+    R.kpi = [['Stock', fmt(used) + ' / ' + fmt(cap)], ['Remplissage', pct(R.util)], ['Frais de stockage', money(c._fee || 0) + ' /j', 'neg'], ['Ventes export', money(c._rev || 0), 'pos']];
+    R.bn = ratio > 0.95 ? ok('Entrepôt plein', 'Les surplus ne peuvent plus être mis de côté : agrandis-le ou exporte au-dessus d\'un seuil (onglet Stock).', 'warn') : ok(`Entrepôt rempli à ${pct(R.util)}`, 'Il met de côté tes surplus et les restitue ; importe ou exporte selon le réglage de l\'onglet Stock.');
+  } else if (k === 'rd') {
+    const rate = u * 0.4 / 30, days = rate > 0 ? Math.max(1, Math.ceil((1 - (c._pat || 0)) / rate)) : null, roy = (S.patRev || 0) * cpi();
+    R.inH = nb('Chercheurs', `${fmt(jobs * fill)} / ${fmt(jobs)} postes pourvus`) + nb('Vitesse de recherche', `+${Math.round(25 * (S.rdPower || 0))} % (tous centres)`);
+    R.outH = nb('Prochain brevet', `${pct(c._pat || 0)} · ${days == null ? 'à l\'arrêt' : 'dans ~' + days + ' j'}`) + nb('Brevets déposés', `${S.patents || 0} · royalties ${money(roy)}/j (groupe)`);
+    R.kpi = [['Brevets déposés', fmt(S.patents || 0)], ['Prochain brevet', days == null ? '–' : '~' + days + ' j'], ['Royalties (groupe)', money(roy) + ' /j', 'pos']];
+    R.bn = ok(`Recherche en cours : prochain brevet dans ~${days == null ? '?' : days} j`, 'Un brevet déposé rapporte des royalties chaque jour ; plus de chercheurs, ou plusieurs centres, accélèrent la recherche.');
+  } else if (k === 'hq') {
+    S.cx = S.cx || {}; const ex = S.exec || {}, nr = Object.keys(XROLE).length, n = Object.keys(XROLE).filter(r => S.cx[r]).length, nex = (ex.cfo ? 1 : 0) + (ex.ir ? 1 : 0), sal = cxWages() + (ex.cfo ? EXEC.cfo.wage : 0) + (ex.ir ? EXEC.ir.wage : 0);
+    const bourse = S.float > 0 ? 'cotée · flottant ' + Math.round(S.float * 100) + ' %' : 'non cotée';
+    R.inH = nb('Direction du groupe', `${n} / ${nr} cadres C-level · ${nex} / 2 dirigeants (CFO, IR)`) + nb('Salaires de direction', money(sal) + ' /j');
+    R.outH = nb('Statut en bourse', bourse);
+    R.kpi = [['Cadres en poste', n + ' / ' + nr], ['CFO / IR', nex + ' / 2'], ['Salaires direction', money(sal) + ' /j', 'neg'], ['Bourse', S.float > 0 ? 'cotée ' + pct(S.float) : 'non cotée']];
+    R.bn = n + nex === 0 ? ok('Aucun dirigeant en poste', 'Recrute un CFO, un directeur IR et des C-levels (onglet Direction) pour débloquer dividendes, rachats et bonus.', 'warn') : ok(`Direction en place : ${n + nex} dirigeant(s)`, 'Les dirigeants coûtent un salaire quotidien mais débloquent la finance d\'entreprise (onglet Direction).');
+  } else if (k === 'bank') {
+    const cash = Math.max(0, S.cash - (S.loan || 0)), bk = S.bk || { loans: 0 }, base = jobs * 1500 * qualMult(c), inc = cash * 0.0001 * qualMult(c);
+    R.inH = nb('Guichets', `${fmt(jobs)} postes × 1 500 $ = ${money(base)}/j`) + nb('Trésorerie placée', `${money(cash)} × 0,01 %/j = ${money(inc)}/j`);
+    R.outH = nb('Marge d\'intérêt', `${money(c.pRev || 0)} /j`) + nb('Crédits accordés', money(bk.loans || 0));
+    R.kpi = [['Marge d\'intérêt', money(c.pRev || 0) + ' /j', 'pos'], ['Guichets', money(base) + ' /j'], ['Placements', money(inc) + ' /j'], ['Crédits accordés', money(bk.loans || 0)]];
+    R.bn = ok(`Banque en service : marge d'intérêt ${money(c.pRev || 0)}/j`, 'Marge = postes × 1 500 $ + 0,01 % par jour de la trésorerie hors emprunts. Les crédits sur collatéral (caste Banquier) se gèrent dans Finances.');
+  } else if (k === 'tech') {
+    const per = c.t === 'dc' ? 1000 : 1100, pr = c.pRev || 0;
+    R.inH = nb('Locataires', `${fmt(jobs * fill)} / ${fmt(jobs)} postes occupés · ${money(per)} par poste`) + (c.t === 'dc' ? nb('Calcul', `puissance IA +${Math.round(100 * (S.aiBoost || 0))} % (tous data centers)`) : '');
+    R.outH = nb('Loyers', `${money(pr)} /j`);
+    R.utilLbl = 'taux d\'occupation';
+    R.kpi = [['Loyers', money(pr) + ' /j', 'pos'], ['Occupation', pct(fill)], ['Loyer / poste', money(jobs * fill > 0 ? pr / (jobs * fill) : 0)]];
+    R.bn = ok(`Locaux occupés à ${pct(fill)} : loyers ${money(pr)}/j`, c.t === 'dc' ? 'Les loyers dépendent des postes pourvus ; chaque data center renforce aussi la puissance de calcul (IA).' : 'Les loyers dépendent des postes pourvus et de la qualité du bâtiment.');
+  } else if (k === 'port') {
+    const pr = c.pRev || 0, np = (S.stats && S.stats.cn && S.stats.cn.port) || 1;
+    R.inH = nb('Marchandises à exporter', 'surplus des usines et mines, au cours mondial');
+    R.outH = nb('Exports', `${money(pr)} /j (part de ce terminal)`);
+    R.kpi = [['Exports', money(pr) + ' /j', 'pos'], ['Terminaux', fmt(np)]];
+    R.bn = ok('Terminal en service', 'Chaque terminal baisse de 1 point la surcote d\'import et ajoute 20 000 unités de stockage.');
+  } else {
+    R.inH = nb('Chantiers', 'contrats acceptés dans la vue Produits');
+    R.outH = nb('Recettes', `${money(c.pRev || 0)} /j`);
+    R.kpi = [['Recettes', money(c.pRev || 0) + ' /j', 'pos']];
+    R.bn = ok('Entreprise en service', 'Elle réalise les chantiers BTP acceptés dans la vue Produits.');
+  }
+  if (fill < 0.97) R.bn = { sev: 'warn', t: `Manque de personnel : ${pct(fill)} des postes pourvus`, d: 'La ville manque de bras. Un salaire élevé attire plus de monde ; construis aussi des logements.', acts: [['wage2', 'Salaires élevés']] };
+  return R;
+}
 function bottleneck(c) {
   const T = TYPES[c.t], L = c.limit;
   if (!c.conn) return { sev: 'bad', t: 'Bâtiment non relié à une rue', d: 'Il ne produit rien tant qu\'aucune route ne le dessert.', acts: T.ext ? [['link', 'Relier au réseau']] : [] };
-  if (!L) return { sev: 'ok', t: 'Aucun goulot : le bâtiment tourne à plein régime', d: 'Pour produire plus : agrandir, améliorer l\'efficacité ou recruter.', acts: [] };
+  if (!L) { const sv = svcInfo(c); if (sv) return sv.bn; return { sev: 'ok', t: 'Aucun goulot : le bâtiment tourne à plein régime', d: 'Pour produire plus : agrandir, améliorer l\'efficacité ou recruter.', acts: [] }; }
   if (L === 'reserve') return { sev: 'bad', t: 'Gisement épuisé', d: 'Plus rien à extraire ici. Ouvre un nouveau site ailleurs, ou démolis.', acts: [] };
   if (L === 'link') return { sev: 'warn', t: 'Hors réseau : rendement 65 % et transport +50 %', d: 'Une route reliée à la ville rétablit 100 % du rendement.', acts: [['link', 'Relier au réseau']] };
   if (L === 'alert') return { sev: 'warn', t: 'Incident de production en cours', d: 'Perte de 25 % pendant quelques jours. Ça passera.', acts: [] };
@@ -3859,8 +3947,8 @@ function bottleneck(c) {
   if (L === 'capacity') return { sev: 'ok', t: 'Capacité saturée : la demande dépasse ce magasin', d: 'Il vend ' + pct(clamp(c.util || 0, 0, 1)) + ' de sa capacité nominale. Agrandis-le ou construis-en un autre.', acts: [['up', 'Agrandir']] };
   const acts = [];
   if (RECIPES[L]) acts.push(['make:' + L, 'Affecter une usine à ' + RECIPES[L].name.toLowerCase()]);
-  else if (RAW_SRC[L] && TYPES[RAW_SRC[L]]) acts.push(['info:' + TYPES[RAW_SRC[L]].name, 'Il faut : ' + TYPES[RAW_SRC[L]].name.toLowerCase()]);
-  return { sev: 'bad', t: `Goulot : pénurie de ${gName(L).toLowerCase()}`, d: `Stock ${fmt(gStock(L))}, il en manque pour alimenter la ligne. ${RECIPES[L] ? 'Affecte-lui une usine.' : RAW_SRC[L] ? 'Ouvre ou améliore ' + TYPES[RAW_SRC[L]].name.toLowerCase() + '.' : ''}`, acts };
+  else if (RAW_SRC[L] && TYPES[RAW_SRC[L]]) { const rt = RAW_SRC[L], have = hasBld(rt); acts.push(['info:' + TYPES[rt].name + '|' + (have ? 1 : 0), (have ? 'Extraction insuffisante : ' : 'Il faut : ') + TYPES[rt].name.toLowerCase()]); }
+  return { sev: 'bad', t: `Goulot : pénurie ${dEl(gName(L).toLowerCase())}`, d: `Stock ${fmt(gStock(L))}, il en manque pour alimenter la ligne. ${RECIPES[L] ? 'Affecte-lui une usine.' : RAW_SRC[L] ? (hasBld(RAW_SRC[L]) ? 'Agrandis ou ajoute : ' : 'Construis : ') + TYPES[RAW_SRC[L]].name.toLowerCase() + '.' : ''}`, acts };
 }
 function renderBuilding(force) {
   if (!bsel || el('bview').hidden) return;
@@ -3873,7 +3961,8 @@ function renderBuilding(force) {
   const pips = n => '●'.repeat(n) + '○'.repeat(3 - n), pipsL = n => '●'.repeat(n + 1) + '○'.repeat(MAX_LVL - n);
   const profit = c.profit || 0;
   let line = '', inHtml = '', outHtml = '';
-  if (T.ext) {
+  const sv = svcInfo(c), utilV = sv ? sv.util : clamp(c.util || 0, 0, 1);
+  if (sv) { inHtml = sv.inH; outHtml = sv.outH; } else if (T.ext) {
     const d = S.dep[idx(c.x, c.y)], full = DEPOSITS[T.ext].res;
     inHtml = CROPS[T.ext] ? `<div class="bn"><b>Sol · ${DEPOSITS[T.ext].name}</b><small>fertilité ${Math.round(fertility(c.x, c.y, T.ext) * 100)} % · irrigation ${c.irr | 0}/3 · inépuisable</small></div><div class="bn"><b>Route</b><small class="${c.linked === false ? 'neg' : 'pos'}">${c.linked === false ? 'non reliée · 65 %' : 'reliée à la ville · 100 %'}</small></div>` : `<div class="bn"><b>Gisement · ${DEPOSITS[T.ext].name}</b><div class="bar"><i style="width:${d ? Math.round(clamp(d.r / full, 0, 1) * 100) : 0}%"></i></div><small>${d ? fmt(d.r) : 0} / ${fmt(full)}${T.ext === 'wood' ? ' · repousse +8/jour' : ''}</small></div>` +
       `<div class="bn"><b>Route</b><small class="${c.linked === false ? 'neg' : 'pos'}">${c.linked === false ? 'non reliée · 65 %' : 'reliée à la ville · 100 %'}</small></div>`;
@@ -3892,7 +3981,7 @@ function renderBuilding(force) {
     outHtml = `<div class="bn"><b>Recettes</b><small>${money(c.pRev || 0)} / jour</small></div>`;
   }
   line = `<div class="pline"><div class="col"><h4>Intrants</h4>${inHtml}</div><div class="arr">▶</div>
-    <div class="col mid"><h4>Atelier</h4><div class="bn"><b>${rec ? rec.name : T.name}</b><div class="bar"><i style="width:${Math.round(clamp(c.util || 0, 0, 1) * 100)}%"></i></div><small>utilisation ${pct(clamp(c.util || 0, 0, 1))}</small></div></div>
+    <div class="col mid"><h4>Atelier</h4><div class="bn"><b>${rec ? rec.name : T.name}</b><div class="bar"><i style="width:${Math.round(utilV * 100)}%"></i></div><small>${sv ? sv.utilLbl : 'utilisation'} ${pct(utilV)}</small></div></div>
     <div class="arr">▶</div><div class="col"><h4>Sorties</h4>${outHtml}</div></div>`;
   const wage = wageOf(c);
   const acts = bn.acts.map(a => `<button class="btn" data-act="${a[0]}">${a[1]}</button>`).join('');
@@ -3903,24 +3992,24 @@ function renderBuilding(force) {
     PKEYS.forEach(k => { if (prodOn(k) && PRODUCTS[k].lvl <= lv) opts.push([k, PRODUCTS[k].name]); });
     return `<div class="lever wide"><h4>Réorganiser la chaîne</h4><small>Affecte ce bâtiment à une autre recette (niveau ${lv}).</small><div class="rlist">${opts.map(o => `<button class="chip2" data-act="recipe:${o[0]}" aria-pressed="${(c.prod || '') === o[0]}">${o[1]}</button>`).join('')}</div></div>`;
   })() : '';
+  const kx = (l, v, cl, tt) => `<div${tt ? ' title="' + tt + '"' : ''}><small>${l}</small><b class="${cl || ''}">${v}</b></div>`;
+  const ebeTip = 'EBE (excédent brut d\'exploitation) : recettes moins intrants, salaires, coûts d\'exploitation, transport et publicité, avant amortissement et impôt. Le résultat net est dans Compte de résultat.';
+  const kpis = (sv ? sv.kpi.map(k => kx(k[0], k[1], k[2])).concat([kx('Effectif', fmt(jobsOf(c) * fill) + ' / ' + fmt(jobsOf(c)))]) : [
+    kx('Production', T.ext || T.rec ? f1(c.out) + ' /j' : T.ret ? f1(c.out) + ' ventes/j' : money(c.pRev || 0)),
+    kx('Utilisation', pct(utilV)),
+    kx('Effectif', fmt(jobsOf(c) * fill) + ' / ' + fmt(jobsOf(c))),
+    kx('Recettes', money(c.pRev || 0), 'pos')]).concat([kx('Coûts', money(c.cost || 0), 'neg'), kx('EBE / jour', (profit >= 0 ? '+' : '') + money(profit), profit >= 0 ? 'pos' : 'neg', ebeTip)]).join('');
+  const kpiHtml = `<div class="kpis bk">${kpis}</div>`;
   const htmlInt = `
   ${FLEVEL[c.t] ? prodHeader(c) : ''}${T.ret ? auditCard(c) + shelfCard(c) : ''}
-  <div class="kpis">
-    <div><small>Production</small><b>${T.ext || T.rec ? f1(c.out) + ' /j' : T.ret ? f1(c.out) + ' ventes/j' : money(c.pRev || 0)}</b></div>
-    <div><small>Utilisation</small><b>${pct(clamp(c.util || 0, 0, 1))}</b></div>
-    <div><small>Effectif</small><b>${fmt(jobsOf(c) * fill)} / ${fmt(jobsOf(c))}</b></div>
-    <div><small>Recettes</small><b class="pos">${money(c.pRev || 0)}</b></div>
-    <div><small>Coûts</small><b class="neg">${money(c.cost || 0)}</b></div>
-    <div><small>Profit / jour</small><b class="${profit >= 0 ? 'pos' : 'neg'}">${profit >= 0 ? '+' : ''}${money(profit)}</b></div>
-  </div>
   <div class="bnbanner ${bn.sev}"><b>${bn.t}</b><span>${bn.d}</span><div class="acts">${acts}</div></div>
   ${line}
-  <p class="cdet">Coûts : intrants ${money(c.inCost || 0)} · salaires ${money(c.wages || 0)} · entretien ${money(T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))))} · transport ${money(c.transport || 0)} (${c.haul || 0} cases)</p>
+  <p class="cdet">Coûts : intrants ${money(c.inCost || 0)} · salaires ${money(c.wages || 0)} · ${(T.ext || T.rec || isPlant(c.t)) ? 'coûts d\'exploitation' : 'entretien'} ${money(T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))))} · transport ${money(c.transport || 0)} (${c.haul || 0} cases)<br>EBE ${money(profit)} − amortissement ${money(c.dep || 0)} − impôt ${money(c.taxB || 0)} = résultat net ${money(profit - (c.dep || 0) - (c.taxB || 0))} / jour</p>
   <div class="levers">
     <div class="lever"><h4>Taille <span class="pip">${pipsL(c.lvl || 0)}</span></h4><small>${lvTxt(c)}</small><button class="btn" data-act="up" ${uc && S.cash >= uc ? '' : 'disabled'}>${uc ? 'Agrandir · ' + money(uc) : 'Niveau max'}</button></div>
     <div class="lever"><h4>Effectif <span class="pip">×${crewOf(c).toFixed(2).replace('.', ',')}</span></h4><small>${fmt(jobsOf(c))} postes. Plus de monde, plus de production et de salaires.</small><div class="seg2"><button class="btn sec" data-act="crew-" ${crewOf(c) <= 1 ? 'disabled' : ''}>− Réduire</button><button class="btn" data-act="crew+" ${crewOf(c) >= 2 ? 'disabled' : ''}>+ Recruter</button></div></div>
     <div class="lever"><h4>Salaires <span class="pip">${wage.n}</span></h4><small>Attractivité ×${wage.attr.toFixed(2).replace('.', ',')} · productivité ×${wage.prod.toFixed(2).replace('.', ',')} · coût ×${wage.m.toFixed(2).replace('.', ',')}</small><div class="seg2">${WAGE.map((w, i) => `<button class="btn sec" data-act="wage${i}" aria-pressed="${(c.wage == null ? 1 : c.wage) === i}">${w.n}</button>`).join('')}</div></div>
-    <div class="lever"><h4>Qualité <span class="pip">${pips(c.qual || 0)}</span></h4><small>Valeur de la production +6 % par niveau, entretien +10 %.</small><button class="btn" data-act="qual" ${qc && S.cash >= qc ? '' : 'disabled'}>${qc ? 'Améliorer · ' + money(qc) : 'Qualité max'}</button></div>
+    <div class="lever"><h4>Qualité <span class="pip">${pips(c.qual || 0)}</span></h4><small>Valeur de la production +6 % par niveau, coûts d'exploitation +10 %.</small><button class="btn" data-act="qual" ${qc && S.cash >= qc ? '' : 'disabled'}>${qc ? 'Améliorer · ' + money(qc) : 'Qualité max'}</button></div>
     <div class="lever"><h4>Efficacité <span class="pip">${pips(c.eff || 0)}</span></h4><small>Production +8 % par niveau (machines, organisation).</small><button class="btn" data-act="eff" ${ec && S.cash >= ec ? '' : 'disabled'}>${ec ? 'Optimiser · ' + money(ec) : 'Efficacité max'}</button></div>
     ${T.ext && c.linked === false ? `<div class="lever"><h4>Logistique</h4><small>Hors réseau : rendement 65 %, transport plus cher.</small><button class="btn" data-act="link">Relier au réseau</button></div>` : ''}
     ${T.ret ? priceCard(c) : ''}
@@ -3929,9 +4018,10 @@ function renderBuilding(force) {
   <div class="actions"><button class="btn sec" data-act="bull">Démolir</button></div>`;
   const html = bTab === 'int' ? htmlInt : bTab === 'pu' ? purTab(c) : bTab === 'wh' ? whTab(c) : bTab === 'lg' ? lgTab(c) : bTab === 'st' ? stTab(c) : bTab === 'ad' ? adTab(c) : bTab === 'ex' ? exTab(c) : finTab(c, bTab);
   el('bscene').style.display = bTab === 'int' ? 'block' : 'none';
-  if (html === bvHtml) return;
+  const kh = bTab === 'int' ? kpiHtml : '';
+  if (kh + html === bvHtml) return;
   const top = el('bview').scrollTop;
-  el('bbody').innerHTML = html; bvHtml = html;
+  el('bkpi').innerHTML = kh; el('bbody').innerHTML = html; bvHtml = kh + html;
   el('bview').scrollTop = top;
 }
 function bAct(a) {
@@ -3969,7 +4059,7 @@ function bAct(a) {
   else if (a.indexOf('tab:') === 0) { /* géré plus haut */ }
   else if (a.indexOf('recipe:') === 0) c.prod = a.slice(7) || null;
   else if (a.indexOf('make:') === 0) { const n = assignRecipe(a.slice(5), 1); say(n ? 'Usine affectée à ' + RECIPES[a.slice(5)].name.toLowerCase() + '.' : 'Aucune usine libre : construis-en une.', n ? 'good' : 'warn'); }
-  else if (a.indexOf('info:') === 0) say('Construis : ' + a.slice(5).toLowerCase() + '.', 'info');
+  else if (a.indexOf('info:') === 0) { const [nm, have] = a.slice(5).split('|'); say((have === '1' ? 'Agrandis ou ajoute : ' : 'Construis : ') + nm.toLowerCase() + '.', 'info'); }
   refreshStats(); updateHUD(); renderBuilding(true);
 }
 el('bview').addEventListener('input', e => { if (e.target.dataset && e.target.dataset.dept && bsel) { const c0 = cell(bsel.x, bsel.y); if (!c0) return; const k = e.target.dataset.dept, d = deptOf(c0), v = +e.target.value / 100, others = DEPTS.map(x => x[0]).filter(x => x !== k), rest = 1 - v, sum = others.reduce((a, x) => a + d[x], 0); others.forEach(x => { d[x] = sum > 0.001 ? d[x] / sum * rest : rest / 3; }); d[k] = v; DEPTS.forEach(([x]) => { const o = el('dv-' + x); if (o) o.textContent = Math.round(d[x] * 100) + ' %'; const sl = document.querySelector(`#bview input[data-dept="${x}"]`); if (sl && x !== k) sl.value = Math.round(d[x] * 100); }); return; } if (e.target.dataset && e.target.dataset.pf && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) c0.pf = +e.target.value / 100; return; } const k = e.target.dataset && e.target.dataset.ad; if (!k || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; adOf(c)[k] = +e.target.value; const o = el('adv-' + k); if (o) o.textContent = money(+e.target.value) + ' / jour'; });
@@ -4571,6 +4661,7 @@ function prodHeader(c) {
 /* --- catalogue de production (inspiré de Capitalism) --- */
 let catFac = null, catSel = '', catFilter = 'all', cvHtml = '', cvDown = false;
 function openCatalog(c) {
+  closeViews('c');
   catFac = { x: c.x, y: c.y }; const items = recipeItems(c), cur = recOf(c);
   const best = items.filter(i => i.eligible && i.score > 0).sort((a, b) => b.score - a.score)[0];
   catSel = c.prod || (best ? best.key : items[0].key); catFilter = 'all'; cvHtml = '';
@@ -4700,7 +4791,7 @@ function prodView(c, k, it) {
 function shelfCard(c) {
   if (!TYPES[c.t].ret) return '';
   const N = slotsN(c), all = shelfItems(c), keys = c.slots ? c.slots : shelfKeys(c).concat(Array(N).fill(null)).slice(0, N);
-  const ir = Math.max(1.05, 1.3 - 0.05 * (S.stats && S.stats.cn && S.stats.cn.port || 0)), by = {}; all.forEach(i => { by[i.key] = i; });
+  const ir = Math.max(1.0, 1.04 - 0.01 * (S.stats && S.stats.cn && S.stats.cn.port || 0)), by = {}; all.forEach(i => { by[i.key] = i; });
   const slots = Array.from({ length: N }, (_, i) => { const k = keys[i], it = k && by[k];
     if (!it) return `<button class="slot empty ${bPick === i ? 'sel' : ''}" data-act="slot:${i}"><span class="plus">＋</span><small>Emplacement ${i + 1}</small></button>`;
     const s = c.sales && c.sales[k] || 0, st = it.stock, mx = Math.max(10, st, s * 2);
@@ -4711,7 +4802,7 @@ function shelfCard(c) {
   const vk = (bPick >= 0 && keys[bPick]) ? keys[bPick] : keys.find(Boolean), view = vk && by[vk] ? prodView(c, vk, by[vk]) : '';
   return view + `<div class="lever wide" style="margin:8px 0"><h4>Rayons · ${N} emplacements <span class="pip">${keys.filter(Boolean).length} / ${N}</span></h4><small>Un magasin ne présente qu'un nombre limité de produits selon sa taille : 4 (petit marché), 8 (supermarché), 12 (hypermarché). Clique un emplacement pour choisir le produit. Barres : stock (jaune) et ventes (orange).</small><div class="slots">${slots}</div>${pick}
     <div class="seg2" style="margin-top:6px"><button class="btn sec" data-act="autoslots">Remplissage automatique</button><button class="btn sec" data-act="imp" aria-pressed="${c.imp !== false}">Importation par le port : ${c.imp === false ? 'coupée' : 'active'}</button></div>
-    <small>Quand ton stock est vide, le port importe les marchandises de base au prix du marché +${Math.round((ir - 1) * 100)} % (moins cher avec tes terminaux portuaires).</small></div>`;
+    <small>Quand ton stock est vide, le port importe les marchandises de base ${ir > 1.0005 ? 'au prix du marché +' + (Math.round((ir - 1) * 1000) / 10).toString().replace('.', ',') + ' %' : 'au prix du marché'} (la surcote baisse de 1 point par terminal portuaire, jusqu'à 0).</small></div>`;
 }
 function whTab(c) {
   const used = Object.keys(c.inv || {}).reduce((a, g) => a + c.inv[g], 0), cap = whCap(c);
@@ -4801,8 +4892,9 @@ function purTab(c) {
 function trainCost(c, k) { const l = (c.train && c.train[k]) | 0; return l >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.2 * (1 + l)); }
 function stTab(c) {
   const T = TYPES[c.t], d = deptOf(c), id = deptIdeal(c), m = deptMult(c), tot = jobsOf(c), fill = fillOf(c), tr = c.train || (c.train = { prod: 0, buy: 0, stock: 0, sell: 0 });
-  const effTxt = k => k === 'prod' ? (T.ret ? 'préparation des rayons' : 'volume produit ×' + m.prod.toFixed(2).replace('.', ',')) : k === 'buy' ? 'coût des intrants ' + (m.buy >= 1 ? '−' : '+') + Math.abs(Math.round((1 / m.buy - 1) * 100)) + ' %' : k === 'stock' ? (T.ret ? 'capacité du magasin ×' + m.stock.toFixed(2).replace('.', ',') : 'pertes ' + (wasteOf(c) * 100).toFixed(1).replace('.', ',') + ' % · transport ' + (m.stock >= 1 ? '−' : '+') + Math.abs(Math.round((1 / m.stock - 1) * 100)) + ' %') : (T.ret ? 'clientèle ×' + m.sell.toFixed(2).replace('.', ',') : 'prix de vente ' + (m.sell >= 1 ? '+' : '−') + Math.abs(Math.round((m.sell - 1) * 50)) + ' %');
-  const rows = DEPTS.map(([k, n]) => { const cost = trainCost(c, k), l = tr[k] | 0;
+  const neu = (v, t) => Math.round(Math.abs(v)) === 0 ? 'neutre (au niveau idéal)' : t;
+  const effTxt = k => k === 'prod' ? (T.ret ? 'préparation des rayons' : (svcOf(c) ? 'rendement du bâtiment ×' : 'volume produit ×') + m.prod.toFixed(2).replace('.', ',')) : k === 'buy' ? neu((1 / m.buy - 1) * 100, 'coût des intrants ' + (m.buy >= 1 ? '−' : '+') + Math.abs(Math.round((1 / m.buy - 1) * 100)) + ' %') : k === 'stock' ? (T.ret ? 'capacité du magasin ×' + m.stock.toFixed(2).replace('.', ',') : 'pertes ' + (wasteOf(c) * 100).toFixed(1).replace('.', ',') + ' % · ' + neu((1 / m.stock - 1) * 100, 'transport ' + (m.stock >= 1 ? '−' : '+') + Math.abs(Math.round((1 / m.stock - 1) * 100)) + ' %')) : (T.ret ? 'clientèle ×' + m.sell.toFixed(2).replace('.', ',') : neu((m.sell - 1) * 50, 'prix de vente ' + (m.sell >= 1 ? '+' : '−') + Math.abs(Math.round((m.sell - 1) * 50)) + ' %'));
+  const rows = DEPTS.filter(([k]) => Math.round(tot * Math.max(d[k], id[k])) >= 1 && (k !== 'buy' || T.ext || T.rec || T.ret)).map(([k, n]) => { const cost = trainCost(c, k), l = tr[k] | 0;
     return `<div class="dept"><div class="dh"><b>${n}</b><span>${fmt(Math.round(tot * fill * d[k]))} / ${fmt(Math.round(tot * d[k]))} postes</span></div>
       <input type="range" data-dept="${k}" min="0" max="80" step="1" value="${Math.round(d[k] * 100)}" aria-label="Part des effectifs : ${n}">
       <div class="finrow"><span>Part de l'effectif <i style="opacity:.6">(idéal ${Math.round(id[k] * 100)} %)</i></span><b id="dv-${k}">${Math.round(d[k] * 100)} %</b></div>
@@ -4817,24 +4909,24 @@ function suppliersOf(g) { const o = []; eachBuilding(b => { if (!b.conn || b.t =
 function consumersOf(g) { const o = []; eachBuilding(b => { if (!b.conn || b.t === 'npc') return; const T = TYPES[b.t]; if (FLEVEL[b.t] || b.t === 'foundry') { const r = recOf(b); if (r && r.in[g] && (b._u || 0) > 0) o.push({ b, need: r.in[g] * b._u }); } else if (T.ret && /^(basic|std|lux)$/.test(g) && T.ret.sells.indexOf(g) >= 0 && b.sales && b.sales['g_' + g] > 0.01) o.push({ b, need: b.sales['g_' + g] }); }); return o; }
 function silo(label, st, cap, col, extra) { const p = clamp(st / cap, 0, 1); return `<div class="silo"><div class="tank"><i style="height:${Math.round(p * 100)}%;background:${col}"></i><span>${Math.round(p * 100)} %</span></div><b>${label}</b><small>${fmt(st)} / ${fmt(cap)}</small>${extra || ''}</div>`; }
 function lgTab(c) {
-  const T = TYPES[c.t], rec = recOf(c), cap = baseCap(), links = b => `<button class="crow" data-open="${b.x},${b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[b.t].name}</b><small>case ${b.x + 1}, ${b.y + 1}</small></span><span class="mg">${f1(b.out)}/j</span></button>`;
+  const T = TYPES[c.t], rec = recOf(c), cap = baseCap(), PCAP = 10000, links = b => `<button class="crow" data-open="${b.x},${b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[b.t].name}</b><small>case ${b.x + 1}, ${b.y + 1}</small></span><span class="mg">${f1(b.out)}/j</span></button>`;
   let ins = '', outs = '';
-  if (rec) ins = Object.keys(rec.in).map(g => { const need = rec.in[g] * (c._u || 0), st = gStock(g), sup = suppliersOf(g), supply = sup.reduce((a, b) => a + b.out, 0), aut = need > 0.01 ? st / need : null; const mode = (c.src && c.src[g]) || 'auto', sel = `<small>Fournisseur : <b>${supLabel(mode, g)}</b></small><button class="btn sec" data-act="tab:pu" style="min-height:26px;padding:1px 8px;font-size:11px">Changer</button>`; return `<div class="lcol">${silo(gName(g), st, cap, GOODS[g] ? GOODS[g].color : '#8f9acb', `<small class="${aut != null && aut < 2 ? 'neg' : 'pos'}">${aut == null ? 'inutilisé' : 'autonomie ' + (aut > 99 ? '99+' : f1(aut)) + ' j'}</small>`)}<div class="lsub">${sel}<small>Besoin ${f1(need)}/j · offre ${f1(supply)}/j${c._impIn > 0.01 ? ' · importé ' + f1(c._impIn) + '/j' : ''} · <b class="${supply >= need ? 'pos' : 'neg'}">${supply >= need ? 'excédent' : 'déficit'}</b></small>${sup.slice(0, 4).map(links).join('') || '<small class="neg">Aucun fournisseur</small>'}</div></div>`; }).join('');
+  if (rec) ins = Object.keys(rec.in).map(g => { const need = rec.in[g] * (c._u || 0), st = gStock(g), sup = suppliersOf(g), supply = sup.reduce((a, b) => a + b.out, 0), aut = need > 0.01 ? st / need : null; const mode = (c.src && c.src[g]) || 'auto', sel = `<small>Fournisseur : <b>${supLabel(mode, g)}</b></small><button class="btn sec" data-act="tab:pu" style="min-height:26px;padding:1px 8px;font-size:11px">Changer</button>`; return `<div class="lcol">${silo(gName(g), st, g in GOODS ? capFor(g) : PCAP, GOODS[g] ? GOODS[g].color : '#8f9acb', `<small class="${aut != null && aut < 2 ? 'neg' : 'pos'}">${aut == null ? 'inutilisé' : 'autonomie ' + (aut > 99 ? '99+' : f1(aut)) + ' j'}</small>`)}<div class="lsub">${sel}<small>Besoin ${f1(need)}/j · offre ${f1(supply)}/j${c._impIn > 0.01 ? ' · importé ' + f1(c._impIn) + '/j' : ''} · <b class="${supply >= need ? 'pos' : 'neg'}">${supply >= need ? 'excédent' : 'déficit'}</b></small>${sup.slice(0, 4).map(links).join('') || '<small class="neg">Aucun fournisseur</small>'}</div></div>`; }).join('');
   else if (T.ext) ins = `<div class="lcol">${(() => { const d = S.dep[idx(c.x, c.y)], full = DEPOSITS[T.ext].res; return silo('Gisement · ' + DEPOSITS[T.ext].name, d ? d.r : 0, full, '#8a6a3a', `<small>${T.ext === 'wood' ? 'repousse +8/j' : 'non renouvelable'}</small>`); })()}</div>`;
-  else if (T.ret) ins = shelfItems(c).map(it => `<div class="lcol">${silo(it.name, it.stock, cap, '#7f96ff', `<small>${f1(c.sales && c.sales[it.key] || 0)} vendus/j${it.gen ? ' · ' + (c.imp === false ? 'import coupé' : 'import par le port') : ''}</small>`)}</div>`).join('');
-  if (rec) { const g = rec.out, st = gStock(g), cons = consumersOf(g), use = cons.reduce((a, x) => a + x.need, 0); outs = `<div class="lcol">${silo(gName(g), st, g in GOODS ? cap : 80, GOODS[g] ? GOODS[g].color : '#ffd76a', `<small>produit ${f1(c.out)}/j</small>`)}<div class="lsub"><small>Demande ${f1(use)}/j · <b class="${use >= c.out ? 'pos' : 'neg'}">${use >= c.out ? 'tout est écoulé' : 'surproduction'}</b></small>${cons.slice(0, 4).map(x => `<button class="crow" data-open="${x.b.x},${x.b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[x.b.t].name}</b><small>case ${x.b.x + 1}, ${x.b.y + 1}</small></span><span class="mg">${f1(x.need)}/j</span></button>`).join('') || '<small>Vendu aux commerces ou exporté par le port</small>'}</div></div>`; }
-  else if (T.ext) { const g = T.ext, st = gStock(g), cons = consumersOf(g), use = cons.reduce((a, x) => a + x.need, 0); outs = `<div class="lcol">${silo(gName(g), st, cap, GOODS[g].color, `<small>extrait ${f1(c.out)}/j</small>`)}<div class="lsub"><small>Demande ${f1(use)}/j</small>${cons.slice(0, 4).map(x => `<button class="crow" data-open="${x.b.x},${x.b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[x.b.t].name}</b><small>case ${x.b.x + 1}, ${x.b.y + 1}</small></span><span class="mg">${f1(x.need)}/j</span></button>`).join('') || '<small>Surplus exporté par le port</small>'}</div></div>`; }
+  else if (T.ret) ins = shelfItems(c).map(it => `<div class="lcol">${silo(it.name, it.stock, it.gen ? capFor(it.key.slice(2)) : PCAP, '#7f96ff', `<small>${f1(c.sales && c.sales[it.key] || 0)} vendus/j${it.gen ? ' · ' + (c.imp === false ? 'import coupé' : 'import par le port') : ''}</small>`)}</div>`).join('');
+  if (rec) { const g = rec.out, st = gStock(g), cons = consumersOf(g), use = cons.reduce((a, x) => a + x.need, 0); outs = `<div class="lcol">${silo(gName(g), st, g in GOODS ? capFor(g) : PCAP, GOODS[g] ? GOODS[g].color : '#ffd76a', `<small>produit ${f1(c.out)}/j</small>`)}<div class="lsub"><small>Demande ${f1(use)}/j · <b class="${use >= c.out ? 'pos' : 'neg'}">${use >= c.out ? 'tout est écoulé' : 'surproduction'}</b></small>${cons.slice(0, 4).map(x => `<button class="crow" data-open="${x.b.x},${x.b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[x.b.t].name}</b><small>case ${x.b.x + 1}, ${x.b.y + 1}</small></span><span class="mg">${f1(x.need)}/j</span></button>`).join('') || '<small>Vendu aux commerces ou exporté par le port</small>'}</div></div>`; }
+  else if (T.ext) { const g = T.ext, st = gStock(g), cons = consumersOf(g), use = cons.reduce((a, x) => a + x.need, 0); outs = `<div class="lcol">${silo(gName(g), st, capFor(g), GOODS[g].color, `<small>extrait ${f1(c.out)}/j</small>`)}<div class="lsub"><small>Demande ${f1(use)}/j</small>${cons.slice(0, 4).map(x => `<button class="crow" data-open="${x.b.x},${x.b.y}" style="grid-template-columns:1fr auto;padding:2px 6px"><span><b style="font-size:11.5px">${TYPES[x.b.t].name}</b><small>case ${x.b.x + 1}, ${x.b.y + 1}</small></span><span class="mg">${f1(x.need)}/j</span></button>`).join('') || '<small>Surplus exporté par le port</small>'}</div></div>`; }
   else if (T.ret) outs = `<div class="lcol"><div class="silo"><div class="tank" style="border-radius:50%"><i style="height:${Math.round(clamp(c.util || 0, 0, 1) * 100)}%;background:#46d39a"></i><span>${Math.round((c.util || 0) * 100)} %</span></div><b>Clients</b><small>${f1(c.out)} ventes/j · capacité ${f1(c._cap || 0)}</small></div></div>`;
   const trucks = Math.max(0, Math.ceil(c.out * (c.haul || 0) / 220)), tcost = c.transport || 0;
-  return `<p class="fnote">Les matières arrivent depuis les fournisseurs (mines, usines, port), sont stockées, transformées puis livrées. Capacité de stockage du réseau : ${fmt(cap)} unités par bien (+150 par terminal portuaire).</p>
+  return `<p class="fnote">Les matières arrivent depuis les fournisseurs (mines, usines, port), sont stockées, transformées puis livrées. Capacité de stockage : ${fmt(cap)} unités par bien (${fmt(STOCK_CAP)} + 20 000 par terminal portuaire), plus celle de tes entrepôts pour les biens qu'ils stockent.</p>
     <div class="lgrid"><div><h4 class="lh">Entrées</h4>${ins || '<small>Aucune</small>'}</div><div class="larr">▶</div><div class="lmid"><h4 class="lh">${T.name}</h4><div class="bn" style="padding:8px"><b>${f1(c.out)}/j</b><small>utilisation ${pct(clamp(c.util || 0, 0, 1))}</small></div></div><div class="larr">▶</div><div><h4 class="lh">Sorties</h4>${outs || '<small>Aucune</small>'}</div></div>
     <div class="kpis" style="margin-top:10px"><div><small>Distance au port</small><b>${c.haul || 0} cases</b></div><div><small>Camions</small><b>${trucks}</b></div><div><small>Coût transport</small><b class="neg">${money(tcost)} /j</b></div><div><small>Pertes</small><b class="neg">${(wasteOf(c) * 100).toFixed(1).replace('.', ',')} %</b></div><div><small>Route</small><b class="${c.linked === false ? 'neg' : 'pos'}">${c.linked === false ? 'non reliée' : 'reliée'}</b></div><div><small>Réseau</small><b>${c.conn ? 'actif' : 'coupé'}</b></div></div>`;
 }
 function xBars(p) { return Object.keys(XDOM).map(k => `<div class="qr" style="display:flex;justify-content:space-between;font-size:11px"><span>${XDOM[k]}</span><b>${p.exp[k]}</b></div>`).join(''); }
 function cxHTML() {
   S.cx = S.cx || {}; S.talent = S.talent || [];
-  const hq = !!hqOf(), slots = Object.keys(XROLE).map(r => { const p = S.cx[r], E = XROLE[r]; return `<div class="lever"><h4>${E.n} <span class="pip">${p ? 'en poste' : 'vacant'}</span></h4><small>${E.d}</small>${p ? `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><div style="width:44px;height:44px;border-radius:6px;overflow:hidden">${personSVG(p)}</div><div><b>${p.name}</b><small>${XDOM[E.dom]} : ${p.exp[E.dom]}/100 · ${money(cxSalary(p))}/j</small></div></div><button class="btn sec" data-act="fire:${r}">Licencier</button>` : '<small>Choisis un candidat ci-dessous.</small>'}</div>`; }).join('');
-  const cands = S.talent.map(p => { const best = Object.keys(XDOM).sort((a, b) => p.exp[b] - p.exp[a])[0], roles = Object.keys(XROLE).filter(r => !S.cx[r] && p.exp[XROLE[r].dom] >= 40); return `<div class="lever"><div style="display:flex;gap:8px;align-items:center"><div style="width:52px;height:52px;border-radius:6px;overflow:hidden;flex:none">${personSVG(p)}</div><div><b>${p.name}</b><small>Expert : ${XDOM[best]} (${p.exp[best]}) · ${money(cxSalary(p))}/j</small></div></div>${xBars(p)}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${roles.map(r => `<button class="btn" style="min-height:28px;padding:3px 8px;font-size:11px" data-act="hire:${r}:${p.id}" ${hq ? '' : 'disabled'}>Recruter ${XROLE[r].n.split('(')[1].replace(')', '')}</button>`).join('') || '<small>Aucun poste vacant adapté</small>'}</div></div>`; }).join('');
+  const hq = !!hqOf(), slots = Object.keys(XROLE).map(r => { const p = S.cx[r], E = XROLE[r]; return `<div class="lever"><h4>${E.n} <span class="pip">${p ? 'en poste' : 'vacant'}</span></h4><small>${E.d}</small>${p ? `<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><div style="width:44px;height:44px;border-radius:6px;overflow:hidden">${personSVG(p)}</div><div><b style="display:block">${p.name}</b><small style="display:block">${XDOM[E.dom]} : ${p.exp[E.dom]}/100 · ${money(cxSalary(p))}/j</small></div></div><button class="btn sec" data-act="fire:${r}">Licencier</button>` : '<small>Choisis un candidat ci-dessous.</small>'}</div>`; }).join('');
+  const cands = S.talent.map(p => { const best = Object.keys(XDOM).sort((a, b) => p.exp[b] - p.exp[a])[0], roles = Object.keys(XROLE).filter(r => !S.cx[r] && p.exp[XROLE[r].dom] >= 40); return `<div class="lever"><div style="display:flex;gap:8px;align-items:center"><div style="width:52px;height:52px;border-radius:6px;overflow:hidden;flex:none">${personSVG(p)}</div><div><b style="display:block">${p.name}</b><small style="display:block">Expert : ${XDOM[best]} (${p.exp[best]}) · ${money(cxSalary(p))}/j</small></div></div>${xBars(p)}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${roles.map(r => `<button class="btn" style="min-height:28px;padding:3px 8px;font-size:11px" data-act="hire:${r}:${p.id}" ${hq ? '' : 'disabled'}>Recruter ${XROLE[r].n.split('(')[1].replace(')', '')}</button>`).join('') || '<small>Aucun poste vacant adapté</small>'}</div></div>`; }).join('');
   return `<h4 class="lh">Équipe de direction (C-levels)</h4><div class="levers">${slots}</div><h4 class="lh" style="margin-top:10px">Marché des cadres dirigeants</h4><p class="fnote">Les candidats sont renouvelés tous les 45 jours. L'efficacité du dirigeant dépend de son expertise dans son domaine. Il faut un siège social en service.</p><div class="levers">${cands}</div>`;
 }
 function exTab(c) {
@@ -4881,7 +4973,7 @@ function finTab(c, tab) {
       ${row('Marge brute', gm, m[0] - m[1], 'tot')}
       ${row('Salaires', wag, m[2], '', 1)}
       ${row('Transport', tra, m[3], '', 1)}
-      ${row('Entretien', upk, m[4], '', 1)}
+      ${row((T.ext || T.rec || isPlant(c.t)) ? 'Coûts d\'exploitation' : 'Entretien', upk, m[4], '', 1)}
       ${ad || m[8] ? row('Publicité', ad, m[8], '', 1) : ''}
       ${row('Excédent brut d\'exploitation (EBE)', ebitda, ceb, 'tot')}
       ${row('Amortissement', dep, m[6], 'sub', 1)}
