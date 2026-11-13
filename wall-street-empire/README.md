@@ -131,3 +131,10 @@ Les visuels des produits, la mer, le port, les grues et les navires sont dessin�
 - **Import automatique** limité aux fabrications rentables ; coût d'import revu (marge de revente ≈ 25 %).
 - **Boucle de progression** : prochaine mission en conseil, échelle de fortune (Entrepreneur/Industriel/Magnat) avec primes.
 - **PNJ étrangers** (Dragon Pacific, Gulf Sovereign, Rhine Trading, Siberia Metals, Andes Mining) : dumping, pénurie, rachats à prime ; ils sont aussi fournisseurs nommés dans « Achats ».
+
+## Matières premières : acheteurs immédiats et concurrence locale
+- Puits et mines à l'échelle d'une petite major (puits 150 k$, 150 u/j, réserves ×14) : revenus de milliers de $/jour, ROI en quelques semaines.
+- **Marché industriel local** (`stepLocalMarket`) : la ville achète pétrole, charbon, fer, acier, plastique… au cours local (97 %), donc plus que l'export. Le premier arrivé rafle toute la demande.
+- **Concurrents PNJ locaux** (Lone Star Oil, Gulf Polymers, Great Lakes Steel…) s'installent après ~18 jours de ventes et se partagent la demande ; ils grossissent plus vite si le joueur s'enrichit trop.
+- Plastique : 1,6 pétrole → 5 plastique (≈ 70 % de marge brute).
+- L'import coûte toujours plus cher que le local (×1,05 à ×1,3 + fret).
