@@ -1023,7 +1023,20 @@ function foreignHTML() {
 }
 // Marché industriel local : acheteurs PNJ de la ville pour chaque matière ; le premier arrivé rafle tout, puis des producteurs locaux s'installent
 // Élasticité-prix (valeurs absolues, plus modérées que dans la vraie vie comme dans Capitalism Lab) : une hausse de 10 % du prix réduit la demande de ε × 10 %
-const EL_CLS = { basic: 0.9, std: 1.4, lux: 2.2, estate: 1.6 };
+const EL_CLS = { basic: 0.9, std: 1.4, lux: 2.2, estate: 1.6 };   // ordre de grandeur long terme avec substituts (rivaux, IA)
+// Élasticité-prix réaliste (USDA-ERS : pain/céréales ≈ −0.5 en moyenne, ≈ −0.1 à −0.3 à court terme ; MSI : élasticité mesurée en expérience ≈ −0.34 vs ≈ −2 observée entre marques).
+// [court terme, long terme] ; "tot" = consommation totale du bien (pas de substitut), "sub" = report vers un autre produit/magasin si une alternative existe.
+const EL_T = { basic: { tot: [0.08, 0.3], sub: [0.25, 0.8] }, std: { tot: [0.4, 1.0], sub: [0.6, 1.2] }, estate: { tot: [0.5, 1.1], sub: [0.4, 0.8] } };
+const EL_TAU = 75;   // jours pour que les habitudes d'achat s'ajustent
+// Luxe : effet Veblen/snob — dans une bande (jusqu'à +60 %) une hausse de prix ne fait pas baisser la demande (légère hausse à court terme), au-delà le marché se détourne.
+function elF(cls, p, d, sole) {
+  if (Math.abs(p - 1) < 1e-4) return 1;
+  const w = 1 - Math.exp(-(d || 0) / EL_TAU);
+  if (cls === 'lux') { const e = 0.3 - 0.2 * w; return p <= 1.6 ? Math.pow(p, e) : Math.pow(1.6, e) * Math.pow(p / 1.6, -(0.6 + 2 * w)); }
+  const T = EL_T[cls] || EL_T.std, mix = a => a[0] + (a[1] - a[0]) * w;
+  return Math.pow(p, -(mix(T.tot) + (sole ? 0 : mix(T.sub))));
+}
+function trackPk(c, key) { const p = (c.pk && c.pk[key]) || 1; c.pkd = c.pkd || {}; const o = c.pkd[key]; if (!o) c.pkd[key] = { p, d: 99 }; else if (Math.abs(o.p - p) > 1e-3) { o.p = p; o.d = 0; } else o.d++; return c.pkd[key]; }
 const EL_RAW = { oil: 0.5, coal: 0.7, iron: 0.8, copper: 0.9, gold: 1.5, wood: 0.9, steel: 1, plastic: 1.2 };
 const elRaw = g => EL_RAW[g] || 1;
 const LOCAL_D = { oil: 700, coal: 320, iron: 300, copper: 150, gold: 12, wood: 300, gravel: 450, sand: 400, limestone: 300, wheat: 500, sugar: 450, cotton: 400, rubber: 300, steel: 260, plastic: 420, flour: 250, fabric: 250, plank: 300, cement: 250, ingot: 20, wire: 250, pack: 250, chem: 300, api: 120, tire: 120, stud: 250, osb: 150, concrete: 400, motor: 60, battery: 80, circuit: 60, gcase: 10, screen: 60 };
@@ -2334,21 +2347,23 @@ function step() {
     const adC = adAvg(cls); items.forEach(it => { it.attr *= adC; });
     const RIVAL = rivalAttr(cls), totalAttr = Math.max(0.001, items.reduce((a, i) => a + i.attr, 0) + RIVAL);
     const sh0 = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0; }), cw = sh0.reduce((a, c) => a + (c._cap || 1), 0) || 1, pfAvg = sh0.reduce((a, c) => a + (c._cap || 1) * pfOf(c), 0) / cw;
-    const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length)) * (sh0.length ? clamp(Math.pow(pfAvg, -EL_CLS[cls]), 0.5, 1.6) : 1);
+    const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length)) * (sh0.length ? clamp(cls === 'lux' ? Math.pow(pfAvg, 0.1) : Math.pow(pfAvg, -(EL_T[cls] || EL_T.std).tot[1]), 0.5, 1.6) : 1);
     Dtot[cls] = Dc; rivalPart[cls] = Dc * RIVAL / totalAttr;
     items.sort((a, b) => (a.k === 'g' ? 1 : 0) - (b.k === 'g' ? 1 : 0));   // tes produits d'abord, les marchandises génériques ensuite
-    buildings.forEach(c => { const R = TYPES[c.t].ret; if (!R || R.sells.indexOf(cls) < 0 || !c._lc) return; let s = 0; items.forEach(it => { if (shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)) s += it.attr; }); (c._sa || (c._sa = {}))[cls] = s || 1; });
+    buildings.forEach(c => { const R = TYPES[c.t].ret; if (!R || R.sells.indexOf(cls) < 0 || !c._lc) return; let s = 0; items.forEach(it => { if (shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)) s += it.attr; }); (c._sa || (c._sa = {}))[cls] = s || 1; (c._na || (c._na = {}))[cls] = items.filter(it => shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)).length; });
     items.forEach(it => {
       const key = it.k === 'g' ? 'g_' + cls : it.k, wi = Dc * it.attr / totalAttr, gen = it.k === 'g';
       const car = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0 && shelfOk(c, key); });
+      car.forEach(c => trackPk(c, key));
       const pfk = car.length ? car.reduce((a, c) => a + pfOfK(c, key), 0) / car.length : 1;
-      let need = wi * clamp(Math.pow(pfk / Math.max(0.5, car.length ? car.reduce((a, c) => a + pfOf(c), 0) / car.length : 1), -1.4), 0.3, 1.8), got = 0, stockLeft = it.stock, fromStock = 0;
+      const dAvg = car.length ? car.reduce((a, c) => a + c.pkd[key].d, 0) / car.length : 99, soleAll = car.length && car.every(c => ((c._na && c._na[cls]) || 1) <= 1);
+      let need = wi * clamp(elF(cls, pfk / Math.max(0.5, car.length ? car.reduce((a, c) => a + pfOf(c), 0) / car.length : 1), dAvg, soleAll), 0.3, 1.8), got = 0, stockLeft = it.stock, fromStock = 0;
       for (let pass = 0; pass < 2 && need > 1e-6; pass++) {
         const ws = car.reduce((a, c) => a + ((c._lc[cls] || 0) > 0.01 ? c._cap * c.adF * c.pw : 0), 0); if (ws <= 0) break;
         const n0 = need;
         car.forEach(c => {
           if ((c._lc[cls] || 0) <= 0.01) return;
-          const share = n0 * c._cap * c.adF * c.pw / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * Math.pow(Math.max(0.4, (c.pk && c.pk[key]) || 1), -EL_CLS[cls]) - (c.sales[key] || 0); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem));
+          const share = n0 * c._cap * c.adF * c.pw / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * elF(cls, Math.max(0.4, (c.pk && c.pk[key]) || 1), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1) - (c.sales[key] || 0); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem));
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * importRate / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
           stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key); c._cl += fs * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
@@ -4662,7 +4677,7 @@ function sceneStart() { if (!scRaf) { scLast = performance.now(); scRaf = reques
 
 function priceCard(c) {
   const pf = c.pf || 1;
-  return `<div class="lever"><h4>Prix de vente <span class="pip">${Math.round(pf * 100)} %</span></h4><small>Du prix du marché. Bas : plus de clients mais moins de marge. Haut : marge élevée mais les clients vont ailleurs. Élasticité-prix : biens de base −${EL_CLS.basic}, manufacturés −${EL_CLS.std}, luxe −${EL_CLS.lux} (+10 % de prix = −${(EL_CLS.std).toFixed(1).replace('.', ',')} % de ventes pour un bien manufacturé, avant effet de concurrence).</small>
+  return `<div class="lever"><h4>Prix de vente <span class="pip">${Math.round(pf * 100)} %</span></h4><small>Du prix du marché. Bas : plus de clients mais moins de marge. Haut : marge élevée mais les clients vont ailleurs. Élasticité réaliste : biens de base quasi inélastiques (≈ −0,1 à court terme, ≈ −0,3 à long terme si aucun substitut), manufacturés ≈ −0,4 → −1,0, luxe effet Veblen (la demande ne baisse pas, voire monte, jusqu'à +60 % de prix). Les habitudes mettent ~2-3 mois à s'ajuster.</small>
     <input type="range" data-pf="1" min="70" max="140" step="5" value="${Math.round(pf * 100)}" aria-label="Prix de vente"><div class="finrow"><span>Attractivité prix</span><b>${pf <= 1 ? '+' : '−'}${Math.abs(Math.round((Math.pow(1 / pf, 1.6) - 1) * 100))} %</b></div></div>`;
 }
 function hasSource(g) {
@@ -4820,7 +4835,7 @@ function prodView(c, k, it) {
    <div class="finrow"><span>Poids d'achat de la catégorie</span><b>prix ${Math.round(w.price * 100)} % · qualité ${Math.round(w.quality * 100)} % · marque ${Math.round(w.brand * 100)} %</b></div>
    ${it.gen ? '' : `<div class="finrow"><span>Adoption du produit · ${lifeStage(ps)}</span><b>${Math.round(adoptOf(ps) * 100)} %</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(adoptOf(ps) * 100)}%"></i></div>`}
    <div class="finrow" title="${costNote}"><span>Coût d'approvisionnement <small>(${costNote})</small></span><b>${f(cost)} $</b></div><div class="finrow"><span>Marge unitaire</span><b class="${mg >= 0 ? 'pos' : 'neg'}">${mg >= 0 ? '+' : '−'}${f(Math.abs(mg))} $ (${Math.round(100 * mg / Math.max(0.01, price))} %)</b></div><div class="finrow"><span>Ventes / jour · par mois</span><b>${f1(sold)} · ${fmt(Math.round((c.sm && c.sm[k]) || 0))}</b></div><div class="finrow"><span>Stock · offre / demande</span><b>${fmt(it.stock)} · ${it.stock > sold * 3 ? 'offre abondante' : it.stock < sold ? 'pénurie' : 'équilibré'}</b></div>
-   <div class="lever" style="margin-top:8px"><h4>Prix de vente de ce produit <span class="pip" id="pkv">${Math.round(((c.pk && c.pk[k]) || 1) * 100)} %</span></h4><input type="range" data-pk="${k}" min="60" max="220" step="5" value="${Math.round(((c.pk && c.pk[k]) || 1) * 100)}" aria-label="Prix de vente"><small>100 % = prix de référence du magasin. Plus bas : plus de clients ; plus haut : plus de marge, moins de ventes (élasticité ${EL_CLS[cls]}).</small></div>
+   <div class="lever" style="margin-top:8px"><h4>Prix de vente de ce produit <span class="pip" id="pkv">${Math.round(((c.pk && c.pk[k]) || 1) * 100)} %</span></h4><input type="range" data-pk="${k}" min="60" max="220" step="5" value="${Math.round(((c.pk && c.pk[k]) || 1) * 100)}" aria-label="Prix de vente"><small>100 % = prix de référence du magasin. Plus bas : plus de clients ; plus haut : plus de marge, moins de ventes — progressivement (habitudes ~2-3 mois), très peu pour un bien de base sans substitut, et effet Veblen pour le luxe.</small></div>
    ${it.gen ? `<p class="note" style="margin:8px 0">Les marchandises génériques n'ont pas de marque : lance ton propre produit dans Produits.</p>` : padHtml(k)}
    ${it.gen ? `<button class="btn" data-act="opensup:${cls}" style="margin-top:6px">Voir les fournisseurs…</button>` : ''}</div>`;
 }

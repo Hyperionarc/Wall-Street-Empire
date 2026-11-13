@@ -251,3 +251,9 @@ Somme glissante sur 30 jours (ramenée à 30 jours tant que l'historique est plu
 ## Élasticité-prix visible et écran Produits façon Capitalism Lab
 - **Demande par produit** : le volume vendu d'un produit dans un magasin diminue avec son prix (curseur par produit, 100 % = pleine capacité) : à +30 % de prix, −19 % de volume pour un bien de base, −31 % pour un manufacturé, davantage pour le luxe (élasticités 0,9 / 1,4 / 2,2). Mesuré : biens de base 149 → 118 u/j à ×1,3, 97 à ×1,6, 80 à ×2.
 - **Écran Produits** (Menu > Produits) : courbe 12 mois au choix « Quantité vendue » ou « Chiffre d'affaires », camemberts Production et Détail, tableau Local / Moyenne / Concern (poids prix-qualité-marque), quantités vendues par jour et par mois, stock, fidélité, publicité. Fiche produit du magasin : ventes par jour et par mois.
+
+## Élasticité-prix réaliste (court/long terme, Veblen)
+Sources : USDA-ERS (pain/céréales ≈ −0,5 en moyenne, inélastique ; court terme bien plus faible), rapport MSI (élasticité expérimentale ≈ −0,34 vs ≈ −2 observée entre marques), études Veblen/snob (effet existant mais borné, selon le type de luxe).
+- Biens de base : −0,08 (court terme) → −0,3 (long terme) sans substitut ; si une alternative est en rayon, +0,25 → +0,8 de report.
+- Manufacturés : −0,4 → −1,0 (+ report 0,6 → 1,2). Luxe : effet Veblen (+0,3 de pente à court terme, +0,1 à long terme) jusqu'à +60 % de prix, puis chute.
+- Les habitudes s'ajustent en ~75 jours après chaque changement de prix (`trackPk`, `elF`).
