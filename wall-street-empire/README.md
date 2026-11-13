@@ -179,3 +179,10 @@ Objectif « Manche » (Menu > Objectifs) : fin au jour 720 ou dès qu'un empire 
 
 ## Sièges sociaux illustrés (3 formats)
 `tools/process_hq.py <small|mid|large>` détoure une image du siège (`assets/src/hq/hq_<nom>_src.jpg`, fond blanc ou damier incrusté) vers `assets/hq/hq_<nom>.png` + `meta.json` ; `build.py` les embarque. Le siège fait 2×2 cases. Format `mid` en place ; `small` et `large` seront choisis selon le niveau du bâtiment (Améliorer) dès qu'ils seront fournis.
+
+## Passe 2 de l'économie
+- **Salaires réalistes** : 120 $/jour par salarié (~43 k$/an), avec marché du travail (chômage bas = salaires plus chers) ; effectifs recalés (supermarché 5 employés, usines ×4, extraction proportionnelle au chiffre d'affaires) ; marge de détail ×1,8.
+- **Services** (banque, tour tech, data center) : revenus proportionnels à l'effectif (≈ 380-520 $/jour/employé) ; capex 1,8-2,4 M$.
+- **Export** : débit portuaire limité (6 000 u/j × (1 + 2,5 par terminal)) et demande étrangère finie par bien (le prix baisse quand on sature).
+- **Rivaux** à l'échelle de la ville (coûts et investissements ×30), **coût de construction indexé sur l'inflation**.
+- **Aléatoire déterministe** : la simulation utilise `rnd()` (mulberry32, état `S.rs` sauvegardé) au lieu de `Math.random` : étape préalable du multijoueur serveur-autoritaire.
