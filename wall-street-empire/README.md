@@ -124,3 +124,10 @@ Les visuels des produits, la mer, le port, les grues et les navires sont dessin�
 - Les rivaux sont une pression abstraite par catégorie, pas des entreprises simulées.
 - Les prix et rendements sont des premières valeurs, pas un équilibrage final.
 - Le rendu reste stylisé (sprites Kenney) : pas de rendu photoréaliste.
+
+## Macroéconomie, difficulté adaptative et PNJ étrangers
+- **Supercycle de croissance** (jours 0–420, façon Chine/Dubaï) : PIB ≈ 8–9 %, inflation et taux bas, humeur +8, demande jusqu'à ×1,5, matières premières mieux valorisées ; atterrissage progressif puis cycle normal.
+- **Difficulté adaptative** (`S.diff`, onglet Empire > « Régulation du marché ») : fortune comparée à la courbe attendue ; trop riche → salaires, demande et rivaux durcissent (jusqu'à fin anticipée du supercycle) ; en retard → assistance.
+- **Import automatique** limité aux fabrications rentables ; coût d'import revu (marge de revente ≈ 25 %).
+- **Boucle de progression** : prochaine mission en conseil, échelle de fortune (Entrepreneur/Industriel/Magnat) avec primes.
+- **PNJ étrangers** (Dragon Pacific, Gulf Sovereign, Rhine Trading, Siberia Metals, Andes Mining) : dumping, pénurie, rachats à prime ; ils sont aussi fournisseurs nommés dans « Achats ».

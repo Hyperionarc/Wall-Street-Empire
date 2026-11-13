@@ -953,7 +953,36 @@ const SUP_POOL = ['Gulf Petroleum', 'Nordic Resources', 'Atlas Mining', 'Pacific
 function supplierList(g) {
   const a = g.charCodeAt(0), b = g.charCodeAt(g.length - 1), out = [];
   for (let i = 0; i < 5; i++) out.push({ id: 's' + i, name: SUP_POOL[(Math.floor(hash(a, b, 11) * 12) + i * 5) % 12], pf: +(0.86 + 0.3 * hash(i, a, 7)).toFixed(2), q: 40 + Math.round(50 * hash(i, b, 13)), dist: 8 + Math.round(60 * hash(i, a, 17)) });
+  const fp = fgnOf(g); if (fp) { out[0].name = fp.name + ' (' + fp.city + ')'; out[0].pf = +(fp.stance === 'dump' ? 0.78 : fp.stance === 'squeeze' ? 1.2 : 0.9).toFixed(2); out[0].q = 85; }
   return out;
+}
+// Joueurs IA étrangers (PNJ d'ailleurs) : ils vendent leur spécialité sur le marché mondial, inondent ou raréfient, proposent des contrats
+const FOREIGN0 = [
+  { id: 'f1', name: 'Dragon Pacific', city: 'Shenzhen', g: 'steel', col: '#ff5a4d', cash: 8e6, str: 1.4 },
+  { id: 'f2', name: 'Gulf Sovereign', city: 'Dubaï', g: 'oil', col: '#f2b84b', cash: 15e6, str: 1.8 },
+  { id: 'f3', name: 'Rhine Trading', city: 'Rotterdam', g: 'plastic', col: '#3fd8ff', cash: 6e6, str: 1.1 },
+  { id: 'f4', name: 'Siberia Metals', city: 'Norilsk', g: 'copper', col: '#9aa4d6', cash: 5e6, str: 1.0 },
+  { id: 'f5', name: 'Andes Mining', city: 'Santiago', g: 'iron', col: '#c4664a', cash: 4e6, str: 0.9 }
+];
+const fgnOf = g => (S && S.foreign || []).find(f => f.g === g);
+function stepForeign() {
+  const fs = S.foreign || (S.foreign = FOREIGN0.map(f => Object.assign({ stance: 'neutral', until: 0, wins: 0 }, f)));
+  const gdp = S.macro ? S.macro.gdp : 0.03, dif = S.diff || 0;
+  fs.forEach(f => {
+    f.cash *= 1 + (gdp - 0.01) / 90 + (Math.random() - 0.5) * 0.004;
+    f.str = clamp(f.str * (1 + (gdp - 0.03) / 200 + (Math.random() - 0.5) * 0.003), 0.4, 3);
+    if (f.stance !== 'neutral' && S.day > f.until) f.stance = 'neutral';
+    if (f.stance === 'neutral' && S.day > 40 && Math.random() < 0.012 + 0.004 * Math.max(0, dif)) {
+      const gn = GOODS[f.g].name.toLowerCase(), r = Math.random();
+      if (r < 0.4 + 0.1 * Math.max(0, dif)) { f.stance = 'dump'; f.until = S.day + 25; addMod('px_' + f.g, 0.82, 25); say(`${f.name} (${f.city}) inonde le marché du ${gn} : les cours chutent !`, 'warn'); }
+      else if (r < 0.75) { f.stance = 'squeeze'; f.until = S.day + 25; addMod('px_' + f.g, 1.22, 25); say(`${f.name} retient son ${gn} : pénurie, les cours montent.`, 'info'); }
+      else if (S.stock[f.g] >= 80) { const q = Math.min(S.stock[f.g], 150), v = q * (S.price[f.g] || GOODS[f.g].base) * 1.3; S.stock[f.g] -= q; S.cash += v; f.wins++; say(`${f.name} te rachète ${Math.round(q)} u. de ${gn} à prime : +${money(v)}.`, 'gold'); }
+    }
+  });
+}
+function foreignHTML() {
+  const fs = S.foreign || []; if (!fs.length) return '';
+  return `<h3>PUISSANCES ÉTRANGÈRES (IA)</h3><div class="tcard"><small>Des groupes d'ailleurs pèsent sur les cours mondiaux. Ils agissent davantage quand tu t'enrichis trop vite.</small>${fs.map(f => `<div class="finrow"><span><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${f.col};margin-right:6px"></i><b>${f.name}</b> · ${f.city} · ${GOODS[f.g].name}</span><b class="${f.stance === 'dump' ? 'neg' : f.stance === 'squeeze' ? 'gold' : ''}">${f.stance === 'dump' ? 'Dumping' : f.stance === 'squeeze' ? 'Pénurie' : money(f.cash)}</b></div>`).join('')}</div>`;
 }
 const FREIGHT = 0.006;   // part du prix par case de distance
 function supOffer(g, id, haul) {
@@ -983,7 +1012,7 @@ function stepRivals(rivalPart) {
     if (S.day % 5 === 0 && r.cash > 8000) {
       const w = RIV_CLS.map(k => r.att[k] + 0.05); let tot = w.reduce((a, b) => a + b, 0), x = Math.random() * tot, i = 0;
       while (x > w[i] && i < 3) { x -= w[i]; i++; }
-      const k = RIV_CLS[i]; if (r.att[k] < 0.7) { r.att[k] += 0.012; r.cash -= 6000; }
+      const k = RIV_CLS[i]; if (r.att[k] < 0.7) { r.att[k] += 0.012 * (1 + 0.5 * Math.max(0, S.diff || 0)); r.cash -= 6000; }
     }
     if (r.cash < -4000) RIV_CLS.forEach(k => { r.att[k] *= 0.97; });
     r.mood = clamp((r.mood || 0) * 0.95 + (Math.random() - 0.5) * 0.04, -0.2, 0.2);
@@ -1111,6 +1140,9 @@ const MISSIONS = [
   { id: 'm13', t: 'Ouvrir un hypermarché',                          r: 25000, ok: c => c.cn.s3 >= 1 },
   { id: 'm14', t: 'Ouvrir une Banque',                              r: 25000, ok: c => c.cn.bank >= 1 },
   { id: 'm15', t: 'Employer 3 000 personnes dans tes entreprises',  r: 60000, ok: c => c.jobsPlayer >= 3000 },
+  { id: 'w1', t: 'Capitalisation de 1,5 M$ : tu deviens Entrepreneur', r: 30000, ok: c => c.worth >= 1.5e6 },
+  { id: 'w2', t: 'Capitalisation de 3,5 M$ : tu deviens Industriel',   r: 60000, ok: c => c.worth >= 3.5e6 },
+  { id: 'w3', t: 'Capitalisation de 12,5 M$ : tu deviens Magnat',      r: 150000, ok: c => c.worth >= 12.5e6 },
   { id: 'm16', t: 'Devenir Oligarque (35 M$)',                      r: 0,     ok: c => c.worth >= 35000000 }
 ];
 
@@ -1303,7 +1335,7 @@ function newCity() {
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
   const npc = genNpc(grid);
-  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] }; S0.cpi = 1;
+  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
   S0.pop = Math.round(npc.cap * 0.85);
   S0.cash = 1000000;
   return S0;
@@ -1312,7 +1344,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: (S.npcMods || []).slice(-120), kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1345,7 +1377,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null;
     S0.jpf = 0.88 * 0.55 * 0.85 * npcInfo.cap / Math.max(1, npcInfo.offFloors);
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1600,17 +1632,39 @@ function stepDevs() {
   say(`${dev.n} rénove un îlot (${fl} étages, ${k === 'res' ? 'logements' : 'bureaux'}) en (${c.x + 1}, ${c.y + 1}).`, 'info');
 }
 // Macro-économie : cycle du PIB, inflation, taux d'intérêt
+const BOOM_DAYS = 420;
+const boomOn = () => !!(S && S.macro && S.macro.boom && S.day < BOOM_DAYS);
 function stepMacro() {
-  const m = S.macro || (S.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] });
+  const m = S.macro || (S.macro = { phase: 0.6, gdp: 0.06, infl: 0.025, rate: 0.03, h: [], boom: 1 });
+  if (m.boom === undefined) m.boom = S.day < BOOM_DAYS ? 1 : 0;
   m.phase += 0.0115 * (0.8 + 0.4 * Math.random());
-  const tg = 0.03 + 0.045 * Math.sin(m.phase) + (Math.random() - 0.5) * 0.006;
+  let tg = 0.03 + 0.045 * Math.sin(m.phase) + (Math.random() - 0.5) * 0.006;
+  if (m.boom) {
+    // supercycle à la chinoise : forte croissance, chômage bas, inflation contenue
+    tg = 0.088 + (Math.random() - 0.5) * 0.008;
+    if (S.day >= BOOM_DAYS - 90) tg -= 0.06 * (S.day - (BOOM_DAYS - 90)) / 90;   // atterrissage progressif
+    if (S.day >= BOOM_DAYS || (S.diff >= 3 && S.day > 120)) { m.boom = 0; say('Fin du supercycle : la croissance se normalise et la banque centrale resserre le crédit.', 'warn'); }
+  }
   m.gdp += (tg - m.gdp) * 0.1;
   m.infl = clamp(m.infl + (0.02 + 0.6 * (m.gdp - 0.03) - m.infl) * 0.02, -0.01, 0.12);
-  m.rate = clamp(m.rate + (0.035 + 1.4 * (m.infl - 0.02) - m.rate) * 0.02, 0.005, 0.14);
+  m.rate = clamp(m.rate + (0.035 + 1.4 * (m.infl - 0.02) - m.rate) * 0.02 - (m.boom ? 0.0004 : 0), 0.005, 0.14);
   S.cpi = (S.cpi || 1) * (1 + m.infl / 360);
   m.h = m.h || []; m.h.push(m.gdp); if (m.h.length > 120) m.h.shift();
 }
-const macroState = () => { const g = S.macro ? S.macro.gdp : 0.03; return g > 0.05 ? 'Boom' : g > 0.02 ? 'Expansion' : g > 0 ? 'Ralentissement' : 'Récession'; };
+// Difficulté adaptative : si le joueur s'enrichit trop vite, le monde se durcit ; s'il stagne, le monde l'aide
+function stepDifficulty() {
+  if (S.day % 10 !== 0 || S.day < 30) return;
+  const expected = 1e6 * Math.exp(0.0035 * S.day), ratio = ((S.stats && S.stats.worth) || 1e6) / expected;
+  const d = ratio > 3.2 ? 3 : ratio > 2.2 ? 2 : ratio > 1.5 ? 1 : ratio < 0.85 ? -1 : 0;
+  if (d !== (S.diff || 0)) {
+    const msg = { 3: 'Surchauffe : régulation, impôts, salaires et rivaux montent d\'un cran. L\'indécence a un prix !', 2: 'Tu t\'enrichis très vite : les rivaux contre-attaquent et les coûts montent.', 1: 'Belle croissance : la concurrence se réveille.', 0: 'Le marché retrouve son équilibre.', '-1': 'Les conditions s\'assouplissent pour t\'aider à décoller.' }[String(d)];
+    say(msg, d > 0 ? 'warn' : 'good');
+  }
+  S.diff = d;
+}
+const diffMult = () => 1 + 0.05 * Math.max(0, (S && S.diff) || 0);
+const easeMult = () => (S && S.diff < 0) ? 1.1 : 1;
+const macroState = () => { const g = S.macro ? S.macro.gdp : 0.03; return boomOn() && g > 0.05 ? 'Supercycle de croissance' : g > 0.05 ? 'Boom' : g > 0.02 ? 'Expansion' : g > 0 ? 'Ralentissement' : 'Récession'; };
 // Recherche : arbre de technologies en 3 ères (une recherche à la fois)
 const TECHS = [
   { id: 'saw1', era: 1, n: 'Scierie mécanisée', c: 6000, d: 6, req: [], d2: 'Camps de bûcherons +15 % de bois.', fx: { wood: 1.15 } },
@@ -1846,7 +1900,7 @@ function step() {
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = (S.patents || 0) * 70 * (casteIs('innovateur') ? 1.5 : 1);
-  stepMacro(); TM = techMults(); stepDevs();
+  stepMacro(); stepDifficulty(); TM = techMults(); stepDevs();
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
   if (S.day % 5 === 0) { trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }
   if (S.day % 5 === 0) stepGoal();
@@ -1888,7 +1942,8 @@ function step() {
     Object.keys(inp).forEach(g => {
       const impR = Math.max(0.6, 0.85 - 0.06 * (cn.port || 0)) * 1.12 * TM.buy * modOf('buy');
       let tot = 0; list.forEach(c => { tot += c._u * inp[g]; });
-      let short = Math.max(0, tot - S.stock[g]);
+      const outV = tgt.good ? tgt.qty * S.price[tgt.good] : tgt.prod ? tgt.qty * prodPrice(tgt.prod) : 0, inV = Object.keys(inp).reduce((a, k) => a + inp[k] * S.price[k] * impR * 1.1, 0);
+      let short = inV > outV * 1.05 ? 0 : Math.max(0, tot - S.stock[g]);   // l'import automatique n'a lieu que si la fabrication reste rentable
       list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0;
         if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) q = need; else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }
         if (q > 0.01) { const of = mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3), c.haul) : null; const cost = of ? q * of.total * TM.buy * modOf('buy') : q * S.price[g] * impR * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; indImport += cost; c._impCost = (c._impCost || 0) + cost; c._impIn = (c._impIn || 0) + q; } });
@@ -1924,13 +1979,13 @@ function step() {
   if (S.day % 6 === 0) offerContract();
   // 3. Commerce : la demande se répartit entre la marchandise générique, les produits lancés et les rivaux
   const happyPrev = S.stats.happy == null ? 60 : S.stats.happy;
-  const dMul = TM.demand * modOf('demand') * clamp(1 + 4 * (S.macro.gdp - 0.03), 0.8, 1.2);
+  const dMul = TM.demand * modOf('demand') * clamp(1 + 4 * (S.macro.gdp - 0.03), 0.8, 1.5) * easeMult() / diffMult();
   const dem = { basic: S.pop * DEM_PER_POP.basic * dMul, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100) * dMul, lux: S.pop * DEM_PER_POP.lux * dMul, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) * dMul };
   let retUnits = 0;
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._cap = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; retUnits += R.cap * u; c._left = c._cap; c._sold = 0; c._rev = 0; c._imp = 0; c.sales = {}; } });
   buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow(1 / pfOf(c), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (0.65 + 0.7 * (c.traffic == null ? 0.5 : c.traffic)); c.aw = clamp((c.aw || 0) + (adTarget(c) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c); } });
   const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF * c.pw; } }); return w > 0 ? s / w : 1; };
-  const importRate = Math.max(0.6, 0.85 - 0.06 * (cn.port || 0));   // les terminaux portuaires du joueur baissent le coût des importations
+  const importRate = Math.max(0.5, 0.72 - 0.05 * (cn.port || 0));   // les terminaux portuaires du joueur baissent le coût des importations
   let importCost = indImport, importUnits = 0;
   const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
   let revRetVal = 0;
@@ -1979,7 +2034,7 @@ function step() {
     }
   });
   S.mkt = {}; RIV_CLS.forEach(cls => { const D = Math.max(0.001, Dtot[cls]); S.mkt[cls] = { you: sold[cls] / D, riv: (S.rivals || []).map(r => ({ id: r.id, s: rivalPart[cls] * (rivalAttr(cls) > 0 ? r.att[cls] / rivalAttr(cls) : 0) / D })) }; });
-  stepRivals(rivalPart); stepIndex();
+  stepRivals(rivalPart); stepForeign(); stepIndex();
   const soldTotal = sold.basic + sold.std + sold.lux;
   S.sold += soldTotal;
   S.houses = (S.houses || 0) + sold.estate; S.lots = S.lots || 0;
@@ -2001,7 +2056,7 @@ function step() {
     if (c.t === 'plant') { const need = 6 * u, burn = Math.min(need, Math.max(0, S.stock.coal)); S.stock.coal -= burn; want.coal += need; c.out = burn; c.util = need > 0 ? burn / need : 0; c.limit = burn < need - 1e-6 ? 'coal' : null; c.inCost = burn * S.price.coal; c.pRev = burn * 30 * (casteIs('negociant') ? 1.3 : 1) * cpi(); revTech += c.pRev; }
     if (c.t === 'tech') { c.pRev = 260 * u * (0.3 + 0.7 * fill) * qualMult(c) * mult; revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = Math.min(500, 180 + Math.max(0, S.cash) * 0.0008) * u * qualMult(c); revBank += c.pRev; }
-    if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0); wagesTotal += c.wages; }
+    if (T.jobs) { c.wages = jobsOf(c) * fill * WAGE_RATE * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0); wagesTotal += c.wages; }
     if (c.t === 'wh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
     c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
     c.adCost = adSpend(c); adTotal += c.adCost;
@@ -2043,7 +2098,7 @@ function step() {
 
   // 7. Prix : offre et demande
   GKEYS.forEach(g => {
-    const base = GOODS[g].base * cpi() * modOf('px_' + g), m = Math.max(want[g], made[g], 1);
+    const base = GOODS[g].base * cpi() * modOf('px_' + g) * ((GOODS[g].grp === 'raw' ? 1.25 : 1.08) * (1 + Math.max(0, S.macro.gdp - 0.03) * 5)), m = Math.max(want[g], made[g], 1);
     const pressure = clamp((want[g] - made[g]) / m, -1, 1);
     let p = P[g] * (1 + 0.08 * pressure);
     p += (base - p) * 0.04;
@@ -2057,7 +2112,7 @@ function step() {
   const satL = Dtot.lux > 0.2 ? (rivalPart.lux + sold.lux) / Dtot.lux : 1;
   const sat = satB * 0.6 + satS * 0.25 + satL * 0.15;
   const pol = nres ? polluted / nres : 0;
-  const happy = clamp(55 + sat * 25 - unemp * 50 - pol * 25 + (jobs > workforce ? 6 : 0) + pubBonus() + (rate - 0.25) * 60, 0, 100);
+  const happy = clamp(55 + sat * 25 - unemp * 50 - pol * 25 + (jobs > workforce ? 6 : 0) + pubBonus() + (boomOn() ? 8 : 0) - 2 * Math.max(0, S.diff || 0) + (rate - 0.25) * 60, 0, 100);
   const target = cap * (0.35 + 0.65 * happy / 100);
   S.pop += (target - S.pop) * 0.07 + (target > S.pop ? 0.3 : 0);
   if (S.pop > cap) S.pop = Math.max(cap, S.pop - 1);
@@ -2699,7 +2754,8 @@ function renderEmpire() {
   const kp = (l, v, c, s) => `<div><small>${l}</small><b class="${c || ''}">${v}</b>${s ? `<small>${s}</small>` : ''}</div>`;
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / jour', (F.net >= 0 ? '+' : '−') + money(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : px.toFixed(2).replace('.', ',') + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Population / emplois', fmt(st.pop || 0) + ' / ' + fmt(st.playerJobs || 0), '', 'emplois chez toi')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
-  h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
+  h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
+  h += foreignHTML();
   h += `<h3>VALEUR DE L'EMPIRE</h3><canvas id="empspark" width="640" height="110" style="width:100%;height:80px"></canvas>`;
   h += `<h3>BILAN CONSOLIDÉ</h3><div class="bil"><table class="fint"><tr><th>Actif</th><th>$</th></tr><tr><td>Trésorerie</td><td>${money(Math.max(0, cash))}</td></tr><tr><td>Immobilisations (bâtiments, équipements)</td><td>${money(fixed)}</td></tr><tr><td>Stocks de marchandises</td><td>${money(stocks)}</td></tr>${portValue() > 0 ? `<tr><td>Portefeuille boursier</td><td>${money(portValue())}</td></tr>` : ''}<tr class="tot"><td>Total actif</td><td>${money(actif)}</td></tr></table>
     <table class="fint"><tr><th>Passif</th><th>$</th></tr><tr><td>Dettes bancaires</td><td>${money(debt + Math.max(0, -cash))}</td></tr><tr><td>Capitaux propres (toi)</td><td>${money(equity * (1 - fl))}</td></tr>${fl > 0 ? `<tr><td>Capitaux propres (actionnaires, ${Math.round(fl * 100)} %)</td><td>${money(equity * fl)}</td></tr>` : ''}<tr class="tot"><td>Total passif</td><td>${money(actif)}</td></tr></table></div>`;
@@ -4283,6 +4339,7 @@ function tutoStep() {
 }
 function advisorTips() {
   const tips = [], st = S.stats || {}, cs = chainStats ? chainStats() : null; const tu = tutoStep(); if (tu) tips.push(tu);
+  { const nm = MISSIONS.find(m => S.done.indexOf(m.id) < 0); if (nm) tips.push('Prochaine mission : ' + nm.t + (nm.r ? ' (+' + fmt(nm.r) + ' $)' : '') + '.'); }
   if (S.cash < 0) tips.push('Trésorerie négative : emprunte (Finances) ou réduis tes coûts.');
   if (cs && cs.bad.length) tips.push(`${cs.bad.length} goulot(s) dans ta chaîne : ouvre l'onglet Chaîne.`);
   let stores = 0, fact = 0; eachBuilding(c => { if (TYPES[c.t].ret) stores++; if (FLEVEL[c.t]) fact++; });
