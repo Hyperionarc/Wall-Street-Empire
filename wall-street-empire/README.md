@@ -393,7 +393,7 @@ Objectif : parties courtes (1 à 2 h réelles), futur multijoueur 2-8 joueurs en
 **Modes** (écran de sélection au démarrage et via Reset / Menu > Nouvelle ville, puis choix de la caste) :
 - **Libre** : le bac à sable d'avant (jour de 2 s), barre d'objectif = prochain palier.
 - **Round compétitif** : 1 Md$ de valorisation avant 90 min (7 200 jours à 750 ms), classement public, vitesse ×3 coupée (horloge commune). Fin : 1 Md$ atteint, tous les rivaux rachetés, ou temps écoulé (victoire si première valorisation du monde).
-- **Scénarios 1 à 5** (chacun débloqué par la victoire du précédent, verrous de bâtiments par scénario) : 1 Ville et commerce (60 min, 80 M$, tutoriel en 5 étapes), 2 Usines et produits (75 min, 250 M$, 2 produits lancés), 3 Marchés et export (90 min, 400 M$ et 1,5 M$/mois d'exports), 4 Bourse et OPA (100 min, 700 M$, IPO et contrôle d'un rival), 5 Empire (120 min, 1 Md$ et 2 filiales). La bourse s'ouvre au scénario 4.
+- **Scénarios 1 à 5** (chacun débloqué par la victoire du précédent, verrous de bâtiments par scénario) : 1 Ville et commerce (60 min, 40 M$, tutoriel en 5 étapes), 2 Usines et produits (75 min, 60 M$, 2 produits lancés), 3 Marchés et export (90 min, 400 M$ et 1,5 M$/mois d'exports), 4 Bourse et OPA (100 min, 700 M$, contrôle d'un rival, départ à 6 M$), 5 Empire (120 min, 1 Md$ et 2 filiales) ; objectifs recalibrés en passe 17. La bourse s'ouvre au scénario 4.
 - La **valorisation** (`S.stats.raw` : trésorerie + actifs + titres − dette) est publique pour tous : classement des joueurs (toi + rivaux) et des grands groupes (écran de fin et Objectifs). En round les grands groupes croissent 12 fois moins vite pour que 1 Md$ reste un vrai sommet.
 - **Écran de fin** : classement, fortune personnelle, valorisation, parts de marché, répartition du score (valorisation, parts de marché, emplois, missions, technologies, filiales, rapidité), « Continuer en Libre » ou « Nouvelle partie ». Les victoires débloquent les scénarios suivants (`localStorage` `wse-prog`).
 
@@ -418,4 +418,39 @@ Objectif : parties courtes (1 à 2 h réelles), futur multijoueur 2-8 joueurs en
 
 Sans frein (plafond de dette seul, surchauffe faible) le même bot atteignait 1 Md$ en 43 min ; avec la surchauffe et le plafond de dette, le plus rapide des bots reste à 71 min (marge de 20 min sous les 50 min visées). Une construction financée par la dette augmente la valorisation de ≈ 25 % du coût (valeur × (1 + humeur/400) + terrain) : connu et laissé tel quel. Les tours Tech, Data center et Banque rapportent ≈ 45 %/an sans saturation jusqu'à 130 unités : à surveiller côté équilibrage.
 
-**Non fait / limites** : scénarios 2 à 5 non mesurés par bot (usines, export, bourse : cibles estimées à partir des courbes des tours) ; les rivaux sont les 3 sociétés PNJ (pas de vrais joueurs) ; les marchés d'export stables sont une règle simple en attendant le marché à prix unique ; pas de pause partagée ni de synchronisation multijoueur.
+**Non fait / limites** : (passe 17 : scénarios 2 à 5 désormais mesurés par bot, voir ci-dessous) ; les rivaux sont les 3 sociétés PNJ (pas de vrais joueurs) ; les marchés d'export stables sont une règle simple en attendant le marché à prix unique ; pas de pause partagée ni de synchronisation multijoueur.
+
+## Passe 17 : équilibrage de la boucle de progression
+
+Objectif : plus de snowball en milieu de partie, un round qui se joue en 80-90 min pour un bon joueur, des scénarios mesurés. Montants en $ par jour dans les audits, affichés en mensuel dans le jeu.
+
+**Correctifs d'économie** (commits atomiques) :
+- **Valorisation** : `worthOf` = trésorerie + actifs au coût amorti (0,9 × coût de construction + améliorations × 0,6 + terrain réindexé) ; le facteur « humeur » (+15 % sur les actifs) est supprimé. Construire à crédit ne crée plus de valeur : l'effet immédiat est de −3 à −10 % du coût (frais de transaction), l'argent ne se crée que par les profits (mesure : tour tech / data center / banque / tour de location : −6 / −10 / −3 / −10 % du capex, contre +8 / +3 / +10 / +3 % avant à humeur 60).
+- **Rendements décroissants des services** (`svcSat`) : chaque type (tech, data center, banque) a une demande finie `D = pop / 36 000 | 48 000 | 32 000` (tours-équivalents), +12 % par autre type de service présent (effet de réseau), −7 % par rival (concurrence). La recette totale vaut `D × (1 − e^(−U/D))`, normalisée pour que la 1re tour garde sa marge nominale : 10 tours tech sur une ville de 300 k habitants encaissent chacune 68 % de la recette nominale, 30 tours 28 % (EBITDA unitaire −100 %). La fiche du bâtiment montre « Part de la demande captée » et alerte sous 60 %. Marges unitaires conservées (banque 43 %, tech 44-46 %, data center 37-44 % pour une tour seule). Capex des services −25 % (banque 40 → 30 M$, tech 30 → 22 M$, data center 25 → 19 M$) : une seule tour reste donc très rentable (EBITDA/capex 59 / 100 / 78 %/an, contre 44 / 73 / 60 %), c'est le plafond de demande qui borne le parc.
+- **Tour de location** : capex 24 → 60 M$, loyer de marché ÷ 3,6, entretien 28 000 → 6 500 $/j : rendement locatif brut 7-10 %/an, EBITDA 51-53 % (avant : 90 % du capex par an, EBITDA 45-50 %).
+- **Solaire / éolien** : entretien relevé (1 500 → 2 270, 800 → 1 340 $/j) : EBITDA ≈ 55 % au prix de base du réseau (avant 65-69 %).
+- **Électronique** (téléviseur, smartphone, tablette, ordinateur, console) : EBITDA visé 22 % au lieu de 30 % (prix de référence 8-12 % plus bas).
+- **Magasins** : capex s1 250 → 110 k$ (entretien 70 → 50), s2 1,2 → 0,7 M$ (entretien 300) : EBITDA s1 10 %, s2 12 %, retour sur capex 3,5-4 ans (avant 11-14 ans) ; s3 ≈ 3,5 ans (EBITDA 21 %).
+- **Scénarios** (cibles et départs mesurés par bot, voir tableau) : S1 40 M$ en 60 min (au lieu de 80, le commerce seul plafonne vers 20 k$/j de bénéfice), S2 60 M$ en 75 min (au lieu de 250 : sans services ni exports, la demande de la ville borne le gain ; le port s'ouvre dès S2), S3 400 M$ en 90 min (départ 15 M$), S4 700 M$ en 100 min (départ 6 M$ au lieu de 100 M$ : avec 100 M$ le bot gagnait en 30 min), S5 1 Md$ et 2 filiales en 120 min.
+
+**Bot v2** (`tools/bot_lib.js`, `tools/bot_round.js`) : estime à chaque tick le rendement annuel du prochain bâtiment de chaque famille (a priori mesuré, puis rendement réalisé du dernier bâtiment mûr, prédiction analytique de la demande restante pour les services), construit par rendement décroissant au-dessus du taux d'emprunt + marge, épargne pour un projet bien plus rentable s'il est atteignable, démolit les mines épuisées, ouvre le port et des mines pour les exports (S3), lance une usine et deux produits sans R&D (S2), prend 52 % des actions d'un ou deux rivaux (S4, S5). Profils : `PROFILE=bon|rapide|lent|casual` (levier, cadence, jours perdus). La partie est mise en pause (vitesse 0) : seul le bot fait avancer les jours, ce qui rend chaque profil reproductible à l'identique.
+
+**Courbes de fortune** (M$, tous les 10 % des 90 min du round ; avant = ancien bot et ancienne économie, après = bot v2 et économie de la passe 17) :
+
+| Profil | 0 | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | 100 / 1 Md$ atteint |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Avant, bon (levier 0,45, tous les 4 j) | 5 | 8 | 18 | 30 | 40 | 62 | 99 | 147 | 216 | 326 | 468 (dette 314) |
+| Avant, rapide (0,6, tous les 2 j) | 5 | 8 | 23 | 33 | 54 | 104 | 208 | 378 | 754 | | jour 6 144 (77 min), dette 1 006 |
+| Avant, très rapide (0,85, tous les 5 j) | | | | | | | | | 966 | | jour 5 806 (73 min), dette 1 025 M$, 24 tours de location |
+| Après, bon (0,45 / 4 j) | 6 | 10 | 15 | 25 | 35 | 51 | 93 | 183 | 468 | 905 | jour 6 612 (83 min), dette 183 |
+| Après, rapide (0,55 / 2 j) | 6 | 10 | 15 | 25 | 35 | 56 | 117 | 257 | 598 | | jour 6 354 (79 min), dette 228 |
+| Après, lent (0,35 / 8 j, 25 % de jours perdus) | 4 | 10 | 15 | 24 | 35 | 51 | 93 | 178 | 435 | 908 | jour 6 592 (82 min), dette 119 |
+| Après, casual (0,25 / 12 j, 50 % de jours perdus) | 3 | 11 | 15 | 25 | 34 | 47 | 76 | 138 | 283 | 656 | jour 6 900 (86 min), dette 107 |
+| Après, très rapide (0,85 / 5 j) | | | | | | | | | 722 | | jour 6 215 (78 min), dette 371 |
+
+La dette de fin passe de 1 Md$ (course à l'effet de levier sur les tours) à 100-370 M$ et le plus rapide ne descend pas sous 78 min (objectif ≥ 50 min). Les trois grands profils finissent à 79-86 min : le plafond de demande des services (≈ 6 data centers, 10 tours tech, 9 banques au maximum pour 640 k habitants) borne le milieu de partie, et la surchauffe (niveau 1 à 3) ralentit les joueurs en avance sur la courbe.
+
+**Scénarios mesurés par le bot « bon »** (jour d'atteinte de l'objectif / durée du scénario) : S1 4 116 / 4 800 (86 %), S2 4 732 / 6 000 (79 %), S3 5 500 / 7 200 (76 %, cas 74 % pour un joueur « casual »), S4 6 632 / 8 000 (83 %), S5 7 372 / 9 600 (77 %).
+
+**Limites** : le bot n'exploite pas encore les chaînes usines-produits intégrées (elles perdent de l'argent dans nos montages sans mines, les audits d'usines restent ceux de la passe 16) ; les résultats d'un même profil varient de ±5 % selon le moindre changement de règle (chaos des décisions), d'où des plages et non des dates exactes ; le plafond de dette 0,45 × valorisation est un réglage du bot, le plafond du jeu reste `creditLimit()`.
+
