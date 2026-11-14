@@ -1,9 +1,9 @@
 // Marges par secteur (feuille maîtresse d'équilibrage, passe 16). EBITDA = (CA - intrants - salaires - entretien - fret - pub) / CA, macro figée.
 exports.name = 'Marges et rendements';
 exports.run = async (t, L) => {
-  // Commerce : s1..s4 sur le banc d'une ville (8 logements), EBITDA 5-14 %
+  // Commerce : s1..s4 sur le banc d'une ville (8 logements), EBITDA 5-14 % (s4 : 5-15 % depuis les 12 rayons maximum, passe 22)
   const r = await L.bench(`B.s1=inC('s1'); B.s2=inC('s2'); B.s3=inC('s3'); B.s4=inC('s4'); for(let i=0;i<8;i++) inC('res'); inP('port');`, 50, 60);
-  ['s1', 's2', 's3', 's4'].forEach(k => { const o = r.res[k]; t.check(`${k} : EBITDA 5-14 % (arrondi à l'unité)`, !!o && Math.round(o.eb * 100) >= 5 && Math.round(o.eb * 100) <= 14, o ? `EBITDA ${(o.eb * 100).toFixed(1)} %, MB ${(o.gm * 100).toFixed(0)} %` : 'absent'); });
+  ['s1', 's2', 's3', 's4'].forEach(k => { const o = r.res[k]; t.check(`${k} : EBITDA 5-${k === 's4' ? 15 : 14} % (arrondi à l'unité)`, !!o && Math.round(o.eb * 100) >= 5 && Math.round(o.eb * 100) <= (k === 's4' ? 15 : 14), o ? `EBITDA ${(o.eb * 100).toFixed(1)} %, MB ${(o.gm * 100).toFixed(0)} %` : 'absent'); });
   t.check('commerce : 0 pageerror', r.errs.length === 0, r.errs.slice(0, 2).join(';'));
 
   // Usines : économie isolée (intrants au prix de base, 100 % d'effectif)
