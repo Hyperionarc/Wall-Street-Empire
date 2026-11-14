@@ -110,10 +110,13 @@ exports.run = async (t, L) => {
       const q = s => document.querySelector(s); const o = { grid: !!q('.plgrid'), cells: document.querySelectorAll('.plc').length, flows: document.querySelectorAll('.plflow div').length };
       const free = [...document.querySelectorAll('.plc.free')][0]; free.click(); await new Promise(r => setTimeout(r, 100)); o.menu = [...document.querySelectorAll('.plrow')].map(b => b.textContent.slice(0, 22));
       const cash0 = S.cash; document.querySelector('[data-act="planadd:make"]').click(); await new Promise(r => setTimeout(r, 100)); o.made = W.planEvalC(f).n.make === 2 && S.cash < cash0; o.cost = cash0 - S.cash;
-      document.querySelector('[data-act="planview"]').click(); await new Promise(r => setTimeout(r, 400)); o.scene = W.scene && W.scene.kind; const cv = document.getElementById('bscene'); o.cw = cv.width;
+      await new Promise(r => setTimeout(r, 400)); o.scene = W.scene && W.scene.kind; const cv = document.getElementById('bscene'); o.cw = cv.width; o.noBtn = !document.querySelector('[data-act="planview"]');
+      o.tiles = document.querySelectorAll('#btiles .tile').length; o.vit = (document.getElementById('bvit') || {}).textContent || ''; o.stats = (document.getElementById('bstats') || {}).textContent || '';
+      o.nm0 = W.recOf(f).name; f.prod = 'wire'; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 400)); o.vit2 = document.getElementById('bvit').textContent; o.nm = W.RECIPES.wire.name; o.sceneKey = W.scene.recKey === W.recOf(f).out;
+      W.bAct('plandel:' + W.planOf(f).findIndex(u => u === 'make')); o.fx = W.scene.fx.length;
       const sc = W.scene, a = sc.ox + (sc.X0 + 0.5 * sc.cs - (sc.Y0 + 0.5 * sc.cs)) * sc.tw / 2; o.canvasOK = cv.width > 300;
       return o; });
-    t.check(`interface ${vp.n} : mini-carte 3×3, 4 débits chiffrés, menu d'ajout, pose d'une machine et vue isométrique du plan`, ui.grid && ui.cells === 9 && ui.flows === 4 && ui.menu.length >= 8 && ui.made && ui.scene === 'plan' && ui.canvasOK, `${ui.cells} cases · menu ${ui.menu.length} lignes · machine ${Math.round(ui.cost)} $ · scène ${ui.scene}`);
+    t.check(`interface ${vp.n} : mini-carte 3×3, 4 débits chiffrés, menu d'ajout, pose d'une machine et vue isométrique du plan`, ui.grid && ui.cells === 9 && ui.flows === 4 && ui.menu.length >= 8 && ui.made && ui.scene === 'plan' && ui.canvasOK && ui.noBtn && ui.tiles === 4 && ui.vit.indexOf(ui.nm0) >= 0 && ui.vit2.indexOf(ui.nm) >= 0 && ui.sceneKey && ui.fx > 0 && /Cadence/.test(ui.stats), `tuiles ${ui.tiles} · vit ${ui.vit.slice(0, 40)} / ${ui.vit2.slice(0, 40)} (${ui.nm0}, ${ui.nm}) · clé ${ui.sceneKey} · fx ${ui.fx} · bouton ${ui.noBtn} · ${ui.cells} cases · menu ${ui.menu.length} lignes · machine ${Math.round(ui.cost)} $ · scène ${ui.scene}`);
     t.check(`interface ${vp.n} : aucune erreur de page`, p.errs.length === 0, p.errs.slice(0, 2).join(' | '));
     await p.context().close();
   }
