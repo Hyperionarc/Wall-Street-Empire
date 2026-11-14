@@ -120,4 +120,23 @@ exports.run = async (t, L) => {
     t.check(`interface ${vp.n} : aucune erreur de page`, p.errs.length === 0, p.errs.slice(0, 2).join(' | '));
     await p.context().close();
   }
+
+  // 10. Choix libre de chaque case (passe 26) : remplacer une unité par une autre, vente en première colonne, déplacement, pas de « première case libre » imposée
+  pg = await bench(L);
+  const ch = await pg.evaluate(async () => { const { W, S, f } = window.B, o = {}; const q = s2 => document.querySelector(s2);
+    W.planSet(f, ['buy', '', '', 'stock', 'make', 'sell', '', '', '']); W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 200));
+    const c0 = S.cash, rf = W.planRefund(f, 4); o.ok = W.planReplace(f, 4, 'sell'); o.net = c0 - S.cash; o.expect = W.planUnitCost(f, 'sell') - rf; o.plan = W.planOf(f).join(',');
+    o.same = W.planReplace(f, 4, 'sell');   // remplacer par le même type : refusé
+    o.col0 = W.planAdd(f, 6, 'sell'); o.sells = W.planEvalC(f).n.sell; o.noMachine = W.planEvalC(f).n.make;
+    W.planSet(f, ['buy', '', '', 'stock', 'make', 'sell', '', '', '']); W.bAct('plansel:4'); await new Promise(r => setTimeout(r, 150));
+    o.menu = [...document.querySelectorAll('#bpop [data-act]')].map(b => b.dataset.act + (b.disabled ? '!' : '')); const before = W.planOf(f).join(','); W.setPlanSel(-1); W.bAct('planadd:make'); o.noSel = W.planOf(f).join(',') === before;
+    W.bAct('plansel:4'); W.bAct('planadd:sell'); o.viaMenu = W.planOf(f)[4];
+    o.mv = W.planMove(f, 5, 8) || W.planMove(f, 3, 8); o.after = W.planOf(f).join(',');
+    W.bAct('plantool:make'); const tl = document.querySelectorAll('#bpal .tool').length; o.tools = tl; W.bAct('plantool:make'); return o; });
+  t.check('remplacer une unité par une autre en un clic : coût net = coût − 50 % de l\'unité reprise, même type refusé', ch.ok && ch.plan.split(',')[4] === 'sell' && Math.abs(ch.net - ch.expect) < 1 && !ch.same, `net ${Math.round(ch.net)} attendu ${Math.round(ch.expect)} · ${ch.plan}`);
+  t.check('une vente se pose en première colonne (aucune position imposée) et le débit dépend du nombre d\'unités', ch.col0 && ch.sells >= 2, `ventes ${ch.sells}`);
+  t.check('menu d\'une case occupée : tous les types proposés (remplacement) + vider + déplacer ; sans case choisie la pose est refusée', /planadd:buy/.test(ch.menu.join()) && /planadd:sell(?!!)/.test(ch.menu.join()) && /plandel:4/.test(ch.menu.join()) && /planadd:make!/.test(ch.menu.join()) && ch.noSel && ch.viaMenu === 'sell', ch.menu.join(' '));
+  t.check('déplacement d\'une unité vers une case libre et palette d\'outils permanente (5 unités + gomme)', ch.mv && ch.tools === 6, `${ch.after} · outils ${ch.tools}`);
+  t.check('aucune erreur de page (plan libre)', pg.errs.length === 0, pg.errs.slice(0, 2).join(' | '));
+  await pg.context().close();
 };
