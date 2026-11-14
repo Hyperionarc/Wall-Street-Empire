@@ -128,4 +128,32 @@ exports.run = async (t, L) => {
   t.check('sauvegarde v8 sans champs de la passe 27 : chargée, marché non mûr, champs par défaut', D.old, '');
   t.check('marché mûr : 0 pageerror sur tout le parcours', pg.errs.length === 0, pg.errs[0] || '');
   await pg.context().close();
+
+  // 5. Interface : encart de bienvenue, cartes « Recommandé pour toi », boutons réels, écran de test, bandeau du catalogue, mobile
+  for (const vp of [{ w: 1280, h: 900 }, { w: 390, h: 844 }]) {
+    const pu = await L.newPage({ w: vp.w, h: vp.h, wait: 700 });
+    const U = await pu.evaluate(() => { const W = window.WSE; W.startMode('free'); W.S.noEv = true; W.setCaste('industriel'); W.setSpeed(0); const h = document.getElementById('hint'); if (h) h.hidden = true; return { welcome: !document.getElementById('mkview').hidden, cards: document.querySelectorAll('#mkview .sgc').length }; });
+    t.check(`interface ${vp.w}px : encart de bienvenue avec 3 cartes recommandées`, U.welcome && U.cards === 3, JSON.stringify(U));
+    await pu.evaluate(() => window.WSE.mk.act('close')); await L.inject(pu);
+    await pu.evaluate(() => { const W = window.WSE, T = window.T; W.S.cash = 5e8; W.S.unlockAll = true; T.inC('s2'); T.inP('f1'); T.inP('f2'); T.stepN(3, true); W.mk.inv(); W.setPview(true); }); await pu.waitForTimeout(300);
+    const V = await pu.evaluate(() => { const c = [...document.querySelectorAll('#sgcards .sgc')]; const b = c[0] && [...c[0].querySelectorAll('[data-sg]')].map(x => x.dataset.sg.split(':')[0]); return { n: c.length, btn: b, why: c.every(x => x.querySelector('.sgw').textContent.length > 10), img: c.every(x => x.querySelector('svg')), sw: document.documentElement.scrollWidth <= window.innerWidth + 2 }; });
+    t.check(`interface ${vp.w}px : 6 cartes lisibles, boutons Fabriquer / Acheter / Les deux / Tester, image, pas de défilement horizontal`, V.n === 6 && ['make', 'buy', 'both', 'test'].every(k => V.btn.includes(k)) && V.why && V.img && V.sw, JSON.stringify(V));
+    await pu.click('#sgchips [data-sg="f:Mode"]'); await pu.fill('#sgq', 'jean'); await pu.waitForTimeout(150);
+    const F = await pu.evaluate(() => ({ n: document.querySelectorAll('#sgcards .sgc').length, first: document.querySelector('#sgcards .sgc b') && document.querySelector('#sgcards .sgc b').textContent, focus: document.activeElement.id }));
+    t.check(`interface ${vp.w}px : filtre « Mode » + recherche « jean » : seuls les jeans, la saisie garde le focus`, F.n === 1 && /Jeans/.test(F.first) && F.focus === 'sgq', JSON.stringify(F));
+    await pu.fill('#sgq', ''); await pu.click('#sgchips [data-sg="f:all"]');
+    await pu.click('#sgcards [data-sg^="test:"]'); await pu.waitForTimeout(250);
+    const Tt = await pu.evaluate(() => ({ vis: !document.getElementById('mkview').hidden, cols: document.querySelectorAll('#mkview .simc').length, sum: [...document.querySelectorAll('#mkview .simsum')].map(e => e.textContent.length > 20).every(Boolean), pilot: document.querySelectorAll('#mkview [data-sg^="trial:"]').length }));
+    t.check(`interface ${vp.w}px : « Tester » ouvre la prévision fabriquer / acheter côte à côte avec essai pilote`, Tt.vis && Tt.cols === 2 && Tt.sum && Tt.pilot === 2, JSON.stringify(Tt));
+    await pu.click('#mkview [data-sg="close"]');
+    const before = await pu.evaluate(() => Object.keys(window.WSE.S.prod).filter(k => window.WSE.S.prod[k].st === 'on').length);
+    await pu.click('#sgcards [data-sg^="buy:"]:not([disabled])'); await pu.waitForTimeout(200);
+    const after = await pu.evaluate(() => Object.keys(window.WSE.S.prod).filter(k => window.WSE.S.prod[k].st === 'on').length);
+    t.check(`interface ${vp.w}px : « Acheter à X » depuis une carte met le produit en rayon`, after === before + 1, `${before} -> ${after}`);
+    await pu.evaluate(() => window.WSE.setPview(false));
+    const K = await pu.evaluate(() => { const W = window.WSE, S = W.S; let f = null; for (let i = 0; i < W.N * W.N; i++) { const c = S.grid[i]; if (c && c.t === 'f2') { f = c; break; } } W.openBuilding(f.x, f.y); W.bAct('catalog'); return { strip: document.querySelectorAll('#cview .sgstrip .sgc').length, vis: !document.getElementById('cview').hidden }; });
+    t.check(`interface ${vp.w}px : le catalogue d'usine affiche le bandeau « Recommandé pour toi »`, K.vis && K.strip >= 1, JSON.stringify(K));
+    t.check(`interface ${vp.w}px : 0 pageerror`, pu.errs.length === 0, pu.errs[0] || '');
+    await pu.context().close();
+  }
 };

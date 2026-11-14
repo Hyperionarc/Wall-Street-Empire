@@ -798,7 +798,7 @@ body.vopen #feed{z-index:9}
 #modesel:not([hidden]) ~ #feed,#endscr:not([hidden]) ~ #feed,#caste:not([hidden]) ~ #feed{display:none}
 
 /* Passe 27 : marché mûr, suggestions, offres, tests */
-.sgbt.g2{display:grid;grid-template-columns:1fr 1fr}.sgbt.g2 .btn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sgbt.g2{display:grid;grid-template-columns:1fr 1fr}.sgbt.g2 .btn{min-width:0;white-space:normal;line-height:1.15;font-size:12.5px;padding:5px 8px}
 #sugbox{margin:6px 0 10px;padding:8px 10px;border-radius:12px;border:1px solid var(--gold);background:linear-gradient(180deg,rgba(242,184,75,.10),rgba(12,17,38,.4))}
 .sgh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}.sgh b{font-family:var(--font-d);font-weight:800;font-size:16px;letter-spacing:.08em;color:var(--gold)}.sgh small{color:var(--mut);font-size:11px}
 .sgctl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
@@ -817,9 +817,9 @@ body.vopen #feed{z-index:9}
 .sgm b{font-size:16px}.sgm small{color:var(--mut);font-size:11px}
 .sgbt{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center}
 .sgbt .btn{min-height:40px;padding:6px 10px;font-size:13px;flex:1 1 auto}
-.sgstrip{display:flex;gap:8px;overflow-x:auto;padding:6px 10px;border-bottom:1px solid var(--line);align-items:stretch;max-height:190px;flex:0 0 auto}
+.sgstrip{display:flex;gap:8px;overflow-x:auto;padding:5px 10px;border-bottom:1px solid var(--line);align-items:stretch;flex:0 0 auto;overflow-y:hidden}.sgstrip .sgbt{flex-wrap:nowrap;margin-top:3px}.sgstrip .sgbt .btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;padding:3px 8px}.sgstrip .sgm{display:inline}.sgstrip .sgw{margin:1px 0 2px}
 .sgstrip>b{writing-mode:vertical-rl;transform:rotate(180deg);color:var(--gold);font-size:11px;letter-spacing:.1em;align-self:center;flex:0 0 auto}
-.sgstrip .sgc{flex:0 0 330px;grid-template-columns:56px 1fr;padding:6px}.sgstrip .sgth{width:56px;height:56px}.sgstrip .sgw{font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.sgstrip .sgbt .btn{min-height:34px;font-size:12px;padding:4px 8px}
+.sgstrip .sgc{flex:0 0 380px;grid-template-columns:48px 1fr;padding:5px}.sgstrip .sgth{width:48px;height:48px}.sgstrip .sgw{font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.sgstrip .sgbt .btn{min-height:30px;font-size:12px}
 .srcb{display:block;font-family:var(--font-m);font-size:9.5px;line-height:1.2;margin-top:2px;color:var(--cyan)}.srcb.buy{color:#ff9bd0}.srcb.mix{color:#ffd23f}
 #mkview{position:absolute;z-index:14;left:50%;top:calc(var(--hud-h) + 8px);transform:translateX(-50%);width:min(980px,calc(100% - 16px));max-height:calc(100% - var(--hud-h) - 20px);overflow:auto;padding:12px;border-radius:12px;background:var(--panel);border:1px solid var(--gold);backdrop-filter:blur(8px);color:var(--fg)}
 #mkview[hidden]{display:none}
@@ -837,7 +837,7 @@ body.vopen #feed{z-index:9}
 .offt .ov{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#fff;color:#0a4f8f;font-weight:800;font-size:12px}
 .mob{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mob>div{display:flex;flex-direction:column;gap:3px;padding:8px;border-radius:8px;border:1px solid var(--line);font-size:12.5px}@media (max-width:600px){.mob{grid-template-columns:1fr}}
 .matopt{display:block;margin:10px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--mut)}.matopt b{color:var(--gold)}
-@media (max-width:600px){.sgcards{grid-template-columns:1fr}.sgc{grid-template-columns:64px 1fr}.sgth{width:64px;height:64px}.sgstrip .sgc{flex-basis:290px}#mkview{padding:10px}.sgbt .btn{flex:1 1 45%}}
+@media (max-width:600px){.sgcards{grid-template-columns:1fr}.sgc{grid-template-columns:64px 1fr}.sgth{width:64px;height:64px}.sgstrip .sgc{flex-basis:300px}.sgstrip .sgw{display:none}.sgstrip .sgb>b{font-size:13px}#mkview{padding:10px}.sgbt .btn{flex:1 1 45%}}
 
 </style>
 </head>
@@ -5361,9 +5361,9 @@ function mkSuggest() {
   PKEYS.forEach(pk => {
     const ps = S.prod[pk], pr = PRODUCTS[pk]; if (ps.st === 'on' || ps.st === 'rnd' || pr.cls === 'estate') return;
     const offers = mkOffers(pk), un = mkUnmet(pk), nOff = offers.length, mkR = mkSim(pk, 'make'), best = offers.length ? mkBest(pk) : null, buR = best ? mkSim(pk, 'buy', best.id) : null;
-    const aff = c => clamp(0.6 * Math.max(0, S.cash) / Math.max(1, c.capex.total), 0.05, 1);   // facilité financière : l'investissement est-il à ta portée ?
-    const easeMake = mkR.mc.locked ? 0.05 : clamp(1 - 0.09 * (mkR.miss || 0) - 0.07 * (mkR.comp || 0) - 0.1 * (pr.lvl - 1) - (mkR.freeFac ? 0 : 0.1), 0.15, 1) * (mkOn() || pr.tier <= tierNow() ? 1 : 0.4) * Math.sqrt(aff(mkR));
-    const easeBuy = buR ? (buR.noShop ? 0.75 : 0.95) * (buR.o.cap >= buR.Vd * 0.98 ? 1 : 0.8) * Math.sqrt(aff(buR)) : 0;
+    const aff = c => c.capex.total <= 0.8 * S.cash ? 1 : 1e-3 * clamp(0.8 * Math.max(0, S.cash) / Math.max(1, c.capex.total), 0.01, 1);   // facilité financière : l'investissement est-il à ta portée ?
+    const easeMake = mkR.mc.locked ? 0.05 : clamp(1 - 0.09 * (mkR.miss || 0) - 0.07 * (mkR.comp || 0) - 0.1 * (pr.lvl - 1) - (mkR.freeFac ? 0 : 0.1), 0.15, 1) * (mkOn() || pr.tier <= tierNow() ? 1 : 0.4) * aff(mkR);
+    const easeBuy = buR ? (buR.noShop ? 0.75 : 0.95) * (buR.o.cap >= buR.Vd * 0.98 ? 1 : 0.8) * aff(buR) : 0;
     const sM = Math.max(0, mkR.profit30) * easeMake, sB = buR ? Math.max(0, buR.profit30) * easeBuy : 0, route = sB > sM ? 'buy' : 'make', R = route === 'buy' ? buR : mkR, ease = route === 'buy' ? easeBuy : easeMake;
     const score = Math.max(0, R.profit30) * (0.4 + 1.6 * un) * ease / (1 + 0.12 * nOff);
     const why = [];
@@ -5497,12 +5497,13 @@ function sgList() {
   return a.slice().sort((x, y) => key(y) - key(x) || (x.pk < y.pk ? -1 : 1));
 }
 function sgCardHTML(x, compact) {
-  const pk = x.pk, pr = PRODUCTS[pk], b = x.best, tr = (S.trials || []).find(t => t.pk === pk && t.status === 'run');
+  const pk = x.pk, pr = PRODUCTS[pk], b = x.best, tr = (S.trials || []).find(t => t.pk === pk && t.status === 'run'), noM = x.make.capex.total > S.cash, noB = x.buy && x.buy.capex.total > S.cash;
+  const dis = (no, r) => no ? ` disabled title="Il te manque ${money(r.capex.total - S.cash)} de trésorerie"` : '';
   const tip = (x.make ? 'Fabriquer : ' + x.make.summary : '') + (x.buy ? '\nAcheter : ' + x.buy.summary : '') + '\nScore = marge espérée × demande non servie × facilité × faible concurrence.';
   return `<div class="sgc${compact ? ' cp' : ''}" title="${tip.replace(/"/g, '&quot;')}"><button class="sgth" data-sg="sel:${pk}" aria-label="Voir la fiche ${pr.name}">${productSVG(pk, 1)}</button>
     <div class="sgb"><b>${pr.name}</b><span class="sgtag">${x.fam}</span><p class="sgw">${x.why}</p>
       <div class="sgm"><b class="${x.profit > 0 ? 'pos' : 'neg'}">${x.profit >= 0 ? '+' : '−'}${money(Math.abs(x.profit))}</b><small> par mois (estimation)</small></div>
-      <div class="sgbt g2">${tr ? '<small class="gold">Essai pilote en cours…</small>' : `<button class="btn${x.route === 'make' ? '' : ' sec'}" data-sg="${compact ? 'makehere' : 'make'}:${pk}">Fabriquer (ma société)</button>${b ? `<button class="btn${x.route === 'buy' ? '' : ' sec'}" data-sg="buy:${pk}:${b.id}">Acheter à ${b.name}</button>` : ''}${b && !compact ? `<button class="btn sec" data-sg="both:${pk}">Les deux</button>` : ''}<button class="btn sec" data-sg="test:${pk}">Tester</button>`}</div></div></div>`;
+      <div class="sgbt${compact ? '' : ' g2'}">${tr ? '<small class="gold">Essai pilote en cours…</small>' : `<button class="btn${x.route === 'make' ? '' : ' sec'}" data-sg="${compact ? 'makehere' : 'make'}:${pk}"${dis(noM, x.make)}>${compact ? 'Fabriquer ici' : 'Fabriquer (ma société)'}</button>${b ? `<button class="btn${x.route === 'buy' ? '' : ' sec'}" data-sg="buy:${pk}:${b.id}"${dis(noB, x.buy)}>Acheter à ${b.name}</button>` : ''}${b && !compact ? `<button class="btn sec" data-sg="both:${pk}">Les deux</button>` : ''}<button class="btn sec" data-sg="test:${pk}">Tester</button>`}</div></div></div>`;
 }
 function sgStrip(c) {   // bandeau compact du catalogue d'usine : produits que CETTE usine sait faire
   const lv = FLEVEL[c.t], a = mkSuggest().filter(x => PRODUCTS[x.pk].lvl <= lv).slice(0, 3); if (!a.length) return '';
@@ -5587,7 +5588,7 @@ function sgAct(a) {
   const [k, p1, p2, p3] = a.split(':');
   if (k === 'f') { sgF = a.slice(2); sgHtml = ''; }
   else if (k === 'close') { mkV = null; }
-  else if (k === 'sel') { selProd = p1; mkV = null; setPview(true); }
+  else if (k === 'sel') { selProd = p1; mkV = null; setPview(true); renderProducts(); try { const pv = el('pview'), pd = el('pdetail'); pv.scrollTop = Math.max(0, pd.offsetTop - 70); } catch (e) {} }
   else if (k === 'make') { mkMake(p1); }
   else if (k === 'makehere') { const c = catFac && cell(catFac.x, catFac.y); if (c && easyLaunch(c, p1)) { refreshStats(); closeCatalog(true); } else mkMake(p1); }
   else if (k === 'buy') mkBuy(p1, p2, p3 ? +p3 : (offQty || null));
