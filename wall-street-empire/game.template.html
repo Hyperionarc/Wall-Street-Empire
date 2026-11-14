@@ -748,11 +748,18 @@ body.vopen #feed{z-index:9}
     <h3>FINANCES</h3>
     <div id="fin"></div>
     <div class="loanrow"><span id="loanV"></span><button class="btn sec" id="loanUp">Emprunter 20 k</button><button class="btn sec" id="loanDn">Rembourser</button></div>
+    <p class="note" id="loanNote"></p>
     <h3>POLITIQUE DE GESTION</h3>
     <p class="note">Réglages par défaut appliqués à toute l'entreprise, comme le COO de Capitalism Lab.</p>
-    <div class="taxrow"><span>Prix</span><input type="range" id="polPrice" min="-1" max="1" step="0.5" value="0" aria-label="Marge contre parts de marché"><b id="polPriceV">Équilibré</b></div>
+    <div class="taxrow"><span>Prix</span><input type="range" id="polPrice" min="-1" max="1" step="0.25" value="0" aria-label="Marge contre parts de marché"><b id="polPriceV">Équilibré</b></div>
     <p class="note" id="polNote"></p>
-    <div class="seg2" style="margin:6px 0"><button class="btn sec" id="polAlert" aria-pressed="true">Alertes de stock bas : oui</button></div>
+    <div class="seg2" style="margin:6px 0;flex-wrap:wrap"><button class="btn sec" id="polAlert" aria-pressed="true">Alertes de stock bas : oui</button><button class="btn sec" id="polNoLoss" aria-pressed="false">Ne jamais vendre sous le coût : non</button><button class="btn sec" id="polSeek" aria-pressed="false">Chercher de meilleurs fournisseurs : non</button></div>
+    <div class="taxrow"><span>Poids du fret</span><input type="range" id="polFr" min="0" max="100" step="25" value="50" aria-label="Poids du fret dans le choix des fournisseurs"><b id="polFrV">50 %</b></div>
+    <div class="taxrow"><span>Tolérance de rupture</span><input type="range" id="polTol" min="0" max="30" step="1" value="7" aria-label="Jours de rupture tolérés avant de changer de fournisseur"><b id="polTolV">7 jours</b></div>
+    <p class="note" id="polNote2"></p>
+    <h3>OPTIONS DU PDG (CEO)</h3>
+    <div class="seg2" style="margin:6px 0;flex-wrap:wrap"><button class="btn sec" id="polInfP" aria-pressed="true">Prix selon l'inflation : oui</button><button class="btn sec" id="polInfA" aria-pressed="true">Publicité selon l'inflation : oui</button><button class="btn sec" id="polAdjNow">Ajuster maintenant</button></div>
+    <p class="note" id="polNote3"></p>
     <h3>IMPÔT SUR LES SOCIÉTÉS</h3>
     <div class="taxrow"><span>Taux</span><input type="range" id="tax" min="5" max="45" step="5" value="25" aria-label="Taux d'impôt"><b id="taxV">25 %</b></div>
     <p class="note" id="taxNote"></p>
@@ -952,6 +959,9 @@ const TYPES = {
   s2:      { name: 'Supermarché',   sub: 'Base + manufact.', cost: 3500, color: '#7f96ff', jobs: 12, upkeep: 4,  w: 2, h: 1, tier: 1, ret: { cap: 110, sells: ['basic', 'std'] } },
   s3:      { name: 'Hypermarché',   sub: 'Tout + luxe',     cost: 12000, color: '#ff4fa3', jobs: 35, upkeep: 10, w: 2, h: 2, tier: 2, ret: { cap: 300, sells: ['basic', 'std', 'lux'] } },
   port:    { name: 'Terminal portuaire', sub: 'Export à bon prix', cost: 9000, color: '#5fb0ff', jobs: 30, upkeep: 8, w: 2, h: 2 },
+  off:     { name: 'Tour de location', sub: 'Bureaux à louer', cost: 24000000, color: '#8fd0ff', jobs: 10, upkeep: 28000, tier: 1 },
+  tv:      { name: 'Station média', sub: 'Télé et radio : publicité', cost: 18000000, color: '#ff9bd0', jobs: 30, upkeep: 6000, tier: 1 },
+  sport:   { name: 'Équipement sportif', sub: 'Attractivité du quartier', cost: 3000000, color: '#7fe0a0', jobs: 3, upkeep: 2500, tier: 1 },
   npc:     { name: 'Immeuble',      sub: 'Ville existante', cost: 0,     color: '#8f9acb', jobs: 0,  upkeep: 0 }
 };
 const INDUSTRIAL = ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 'f4'];
@@ -1190,6 +1200,8 @@ function rnd() { let a = (S ? (S.rs = ((S.rs == null ? _RS0 : S.rs) + 0x6D2B79F5
 const FREIGHT = 0.006;   // part du prix par case de distance
 const SUP_CITY = ['Houston', 'Rotterdam', 'Shenzhen', 'Dubaï', 'Santiago', 'Norilsk', 'Singapour', 'Hambourg', 'Lagos', 'Sydney', 'Zurich', 'Mumbai'];
 const dealOf = (g, id) => { const d = (S.deals || {})[g + ':' + id]; return d && d.until >= S.day ? d : null; };
+const SEA_D = { f1: 90, f2: 70, f3: 60, f4: 80, f5: 85 };   // distance maritime par puissance étrangère (cases équivalentes)
+function freightTip(o) { const f = v => v.toFixed(2).replace('.', ','); return o && o.seg ? `Coût livré : ${f(o.unit)} $ (marchandise) + ${o.segN.map((n, i) => f(o.seg[i]) + ' $ ' + n).join(' + ')} = ${f(o.total)} $` : o ? `Coût livré : ${f(o.unit)} $ + ${f(o.freight)} $ de transport = ${f(o.total)} $` : ''; }
 function supOffer(g, id, haul) {
   const o = supOffer0(g, id, haul), d = dealOf(g, id); if (id !== 'local') { const fm = 1 + 0.12 * (((S.forces ? S.forces.suppliers : 50) - 50) / 50); o.unit *= fm; o.total = o.unit + o.freight; } if (d) { o.unit *= d.m; o.total = o.unit + o.freight; o.deal = d; }
   return o;
@@ -1197,8 +1209,11 @@ function supOffer(g, id, haul) {
 function supOffer0(g, id, haul) {
   const base = (S.price[g] || GOODS[g].base);
   if (id === 'local') return { unit: base, freight: 0, total: base, name: 'Mon réseau (stock local)', q: 60 };
-  if (id === 'import') { const pr = Math.max(1.05, 1.3 - 0.05 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)), fr = base * FREIGHT * (45 + (haul || 0) * 0.3); return { unit: base * pr, freight: fr, total: base * pr + fr, name: 'Import par le port', q: 55 }; }
-  const s = supplierList(g).find(x => x.id === id) || supplierList(g)[0], fr = base * FREIGHT * s.dist;
+  if (id === 'import') { const pr = Math.max(1.05, 1.3 - 0.05 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)), k = base * FREIGHT, seg = [k * 15, k * 29, k * (1 + (haul || 0) * 0.3)], fr = seg[0] + seg[1] + seg[2]; return { unit: base * pr, freight: fr, total: base * pr + fr, name: 'Import par le port', q: 55, seg, segN: ['producteur → port d\'origine', 'port → port (mer)', 'port → ton site'] }; }
+  const s = supplierList(g).find(x => x.id === id) || supplierList(g)[0];
+  // Achat inter-villes (puissance étrangère) : 3 segments, fournisseur → port, port → port (mer), port → acheteur
+  const fp = fgnOf(g); if (fp && s.name.indexOf('(') > 0) { const k = base * FREIGHT, sea = SEA_D[fp.id] || 70, seg = [k * s.dist * 0.35, k * sea * 0.4, k * (4 + 0.45 * (haul || 20))], fr = seg[0] + seg[1] + seg[2]; return { unit: base * s.pf, freight: fr, total: base * s.pf + fr, name: s.name, q: s.q, dist: s.dist, seg, segN: ['fournisseur → port de ' + fp.city, 'port de ' + fp.city + ' → ton port (mer)', 'ton port → ton site'] }; }
+  const fr = base * FREIGHT * s.dist;
   return { unit: base * s.pf, freight: fr, total: base * s.pf + fr, name: s.name, q: s.q, dist: s.dist };
 }
 const RIV_CLS = ['basic', 'std', 'lux', 'estate'];
@@ -1447,7 +1462,7 @@ const ICONS = {
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const ICON_OF = { s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+const ICON_OF = { tv: 'bank', off: 'tech', sport: 'res', s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
@@ -1456,7 +1471,7 @@ const TOOL_META = {
   bull: { name: 'Démolir', sub: 'Gratuit', color: '#ff5a5f' }
 };
 const CATS = [
-  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank', 'hq', 'rd', 'dc', 'buyout'] },
+  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'off', 'bank', 'sport', 'tv', 'hq', 'rd', 'dc', 'buyout'] },
   { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'road', 'link'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
@@ -1465,7 +1480,7 @@ const CATS = [
 ];
 // Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
 const FAMS = {
-  ville: [['Habitat', ['res']], ['Bureaux', ['tech', 'bank']], ['Direction', ['hq', 'rd', 'dc']], ['Rachat', ['buyout']]],
+  ville: [['Habitat', ['res', 'sport']], ['Médias', ['tv']], ['Bureaux', ['tech', 'off', 'bank']], ['Direction', ['hq', 'rd', 'dc']], ['Rachat', ['buyout']]],
   agri: [['Fermes', ['fwheat', 'fsugar', 'fcotton', 'frubber']], ['Accès', ['road', 'link']]],
   extr: [['Énergie', ['well', 'mcoal', 'pipeline']], ['Métaux', ['miron', 'mcopper', 'mgold']], ['Bois', ['logging']], ['Accès', ['road', 'link']]],
   btp: [['Carrières', ['qgravel', 'qsand', 'qlime']], ['Chantiers', ['btp']]],
@@ -1562,6 +1577,7 @@ function mkCell(t, seed) {
   let floors = 1;
   if (t === 'res') floors = 1 + Math.floor(seed * 3.99) % 3;
   if (t === 'tech') floors = 5 + Math.floor(seed * 2.99);
+  if (t === 'off') floors = 6 + Math.floor(seed * 2.99); if (t === 'sport') floors = 1; if (t === 'tv') floors = 2 + Math.floor(seed * 1.99);
   if (t === 'bank') floors = 3 + Math.floor(seed * 1.99);
   if (t === 'rd') floors = 4; if (t === 'dc') floors = 3;
   if (t === 'hq') floors = 7 + Math.floor(seed * 2.99);
@@ -1722,6 +1738,10 @@ function cellExtra(c) {
   if (c.ci != null) o.ci = Math.round(c.ci * 1e4) / 1e4;   // indice de fréquentation : relu par crewEff avant son recalcul
   if (c.inv) { const iv = {}; Object.keys(c.inv).forEach(g => { if (c.inv[g] > 0.5) iv[g] = Math.round(c.inv[g]); }); if (Object.keys(iv).length) o.inv = iv; }
   if (c.alertUntil > 0) o.al = c.alertUntil | 0;
+  if (c.rent != null && Math.abs(c.rent - 1) > 1e-3) o.rn = +c.rent.toFixed(3);
+  if (c.mr != null && Math.abs(c.mr - 1) > 1e-3) o.mb = +c.mr.toFixed(3); if (c.adp != null && Math.abs(c.adp - 1) > 1e-3) o.ap = +c.adp.toFixed(3);
+  if (c.lp) { o.lp = Math.round(c.lp); o.lpm = +(c.lpm || 1).toFixed(4); }
+  if (c.acq) o.aq = Math.round(c.acq);
   if (c.pkd) { const pd = {}; Object.keys(c.pkd).forEach(k => { if (c.pk && c.pk[k]) pd[k] = Math.min(400, c.pkd[k].d | 0); }); if (Object.keys(pd).length) o.pd = pd; }
   return Object.keys(o).length ? o : 0;
 }
@@ -1729,8 +1749,8 @@ function dedupMods(a) { const m = new Map(); (a || []).forEach(x => m.set(x[0] +
 function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
-    const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, g, dep }));
+    const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1746,7 +1766,7 @@ function load() {
       if (!TYPES[r[0]]) return null;
       const c = mkCell(r[0], r[1]); c.lvl = clamp(r[2] | 0, 0, 4); if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
       if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3); if (r[19] && typeof r[19] === 'object') c.src = r[19];
-      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; }
+      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.mb != null) c.mr = clamp(+e.mb, 0, 3); if (e.ap != null) c.adp = clamp(+e.ap || 1, 0.4, 2); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; } if (e.aq > 0) c.acq = +e.aq; }
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
@@ -1756,7 +1776,7 @@ function load() {
     (Array.isArray(d.npcMods) ? d.npcMods : []).forEach(m => { const c = grid[idx(m[0], m[1])]; if (!c || c.t !== 'npc') return; if (m[2] === 'x') grid[idx(m[0], m[1])] = null; else { c.k = m[2]; c.floors = m[3]; } });
     if (d.npcGrow) Object.keys(d.npcGrow).forEach(k => { const [gx, gy] = k.split(',').map(Number), c = inb(gx, gy) && grid[idx(gx, gy)], v = d.npcGrow[k]; if (c && c.t === 'npc' && c.k === 'off' && Array.isArray(v)) { c.floors = Math.max(c.floors, v[0] | 0); c.f0 = v[1] | 0 || c.floors; } });
     const dep = new Array(N * N).fill(null);
-    (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) dep[a[0]] = { k: a[1], r: a[2] }; });
+    (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) { dep[a[0]] = { k: a[1], r: a[2] }; if (a[3] > 1) dep[a[0]].pm = +a[3]; if (a[4]) dep[a[0]].own = 1; } });
     if (!dep.some(q => q && CROPS[q.k])) genCropFields(dep);
     const S0 = {
       cash: +d.cash, pop: +d.pop, day: d.day | 0, grid, dep, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: d.boomUntil == null ? -1 : (+d.boomUntil | 0),
@@ -1765,7 +1785,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1845,7 +1865,7 @@ function evaluate() {
     if (isPlant(c.t)) gridEval(c, gm);
     cc[c.t]++;
     upkeep += T.upkeep * (c.t === 'res' ? 1 : m * (1 + 0.1 * (c.qual || 0))) + phOvh(c);
-    value += T.cost * 0.9 + upgradeSpent(c) * 0.6;
+    value += T.cost * 0.9 + upgradeSpent(c) * 0.6 + landVal(c);
     if (c.conn) {
       cn[c.t]++; un[c.t] += unitsOf(c); jobs += jobsOf(c); c.haul = haulOf(c);
       if (c.t === 'res') cap += 6 + 4 * c.floors;
@@ -1959,7 +1979,7 @@ function setCaste(k) {
   S.caste = k; if (first && S.day < 6) S.cash += CASTES[k].cash;
   TM = techMults(); el('caste').hidden = true; say(`Tu joues : ${CASTES[k].n}.`, 'gold'); refreshStats(); updateHUD(); save();
 }
-const CASTE_BLD = { industriel: ['f1', 'f2', 'f3', 'f4', 'foundry', 'port', 'wh'], promoteur: ['res', 'btp', 'immo', 'buyout', 'hq', 'wh'], banquier: ['bank', 'hq', 'tech'], negociant: ['pipeline', 'plant', 'port', 'wh', 'well'], agriculteur: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'wh'], innovateur: ['rd', 'dc', 'tech', 'hq'] };
+const CASTE_BLD = { industriel: ['f1', 'f2', 'f3', 'f4', 'foundry', 'port', 'wh'], promoteur: ['res', 'btp', 'immo', 'buyout', 'hq', 'wh', 'off', 'sport'], banquier: ['bank', 'hq', 'tech'], negociant: ['pipeline', 'plant', 'port', 'wh', 'well'], agriculteur: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'wh'], innovateur: ['rd', 'dc', 'tech', 'hq'] };
 const CASTE_SPEC = { industriel: ['Usines et fonderies −12 % de coût', 'Production +5 %', 'OPA dès 10 % du capital (prime 20 %)', 'Rachat de rivaux −15 %'], promoteur: ['Constructions urbaines −15 %', 'Rachat d\'immeubles −30 %', 'Chantiers BTP payés +25 %', 'Les promoteurs IA te disputent les îlots'], banquier: ['Banque de 100 M$ de ressources propres', 'Levier ×5, ×10 puis ×20', 'Prêts sur collatéral, intérêts −40 %', 'Plafond d\'emprunt ×1,5'], negociant: ['Cartels et embargos −50 %', 'Exports +15 %, intrants −4 %', 'Pipelines −40 %, centrales −20 %', 'Électricité +30 %, pétrole +10 %'], agriculteur: ['Fermes −25 %', 'Cultures +15 %, sols +8 %', 'Irrigation −30 %', 'Sécheresses deux fois moins sévères'], innovateur: ['Recherche −30 % de durée, −20 % de coût', 'R&D et data centers −25 %', 'Brevets +50 %, loyer de calcul +50 %', 'Boost d\'IA jusqu\'à +12 % partout'] };
 function showCasteDetail(k) {
   const C = CASTES[k], img = CASTE_IMG[k] ? `<img alt="${C.n}" src="${CASTE_IMG[k]}">` : casteSVG(k), mine = TECHS.filter(x => x.caste === k), common = TECHS.filter(x => !x.caste);
@@ -1982,19 +2002,66 @@ const skillOf = k => ((S && S.skills) || {})[k] | 0;
 const SKILL_MAX = 5;
 const skillCost = l => l + 1;
 function addKp(n, why) { S.kp = (S.kp || 0) + n; say(`+${n} point de connaissance (${why}). Dépense-le dans Menu > Objectifs.`, 'gold'); }
-const GOALS = { match: { n: 'Manche (prépare le multijoueur)', d: 'La manche s\'arrête au jour 720 ou dès qu\'un empire atteint 1 milliard de $ de capitalisation. Le plus riche gagne.', target: 1e9, deadline: 720 }, sandbox: { n: 'Bac à sable', d: 'Aucune limite de temps : construis ton empire librement.' }, race: { n: 'Course à la fortune', d: 'Atteins ' + mM(TIERS[3].at) + ' de capitalisation avant le jour 720.', target: TIERS[3].at, deadline: 720 }, monopoly: { n: 'Monopole', d: 'Détiens plus de 50 % du marché pendant 30 jours d\'affilée.', target: 0.5, streak: 30 } };
+const GOALS = { match: { n: 'Manche (prépare le multijoueur)', d: 'La manche s\'arrête au jour 720 ou dès qu\'un empire atteint 1 milliard de $ de capitalisation. Le plus riche gagne.', target: 1e9, deadline: 720 }, sandbox: { n: 'Bac à sable', d: 'Aucune limite de temps : construis ton empire librement.' }, race: { n: 'Course à la fortune', d: 'Atteins ' + mM(TIERS[3].at) + ' de capitalisation avant le jour 720.', target: TIERS[3].at, deadline: 720 }, monopoly: { n: 'Domination', d: 'Sois le plus gros acteur d\'une catégorie ou d\'un secteur (20 % de part suffisent si personne ne te dépasse) pendant 30 jours d\'affilée.', target: 0.2, streak: 30 },
+  o_stock: { n: 'Cours de l\'action', d: 'Fais monter le cours de ton action (valeur d\'exploitation par action, hors inflation, hors nouveaux bâtiments et variation d\'actifs). Il faut être coté en bourse.', metric: 'stock' },
+  o_ca: { n: 'Chiffre d\'affaires', d: 'Atteins un chiffre d\'affaires mensuel cible, hors effet de l\'inflation.', metric: 'ca' },
+  o_profit: { n: 'Bénéfice', d: 'Atteins un bénéfice d\'exploitation mensuel cible (avant intérêts, hors inflation, hors éléments exceptionnels).', metric: 'profit' },
+  o_net: { n: 'Valeur nette personnelle', d: 'Fais grimper ta fortune personnelle : part du capital que tu détiens × valeur de la société, hors inflation.', metric: 'net' } };
+const X11 = () => S.x11 || (S.x11 = {});
+// Mesures « d'exploitation » : hors intérêts, inflation, variation d'actifs et nouveaux bâtiments
+function m30Real() { const a = S.m30 || []; if (!a.length) return { ca: 0, ebe: 0 }; const k = 30 / a.length; return { ca: a.reduce((t, r) => t + r[0], 0) * k / cpi(), ebe: a.reduce((t, r) => t + r[1], 0) * k / cpi() }; }
+const opValue = () => m30Real().ebe * 12 * 7 + (Math.max(0, S.cash) - (S.loan || 0)) / cpi();
+const underPx = () => S.float > 0 ? Math.max(0, opValue()) * (S.prem || 1.1) / SHARES : 0;
+const personalNet = () => { const raw = (S.stats && S.stats.raw) || 0; return Math.max(0, raw * (1 - (S.float || 0)) * (S.float > 0 ? (S.prem || 1.1) : 1)) / cpi(); };
+function objVal(m) { return m === 'stock' ? underPx() : m === 'ca' ? m30Real().ca : m === 'profit' ? m30Real().ebe : personalNet(); }
+const objFmt = (m, v) => m === 'stock' ? v.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' $/action' : money(Math.round(v)) + (m === 'net' ? '' : ' /mois');
+function setObjective(g, mult) {
+  const G = GOALS[g]; if (!G || !G.metric) return; const o = X11().obj = X11().obj || {}; mult = mult || o.mult || 2; o.mult = mult;
+  const base = Math.max(objVal(G.metric), G.metric === 'stock' ? 50 : 20000 * K_SIZE); o.t = { metric: G.metric, base, target: base * mult };
+}
+// Domination : le plus gros acteur d'une catégorie (classe de produits) ou d'un secteur
+const DOM_CATS = { basic: 'Biens de base', std: 'Biens manufacturés', lux: 'Produits de luxe', estate: 'Immobilier' };
+const DOM_SECT = { conso: ['Secteur de la consommation', ['basic', 'std', 'lux'], [0.5, 0.35, 0.15]], immo: ['Secteur de l\'immobilier', ['estate'], [1]] };
+function domRows() {
+  const mk = S.mkt || {}, rows = [];
+  const mkRow = (key, name, kind, you, riv) => { let top = 0, topN = ''; riv.forEach(r => { if (r.s > top) { top = r.s; topN = (((S.rivals || []).find(x => x.id === r.id)) || { name: '?' }).name; } }); rows.push({ key, name, kind, you, top, topN, lead: you >= 0.2 && you >= top }); };
+  RIV_CLS.forEach(cls => { const m = mk[cls]; mkRow(cls, DOM_CATS[cls], 'cat', m ? m.you : 0, m ? m.riv : []); });
+  Object.keys(DOM_SECT).forEach(k => { const D = DOM_SECT[k]; let you = 0; const rv = {}; D[1].forEach((cls, i) => { const m = mk[cls]; if (!m) return; you += m.you * D[2][i]; m.riv.forEach(r => { rv[r.id] = (rv[r.id] || 0) + r.s * D[2][i]; }); }); mkRow('sect:' + k, D[0], 'sect', you, Object.keys(rv).map(id => ({ id, s: rv[id] }))); });
+  return rows;
+}
+function domOk() { const arg = (X11().obj && X11().obj.arg) || 'any'; const rows = domRows(); return rows.some(r => r.lead && (arg === 'any' || r.key === arg)); }
+// Sous-objectifs : récompense en points de connaissance (qui servent à former tes dirigeants) ou pénalité
+const SUBS = [
+  { id: 'ca', mk: () => { const v = m30Real().ca, t = Math.max(v * 1.3, 40000 * K_SIZE); return { t: `Atteindre ${money(Math.round(t))} de chiffre d'affaires mensuel (hors inflation)`, metric: 'ca', target: t, days: 90 }; } },
+  { id: 'profit', mk: () => { const v = m30Real().ebe, t = Math.max(v * 1.3, 4000 * K_SIZE); return { t: `Dégager ${money(Math.round(t))} de bénéfice d'exploitation par mois`, metric: 'profit', target: t, days: 90 }; } },
+  { id: 'dom', mk: () => ({ t: 'Devenir le plus gros acteur d\'une catégorie de produits (20 % de part minimum)', metric: 'dom', target: 1, days: 120 }) },
+  { id: 'debt', mk: () => ({ t: 'Ramener la dette sous 25 % de tes actifs courants', metric: 'debt', target: 0.25, days: 90, need: (S.loan || 0) > 0 }) },
+  { id: 'net', mk: () => { const v = personalNet(), t = Math.max(v * 1.25, 500000 * K_SIZE); return { t: `Porter ta fortune personnelle à ${money(Math.round(t))}`, metric: 'net', target: t, days: 120 }; } }
+];
+const curAssets = () => Math.max(0, S.cash - (S.loan || 0)) + stockValue();
+function subVal(m) { return m === 'dom' ? (domRows().some(r => r.kind === 'cat' && r.lead) ? 1 : 0) : m === 'debt' ? (S.loan || 0) / Math.max(1, curAssets() + (S.loan || 0)) : objVal(m); }
+function stepSub() {
+  const o = X11().obj = X11().obj || {};
+  if (!o.sub) { if (S.day < 20 || S.day < (o.cd || 0)) return; const pool = SUBS.map(d => Object.assign({ id: d.id }, d.mk())).filter(x => x.need !== false), pick = pool[Math.floor(hash(S.day, (o.n || 0) * 7 + (o.fail || 0), 61) * pool.length)];
+    o.sub = { id: pick.id, t: pick.t, metric: pick.metric, target: pick.target, until: S.day + pick.days, kp: pick.id === 'dom' ? 2 : 1 }; say(`Sous-objectif : ${pick.t} (${pick.days} jours). Récompense : ${o.sub.kp} point${o.sub.kp > 1 ? 's' : ''} de connaissance ; échec : le cours et la trésorerie en pâtissent.`, 'info'); return; }
+  const b = o.sub, v = subVal(b.metric), ok = b.metric === 'debt' ? v <= b.target : v >= b.target;
+  if (ok) { addKp(b.kp, 'sous-objectif atteint'); o.n = (o.n || 0) + 1; o.sub = null; o.cd = S.day + 15; }
+  else if (S.day >= b.until) { const pen = Math.round(dayRev() * 4); S.cash -= pen; S.pb = (S.pb || 0) - 0.05; say(`Sous-objectif manqué : ${b.t}. Pénalité : ${money(pen)} de frais de crise et −5 % sur le cours.`, 'bad'); o.sub = null; o.cd = S.day + 30; o.fail = (o.fail || 0) + 1; }
+}
 const NPC_TOP = [['Apex Holdings', 9.2e6, 0.0006], ['Nordic Steel', 6.1e6, 0.0004], ['Sakura Industries', 4.4e6, 0.0007], ['Atlas Commodities', 3.1e6, 0.0005], ['Meridian Capital', 2.2e6, 0.0006], ['Zenith Retail', 1.4e6, 0.0004], ['Orion Motors', 0.9e6, 0.0005]].map(x => [x[0], x[1] * NPC_K, x[2]]);   // grands groupes PNJ : 90 M$ à 920 M$ au départ
 function marketShareAvg() { const mk = S.mkt || {}; return RIV_CLS.reduce((a, c) => a + (mk[c] ? mk[c].you : 0), 0) / 4; }
 function playerScore() { const st = S.stats || {}; return Math.round((st.worth || 0) / 1000 + marketShareAvg() * 500 + (st.playerJobs || 0) * 0.5 + (S.done ? S.done.length : 0) * 20 + (S.houses || 0) * 2 + Object.keys(S.tech || {}).length * 25); }
 function stepGoal() {
   const g = S.goal || 'sandbox', G = GOALS[g], w = (S.stats && S.stats.worth) || 0;
+  stepSub();
   if (S.goalDone) return;
   if (g === 'race') { if (w >= G.target) { S.goalDone = 'win'; addKp(3, 'objectif atteint'); say(`Victoire : ${money(G.target)} atteints au jour ${S.day} !`, 'gold'); } else if (S.day >= G.deadline) { S.goalDone = 'lose'; say(`Temps écoulé : l'objectif de ${money(G.target)} n'est pas atteint. Tu peux continuer en bac à sable.`, 'bad'); } }
   else if (g === 'match') {
     const rs = (S.rivals || []).map(r => rivalValue(r)), best = Math.max(0, ...rs);
     if (w >= G.target || S.day >= G.deadline) { const win = w >= best; S.goalDone = win ? 'win' : 'lose'; if (win) addKp(3, 'manche gagnée'); say(w >= G.target ? `Manche terminée : ${money(w)} atteints au jour ${S.day} !` : `Manche terminée au jour ${S.day} : ${win ? 'tu as la plus grande valorisation' : 'un rival te devance (' + money(best) + ' contre ' + money(w) + ')'}.`, win ? 'gold' : 'bad'); }
   }
-  else if (g === 'monopoly') { S.streak = marketShareAvg() >= G.target ? (S.streak || 0) + 1 : 0; if (S.streak >= G.streak) { S.goalDone = 'win'; addKp(3, 'monopole'); say('Victoire : tu domines le marché depuis 30 jours !', 'gold'); } }
+  else if (g === 'monopoly') { S.streak = domOk() ? (S.streak || 0) + 5 : 0; if (S.streak >= G.streak) { S.goalDone = 'win'; addKp(3, 'domination'); say('Victoire : tu domines ton marché depuis 30 jours !', 'gold'); } }
+  else if (G.metric) { if (!X11().obj || !X11().obj.t || X11().obj.t.metric !== G.metric) setObjective(g); const t = X11().obj.t; if (objVal(G.metric) >= t.target) { S.goalDone = 'win'; addKp(3, 'objectif atteint'); say(`Victoire : ${G.n.toLowerCase()} de ${objFmt(G.metric, t.target)} atteint !`, 'gold'); } }
 }
 // Terminal financier : indice, portefeuille, OPA, cartel, embargo
 const rivalPx = r => rivalValue(r) / RSH * (1 + (r.mood || 0));
@@ -2017,12 +2084,13 @@ function tradeShares(id, qty, buy) {
   else { qty = Math.min(qty, h.n); if (qty <= 0) return false; let gain = 0; for (let i = 0; i < qty; i++) gain += px * (1 - 0.0007 * (i / 10)) - spread / 2; S.cash += gain; h.cost *= (h.n - qty) / h.n; h.n -= qty; r.mood = clamp((r.mood || 0) - qty / RSH * 0.4, -0.2, 0.35); say(`Vente de ${fmt(qty)} actions ${r.name} (${money(gain)}).`, 'info'); }
   if (h.n <= 0) delete S.port[id]; updateHUD(); return true;
 }
+const raiseAmt = raw => { const f = 0.1, pr = S.prem || 1.1; return f * raw * pr / (1 - f * pr); };
 function launchOpa(id) {
   const r = (S.rivals || []).find(x => x.id === id), h = (S.port || {})[id]; if (!r) return false;
   const stake = h ? h.n / RSH : 0, minS = casteIs('industriel') ? 0.1 : 0.2; if (stake < minS) { say(`Il faut détenir au moins ${Math.round(minS * 100)} % du capital pour lancer une OPA.`, 'warn'); return false; }
-  const cost = (1 - stake) * RSH * rivalPx(r) * (casteIs('industriel') ? 1.2 : 1.35); if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter le reste du capital avec une prime de 35 %.`, 'bad'); return false; }
-  const p = 0.55 + 0.4 * stake;
-  if (rnd() < p) { S.cash -= cost; S.cash += Math.max(0, r.cash) * 0.5; S.subs = S.subs || []; S.subs.push({ name: r.name, inc: Math.max(40, (r.rev || 0) * 0.12) }); delete S.port[id]; S.rivals = S.rivals.filter(x => x !== r); say(`OPA réussie sur ${r.name} : la société devient ta filiale (${money(cost)}).`, 'gold'); }
+  const hostile = stake >= 0.5, cost = (1 - stake) * RSH * rivalPx(r) * (hostile ? 1.12 : casteIs('industriel') ? 1.2 : 1.35); if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter le reste du capital${hostile ? ' (prime de 12 % : tu as déjà le contrôle)' : ' avec une prime de 35 %'}.`, 'bad'); return false; }
+  const p = hostile ? 1 : 0.55 + 0.4 * stake;
+  if (rnd() < p) { S.cash -= cost; S.cash += Math.max(0, r.cash) * 0.5; S.subs = S.subs || []; S.subs.push({ name: r.name, inc: Math.max(40, (r.rev || 0) * 0.12) }); delete S.port[id]; S.rivals = S.rivals.filter(x => x !== r); say(hostile ? `Prise de contrôle hostile sur ${r.name} : avec ${Math.round(stake * 100)} % des actions, le conseil ne peut plus s'opposer (${money(cost)}).` : `OPA réussie sur ${r.name} : la société devient ta filiale (${money(cost)}).`, 'gold'); }
   else { const fees = cost * 0.08; S.cash -= fees; r.mood = clamp((r.mood || 0) + 0.1, -0.2, 0.35); say(`OPA sur ${r.name} repoussée par le conseil : frais de ${money(fees)}.`, 'bad'); }
   updateHUD(); return true;
 }
@@ -2195,6 +2263,9 @@ const EVENTS = [
   { id: 'boom', t: 'Boom de la consommation', d: 'Un salon professionnel attire des foules : les ventes décollent.', ch: [
     { l: 'Surfer sur la vague (demande +20 % pendant 12 jours)', f: () => { addMod('demand', 1.2, 12); say('Les clients affluent !', 'good'); } },
     { l: 'Investir dans la marque (+8 % de prime boursière)', f: () => { S.pb = (S.pb || 0) + 0.08; addMod('demand', 1.08, 12); } }] },
+  { id: 'breakthrough', t: 'Percée technologique', d: 'Une équipe de ton R&D obtient un résultat inattendu : la recherche en cours peut être bouclée d\'un coup.', req: () => !!S.research || ((S.stats && S.stats.cn && S.stats.cn.rd) || 0) >= 1, ch: [
+    { l: 'Exploiter la percée (recherche en cours terminée, +20 à 60 points de recherche)', f: () => { const pts = 20 + Math.floor(rnd() * 41); let t = ''; if (S.research) { S.research.left = 0; t = ` ${TECH_BY[S.research.id].n} sera acquise dès demain.`; } eachBuilding(c => { if (c.t === 'rd' && c.conn) c._pat = (c._pat || 0) + pts / 100; }); S.rdPts = (S.rdPts || 0) + pts; say(`Percée technologique : +${pts} points de recherche (avancement des brevets).${t}`, 'gold'); } },
+    { l: 'Publier les résultats (+6 % de prime boursière)', f: () => { S.pb = (S.pb || 0) + 0.06; say('Tes travaux font la une des revues : le marché applaudit.', 'good'); } }] },
   { id: 'rival', t: 'Offensive d\'un concurrent', d: 'Un rival lance une campagne de prix agressive.', ch: [
     { l: () => `Riposter (demande +5 %, −${money(evCost(0.6, 1500))})`, f: () => { const c = evCost(0.6, 1500); if (S.cash >= c) { S.cash -= c; addMod('demand', 1.05, 15); } } },
     { l: 'Ignorer (le rival gagne en influence)', f: () => { const r = (S.rivals || [])[0]; if (r) RIV_CLS.forEach(k => { r.att[k] = Math.min(0.7, r.att[k] + 0.03); }); } }] }
@@ -2274,7 +2345,46 @@ function shelfKeys(c) {
 }
 const pkOf = (c, key) => { const v = (c.pk && c.pk[key]) || 1, cl = key.indexOf('g_') === 0 ? key.slice(2) : (PRODUCTS[key] && PRODUCTS[key].cls); return cl === 'basic' ? Math.min(v, 1.5) : v; };   // un bien de base ne se vend pas durablement à plus de 150 % du prix de rayon
 const pfOfK = (c, key) => pfOf(c) * pkOf(c, key);
-const pfOf = c => (c.pf || 1) * (1 - 0.08 * ((S && S.pol && S.pol.price) || 0));
+const pfOf = c => (c.pf || 1) * (1 - 0.08 * ((S && S.pol && S.pol.price) || 0)) * (c._nl || 1) * polInfP();
+// Politiques du COO / options du PDG : prix de rayon indexés (ou non) sur l'inflation, jamais sous le coût, recherche de fournisseurs
+const polOn = k => !!(S && S.pol && S.pol[k]);
+const polFr = () => (S && S.pol && S.pol.fr != null) ? clamp(S.pol.fr, 0, 1) : 0.5;
+const polTol = () => (S && S.pol && S.pol.tol != null) ? clamp(S.pol.tol, 0, 30) : 7;
+function polInfP() { return (S && S.pol && S.pol.noInfP) ? clamp((S.pol.cp || cpi()) / cpi(), 0.6, 1) : 1; }   // prix figés : ils perdent du pouvoir d'achat tant qu'on ne les réajuste pas
+function adEr() { return (S && S.pol && S.pol.noInfA) ? clamp(cpi() / (S.pol.ca || cpi()), 1, 1.8) : 1; }   // publicité figée : le même budget achète moins d'audience
+function adjustInfl(which) {
+  S.pol = S.pol || {}; const p = S.pol;
+  if (which !== 'p') { const k = clamp(cpi() / (p.ca || cpi()), 1, 3); if (k > 1.0005) { eachBuilding(c => { if (c.ad) AD_KEYS.forEach(a => { if (c.ad[a]) c.ad[a] = Math.round(c.ad[a] * k); }); }); PKEYS.forEach(pk => { const ad = S.prod[pk] && S.prod[pk].ad; if (ad) AD_KEYS.forEach(a => { if (ad[a]) ad[a] = Math.round(ad[a] * k); }); }); } p.ca = cpi(); }
+  if (which !== 'a') p.cp = cpi();
+}
+function stepControl() {
+  const o = X11(); if (!(S.float >= 0.5)) { o.warn = 0; return; }
+  if (!o.warn) { o.warn = 1; say(`Les actionnaires extérieurs détiennent ${Math.round(S.float * 100)} % de ton capital : un rival peut lancer une prise de contrôle hostile. Rachète des actions pour repasser sous 50 %.`, 'warn'); }
+  if (S.day % 30 === 0 && (S.rivals || []).length && rnd() < clamp((S.float - 0.45) * 1.1, 0, 0.55)) { S.exec = { cfo: 0, ir: 0 }; S.cx = {}; S.prem = Math.max(0.6, (S.prem || 1.1) * 0.85); S.pb = (S.pb || 0) - 0.1; o.takeovers = (o.takeovers || 0) + 1; TM = techMults();
+    say('Prise de contrôle hostile : un rival a acquis la majorité du capital. La direction est remplacée (cadres, CFO et IR partent) et le cours chute de 15 %. Rachète des actions pour reprendre la main.', 'bad'); }
+}
+function stepPolicy() {
+  const p = S.pol || (S.pol = {}); if (p.cp == null) p.cp = cpi(); if (p.ca == null) p.ca = cpi();
+  if (S.day % 30 === 0) { if (!p.noInfP) p.cp = cpi(); if (!p.noInfA) adjustInfl('a'); }
+  // « Ne jamais vendre sous le coût » : le prix de rayon d'un magasin remonte tant que son coût d'achat dépasse son chiffre d'affaires
+  eachBuilding(c => { if (!TYPES[c.t].ret || !c.conn) return;
+    if (p.noLoss && c._rev > 0 && c._cogs > 0) { const r = c._cogs / c._rev; if (r > 0.97) c._nl = Math.min(1.6, (c._nl || 1) * 1.02); else if (r < 0.9 && c._nl > 1) c._nl = Math.max(1, c._nl * 0.99); } else if (!p.noLoss && c._nl) c._nl = 1; });
+  // compteur de rupture : jours consécutifs sans matière première
+  eachBuilding(c => { const T = TYPES[c.t]; if (!c.conn || c.t === 'npc') return; let sg = null;
+    if ((FLEVEL[c.t] || c.t === 'foundry') && c.limit && GOODS[c.limit]) sg = c.limit; else if (T.ret && c.limit === 'stock') sg = (T.ret.sells.filter(x => x !== 'estate' && S.stock[x] < 5)[0]) || null;
+    c._rup = sg ? (c._rup | 0) + 1 : 0; c._rupG = sg; });
+  if (p.seek && S.day % 5 === 0) stepProcure();
+}
+const offerScore = o => o.unit + o.freight * (0.2 + 1.6 * polFr());
+function bestOffer(g, haul) { let best = null; supplierList(g).forEach(s => { const o = supOffer(g, s.id, haul), sc = offerScore(o); if (!best || sc < best.sc) best = { id: 'co:' + s.id, o, sc }; }); const im = supOffer(g, 'import', haul); if (!best || offerScore(im) < best.sc) best = { id: 'import', o: im, sc: offerScore(im) }; return best; }
+function stepProcure() {
+  let n = 0;
+  eachBuilding(c => { const T = TYPES[c.t]; if (!c.conn || c.t === 'npc' || n >= 3) return;
+    const ins = (FLEVEL[c.t] || c.t === 'foundry') && recOf(c) ? Object.keys(recOf(c).in) : T.ret ? T.ret.sells.filter(x => x !== 'estate') : []; if (!ins.length) return;
+    ins.forEach(g => { if (!GOODS[g]) return; const mode = (c.src && c.src[g]) || 'auto', best = bestOffer(g, c.haul); if (!best) return;
+      if (mode === 'auto') { if ((c._rup | 0) >= polTol() && c._rupG === g) { c.src = c.src || {}; c.src[g] = best.id; n++; say(`Rupture de ${GOODS[g].name.toLowerCase()} depuis ${c._rup} jours : ${T.name.toLowerCase()} se tourne vers ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré).`, 'info'); } }
+      else if (mode.indexOf('co:') === 0) { const cur = supOffer(g, mode.slice(3), c.haul); if (best.sc < offerScore(cur) * 0.95 && best.id !== mode) { c.src[g] = best.id; n++; say(`Meilleur fournisseur trouvé pour ${GOODS[g].name.toLowerCase()} : ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré au lieu de ${cur.total.toFixed(2).replace('.', ',')}).`, 'info'); } } }); });
+}
 // Indice de fréquentation (Customer Index) : six facteurs pondérés, 0 à 100, qui pilote directement l'affluence du magasin
 function custIndex(c) {
   const T = TYPES[c.t], sl = Math.max(1, slotsN(c)), kn = shelfKeys(c).length;
@@ -2302,7 +2412,7 @@ Object.keys(AD_CH).forEach(k => { AD_CH[k].max *= K_SIZE; AD_CH[k].step *= K_SIZ
 const AD_KEYS = ['tv', 'radio', 'press', 'net', 'infl'];
 const BRAND_STRAT = { unique: ['Marque unique par produit', 'Chaque produit a sa marque : meilleure perception de qualité (+15 %), mais la notoriété se construit produit par produit (−10 %).'], range: ['Marque de gamme', 'Une marque couvre une gamme de produits : équilibre entre coût et image.'], corp: ['Marque d\'entreprise', 'Une seule marque pour tout : la notoriété est partagée entre tous tes magasins (+15 %), mais une mauvaise image les touche tous.'] };
 const brandStrat = () => (S && S.brandStrat) || 'range';
-const adScaleOf = c => (({ s1: 1, s2: 2.2, s3: 4, s4: 16, immo: 1.5 })[c.t] || 1) * K_SIZE;
+const adScaleOf = c => (({ s1: 1, s2: 2.2, s3: 4, s4: 16, immo: 1.5 })[c.t] || 1) * K_SIZE * adEr();
 const adOf = c => c.ad || (c.ad = { tv: 0, radio: 0, net: 0 });
 const adSpend = c => TYPES[c.t].ret ? AD_KEYS.reduce((a, k) => a + (adOf(c)[k] || 0), 0) : 0;
 function adRt(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] || 0; pw += (AD_CH[k].rt || 0.2) * (1 - Math.exp(-b / (AD_CH[k].scale * adScaleOf(c)))); }); return pw; }
@@ -2313,7 +2423,7 @@ function adPower(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] ||
 const adTarget = c => 100 * clamp(adPower(c) / 1.5, 0, 1);
 // Publicité PAR PRODUIT : le budget par canal est dans S.prod[pk].ad ; l'échelle dépend de la classe (grand public = gros budgets)
 const PAD_K = { basic: 3, std: 2, lux: 1.2, estate: 1.5 };
-const padScale = (pk, ak) => AD_CH[ak].scale * K_SIZE * (PAD_K[PRODUCTS[pk].cls] || 1);
+const padScale = (pk, ak) => AD_CH[ak].scale * K_SIZE * (PAD_K[PRODUCTS[pk].cls] || 1) * adEr();
 const padOf = ps => ps.ad || (ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 });
 const padSpend = ps => AD_KEYS.reduce((a, k) => a + (padOf(ps)[k] || 0), 0);
 function padPower(pk) { const ad = padOf(S.prod[pk]); return AD_KEYS.reduce((a, k) => a + AD_CH[k].gain * (1 - Math.exp(-(ad[k] || 0) / padScale(pk, k))), 0); }
@@ -2374,7 +2484,7 @@ function landValue(x, y) {
   const dc = Math.hypot(x - 30, y - 30), dp = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y);
   return clamp(z === 1 ? 0.5 + 0.5 * Math.max(0, 1 - dc / 22) : (z === 2 || z === 4) ? 0.3 + 0.35 * Math.max(0, 1 - dp / 30) : 0.06 + 0.3 * Math.max(0, 1 - dc / 45), 0, 1);
 }
-const landPrice = (x, y) => Math.round((150 + 1900 * Math.pow(landValue(x, y), 1.6)) / 10) * 10;
+const landPrice = (x, y) => Math.round((150 + 1900 * Math.pow(landValue(x, y), 1.6)) * landMult(x, y) * LAND_K / 10) * 10;
 function landCostFor(x, y, key) { const T = TYPES[key]; if (!T || key === 'road') return 0; let s = 0; for (let ox = 0; ox < (T.w || 1); ox++) for (let oy = 0; oy < (T.h || 1); oy++) s += inb(x + ox, y + oy) ? landPrice(x + ox, y + oy) : 0; return Math.round(s * (T.ext ? 0.3 : 1)); }
 function siteIndex() {
   if (!siteC.dirty && siteC.day === S.day) return siteC;
@@ -2400,6 +2510,24 @@ function competitionAt(x, y) { let n = 0; siteIndex().stores.forEach(q => { if (
 function pubNear(x, y) { let n = 0; if (!siteC.pub) { siteC.pub = []; S.grid.forEach(c => { if (c && c.t === 'npc' && c.k === 'mon' && PUB[c.m] && /^(edu|edu2|sante|admin)$/.test(PUB[c.m][1])) siteC.pub.push([c.x, c.y]); }); } siteC.pub.forEach(q => { if (Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 7) n++; }); return n; }
 function trafficAt(x, y) { if (trfDirty || !trf) rebuildTraffic(); return clamp(trf[idx(x, y)] * (1 + 0.12 * Math.min(3, pubNear(x, y))) / (1 + 0.3 * competitionAt(x, y)), 0, 1); }
 function residentsNear(x, y, r) { let s = 0; eachBuilding(b => { if (Math.abs(b.x - x) + Math.abs(b.y - y) > r) return; if (b.t === 'npc') { if (b.k === 'res') s += 5 * b.floors; else if (b.k === 'house') s += 5; } else if (b.t === 'res') s += 6 + 4 * b.floors; }); return s * K_POP; }
+/* ---------- Ressources naturelles : prime du site, sites neufs, ressources illimitées ---------- */
+const MINE_K = { oil: 1, iron: 1, coal: 1, copper: 1, gold: 1, gravel: 1, sand: 1, limestone: 1 };   // gisements non renouvelables
+function sitePremium(x, y, key) { const T = TYPES[key]; if (!T || !T.ext || !MINE_K[T.ext]) return 0; const d = S.dep[idx(x, y)]; if (!d || d.k !== T.ext || d.own) return 0; return Math.round(DEPOSITS[d.k].res * GOODS[d.k].base * 0.03 * (d.pm || 1) * cpi() / 1000) * 1000; }
+function stepSites() {
+  const rs = X11().rs; if (!rs || !rs.q || !rs.q.length) return;
+  rs.q = rs.q.filter(e => {
+    if (e.day > S.day) return true;
+    const k = e.k, kc = k.charCodeAt(0) + k.length; rs.gen = rs.gen || {}; if ((rs.gen[k] || 0) >= 6) return false;
+    let sx = -1, sy = -1; for (let i = 0; i < 400 && sx < 0; i++) { const x = Math.floor(hash(S.day, i, kc) * N), y = Math.floor(hash(i, S.day, kc + 9) * N), id = idx(x, y); if (ZONE[id] === 0 && !isRoadPos(x, y) && !S.grid[id] && !S.dep[id] && !inCity(x, y)) { sx = x; sy = y; } }
+    if (sx < 0) return false;
+    const gen = (rs.gen[k] = (rs.gen[k] || 0) + 1), pm = +Math.pow(1.6, gen).toFixed(3), n = 5 + Math.floor(hash(S.day, gen, kc) * 5); let x = sx, y = sy, put = 0;
+    for (let i = 0; i < 60 && put < n; i++) { const id = idx(x, y); if (inb(x, y) && ZONE[id] === 0 && !isRoadPos(x, y) && !S.grid[id] && !S.dep[id]) { S.dep[id] = { k, r: Math.round(DEPOSITS[k].res * 0.75), pm }; put++; } const dd = Math.floor(hash(i, S.day, kc + 3) * 4); x += [1, -1, 0, 0][dd]; y += [0, 0, 1, -1][dd]; }
+    say(`Nouveau gisement de ${DEPOSITS[k].name} découvert en (${sx + 1}, ${sy + 1}) : ${put} cases. Les sites neufs coûtent bien plus cher à acquérir (prime ×${pm.toString().replace('.', ',')} par rapport aux premiers).`, 'info'); trfDirty = true; siteC.dirty = true;
+    return false;
+  });
+}
+const unlimitedRes = () => !!(X11().unl);
+function unitAcq(c) { const T = TYPES[c.t], base = c.acq || (landCostFor(c.x, c.y, c.t) + sitePremium(c.x, c.y, c.t) + DEPOSITS[T.ext].res * GOODS[T.ext].base * 0.03), res0 = DEPOSITS[T.ext].res; return base / res0 * cpi(); }
 function siteInfo(x, y, key) {
   const T = TYPES[key]; if (!T || key === 'road') return null;
   const land = landCostFor(x, y, key), info = { key, land, build: T.cost, total: T.cost + land };
@@ -2409,7 +2537,7 @@ function siteInfo(x, y, key) {
     const inU = Object.values(rec.in).reduce((a, b) => a + b, 0), transport = (inU + outU) * haul * TRANS * cpi(), lossV = outU * price * loss;
     info.kind = 'ind'; info.haul = haul; info.loss = loss; info.transport = transport; info.lossV = lossV; info.access = roadDist(x, y, key); info.year = land + 360 * (transport + lossV) + 2500 * Math.max(0, info.access - 1);
     info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); info.dMarket = marketDist(x, y);
-  } else if (T.ext) { info.kind = 'ext'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
+  } else if (T.ext) { info.prem = sitePremium(x, y, key); info.total += info.prem; const dd = S.dep[idx(x, y)]; info.dep = dd && dd.k === T.ext ? dd : null; info.kind = 'ext'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
   else if (key === 'wh') { info.kind = 'wh'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
   else info.kind = 'oth';
   return info;
@@ -2435,10 +2563,11 @@ function step() {
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = (S.patents || 0) * 70 * (casteIs('innovateur') ? 1.5 : 1);
-  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepNpcDensify();
+  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepNpcDensify(); stepPolicy(); stepSites();
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
   if (S.day % 5 === 0 || !S._trf) { S._trf = 1; trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }   // !S._trf : après un chargement, le trafic (non sauvegardé) est recalculé tout de suite
   if (S.day % 5 === 0) stepGoal();
+  stepControl();
   if (S.research) { S.research.left -= 1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto'); if (S.research.left <= 0) { S.tech = S.tech || {}; S.tech[S.research.id] = S.day; say(`Recherche terminée : ${TECH_BY[S.research.id].n}. ${TECH_BY[S.research.id].d2}`, 'gold'); S.research = null; TM = techMults(); } }
   maybeEvent();
   const workforce = S.pop * 0.55;
@@ -2463,10 +2592,11 @@ function step() {
     if (!T.ext) return;
     const d = S.dep[idx(c.x, c.y)], fill = fillOf(c), nominal = T.rate * unitsOf(c);
     let out = nominal * fill * (S.day <= c.alertUntil ? 0.75 : 1) * (c.linked === false ? UNLINKED_EFF : 1) * (CROPS[T.ext] ? TM.crop * soilMult(c) : T.ext === 'wood' ? TM.wood : T.ext === 'oil' ? TM.oil : TM.ore);
-    if (CROPS[T.ext]) { /* sol renouvelable */ } else if (!d || d.k !== T.ext) out = 0; else { out = Math.min(out, d.r); d.r -= out; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} à l'arrêt. Ouvre une nouvelle mine ailleurs.`, 'bad'); } }
+    if (CROPS[T.ext]) { /* sol renouvelable */ } else if (!d || d.k !== T.ext) out = 0; else if (unlimitedRes() && MINE_K[T.ext]) { const rem = Math.min(out, d.r); d.r -= rem; c._xcost = (out - rem) * unitAcq(c); indImport += c._xcost; c.inCost = c._xcost; c.dry = false; } else { out = Math.min(out, d.r); d.r -= out; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} à l'arrêt. Ouvre une nouvelle mine ailleurs.`, 'bad'); } }
     out *= 1 - wasteOf(c); c.out = out; S.stock[T.ext] += out; made[T.ext] += out;
     c.util = nominal > 0 ? out / nominal : 0;
-    c.limit = (d && d.r < 1) ? 'reserve' : c.linked === false ? 'link' : S.day <= c.alertUntil ? 'alert' : fill < 0.97 ? 'staff' : null;
+    if (!(unlimitedRes() && MINE_K[T.ext])) { c._xcost = 0; }
+    c.limit = (d && d.r < 1 && !(unlimitedRes() && MINE_K[T.ext])) ? 'reserve' : c.linked === false ? 'link' : S.day <= c.alertUntil ? 'alert' : fill < 0.97 ? 'staff' : null;
   });
   // 2. Industrie : fonderie, composants, puis produits finis. Une usine non affectée produit la marchandise générique.
   const runRecipe = (list, inp, tgt) => {
@@ -2627,6 +2757,8 @@ function step() {
       if (!c.gridOk) c.limit = 'grid'; else if (storm) c.limit = 'storm';
       mwh *= loss; S._pSup += mwh; c.pRev = mwh * (S.power ? S.power.price : ELEC_BASE) * (casteIs('negociant') ? 1.3 : 1); revTech += c.pRev;
     }
+    if (c.t === 'off') revTech += stepRent(c);
+    if (c.t === 'tv') { if (!S._mediaDay || S._mediaDay !== S.day) { S._mediaDay = S.day; stepMedia(buildings.filter(b => b.t === 'tv' && b.conn)); } revTech += c.pRev || 0; importCost += c._mbc || 0; }
     if (c.t === 'tech') { c.pRev = jobsOf(c) * 1650 * (0.3 + 0.7 * fill) * qualMult(c) * mult * cpi(); revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = (TYPES.bank.jobs * levelMult(c) * crewEff(c) * 1500 + Math.min(Math.max(0, S.cash - (S.loan || 0)), TYPES.bank.jobs * levelMult(c) * crewEff(c) * 4e6) * 0.0001) * qualMult(c) * cpi(); revBank += c.pRev; }   // intérêts sur un encours de prêts plafonné par la taille de la banque (≈ 4 M$ de crédits par employé), pas sur toute la trésorerie
     if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && !T.ext && !T.rec && !T.ret) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
@@ -2666,7 +2798,7 @@ function step() {
     const up = (T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))) + phOvh(c)) * cpi();
     // Séparation : production valorisée interne (mines, usines : non encaissée) / chiffre d'affaires encaissé ; intrants importés (décaissés) / prélevés sur stock local (transfert interne)
     c.pInt = (T.ext || T.rec) ? c.pRev : 0;
-    { const ip = T.ret ? (c._inImpR || 0) : c.t === 'wh' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
+    { const ip = T.ret ? (c._inImpR || 0) : T.ext ? (c._xcost || 0) : c.t === 'wh' || c.t === 'tv' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
     REC.pInt += c.pInt; REC.pCash += c.pRev - c.pInt; REC.inImp += c.inImp; REC.inLoc += c.inLoc; REC.wag += c.wages; REC.upk += up; REC.tra += c.transport; REC.ad += c.adCost || 0;
     c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
     c.profit = c.pRev - c.cost;
@@ -2805,7 +2937,7 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierNow() < T.tier);
 }
-const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
+const ZONE_NEED = { tv: 1, off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
 ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
 const zoneOk = (key, z) => (key === 'pylon' || key === 'cable') ? (z === 0 || z === 2 || z === 4) : z === ZONE_NEED[key];
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
@@ -2886,12 +3018,13 @@ function place(x, y, key) {
     if (!quiet) { say(err, 'warn'); if (key === 'road') lastRoadMsg = performance.now(); }
     return false;
   }
-  const land = landCostFor(x, y, key), tot = Math.round(T.cost * casteCost(key) * Math.max(1, cpi())) + land;
-  if (S.cash < tot) { say(`Trésorerie insuffisante pour ${T.name.toLowerCase()} : ${money(T.cost)} de construction + ${money(land)} de terrain.`, 'bad'); return false; }
+  const land = landCostFor(x, y, key), prem = sitePremium(x, y, key), tot = Math.round(T.cost * casteCost(key) * Math.max(1, cpi())) + land + prem;
+  if (S.cash < tot) { say(`Trésorerie insuffisante pour ${T.name.toLowerCase()} : ${money(T.cost)} de construction + ${money(land)} de terrain${prem > 0 ? ' + ' + money(prem) + ' de prime du site' : ''}.`, 'bad'); return false; }
   S.cash -= tot; trfDirty = true; siteC.dirty = true;
   let b;
   if (key === 'road') { b = mkCell('road'); b.x = x; b.y = y; b.own = true; S.grid[idx(x, y)] = b; }
-  else b = placeBuilding(x, y, key);
+  else { b = placeBuilding(x, y, key); if (land > 0) { b.lp = land; b.lpm = landMult(x, y); }
+    if (T.ext && MINE_K[T.ext]) { const dd = S.dep[idx(x, y)]; b.acq = land + prem; if (dd && dd.k === T.ext && !dd.own) { dd.own = 1; const rs = X11().rs = X11().rs || { q: [], gen: {} }; rs.q.push({ k: T.ext, day: S.day + 12 + Math.floor(hash(S.day, x * 7 + y, 5) * 20) }); } } }
   flyers.push({ x, y, text: '-' + fmt(tot), t: performance.now(), col: '#ff8a8e' });
   if (T.ret) b.traffic = trafficAt(x, y);
   if (T.ext) { if (!extLinked(b, linkedMask())) say('Hors réseau : rendement de ' + Math.round(UNLINKED_EFF * 100) + ' %. Relie-la à la ville avec l\'outil Relier pour atteindre 100 %.', 'info'); }
@@ -2968,7 +3101,7 @@ function inspect(x, y) {
   if (!c) {
     if (d && d.k === 'wood') say(`Forêt · réserve ${fmt(d.r)} unités, elle repousse lentement. Pose un camp de bûcherons.`, 'info');
     else if (d && CROPS[d.k]) say(`Terre agricole · ${DEPOSITS[d.k].name}. Pose une exploitation dessus : le sol se renouvelle.`, 'info');
-    else if (d) say(`Gisement de ${DEPOSITS[d.k].name} · réserve ${fmt(d.r)} unités. Pose une mine ou une carrière dessus.`, 'info');
+    else if (d) { const pm = d.own ? 0 : Math.round(DEPOSITS[d.k].res * GOODS[d.k].base * 0.03 * (d.pm || 1) * cpi()); say(`Gisement de ${DEPOSITS[d.k].name} · réserve ${fmt(d.r)} unités${MINE_K[d.k] ? ' · prime du site ' + (pm ? money(pm) + (d.pm > 1 ? ' (site neuf ×' + String(d.pm).replace('.', ',') + ')' : '') : 'déjà acquise') : ''}. Pose une mine ou une carrière dessus.`, 'info'); }
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
   }
@@ -3111,16 +3244,25 @@ function updateHUD() {
     else bh = `<div class="finrow"><span>Cours de l'action</span><b class="${(S.sp || []).length > 1 && S.sp[S.sp.length - 1] >= S.sp[S.sp.length - 2] ? 'pos' : 'neg'}">${fx2(price)} $</b></div><div class="finrow"><span>Capitalisation boursière</span><b>${money(raw * (S.prem || 1.1))}</b></div><div class="finrow"><span>Flottant (actionnaires extérieurs)</span><b>${Math.round(S.float * 100)} %</b></div><div class="finrow"><span>Prime de marché</span><b>${Math.round((S.prem - 1) * 100)} %</b></div><canvas id="spk" width="320" height="50" style="width:100%;height:46px"></canvas>${dir}
       <div class="taxrow"><span>Dividendes</span><input type="range" id="payout" min="0" max="60" step="5" value="${Math.round((S.payout || 0) * 100)}" aria-label="Part des bénéfices distribuée" ${cfo ? '' : 'disabled'}><b>${cfo ? Math.round((S.payout || 0) * 100) + ' %' : 'CFO requis'}</b></div>
       <p class="note">Les dividendes soutiennent le cours mais sortent de ta trésorerie, à hauteur du flottant. Réglage réservé au directeur financier.</p>
-      <button class="btn sec" id="buyback" ${cfo && S.float >= 0.05 && S.cash >= 0.05 * raw * S.prem ? '' : 'disabled'}>Racheter 5 % du capital · ${money(0.05 * raw * (S.prem || 1.1))}${cfo ? '' : ' (CFO requis)'}</button>
+      <button class="btn sec" id="buyback" ${(cfo || S.float >= 0.5) && S.float >= 0.05 && S.cash >= 0.05 * raw * S.prem ? '' : 'disabled'}>Racheter 5 % du capital · ${money(0.05 * raw * (S.prem || 1.1))}${cfo || S.float >= 0.5 ? '' : ' (CFO requis)'}</button>
+      <button class="btn sec" id="raise" style="margin-top:6px" ${hq && S.float < 0.8 ? '' : 'disabled'}>Augmentation de capital · émettre 10 % : lève ${money(raiseAmt(raw))}, ta part passe de ${Math.round((1 - S.float) * 100)} % à ${Math.round((1 - S.float) * 90)} %</button>
+      <p class="note">Une levée dilue tous les actionnaires, toi compris, et pèse sur le cours. Au-delà de 50 % de flottant, un rival peut tenter une prise de contrôle hostile.${S.float >= 0.5 ? ' <b class="neg">Tu es sous la barre des 50 % : rachète des actions.</b>' : ''}</p>
       <h3 style="margin-top:12px">ÉVÉNEMENTS BOURSIERS</h3>${Object.keys(IR_EVENTS).map(k => { const E = IR_EVENTS[k], cd = Math.max(0, ((S.irCd || {})[k] || 0) - S.day); return `<div class="rv"><span><b>${E.n}</b><small>${E.d}</small></span><button class="btn sec" data-ir="${k}" ${ir && !cd && S.cash >= E.cost ? '' : 'disabled'}>${ir ? (cd ? cd + ' j' : money(E.cost)) : 'IR requis'}</button></div>`; }).join('')}`;
     if (!document.activeElement || document.activeElement.id !== 'payout') { if (el('bourse').dataset.h !== bh) { el('bourse').innerHTML = bh; el('bourse').dataset.h = bh; } }
     if (listed && el('spk')) drawSeries(el('spk'), S.sp || [], '#46d39a', true);
     const lim = creditLimit();
     { const bkEl = el('bankbox'); if (bkEl) { let bh = ''; if (casteIs('banquier')) { const b = bkInit(), L = BK_LVL[b.lvl], nxt = BK_LVL[b.lvl + 1]; bh = `<div class="fcard" style="border:1px solid ${CASTES.banquier.col}"><h4>Ma banque · ${L.n}</h4><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Ressources propres</small><b>${money(b.res)}</b></div><div><small>Tradable (20 %)</small><b>${money(b.res * 0.2)}</b></div><div><small>Exigence fonds propres</small><b>${Math.round(L.ratio * 100)} %</b></div><div><small>Levier</small><b>×${Math.round(1 / L.ratio)}</b></div><div><small>Crédits octroyés</small><b>${money(b.loans)}</b></div><div><small>Intérêts / mois</small><b class="pos">+${mj(b.inc || 0)}</b></div><div><small>Capacité restante</small><b>${money(bkCap())}</b></div><div><small>Demande de crédit</small><b>${money(bkDemand())}</b></div></div><div class="seg2" style="margin-top:6px"><button class="btn" data-bk="lend">Prêter 1 M$</button><button class="btn sec" data-bk="lend5">Prêter 5 M$</button><button class="btn sec" data-bk="repay">Récupérer 1 M$</button></div>${nxt ? `<button class="btn sec" data-bk="up" style="margin-top:6px">Passer ${nxt.n} : fonds propres ${Math.round(nxt.ratio * 100)} % (requiert ${money(BK_REQ[b.lvl + 1])} de crédits)</button>` : ''}<small class="note">Les crédits rapportent taux + 3 % ; plus le levier est haut, plus les pertes sont élevées, surtout en récession. Ton portefeuille d'actions peut servir de collatéral pour emprunter (plafond d'emprunt +50 %).</small></div>`; } if (bkEl.dataset.h !== bh) { bkEl.innerHTML = bh; bkEl.dataset.h = bh; } } }
-    el('loanV').textContent = `Dette ${money(S.loan || 0)} · plafond ${money(lim)}`;
-    el('loanUp').disabled = (S.loan || 0) + 20000 > lim;
-    el('loanDn').disabled = !(S.loan > 0) || S.cash < 1000;
-    { const pp = (S.pol && S.pol.price) || 0; if (document.activeElement !== el('polPrice')) el('polPrice').value = -pp; el('polPriceV').textContent = POL_N[String(pp)] || 'Équilibré'; el('polNote').textContent = pp > 0 ? 'Prix plus bas : plus de clients, marges plus fines.' : pp < 0 ? 'Prix plus hauts : meilleure marge, moins de clients.' : 'Prix du marché sur tes magasins.'; el('polAlert').textContent = 'Alertes de stock bas : ' + (S.pol && S.pol.noAlert ? 'non' : 'oui'); el('polAlert').setAttribute('aria-pressed', S.pol && S.pol.noAlert ? 'false' : 'true'); }
+    { const st = loanStep(), rate = (S.macro.rate + 0.02) * (execOn('cfo') ? 0.75 : 1) * TM.interest, ca = curAssetsCL();
+      el('loanV').textContent = `Dette ${money(S.loan || 0)} · plafond ${money(lim)}`;
+      el('loanUp').textContent = 'Emprunter ' + money(st); el('loanDn').textContent = 'Rembourser ' + money(st);
+      el('loanUp').disabled = (S.loan || 0) + st > lim;
+      el('loanDn').disabled = !(S.loan > 0) || S.cash < Math.min(st, S.loan || 0);
+      el('loanNote').textContent = `Plafond = 100 % des actifs courants (${money(ca)} : trésorerie propre + stocks). Taux ${(rate * 100).toFixed(1).replace('.', ',')} % · intérêts ${mj((S.loan || 0) * rate / 360)}/mois. Le principal n'est jamais exigible, et l'inflation l'érode : ta dette vaut ${money((S.loan || 0) / cpi())} en dollars d'origine.`; }
+    { const pp = (S.pol && S.pol.price) || 0; if (document.activeElement !== el('polPrice')) el('polPrice').value = -pp; el('polPriceV').textContent = POL_N[String(pp)] || 'Équilibré'; el('polNote').textContent = pp > 0 ? 'Prix plus bas : plus de clients, marges plus fines.' : pp < 0 ? 'Prix plus hauts : meilleure marge, moins de clients.' : 'Prix du marché sur tes magasins.'; el('polAlert').textContent = 'Alertes de stock bas : ' + (S.pol && S.pol.noAlert ? 'non' : 'oui'); el('polAlert').setAttribute('aria-pressed', S.pol && S.pol.noAlert ? 'false' : 'true');
+      [['polNoLoss', 'noLoss', 'Ne jamais vendre sous le coût', 0], ['polSeek', 'seek', 'Chercher de meilleurs fournisseurs', 0], ['polInfP', 'noInfP', 'Prix selon l\'inflation', 1], ['polInfA', 'noInfA', 'Publicité selon l\'inflation', 1]].forEach(([id, k, lab, inv]) => { const on = inv ? !polOn(k) : polOn(k); el(id).textContent = lab + ' : ' + (on ? 'oui' : 'non'); el(id).setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      if (document.activeElement !== el('polFr')) el('polFr').value = Math.round(polFr() * 100); el('polFrV').textContent = Math.round(polFr() * 100) + ' %'; if (document.activeElement !== el('polTol')) el('polTol').value = polTol(); el('polTolV').textContent = polTol() + ' jour' + (polTol() > 1 ? 's' : '');
+      el('polNote2').textContent = (polOn('seek') ? 'Les usines et magasins en rupture depuis plus de ' + polTol() + ' jours, et ceux qui paient trop cher, changent de fournisseur ; le fret pèse ' + Math.round(polFr() * 100) + ' % dans le choix (plus il pèse, plus on achète près).' : 'Recherche de fournisseurs désactivée : tes choix manuels restent en place.') + (polOn('noLoss') ? ' Un magasin dont le coût d\'achat dépasse le CA relève son prix de rayon.' : '');
+      el('polNote3').textContent = 'Sans ajustement, tes prix de rayon et ton budget publicitaire perdent du terrain à chaque point d\'inflation (' + Math.round((cpi() - 1) * 1000) / 10 + ' % depuis le début). Les options automatiques réalignent tout tous les 30 jours.'; }
     el('tax').value = Math.round(S.tax * 100);
     el('taxV').textContent = Math.round(S.tax * 100) + ' %';
     el('taxNote').textContent = S.tax > 0.3 ? 'Impôt élevé : la ville finance de meilleurs services (humeur +), mais tes bénéfices fondent.' : S.tax < 0.2 ? 'Impôt bas : tu gardes plus de bénéfices, mais les services publics et l\'humeur en pâtissent.' : 'Impôt équilibré.';
@@ -3142,7 +3284,8 @@ el('bourse').addEventListener('click', e => {
   if (e.target.id === 'openhq') { const h = hqOf(); if (h) openBuilding(h.x, h.y); return; }
   const irb = e.target.closest && e.target.closest('[data-ir]'); if (irb && !irb.disabled) { irEvent(irb.dataset.ir); return; }
   if (e.target.id === 'ipo' && !(S.float > 0) && raw >= IPO_MIN && hqOf()) { const f = 0.3, prem = 1.1, post = raw / (1 - f * prem); S.cash += post - raw; S.float = f; S.prem = prem; S.sp = []; say(`Introduction en bourse réussie : ${money(post - raw)} levés pour 30 % du capital.`, 'gold'); refreshStats(); updateHUD(); save(); }
-  if (e.target.id === 'buyback' && S.float >= 0.05 && execOn('cfo')) { const c = 0.05 * raw * (S.prem || 1.1); if (S.cash >= c) { S.cash -= c; S.float = Math.max(0, S.float - 0.05); if (S.float < 0.001) { S.float = 0; S.sp = []; } say(`Rachat de 5 % du capital pour ${money(c)}.`, 'info'); refreshStats(); updateHUD(); save(); } }
+  if (e.target.id === 'raise' && S.float > 0 && S.float < 0.8 && hqOf()) { const f = 0.1, amt = raiseAmt(raw), old = (1 - S.float) * 100; S.cash += amt; S.float = S.float * (1 - f) + f; S.prem = Math.max(0.6, (S.prem || 1.1) * 0.97); S.pb = (S.pb || 0) - 0.03; say(`Augmentation de capital : ${money(amt)} levés. Ta part passe de ${Math.round(old)} % à ${Math.round((1 - S.float) * 100)} %.`, 'info'); refreshStats(); updateHUD(); save(); }
+  if (e.target.id === 'buyback' && S.float >= 0.05 && (execOn('cfo') || S.float >= 0.5)) { const c = 0.05 * raw * (S.prem || 1.1); if (S.cash >= c) { S.cash -= c; S.float = Math.max(0, S.float - 0.05); if (S.float < 0.001) { S.float = 0; S.sp = []; } say(`Rachat de 5 % du capital pour ${money(c)}.`, 'info'); refreshStats(); updateHUD(); save(); } }
 });
 el('bourse').addEventListener('input', e => { if (e.target.id === 'payout') { S.payout = +e.target.value / 100; e.target.nextElementSibling.textContent = e.target.value + ' %'; } });
 /* ---------- Guide du fabricant ---------- */
@@ -3391,13 +3534,34 @@ el('openTerm').onclick = () => openTerm();
 el('bankbox').addEventListener('click', e => { const b = e.target.closest('[data-bk]'); if (!b) return; const a = b.dataset.bk; if (a === 'lend') bkLend(1e6); else if (a === 'lend5') bkLend(5e6); else if (a === 'repay') bkRepay(1e6); else if (a === 'up') bkUp(); });
 el('portfolio').addEventListener('click', e => { const b = e.target.closest('[data-pf]'); if (b) { tSel = b.dataset.pf; openTerm(); } });
 /* ---------- Objectifs, score, classement, PDG ---------- */
+function resHTML() {
+  const u = unlimitedRes(), rs = X11().rs || { q: [], gen: {} };
+  return `<h3>RESSOURCES NATURELLES</h3><div class="tcard"><small>Ressources illimitées : une mine épuisée continue de produire, au coût d'acquisition d'origine ÷ réserve d'origine × inflation par unité extraite au-delà de la réserve. Sinon, il faut ouvrir de nouveaux sites, qui apparaissent peu après l'acquisition des anciens et coûtent bien plus cher (prime ×1,6 par génération, visible au survol).</small><div class="seg2" style="margin-top:6px"><button class="btn ${u ? '' : 'sec'}" data-unl="1" style="min-height:28px;padding:3px 10px;font-size:12px">Illimitées</button><button class="btn ${u ? 'sec' : ''}" data-unl="0" style="min-height:28px;padding:3px 10px;font-size:12px">Limitées</button></div><small>Sites neufs découverts : ${Object.keys(rs.gen || {}).reduce((a, k) => a + rs.gen[k], 0)} · en prospection : ${(rs.q || []).length}</small></div>`;
+}
+function subHTML() {
+  const o = X11().obj || {}, b = o.sub;
+  if (!b) return `<p class="note">Aucun sous-objectif en cours${S.day < 20 ? ' (le premier arrive après 20 jours)' : ' : le prochain arrive bientôt'}. Réussis : ${o.n || 0} · manqués : ${o.fail || 0}.</p>`;
+  const v = subVal(b.metric), left = Math.max(0, b.until - S.day), pr = b.metric === 'debt' ? clamp(1 - (v - b.target) / Math.max(0.01, 1 - b.target), 0, 1) : clamp(v / b.target, 0, 1);
+  return `<div class="tcard"><b>${b.t}</b><small>Récompense : ${b.kp} point${b.kp > 1 ? 's' : ''} de connaissance (à investir dans l'expertise des dirigeants) · pénalité si manqué · ${left} jours restants</small><div class="bar"><i style="width:${Math.round(pr * 100)}%"></i></div></div><p class="note">Réussis : ${o.n || 0} · manqués : ${o.fail || 0}.</p>`;
+}
+function domHTML() {
+  const rw = domRows(); return '<p class="note">Domination : être le plus gros acteur d\'une catégorie ou d\'un secteur, sans qu\'il faille la majorité. 20 % suffisent si personne ne te dépasse.</p>' + rw.map(r => `<div class="finrow" style="${r.lead ? 'color:var(--gold);font-weight:700' : ''}"><span>${r.kind === 'sect' ? '▣ ' : ''}${r.name}${r.lead ? ' · dominant' : ''}</span><b>${Math.round(r.you * 100)} % <small style="font-weight:400;color:var(--mut)">(meilleur rival ${Math.round(r.top * 100)} %${r.topN ? ' · ' + r.topN : ''})</small></b></div>`).join('');
+}
+function trainHTML() {
+  const cx = S.cx || {}, rs = Object.keys(XROLE).filter(r => cx[r] && hqOf()); if (!rs.length) return '<p class="note">Aucun cadre dirigeant en poste (siège social requis). Les points de connaissance gagnés par les objectifs servent à former tes dirigeants.</p>';
+  return rs.map(r => { const p = cx[r], d = XROLE[r].dom, e = p.exp[d]; return `<div class="finrow"><span>${XROLE[r].n} · ${p.name}</span><span>expertise ${Math.round(e)} / 100 <button class="btn sec" data-train="${r}" style="min-height:26px;padding:2px 10px;font-size:11.5px" ${(S.kp || 0) >= 1 && e < 100 ? '' : 'disabled'}>+6 · 1 point</button></span></div>`; }).join('');
+}
 function renderGoals() {
   if (!el('goals') || el('goals').closest('section').hidden) return;
   const g = S.goal || 'sandbox', G = GOALS[g], w = (S.stats && S.stats.worth) || 0, ms = marketShareAvg();
   let prog = '';
   if (g === 'match') prog = `<div class="bar"><i style="width:${Math.round(clamp(w / G.target, 0, 1) * 100)}%"></i></div><small class="note">${money(w)} / ${money(G.target)} · jour ${S.day} sur ${G.deadline}</small>`;
   else if (g === 'race') prog = `<div class="bar"><i style="width:${Math.round(clamp(w / G.target, 0, 1) * 100)}%"></i></div><small class="note">${money(w)} / ${money(G.target)} · jour ${S.day} sur ${G.deadline}</small>`;
-  else if (g === 'monopoly') prog = `<div class="bar"><i style="width:${Math.round(clamp((S.streak || 0) / G.streak, 0, 1) * 100)}%"></i></div><small class="note">Part de marché ${Math.round(ms * 100)} % (objectif ${Math.round(G.target * 100)} %) · série ${S.streak || 0} / ${G.streak} jours</small>`;
+  else if (g === 'monopoly') { const ar = (X11().obj && X11().obj.arg) || 'any', rw = domRows(), tgt = rw.filter(r => ar === 'any' || r.key === ar);
+    prog = `<div class="bar"><i style="width:${Math.round(clamp((S.streak || 0) / G.streak, 0, 1) * 100)}%"></i></div><small class="note">${domOk() ? 'Tu es le plus gros acteur : série ' : 'Pas encore dominant : série '}${S.streak || 0} / ${G.streak} jours</small>
+    <div class="seg2" style="margin:6px 0;flex-wrap:wrap"><button class="btn ${ar === 'any' ? '' : 'sec'}" data-dom="any" style="min-height:28px;padding:3px 10px;font-size:12px">Au choix</button>${rw.map(r => `<button class="btn ${ar === r.key ? '' : 'sec'}" data-dom="${r.key}" style="min-height:28px;padding:3px 10px;font-size:12px">${r.name.replace('Secteur de la ', '').replace('Secteur de l\'', '')}</button>`).join('')}</div>`; }
+  else if (G.metric && X11().obj && X11().obj.t && X11().obj.t.metric === G.metric) { const t = X11().obj.t, v = objVal(G.metric);
+    prog = `<div class="bar"><i style="width:${Math.round(clamp((v - t.base) / Math.max(1e-9, t.target - t.base), 0, 1) * 100)}%"></i></div><small class="note">${objFmt(G.metric, v)} / ${objFmt(G.metric, t.target)} (départ ${objFmt(G.metric, t.base)})</small><div class="seg2" style="margin:6px 0">${[2, 5, 10].map(m => `<button class="btn ${(X11().obj.mult || 2) === m ? '' : 'sec'}" data-omult="${m}" style="min-height:28px;padding:3px 10px;font-size:12px">×${m}</button>`).join('')}</div>`; }
   const sel = Object.keys(GOALS).map(k => `<button class="btn ${k === g ? '' : 'sec'}" data-goal="${k}" style="min-height:32px;padding:4px 10px;font-size:12px">${GOALS[k].n}</button>`).join('');
   const rows = [{ n: 'Ton empire', v: w, me: 1 }].concat((S.rivals || []).map(r => ({ n: r.name, v: rivalValue(r) }))).concat(NPC_TOP.map(x => ({ n: x[0], v: x[1] * (1 + x[2] * (S.day || 0)) }))).sort((a, b) => b.v - a.v);
   const rank = rows.findIndex(r => r.me) + 1;
@@ -3405,15 +3569,23 @@ function renderGoals() {
   const sk = Object.keys(SKILLS).map(k => { const l = skillOf(k), cost = skillCost(l); return `<div class="tcard"><b>${SKILLS[k].n} <span class="pip" style="color:var(--gold)">${'●'.repeat(l)}${'○'.repeat(SKILL_MAX - l)}</span></b><small>${SKILLS[k].d}</small>${l < SKILL_MAX ? `<button class="btn" data-skill="${k}" ${(S.kp || 0) >= cost ? '' : 'disabled'}>Améliorer · ${cost} point${cost > 1 ? 's' : ''}</button>` : '<small>Maîtrise maximale</small>'}</div>`; }).join('');
   const h = `<h3>OBJECTIF</h3><div class="tcard ${S.goalDone === 'win' ? 'done' : ''}"><b>${G.n}${S.goalDone === 'win' ? ' · victoire ✓' : S.goalDone === 'lose' ? ' · échec' : ''}</b><small>${G.d}</small>${prog}</div><div class="seg2" style="margin:6px 0;flex-wrap:wrap">${sel}</div>
     ${optHTML()}
-    <h3>SCORE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Score</small><b class="gold">${fmt(playerScore())}</b></div><div><small>Classement mondial</small><b>${rank} / ${rows.length}</b></div><div><small>Part de marché</small><b>${Math.round(ms * 100)} %</b></div><div><small>Missions</small><b>${(S.done || []).length} / ${MISSIONS.length}</b></div></div>
+    ${resHTML()}
+    <h3>SOUS-OBJECTIF</h3>${subHTML()}
+    <h3>DOMINATION DES MARCHÉS</h3>${domHTML()}
+    <h3>SCORE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Score</small><b class="gold">${fmt(playerScore())}</b></div><div><small>Classement mondial</small><b>${rank} / ${rows.length}</b></div><div><small>Part de marché</small><b>${Math.round(ms * 100)} %</b></div><div><small>Fortune personnelle</small><b>${money(Math.round(personalNet() * cpi()))}</b></div><div><small>Missions</small><b>${(S.done || []).length} / ${MISSIONS.length}</b></div></div>
     <h3>CLASSEMENT DES EMPIRES</h3>${rk}
+    <h3>FORMATION DES DIRIGEANTS</h3>${trainHTML()}
     <h3>COMPÉTENCES DU PDG</h3><p class="note">Points de connaissance : <b class="gold">${S.kp || 0}</b>. Tu en gagnes en accomplissant des missions (1 toutes les 3) et en atteignant ton objectif.</p>${sk}`;
   if (el('goals').dataset.h !== h) { el('goals').innerHTML = h; el('goals').dataset.h = h; }
 }
 el('goals').addEventListener('click', e => {
   const ob = e.target.closest('[data-opt]'); if (ob) { const [k, v] = ob.dataset.opt.split(':'); S.opt = S.opt || {}; S.opt[k] = +v; if (k === 'n') syncRivals(); renderGoals(); save(); return; }
+  const ub = e.target.closest('[data-unl]'); if (ub) { X11().unl = ub.dataset.unl === '1'; renderGoals(); save(); return; }
+  const db = e.target.closest('[data-dom]'); if (db) { X11().obj = X11().obj || {}; X11().obj.arg = db.dataset.dom; S.streak = 0; renderGoals(); save(); return; }
+  const mb = e.target.closest('[data-omult]'); if (mb) { setObjective(S.goal, +mb.dataset.omult); S.goalDone = null; renderGoals(); save(); return; }
+  const tb = e.target.closest('[data-train]'); if (tb && !tb.disabled) { const r = tb.dataset.train, p = (S.cx || {})[r]; if (p && (S.kp || 0) >= 1) { S.kp--; p.exp[XROLE[r].dom] = Math.min(100, p.exp[XROLE[r].dom] + 6); TM = techMults(); say(`${p.name} se forme : expertise ${Math.round(p.exp[XROLE[r].dom])}.`, 'good'); renderGoals(); updateHUD(); save(); } return; }
   const gb = e.target.closest('[data-goal]'), sb = e.target.closest('[data-skill]');
-  if (gb) { S.goal = gb.dataset.goal; S.goalDone = null; S.streak = 0; say(`Objectif : ${GOALS[S.goal].n}.`, 'info'); renderGoals(); save(); }
+  if (gb) { S.goal = gb.dataset.goal; S.goalDone = null; S.streak = 0; if (GOALS[S.goal].metric) setObjective(S.goal); say(`Objectif : ${GOALS[S.goal].n}.`, 'info'); renderGoals(); save(); }
   if (sb && !sb.disabled) { const k = sb.dataset.skill, l = skillOf(k), c = skillCost(l); if ((S.kp || 0) >= c && l < SKILL_MAX) { S.kp -= c; S.skills = S.skills || {}; S.skills[k] = l + 1; TM = techMults(); say(`${SKILLS[k].n} niveau ${l + 1}.`, 'good'); renderGoals(); updateHUD(); save(); } }
 });
 function renderTechs() {
@@ -3494,6 +3666,14 @@ function monthlyHTML() {
   const pc = m.ca > 0 ? Math.round(100 * m.ebe / m.ca) : 0;
   return `<h3>RÉSULTATS MENSUELS${m.n < 30 ? ' (estimés sur ' + m.n + ' j)' : ' (30 jours glissants)'}</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Chiffre d'affaires / mois</small><b class="gold">${money(m.ca)}</b></div><div><small>EBE / mois</small><b class="${m.ebe >= 0 ? 'pos' : 'neg'}">${m.ebe >= 0 ? '+' : '−'}${money(Math.abs(m.ebe))}</b><small>marge d'EBE ${pc} %</small></div><div><small>Résultat net / mois</small><b class="${m.net >= 0 ? 'pos' : 'neg'}">${m.net >= 0 ? '+' : '−'}${money(Math.abs(m.net))}</b></div><div><small>Résultat net / an (×12)</small><b>${money(m.net * 12)}</b></div></div>`;
 }
+function reHTML() {
+  const R = reRefresh(), ks = Object.keys(R.idx).sort((a, b) => R.idx[a] - R.idx[b]); let own = 0, nOff = 0, land = 0;
+  eachBuilding(c => { if (c.t === 'off') { own += c.pRev || 0; nOff++; } land += landVal(c); });
+  const nm = k => { const [bx, by] = k.split(',').map(Number); return `quartier ${String.fromCharCode(65 + bx)}${by + 1}`; }, fm = v => (v > 0 ? '+' : '') + Math.round(v * 100) + ' %';
+  return `<h3>IMMOBILIER</h3><p class="note">Indice offre/demande de bureaux par quartier : négatif = la demande dépasse l'offre, donc de la place pour de nouvelles tours et des loyers plus hauts. Terrain : le prix suit l'inflation, le trafic et les commerces voisins.</p>
+  <div class="kpis" style="grid-template-columns:repeat(3,1fr)"><div><small>Tours de location</small><b>${nOff}</b></div><div><small>Loyers / mois</small><b class="pos">${mj(own)}</b></div><div><small>Valeur des terrains</small><b>${money(Math.round(land))}</b></div></div>
+  <div class="finrow"><span>À investir : ${ks.slice(0, 3).map(nm).join(', ')}</span><b class="pos">${fm(R.idx[ks[0]])}</b></div><div class="finrow"><span>Saturés : ${ks.slice(-2).map(nm).join(', ')}</span><b class="neg">${fm(R.idx[ks[ks.length - 1]])}</b></div>`;
+}
 function renderEmpire() {
   if (el('panel').hidden || el('empire').closest('section').hidden) return;
   const st = S.stats || {}, ev = evaluate(), raw = st.raw || 0, fl = S.float || 0, F = S.fin || {};
@@ -3502,6 +3682,7 @@ function renderEmpire() {
   const kp = (l, v, c, s) => `<div><small>${l}</small><b class="${c || ''}">${v}</b>${s ? `<small>${s}</small>` : ''}</div>`;
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / mois', (F.net >= 0 ? '+' : '−') + mj(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : fx2(px) + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Habitants', fmt(st.pop || 0), '', fmt(st.playerJobs || 0) + ' emplois dans tes bâtiments')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
+  h += reHTML();
   h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Salaire réel', Math.round((S.rw || 1) * 100) + '', (S.rw || 1) >= 1 ? 'pos' : 'neg', 'indice 100 au départ : conditionne les achats de produits peu nécessaires (luxe)')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
   h += monthlyHTML();
   h += sectorHTML();
@@ -3527,12 +3708,20 @@ function renderEmpire() {
 }
 el('empire').addEventListener('click', e => { const bb = e.target.closest('[data-brand]'); if (bb) { S.brandStrat = bb.dataset.brand; say(`Stratégie de marque : ${BRAND_STRAT[S.brandStrat][0]}.`, 'info'); renderEmpire(); save(); return; }
    const b = e.target.closest('[data-open]'); if (!b) return; const [x, y] = b.dataset.open.split(',').map(Number); openBuilding(x, y); });
-const POL_N = { '-1': 'Marge maximale (prix +8 %)', '-0.5': 'Marge (prix +4 %)', '0': 'Équilibré', '0.5': 'Parts de marché (prix −4 %)', '1': 'Parts de marché maximales (prix −8 %)' };
+const POL_N = { '-1': 'Maximiser la marge (prix +8 %)', '-0.75': 'Marge (prix +6 %)', '-0.5': 'Marge (prix +4 %)', '-0.25': 'Plutôt marge (prix +2 %)', '0': 'Équilibré', '0.25': 'Plutôt parts (prix −2 %)', '0.5': 'Parts de marché (prix −4 %)', '0.75': 'Parts de marché (prix −6 %)', '1': 'Maximiser la part de marché (prix −8 %)' };
 el('polPrice').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.price = -+e.target.value; updateHUD(); });
 el('polAlert').onclick = () => { S.pol = S.pol || {}; S.pol.noAlert = !S.pol.noAlert; updateHUD(); };
-function creditLimit() { return Math.max(0, (casteIs('banquier') ? Math.round(0.5 * portValue() / 1000) * 1000 : 0) + Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.5 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
-el('loanUp').onclick = () => { if ((S.loan || 0) + 20000 <= creditLimit()) { S.loan = (S.loan || 0) + 20000; S.cash += 20000; say('Emprunt de 20 000 $ (intérêts 0,06 %/jour).', 'info'); updateHUD(); save(); } };
-el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, 20000, Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
+[['polNoLoss', 'noLoss'], ['polSeek', 'seek'], ['polInfP', 'noInfP'], ['polInfA', 'noInfA']].forEach(([id, k]) => { el(id).onclick = () => { S.pol = S.pol || {}; S.pol[k] = !S.pol[k]; if (k === 'noInfP' && !S.pol[k]) adjustInfl('p'); if (k === 'noInfA' && !S.pol[k]) adjustInfl('a'); updateHUD(); save(); }; });
+el('polAdjNow').onclick = () => { adjustInfl(); say('Prix de rayon et budgets publicitaires réalignés sur l\'inflation.', 'info'); updateHUD(); save(); };
+el('polFr').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.fr = +e.target.value / 100; updateHUD(); });
+el('polTol').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.tol = +e.target.value; updateHUD(); });
+const LOAN_STEPS = [20000, 50000, 100000, 250000, 500000, 1e6, 2.5e6, 5e6, 1e7, 2.5e7, 5e7, 1e8];
+function loanStep() { const lim = creditLimit(), t = lim / 12; let st = LOAN_STEPS[0]; LOAN_STEPS.forEach(v => { if (v <= t) st = v; }); return st; }
+const curAssetsCL = () => Math.max(0, S.cash - (S.loan || 0)) + stockValue();   // actifs courants : trésorerie propre + stocks
+function creditLimit() { return Math.max(Math.round(curAssetsCL() * (casteIs('banquier') ? 1.5 : 1) * (execOn('cfo') ? 1.2 : 1) / 1000) * 1000, creditLimit0()); }
+function creditLimit0() { return Math.max(0, (casteIs('banquier') ? Math.round(0.5 * portValue() / 1000) * 1000 : 0) + Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.5 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
+el('loanUp').onclick = () => { const st = loanStep(); if ((S.loan || 0) + st <= creditLimit()) { S.loan = (S.loan || 0) + st; S.cash += st; say(`Emprunt de ${money(st)} (taux ${(100 * ((S.macro.rate + 0.02) * (execOn('cfo') ? 0.75 : 1) * TM.interest)).toFixed(1).replace('.', ',')} % par an, aucun remboursement obligatoire).`, 'info'); updateHUD(); save(); } };
+el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, loanStep(), Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
 function setBar(id, v) {
   const e = el(id);
   e.className = v < 0 ? 'n' : '';
@@ -4227,7 +4416,65 @@ function auditCard(c) {
   return `<div class="lever wide" id="audit"><h4>Auditeur de cohérence <span class="pip ${bad ? 'neg' : ''}">${bad ? bad + ' alerte(s) grave(s)' : ''}${bad && warn ? ' · ' : ''}${warn ? warn + ' avertissement(s)' : ''}</span></h4>` + al.map(a => `<div class="bnbanner ${a.sev}"><b>${a.t}</b><span>${a.d}</span><div class="acts">${btn(a.fix)}${btn(a.fix2)}</div></div>`).join('') + `</div>`;
 }
 /* ---------- Vues dédiées par type de bâtiment (hors extraction, usine, commerce) ---------- */
-const SVC_KIND = t => isPlant(t) ? 'power' : ({ wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
+/* ---------- Immobilier : indice offre/demande par quartier, CBD, commodités, terrain ---------- */
+const CBD = { x: 30, y: 30 }, RENT_BASE = 2300 * K_SIZE, LAND_K = 12;
+const reKey = (x, y) => Math.floor((x - CITY.x0) / GRID) + ',' + Math.floor((y - CITY.y0) / GRID);
+function reRefresh() {
+  if (S._re && S._re.day === S.day) return S._re;
+  if (S._re && S._re.day > S.day - 5 && !S._re.dirty) return S._re;
+  const sup = {}, res = {}, am = [];
+  eachBuilding(b => {
+    const k = reKey(b.x, b.y);
+    if (b.t === 'npc') { if (b.k === 'off') sup[k] = (sup[k] || 0) + b.floors; else if (b.k === 'res') res[k] = (res[k] || 0) + 5 * b.floors; else if (b.k === 'house') res[k] = (res[k] || 0) + 5; else if (b.k === 'park') am.push([b.x, b.y, 0.09]); else if (b.k === 'mon') am.push([b.x, b.y, 0.12]); return; }
+    if (b.t === 'tech' || b.t === 'off') sup[k] = (sup[k] || 0) + lvFloors(b);
+    else if (b.t === 'res') res[k] = (res[k] || 0) + 6 + 4 * b.floors;
+    else if (b.t === 'sport') am.push([b.x, b.y, 0.14 + 0.03 * (b.lvl || 0)]);
+    else if (TYPES[b.t].ret && b.conn) am.push([b.x, b.y, 0.045]);
+  });
+  const Dtot = Math.max(1, (S.pop || 0) * 0.4114 / Math.max(0.01, S.jpf || 1));
+  // lissage spatial (blocs voisins) : la demande de bureaux vient des habitants des alentours, l'offre est aussi captée par les blocs voisins
+  const sm = (tab, bx, by) => { let a = tab[bx + ',' + by] || 0, r1 = 0, r2 = 0; for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const d = Math.max(Math.abs(i), Math.abs(j)); if (!d) continue; const v = tab[(bx + i) + ',' + (by + j)] || 0; if (d === 1) r1 += v / 8; else r2 += v / 16; } return 0.4 * a + 0.4 * r1 + 0.2 * r2; };
+  const BL = Math.ceil((CITY.x1 - CITY.x0 + 1) / GRID), supS = {}, demS = {}; let ws = 0;
+  for (let bx = 0; bx < BL; bx++) for (let by = 0; by < BL; by++) { const k = bx + ',' + by; supS[k] = sm(sup, bx, by); demS[k] = sm(res, bx, by); ws += demS[k]; }
+  const idx = {}; Object.keys(supS).forEach(k => { const d = Dtot * demS[k] / Math.max(1, ws); idx[k] = clamp((supS[k] - d) / Math.max(4, d), -0.7, 0.7); });
+  S._re = { day: S.day, idx, am, sup, dirty: false, D: Dtot };
+  return S._re;
+}
+const reIdxAt = (x, y) => { const R = reRefresh(), v = R.idx[reKey(x, y)]; return v == null ? (inCity(x, y) ? 0 : -0.3) : v; };
+function reAmen(x, y) { const R = reRefresh(); let a = 0; R.am.forEach(q => { if (Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 7) a += q[2]; }); return Math.min(1, a); }
+function reAttr(c) { const dist = Math.hypot(c.x - CBD.x, c.y - CBD.y), cbd = 1 - clamp(dist / 26, 0, 1), am = reAmen(c.x, c.y), tr = clamp(c.traffic != null ? c.traffic : trafficAt(c.x, c.y), 0, 1);
+  return { dist, cbd, am, tr, attr: clamp(0.55 + 0.35 * cbd + 0.35 * am + 0.25 * tr, 0.5, 1.5) }; }
+// Loyer : 100 % = loyer du marché ; les locataires réagissent sur plusieurs mois (baux)
+function stepRent(c) {
+  const A = reAttr(c), idx = reIdxAt(c.x, c.y), r = clamp(c.rent == null ? 1 : c.rent, 0.6, 1.6);
+  c._rEff = c._rEff == null ? r : c._rEff + (r - c._rEff) / 60;
+  const tgt = clamp(1.05 - 0.6 * idx - 0.9 * (c._rEff - 1), 0.05, 1); c._occ = c._occ == null ? tgt : c._occ + (tgt - c._occ) / 45;
+  const fl = lvFloors(c), fillS = 0.5 + 0.5 * fillOf(c);
+  c._A = A; c._idx = idx; c._tgt = tgt;
+  c.pRev = fl * RENT_BASE * A.attr * cpi() * c._occ * c._rEff * qualMult(c) * fillS; c.out = fl * c._occ; c.util = c._occ;
+  return c.pRev;
+}
+/* ---------- Médias : audience, budget de contenu, prix de la publicité ---------- */
+const mediaNeed = () => 0.0065 * Math.pow(Math.max(1000, S.pop || 0), 1.05) * K_SIZE;   // budget de contenu par jour pour une qualité ≈ 63 % : une grande ville coûte plus cher (rendements décroissants)
+const RIV_Q = [0.52, 0.4];                          // chaînes concurrentes de la ville
+function mediaStations() { const a = []; eachBuilding(c => { if (c.t === 'tv' && c.conn) a.push(c); }); return a; }
+function mediaQ(c) { const mb = (c.mr == null ? 1 : c.mr) * mediaNeed(); return clamp(1 - Math.exp(-mb / mediaNeed()), 0.04, 0.98); }
+function stepMedia(list) {
+  let totAttr = RIV_Q.reduce((a, q) => a + Math.pow(q, 1.6), 0); list.forEach(c => { c._q = mediaQ(c); totAttr += Math.pow(c._q, 1.6); });
+  const reach = (S.pop || 0) * 0.55, shops = Math.min(1.4, 0.5 + 0.02 * (S.stats && S.stats.cn ? (S.stats.cn.s1 + S.stats.cn.s2 * 2 + S.stats.cn.s3 * 3) : 0)), corp = 0.55 + 0.12 * Math.min(4, (S.rivals || []).length);
+  list.forEach(c => {
+    const rating = Math.pow(c._q, 1.6) / totAttr, aud = reach * rating, adp = clamp(c.adp == null ? 1 : c.adp, 0.4, 2);
+    const fl = clamp(1.05 - 1.6 * (adp - 1), 0.05, 1), fc = clamp(1 - 0.9 * (adp - 1), 0.05, 1) * (rating >= 0.2 ? 1 : 0.55 + 2.25 * rating);   // clients locaux très sensibles au prix ; annonceurs nationaux exigent de l'audience
+    const rl = aud * 0.068 * K_SIZE * cpi() * shops * fl * adp, rc = aud * 0.083 * K_SIZE * cpi() * corp * fc * adp;
+    c._rating = rating; c._aud = aud; c._fl = fl; c._fc = fc; c._rl = rl; c._rc = rc;
+    const mb = ((c.mr == null ? 1 : c.mr) * mediaNeed()) * cpi(); c._mbc = mb;
+    c.pRev = rl + rc; c.out = aud; c.util = rating; c.inCost = mb;
+  });
+}
+// Terrain : le prix suit l'inflation, le trafic et les commerces voisins
+function landMult(x, y) { const tr = clamp(trf ? trf[idx(x, y)] : 0.3, 0, 1.2), st = siteIndex().stores; let n = 0; for (let i = 0; i < st.length; i++) if (Math.abs(st[i][0] - x) + Math.abs(st[i][1] - y) <= 7) n++; return cpi() * (0.92 + 0.5 * tr + 0.025 * Math.min(8, n)); }
+const landVal = c => c.lp ? c.lp * clamp(landMult(c.x, c.y) / (c.lpm || 1), 0.6, 5) : 0;
+const SVC_KIND = t => isPlant(t) ? 'power' : ({ tv: 'tv', off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
 const svcOf = c => { const T = TYPES[c.t]; return (T.ext || T.rec || T.ret) ? null : SVC_KIND(c.t); };
 const hasBld = t => { let n = 0; eachBuilding(b => { if (b.t === t && b.conn) n++; }); return n; };
 function svcInfo(c) {
@@ -4278,6 +4525,25 @@ function svcInfo(c) {
     R.utilLbl = 'taux d\'occupation';
     R.kpi = [['Loyers / mois', mj(pr), 'pos'], ['Occupation', pct(fill)], ['Loyer / poste', money(jobs * fill > 0 ? pr / (jobs * fill) : 0)]];
     R.bn = ok(`Locaux occupés à ${pct(fill)} : loyers ${mj(pr)}/mois`, c.t === 'dc' ? 'Les loyers dépendent des postes pourvus ; chaque data center renforce aussi la puissance de calcul (IA).' : 'Les loyers dépendent des postes pourvus et de la qualité du bâtiment.');
+  } else if (k === 'off') {
+    const A = c._A || reAttr(c), idx = c._idx != null ? c._idx : reIdxAt(c.x, c.y), r = c.rent == null ? 1 : c.rent, pr = c.pRev || 0, ix = Math.round(idx * 100);
+    R.inH = nb('Quartier', `indice offre/demande ${ix > 0 ? '+' : ''}${ix} % : ${idx < -0.05 ? '<span class="pos">demande > offre, bon endroit pour investir</span>' : idx > 0.05 ? '<span class="neg">offre > demande, bureaux difficiles à louer</span>' : 'marché équilibré'}`) + nb('Attractivité', `${Math.round(A.attr * 100)} % : CBD à ${f1(A.dist)} cases · commodités ${Math.round(A.am * 100)} % · trafic ${Math.round(A.tr * 100)} %`) + nb('Terrain', `${money(Math.round(landVal(c)))} (${c.lp ? '×' + f1(landVal(c) / c.lp) + ' depuis l\'achat' : 'acheté avant la v11'})`);
+    R.outH = `<div class="bn"><b>Loyer : <span id="rentv">${Math.round(r * 100)} %</span> du marché</b><input type="range" data-rent="1" min="60" max="160" step="5" value="${Math.round(r * 100)}" aria-label="Loyer en pourcentage du marché"><small>Occupation visée ${Math.round((c._tgt != null ? c._tgt : 1) * 100)} % · les baux s'ajustent en 2 à 3 mois. 100 % = loyer de marché.</small></div>` + nb('Loyers', `${mj(pr)} /mois`);
+    R.util = clamp(c._occ != null ? c._occ : 0, 0, 1); R.utilLbl = 'taux d\'occupation';
+    R.kpi = [['Loyers / mois', mj(pr), 'pos'], ['Occupation', pct(R.util)], ['Indice quartier', (ix > 0 ? '+' : '') + ix + ' %', ix < -5 ? 'pos' : ix > 5 ? 'neg' : ''], ['Distance au CBD', f1(A.dist) + ' cases']];
+    R.bn = ok(`Occupation ${pct(R.util)} · loyers ${mj(pr)}/mois`, 'Loyer plus haut = plus de recettes par étage mais moins de locataires ; un quartier en pénurie d\'offre (indice négatif) supporte des loyers supérieurs. Parcs, commerces et équipements sportifs à 7 cases augmentent l\'attractivité.');
+  } else if (k === 'tv') {
+    const q = c._q != null ? c._q : mediaQ(c), need = mediaNeed(), mb = (c.mr == null ? 1 : c.mr) * need, adp = c.adp == null ? 1 : c.adp;
+    R.inH = `<div class="bn"><b>Budget de contenu : <span id="mbv">${Math.round(mb / need * 100)} %</span> du budget de référence (${mj(need)}/mois)</b><input type="range" data-mb="1" min="0" max="200" step="10" value="${Math.round(mb / need * 100)}" aria-label="Budget de contenu"><small>Qualité des programmes ${Math.round(q * 100)} % : elle monte avec le budget, avec des rendements décroissants. Dans une grande ville, le même niveau de qualité coûte plus cher.</small></div>`;
+    R.outH = `<div class="bn"><b>Prix de la publicité : <span id="adpv">${Math.round(adp * 100)} %</span> du tarif de référence</b><input type="range" data-adp="1" min="40" max="200" step="5" value="${Math.round(adp * 100)}" aria-label="Prix de la publicité"><small>Trop cher : peu d'annonceurs (surtout les commerces locaux). Trop bas : les spots ne couvrent plus le contenu.</small></div>` + nb('Annonceurs', `locaux ${mj(c._rl || 0)}/mois (${Math.round((c._fl || 0) * 100)} % des écrans vendus) · nationaux ${mj(c._rc || 0)}/mois (${Math.round((c._fc || 0) * 100)} %)`);
+    R.util = clamp(c._rating || 0, 0, 1); R.utilLbl = 'part d\'audience';
+    R.kpi = [['Recettes pub / mois', mj(c.pRev || 0), 'pos'], ['Audience (rating)', pct(c._rating || 0)], ['Spectateurs / jour', fmt(Math.round(c._aud || 0))], ['Contenu / mois', mj(c._mbc || 0), 'neg']];
+    R.bn = (c._rating || 0) < 0.12 ? ok('Audience trop faible', 'Les chaînes concurrentes captent le public : augmente le budget de contenu pour améliorer la qualité.', 'warn') : ok(`Audience ${pct(c._rating || 0)} · pub ${mj(c.pRev || 0)}/mois`, 'Recettes = publicité locale (commerces) + publicité nationale (marques), selon l\'audience, le prix demandé et la taille de la ville.');
+  } else if (k === 'sport') {
+    R.inH = nb('Rôle', 'équipement communautaire : il augmente l\'attractivité (et donc les loyers) des tours à moins de 7 cases');
+    R.outH = nb('Effet', `+${Math.round((0.14 + 0.03 * (c.lvl || 0)) * 100)} points de commodités autour`);
+    R.kpi = [['Commodités apportées', '+' + Math.round((0.14 + 0.03 * (c.lvl || 0)) * 100) + ' %'], ['Entretien / mois', mj(c.upk || 0), 'neg']];
+    R.bn = ok('Équipement en service', 'Ne rapporte rien directement : il valorise les tours de location voisines.');
   } else if (k === 'port') {
     const pr = c.pRev || 0, np = (S.stats && S.stats.cn && S.stats.cn.port) || 1;
     R.inH = nb('Marchandises à exporter', 'surplus des usines et mines, au cours mondial');
@@ -4435,7 +4701,9 @@ function bAct(a) {
   refreshStats(); updateHUD(); renderBuilding(true);
 }
 el('bview').addEventListener('input', e => { if (e.target.dataset && e.target.dataset.dept && bsel) { const c0 = cell(bsel.x, bsel.y); if (!c0) return; const k = e.target.dataset.dept, d = deptOf(c0), v = +e.target.value / 100, others = DEPTS.map(x => x[0]).filter(x => x !== k), rest = 1 - v, sum = others.reduce((a, x) => a + d[x], 0); others.forEach(x => { d[x] = sum > 0.001 ? d[x] / sum * rest : rest / 3; }); d[k] = v; DEPTS.forEach(([x]) => { const o = el('dv-' + x); if (o) o.textContent = Math.round(d[x] * 100) + ' %'; const sl = document.querySelector(`#bview input[data-dept="${x}"]`); if (sl && x !== k) sl.value = Math.round(d[x] * 100); }); return; } if (e.target.dataset && e.target.dataset.pf && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) c0.pf = +e.target.value / 100; return; } const k = e.target.dataset && e.target.dataset.ad; if (!k || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; adOf(c)[k] = +e.target.value; const o = el('adv-' + k); if (o) o.textContent = mj(+e.target.value) + ' /mois'; });
-el('bview').addEventListener('input', e => { const pk = e.target.dataset && e.target.dataset.pk; if (!pk || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.pk = c0.pk || {}; c0.pk[pk] = +e.target.value / 100; const o = el('pkv'); if (o) o.textContent = e.target.value + ' %'; });
+el('bview').addEventListener('input', e => { const mbI = e.target.dataset && (e.target.dataset.mb || e.target.dataset.adp); if (mbI && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) { if (e.target.dataset.mb) { c0.mr = +e.target.value / 100; const o = el('mbv'); if (o) o.textContent = e.target.value + ' %'; } else { c0.adp = +e.target.value / 100; const o = el('adpv'); if (o) o.textContent = e.target.value + ' %'; } } return; }
+  const rt = e.target.dataset && e.target.dataset.rent; if (rt && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) { c0.rent = +e.target.value / 100; const o = el('rentv'); if (o) o.textContent = e.target.value + ' %'; } return; }
+  const pk = e.target.dataset && e.target.dataset.pk; if (!pk || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.pk = c0.pk || {}; c0.pk[pk] = +e.target.value / 100; const o = el('pkv'); if (o) o.textContent = e.target.value + ' %'; });
 el('bview').addEventListener('change', e => { if (e.target.dataset && (e.target.dataset.pk || e.target.dataset.ad || e.target.dataset.pf || e.target.dataset.dept)) { bvHtml = ''; updateHUD(); renderBuilding(true); } });
 el('bview').addEventListener('dblclick', e => { const b = e.target.closest('[data-act^="slot:"]'); if (!b || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; supB = { x: c.x, y: c.y }; spI = +b.dataset.act.slice(5); supMode = 'slot'; el('supview').hidden = false; renderSlotPick(); });
 el('bview').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) bAct(b.dataset.act); });
@@ -5219,7 +5487,7 @@ function renderSlotPick() {
   const c = supB && cell(supB.x, supB.y); if (!c || el('supview').hidden) return;
   const N = slotsN(c), all = shelfItems(c), keys = c.slots ? c.slots : shelfKeys(c).concat(Array(N).fill(null)).slice(0, N), placed = keys.filter(Boolean), f = v => v.toFixed(2).replace('.', ',');
   const cards = all.filter(i => placed.indexOf(i.key) < 0).map(it => { const cls = it.gen ? it.key.slice(2) : PRODUCTS[it.key].cls, mk = retailMk(cls), price = it.price * mk;
-    const sup = it.gen ? `<select data-sps="${cls}" style="margin-top:4px;width:100%"><option value="auto">Fournisseur : automatique</option>${supCards(c, cls).map(x => `<option value="${x.id}" ${((c.src && c.src[cls]) || 'auto') === x.id ? 'selected' : ''}>${x.name} · ${f(x.o.total)} $ livré · Q${x.o.q}</option>`).join('')}</select>` : '<small>Fournisseur : ta propre production</small>';
+    const sup = it.gen ? `<select data-sps="${cls}" style="margin-top:4px;width:100%"><option value="auto">Fournisseur : automatique</option>${supCards(c, cls).map(x => `<option value="${x.id}" title="${freightTip(x.o)}" ${((c.src && c.src[cls]) || 'auto') === x.id ? 'selected' : ''}>${x.name} · ${f(x.o.total)} $ livré · Q${x.o.q}</option>`).join('')}</select>` : '<small>Fournisseur : ta propre production</small>';
     return `<div class="sc" style="cursor:default"><div style="width:84px;height:84px;background:#fff;border-radius:6px;overflow:hidden;display:grid;place-items:center">${slotThumb(it.key)}</div><div><h5>${it.name.replace(' (marché local)', '')}</h5><div class="sg"><span>Prix en rayon<b>${f(price)} $</b></span><span>Coût de gros<b>${f(it.price)} $</b></span><span>Stock<b>${fmt(Math.round(it.stock))}</b></span><span>Marge<b>${Math.round((1 - 1 / mk) * 100)} %</b></span></div>${sup}</div><button class="btn" data-s="slotput:${it.key}">Mettre en rayon</button></div>`; }).join('');
   el('supview').innerHTML = `<div class="sh"><span>EMPLACEMENT ${spI + 1} : CHOISIS LE PRODUIT ET LE FOURNISSEUR</span></div>${cards || '<p class="note">Tous les produits disponibles sont déjà en rayon.</p>'}<div class="sb"><span></span><button class="btn sec" data-s="cancel">Annuler</button></div>`;
 }
@@ -5234,7 +5502,7 @@ function renderSup() {
   if (!supSel || !cards.find(x => x.id === supSel)) supSel = (cards.find(x => x.id === mode || (mode === 'port' && x.id === 'import')) || cards[0] || {}).id;
   const sel = cards.find(x => x.id === supSel), bar = v => `<span class="bar"><i style="width:${Math.round(v * 100)}%"></i></span>`;
   const f = (v) => v.toFixed(2).replace('.', ',');
-  const cardsH = cards.map(x => `<button class="sc ${x.id === supSel ? 'on' : ''}" data-s="pick:${x.id}"><img alt="" src="${compIcon(g)}"><div><h5>${gName(g)} · ${x.name}</h5><div class="sg"><span>Ville<b>${x.city}</b></span><span>Prix<b>${f(x.o.unit)} $${x.o.deal ? ' (−' + Math.round((1 - x.o.deal.m) * 100) + ' %)' : ''}</b></span><span>Distance<b>${x.dist} cases</b></span><span>Qualité<b>${x.o.q}</b></span><span>Transport<b>${f(x.o.freight)} $</b></span><span>Livré<b>${f(x.o.total)} $</b></span><span>Offre${bar(x.supply)}</span><span>Demande${bar(x.demand)}</span></div></div><div class="ov" title="Note globale">${x.overall}</div></button>`).join('');
+  const cardsH = cards.map(x => `<button class="sc ${x.id === supSel ? 'on' : ''}" data-s="pick:${x.id}"><img alt="" src="${compIcon(g)}"><div><h5>${gName(g)} · ${x.name}</h5><div class="sg"><span>Ville<b>${x.city}</b></span><span>Prix<b>${f(x.o.unit)} $${x.o.deal ? ' (−' + Math.round((1 - x.o.deal.m) * 100) + ' %)' : ''}</b></span><span>Distance<b>${x.dist} cases</b></span><span>Qualité<b>${x.o.q}</b></span><span title="${freightTip(x.o)}">Transport<b>${f(x.o.freight)} $</b></span><span title="${freightTip(x.o)}">Livré<b>${f(x.o.total)} $</b></span><span>Offre${bar(x.supply)}</span><span>Demande${bar(x.demand)}</span></div></div><div class="ov" title="Note globale">${x.overall}</div></button>`).join('');
   const rel = (S.rel || {})[supSel] || 0;
   const negH = supNeg && sel && sel.id !== 'local' ? `<div class="neg"><b>Négociation avec ${sel.name}</b><div>Relation : ${rel}/100 · frais de dossier ${money(Math.round(1200 * cpi()))}</div><div class="seg2" style="margin-top:6px;flex-wrap:wrap">${[30, 60, 90].map(d => `<button class="btn sec" data-s="neg:${d}" style="min-height:28px;padding:3px 10px">Contrat ${d} jours</button>`).join('')}</div><small>Plus l'engagement est long et la relation bonne, plus la chance d'obtenir un rabais (4 à 12 %) est élevée.</small></div>` : '';
   const nav = ins.length > 1 ? `<button class="ibtn" data-s="prev">◀</button>` : '', nav2 = ins.length > 1 ? `<button class="ibtn" data-s="next">▶</button>` : '';
@@ -5264,7 +5532,7 @@ function purTab(c) {
   Object.keys(rec.in).forEach(g => {
     const mode = (c.src && c.src[g]) || 'auto', need = rec.in[g] * (c._u || 0), sup = supplierList(g);
     const opts = [['auto', null], ['local', supOffer(g, 'local')]].concat(sup.map(s => ['co:' + s.id, supOffer(g, s.id)])).concat([['import', supOffer(g, 'import', c.haul)]]);
-    const rows = opts.map(([m, o]) => { const on = m === mode || (mode === 'port' && m === 'import'); const lab = m === 'auto' ? 'Auto : stock local, puis port si rupture' : o.name; const tail = o ? `<span class="pq">Q ${o.q}</span><span>${f1(o.unit)} $</span><span class="${o.freight > 0.2 * o.unit ? 'neg' : ''}">+${f1(o.freight)} fret</span><b>${f1(o.total)} $</b>` : '<span></span><span></span><span></span><span></span>';
+    const rows = opts.map(([m, o]) => { const on = m === mode || (mode === 'port' && m === 'import'); const lab = m === 'auto' ? 'Auto : stock local, puis port si rupture' : o.name; const tail = o ? `<span class="pq">Q ${o.q}</span><span>${f1(o.unit)} $</span><span class="${o.freight > 0.2 * o.unit ? 'neg' : ''}" title="${freightTip(o)}">+${f1(o.freight)} fret</span><b title="${freightTip(o)}">${f1(o.total)} $</b>` : '<span></span><span></span><span></span><span></span>';
       return `<button class="sprow ${on ? 'on' : ''}" data-act="supp:${g}:${m}"><span class="rd">${on ? '◉' : '○'}</span><span class="sn">${lab}</span>${tail}</button>`; }).join('');
     h += `<div class="spcard"><button class="btn" data-act="opensup:${g}" style="float:right;min-height:28px;padding:3px 10px;font-size:11.5px">Choisir / négocier…</button><div class="sph"><i style="background:${GOODS[g] ? GOODS[g].color : '#8f9acb'}"></i><b>${gName(g)}</b><small>besoin ${f1(need)}/j · stock ${fmt(gStock(g))} · cours ${f1(gPrice(g))} $${c._impIn > 0.01 ? ' · acheté dehors ' + f1(c._impIn) + '/j' : ''}</small></div><div class="sprow hd"><span></span><span class="sn">Fournisseur</span><span>Qualité</span><span>Prix</span><span>Transport</span><b>Livré</b></div>${rows}</div>`;
   });
@@ -6137,9 +6405,9 @@ function drawTileOf(a, x, y, ox, oy, o) {
       const fw = (a.w + a.h) * 66 * 1.06, sc = fw / (m.right - m.left), dw = m.w * sc, dh = m.h * sc * grow * (1 + 0.1 * (a.lvl || 0)), tx = p.x - (m.tipx - m.w / 2) * sc, by = p.y + 66 + 4;
       ctx.drawImage(m.img, tx - dw / 2, by - dh, dw, dh); a._top = by - dh;
     }
-  } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') {
+  } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') {
     const k = Math.floor(a.seed * 997);
-    const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' || a.t === 'rd' || a.t === 'dc' ? 'tech' + (k % 2) : 'bank' + (k % 2);
+    const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' ? 'tech' + (k % 2) : a.t === 'sport' ? 'res' + (k % 9) : 'bank' + (k % 2);
     const floors = Math.max(1, Math.round(lvFloors(a) * (a.t === 'res' ? 1 : grow)));
     const bx = p.x - 50, by = p.y - 27;
     for (let i = 0; i < floors; i++) blit(name, bx, by - i * FH);
@@ -6159,8 +6427,8 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
   ctx.globalAlpha = alpha;
   const T = TYPES[a.t];
   let topY = a._top == null ? p.y - 28 : a._top;
-  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') {
-    if (a.t === 'tech' && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
+  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') {
+    if ((a.t === 'tech' || a.t === 'off' || a.t === 'tv') && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
       ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 10; ctx.fillStyle = '#ff5a5f';
       ctx.beginPath(); ctx.arc(p.x, topY + 26, 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
     }
@@ -6294,7 +6562,7 @@ function drawSatellite(now) {
   eachVisible(vr, (x, y) => {
     const rc = S.grid[idx(x, y)]; if (!rc || rc.t === 'road' || rc.t === 'part') return;
     const a = rc, T = TYPES[a.t]; if (!T) return;
-    const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
+    const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
     const H = fl * 15 + 6, w = a.w || 1, h = a.h || 1;
     const col = a.t === 'npc' ? [175 + (a.seed * 50 | 0) - 25, 185 + (a.seed * 40 | 0) - 20, 215] : (MM_COL[a.t] || [150, 150, 170]);
     const A = iso(x, y), B = iso(x + w, y), C = iso(x + w, y + h), D = iso(x, y + h);
@@ -6317,7 +6585,7 @@ function updateSiteTip() {
   else if (i.kind === 'ind') { h += row('Distance moyenne de transport', `${i.haul} cases`) + row('Port / marché', `${i.dPort} / ${i.dMarket} cases`) + row('Frais de transport', `${mj(i.transport)} /mois`) + row('Perte de rendement (délais)', `${(i.loss * 100).toFixed(1).replace('.', ',')} % ≈ ${mj(i.lossV)} /mois`, i.loss > 0.1 ? 'neg' : '') + row('Accès routier', i.access <= 1 ? 'sur la rue' : `ruelle de ${i.access - 1} case(s) (+${money(2500 * (i.access - 1))}/an)`, i.access > 2 ? 'neg' : '') + row('Coût sur 1 an (terrain + accès + logistique)', money(i.year));
     bestTile = bestSite(hover.x, hover.y, tool); h += bestTile && bestTile.year < i.year - 50 ? `<div class="adv2">★ Meilleur emplacement proche : case (${bestTile.x + 1}, ${bestTile.y + 1}), ${money(i.year - bestTile.year)} d'économie sur 1 an.</div>` : '<div class="adv2">Tu es déjà sur un très bon emplacement.</div>'; if (!(bestTile && bestTile.year < i.year - 50)) bestTile = null; }
   else if (i.kind === 'ext' && CROPS[T0.ext]) { const f = fertility(hover.x, hover.y, T0.ext), dc = waterDist(hover.x, hover.y); h += row('Fertilité du sol', Math.round(f * 100) + ' %', f > 0.95 ? 'pos' : f < 0.65 ? 'neg' : '') + row('Distance à la mer (eau)', dc + ' cases') + row('Distance au port', i.dPort + ' cases') + `<div class="adv2">${f < 0.65 ? 'Sol pauvre pour cette culture.' : 'Terre fertile.'} Irrigation possible ensuite (+10 % par niveau, protège de la sécheresse).</div>`; }
-  else if (i.kind === 'ext') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Une route reliée au réseau évite 35 % de pertes de rendement.</div>';
+  else if (i.kind === 'ext') h += (MINE_K[T0.ext] ? row('Prime du site (droit d\'exploitation)', i.dep ? (i.prem > 0 ? money(i.prem) : 'déjà acquise') : 'aucun gisement ici', i.prem > 0 ? 'neg' : '') + (i.dep ? row('Réserve', fmt(i.dep.r) + ' unités' + (i.dep.pm > 1 ? ' · site neuf ×' + String(i.dep.pm).replace('.', ',') : '')) : '') : '') + row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Une route reliée au réseau évite 35 % de pertes de rendement.</div>';
   else if (i.kind === 'wh') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Plus près du port : imports et exports moins chers.</div>';
   tip.innerHTML = h; tip.hidden = false;
 }
@@ -6599,7 +6867,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
