@@ -265,3 +265,14 @@ Sources : USDA-ERS (pain/céréales ≈ −0,5 en moyenne, inélastique ; court 
 - Sensibilité au PIB de la demande : basique 0,5, courant 1, luxe 6.
 - Usines génériques : plancher de prix = coût réel des intrants + 8 %, ventes en magasin et exports comptés dans la demande, EBITDA cible relevé pour f1/f2 (≈ 13 %) ; la grande usine (f3) utilise peu de lingots et beaucoup de main-d'œuvre (marge brute ≈ 56 %), mines d'or plus productives.
 - Pharma : moitié moins de matière et frais généraux fixes (marge brute ≈ 79 %), salaires ×1,8 ; banque, tech, R&D et data center paient 1,3 à 2 fois plus ; CA tech et banque indexés sur l'inflation, intérêts bancaires plafonnés par la taille de la banque (plus sur toute la trésorerie), CA par employé tech ≈ 680 k€ et data center ≈ 760 k€.
+
+## Passe 12 : intérieur des usines en vue isométrique
+
+L'onglet « Intérieur » des usines (petite, moyenne, grande, méga-usine) et de la fonderie n'est plus une coupe latérale 2D mais une halle isométrique (projection 2:1, palette de la ville) entièrement dessinée en canvas :
+
+- **Halle** : sol en losange, murs avec poutres, fenêtres et enseigne ; la méga-usine est une grande halle à deux lignes de production.
+- **Flux** : palettes d'intrants à gauche (couleur et forme selon la marchandise : fûts, sacs, lingots, minerai, bobines, planches), tapis roulants vers la machine, puis produits finis vers la sortie (palettes de cartons étiquetés ou vignette du produit, camion de livraison). Plus aucun motif cadeau.
+- **Machines par type** : scie, presse, four (fonderie avec creuset), bobineuse, cuves de réacteur, four rotatif, bétonnière, emballeuse, bras robotisés d'assemblage ; portiques de finition supplémentaires selon le niveau.
+- **Ouvriers** : leur nombre suit l'effectif réel (`jobsOf × fill`) ; manutentionnaires (port de caisses), opérateurs, emballeurs, chef d'équipe, chargeur. Cadence liée à l'utilisation (`c.util`) et à la production (`c.out`).
+- **États** : pénurie d'un intrant (palette vide, icône d'alerte sur la machine et l'intrant, machine à l'arrêt), sortie pleine (`_full` : tapis bloqués, pause des ouvriers, camion parti), arrêt prolongé (ouvriers en pause).
+- **Performance** : scène redessinée à 30 images/s au plus, environ 1 à 1,5 ms par image, arrêtée hors de l'onglet.
