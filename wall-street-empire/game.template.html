@@ -1421,14 +1421,15 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   const PH_OVH = 1.0;   // frais généraux pharma = 1 × le coût des matières → marge brute ≈ 75 %
   const inV = rc => Object.keys(rc).reduce((a, g) => a + rc[g] * GOODS[g].base, 0);
   const facFix = t => (TYPES[t].jobs * WAGE_K * CAL.wf + TYPES[t].upkeep) / (3.2 * K_SIZE * CAL.uf * (TYPES[t].capK || 1));   // coûts fixes d'un cycle de recette
-  const calP = (inp, out, e, t) => +((inV(inp) + facFix(t)) / (out * (1 - e - CAL.tr))).toFixed(2);
+  const solveP = (N, out, e) => { let p = N / (out * (1 - e - CAL.tr)); for (let i = 0; i < 3; i++) p = N / (out * (1 - e - CAL.tr - Math.max(0, TRANS * 22 / p - 0.002))); return +p.toFixed(2); };   // les marchandises bon marché supportent un fret par unité plus lourd en part du prix (≈ 22 cases de trajet moyen)
+  const calP = (inp, out, e, t) => solveP(inV(inp) + facFix(t), out, e);
   GOODS.ingot.base = Math.max(GOODS.ingot.base, calP(TYPES.foundry.rec.in, TYPES.foundry.rec.out.ingot, 0.10, 'foundry'));
   RKEYS.forEach(k => { const R = RECIPES[k]; GOODS[k].base = Math.max(1, calP(R.in, R.out, EB_REC[k] || 0.12, 'f' + (R.lvl || 1))); });
   ['f1', 'f2', 'f3'].forEach((f, i) => { const rc = TYPES[f].rec, g = ['basic', 'std', 'lux'][i]; GOODS[g].base = calP(rc.in, rc.out[g], EB_GEN[g], f); });
   const setIn = (g, inp, out) => { GOODS[g].inp = inp; GOODS[g].inO = out; GOODS[g].inS = Math.min(0.9, inV(inp) / (out * GOODS[g].base)); };   // part des intrants dans le prix : le cours suit le coût des intrants
   RKEYS.forEach(k => setIn(k, RECIPES[k].in, RECIPES[k].out)); setIn('ingot', TYPES.foundry.rec.in, TYPES.foundry.rec.out.ingot);
   ['f1', 'f2', 'f3'].forEach((f, i) => setIn(['basic', 'std', 'lux'][i], TYPES[f].rec.in, TYPES[f].rec.out[['basic', 'std', 'lux'][i]]));
-  PKEYS.forEach(k => { const P = PRODUCTS[k], inp = Object.assign({}, P.in); if (P.cls !== 'estate' && P.cls !== 'basic') inp.pack = (inp.pack || 0) + P.out; P.ovh = P.pharma ? PH_OVH * inV(inp) : 0; P.ref = +((inV(inp) + facFix('f' + P.lvl) + (P.pharma ? (PH_W - 1) * TYPES['f' + P.lvl].jobs * WAGE_K * CAL.wf / (3.2 * K_SIZE * CAL.uf * (TYPES['f' + P.lvl].capK || 1)) : 0) + P.ovh) / (P.out * (1 - (P.pharma ? EB_PROD.pharma : EB_PROD[P.cls] || 0.14) - CAL.tr))).toFixed(2); });
+  PKEYS.forEach(k => { const P = PRODUCTS[k], inp = Object.assign({}, P.in); if (P.cls !== 'estate' && P.cls !== 'basic') inp.pack = (inp.pack || 0) + P.out; P.ovh = P.pharma ? PH_OVH * inV(inp) : 0; P.ref = solveP(inV(inp) + facFix('f' + P.lvl) + (P.pharma ? (PH_W - 1) * TYPES['f' + P.lvl].jobs * WAGE_K * CAL.wf / (3.2 * K_SIZE * CAL.uf * (TYPES['f' + P.lvl].capK || 1)) : 0) + P.ovh, P.out, P.pharma ? EB_PROD.pharma : EB_PROD[P.cls] || 0.14); });
   // Extraction : salaires ≈ 7 % du CA (≈ 0,7 M$ par employé et par an), entretien déduit de l'EBITDA visé
   Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; T.jobs0 = T.jobs;
     const rate = ({ well: 400, miron: 350, mcoal: 350, qgravel: 450, qsand: 450, qlime: 380, mgold: 30, logging: 120 }[k] || T.rate * 5) * K_SIZE; T.rate = rate; });
@@ -2821,6 +2822,7 @@ function step() {
 
   S.rec = REC;
 
+  GKEYS.forEach(g => { if (!(S.stock[g] > 0)) S.stock[g] = 0; });   // bruit numérique : jamais de stock négatif ni NaN
   // 7. Prix : offre et demande. Le cours vise base × f(demande / offre) : f = 1 à l'équilibre, jusqu'à ×1,3 en pénurie et ×0,82 en surproduction (courbe douce, jamais collée aux bornes)
   GKEYS.forEach(g => {
     const G = GOODS[g];
