@@ -2691,6 +2691,7 @@ function bestSite(x, y, key) {
 function step() {
   const ev = evaluate();
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
+  { const d0 = S._cashEnd == null ? 0 : S.cash - S._cashEnd; if (Math.abs(d0) > 1000) { (S.cflog = S.cflog || []).push([S.day, Math.round(d0), (S._sayBuf || []).slice(-2).join(' | ')]); if (S.cflog.length > 40) S.cflog.shift(); } S._sayBuf = []; }
   S.day++;
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = (S.patents || 0) * 70 * (casteIs('innovateur') ? 1.5 : 1);
   stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepNpcDensify(); stepPolicy(); stepSites();
@@ -2915,7 +2916,7 @@ function step() {
   const corpTax = Math.max(0, taxable) * rate;
   const net = preTax - corpTax;
   S.cash += net;
-  const div = (S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0; S.cash -= div;
+  const div = (S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0; S.cash -= div; S._cashEnd = S.cash;
   { const caD = revRetail + revExport + revTech + revBank, ebeD = caD - wagesTotal - upkeepI - transportTotal - advCost - importCost; S.m30 = S.m30 || []; S.m30.push([caD, ebeD, net, revRetail, revExport, revTech, revBank, wagesTotal, upkeepI, transportTotal, advCost, interest, importCost, div, corpTax]); if (S.m30.length > 30) S.m30.shift(); }
   S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep: upkeepI, transport: transportTotal, adv: advCost, interest, imports: importCost, div, tax: corpTax, net };
 
@@ -3265,6 +3266,7 @@ function inspect(x, y) {
 /* ---------- Fil d'alertes ---------- */
 const feed = $('#feed');
 function say(text, kind) {
+  try { if (typeof S !== 'undefined' && S) { (S._sayBuf = S._sayBuf || []).push(String(text).slice(0, 90)); if (S._sayBuf.length > 4) S._sayBuf.shift(); } } catch (e) {}
   const d = document.createElement('div');
   d.className = 'msg ' + (kind || '');
   d.textContent = text;
@@ -3379,7 +3381,7 @@ function updateHUD() {
     const F = finM().F;
     if (F) {
       const row = (n, v, neg) => `<div class="finrow"><span>${n}</span><b class="${neg ? 'neg' : 'pos'}">${Math.round(Math.abs(v) * DM) === 0 ? '' : neg ? '−' : '+'}${mj(Math.abs(v))}</b></div>`;
-      el('fin').innerHTML = '<p class="note" style="margin:0 0 6px">Montants par mois (moyenne glissante sur 30 jours, comme le bandeau et le tableau de bord).</p>' + row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech, banques, filiales', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Coûts d\'exploitation', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + (F.div ? row('Dividendes versés', F.div, 1) : '') + `<div class="finrow"><span><b>Résultat net / mois</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${mj(Math.abs(F.net))}</b></div>` + recoHTML();
+      el('fin').innerHTML = '<p class="note" style="margin:0 0 6px">Montants par mois (moyenne glissante sur 30 jours, comme le bandeau et le tableau de bord).</p>' + row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech, banques, filiales', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Coûts d\'exploitation', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + (F.div ? row('Dividendes versés', F.div, 1) : '') + `<div class="finrow"><span><b>Résultat net / mois</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${mj(Math.abs(F.net))}</b></div>` + recoHTML() + cashLogHTML();
     } else el('fin').innerHTML = '<p class="note">Le compte de résultat apparaît après le premier jour.</p>';
     const raw = (S.stats && S.stats.raw) || 0, listed = S.float > 0, price = raw * (S.prem || 1.1) / SHARES;
     let bh;
@@ -3767,6 +3769,10 @@ function forcesHTML() {
   const L = [['rivalry', 'Rivalité entre concurrents', 'Plus de rivaux, plus agressifs : ils gagnent des parts plus vite.'], ['entrants', 'Menace des nouveaux entrants', 'Marges élevées et faible notoriété attirent de nouveaux producteurs locaux.'], ['subst', 'Menace des substituts', 'Plus la demande est élastique, plus les clients basculent vers d\'autres produits.'], ['buyers', 'Pouvoir des clients', 'Acheteurs sensibles au prix (récession) : ta marge est sous pression.'], ['suppliers', 'Pouvoir des fournisseurs', 'Pénuries organisées par les étrangers : tes achats coûtent plus cher. Les contrats négociés protègent.']];
   const top = L.slice().sort((a, b) => f[b[0]] - f[a[0]])[0];
   return `<h3>CINQ FORCES DE PORTER</h3><div class="tcard">${L.map(([k, n, d]) => `<div class="finrow" title="${d}"><span>${n}</span><b class="${f[k] > 65 ? 'neg' : f[k] < 35 ? 'pos' : ''}">${Math.round(f[k])}</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(f[k])}%;background:${f[k] > 65 ? '#ff5a5f' : f[k] < 35 ? '#46d39a' : '#f2b84b'}"></i></div>`).join('')}<div class="finrow"><span><b>Attractivité du secteur</b></span><b class="${f.attract > 55 ? 'pos' : f.attract < 40 ? 'neg' : ''}">${f.attract} / 100</b></div><small>Force dominante : <b>${top[1]}</b>. ${top[2]}</small></div>`;
+}
+function cashLogHTML() {
+  const L = (S.cflog || []).slice(-12).reverse(); if (!L.length) return '';
+  return `<h3>MOUVEMENTS DE TRÉSORERIE HORS EXPLOITATION</h3><div class="tcard"><table class="fint"><tr><th>Jour</th><th>Montant</th><th>Contexte</th></tr>${L.map(r => `<tr><td>${r[0]}</td><td class="${r[1] >= 0 ? 'pos' : 'neg'}">${r[1] >= 0 ? '+' : '−'}${money(Math.abs(r[1]))}</td><td><small>${r[2] || 'investissement, achat ou événement'}</small></td></tr>`).join('')}</table></div><p class="note">Ces mouvements ne sont pas dans le résultat net mensuel : constructions, améliorations, acquisitions, R&D, pénalités, récompenses.</p>`;
 }
 function recoHTML() {
   const { F, R } = finM(); if (!F || !R) return '';
@@ -4511,6 +4517,23 @@ function easyLaunch(c, v) {
   say(`${recipeOf(v).name} : ${notes.join(' · ')}. Les fournisseurs et imports sont choisis automatiquement.`, notes.some(n => n.indexOf('à construire') === 0) ? 'warn' : 'good');
   updateHUD(); return true;
 }
+// Mode « enfant » : un double-clic sur un produit fini suffit. R&D si besoin, usine libre (ou nouvelle usine posée toute seule), fournisseurs et imports automatiques.
+function quickProduce(pk) {
+  const pr = PRODUCTS[pk]; if (!pr) return false;
+  let fac = null;
+  eachBuilding(c => { if (!fac && FLEVEL[c.t] && c.conn && c.prod === pk) fac = c; });
+  if (!fac) eachBuilding(c => { if (!fac && FLEVEL[c.t] >= pr.lvl && c.conn && freeFact(c)) fac = c; });
+  if (!fac) {
+    const key = Object.keys(FLEVEL).filter(k => FLEVEL[k] >= pr.lvl && TYPES[k]).sort((a, b) => TYPES[a].cost - TYPES[b].cost)[0];
+    if (!key) { say('Aucune usine ne peut fabriquer ce produit.', 'warn'); return false; }
+    let done = false;
+    for (let y = 0; y < N && !done; y++) for (let x = 0; x < N && !done; x++) { if (!footprintError(x, y, key) && place(x, y, key)) { fac = S.grid[idx(x, y)]; done = true; } }
+    if (!fac) { say(`Impossible de poser une ${LVL_NAME[pr.lvl] || 'usine'} automatiquement (argent ou place). Choisis un terrain dans la zone industrielle.`, 'warn'); return false; }
+    say(`${TYPES[key].name} posée automatiquement dans la zone industrielle.`, 'info');
+  }
+  if (!easyLaunch(fac, pk)) return false;
+  centerOn(fac.x, fac.y); refreshStats(); updateHUD(); return true;
+}
 function autoChain(pk) {
   const { need } = chainNeeds(pk); let added = 0; const missing = [];
   RKEYS.forEach(g => {
@@ -4614,7 +4637,7 @@ function renderProducts() {
     return `<button type="button" class="pcard${pk === selProd ? ' sel' : ''}${locked ? ' lock' : ''}" data-p="${pk}"><span class="th">${productSVG(pk, ps.q)}</span><b>${pr.name}</b><small>${status}</small></button>`;
   }).join('');
   const chips = RKEYS.map(k => { const n = sourceInfo(k).n; return `<button type="button" class="pchip${k === selProd ? ' sel' : ''}" data-p="${k}"><i style="background:${GOODS[k].color}"></i>${RECIPES[k].name}<small>${n ? n + ' usine(s)' : 'non produit'}</small></button>`; }).join('');
-  const html = `<div class="plh">PRODUITS FINIS</div><div class="pcards">${cards}</div><div class="plh">COMPOSANTS</div><div class="pchips">${chips}</div>${contractsHTML()}`;
+  const html = `<div class="plh">PRODUITS FINIS <small style="font-weight:400;opacity:.8;text-transform:none;letter-spacing:0">· double-clique sur un produit pour le fabriquer automatiquement</small></div><div class="pcards">${cards}</div><div class="plh">COMPOSANTS</div><div class="pchips">${chips}</div>${contractsHTML()}`;
   if (html !== pvLast.list) { el('plist').innerHTML = html; pvLast.list = html; }
   const detail = isProd(selProd) ? sheetHTML(selProd) : compSheetHTML(selProd);
   if (detail !== pvLast.detail) {
@@ -4630,6 +4653,7 @@ el('plist').addEventListener('click', e => {
   if (ct && !ct.disabled) { const id = +ct.dataset.id; if (ct.dataset.ct === 'accept') acceptContract(id); else dropContract(id); renderProducts(); return; }
   const b = e.target.closest('[data-p]'); if (b) { selProd = b.dataset.p; renderProducts(); }
 });
+el('pview').addEventListener('dblclick', e => { const b = e.target.closest('[data-p]'); if (b && PRODUCTS[b.dataset.p]) { quickProduce(b.dataset.p); renderProducts(); } });
 el('pdetail').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
   const v = +b.dataset.v, ps = isProd(selProd) ? S.prod[selProd] : null;
@@ -6734,6 +6758,7 @@ function renderCatalog(force) {
   el('cview').innerHTML = html; cvHtml = html;
   const l2 = el('cview').querySelector('.clist'), d2 = el('cview').querySelector('.cdet'); if (l2) l2.scrollTop = lt; if (d2) d2.scrollTop = dt;
 }
+el('cview').addEventListener('dblclick', e => { const r = e.target.closest('.crow[data-cat^="sel:"]'); const c = catFac && cell(catFac.x, catFac.y); if (!r || !c) return; const key = r.dataset.cat.slice(4); if (easyLaunch(c, key)) { refreshStats(); closeCatalog(true); } });
 el('cview').addEventListener('click', e => {
   const b = e.target.closest('[data-cat]'); if (!b || b.disabled) return;
   const a = b.dataset.cat, c = catFac && cell(catFac.x, catFac.y); const [k, v] = [a.split(':')[0], a.slice(a.indexOf(':') + 1)];
