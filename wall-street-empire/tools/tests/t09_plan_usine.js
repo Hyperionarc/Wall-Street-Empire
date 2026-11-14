@@ -110,11 +110,33 @@ exports.run = async (t, L) => {
       const q = s => document.querySelector(s); const o = { grid: !!q('.plgrid'), cells: document.querySelectorAll('.plc').length, flows: document.querySelectorAll('.plflow div').length };
       const free = [...document.querySelectorAll('.plc.free')][0]; free.click(); await new Promise(r => setTimeout(r, 100)); o.menu = [...document.querySelectorAll('.plrow')].map(b => b.textContent.slice(0, 22));
       const cash0 = S.cash; document.querySelector('[data-act="planadd:make"]').click(); await new Promise(r => setTimeout(r, 100)); o.made = W.planEvalC(f).n.make === 2 && S.cash < cash0; o.cost = cash0 - S.cash;
-      document.querySelector('[data-act="planview"]').click(); await new Promise(r => setTimeout(r, 400)); o.scene = W.scene && W.scene.kind; const cv = document.getElementById('bscene'); o.cw = cv.width;
+      await new Promise(r => setTimeout(r, 400)); o.scene = W.scene && W.scene.kind; const cv = document.getElementById('bscene'); o.cw = cv.width; o.noBtn = !document.querySelector('[data-act="planview"]');
+      o.tiles = document.querySelectorAll('#btiles .tile').length; o.vit = (document.getElementById('bvit') || {}).textContent || ''; o.stats = (document.getElementById('bstats') || {}).textContent || '';
+      o.nm0 = W.recOf(f).name; f.prod = 'wire'; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 400)); o.vit2 = document.getElementById('bvit').textContent; o.nm = W.RECIPES.wire.name; o.sceneKey = W.scene.recKey === W.recOf(f).out;
+      W.bAct('plandel:' + W.planOf(f).findIndex(u => u === 'make')); o.fx = W.scene.fx.length;
       const sc = W.scene, a = sc.ox + (sc.X0 + 0.5 * sc.cs - (sc.Y0 + 0.5 * sc.cs)) * sc.tw / 2; o.canvasOK = cv.width > 300;
       return o; });
-    t.check(`interface ${vp.n} : mini-carte 3×3, 4 débits chiffrés, menu d'ajout, pose d'une machine et vue isométrique du plan`, ui.grid && ui.cells === 9 && ui.flows === 4 && ui.menu.length >= 8 && ui.made && ui.scene === 'plan' && ui.canvasOK, `${ui.cells} cases · menu ${ui.menu.length} lignes · machine ${Math.round(ui.cost)} $ · scène ${ui.scene}`);
+    t.check(`interface ${vp.n} : mini-carte 3×3, 4 débits chiffrés, menu d'ajout, pose d'une machine et vue isométrique du plan`, ui.grid && ui.cells === 9 && ui.flows === 4 && ui.menu.length >= 8 && ui.made && ui.scene === 'plan' && ui.canvasOK && ui.noBtn && ui.tiles === 4 && ui.vit.indexOf(ui.nm0) >= 0 && ui.vit2.indexOf(ui.nm) >= 0 && ui.sceneKey && ui.fx > 0 && /Cadence/.test(ui.stats), `tuiles ${ui.tiles} · vit ${ui.vit.slice(0, 40)} / ${ui.vit2.slice(0, 40)} (${ui.nm0}, ${ui.nm}) · clé ${ui.sceneKey} · fx ${ui.fx} · bouton ${ui.noBtn} · ${ui.cells} cases · menu ${ui.menu.length} lignes · machine ${Math.round(ui.cost)} $ · scène ${ui.scene}`);
     t.check(`interface ${vp.n} : aucune erreur de page`, p.errs.length === 0, p.errs.slice(0, 2).join(' | '));
     await p.context().close();
   }
+
+  // 10. Choix libre de chaque case (passe 26) : remplacer une unité par une autre, vente en première colonne, déplacement, pas de « première case libre » imposée
+  pg = await bench(L);
+  const ch = await pg.evaluate(async () => { const { W, S, f } = window.B, o = {}; const q = s2 => document.querySelector(s2);
+    W.planSet(f, ['buy', '', '', 'stock', 'make', 'sell', '', '', '']); W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 200));
+    const c0 = S.cash, rf = W.planRefund(f, 4); o.ok = W.planReplace(f, 4, 'sell'); o.net = c0 - S.cash; o.expect = W.planUnitCost(f, 'sell') - rf; o.plan = W.planOf(f).join(',');
+    o.same = W.planReplace(f, 4, 'sell');   // remplacer par le même type : refusé
+    o.col0 = W.planAdd(f, 6, 'sell'); o.sells = W.planEvalC(f).n.sell; o.noMachine = W.planEvalC(f).n.make;
+    W.planSet(f, ['buy', '', '', 'stock', 'make', 'sell', '', '', '']); W.bAct('plansel:4'); await new Promise(r => setTimeout(r, 150));
+    o.menu = [...document.querySelectorAll('#bpop [data-act]')].map(b => b.dataset.act + (b.disabled ? '!' : '')); const before = W.planOf(f).join(','); W.setPlanSel(-1); W.bAct('planadd:make'); o.noSel = W.planOf(f).join(',') === before;
+    W.bAct('plansel:4'); W.bAct('planadd:sell'); o.viaMenu = W.planOf(f)[4];
+    o.mv = W.planMove(f, 5, 8) || W.planMove(f, 3, 8); o.after = W.planOf(f).join(',');
+    W.bAct('plantool:make'); const tl = document.querySelectorAll('#bpal .tool').length; o.tools = tl; W.bAct('plantool:make'); return o; });
+  t.check('remplacer une unité par une autre en un clic : coût net = coût − 50 % de l\'unité reprise, même type refusé', ch.ok && ch.plan.split(',')[4] === 'sell' && Math.abs(ch.net - ch.expect) < 1 && !ch.same, `net ${Math.round(ch.net)} attendu ${Math.round(ch.expect)} · ${ch.plan}`);
+  t.check('une vente se pose en première colonne (aucune position imposée) et le débit dépend du nombre d\'unités', ch.col0 && ch.sells >= 2, `ventes ${ch.sells}`);
+  t.check('menu d\'une case occupée : tous les types proposés (remplacement) + vider + déplacer ; sans case choisie la pose est refusée', /planadd:buy/.test(ch.menu.join()) && /planadd:sell(?!!)/.test(ch.menu.join()) && /plandel:4/.test(ch.menu.join()) && /planadd:make!/.test(ch.menu.join()) && ch.noSel && ch.viaMenu === 'sell', ch.menu.join(' '));
+  t.check('déplacement d\'une unité vers une case libre et palette d\'outils permanente (5 unités + gomme)', ch.mv && ch.tools === 6, `${ch.after} · outils ${ch.tools}`);
+  t.check('aucune erreur de page (plan libre)', pg.errs.length === 0, pg.errs.slice(0, 2).join(' | '));
+  await pg.context().close();
 };
