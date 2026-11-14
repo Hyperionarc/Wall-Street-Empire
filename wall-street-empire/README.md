@@ -385,3 +385,37 @@ Mesures par simulation (scripts `a_iso.js`, `a_ext.js`, `aud1_a_retail.js`) : us
 | CA ÷ salaires | ≥ 3 | 3,6-102 (min. écran 3,6) | idem (min. 3,6) | — |
 
 Contrôles longs : 2200 jours de bot aléatoire (1 270 bâtiments) sans NaN ni stock négatif, pas de pageerror ; empire intégré 1800 jours (3 récessions simulées) sans spirale (trésorerie stable, pas de dette) ; déterminisme vérifié ; `t_play.js` sans « bad ».
+
+## Passe 15 : boucle de jeu, progression et fin de partie
+
+Objectif : parties courtes (1 à 2 h réelles), futur multijoueur 2-8 joueurs en rounds, condition de victoire lisible. Inspirations : OTC (bourse = victoire, rachat majoritaire, filiales gérées par l'IA, dette graduée), RollerCoaster Tycoon (scénarios progressifs à objectifs visibles), Game Developer (courbes de snowball).
+
+**Modes** (écran de sélection au démarrage et via Reset / Menu > Nouvelle ville, puis choix de la caste) :
+- **Libre** : le bac à sable d'avant (jour de 2 s), barre d'objectif = prochain palier.
+- **Round compétitif** : 1 Md$ de valorisation avant 90 min (7 200 jours à 750 ms), classement public, vitesse ×3 coupée (horloge commune). Fin : 1 Md$ atteint, tous les rivaux rachetés, ou temps écoulé (victoire si première valorisation du monde).
+- **Scénarios 1 à 5** (chacun débloqué par la victoire du précédent, verrous de bâtiments par scénario) : 1 Ville et commerce (60 min, 80 M$, tutoriel en 5 étapes), 2 Usines et produits (75 min, 250 M$, 2 produits lancés), 3 Marchés et export (90 min, 400 M$ et 1,5 M$/mois d'exports), 4 Bourse et OPA (100 min, 700 M$, IPO et contrôle d'un rival), 5 Empire (120 min, 1 Md$ et 2 filiales). La bourse s'ouvre au scénario 4.
+- La **valorisation** (`S.stats.raw` : trésorerie + actifs + titres − dette) est publique pour tous : classement des joueurs (toi + rivaux) et des grands groupes (écran de fin et Objectifs). En round les grands groupes croissent 12 fois moins vite pour que 1 Md$ reste un vrai sommet.
+- **Écran de fin** : classement, fortune personnelle, valorisation, parts de marché, répartition du score (valorisation, parts de marché, emplois, missions, technologies, filiales, rapidité), « Continuer en Libre » ou « Nouvelle partie ». Les victoires débloquent les scénarios suivants (`localStorage` `wse-prog`).
+
+**Rachat majoritaire (OTC)** : au-delà de 50 % des actions d'un rival (Bourse), il est éliminé du classement, reste sur le marché comme **filiale gérée par l'IA** et verse 60 % de son bénéfice en dividendes au prorata de ta part (`r.sub`). L'OPA sur le reste du capital existe toujours.
+
+**HUD** : barre d'objectif sous les chiffres clés (mode, jalon suivant, progression, temps restant à vitesse normale, rang parmi les joueurs, rattrapage, surchauffe). Notifications : jalons, passage de rang, quarts de temps, rattrapage et surchauffe.
+
+**Anti-boule de neige, règles publiques** (Objectifs > « Anti-boule de neige ») :
+- **Rattrapage** : sous 70 % de la valorisation du leader, intérêts −35 %.
+- **Dette graduée** : plafond = min(actifs courants, 3 ans d'EBE ou 20 % de la valorisation) et prime de levier jusqu'à +6 points d'intérêt à 50 % d'endettement.
+- **Surchauffe** : la courbe attendue (forme mesurée sur un bon joueur, 1 Md$ en fin de round) est comparée à ta valorisation ; ×1,4 / ×2 / ×2,8 : niveaux 1, 2, 3 = impôt +5/10/15 points, salaires +8/16/24 %, plafond de dette −15/30/45 %. Sous 70 % : coup de pouce (+10 % de demande).
+- **Marchés d'export stables** : 2 par joueur (tes deux biens les plus exportés au cours du marché), les autres se vendent à 88 % du cours.
+
+**Bot et calibrage** (`tools/bot_round.js`, `tools/bot_lib.js` ; `NODE_PATH=$(npm root -g) MODE=round LEV=0.3 EVERY=10 IDLE=0.3 node wall-street-empire/tools/bot_round.js`) : le bot réinvestit dans le meilleur rendement (tours Tech, Data center, Banque ≈ 45 %/an, bureaux ≈ 35 %, hypermarchés saturés vers 4), emprunte jusqu'à son levier cible, rase des immeubles pour libérer du terrain. Valorisation (M$) tous les 10 % du round de 7 200 jours :
+
+| % du temps | 0 | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | 100 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Bon joueur (levier 0,3, 30 % d'oublis, décision tous les 10 j) | 3 | 10,8 | 28 | 43 | 69 | 113 | 168 | 264 | 378 | 583 | 859 |
+| Joueur appliqué (levier 0,45, 15 % d'oublis, tous les 7 j) | 3 | 9,6 | 28 | 42 | 81 | 154 | 307 | 554 | 934 | 1 Md$ au jour 5 837 (73 min) | |
+| Très rapide (levier 0,85, tous les 5 j) | 4,9 | 18,7 | 28 | 49 | 102 | 222 | 399 | 667 | 1 Md$ au jour 5 679 (71 min) | | |
+| Très rapide (levier 0,85, tous les 2 j) | 5,3 | 19,3 | 29 | 53 | 91 | 183 | 287 | 434 | 549 | 935 | 1 Md$ au jour 6 550 (82 min) |
+
+Sans frein (plafond de dette seul, surchauffe faible) le même bot atteignait 1 Md$ en 43 min ; avec la surchauffe et le plafond de dette, le plus rapide des bots reste à 71 min (marge de 20 min sous les 50 min visées). Une construction financée par la dette augmente la valorisation de ≈ 25 % du coût (valeur × (1 + humeur/400) + terrain) : connu et laissé tel quel. Les tours Tech, Data center et Banque rapportent ≈ 45 %/an sans saturation jusqu'à 130 unités : à surveiller côté équilibrage.
+
+**Non fait / limites** : scénarios 2 à 5 non mesurés par bot (usines, export, bourse : cibles estimées à partir des courbes des tours) ; les rivaux sont les 3 sociétés PNJ (pas de vrais joueurs) ; les marchés d'export stables sont une règle simple en attendant le marché à prix unique ; pas de pause partagée ni de synchronisation multijoueur.
