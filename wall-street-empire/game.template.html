@@ -2865,7 +2865,7 @@ function step() {
   const net = preTax - corpTax;
   S.cash += net;
   const div = (S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0; S.cash -= div;
-  { const caD = revRetail + revExport + revTech + revBank, ebeD = caD - wagesTotal - upkeepI - transportTotal - advCost - importCost; S.m30 = S.m30 || []; S.m30.push([caD, ebeD, net]); if (S.m30.length > 30) S.m30.shift(); }
+  { const caD = revRetail + revExport + revTech + revBank, ebeD = caD - wagesTotal - upkeepI - transportTotal - advCost - importCost; S.m30 = S.m30 || []; S.m30.push([caD, ebeD, net, revRetail, revExport, revTech, revBank, wagesTotal, upkeepI, transportTotal, advCost, interest, importCost, div, corpTax]); if (S.m30.length > 30) S.m30.shift(); }
   S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep: upkeepI, transport: transportTotal, adv: advCost, interest, imports: importCost, div, tax: corpTax, net };
 
   // 6. Compte de résultat par bâtiment (prix de cession internes au prix du marché)
@@ -2896,6 +2896,7 @@ function step() {
   });
 
   S.rec = REC;
+  { const lr = S.m30 && S.m30[S.m30.length - 1]; if (lr && lr.length === 15) lr.push(REC.profit, REC.pInt, REC.inLoc, REC.pCash, REC.inImp, REC.wag, REC.upk, REC.tra, REC.ad); }   // détail du jour pour les moyennes mensuelles (écrans Finances et Empire)
 
   GKEYS.forEach(g => { if (!(S.stock[g] > 0)) S.stock[g] = 0; });   // bruit numérique : jamais de stock négatif ni NaN
   // 7. Prix : offre et demande. Le cours vise base × f(demande / offre) : f = 1 à l'équilibre, jusqu'à ×1,3 en pénurie et ×0,82 en surproduction (courbe douce, jamais collée aux bornes)
@@ -3300,7 +3301,7 @@ function updateHUD() {
     {   // classement : rang, part de marché, ventes, valeur et tendance de la part sur ~30 jours (historique d'affichage, non sauvegardé)
       const H = window._shH || (window._shH = {}), sig = S.day >> 5;
       comps.forEach(c => { const h = H[c.id] || (H[c.id] = []); const a = avg(c.id); if (!h.length || h[h.length - 1][0] !== sig) { h.push([sig, a]); if (h.length > 3) h.shift(); } });
-      const fr = S.fin || {}, youRev = (fr.revRetail || 0) + (fr.revExport || 0) + (fr.revTech || 0) + (fr.revBank || 0);
+      const fr = finM().F || {}, youRev = (fr.revRetail || 0) + (fr.revExport || 0) + (fr.revTech || 0) + (fr.revBank || 0);
       const rk = comps.map(c => { const rv = (S.rivals || []).find(q => q.id === c.id), h = H[c.id], a = avg(c.id), p = h.length > 1 ? h[h.length - 2][1] : null;
         return { c, a, d: p == null ? null : (a - p) * 100, rev: rv ? (rv.rev || 0) : youRev, val: rv ? rivalValue(rv) : ((S.stats && S.stats.worth) || 0), you: !rv }; }).sort((x, y) => y.a - x.a);
       rh += `<table class="fint rank"><tr><th>#</th><th>Société</th><th>Part</th><th>Tendance</th><th>Ventes/mois</th><th>Valeur</th></tr>${rk.map((x, i) => `<tr${x.you ? ' class="tot"' : ''}><td>${i + 1}</td><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${x.c.col};margin-right:6px"></i>${x.c.name}</td><td>${Math.round(x.a * 100)} %</td><td class="${x.d == null ? '' : x.d >= 0 ? 'pos' : 'neg'}">${x.d == null ? '–' : (x.d >= 0 ? '▲ +' : '▼ −') + Math.abs(x.d).toFixed(1).replace('.', ',') + ' pt'}</td><td>${mj(x.rev)}</td><td>${money(x.val)}</td></tr>`).join('')}</table>`;
@@ -3310,7 +3311,7 @@ function updateHUD() {
     rh += (S.rivals || []).map(r => { const v = rivalValue(r); return `<div class="rcard"><div class="rtop"><i style="background:${r.col}"></i><b>${r.name}</b><small>${Math.round(avg(r.id) * 100)} % du marché</small></div><div class="rshr">${shares(r.id)}</div><div class="rbot"><small>Trésorerie ${money(r.cash)} · ${mj(r.rev || 0)} de ventes/mois</small><button class="btn sec" data-buy="${r.id}" ${S.cash >= v ? '' : 'disabled'}>Racheter ${money(v)}</button></div></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
     if (el('rivals').innerHTML !== rh) el('rivals').innerHTML = rh;
     { const cf = CASTES[casteOf()]; el('ptitleSub').innerHTML = cf ? `<span class="cbadge" style="--cc:${cf.col}">${CASTE_IMG[casteOf()] ? `<img alt="" src="${CASTE_IMG[casteOf()]}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;object-position:50% 15%;border:2px solid ${cf.col}">` : '<i></i>'}${cf.n}</span>` : 'New Dollarton'; if (cf) el('tierLine').textContent = 'New Dollarton · ' + cf.n; }
-  { const F2 = S.fin || {}, w2 = (S.stats && S.stats.worth) || 0; el('psCash').textContent = money(S.cash); el('psCash').className = S.cash >= 0 ? 'pos' : 'neg'; el('psWorth').textContent = money(w2); el('psNet').textContent = (F2.net >= 0 ? '+' : '−') + mj(Math.abs(F2.net || 0)); el('psNet').className = (F2.net || 0) >= 0 ? 'pos' : 'neg'; el('psDate').textContent = `Jour ${S.day % 30 + 1} · An ${Math.floor(S.day / 120) + 1}`;
+  { const F2 = finM().F || {}, w2 = (S.stats && S.stats.worth) || 0; el('psCash').textContent = money(S.cash); el('psCash').className = S.cash >= 0 ? 'pos' : 'neg'; el('psWorth').textContent = money(w2); el('psNet').textContent = (F2.net >= 0 ? '+' : '−') + mj(Math.abs(F2.net || 0)); el('psNet').className = (F2.net || 0) >= 0 ? 'pos' : 'neg'; el('psDate').textContent = `Jour ${S.day % 30 + 1} · An ${Math.floor(S.day / 120) + 1}`;
     const tp = advisorTips(), adv = '<b>Conseiller</b>' + tp.map(x => `<p>${x}</p>`).join(''); if (el('advisor').dataset.h !== adv) { el('advisor').innerHTML = adv; el('advisor').dataset.h = adv; } const ab = '<b>Conseiller</b>' + tp.map(x => `<span>${x}</span>`).join(''); if (el('advbar').dataset.h !== ab) { el('advbar').innerHTML = ab; el('advbar').dataset.h = ab; } }
   syncEvToggle(); if (typeof syncUnlock === "function") syncUnlock(); renderGoals(); renderEmpire(); renderTechs(); renderProdScreen(); renderGuide(); renderChainSum(); renderChain(); renderTerm();
     const rawP = (S.stats && S.stats.raw) || 0, lrows = [];
@@ -3324,10 +3325,10 @@ function updateHUD() {
       if (el('portfolio').dataset.h !== ph) { el('portfolio').innerHTML = ph; el('portfolio').dataset.h = ph; } }
     if (el('listed').dataset.h !== lh) { el('listed').innerHTML = lh; el('listed').dataset.h = lh; }
     lrows.forEach((r, i) => { const cv = el('lc-' + i); if (cv && r.sp.length > 1) drawSeries(cv, r.sp, r.col, true); });
-    const F = S.fin;
+    const F = finM().F;
     if (F) {
       const row = (n, v, neg) => `<div class="finrow"><span>${n}</span><b class="${neg ? 'neg' : 'pos'}">${Math.round(Math.abs(v) * DM) === 0 ? '' : neg ? '−' : '+'}${mj(Math.abs(v))}</b></div>`;
-      el('fin').innerHTML = '<p class="note" style="margin:0 0 6px">Montants par mois (30 jours, estimés sur la journée en cours).</p>' + row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech, banques, filiales', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Coûts d\'exploitation', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + (F.div ? row('Dividendes versés', F.div, 1) : '') + `<div class="finrow"><span><b>Résultat net / mois</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${mj(Math.abs(F.net))}</b></div>` + recoHTML();
+      el('fin').innerHTML = '<p class="note" style="margin:0 0 6px">Montants par mois (moyenne glissante sur 30 jours, comme le bandeau et le tableau de bord).</p>' + row('Ventes au détail', F.revRetail) + row('Exports', F.revExport) + row('Tech, banques, filiales', F.revTech + F.revBank) + row('Salaires', F.wages, 1) + row('Coûts d\'exploitation', F.upkeep, 1) + row('Transport', F.transport, 1) + row('Publicité', F.adv, 1) + row('Intérêts', F.interest, 1) + (F.imports ? row('Importations (port)', F.imports, 1) : '') + row('Impôt sociétés', F.tax, 1) + (F.div ? row('Dividendes versés', F.div, 1) : '') + `<div class="finrow"><span><b>Résultat net / mois</b></span><b class="${F.net >= 0 ? 'pos' : 'neg'}">${F.net >= 0 ? '+' : '−'}${mj(Math.abs(F.net))}</b></div>` + recoHTML();
     } else el('fin').innerHTML = '<p class="note">Le compte de résultat apparaît après le premier jour.</p>';
     const raw = (S.stats && S.stats.raw) || 0, listed = S.float > 0, price = raw * (S.prem || 1.1) / SHARES;
     let bh;
@@ -3717,7 +3718,7 @@ function forcesHTML() {
   return `<h3>CINQ FORCES DE PORTER</h3><div class="tcard">${L.map(([k, n, d]) => `<div class="finrow" title="${d}"><span>${n}</span><b class="${f[k] > 65 ? 'neg' : f[k] < 35 ? 'pos' : ''}">${Math.round(f[k])}</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(f[k])}%;background:${f[k] > 65 ? '#ff5a5f' : f[k] < 35 ? '#46d39a' : '#f2b84b'}"></i></div>`).join('')}<div class="finrow"><span><b>Attractivité du secteur</b></span><b class="${f.attract > 55 ? 'pos' : f.attract < 40 ? 'neg' : ''}">${f.attract} / 100</b></div><small>Force dominante : <b>${top[1]}</b>. ${top[2]}</small></div>`;
 }
 function recoHTML() {
-  const F = S.fin, R = S.rec; if (!F || !R) return '';
+  const { F, R } = finM(); if (!F || !R) return '';
   const rv = F.revRetail + F.revExport + F.revTech + F.revBank, sg = v => (v >= 0 ? '+' : '−') + mj(Math.abs(v));
   const costBld = R.wag + R.upk + R.tra + R.ad + R.inImp, costAll = F.wages + F.upkeep + F.transport + F.adv + F.imports, hors = costAll - costBld, rhors = rv - R.pCash;
   const preTax = rv - costAll - F.interest, cashB = R.profit - R.pInt + R.inLoc;
@@ -3745,7 +3746,7 @@ function sectorHTML() {
     o.n++; o.rev += (c.pRev || 0) - (c.pInt || 0); o.int += c.pInt || 0; o.cogs += c.inCost || 0; o.wag += c.wages || 0; o.oth += (c.upk || 0) + (c.transport || 0) + (c.adCost || 0); });
   const rows = Object.keys(by).map(k => by[k]).filter(o => o.rev + o.int > 0).sort((a, b) => (b.rev + b.int) - (a.rev + a.int)); if (!rows.length) return '';
   const pc = v => (v * 100).toFixed(0) + ' %', cl = (v, lo, hi) => v >= hi ? 'pos' : v < lo ? 'neg' : '';
-  return `<h3>ÉCONOMIE DES SECTEURS (par mois)</h3><div class="tcard"><table class="fint"><tr><th>Activité</th><th>CA encaissé</th><th>Production interne</th><th>Marge brute</th><th>EBITDA</th><th>(CA + prod.) / salaires</th></tr>${rows.map(o => { const base = o.rev + o.int, gm = (base - o.cogs) / base, eb = (base - o.cogs - o.wag - o.oth) / base, rw = o.wag > 0 ? base / o.wag : 0; return `<tr><td>${o.name} ×${o.n}</td><td>${o.rev > 0 ? mj(o.rev) : '—'}</td><td>${o.int > 0 ? mj(o.int) : '—'}</td><td class="${cl(gm, 0.25, 0.5)}">${o.cogs > 0 ? pc(gm) : '—'}</td><td class="${cl(eb, 0.1, 0.3)}">${pc(eb)}</td><td class="${rw && rw < 3 ? 'neg' : ''}">${rw ? '×' + rw.toFixed(1).replace('.', ',') : '—'}</td></tr>`; }).join('')}</table><small>Marge brute = (CA ou valeur produite − coût des marchandises vendues ou des intrants) / CA : pour un magasin, le coût comprend l'import et le stock local pris au prix de gros ; pour une usine ou une mine, la valeur produite est valorisée au prix du marché (production interne, non encaissée). EBITDA = marge brute − salaires − entretien − transport − publicité. Repères : marge brute 25-60 % selon le pouvoir de fixation des prix, EBITDA 10-30 % (davantage pour le luxe ou la finance), CA au moins 3 fois les salaires.</small></div>`;
+  return `<h3>ÉCONOMIE DES SECTEURS (par mois, cadence du dernier jour)</h3><div class="tcard"><table class="fint"><tr><th>Activité</th><th>CA encaissé</th><th>Production interne</th><th>Marge brute</th><th>EBITDA</th><th>(CA + prod.) / salaires</th></tr>${rows.map(o => { const base = o.rev + o.int, gm = (base - o.cogs) / base, eb = (base - o.cogs - o.wag - o.oth) / base, rw = o.wag > 0 ? base / o.wag : 0; return `<tr><td>${o.name} ×${o.n}</td><td>${o.rev > 0 ? mj(o.rev) : '—'}</td><td>${o.int > 0 ? mj(o.int) : '—'}</td><td class="${cl(gm, 0.25, 0.5)}">${o.cogs > 0 ? pc(gm) : '—'}</td><td class="${cl(eb, 0.1, 0.3)}">${pc(eb)}</td><td class="${rw && rw < 3 ? 'neg' : ''}">${rw ? '×' + rw.toFixed(1).replace('.', ',') : '—'}</td></tr>`; }).join('')}</table><small>Marge brute = (CA ou valeur produite − coût des marchandises vendues ou des intrants) / CA : pour un magasin, le coût comprend l'import et le stock local pris au prix de gros ; pour une usine ou une mine, la valeur produite est valorisée au prix du marché (production interne, non encaissée). EBITDA = marge brute − salaires − entretien − transport − publicité. Repères : marge brute 25-60 % selon le pouvoir de fixation des prix, EBITDA 10-30 % (davantage pour le luxe ou la finance), CA au moins 3 fois les salaires.</small></div>`;
 }
 function energyHTML() {
   const P = S.power; if (!P) return '';
@@ -3758,6 +3759,14 @@ function brandHTML() {
 }
 // Résultats mensuels : somme glissante sur 30 jours (ramenée à 30 jours tant que l'historique est plus court)
 function monthSums(a) { if (!a || !a.length) return null; const n = a.length, k = 30 / n; return { n, ca: a.reduce((s, x) => s + x[0], 0) * k, ebe: a.reduce((s, x) => s + x[1], 0) * k, net: a.reduce((s, x) => s + (x[2] || 0), 0) * k }; }
+// Compte de résultat moyen des 30 derniers jours (même base que le HUD : CA, EBE et résultat net mensuels). Anciennes sauvegardes : lignes courtes ignorées, repli sur le dernier jour.
+const M30F = ['revRetail', 'revExport', 'revTech', 'revBank', 'wages', 'upkeep', 'transport', 'adv', 'interest', 'imports', 'div', 'tax'], M30R = ['profit', 'pInt', 'inLoc', 'pCash', 'inImp', 'wag', 'upk', 'tra', 'ad'];
+function finM() {
+  const a = (S.m30 || []).filter(r => r.length >= 24), n = a.length; if (!n || !S.fin || !S.rec) return { F: S.fin, R: S.rec };
+  const F = { net: a.reduce((t, r) => t + (r[2] || 0), 0) / n }, R = {};
+  M30F.forEach((k, i) => { F[k] = a.reduce((t, r) => t + (r[3 + i] || 0), 0) / n; }); M30R.forEach((k, i) => { R[k] = a.reduce((t, r) => t + (r[15 + i] || 0), 0) / n; });
+  return { F, R };
+}
 function monthlyHTML() {
   const m = monthSums(S.m30); if (!m) return '';
   const pc = m.ca > 0 ? Math.round(100 * m.ebe / m.ca) : 0;
@@ -3773,7 +3782,7 @@ function reHTML() {
 }
 function renderEmpire() {
   if (el('panel').hidden || el('empire').closest('section').hidden) return;
-  const st = S.stats || {}, ev = evaluate(), raw = st.raw || 0, fl = S.float || 0, F = S.fin || {};
+  const st = S.stats || {}, ev = evaluate(), raw = st.raw || 0, fl = S.float || 0, F = finM().F || {};
   const fixed = ev.value, stocks = stockValue(), debt = S.loan || 0, cash = S.cash, actif = Math.max(0, cash) + fixed + stocks + portValue(), equity = actif - debt - Math.max(0, -cash);
   const px = fl > 0 ? raw * (S.prem || 1.1) / SHARES : null;
   const kp = (l, v, c, s) => `<div><small>${l}</small><b class="${c || ''}">${v}</b>${s ? `<small>${s}</small>` : ''}</div>`;
@@ -5772,13 +5781,13 @@ function prodView(c, k, it) {
   if (!it.gen) sc.price = clamp(50 * Math.pow(stdPrice(k) * retailMk(cls) / Math.max(0.01, price), 1.2), 0, 100);
   sc.overall = w.price * sc.price + w.quality * sc.quality + w.brand * sc.brand;
   const cityQ = { basic: 45, std: 55, lux: 70, estate: 60 }[cls] || 50;
-  const rivB = (S.rivals || []).length ? 100 * (S.rivals.reduce((a, r) => a + (r.att[cls] || 0), 0) / S.rivals.length) * 3 : 0, cityB = Math.round(clamp(rivB, 0, 100));
+  const rivB = (S.rivals || []).length ? 100 * (S.rivals.reduce((a, r) => a + (r.att[cls] || 0), 0) / S.rivals.length) * 3 : 0, cityB = Math.round(it.gen ? clamp(rivB, 0, 100) : clamp(rivB * 0.6, 0, 80));   // produit : même échelle que l'écran Produits (marque rivale pondérée ×0,6, plafonnée à 80)
   const cityOv = Math.round(w.price * 50 + w.quality * cityQ + w.brand * cityB), myOv = Math.round(sc.overall);
   const f = v => v.toFixed(2).replace('.', ','), row = (l, a, b, ca) => `<tr><td>${l}</td><td class="${ca || ''}">${a}</td><td>${b}</td></tr>`;
-  const sold = (c.sales && c.sales[k]) || 0, mg = price - cost, q = Math.round(sc.quality), brand = Math.round(ps ? ps.brand : 0);
+  const sold = (c.sales && c.sales[k]) || 0, mg = price - cost, q = Math.round(sc.quality), brand = Math.round(ps ? sc.brand : 0), refP = it.gen ? ref : stdPrice(k) * retailMk(cls);   // marque et prix moyen : mêmes définitions que l'écran Produits (note globale cohérente)
   return `<div class="lever wide" style="margin:8px 0"><h4>${it.name.replace(' (marché local)', '')} · ${f(price)} $ <span class="pip">fiche produit</span></h4>
    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start"><div style="text-align:center;max-width:150px"><div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(${grad});margin:auto" title="Part de marché de ce produit dans sa catégorie"></div><small>Part de marché ${Math.round(mine * 100)} %</small></div>
-   <div style="flex:1;min-width:210px"><table class="fint"><tr><th>Ce produit</th><th>Toi</th><th>Moyenne ville</th></tr>${it.gen ? row('Marque', 'aucune', cityB) : row('Marque', brand, cityB, brand >= cityB ? 'pos' : 'neg')}${row('Qualité', q, cityQ, q >= cityQ ? 'pos' : 'neg')}${row('Prix en rayon', f(price) + ' $', f(ref) + ' $', price <= ref ? 'pos' : 'neg')}${row('Note globale', myOv, cityOv, myOv >= cityOv ? 'pos' : 'neg')}</table></div></div>
+   <div style="flex:1;min-width:210px"><table class="fint"><tr><th>Ce produit</th><th>Toi</th><th>Moyenne ville</th></tr>${it.gen ? row('Marque', 'aucune', cityB) : row('Marque', brand, cityB, brand >= cityB ? 'pos' : 'neg')}${row('Qualité', q, cityQ, q >= cityQ ? 'pos' : 'neg')}${row('Prix en rayon', f(price) + ' $', f(refP) + ' $', price <= refP ? 'pos' : 'neg')}${row('Note globale', myOv, cityOv, myOv >= cityOv ? 'pos' : 'neg')}</table></div></div>
    <small style="display:block;margin-top:4px">${legend}</small>
    <button class="btn sec" data-act="mshare" style="min-height:28px;padding:3px 10px;font-size:11.5px;margin:4px 0">Voir les parts de marché détaillées (Concurrents) →</button>
    ${it.gen ? '' : prodModelHTML(k)}<div class="finrow"><span>Poids d'achat ${it.gen ? 'de la catégorie' : 'du produit'}</span><b>prix ${Math.round(w.price * 100)} % · qualité ${Math.round(w.quality * 100)} % · marque ${Math.round(w.brand * 100)} %</b></div>
