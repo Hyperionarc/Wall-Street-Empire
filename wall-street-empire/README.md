@@ -319,3 +319,10 @@ Sources (lecture qualitative de capitalismlab.com, aucune formule officielle : v
 - **Ressources naturelles** : prime du site (3 % de la valeur des réserves, visible au survol), sites neufs 12-32 jours après l'acquisition d'un site (prime ×1,6 par génération, 6 maximum par ressource), option « ressources illimitées » (au-delà de la réserve : coût/unité = coût d'acquisition ÷ réserve d'origine × inflation).
 - **Fret en 3 segments** pour l'achat à une puissance étrangère et l'import par le port (fournisseur → port, port → port, port → acheteur), détail au survol de « Transport » et « Livré » ; événement **Percée technologique** (recherche en cours terminée, +20 à 60 points de brevet).
 - Non fait : capacités maximales plus réalistes des unités de niveau élevé (linéaire ×4 conservé). Le prix par produit (`pk`) saisi à la main reste prioritaire : la politique agit sur le prix de rayon (`pf`).
+
+## Passe 9 : optimum de prix, data center, onglets et écrans
+
+- Élasticité (`elF`) : même seul sur son marché, un commerce garde 80 % du report vers un substitut à long terme ; érosion accélérée au-delà de +15 % ; luxe Veblen limité à +12 %. Mesuré sur s2/s3 (court terme 12 j, long terme 150 j) : l'EBE à long terme est maximal vers 110-120 % du prix de référence (s3 : +28 % à 110 %, retour sous le niveau 100 % à 130 %), les biens de base restent quasi inélastiques à court terme.
+- Data center : bonus de loyer de la caste innovateur ramené de ×1,5 à ×1,12 (EBITDA 58 % -> 44 %, CA/employé ≈ 570 k$ ; banquier inchangé à 37 %).
+- Onglets des bâtiments : tableaux financiers lisibles en mobile 390 px, libellés collés corrigés (Logistique, Effectifs), rendement annuel plafonné à ±1 000 %.
+- Concurrents : classement (rang, part, tendance, ventes/mois, valeur) ; Recherche : compteurs par ère et grille à deux colonnes.
