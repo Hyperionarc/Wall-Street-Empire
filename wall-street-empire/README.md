@@ -712,6 +712,31 @@ Un produit composé est enregistré **comme un produit ordinaire** (`PRODUCTS`, 
 **Limites** : lait, viandes et cuir viennent d'un élevage abstrait nourri au blé (pas de fermes d'élevage) ; la qualité d'un produit composé ne dépend que de ses composants et des synergies (pas de technologie propre à la création) ; la demande d'un produit composé repose sur la demande par habitant de son modèle ; `city.html` n'est pas reconstruit dans ces commits (`python3 tools/build.py`).
 
 
+## Passe 27 : marché mûr, offres des autres, suggestions et tests
+
+Demande : « proposer de manière intelligente et intuitive plusieurs produits : mets à disposition tous les produits et fais-les proposer soit par notre société soit par celles des autres », au milieu de la partie, « et que l'on puisse tester ». Tout est dans `game.template.html` (bloc « Passe 27 » avant la fiche produit) ; tests dans `tools/tests/t11_marche_mur.js`.
+
+### 1. Marché mûr (`S.mat`)
+- Le mode **Libre** démarre en marché mûr ; les scénarios 3 à 5 et le Round l'ont en option (case à cocher dans le choix de partie) ; les scénarios 1 et 2 gardent la R&D complète. Sauvegardes anciennes : `mat = 0`, tous les champs par défaut (v8 inchangée).
+- Les 80 produits sont déjà développés par le marché : chacun a 3 à 6 **offreurs** (rivaux de la partie, 10 sociétés locales, 5 puissances étrangères). Paliers de bâtiments inchangés (scénarios), mais plus de palier de produit.
+- **Licence** : 30 % du coût de R&D, produit lancé immédiatement (adoption 0,72), **redevance de 3,5 %** du chiffre d'affaires du produit. **R&D accélérée** : 70 % du coût pour 1/3 des jours. Les produits « standard » restent gratuits.
+
+### 2. Offres des autres (acheter un produit fini)
+- Offre = prix de gros unique du marché × (1 + marge) : rivaux 5-20 %, sociétés locales 6-18 %, étrangers 4-14 % (dumping −8 %, pénurie +10 %), ± qualité ; fret par case de distance (maritime pour les étrangers) ; stock, capacité par jour, délai, qualité, marque, note globale. Tout est déterministe (`hash()`), aucune écriture d'état.
+- Écran **Offres des autres** (fiche produit, catalogue) : colonnes Fournisseur, Ville, Distance, Fret, Offre, Demande, Prix, Qualité, Note ; tri et filtre ; quantité par jour ; bloc « Faire ou acheter ? » chiffré (coût complet de fabrication : matières + usine, contre coût livré, marge par unité dans les deux cas).
+- **Acheter** = commande régulière : le produit passe « lancé » en revente (`ps.res`), le stock arrive après le délai de l'offreur, l'argent part à la commande (prix livré), le produit est mis en rayon des magasins qui vendent sa classe (un magasin est posé tout seul si besoin). Source affichée partout : « Fabriqué par toi », « Acheté à X », « Mixte » (cartes Produits, fiche, rayons du magasin).
+- Concurrence : en marché mûr, l'attrait de tes produits est multiplié par `(0,7 + 0,6 × demande non servie) / (1 + 0,1 × nombre d'offreurs)` (0,45 à 1,25).
+
+### 3. « Recommandé pour toi »
+Score = marge espérée × demande non servie × facilité × faible concurrence. Demande non servie = 1 − part servie par les offreurs (dérive avec la population depuis le départ) ; facilité = chaîne (matières sans source, composants à fabriquer, niveau d'usine, usine libre) × capacité d'investissement ; un produit hors de portée de ta trésorerie passe derrière tous les autres. 4 à 6 cartes (image, phrase en français simple, marge estimée par **mois**, boutons **Fabriquer (ma société)** (`quickProduce`), **Acheter à X**, **Les deux**, **Tester**), filtres par famille, recherche, tri (rentabilité, facilité, demande). Dans l'écran Produits, en bandeau dans le catalogue d'usine (produits que cette usine sait faire) et en encart au démarrage. Mis en cache par jour (≈ 50 ms pour 78 produits), invalidé quand tes bâtiments changent.
+
+### 4. Tester
+- **Prévision** (`WSE.mk.sim`) : calcul pur (mêmes `attractiveness`, `productScore`, demande de classe que la simulation ; l'objet produit est remplacé le temps du calcul puis rétabli) : ventes, chiffre d'affaires et marge à 30 et 90 jours en fourchette prudent/central/optimiste, part de marché, besoins en intrants, goulots, investissement (licence, usine, magasin, stock de départ), retour sur investissement, risques (concurrence, rupture, dépendance), phrase de synthèse. Fabriquer et acheter côte à côte.
+- **Essai pilote** : petite série (3 % de la trésorerie au plus, dimensionnée sur la capacité d'UN magasin) vendue dans un seul magasin pendant 7 jours (+ délai de l'offreur) aux conditions normales ; 2 essais simultanés au maximum ; bandeau de résultat (ventes réelles, marge, part) puis **Continuer** (licence/achat régulier) ou **Arrêter** (le stock restant est revendu à 80 % du coût : aucun gain gratuit).
+
+### 5. Tests et limites
+`t11_marche_mur.js` : 43 vérifications (départ mûr, offres 5-20 %, licence, achat → rayon → vente, déterminisme et pureté, sauvegarde et ancienne sauvegarde, essai pilote, interface desktop 1280 et mobile 390). Limites : les parts de marché des offreurs sont des estimations par produit (la simulation garde une concurrence agrégée par classe) ; les rivaux n'achètent pas chez toi ; le prix de revient d'une usine neuve est une moyenne de la plus petite usine éligible.
+
 ## Passe 21 : chaînes industrielles (mine/ferme → composants → usine → magasins)
 
 Un audit signalait que les chaînes usines → produits perdaient de l'argent dans les montages du bot, donc qu'un humain ne pouvait pas jouer l'industrie. Nouveau banc de mesure `tools/chain_audit.js` (`NODE_PATH=$(npm root -g) node tools/chain_audit.js [produit|all|a,b] [jours]`) : il construit la chaîne complète avec l'auto-production, fait tourner 200 jours avec prix de marché libres, imprime par maillon l'EBITDA, l'utilisation et la limite (goulot), puis la rentabilité **globale en trésorerie réelle** (CA magasins + export − salaires − entretien − fret − importations) **comparée à la même ville sans la chaîne** (les cessions internes ne sont pas de la trésorerie). Plans mal construits `bad_*` inclus ; test `t08_chaines.js`.
