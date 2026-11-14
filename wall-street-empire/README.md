@@ -891,3 +891,48 @@ Tant qu'une usine n'a pas été visitée, rien ne change dans l'économie.
 - Les camions et cartons des portes sont des volumes simples ; pas de convoyeur au sol entre machine et porte (les ouvriers portent les cartons).
 - En vue de dessus les sprites restent dessinés en oblique (lisibles mais pas orthogonaux).
 - Les décorations débloquées sont cosmétiques et non sélectionnables une par une ; pas de sélecteur de couleur de néon.
+
+## Passe 30 : la vue « Dessus » devient une vraie usine en coupe (vue éclatée), cartes de KPI ancrées, sprites facultatifs
+
+La vue **Dessus** est maintenant la vue par défaut de l'intérieur d'une usine (ordre des angles : Dessus, Isométrique, Garage). Ce n'est plus une halle fermée : c'est une **maquette technique ouverte** (vue éclatée), comme sur l'image de référence.
+
+### Ce que montre la vue
+- **Bâtiment en coupe** : sans toit, murs du fond avec fenêtres et enseigne, murs avant bas (18 px) interrompus par les portes de quai, sol clair en dalles de béton, trottoir, cours de quai en bitume, **herbe et arbres** autour (46 arbres, 3 variantes de feuillage).
+- **Quatre zones au sol** (dalles séparées par un joint et une ombre en vue éclatée) : **ACHATS** (gauche : lignes d'achat, matières premières), **FABRICATION** (centre : machines et robots), **STOCKAGE** (les plots « stock » = racks), **VENTE / EXPÉDITION** (quais et camions), plus un **local bureau vitré** avec employés assis et table de réunion. Une bannière nomme chaque zone avec un chiffre réel (nombre de lignes, débit /j, remplissage %, quais).
+- **Convoyeurs animés** : collecteur des achats, rue des machines, descente vers les quais de vente, tronçons jusqu'aux camions ; flèches de sens, cartons et matières qui circulent (matière aux couleurs du bien avant les machines, carton du produit après), vitesse liée à `util` et au débit, arrêt quand l'usine est à l'arrêt, **vides quand l'intrant manque**.
+- **Objets détaillés (vectoriels, volumes, ombres, reflets)** : racks bleus à lisses orange sur 3 niveaux avec **remplissage = stock réel** (`facStockLvl`, 18 emplacements), machines par type de production (four, presse / scie, cuves, assemblage) avec pièces mobiles, robots 6 axes sur socle clôturé, piles de matières par forme de marchandise (`FSH`) aux couleurs de `GOODS` (bobines, plaques, fûts, sacs, bacs de minerai, palettes), camions blancs / rouges / bleus qui **reculent au quai, chargent ou déchargent** (jauge), ouvriers aux postes (porteurs, opérateurs, emballeurs, contremaître, inspecteur).
+- **Correspondance zones / plan (les 12 emplacements sont inchangés)** : ACHATS = portes d'entrée 6-8 ; STOCKAGE = unités `stock` des cases 0-5 ; FABRICATION = `make` et `robot` des cases 0-5 ; VENTE = portes de sortie 9-11. **Un clic sur un objet** (rack, machine, robot, quai, camion) **ou sur une zone** (sol ACHATS, sol VENTE) ouvre le menu de la case ; ajouter une unité fait apparaître aussitôt son objet (rack, machine, bras, matières, quai et camion). Glisser-déposer, double-clic, gomme et palette d'outils fonctionnent comme avant.
+- **Alertes posées sur le lieu du problème** : intrant manquant = **convoyeur de la ligne d'achat hachuré en rouge** avec l'étiquette « Fer manquant » posée dessus ; sortie pleine = tronçon du quai de vente ; panne ou goulot = plot de l'unité en rouge hachuré. Les étiquettes restent cliquables (menu d'actions existant : sources automatiques, fournisseur, import, ajout d'une ligne, réparation).
+- **Cartes de KPI ancrées sur les zones** (`planTopCards`, valeurs réelles via `planTopInfo`) : ACHATS (coût matière par unité, risque fournisseur d'après les jours de stock couverts, prix de la matière), FABRICATION (rupture prévue en jours, débit de la chaîne), STOCKAGE (niveau de réserve, stock du produit), **ZONE D'EXPÉDITION** (livraison par camion, quais, mini-carte stylisée avec route en pointillés et camion, messages clients « délai de livraison critique » / « satisfait ») ; sous la carte produit en haut à droite : **marge nette actuelle, taux de satisfaction client, temps de cycle moyen**. La cadence et la marge par cycle restent dans le panneau en bas à gauche.
+- **Vue éclatée / vue assemblée** (bouton sous les angles, état `planExpl`, éclatée par défaut) : éclatée = sans toit, murs bas, dalles de zone séparées, flux visibles ; assemblée = murs hauts translucides et ossature de toit, pour l'immersion. Les unités du plan restent éditables dans les deux.
+- **Mobile 390×844** : canevas net (résolution ×2), zoom initial 1,8 centré sur la fabrication, pincer et glisser, boutons Achat / Fabrication / Vente, carte de réserve compacte.
+- Coût d'une image : environ 1 à 4 ms en rendu logiciel (les objets lourds sont des sprites mis en cache : racks, machines, camions, bureau, murs, piles, convoyeurs des quais).
+
+### Sprites de l'usine (assets/factory) et chargeur
+Le jeu embarque les **29 sprites isométriques** de `assets/factory/` (générés par `tools/factory_sprites/`, voir `assets/factory/_apercu.png`) : `build.py` les encode en base64 dans `city.html` (jetons `__FAC_JSON__` sprites, `__FACSH_JSON__` ombres, `__FACANCH_JSON__` ancres ; environ 1,1 Mo, page ≈ 3,7 Mo). **Si un PNG existe il remplace le dessin vectoriel correspondant ; s'il manque, le vectoriel reste** (chaque objet se remplace indépendamment ; `WSE.fac.unload(nom)` ou la suppression du fichier + `build.py` le prouvent : la vue se redessine entièrement en vectoriel, test `t14`). `WSE.fac.load(nom, dataURI)` charge un sprite à chaud (sans ombre), `WSE.fac.img(nom)` dit s'il est actif, `WSE.fac.FAC_SPEC` donne les ancres.
+
+Gabarit : PNG à fond transparent, 256 px de large (128 px pour bobines, plaques, palettes, buisson), éclairage isométrique 2:1 depuis le haut-gauche ; **ombre portée dans un calque séparé** (`ombres/<nom>.png`, même cadrage, dessiné sous le sprite). `ancres.json` donne pour chaque fichier le **point d'ancrage** (`ancre_x`, `ancre_y` en px, posé au centre de l'emprise au sol) et l'**échelle** `echelle_px_par_m` : le jeu dessine à `(tw / 2) / echelle_px_par_m` (`tw` = largeur d'une case à l'écran, 1 case = 1 m), ce qui agrandit automatiquement les objets réduits (camions, bureau, quai). Les tuiles `herbe_tuile` et `sol_beton_tuile` (256×128, raccordables, ancre = sommet bas) couvrent 2×2 cases.
+
+| Fichier | Où il est utilisé dans la vue Dessus |
+|---|---|
+| `herbe_tuile`, `sol_beton_tuile` | extérieur herbeux ; sol clair de chaque dalle de zone |
+| `bobine_acier`, `bobine_cuivre`, `plaques_acier` | zone ACHATS : piles de matière (acier et aluminium = bobines d'acier, cuivre et fil = bobines de cuivre, barres et tôles = plaques) ; les autres biens gardent un dessin vectoriel à la couleur de `GOODS` |
+| `palette_cartons`, `palette_vide` | palettes aux quais d'achat et de vente (`palette_vide` réservée) |
+| `rack_stockage`, `rack_vide` | plot de stock : deux travées ; `rack_vide` dessous, `rack_stockage` rogné par le bas par-dessus selon le **stock réel** |
+| `convoyeur_droit` | tous les tronçons droits (miroir pour l'axe y) ; `convoyeur_coin` : réservé (coins vectoriels pour l'instant) |
+| `machine_assemblage`, `presse`, `robot_6_axes` | machines (presse / scie = presse ; fours et cuves restent vectoriels) et robots |
+| `camion_blanc`, `camion_rouge`, `camion_bleu` et `_ouvert` | camions aux quais, remorque ouverte une fois à quai |
+| `quai_chargement` | portes de quai des unités posées (miroir pour le mur sud-ouest) |
+| `bureau_vitre` | local bureau |
+| `ouvrier_gilet_orange`, `ouvrier_gilet_bleu` | ouvriers : planches de 4 poses 128×200 (marche, porte un carton, machine, debout) choisies selon la tâche, miroir selon le sens |
+| `chariot_elevateur` | chariot qui patrouille entre les quais d'achat et les piles |
+| `arbre`, `buisson` | arbres et buissons autour du bâtiment |
+| `mur_bas_gauche`, `mur_bas_droite` | non utilisés (les murs bas restent vectoriels) |
+
+Limite connue : les camions fournis montrent leur arrière ouvert côté bas-droite ; ils sont donc posés « nez au quai » (le recul n'est animé que par la distance).
+
+### Tests
+`t14_vue_dessus.js` (18 contrôles) : vue par défaut = Dessus et ordre des angles, quatre zones, cartes de KPI et valeurs réelles, clic sur une zone / un rack / une machine, ajout d'unité visible (l'image du plot change, camion au quai), alerte posée sur le convoyeur (pixels rouges) et menu d'actions, vue éclatée / assemblée, chargeur de sprites (29 noms, ancres, remplacement d'un PNG, repli vectoriel complet), mobile 390×844. `t12_usine_immersive.js` est adapté (ordre des angles, géométrie des quais en vue Dessus).
+
+### Limites connues
+Les objets sans sprite (fours, cuves, lingots, fûts, sacs, bacs) restent vectoriels ; pas de coins de convoyeur ni de bobines couchées. Les anciens angles Isométrique et Garage sont inchangés.

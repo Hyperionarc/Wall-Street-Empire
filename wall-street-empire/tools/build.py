@@ -128,6 +128,25 @@ if os.path.exists(os.path.join(_hp, 'meta.json')):
         _f = os.path.join(_hp, f'hq_{_k}.png')
         if os.path.exists(_f):
             _m = dict(_m); _m['src'] = 'data:image/png;base64,' + base64.b64encode(open(_f, 'rb').read()).decode(); hq[_k] = _m
-out = tpl.replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+# Sprites facultatifs de l'usine (Passe 30) : assets/factory/<nom>.png (+ ombres/<nom>.png, ancres.json) -> data URI ; un PNG présent remplace le dessin vectoriel du même nom
+fac, facsh, facanch = {}, {}, {}
+_fp = os.path.join(ROOT, 'assets', 'factory')
+FAC_NAMES = ['arbre', 'bobine_acier', 'bobine_cuivre', 'buisson', 'bureau_vitre', 'camion_blanc', 'camion_rouge', 'camion_bleu', 'camion_blanc_ouvert', 'camion_rouge_ouvert', 'camion_bleu_ouvert', 'chariot_elevateur', 'convoyeur_coin', 'convoyeur_droit', 'herbe_tuile', 'machine_assemblage', 'mur_bas_droite', 'mur_bas_gauche', 'ouvrier_gilet_bleu', 'ouvrier_gilet_orange', 'palette_cartons', 'palette_vide', 'plaques_acier', 'presse', 'quai_chargement', 'rack_stockage', 'rack_vide', 'robot_6_axes', 'sol_beton_tuile']
+def _uri(f):
+    return 'data:image/png;base64,' + base64.b64encode(open(f, 'rb').read()).decode()
+if os.path.isdir(_fp):
+    _af = os.path.join(_fp, 'ancres.json')
+    _anch = json.load(open(_af)) if os.path.exists(_af) else {}
+    for _n in FAC_NAMES:
+        _f = os.path.join(_fp, _n + '.png')
+        if os.path.exists(_f):
+            fac[_n] = _uri(_f)
+            _s = os.path.join(_fp, 'ombres', _n + '.png')
+            if os.path.exists(_s):
+                facsh[_n] = _uri(_s)
+            if _n + '.png' in _anch:
+                facanch[_n + '.png'] = _anch[_n + '.png']
+print('sprites usine :', len(fac), 'sur', len(FAC_NAMES), '(repli vectoriel pour les autres)')
+out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
 open(os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')
