@@ -4494,6 +4494,23 @@ function autoSource(c, quiet) {
   if (!quiet) say(`Auto-production ${recipeOf(c.prod) ? recipeOf(c.prod).name.toLowerCase() : ''} : ${rows.slice(0, 4).join(' ; ')}.`, 'good');
   return rows.length;
 }
+// Lancement en un clic : R&D si nécessaire, affectation de cette usine, usines libres pour les composants, sources automatiques ; liste ce qu'il reste à construire.
+function easyLaunch(c, v) {
+  const pr = PRODUCTS[v], notes = [];
+  if (pr) {
+    const ps = S.prod[v];
+    if (ps.st === 'locked') { if (!launchProduct(v)) return false; notes.push(ps.st === 'rnd' ? `R&D lancée (${pr.days} jours)` : 'produit standard prêt'); }
+  }
+  c.prod = v; c.src = {};
+  if (pr || RECIPES[v]) { const miss = []; try { const { need } = chainNeeds(v); RKEYS.forEach(g => { if (need[g] && unitsOn(g) < need[g] - 0.01) assignRecipe(g, Math.ceil(need[g] - unitsOn(g) - 0.01)); }); } catch (e) {}
+    c.prod = v;   // l'affectation des composants ne doit jamais reprendre cette usine
+    chainLeaves(v).forEach(g => { const si = sourceInfo(g); if (!si.n) miss.push(si.label); });
+    if (prodOn(v) || RECIPES[v]) autoSource(c, true);
+    notes.push(miss.length ? 'à construire : ' + [...new Set(miss)].slice(0, 4).join(', ') : 'toute la chaîne est disponible');
+  }
+  say(`${recipeOf(v).name} : ${notes.join(' · ')}. Les fournisseurs et imports sont choisis automatiquement.`, notes.some(n => n.indexOf('à construire') === 0) ? 'warn' : 'good');
+  updateHUD(); return true;
+}
 function autoChain(pk) {
   const { need } = chainNeeds(pk); let added = 0; const missing = [];
   RKEYS.forEach(g => {
@@ -6691,8 +6708,8 @@ function renderCatalog(force) {
   else if (cur === it.key) btns = `<button class="btn" disabled>Fabriqué dans cette usine</button>`;
   else if (it.kind === 'comp' || it.st === 'on' || it.st === 'rnd') btns = `<button class="btn" data-cat="make:${it.key}">Fabriquer ici${it.st === 'rnd' ? ' (R&D ' + it.days + ' j)' : ''}</button><button class="btn sec" data-cat="all:${it.key}">Toutes mes usines compatibles</button>`;
   else if ((it.tier || 0) > tierNow()) btns = `<button class="btn sec" disabled>Palier ${TIERS[it.tier].n} requis</button>`;
-  else if (it.free) btns = `<button class="btn" data-cat="launch:${it.key}">Fabriquer ici : produit standard, sans R&D</button>`;
-  else btns = `<button class="btn" data-cat="launch:${it.key}" ${S.cash >= it.rnd ? '' : 'disabled'}>Lancer la R&D · ${money(it.rnd)} (${pr.days} jours)</button>`;
+  else if (it.free) btns = `<button class="btn" data-cat="easy:${it.key}">▶ Tout lancer automatiquement</button><small class="note" style="display:block;margin-top:6px">Produit standard, sans R&D : le jeu affecte cette usine, choisit les fournisseurs et les imports, et prépare les composants.</small>`;
+  else btns = `<button class="btn" data-cat="easy:${it.key}" ${S.cash >= it.rnd ? '' : 'disabled'}>▶ Tout lancer automatiquement · R&D ${money(it.rnd)} (${pr.days} jours)</button>${S.cash >= it.rnd ? '' : `<small class="note neg" style="display:block;margin-top:6px"><b>Trésorerie insuffisante :</b> il manque ${money(it.rnd - S.cash)} pour lancer la R&D.</small>`}`;
   const det = `<div class="hero"><div class="photo2">${itemThumb(it)}</div><div><h3>${it.name}</h3><small class="note">${isProd ? CLSN[pr.cls] + ' · ' + LVL_NAME[pr.lvl] + ' minimum' : 'Composant · ' + LVL_NAME[it.lvl] + ' minimum'}</small><p class="note" style="margin:6px 0">${isProd ? pr.desc : 'Matière transformée utilisée dans d\'autres chaînes de production ou revendue sur le marché.'}</p>${fresh ? `<div class="bnbanner warn"><b>Nouveau produit : pas encore de données de marché</b><span>Le prix affiché est le prix de référence de la gamme ${QTIER[ps.q].n.toLowerCase()}. Les ventes réelles, la notoriété et la part de marché n'existeront qu'après le lancement. R&D : ${money(it.rnd)}, ${pr.days} jours.</span></div>` : ''}</div></div>
   <div class="kpis" style="grid-template-columns:repeat(2,1fr)">
     <div><small>${fresh ? 'Prix de référence' : isProd ? 'Prix de vente actuel' : 'Cours actuel du marché'}</small><b>${f1(it.price)} $ / unité</b></div>
@@ -6707,7 +6724,9 @@ function renderCatalog(force) {
   <ul class="tree">${Object.keys(it.inp).map(g => treeHtml(g, 0, [])).join('')}</ul>
   <div class="actions" style="margin-top:8px"><button class="btn sec" data-cat="guide:${it.key}">Guide du fabricant</button></div>
   ${isProd ? `<h4 style="margin:12px 0 4px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)">Où il se vend</h4><p class="note">${sellers}. Gamme ${QTIER[ps.q].n.toLowerCase()}, emballage ${PACK[ps.pack].n.toLowerCase()} (réglable dans la vue Produits).</p><div class="actions" style="margin:6px 0"><button class="btn sec" data-cat="sheet:${it.key}">Ouvrir la fiche produit</button></div>` : ''}
-  <div class="actions" style="margin-top:12px">${btns}</div>`;
+  <div style="position:sticky;bottom:-1px;background:#141a3c;border-top:1px solid rgba(242,184,75,.35);padding:8px 0 4px;margin-top:10px;z-index:3">
+  ${isProd && cur !== it.key && it.lvl <= lv ? (() => { const miss = []; chainLeaves(it.key).forEach(g => { const si = sourceInfo(g); if (!si.n) miss.push(si.label); }); const st = (ok, txt) => `<li class="${ok ? 'pos' : 'neg'}">${ok ? '✔' : '✖'} ${txt}</li>`; return `<div class="note" style="margin:0 0 6px"><b>Comment lancer ce produit :</b><ul style="margin:4px 0 0 18px">${st(it.st !== 'locked' || !!it.free, it.st === 'locked' && !it.free ? 'R&D de ' + pr.days + ' jours (' + money(it.rnd) + ')' : 'Produit disponible')}${st(!miss.length, miss.length ? 'À construire : ' + [...new Set(miss)].slice(0, 4).join(', ') : 'Matières premières : sources en place')}${st(true, 'Cette usine (' + LVL_NAME[FLEVEL[c.t]] + ') peut le fabriquer')}</ul><small>Le bouton ci-dessous enchaîne tout : R&D, affectation de l'usine, composants et fournisseurs.</small></div>`; })() : ''}
+  <div class="actions" style="margin-top:6px">${btns}</div></div>`;
   const filt = [['all', 'Tout'], ['comp', 'Composants'], ['prod', 'Produits finis'], ['ok', 'Faisables ici']].map(f => `<button data-cat="f:${f[0]}" aria-pressed="${catFilter === f[0]}">${f[1]}</button>`).join('');
   const html = `<div class="chead"><b>CHOISIR LA PRODUCTION</b><span>${T.name} · case ${c.x + 1}, ${c.y + 1} · ${f1(cyc)} cycles/jour</span><button class="ibtn" data-cat="close">Retour à l'usine</button></div><div class="cbody"><div class="clist"><div class="cfilters">${filt}</div>${list || '<p class="note">Aucun résultat.</p>'}</div><div class="cdet">${det}</div></div>`;
   if (html === cvHtml) return;
@@ -6723,6 +6742,7 @@ el('cview').addEventListener('click', e => {
   else if (k === 'f') { catFilter = v; cvHtml = ''; }
   else if (!c) return;
   else if (k === 'make') { c.prod = v; c.src = {}; say(`${recipeOf(v).name} : production lancée dans cette usine.`, 'good'); autoSource(c); refreshStats(); updateHUD(); return closeCatalog(true); }
+  else if (k === 'easy') { if (easyLaunch(c, v)) { refreshStats(); return closeCatalog(true); } }
   else if (k === 'launch') { if (launchProduct(v)) { c.prod = v; c.src = {}; if (prodOn(v)) autoSource(c); updateHUD(); } }
   else if (k === 'all') { const n = recipeOf(v).lvl ? assignRecipe(v, 99) : 0; say(n ? `${n} usine(s) affectée(s) à ${recipeOf(v).name.toLowerCase()}.` : 'Aucune usine libre compatible.', n ? 'good' : 'warn'); updateHUD(); }
   else if (k === 'guide') { closeCatalog(false); openGuide(v); return; }
@@ -6875,7 +6895,7 @@ el('supview').addEventListener('click', e => {
 });
 el('supview').addEventListener('change', e => { if (e.target.dataset.sps) { const c = supB && cell(supB.x, supB.y); if (c) { c.src = c.src || {}; c.src[e.target.dataset.sps] = e.target.value; } return; } const s = e.target.dataset.sf; if (!s) return; if (s === 'g') { supG = e.target.value; supSel = null; } else if (s === 'type') supType = e.target.value; else supSort = e.target.value; renderSup(); });
 function purTab(c) {
-  const rec = recOf(c); if (!rec) return '<p class="fnote">Ce bâtiment n\'achète rien.</p>';
+  const rec = recOf(c); if (!rec) { if (FLEVEL[c.t]) { const why = !c.prod ? 'Aucun produit n\'est choisi : l\'usine est à l\'arrêt, donc elle n\'a rien à acheter.' : (PRODUCTS[c.prod] && S.prod[c.prod].st === 'rnd') ? 'Le produit choisi est encore en R&D : l\'usine n\'achète rien tant qu\'il n\'est pas lancé.' : 'Cette usine est trop petite pour ce produit : améliore-la ou affecte-lui une usine de niveau supérieur.'; return `<p class="fnote"><b>${why}</b></p><div class="actions"><button class="btn" data-act="catalog">Choisir la production</button></div><p class="fnote">Une fois le produit choisi, le jeu sélectionne automatiquement fournisseurs et imports pour chaque intrant ; tu pourras les modifier ici.</p>`; } return '<p class="fnote">Ce bâtiment n\'achète rien.</p>'; }
   let h = `<p class="fnote">Comme dans Capitalism : choisis, pour chaque intrant, à quelle société tu achètes. Le prix livré = prix de la société + frais de transport selon la distance. L'import par le port est plus cher que ton réseau local (marge du port + fret long).</p>`;
   Object.keys(rec.in).forEach(g => {
     const mode = (c.src && c.src[g]) || 'auto', need = rec.in[g] * (c._u || 0), sup = supplierList(g);
@@ -8390,7 +8410,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF };
+window.WSE = { easyLaunch, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF };
 })();
 </script>
 </body>
