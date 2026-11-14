@@ -265,3 +265,29 @@ Sources : USDA-ERS (pain/céréales ≈ −0,5 en moyenne, inélastique ; court 
 - Sensibilité au PIB de la demande : basique 0,5, courant 1, luxe 6.
 - Usines génériques : plancher de prix = coût réel des intrants + 8 %, ventes en magasin et exports comptés dans la demande, EBITDA cible relevé pour f1/f2 (≈ 13 %) ; la grande usine (f3) utilise peu de lingots et beaucoup de main-d'œuvre (marge brute ≈ 56 %), mines d'or plus productives.
 - Pharma : moitié moins de matière et frais généraux fixes (marge brute ≈ 79 %), salaires ×1,8 ; banque, tech, R&D et data center paient 1,3 à 2 fois plus ; CA tech et banque indexés sur l'inflation, intérêts bancaires plafonnés par la taille de la banque (plus sur toute la trésorerie), CA par employé tech ≈ 680 k€ et data center ≈ 760 k€.
+
+## Passe 13 : fin de la production générique, arbre produit cohérent
+
+**Usines vides.** Une usine f1-f4 neuve ne fabrique plus rien (plus de « marchandise générique » de base / manufacturée / luxe, ni de « produits de luxe » à base de cuivre + pétrole + lingots). `recOf(c)` renvoie `null` tant qu'aucun produit ou composant n'est choisi (ou que le produit est en R&D, ou que l'usine est trop petite) ; `step()` met alors `c.limit` à `noprod` / `rnd` / `lvl` et le bâtiment affiche « Aucun produit : choisis ce que l'usine fabrique ». Le choix d'un produit lance l'auto-production (`autoSource` : fournisseurs et imports choisis selon l'arborescence), aussi à la fin d'une R&D pour les usines déjà affectées (`assignRecipe` appelle aussi `autoSource`). Une usine vide n'emploie que 25 % de ses postes (`actF` : l'effectif suit l'activité lissée `_actE`, y compris pour les salaires) mais paie son entretien. `TYPES.f1..f4.rec` ne sert plus qu'à référencer l'emplacement (distance aux intrants pour le calque logistique) et à calibrer le cours de marché des marchandises de rayon. Sauvegarde v8 inchangée : les anciennes usines sans produit (`prod` nul) se chargent vides, le Conseiller les signale.
+
+**Marchandises de rayon = marché local.** Les rayons « base / manufacturé / luxe » sont alimentés par les grossistes et producteurs PNJ de la ville au cours du marché + 5 % (`PNJ_MK`, avant : import portuaire ×1,12-1,20) ; les produits de marque du joueur passent avant. Le libellé devient « (marché local) ». Les anciens stocks génériques d'une sauvegarde restent vendables.
+
+**Arborescence : audit et corrections.**
+
+| Recette / produit | Avant | Après | Verdict |
+|---|---|---|---|
+| Emballages | plastique + charbon | plastique + bois (carton) | charbon absurde |
+| Cartes électroniques | cuivre + plastique + 1 lingot | cuivre + plastique + silicium + 0,4 lingot | l'électronique a du silicium |
+| Écrans | plastique + carte + câble | verre + plastique + carte | un écran a du verre |
+| Baskets | tissu + pneus (acier) | tissu + caoutchouc | semelle, pas un pneu |
+| Lit | planches + acier | planches + acier + tissu | literie |
+| Vélo | acier + plastique | acier + plastique + caoutchouc | pneus |
+| Smartphone | écran + carte + batterie | + plastique (boîtier) | |
+| Montre de luxe | 3 boîtiers or + carte + acier | boîtier or + verre saphir + acier + cuivre | acier + or + verre |
+| Génériques f3 (luxe) | cuivre + pétrole + lingots | supprimé | absurde |
+
+Nouveaux composants : verre (sable + charbon), silicium (sable + charbon, usine moyenne), essences et arômes (chimie + canne à sucre). Nouveaux produits (23 → 35 au total) : savons et détergents, verrerie et bocaux (f1) ; crèmes et soins, petit électroménager, réfrigérateur (f2) ; bijoux en or (or + cuivre + cristal), parfum de luxe, soins de luxe, sac de créateur (f3) ; tablette, ordinateur portable, console de jeux (f4, niveau 4 = méga-usine, palier Magnat). Au moins 3 produits « standard » par niveau se lancent sans R&D (`free` : pain, ustensiles, savons, verrerie ; jeans, vélo, crèmes, petit électroménager ; montre, bijoux, parfum ; tablette, ordinateur, console), les autres gardent leur R&D.
+
+**Méga-usine (f4).** Niveau 4 (toutes les recettes de la grande usine + l'électronique de masse), capacité ×3 (avant ×8), effectif nominal ×2,4, capex ×3,2 ; l'effectif suit l'activité. Le calibrage des prix divise les coûts fixes par la capacité (`facFix`).
+
+**Calibrage.** EBITDA cible usine : base 20 %, manufacturé 17 %, immobilier 15 %, luxe 30 % (avant 32), pharma 38 % (avant 42). Marge brute mesurée (simulation, chaîne complète) : pharma 75-88 %, luxe 41-72 % (électronique et or ≈ 41-46 %, parfum et maroquinerie ≈ 70 %), base 36 %, manufacturé 20-30 %. Mesures par produit à plein régime (cours de base) : voir les scripts d'audit de la session.
