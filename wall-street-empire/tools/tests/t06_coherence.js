@@ -22,10 +22,10 @@ exports.run = async (t, L) => {
   await pg.evaluate(() => { for (let i = 0; i < 3; i++) window.WSE.step(); });   // le dernier jour simulé est celui affiché
   const C = await pg.evaluate(() => {
     const W = window.WSE, S = W.S, N = W.N, DM = 30; const cs = []; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.x + c.y * N === i && c.t !== 'npc' && c.t !== 'road' && c.t !== 'part' && c.t !== 'pylon' && c.t !== 'cable' && c.t !== 'pipeline') cs.push(c); }
-    const a = S.m30, k = 30 / a.length, mo = { ca: a.reduce((s, r) => s + r[0], 0) * k, ebe: a.reduce((s, r) => s + r[1], 0) * k, net: a.reduce((s, r) => s + (r[2] || 0), 0) * k };
+    const a = S.m30, k = 30 / a.length, mo = { wag: a.reduce((s, r) => s + (r[7] || 0), 0) * k, ca: a.reduce((s, r) => s + r[0], 0) * k, ebe: a.reduce((s, r) => s + r[1], 0) * k, net: a.reduce((s, r) => s + (r[2] || 0), 0) * k };
     const F = S.fin; const sold = {}; cs.forEach(c => { if (c.sales) Object.keys(c.sales).forEach(g => { sold[g] = (sold[g] || 0) + (c.sales[g] || 0); }); });
     let jobs = 0, wages = 0; cs.forEach(c => { wages += c.wages || 0; jobs += (W.TYPES[c.t].jobs || 0) * 0; });
-    return { cash: S.cash, pop: S.pop, mo, F: Object.assign({}, F), wagesB: wages * DM, stock: S.stock, price: S.price, prod: Object.fromEntries(Object.entries(S.prod).filter(([, p]) => p.st === 'on').map(([k, p]) => [k, { qm: p.qm, rm: p.rm, sold: p.sold, stock: p.stock }])), soldSum: sold, nb: cs.length, hud: { cash: document.getElementById('vCash').innerText, net: document.getElementById('vNet').innerText, pop: document.getElementById('vPop').innerText, jobs: document.getElementById('vJobs').innerText } };
+    return { cash: S.cash, pop: S.pop, mo, F: Object.assign({}, F), wagesB: wages * DM, wagesLast: ((S.fin || {}).wages || 0) * DM, stock: S.stock, price: S.price, prod: Object.fromEntries(Object.entries(S.prod).filter(([, p]) => p.st === 'on').map(([k, p]) => [k, { qm: p.qm, rm: p.rm, sold: p.sold, stock: p.stock }])), soldSum: sold, nb: cs.length, hud: { cash: document.getElementById('vCash').innerText, net: document.getElementById('vNet').innerText, pop: document.getElementById('vPop').innerText, jobs: document.getElementById('vJobs').innerText } };
   });
   const E = await A.tabText(pg, 'empire'), Fi = await A.tabText(pg, 'fin'), Mk = await A.tabText(pg, 'market'), Pr = await A.tabText(pg, 'prods');
   const strip = await pg.evaluate(() => ({ cash: document.getElementById('psCash').innerText, net: document.getElementById('psNet').innerText }));
@@ -47,8 +47,9 @@ exports.run = async (t, L) => {
   // 5. Salaires totaux : Finances vs Empire vs somme des fiches de bâtiments
   const salE = vals(E, /^Salaires, coûts d'exploitation, transport/i)[0];
   rep('salaires + exploitation + transport', [{ s: 'Finances', v: -(g('Salaires') + g('Coûts d\'exploitation') + g('Transport')) }, { s: 'Empire', v: -salE }]);
-  // Finances = moyenne glissante 30 j ; les fiches = dernier jour : en croissance rapide (le bot construit en continu) la masse salariale du jour dépasse la moyenne. Tolérance 5 %.
-  { const fin = -g('Salaires'), sb = C.wagesB, gap = Math.abs(fin - sb) / Math.max(1, Math.abs(fin)); t.check('salaires totaux : écart <= 5 % entre Finances (moyenne 30 j) et Σ fiches (dernier jour)', gap <= 0.05, `Finances=${Math.round(fin)} | Σ fiches=${Math.round(sb)} | écart ${(gap * 100).toFixed(1)} %`); }
+  // Deux fenêtres différentes, chacune comparée à sa vraie source : Finances = moyenne glissante 30 j (S.m30) ; fiches de bâtiments = dernier jour (S.fin).
+  rep('salaires mensuels (Finances vs moyenne 30 j de S.m30)', [{ s: 'Finances', v: -g('Salaires') }, { s: 'S.m30', v: C.mo.wag }]);
+  rep('salaires mensuels (Σ fiches de bâtiments vs dernier jour de S.fin)', [{ s: 'Σ fiches', v: C.wagesB }, { s: 'S.fin', v: C.wagesLast }]);
   // 6. Ventes d'un produit : écran Produits (« Vendu : n u/mois ») vs état vs somme des ventes des magasins x 30
   const prodNames = { utensils: 'Ustensiles de cuisine', bread: 'Pain' };
   for (const pk of Object.keys(prodNames)) {
