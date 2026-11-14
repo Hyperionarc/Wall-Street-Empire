@@ -416,6 +416,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .fint th:first-child{text-align:left}
 .fint td{padding:5px 6px;border-top:1px solid var(--line);text-align:right;font-family:var(--font-m)}
 .fint td:first-child{text-align:left;font-family:var(--font-b)}
+.rank td:nth-child(2),.rank th:nth-child(2){text-align:left}.rank td:first-child{color:var(--mut)}
 .fint tr.tot td{font-weight:700;border-top:2px solid var(--gold)}
 .fint tr.sub td{color:var(--mut)}
 .fgrid{display:grid;grid-template-columns:1fr;gap:12px}
@@ -490,6 +491,8 @@ body.vopen #feed{z-index:9}
 .tcard{padding:8px 10px;margin:6px 0;border-radius:8px;background:var(--panel-hi);border:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
 .tcard.done{border-color:var(--green)}.tcard.run{border-color:var(--gold)}.tcard.lock{opacity:.55}
 .tcard b{font-size:13px}.tcard small{color:var(--mut);font-size:11px}.tcard .btn{min-height:30px;font-size:12px;align-self:flex-start}
+#techs{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:2px 10px}#techs>.cgrp,#techs>.tsum,#techs>.tcard:first-child,#techs>.tcard.run:not([data-t]){grid-column:1/-1}
+.tsum{display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--mut)}.tsum b{color:var(--gold);font-family:var(--font-m)}
 .gview,#gview{position:absolute;z-index:9;left:max(12px,env(safe-area-inset-left,0px));top:calc(var(--hud-h) + 8px);width:min(1000px,calc(100% - 24px));max-height:calc(100% - var(--hud-h) - var(--bar-h) - 20px);display:flex;flex-direction:column;border-radius:12px;background:linear-gradient(180deg,#0d2a6b,#0a1a45);border:1px solid #5f8aff;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 #gview[hidden]{display:none}
 @media (min-width:900px){#gview{left:calc(max(12px,env(safe-area-inset-left,0px)) + 168px);width:min(1000px,calc(100% - 192px))}}
@@ -2961,6 +2964,14 @@ function updateHUD() {
     const avg = id => RIV_CLS.reduce((a, cls) => a + (mk[cls] ? (id === 'you' ? mk[cls].you : (mk[cls].riv.find(r => r.id === id) || { s: 0 }).s) : 0), 0) / 4;
     const comps = [{ id: 'you', name: 'Ta société', col: '#f2b84b' }].concat((S.rivals || []).map(r => ({ id: r.id, name: r.name, col: r.col })));
     rh += `<div class="mk"><small>Parts de marché (moyenne des 4 catégories)</small><div class="mkbar">${comps.map(c => `<i title="${c.name} ${Math.round(avg(c.id) * 100)} %" style="width:${(avg(c.id) * 100).toFixed(1)}%;background:${c.col}"></i>`).join('')}</div></div>`;
+    {   // classement : rang, part de marché, ventes, valeur et tendance de la part sur ~30 jours (historique d'affichage, non sauvegardé)
+      const H = window._shH || (window._shH = {}), sig = S.day >> 5;
+      comps.forEach(c => { const h = H[c.id] || (H[c.id] = []); const a = avg(c.id); if (!h.length || h[h.length - 1][0] !== sig) { h.push([sig, a]); if (h.length > 3) h.shift(); } });
+      const fr = S.fin || {}, youRev = (fr.revRetail || 0) + (fr.revExport || 0) + (fr.revTech || 0) + (fr.revBank || 0);
+      const rk = comps.map(c => { const rv = (S.rivals || []).find(q => q.id === c.id), h = H[c.id], a = avg(c.id), p = h.length > 1 ? h[h.length - 2][1] : null;
+        return { c, a, d: p == null ? null : (a - p) * 100, rev: rv ? (rv.rev || 0) : youRev, val: rv ? rivalValue(rv) : ((S.stats && S.stats.worth) || 0), you: !rv }; }).sort((x, y) => y.a - x.a);
+      rh += `<table class="fint rank"><tr><th>#</th><th>Société</th><th>Part</th><th>Tendance</th><th>Ventes/mois</th><th>Valeur</th></tr>${rk.map((x, i) => `<tr${x.you ? ' class="tot"' : ''}><td>${i + 1}</td><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${x.c.col};margin-right:6px"></i>${x.c.name}</td><td>${Math.round(x.a * 100)} %</td><td class="${x.d == null ? '' : x.d >= 0 ? 'pos' : 'neg'}">${x.d == null ? '–' : (x.d >= 0 ? '▲ +' : '▼ −') + Math.abs(x.d).toFixed(1).replace('.', ',') + ' pt'}</td><td>${mj(x.rev)}</td><td>${money(x.val)}</td></tr>`).join('')}</table>`;
+    }
     const shares = id => RIV_CLS.map(cls => { const m = mk[cls]; const v = m ? (id === 'you' ? m.you : (m.riv.find(r => r.id === id) || { s: 0 }).s) : 0; return `<span>${CN[cls]} <b>${Math.round(v * 100)} %</b></span>`; }).join('');
     rh += `<div class="rcard"><div class="rtop"><i style="background:#f2b84b"></i><b>Ta société</b><small>${Math.round(avg('you') * 100)} % du marché</small></div><div class="rshr">${shares('you')}</div></div>`;
     rh += (S.rivals || []).map(r => { const v = rivalValue(r); return `<div class="rcard"><div class="rtop"><i style="background:${r.col}"></i><b>${r.name}</b><small>${Math.round(avg(r.id) * 100)} % du marché</small></div><div class="rshr">${shares(r.id)}</div><div class="rbot"><small>Trésorerie ${money(r.cash)} · ${mj(r.rev || 0)} de ventes/mois</small><button class="btn sec" data-buy="${r.id}" ${S.cash >= v ? '' : 'disabled'}>Racheter ${money(v)}</button></div></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
@@ -3304,10 +3315,12 @@ function renderTechs() {
   { let nrd = 0, ndc = 0; eachBuilding(c => { if (c.t === 'rd' && c.conn) nrd++; if (c.t === 'dc' && c.conn) ndc++; });
     h += `<div class="tcard"><b>Laboratoire ${casteIs('innovateur') ? '(Innovateur tech)' : ''}</b><small>Centres de R&D : ${nrd} · vitesse de recherche +${Math.round(25 * (S.rdPower || 0))} % · brevets déposés : ${S.patents || 0} (${mj(S.patRev || 0)} de royalties par mois)</small><small>Data centers : ${ndc} · boost d'IA : +${(100 * (S.aiBoost || 0)).toFixed(1).replace('.', ',')} % de production, de ventes et de rendement partout (plafonné à 12 %)</small><small>Les centres de R&D (menu Ville) accélèrent la recherche et déposent des brevets ; les data centers louent leur puissance de calcul et améliorent l'efficience de toute l'entreprise.</small></div>`; }
   if (S.research) { const T = TECH_BY[S.research.id], pr = 1 - S.research.left / S.research.total; h += `<div class="tcard run"><b>En cours : ${T.n}</b><div class="bar"><i style="width:${Math.round(pr * 100)}%"></i></div><small>${Math.ceil(S.research.left)} jour(s) restant(s) · ${T.d2}</small></div>`; }
+  { const avl = TECHS.filter(x => !x.caste || x.caste === casteOf()), dn = avl.filter(x => S.tech && S.tech[x.id]).length;
+    h += `<div class="tsum"><span>Technologies acquises <b>${dn} / ${avl.length}</b></span>${[1, 2, 3].map(e => { const l = avl.filter(x => x.era === e); return `<span>${ERA_N[e]} <b>${l.filter(x => S.tech && S.tech[x.id]).length} / ${l.length}</b></span>`; }).join('')}</div>`; }
   [1, 2, 3].forEach(era => { h += `<div class="cgrp">${ERA_N[era]}</div>`; TECHS.filter(x => x.era === era && (!x.caste || x.caste === casteOf())).forEach(T => {
     const done = S.tech && S.tech[T.id], av = techAvail(T), run = S.research && S.research.id === T.id;
     const miss = T.req.filter(r => !(S.tech && S.tech[r])).map(r => TECH_BY[r].n).join(', ');
-    h += `<div class="tcard ${done ? 'done' : run ? 'run' : av ? '' : 'lock'}"><b>${T.n} ${done ? '✓' : ''}</b><small>${T.d2}</small><small>${done ? 'Acquise' : run ? 'En cours' : av ? money(T.c) + ' · ' + T.d + ' jours' : 'Nécessite : ' + miss}</small>${!done && !run && av ? `<button class="btn" data-tech="${T.id}" ${!S.research && S.cash >= T.c ? '' : 'disabled'}>${S.research ? 'Une recherche est déjà en cours' : 'Rechercher'}</button>` : ''}</div>`; }); });
+    h += `<div data-t="${T.id}" class="tcard ${done ? 'done' : run ? 'run' : av ? '' : 'lock'}"><b>${T.n} ${done ? '✓' : ''}</b><small>${T.d2}</small><small>${done ? 'Acquise' : run ? 'En cours' : av ? money(T.c) + ' · ' + T.d + ' jours' : 'Nécessite : ' + miss}</small>${!done && !run && av ? `<button class="btn" data-tech="${T.id}" ${!S.research && S.cash >= T.c ? '' : 'disabled'}>${S.research ? 'Une recherche est déjà en cours' : 'Rechercher'}</button>` : ''}</div>`; }); });
   if (el('techs').dataset.h !== h) { el('techs').innerHTML = h; el('techs').dataset.h = h; }
 }
 el('techs').addEventListener('click', e => { const b = e.target.closest('[data-tech]'); if (b && !b.disabled) { startResearch(b.dataset.tech); renderTechs(); } });
