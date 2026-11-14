@@ -164,13 +164,104 @@ window.BOT = (function () {
       for (const k of ks) { if (cnt['x_' + k] && s.day < cnt['x_' + k]) continue; if ((born[k] || []).some(b => s.day - b.day < 35)) continue; const q = depQuote(k); if (!q.length) continue; const cost = q[0].tot * 1.1 + (cnt.port ? 0 : W.TYPES.port.cost * 1.2); if (cost > s.cash + 0.5 * (P.lev * s.stats.worth - (s.loan || 0))) continue; if (s.cash < cost) borrow(cost + 1e5); if (s.cash < cost) continue; const r = depBuild(k); if (r > 0) { cnt['x_' + k] = s.day + 12; break; } }
     }
   }
+
+  // ===== Profil industriel (passe 21) : chaînes verticales mine/ferme -> composants -> usine du produit -> magasins (les magasins viennent de pick()) =====
+  // Principe : on ne construit une chaîne que dimensionnée (usines de composants = besoins de l'arborescence, extracteurs = besoins en matière), on la laisse mûrir,
+  // puis on l'agrandit tant que ses ventes absorbent toute sa production (stock sous le plafond de couverture) ; les matières en excédent partent à l'export.
+  const RAWK = { oil: 'well', iron: 'miron', coal: 'mcoal', copper: 'mcopper', gold: 'mgold', wheat: 'fwheat', sugar: 'fsugar', cotton: 'fcotton', rubber: 'frubber', wood: 'logging', gravel: 'qgravel', sand: 'qsand', limestone: 'qlime' };
+  Object.keys(RAWK).forEach(g => { EXT[RAWK[g]] = g; });
+  const IND = { chains: {}, last: -99, log: [], dem: {}, leaf: {} };   // dem / leaf : besoins CUMULÉS de toutes les chaînes (usines par composant, matières par cycle)
+  const FK = ['', 'f1', 'f2', 'f3', 'f4'];
+  function needs(pk, sc) {   // usines nécessaires par composant (en unités d'usine) et matières premières par cycle de l'usine du produit
+    const need = {}, leaf = {}, expand = (g, q) => { if (g === 'ingot') { const F = W.TYPES.foundry.rec; leaf.ingot = (leaf.ingot || 0) + q; leaf.gold = (leaf.gold || 0) + q * F.in.gold / F.out.ingot; return; } const R = W.RECIPES[g]; if (!R) { leaf[g] = (leaf[g] || 0) + q; return; } const u = q / R.out; need[g] = (need[g] || 0) + u; Object.keys(R.in).forEach(i => expand(i, u * R.in[i])); };
+    const inp = Object.assign({}, W.productInputs(pk)); if (W.PRODUCTS[pk].cls === 'basic') delete inp.pack;   // un produit de base se lance sans emballage
+    Object.keys(inp).forEach(g => expand(g, inp[g] * sc)); return { need, leaf };
+  }
+  const CYC = 16 * 0.9;   // cycles de recette par jour et par usine (FAC_U x effectif)
+  function delta(pk, sc) {   // besoins supplémentaires quand la chaîne passe de son échelle actuelle à sc
+    const n1 = needs(pk, sc), n0 = IND.chains[pk] ? needs(pk, IND.chains[pk].sc) : { need: {}, leaf: {} }, d = { need: {}, leaf: {} };
+    Object.keys(n1.need).forEach(g => { d.need[g] = n1.need[g] - (n0.need[g] || 0); }); Object.keys(n1.leaf).forEach(g => { d.leaf[g] = n1.leaf[g] - (n0.leaf[g] || 0); }); return d;
+  }
+  function plan(pk, sc) {   // ce qu'il faut construire : {fac:{clé:n}, ext:{clé:n}}
+    const P0 = W.PRODUCTS[pk], d = delta(pk, sc), out = { fac: {}, ext: {} }, cn = S().stats.cn || {};
+    const add = (o, k, n) => { if (n > 0) o[k] = (o[k] || 0) + n; };
+    Object.keys(d.need).forEach(g => { const tot = (IND.dem[g] || 0) + d.need[g], k = FK[W.RECIPES[g].lvl]; add(out.fac, k, Math.ceil(tot - W.unitsOn(g) - 0.05)); });
+    // les composants d'un même niveau partagent les mêmes usines : on compte le total par niveau (les recettes de niveau 1 peuvent tourner sur n'importe quelle usine libre)
+    add(out.fac, FK[P0.lvl], Math.max(0, sc - W.facCounts(pk).mine));
+    Object.keys(d.leaf).forEach(g => { const tot = (IND.leaf[g] || 0) + d.leaf[g]; if (g === 'ingot') { const per = W.TYPES.foundry.rec.out.ingot * CYC; add(out.ext, 'foundry', Math.ceil(tot * CYC / per - 0.05) - (cn.foundry || 0)); return; } const k = RAWK[g]; if (!k || !tierOk(k)) return; add(out.ext, k, Math.ceil(tot * CYC / (W.TYPES[k].rate * 0.85) - 0.05) - (cn[k] || 0)); });
+    return out;
+  }
+  function indCost(pk, sc) {
+    const P0 = W.PRODUCTS[pk], pl = plan(pk, sc), cp = Math.max(1, S().cpi || 1); let c = 0;
+    Object.keys(pl.fac).forEach(k => { c += pl.fac[k] * W.TYPES[k].cost * cp; }); Object.keys(pl.ext).forEach(k => { c += pl.ext[k] * W.TYPES[k].cost * cp * (k === 'foundry' ? 1 : 1.15); });
+    if (S().prod[pk].st === 'locked' && !P0.free) c += P0.rnd * [0.6, 1, 1.8][S().prod[pk].q];
+    return c;
+  }
+  function buildChain(pk, sc) {
+    const s = S(); if (!ensurePort()) return false;
+    if (s.prod[pk].st === 'locked') { if (!W.launchProduct(pk)) return false; }
+    const d = delta(pk, sc), pl = plan(pk, sc); let paid = 0, ok = true;
+    // 1) extracteurs et fonderie ; 2) usines de composants ; 3) l'usine du produit EN DERNIER (une grande usine sans composants brûle ses salaires pour rien)
+    Object.keys(pl.ext).forEach(k => { for (let i = 0; i < pl.ext[k]; i++) { let r; if (k === 'foundry') { r = tryBuildAny('foundry'); } else { const q = depQuote(k); if (!q.length) break; if (s.cash < q[0].tot * 1.05) borrow(q[0].tot * 1.05 + 1e5); r = depBuild(k); } if (!(r > 0)) break; paid += r; } });
+    const prodK = FK[W.PRODUCTS[pk].lvl];
+    Object.keys(pl.fac).filter(k => k !== prodK).concat(pl.fac[prodK] ? [prodK] : []).forEach(k => { for (let i = 0; i < pl.fac[k]; i++) { if (s.cash < W.TYPES[k].cost * 1.1) borrow(W.TYPES[k].cost * 1.1 + 1e5); const r = tryBuildAny(k); if (!(r > 0)) { ok = false; break; } paid += r; } });
+    Object.keys(d.need).forEach(g => { IND.dem[g] = (IND.dem[g] || 0) + d.need[g]; }); Object.keys(d.leaf).forEach(g => { IND.leaf[g] = (IND.leaf[g] || 0) + d.leaf[g]; });
+    // affectations explicites : composants d'abord (cumul de toutes les chaînes), produit ensuite
+    Object.keys(IND.dem).forEach(g => { const n = Math.ceil(IND.dem[g] - W.unitsOn(g) - 0.05); if (n > 0) W.assignRecipe(g, n, true); });
+    const np = sc - W.facCounts(pk).mine; if (np > 0) W.assignProduct(pk, np);
+    return ok ? paid : paid;
+  }
+  function chainsStatus() { const s = S(); return Object.keys(IND.chains).map(pk => { const ps = s.prod[pk], ch = IND.chains[pk]; return { pk, sc: ch.sc, st: ps.st, sold: ps.sold, made: ps.made, stock: ps.stock, age: s.day - ch.day, rr: ps.rr }; }); }
+  // rendement annuel a priori (EBITDA global / capex) d'une chaîne verticale bien construite, mesuré par tools/chain_audit.js (passe 21) ; le surplus part à l'export
+  const PRIOR = { bread: 0.30, utensils: 0.36, soap: 0.22, glassware: 0.22, tshirt: 0.2, jeans: 0.27, bike: 0.32, cream: 0.25, blender: 0.25, headache: 0.30, cough: 0.35, watch: 0.60, jewelry: 0.26, perfume: 0.30, handbag: 0.3, skincare: 0.35 };
+  function prodProfit(pk) {   // EBE moyen (20 derniers jours) des usines du produit
+    let t = 0, n = 0; for (let i = 0; i < N * N; i++) { const c = S().grid[i]; if (!c || c.prod !== pk || c.x + c.y * N !== i) continue; const h = (c.hist || []).slice(-20); if (h.length < 10) continue; t += h.reduce((a, v) => a + v, 0) / h.length; n++; }
+    return n ? t : null;
+  }
+  function doctor() {   // démolit les usines de produit qui tournent à vide depuis longtemps (une grande usine inactive brûle ses salaires)
+    const s = S();
+    Object.keys(IND.chains).forEach(pk => { const ch = IND.chains[pk]; if (ch.dead || s.day - ch.day < 150) return; let n = 0, u = 0, list = [];
+      for (let i = 0; i < N * N; i++) { const c = s.grid[i]; if (!c || c.prod !== pk || c.x + c.y * N !== i) continue; n++; u += c.util || 0; list.push(c); }
+      if (n && u / n < 0.25) ch.low = (ch.low || 0) + 1; else ch.low = 0;
+      if (n && ch.low >= 4) { list.forEach(c => { W.place(c.x, c.y, 'bull'); }); ch.dead = true; IND.log.push([s.day, 'demolished', pk, n]); } });
+  }
+  // plus de ports = import moins cher (surcoût 30 % -> 5 % avec 5 ports) : les gisements s'épuisent, les usines continuent d'importer leurs matières
+  function morePorts() {
+    const s = S(), have = s.stats.cn.port || 0, want = Math.min(5, 1 + Object.keys(IND.chains).length); if (!Object.keys(IND.chains).length || have >= want || s.cash < 1.5 * W.TYPES.port.cost * Math.max(1, s.cpi || 1)) return;
+    const sp = portSpot(); if (!sp) return; W.place(sp[0], sp[1], 'port');
+  }
+  function industry() {
+    if (S().day - (IND.doc || -99) >= 30) { IND.doc = S().day; doctor(); if (P.morePorts) morePorts(); }
+    const s = S(); if (s.day - IND.last < (P.indEvery || 12)) return; const tn = W.tierNow ? W.tierNow() : 0;
+    const rate = W.loanRateNow ? W.loanRateNow() : 0.07, room = Math.max(0, Math.min((P.indLev || P.lev) * s.stats.worth, W.creditLimit()) - (s.loan || 0)), avail = s.cash + room;
+    if (chainsStatus().some(c => c.st === 'rnd')) return;   // R&D en cours : on attend
+    const order = P.prods || ['bread', 'utensils', 'bike', 'jeans', 'headache', 'cream', 'blender', 'perfume'], cands = [];
+    for (const pk of order) {
+      const P0 = W.PRODUCTS[pk]; if (!P0 || P0.tier > tn || (W.modeLocked && W.modeLocked(pk))) continue; const fk = FK[P0.lvl]; if (!tierOk(fk)) continue;
+      const ch = IND.chains[pk], sc = ch ? ch.sc + 1 : 1; if (sc > (P.maxScale || 8)) continue;
+      if (ch) { if (ch.dead || s.day - ch.day < (P.indMature || 60)) continue; const pf = prodProfit(pk), ps = s.prod[pk]; if (pf != null && pf < 0) { ch.bad = (ch.bad || 0) + 1; continue; }
+        if (!(ps.sold > 0.8 * ps.made && ps.stock < 0.6 * W.prodRoom(pk))) continue; }   // on n'agrandit que si les ventes locales absorbent la production : le surplus partirait à l'export à ~72 % du cours, donc à perte pour un produit à 17-20 % de marge
+      const roi = (PRIOR[pk] || 0.25) * (1 - 0.015 * (sc - 1)), net = roi * (1 - (s.tax || 0.2)); if (net < rate + (P.hurdle || 0.05)) continue;
+      cands.push({ pk, sc, roi, cost: indCost(pk, sc) * 1.1 });
+    }
+    const net0 = Math.max(1, (s.fin && s.fin.net) || 0), reach = cands.filter(c => c.cost <= avail + 700 * net0).sort((a, b) => b.roi - a.roi);   // projets atteignables en ~2 ans de profit
+    IND.dbg = { day: s.day, tn, avail: Math.round(avail), cands: cands.slice(0, 4).map(c => [c.pk, c.sc, Math.round(c.cost)]), reach: reach.map(c => c.pk) };
+    const aff = reach[0];
+    if (!aff) { IND.save = null; return; }
+    if (aff.cost > avail) { IND.save = s.day; return; }   // on met de côté : le commerce ne dépense plus
+    if (s.cash < aff.cost) borrow(aff.cost + 1e5); if (s.cash < aff.cost) return;
+    const r = buildChain(aff.pk, aff.sc);
+    if (r > 0 || r === 0) { IND.chains[aff.pk] = { sc: aff.sc, day: s.day }; IND.last = s.day; IND.log.push([s.day, aff.sc > 1 ? 'grow' : 'new', aff.pk, aff.sc, Math.round(r || 0)]); }
+  }
   function tick() {
     const s = S(); let did = 0, spent = 0;
     if (s.day % 20 === 0) prune();
     if (s.day % 8 === 0) missions();
+    if (P.industry) industry();
     if (P.idle > 0 && ((s.day * 2654435761) >>> 0) % 1000 < P.idle * 1000) return { did: 0, spent: 0 };
     if (s.stats.unemp < 0.02 && s.cash > 1.5e6 && (cnt.res || 0) < P.resCap) { for (let i = 0; i < 3; i++) { const r = tryBuild('res'); if (r) { spent += r; did++; } } }
     for (let n = 0; n < P.maxPerTick; n++) {
+      if (P.industry && IND.save != null && s.day - IND.save < 40) break;   // épargne pour une chaîne
       const b = pick(); if (!b) break;
       if (s.cash < b.cost) borrow(b.cost + 1e5);
       if (s.cash < b.cost) break;
@@ -182,5 +273,5 @@ window.BOT = (function () {
     if (P.bourse && s.day % 8 === 0) bourse();
     return { did, spent };
   }
-  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote };
+  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan };
 })();
