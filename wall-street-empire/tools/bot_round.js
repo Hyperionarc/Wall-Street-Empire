@@ -11,7 +11,9 @@ const PRESET={
   bon:    { lev:0.45, every:4,  idle:0,    p:{ hurdle:0.05 } },
   rapide: { lev:0.55, every:2,  idle:0,    p:{ hurdle:0.03, mature:28, maxPerTick:8, demC:{ s1:0.5, s2:0.45, s3:0.3, s4:0.35 } } },
   lent:   { lev:0.35, every:8,  idle:0.25, p:{ hurdle:0.08, mature:45 } },
-  casual: { lev:0.25, every:12, idle:0.5,  p:{ hurdle:0.10, mature:50 } }
+  casual: { lev:0.25, every:12, idle:0.5,  p:{ hurdle:0.10, mature:50 } },
+  // industriel (passe 21) : chaînes verticales (mines/fermes -> composants -> usine du produit -> magasins), extraction exportée, bourse ; aucune tour de services
+  industriel: { lev:0.5, every:3, idle:0, p:{ hurdle:0.05, industry:true, indEvery:8, indLev:0.6, bourse:false, fam:['s1','s2','s3','s4','off','miron','mcopper','mcoal','mgold','well'] } }
 };
 // familles par mode : les verrous du scénario sont de toute façon respectés par le bot (modeLocked)
 const BYMODE={

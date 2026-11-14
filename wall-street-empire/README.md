@@ -710,3 +710,79 @@ Un produit composé est enregistré **comme un produit ordinaire** (`PRODUCTS`, 
 `tools/tests/t10_arbre.js` (31 contrôles, environ 70 s) : références et ordre des recettes, aucun cycle, 70-85 produits et 35-45 composants, 3 intrants au plus, vignette dédiée par produit, famille, tables du modèle ; EBITDA 12-30 % des 44 nouveaux produits non pharmaceutiques, pharmacie (MB ≥ 72 %), EBITDA inchangés de 12 produits d'origine ; composeur : 7 refus expliqués, synergies, 16 modèles viables, création, nom nettoyé, doublon, R&D réduite, lancement en un clic, EBITDA mesuré de 6 produits composés, vente en magasin, écran Produits, aller-retour de sauvegarde, ancienne sauvegarde sans `cprod`, déterminisme sur deux parties neuves, `quickProduce` sur les 82 produits (dont 3 composés). `isoFactory` accepte désormais un code de préparation (`preSrc`) pour mesurer un produit composé. Bilan complet : 124 PASS (93 existants + 31).
 
 **Limites** : lait, viandes et cuir viennent d'un élevage abstrait nourri au blé (pas de fermes d'élevage) ; la qualité d'un produit composé ne dépend que de ses composants et des synergies (pas de technologie propre à la création) ; la demande d'un produit composé repose sur la demande par habitant de son modèle ; `city.html` n'est pas reconstruit dans ces commits (`python3 tools/build.py`).
+
+
+## Passe 21 : chaînes industrielles (mine/ferme → composants → usine → magasins)
+
+Un audit signalait que les chaînes usines → produits perdaient de l'argent dans les montages du bot, donc qu'un humain ne pouvait pas jouer l'industrie. Nouveau banc de mesure `tools/chain_audit.js` (`NODE_PATH=$(npm root -g) node tools/chain_audit.js [produit|all|a,b] [jours]`) : il construit la chaîne complète avec l'auto-production, fait tourner 200 jours avec prix de marché libres, imprime par maillon l'EBITDA, l'utilisation et la limite (goulot), puis la rentabilité **globale en trésorerie réelle** (CA magasins + export − salaires − entretien − fret − importations) **comparée à la même ville sans la chaîne** (les cessions internes ne sont pas de la trésorerie). Plans mal construits `bad_*` inclus ; test `t08_chaines.js`.
+
+### Pourquoi elles perdaient
+1. **Le montage du bot** (mission « chaîne » des scénarios) : une seule usine de pain, farine « achetée » à un fournisseur. L'auto-production choisissait le fournisseur à la **meilleure note** (45 % qualité), pas le moins cher : farine livrée ×1,36 le cours, alors qu'une usine gagne 15-20 % de marge brute. Résultat : −12 % d'EBITDA sur l'usine, −6,5 k$/j pour la chaîne (−152 %).
+2. **Achats sans garde-fou** : un intrant « Port » ou « Fournisseur » est acheté même quand la fabrication devient déficitaire (seul le mode Auto avait un garde-fou, et tous les composants importés l'étaient à ×1,05-1,3).
+3. **Surplus exporté à perte** : le surplus de produits dormait jusqu'à 10 000 unités puis partait à (taux d'export − 10 points), et le taux d'export valait 0,60 + 0,15 par port mais 0,78 dès qu'un rival existe, avec congestion 0,35 : 63-67 % du cours réalisé, en dessous du coût de revient d'un produit à 17-20 % de marge.
+4. **Capacités mal dimensionnées** : une usine de niveau 1 produit 3 200 à 4 000 pains/jour pour une demande ville de 450 à 1 300 : le reste est du surplus. La demande domestique de la classe « base » est ≈ 4 300 unités/jour pour 308 000 habitants.
+5. **Auto-affectation gloutonne** : `assignRecipe` prenait n'importe quelle usine libre de niveau ≥ recette, donc une grande usine à 200 emplois (14 k$/j de salaires) pouvait se retrouver à fabriquer du plastique (−50 k$/j observé dans les montages du bot).
+6. **Fonderie** : son revenu valait 0 (`outPrice` sans `prod`) : −100 à −127 k$/j affichés pour une fonderie qui alimente les chaînes montre et bijoux.
+7. **Cultures** : EBITDA mesuré près du port 36-48 % (blé 36, sucre 48, coton 29, caoutchouc 50) contre 20-27 % visé : l'entretien était calibré sur un rendement de 88 % alors que les sols près du port rendent 1,0 à 1,4× la production nominale.
+
+Non retenus après mesure : salaires (8-16 % du CA des usines, normal), entretien (1-3 %), demande trop faible (les magasins vendent 50-60 % de leur capacité nominale, réglage de la passe 16).
+
+### Corrections (tout dans `game.template.html`)
+- **Auto-production** (`autoSource`) : fournisseur **le moins cher livré** (qualité ≥ 50) ; si les achats rendent le cycle déficitaire (intrants + frais fixes > 80 % de la valeur produite), ils sont **suspendus** (`src = local`, `_noBuy`) ; en cours de partie, un achat choisi par l'auto-production est coupé tant que les intrants importés dépassent 85 % de la valeur produite (un choix manuel du joueur reste respecté). L'usine attend alors ta propre production, avec le goulot affiché.
+- **`assignRecipe(k, max, exact)`** : l'auto-production n'utilise que les usines du **niveau exact** de la recette.
+- **Export** (`EXP_BASE = 0,82`, `EXP_PORT = 0,04` par port, `EXP_CONG = 0,25`) : un seul port réalise 82-87 % du cours ; le surplus d'un produit part à l'export dès qu'il dépasse ≈ 15 jours de ventes (`prodRoom`), à (taux − 10 points) du cours.
+- **Cultures** : entretien recalé sur le rendement réel (`Y_CROP` : blé 1,06, sucre 1,38, coton 1,02, caoutchouc 1,38) → EBITDA 19-24 % près du port.
+- **Fonderie** : lingots valorisés au cours du marché.
+- **Fiche d'usine** : goulot nommé + conseil actionnable (« Goulot : manque de cuivre : construis : mine de cuivre, ou choisis un fournisseur. Stock …, cours … »), bouton « Choisir un fournisseur », bandeau « Usine déficitaire » (quel intrant acheté dehors ruine la marge), mention des achats suspendus.
+- **API de diagnostic** `window.WSE` : `chainNeeds`, `unitsOn`, `sourceInfo`, `facCounts`, `prodRoom`, `tierNow`, `RAW_SRC`, `FLEVEL`.
+
+### Mesures par maillon, avant/après (200 jours, ville de 310-320 k habitants, $ par jour)
+Exemple, **chaîne du pain** (2 fermes de blé, usine de farine, usine de pain, 4 supérettes + 2 supermarchés) :
+
+| Maillon | Avant (CA / EBITDA / marge) | Après |
+|---|---|---|
+| Fermes de blé (2) | 34 500 / 12 379 / 36 % | 34 500 / 8 214 / 24 % |
+| Usine de farine (f1) | 10 049 / 1 710 / 17 % | idem |
+| Usine de pain (f1) | 12 970 / 2 807 / 22 % | idem |
+| Magasins (s1 ×4, s2 ×2) | −92 et +581 (−5 % et 8 %) | idem |
+| **Chaîne globale (trésorerie)** | **EBITDA 34 %, retour 2,0 ans** | **EBITDA 22 %, retour 3,0 ans** |
+
+Rentabilité globale de chaque chaîne bien construite (EBITDA / CA, retour sur capex ajouté) :
+
+| Chaîne | Avant | Après |
+|---|---|---|
+| Pain (6 magasins) | 34 % / 2,0 ans | 22 % / 3,0 ans |
+| Pain (14 magasins) | 41 % / 2,2 ans | 25 % / 3,5 ans |
+| Ustensiles (fer, charbon, pétrole) | 31 % / 2,7 ans | 31 % / 2,6 ans |
+| Jeans (coton, bois, pétrole ; 3 f1 + f2) | 26 % / 2,7 ans | 21 % / 3,4 ans |
+| Vélo (fer, charbon, pétrole, caoutchouc, bois) | 36 % / 2,2 ans | 27 % / 2,9 ans |
+| Médicament contre le mal de tête | non mesuré | 17 % / 3,1 ans |
+| Parfum (f3) | non mesuré | 19 % / 3,5 ans |
+| Montre de luxe (mines, fonderie, f3) | 20 % / 1,7 an | 23 % / 1,5 an |
+| Bijoux en or | 6 % / 6,7 ans | 10 % / 3,9 ans |
+
+Chaînes **mal construites** (doivent rester perdantes ou nulles) :
+
+| Montage | Avant | Après |
+|---|---|---|
+| Usine de pain seule, farine achetée | −6,5 k$/j (−152 %) | −2,6 k$/j (achats suspendus, l'usine attend sa farine) |
+| Usine de jeans seule (tissu et emballages achetés) | −16,6 k$/j | −3,0 k$/j |
+| Vélo : fer seul, le reste acheté | −15,8 k$/j | +3,4 k$/j (le fer se vend, le vélo ne démarre pas) |
+| Chaîne sans magasin (export du surplus) | +30 % / 2,7 ans | +31 % / 2,6 ans (le surplus de matières s'exporte, c'est un débouché) |
+
+**Cultures** (mesure près du port, `t02`) : blé 36 → 24 %, sucre 48 → 21 %, coton 29 → 19 %, caoutchouc 50 → 22 %. Extracteurs minéraux inchangés (passe 16). **Marges des magasins et des services inchangées** (t02 : s1-s4 5-14 %). Le profil « bon » est strictement identique avant/après (1 Md$ au jour 6 612).
+
+### Bot « industriel » (`PROFILE=industriel node tools/bot_round.js`)
+`tools/bot_lib.js` : module `industry()` (chaînes verticales dimensionnées avec **besoins cumulés** de toutes les chaînes, extracteurs et fonderie d'abord, usines de composants, usine du produit en dernier ; épargne avant un projet atteignable en ≈ 2 ans de profit ; agrandit une chaîne seulement si les ventes locales absorbent la production ; démolit les usines de produit restées à vide). Profil : commerce + extraction + chaînes, aucune tour de services.
+
+| Profil (M$ aux 10 % du temps) | 0 | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | fin |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Industriel | 6 | 12 | 16 | 28 | 38 | 62 | 67 | 102 | 131 | 120 | 75 (jour 7 200) |
+| Bon (services) | 6 | 10 | 15 | 25 | 35 | 51 | 93 | 183 | 468 | 905 | 1 Md$ jour 6 612 |
+| Rapide | 6 | 10 | 15 | 25 | 35 | 56 | 117 | 257 | 598 | | 1 Md$ jour 6 354 |
+| Lent | 4 | 10 | 15 | 24 | 35 | 51 | 93 | 178 | 435 | 908 | 1 Md$ jour 6 592 |
+| Casual | 3 | 11 | 15 | 25 | 34 | 47 | 76 | 138 | 283 | 656 | 1 Md$ jour 6 900 |
+
+**Résultat honnête : l'industrie seule n'atteint pas 1 Md$.** Le profil industriel mène le profil « bon » jusqu'à 50 % du temps (62 contre 51 M$), culmine à 131 M$ au jour 5 760 puis retombe vers 75 M$ : (1) la demande domestique est plafonnée (≈ 120-190 M$/an de CA magasins pour toute la ville, toutes classes confondues), (2) le surplus de produits à marge de 17-20 % ne s'exporte qu'à ≈ 72 % du cours donc à perte, (3) les gisements s'épuisent (3-4 gisements de fer et de charbon vidés vers les jours 4 500-5 500) et les usines privées de matière cessent d'importer quand l'import (×1,3) rendrait leur marge négative, (4) il n'y a que 4 à 18 gisements de chaque minerai. Les tours de services (rendement ≈ 100 %) restent le moteur du round : l'industrie est solide mais plafonnée, les services explosifs mais saturables. Leviers possibles pour un 1 Md$ industriel : demande par habitant des produits ×1,5-2, plus de ports pour baisser le surcoût d'import (0,05 par port, plancher 1,05), davantage de gisements ; non appliqués ici pour ne pas déséquilibrer les magasins (5-14 %) ni les services.
+
+**Limites** : le bot industriel est sensible aux moindres changements de règle (trajectoires de 7 à 130 M$ selon la cadence des décisions) ; les chaînes reposent sur des mines à gisement fini ; `t08` mesure sur 160 jours.

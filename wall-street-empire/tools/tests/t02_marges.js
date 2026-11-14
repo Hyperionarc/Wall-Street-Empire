@@ -17,7 +17,7 @@ exports.run = async (t, L) => {
   t.check('usines isolées : 0 pageerror', all.every(a => a.errs.length === 0), all.flatMap(a => a.errs).slice(0, 2).join(';'));
 
   // Extracteurs (gisement le plus proche du port) : EBITDA par famille
-  const EX = [['well', 'oil', 15, 22], ['mcoal', 'coal', 15, 32], ['miron', 'iron', 40, 62], ['mcopper', 'copper', 40, 62], ['mgold', 'gold', 40, 62], ['qgravel', 'gravel', 17, 35], ['qsand', 'sand', 17, 35], ['qlime', 'limestone', 17, 35], ['logging', 'wood', 17, 35], ['fwheat', 'wheat', 12, 40], ['fsugar', 'sugar', 17, 50], ['fcotton', 'cotton', 12, 35], ['frubber', 'rubber', 17, 50]];
+  const EX = [['well', 'oil', 15, 22], ['mcoal', 'coal', 15, 32], ['miron', 'iron', 40, 62], ['mcopper', 'copper', 40, 62], ['mgold', 'gold', 40, 62], ['qgravel', 'gravel', 17, 35], ['qsand', 'sand', 17, 35], ['qlime', 'limestone', 17, 35], ['logging', 'wood', 17, 35], ['fwheat', 'wheat', 15, 30], ['fsugar', 'sugar', 15, 30], ['fcotton', 'cotton', 15, 30], ['frubber', 'rubber', 15, 30]];
   const ex = await L.pool(EX, 4, e => L.isoExtractor(e[0], e[1]));
   ex.forEach((x, i) => { const [k, , lo, hi] = EX[i]; if (x.none) return t.check(`extracteur ${k} : gisement disponible`, false); t.check(`extracteur ${k} : EBITDA ${lo}-${hi} % et retour <= 3,5 ans`, x.eb * 100 >= lo && x.eb * 100 <= hi && x.payback <= 3.5, `EBITDA ${(x.eb * 100).toFixed(1)} %, retour ${x.payback.toFixed(1)} an`); });
 };
