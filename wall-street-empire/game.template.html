@@ -1060,15 +1060,17 @@ function foreignHTML() {
 const EL_CLS = { basic: 0.9, std: 1.4, lux: 2.2, estate: 1.6 };   // ordre de grandeur long terme avec substituts (rivaux, IA)
 // Élasticité-prix réaliste (USDA-ERS : pain/céréales ≈ −0.5 en moyenne, ≈ −0.1 à −0.3 à court terme ; MSI : élasticité mesurée en expérience ≈ −0.34 vs ≈ −2 observée entre marques).
 // [court terme, long terme] ; "tot" = consommation totale du bien (pas de substitut), "sub" = report vers un autre produit/magasin si une alternative existe.
-const EL_T = { basic: { tot: [0.08, 0.3], sub: [0.25, 0.8] }, std: { tot: [0.4, 1.0], sub: [0.6, 1.2] }, estate: { tot: [0.5, 1.1], sub: [0.4, 0.8] } };
+const EL_T = { basic: { tot: [0.08, 0.4], sub: [0.25, 0.8] }, std: { tot: [0.4, 1.3], sub: [0.6, 1.8] }, estate: { tot: [0.5, 1.1], sub: [0.4, 0.8] } };
+const EL_OUT = 0.8, EL_KNEE = 1.6;   // part du report vers un substitut même sans concurrent ; accélération de l'érosion au-delà de +15 % de prix (long terme)
 const EL_TAU = 75;   // jours pour que les habitudes d'achat s'ajustent
-// Luxe : effet Veblen/snob limité — dans une bande étroite (jusqu'à +25 %) une hausse de prix ne fait pas baisser la demande à court terme, mais l'effet s'érode en quelques mois ; au-delà le marché se détourne nettement.
+// Luxe : effet Veblen/snob limité — dans une bande étroite (jusqu'à +12 %) une hausse de prix ne fait pas baisser la demande à court terme, mais l'effet s'érode en quelques mois ; au-delà le marché se détourne nettement.
 function elF(cls, p, d, sole) {
   if (Math.abs(p - 1) < 1e-4) return 1;
   const w = 1 - Math.exp(-(d || 0) / EL_TAU);
-  if (cls === 'lux') { const e = 0.1 - 0.5 * w; return p <= 1.25 ? Math.pow(p, e) : Math.pow(1.25, e) * Math.pow(p / 1.25, -(1 + 2 * w)); }
+  if (cls === 'lux') { const e = 0.1 - 0.8 * w; return p <= 1.12 ? Math.pow(p, e) : Math.pow(1.12, e) * Math.pow(p / 1.12, -(1.2 + 2.2 * w)); }
   const T = EL_T[cls] || EL_T.std, mix = a => a[0] + (a[1] - a[0]) * w;
-  return Math.pow(p, -(mix(T.tot) + (sole ? 0 : mix(T.sub))));
+  // Même seul sur son marché, un commerce garde une option de sortie (autre quartier, importations, achats différés) : à long terme 60 % du report vers un substitut s'applique quand même ; au-delà de +15 % l'érosion s'accélère (les habitudes se défont)
+  return Math.pow(p, -(mix(T.tot) + (sole ? EL_OUT : 1) * mix(T.sub))) * (p > 1.15 ? Math.pow(p / 1.15, -EL_KNEE * (cls === 'basic' ? 0.5 : 1) * w) : 1);
 }
 function trackPk(c, key) { const p = (c.pk && c.pk[key]) || 1; c.pkd = c.pkd || {}; const o = c.pkd[key]; if (!o) c.pkd[key] = { p, d: 99 }; else if (Math.abs(o.p - p) > 1e-3) { o.p = p; o.d = 0; } else o.d++; return c.pkd[key]; }
 const EL_RAW = { oil: 0.5, coal: 0.7, iron: 0.8, copper: 0.9, gold: 1.5, wood: 0.9, steel: 1, plastic: 1.2 };
@@ -1250,7 +1252,7 @@ const SECTOR_REF = {
   construction:{ ebitda: '8-18 %', rpe: 'Vinci EBITDA 17,7 %, Bouygues 4,5 %' },
   port:     { ebitda: '22-27 %', rpe: 'DP World ≈ 174 k$ par employé' }
 };
-const RETAIL_MK = { basic: 1.72, std: 1.78, lux: 2.15, estate: 1 }, retailMk = cls => RETAIL_MK[cls] || 1.4;   // prix de rayon = prix de gros × marge (distribution : marge brute 28-45 %, luxe plus haut ; Walmart ≈ 24 %, Costco ≈ 12 %, luxe ≈ 60 %)
+const RETAIL_MK = { basic: 1.72, std: 1.78, lux: 2.25, estate: 1 }, retailMk = cls => RETAIL_MK[cls] || 1.4;   // prix de rayon = prix de gros × marge (distribution : marge brute 28-45 %, luxe plus haut ; Walmart ≈ 24 %, Costco ≈ 12 %, luxe ≈ 60 %)
 const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salaires sectoriels : banque, tech et pharma paient ≈ 2× la moyenne
 (function applyScale() {
   const R2 = o => { Object.keys(o).forEach(g => { o[g] *= K_IND; }); };
@@ -1275,7 +1277,7 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   // Calibrage par l'EBITDA du secteur (SECTOR_REF) : prix d'équilibre = (intrants + coûts fixes par cycle) / (production × (1 - EBITDA - transport))
   const CAL = { wf: 1.2, uf: 0.85, tr: 0.03 };   // coefficient salarial effectif, taux d'utilisation effectif des usines, transport
   const EB_REC = { steel: 0.15, chem: 0.17, api: 0.25, plastic: 0.17, wire: 0.13, plank: 0.18, stud: 0.18, osb: 0.18, cement: 0.28, concrete: 0.18, flour: 0.15, fabric: 0.15, tire: 0.15, pack: 0.15, motor: 0.18, battery: 0.18, circuit: 0.22, gcase: 0.22, screen: 0.22 };
-  const EB_GEN = { basic: 0.16, std: 0.16, lux: 0.38 }, EB_PROD = { basic: 0.20, std: 0.17, lux: 0.32, estate: 0.15, pharma: 0.42 };
+  const EB_GEN = { basic: 0.16, std: 0.16, lux: 0.345 }, EB_PROD = { basic: 0.20, std: 0.17, lux: 0.32, estate: 0.15, pharma: 0.42 };
   const EB_EXT = { oil: 0.50, coal: 0.27, iron: 0.50, copper: 0.40, gold: 0.48, wood: 0.22, gravel: 0.27, sand: 0.27, limestone: 0.27, wheat: 0.20, sugar: 0.20, cotton: 0.20, rubber: 0.22 };
   const PH_OVH = 1.0;   // frais généraux pharma = 1 × le coût des matières → marge brute ≈ 75 %
   const inV = rc => Object.keys(rc).reduce((a, g) => a + rc[g] * GOODS[g].base, 0);
@@ -2496,7 +2498,7 @@ function step() {
   buildings.forEach(c => {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
     if (c.t === 'rd') { c._pat = (c._pat || 0) + u * 0.4 / 30; if (c._pat >= 1) { c._pat -= 1; S.patents = (S.patents || 0) + 1; say('Un brevet est déposé : il rapporte des royalties chaque jour.', 'gold'); } c.out = u; c.util = fill; c.pRev = 0; }
-    if (c.t === 'dc') { const rent = jobsOf(c) * 1400 * fill * (casteIs('innovateur') ? 1.5 : 1) * cpi(); c.out = 10 * u; c.util = fill; c.pRev = rent; revTech += rent; c.transport = 20 * u * cpi(); transportTotal += c.transport; }
+    if (c.t === 'dc') { const rent = jobsOf(c) * 1400 * fill * (casteIs('innovateur') ? 1.12 : 1) * cpi(); c.out = 10 * u; c.util = fill; c.pRev = rent; revTech += rent; c.transport = 20 * u * cpi(); transportTotal += c.transport; }
     if (isPlant(c.t)) {
       const storm = c.gridOver && (S.storm || 0) >= S.day, live = c.gridOk && !storm, loss = 1 - (c.gridLoss || 0), sf = 0.55 + 0.45 * Math.sin((S.day - 60) / 360 * 2 * Math.PI);
       let mwh = 0; c.limit = null; c.inCost = 0;
