@@ -1138,6 +1138,8 @@ function rnd() { let a = (S ? (S.rs = ((S.rs == null ? _RS0 : S.rs) + 0x6D2B79F5
 const FREIGHT = 0.006;   // part du prix par case de distance
 const SUP_CITY = ['Houston', 'Rotterdam', 'Shenzhen', 'Dubaï', 'Santiago', 'Norilsk', 'Singapour', 'Hambourg', 'Lagos', 'Sydney', 'Zurich', 'Mumbai'];
 const dealOf = (g, id) => { const d = (S.deals || {})[g + ':' + id]; return d && d.until >= S.day ? d : null; };
+const SEA_D = { f1: 90, f2: 70, f3: 60, f4: 80, f5: 85 };   // distance maritime par puissance étrangère (cases équivalentes)
+function freightTip(o) { const f = v => v.toFixed(2).replace('.', ','); return o && o.seg ? `Coût livré : ${f(o.unit)} $ (marchandise) + ${o.segN.map((n, i) => f(o.seg[i]) + ' $ ' + n).join(' + ')} = ${f(o.total)} $` : o ? `Coût livré : ${f(o.unit)} $ + ${f(o.freight)} $ de transport = ${f(o.total)} $` : ''; }
 function supOffer(g, id, haul) {
   const o = supOffer0(g, id, haul), d = dealOf(g, id); if (id !== 'local') { const fm = 1 + 0.12 * (((S.forces ? S.forces.suppliers : 50) - 50) / 50); o.unit *= fm; o.total = o.unit + o.freight; } if (d) { o.unit *= d.m; o.total = o.unit + o.freight; o.deal = d; }
   return o;
@@ -1145,8 +1147,11 @@ function supOffer(g, id, haul) {
 function supOffer0(g, id, haul) {
   const base = (S.price[g] || GOODS[g].base);
   if (id === 'local') return { unit: base, freight: 0, total: base, name: 'Mon réseau (stock local)', q: 60 };
-  if (id === 'import') { const pr = Math.max(1.05, 1.3 - 0.05 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)), fr = base * FREIGHT * (45 + (haul || 0) * 0.3); return { unit: base * pr, freight: fr, total: base * pr + fr, name: 'Import par le port', q: 55 }; }
-  const s = supplierList(g).find(x => x.id === id) || supplierList(g)[0], fr = base * FREIGHT * s.dist;
+  if (id === 'import') { const pr = Math.max(1.05, 1.3 - 0.05 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)), k = base * FREIGHT, seg = [k * 15, k * 29, k * (1 + (haul || 0) * 0.3)], fr = seg[0] + seg[1] + seg[2]; return { unit: base * pr, freight: fr, total: base * pr + fr, name: 'Import par le port', q: 55, seg, segN: ['producteur → port d\'origine', 'port → port (mer)', 'port → ton site'] }; }
+  const s = supplierList(g).find(x => x.id === id) || supplierList(g)[0];
+  // Achat inter-villes (puissance étrangère) : 3 segments, fournisseur → port, port → port (mer), port → acheteur
+  const fp = fgnOf(g); if (fp && s.name.indexOf('(') > 0) { const k = base * FREIGHT, sea = SEA_D[fp.id] || 70, seg = [k * s.dist * 0.35, k * sea * 0.4, k * (4 + 0.45 * (haul || 20))], fr = seg[0] + seg[1] + seg[2]; return { unit: base * s.pf, freight: fr, total: base * s.pf + fr, name: s.name, q: s.q, dist: s.dist, seg, segN: ['fournisseur → port de ' + fp.city, 'port de ' + fp.city + ' → ton port (mer)', 'ton port → ton site'] }; }
+  const fr = base * FREIGHT * s.dist;
   return { unit: base * s.pf, freight: fr, total: base * s.pf + fr, name: s.name, q: s.q, dist: s.dist };
 }
 const RIV_CLS = ['basic', 'std', 'lux', 'estate'];
@@ -2139,6 +2144,9 @@ const EVENTS = [
   { id: 'boom', t: 'Boom de la consommation', d: 'Un salon professionnel attire des foules : les ventes décollent.', ch: [
     { l: 'Surfer sur la vague (demande +20 % pendant 12 jours)', f: () => { addMod('demand', 1.2, 12); say('Les clients affluent !', 'good'); } },
     { l: 'Investir dans la marque (+8 % de prime boursière)', f: () => { S.pb = (S.pb || 0) + 0.08; addMod('demand', 1.08, 12); } }] },
+  { id: 'breakthrough', t: 'Percée technologique', d: 'Une équipe de ton R&D obtient un résultat inattendu : la recherche en cours peut être bouclée d\'un coup.', req: () => !!S.research || ((S.stats && S.stats.cn && S.stats.cn.rd) || 0) >= 1, ch: [
+    { l: 'Exploiter la percée (recherche en cours terminée, +20 à 60 points de recherche)', f: () => { const pts = 20 + Math.floor(rnd() * 41); let t = ''; if (S.research) { S.research.left = 0; t = ` ${TECH_BY[S.research.id].n} sera acquise dès demain.`; } eachBuilding(c => { if (c.t === 'rd' && c.conn) c._pat = (c._pat || 0) + pts / 100; }); S.rdPts = (S.rdPts || 0) + pts; say(`Percée technologique : +${pts} points de recherche (avancement des brevets).${t}`, 'gold'); } },
+    { l: 'Publier les résultats (+6 % de prime boursière)', f: () => { S.pb = (S.pb || 0) + 0.06; say('Tes travaux font la une des revues : le marché applaudit.', 'good'); } }] },
   { id: 'rival', t: 'Offensive d\'un concurrent', d: 'Un rival lance une campagne de prix agressive.', ch: [
     { l: () => `Riposter (demande +5 %, −${money(evCost(0.6, 1500))})`, f: () => { const c = evCost(0.6, 1500); if (S.cash >= c) { S.cash -= c; addMod('demand', 1.05, 15); } } },
     { l: 'Ignorer (le rival gagne en influence)', f: () => { const r = (S.rivals || [])[0]; if (r) RIV_CLS.forEach(k => { r.att[k] = Math.min(0.7, r.att[k] + 0.03); }); } }] }
@@ -5315,7 +5323,7 @@ function renderSlotPick() {
   const c = supB && cell(supB.x, supB.y); if (!c || el('supview').hidden) return;
   const N = slotsN(c), all = shelfItems(c), keys = c.slots ? c.slots : shelfKeys(c).concat(Array(N).fill(null)).slice(0, N), placed = keys.filter(Boolean), f = v => v.toFixed(2).replace('.', ',');
   const cards = all.filter(i => placed.indexOf(i.key) < 0).map(it => { const cls = it.gen ? it.key.slice(2) : PRODUCTS[it.key].cls, mk = retailMk(cls), price = it.price * mk;
-    const sup = it.gen ? `<select data-sps="${cls}" style="margin-top:4px;width:100%"><option value="auto">Fournisseur : automatique</option>${supCards(c, cls).map(x => `<option value="${x.id}" ${((c.src && c.src[cls]) || 'auto') === x.id ? 'selected' : ''}>${x.name} · ${f(x.o.total)} $ livré · Q${x.o.q}</option>`).join('')}</select>` : '<small>Fournisseur : ta propre production</small>';
+    const sup = it.gen ? `<select data-sps="${cls}" style="margin-top:4px;width:100%"><option value="auto">Fournisseur : automatique</option>${supCards(c, cls).map(x => `<option value="${x.id}" title="${freightTip(x.o)}" ${((c.src && c.src[cls]) || 'auto') === x.id ? 'selected' : ''}>${x.name} · ${f(x.o.total)} $ livré · Q${x.o.q}</option>`).join('')}</select>` : '<small>Fournisseur : ta propre production</small>';
     return `<div class="sc" style="cursor:default"><div style="width:84px;height:84px;background:#fff;border-radius:6px;overflow:hidden;display:grid;place-items:center">${slotThumb(it.key)}</div><div><h5>${it.name.replace(' (génériques)', '')}</h5><div class="sg"><span>Prix en rayon<b>${f(price)} $</b></span><span>Coût de gros<b>${f(it.price)} $</b></span><span>Stock<b>${fmt(Math.round(it.stock))}</b></span><span>Marge<b>${Math.round((1 - 1 / mk) * 100)} %</b></span></div>${sup}</div><button class="btn" data-s="slotput:${it.key}">Mettre en rayon</button></div>`; }).join('');
   el('supview').innerHTML = `<div class="sh"><span>EMPLACEMENT ${spI + 1} : CHOISIS LE PRODUIT ET LE FOURNISSEUR</span></div>${cards || '<p class="note">Tous les produits disponibles sont déjà en rayon.</p>'}<div class="sb"><span></span><button class="btn sec" data-s="cancel">Annuler</button></div>`;
 }
@@ -5330,7 +5338,7 @@ function renderSup() {
   if (!supSel || !cards.find(x => x.id === supSel)) supSel = (cards.find(x => x.id === mode || (mode === 'port' && x.id === 'import')) || cards[0] || {}).id;
   const sel = cards.find(x => x.id === supSel), bar = v => `<span class="bar"><i style="width:${Math.round(v * 100)}%"></i></span>`;
   const f = (v) => v.toFixed(2).replace('.', ',');
-  const cardsH = cards.map(x => `<button class="sc ${x.id === supSel ? 'on' : ''}" data-s="pick:${x.id}"><img alt="" src="${compIcon(g)}"><div><h5>${gName(g)} · ${x.name}</h5><div class="sg"><span>Ville<b>${x.city}</b></span><span>Prix<b>${f(x.o.unit)} $${x.o.deal ? ' (−' + Math.round((1 - x.o.deal.m) * 100) + ' %)' : ''}</b></span><span>Distance<b>${x.dist} cases</b></span><span>Qualité<b>${x.o.q}</b></span><span>Transport<b>${f(x.o.freight)} $</b></span><span>Livré<b>${f(x.o.total)} $</b></span><span>Offre${bar(x.supply)}</span><span>Demande${bar(x.demand)}</span></div></div><div class="ov" title="Note globale">${x.overall}</div></button>`).join('');
+  const cardsH = cards.map(x => `<button class="sc ${x.id === supSel ? 'on' : ''}" data-s="pick:${x.id}"><img alt="" src="${compIcon(g)}"><div><h5>${gName(g)} · ${x.name}</h5><div class="sg"><span>Ville<b>${x.city}</b></span><span>Prix<b>${f(x.o.unit)} $${x.o.deal ? ' (−' + Math.round((1 - x.o.deal.m) * 100) + ' %)' : ''}</b></span><span>Distance<b>${x.dist} cases</b></span><span>Qualité<b>${x.o.q}</b></span><span title="${freightTip(x.o)}">Transport<b>${f(x.o.freight)} $</b></span><span title="${freightTip(x.o)}">Livré<b>${f(x.o.total)} $</b></span><span>Offre${bar(x.supply)}</span><span>Demande${bar(x.demand)}</span></div></div><div class="ov" title="Note globale">${x.overall}</div></button>`).join('');
   const rel = (S.rel || {})[supSel] || 0;
   const negH = supNeg && sel && sel.id !== 'local' ? `<div class="neg"><b>Négociation avec ${sel.name}</b><div>Relation : ${rel}/100 · frais de dossier ${money(Math.round(1200 * cpi()))}</div><div class="seg2" style="margin-top:6px;flex-wrap:wrap">${[30, 60, 90].map(d => `<button class="btn sec" data-s="neg:${d}" style="min-height:28px;padding:3px 10px">Contrat ${d} jours</button>`).join('')}</div><small>Plus l'engagement est long et la relation bonne, plus la chance d'obtenir un rabais (4 à 12 %) est élevée.</small></div>` : '';
   const nav = ins.length > 1 ? `<button class="ibtn" data-s="prev">◀</button>` : '', nav2 = ins.length > 1 ? `<button class="ibtn" data-s="next">▶</button>` : '';
@@ -5360,7 +5368,7 @@ function purTab(c) {
   Object.keys(rec.in).forEach(g => {
     const mode = (c.src && c.src[g]) || 'auto', need = rec.in[g] * (c._u || 0), sup = supplierList(g);
     const opts = [['auto', null], ['local', supOffer(g, 'local')]].concat(sup.map(s => ['co:' + s.id, supOffer(g, s.id)])).concat([['import', supOffer(g, 'import', c.haul)]]);
-    const rows = opts.map(([m, o]) => { const on = m === mode || (mode === 'port' && m === 'import'); const lab = m === 'auto' ? 'Auto : stock local, puis port si rupture' : o.name; const tail = o ? `<span class="pq">Q ${o.q}</span><span>${f1(o.unit)} $</span><span class="${o.freight > 0.2 * o.unit ? 'neg' : ''}">+${f1(o.freight)} fret</span><b>${f1(o.total)} $</b>` : '<span></span><span></span><span></span><span></span>';
+    const rows = opts.map(([m, o]) => { const on = m === mode || (mode === 'port' && m === 'import'); const lab = m === 'auto' ? 'Auto : stock local, puis port si rupture' : o.name; const tail = o ? `<span class="pq">Q ${o.q}</span><span>${f1(o.unit)} $</span><span class="${o.freight > 0.2 * o.unit ? 'neg' : ''}" title="${freightTip(o)}">+${f1(o.freight)} fret</span><b title="${freightTip(o)}">${f1(o.total)} $</b>` : '<span></span><span></span><span></span><span></span>';
       return `<button class="sprow ${on ? 'on' : ''}" data-act="supp:${g}:${m}"><span class="rd">${on ? '◉' : '○'}</span><span class="sn">${lab}</span>${tail}</button>`; }).join('');
     h += `<div class="spcard"><button class="btn" data-act="opensup:${g}" style="float:right;min-height:28px;padding:3px 10px;font-size:11.5px">Choisir / négocier…</button><div class="sph"><i style="background:${GOODS[g] ? GOODS[g].color : '#8f9acb'}"></i><b>${gName(g)}</b><small>besoin ${f1(need)}/j · stock ${fmt(gStock(g))} · cours ${f1(gPrice(g))} $${c._impIn > 0.01 ? ' · acheté dehors ' + f1(c._impIn) + '/j' : ''}</small></div><div class="sprow hd"><span></span><span class="sn">Fournisseur</span><span>Qualité</span><span>Prix</span><span>Transport</span><b>Livré</b></div>${rows}</div>`;
   });
