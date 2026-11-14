@@ -22,7 +22,7 @@ const PLAY = days => `(() => { const W = window.WSE, S = W.S, T = window.T, B = 
 // Instantané comparable (champs de cellule enregistrés + agrégats de S)
 const SNAP = `(() => { const W = window.WSE, S = W.S, N = W.N; const F = ['t','x','y','lvl','floors','prod','crew','wage','qual','eff','pf','irr','src','haul','imp','train','cfg','slots'];
   const cells = S.grid.map(c => { if (!c || c.t === 'npc') return null; const o = {}; const DEF = { pf: 1, floors: 1, crew: 1, wage: 1, qual: 0, eff: 0, irr: 0, haul: 0, lvl: 0, imp: true }; F.forEach(f => { let v = c[f]; if (v === undefined || v === null || v === DEF[f] || (typeof v === 'object' && Object.values(v).every(x => !x))) return; o[f] = v; }); if (c.pk) o.pk = c.pk; return o; });
-  return { day: S.day, cash: S.cash, pop: S.pop, loan: S.loan || 0, stock: S.stock, price: S.price, tax: S.tax, tech: S.tech, prod: S.prod, caste: S.caste, nb: cells.filter(Boolean).length, cells }; })()`;
+  return { day: S.day, cash: S.cash, pop: S.pop, loan: S.loan || 0, stock: S.stock, price: S.price, tax: S.tax, tech: S.tech, prod: S.prod, caste: S.caste, m30: S.m30, nb: cells.filter(Boolean).length, cells }; })()`;
 
 function diff(a, b, p, out, tol) {
   if (typeof a === 'number' && typeof b === 'number') { if (Math.abs(a - b) > Math.max(1, Math.abs(a) * tol)) out.push(`${p}: ${a} -> ${b}`); return; }
