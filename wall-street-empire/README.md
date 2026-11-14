@@ -550,3 +550,21 @@ La dette de fin passe de 1 Md$ (course à l'effet de levier sur les tours) à 10
 
 **Limites** : le bot n'exploite pas encore les chaînes usines-produits intégrées (elles perdent de l'argent dans nos montages sans mines, les audits d'usines restent ceux de la passe 16) ; les résultats d'un même profil varient de ±5 % selon le moindre changement de règle (chaos des décisions), d'où des plages et non des dates exactes ; le plafond de dette 0,45 × valorisation est un réglage du bot, le plafond du jeu reste `creditLimit()`.
 
+
+## Passe 23 : finitions visuelles
+
+Aucune constante économique, aucune clé de sauvegarde ni formule de simulation n'a changé : uniquement du rendu (`game.template.html`) et le détourage du siège (`tools/process_hq.py`).
+
+- **Siège social harmonisé avec la ville** (`tools/process_hq.py`) : l'illustration à l'encre est lissée (médiane, mode), réduite à une vingtaine de teintes, puis recolorée dans la palette des immeubles Kenney (verre bleu clair, pierre beige, encre noire remplacée par un bleu-gris doux) ; la face droite est assombrie de 14 % comme les autres immeubles (lumière venant de la gauche). Relancer `python3 tools/process_hq.py mid` puis `tools/build.py`.
+- **Écran Produits dans l'esprit de Capitalism** : chaque carte reprend la maquette du jeu de référence : photo du produit et stade du cycle de vie, chiffre d'affaires du mois, courbe des 12 derniers mois (aire, graduations mensuelles, bascule quantité / CA), deux camemberts nommés (Production, Détail) avec légende, tableau Prix en rayon / Qualité / Marque / Note globale avec barres Local / Moyenne et colonne Concern. Sur mobile les camemberts ne sont plus masqués (cartes empilées). La fiche produit (vue Produits) reçoit le même bloc « Face à la concurrence » (barres, camemberts, 12 derniers mois) quand le produit est lancé. Le texte des lignes (« Prix en rayon », « Note globale », « Vendu : n u/mois ») est inchangé, donc le test de cohérence inter-écrans reste valable.
+- **Bourse sur mobile** : les cours restent sur une ligne, tableaux plus compacts à 390 px, tableaux larges défilant horizontalement dans leur panneau.
+- **Scènes intérieures** : le canvas suit la rotation et le redimensionnement (échelle des libellés recalculée, centrage conservé, `ResizeObserver` + `orientationchange`) ; en téléphone paysage (hauteur < 520 px) les vues s'ouvrent en plein écran au lieu de s'effondrer sous le HUD.
+- **Personnages vus de dos, de profil et de face** : l'orientation se déduit du déplacement isométrique (vers le fond = dos, vers l'avant = face, latéral = profil avec nez et cheveux à l'arrière) ou du poste (assis aux bureaux : dos ou profil selon la silhouette), avec des yeux pour la face. Un waypoint peut imposer l'orientation (6e élément).
+- **Banque** : cordons de file d'attente (potelets dorés, cordon de velours) devant les guichets, entrée libre côté droit ; les clients passent par l'allée, attendent de dos devant le guichet puis repartent de face ; trois clients statiques en file.
+- **Tour de location** : plaques d'étage lisibles (RDC puis numéros réels répartis sur la hauteur de l'immeuble), étiquettes LOUÉ / LIBRE, flèche verte au niveau de la cabine d'ascenseur.
+- **Solaire et éolien : météo** : couverture nuageuse selon l'ensoleillement saisonnier (hiver : soleil plus bas et pâle, plus de nuages, ombres de panneaux plus longues), ombres de nuages portées sur le terrain, ciel sombre et pluie pendant une tempête ; éolien : ombres des mâts et des pales, nuages plus rapides avec le vent. Libellé « ciel dégagé / nuageux / ciel couvert / orage » dans la légende.
+- **HUD** : bandeau sombre derrière le titre (illisible en or sur l'herbe claire).
+
+Coût mesuré des scènes (Chromium sans GPU, 120 images) : 0,2 à 1,8 ms par image, le plus lourd étant la banque et la centrale solaire (< 2 ms).
+
+**Reste à faire** : les étages de la tour de location sont toujours limités à 3 sur l'écran (lisibilité) ; la météo ne dépend que de l'ensoleillement saisonnier, du vent et des tempêtes déjà simulés (pas de pluie hors tempête) ; les images « petit » et « grand » du siège n'existent pas (même sprite pour tous les niveaux).
