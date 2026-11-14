@@ -47,7 +47,8 @@ exports.run = async (t, L) => {
   // 5. Salaires totaux : Finances vs Empire vs somme des fiches de bâtiments
   const salE = vals(E, /^Salaires, coûts d'exploitation, transport/i)[0];
   rep('salaires + exploitation + transport', [{ s: 'Finances', v: -(g('Salaires') + g('Coûts d\'exploitation') + g('Transport')) }, { s: 'Empire', v: -salE }]);
-  rep('salaires totaux', [{ s: 'Finances', v: -g('Salaires') }, { s: 'Σ fiches bâtiments', v: C.wagesB }]);
+  // Finances = moyenne glissante 30 j ; les fiches = dernier jour : en croissance rapide (le bot construit en continu) la masse salariale du jour dépasse la moyenne. Tolérance 5 %.
+  { const fin = -g('Salaires'), sb = C.wagesB, gap = Math.abs(fin - sb) / Math.max(1, Math.abs(fin)); t.check('salaires totaux : écart <= 5 % entre Finances (moyenne 30 j) et Σ fiches (dernier jour)', gap <= 0.05, `Finances=${Math.round(fin)} | Σ fiches=${Math.round(sb)} | écart ${(gap * 100).toFixed(1)} %`); }
   // 6. Ventes d'un produit : écran Produits (« Vendu : n u/mois ») vs état vs somme des ventes des magasins x 30
   const prodNames = { utensils: 'Ustensiles de cuisine', bread: 'Pain' };
   for (const pk of Object.keys(prodNames)) {
