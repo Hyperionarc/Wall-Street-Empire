@@ -128,6 +128,16 @@ if os.path.exists(os.path.join(_hp, 'meta.json')):
         _f = os.path.join(_hp, f'hq_{_k}.png')
         if os.path.exists(_f):
             _m = dict(_m); _m['src'] = 'data:image/png;base64,' + base64.b64encode(open(_f, 'rb').read()).decode(); hq[_k] = _m
-out = tpl.replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+# Sprites facultatifs de l'usine (Passe 30) : assets/factory/<nom>.png -> data URI ; un PNG présent remplace le dessin vectoriel du même nom
+fac = {}
+_fp = os.path.join(ROOT, 'assets', 'factory')
+FAC_NAMES = ['bobine', 'plaque', 'palette', 'carton', 'rack', 'camion_blanc', 'camion_rouge', 'camion_bleu', 'convoyeur_droit', 'convoyeur_coin', 'machine', 'robot', 'ouvrier', 'bureau', 'arbre', 'herbe', 'quai']
+if os.path.isdir(_fp):
+    for _n in FAC_NAMES:
+        _f = os.path.join(_fp, _n + '.png')
+        if os.path.exists(_f):
+            fac[_n] = 'data:image/png;base64,' + base64.b64encode(open(_f, 'rb').read()).decode()
+print('sprites usine :', ', '.join(sorted(fac)) or 'aucun (dessin vectoriel)')
+out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
 open(os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')
