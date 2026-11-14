@@ -115,12 +115,12 @@ exports.run = async (t, L) => {
   // 4. Sauvegarde v8 rétro-compatible
   const D = await pg.evaluate(() => {
     const W = window.WSE, S = W.S, o = {};
-    W.save(); const raw = localStorage.getItem(Object.keys(localStorage).find(k => /wse|save/i.test(k) && k !== 'wse-prog')); o.has = !!raw;
+    W.save(); const raw = localStorage.getItem(Object.keys(localStorage).find(k => /wse|save/i.test(k) && k !== 'wse-prog' && !/_gal$/.test(k))); o.has = !!raw;
     const d = JSON.parse(raw); o.v = d.v; o.mat = d.mat; o.hasT = Array.isArray(d.trials);
     const want = { mat: S.mat, buys: Object.keys(S.prod).filter(k => S.prod[k].buy).join(','), lic: Object.keys(S.prod).filter(k => S.prod[k].lic).join(',') };
     const L2 = W.load(); o.same = L2 && L2.mat === want.mat && Object.keys(L2.prod).filter(k => L2.prod[k].buy).join(',') === want.buys && Object.keys(L2.prod).filter(k => L2.prod[k].lic).join(',') === want.lic;
     ['mat', 'matPop', 'trials', 'tid', 'mkv'].forEach(k => delete d[k]);
-    const key = Object.keys(localStorage).find(k => /wse|save/i.test(k) && k !== 'wse-prog'); localStorage.setItem(key, JSON.stringify(d));
+    const key = Object.keys(localStorage).find(k => /wse|save/i.test(k) && k !== 'wse-prog' && !/_gal$/.test(k)); localStorage.setItem(key, JSON.stringify(d));
     const L3 = W.load(); o.old = !!L3 && L3.mat === 0 && Array.isArray(L3.trials) && L3.trials.length === 0 && Object.keys(L3.prod).every(k => L3.prod[k].lic !== undefined);
     return o;
   });
