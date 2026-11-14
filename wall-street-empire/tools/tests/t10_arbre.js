@@ -94,7 +94,7 @@ exports.run = async (t, L) => {
   const V = await pg.evaluate(() => {
     const W = window.WSE, S = W.S, N = W.N, T = window.T, k = 'cp1', ps = S.prod[k];
     ps.st = 'on'; ps.rnd = 0; ps.pf = 1; ps.A = 0.5; ps.age = 0; ps._q = ps.q;
-    for (let i = 0; i < 10; i++) T.inC('res'); T.inC('s3'); T.inC('s2'); const f = T.inP('f2'); if (f) { W.assignProduct(k, 99); }
+    for (let i = 0; i < 10; i++) T.inC('res'); T.inC('s3'); T.inC('s2'); S.cash = Math.max(S.cash, 5e8); W.quickProduce(k);   // parcours réel : double-clic = usine + chaîne complète (une usine seule qui achète ses intrants est déficitaire : achats suspendus)
     for (let d = 0; d < 80; d++) { T.frz(); W.step(); }
     W.setPview ? W.setPview(true) : 0; const pv = document.getElementById('pview'); const txt = pv ? pv.innerText : '';
     return { made: ps.made, sold: ps.sold, share: ps.share, stock: ps.stock, bad: T.scan(), txt: /Veste/.test(txt), nan: /NaN|undefined/.test(txt), pvOk: !!txt };
