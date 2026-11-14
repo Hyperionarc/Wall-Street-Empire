@@ -750,9 +750,15 @@ body.vopen #feed{z-index:9}
     <div class="loanrow"><span id="loanV"></span><button class="btn sec" id="loanUp">Emprunter 20 k</button><button class="btn sec" id="loanDn">Rembourser</button></div>
     <h3>POLITIQUE DE GESTION</h3>
     <p class="note">Réglages par défaut appliqués à toute l'entreprise, comme le COO de Capitalism Lab.</p>
-    <div class="taxrow"><span>Prix</span><input type="range" id="polPrice" min="-1" max="1" step="0.5" value="0" aria-label="Marge contre parts de marché"><b id="polPriceV">Équilibré</b></div>
+    <div class="taxrow"><span>Prix</span><input type="range" id="polPrice" min="-1" max="1" step="0.25" value="0" aria-label="Marge contre parts de marché"><b id="polPriceV">Équilibré</b></div>
     <p class="note" id="polNote"></p>
-    <div class="seg2" style="margin:6px 0"><button class="btn sec" id="polAlert" aria-pressed="true">Alertes de stock bas : oui</button></div>
+    <div class="seg2" style="margin:6px 0;flex-wrap:wrap"><button class="btn sec" id="polAlert" aria-pressed="true">Alertes de stock bas : oui</button><button class="btn sec" id="polNoLoss" aria-pressed="false">Ne jamais vendre sous le coût : non</button><button class="btn sec" id="polSeek" aria-pressed="false">Chercher de meilleurs fournisseurs : non</button></div>
+    <div class="taxrow"><span>Poids du fret</span><input type="range" id="polFr" min="0" max="100" step="25" value="50" aria-label="Poids du fret dans le choix des fournisseurs"><b id="polFrV">50 %</b></div>
+    <div class="taxrow"><span>Tolérance de rupture</span><input type="range" id="polTol" min="0" max="30" step="1" value="7" aria-label="Jours de rupture tolérés avant de changer de fournisseur"><b id="polTolV">7 jours</b></div>
+    <p class="note" id="polNote2"></p>
+    <h3>OPTIONS DU PDG (CEO)</h3>
+    <div class="seg2" style="margin:6px 0;flex-wrap:wrap"><button class="btn sec" id="polInfP" aria-pressed="true">Prix selon l'inflation : oui</button><button class="btn sec" id="polInfA" aria-pressed="true">Publicité selon l'inflation : oui</button><button class="btn sec" id="polAdjNow">Ajuster maintenant</button></div>
+    <p class="note" id="polNote3"></p>
     <h3>IMPÔT SUR LES SOCIÉTÉS</h3>
     <div class="taxrow"><span>Taux</span><input type="range" id="tax" min="5" max="45" step="5" value="25" aria-label="Taux d'impôt"><b id="taxV">25 %</b></div>
     <p class="note" id="taxNote"></p>
@@ -2155,7 +2161,40 @@ function shelfKeys(c) {
 }
 const pkOf = (c, key) => { const v = (c.pk && c.pk[key]) || 1, cl = key.indexOf('g_') === 0 ? key.slice(2) : (PRODUCTS[key] && PRODUCTS[key].cls); return cl === 'basic' ? Math.min(v, 1.5) : v; };   // un bien de base ne se vend pas durablement à plus de 150 % du prix de rayon
 const pfOfK = (c, key) => pfOf(c) * pkOf(c, key);
-const pfOf = c => (c.pf || 1) * (1 - 0.08 * ((S && S.pol && S.pol.price) || 0));
+const pfOf = c => (c.pf || 1) * (1 - 0.08 * ((S && S.pol && S.pol.price) || 0)) * (c._nl || 1) * polInfP();
+// Politiques du COO / options du PDG : prix de rayon indexés (ou non) sur l'inflation, jamais sous le coût, recherche de fournisseurs
+const polOn = k => !!(S && S.pol && S.pol[k]);
+const polFr = () => (S && S.pol && S.pol.fr != null) ? clamp(S.pol.fr, 0, 1) : 0.5;
+const polTol = () => (S && S.pol && S.pol.tol != null) ? clamp(S.pol.tol, 0, 30) : 7;
+function polInfP() { return (S && S.pol && S.pol.noInfP) ? clamp((S.pol.cp || cpi()) / cpi(), 0.6, 1) : 1; }   // prix figés : ils perdent du pouvoir d'achat tant qu'on ne les réajuste pas
+function adEr() { return (S && S.pol && S.pol.noInfA) ? clamp(cpi() / (S.pol.ca || cpi()), 1, 1.8) : 1; }   // publicité figée : le même budget achète moins d'audience
+function adjustInfl(which) {
+  S.pol = S.pol || {}; const p = S.pol;
+  if (which !== 'p') { const k = clamp(cpi() / (p.ca || cpi()), 1, 3); if (k > 1.0005) { eachBuilding(c => { if (c.ad) AD_KEYS.forEach(a => { if (c.ad[a]) c.ad[a] = Math.round(c.ad[a] * k); }); }); PKEYS.forEach(pk => { const ad = S.prod[pk] && S.prod[pk].ad; if (ad) AD_KEYS.forEach(a => { if (ad[a]) ad[a] = Math.round(ad[a] * k); }); }); } p.ca = cpi(); }
+  if (which !== 'a') p.cp = cpi();
+}
+function stepPolicy() {
+  const p = S.pol || (S.pol = {}); if (p.cp == null) p.cp = cpi(); if (p.ca == null) p.ca = cpi();
+  if (S.day % 30 === 0) { if (!p.noInfP) p.cp = cpi(); if (!p.noInfA) adjustInfl('a'); }
+  // « Ne jamais vendre sous le coût » : le prix de rayon d'un magasin remonte tant que son coût d'achat dépasse son chiffre d'affaires
+  eachBuilding(c => { if (!TYPES[c.t].ret || !c.conn) return;
+    if (p.noLoss && c._rev > 0 && c._cogs > 0) { const r = c._cogs / c._rev; if (r > 0.97) c._nl = Math.min(1.6, (c._nl || 1) * 1.02); else if (r < 0.9 && c._nl > 1) c._nl = Math.max(1, c._nl * 0.99); } else if (!p.noLoss && c._nl) c._nl = 1; });
+  // compteur de rupture : jours consécutifs sans matière première
+  eachBuilding(c => { const T = TYPES[c.t]; if (!c.conn || c.t === 'npc') return; let sg = null;
+    if ((FLEVEL[c.t] || c.t === 'foundry') && c.limit && GOODS[c.limit]) sg = c.limit; else if (T.ret && c.limit === 'stock') sg = (T.ret.sells.filter(x => x !== 'estate' && S.stock[x] < 5)[0]) || null;
+    c._rup = sg ? (c._rup | 0) + 1 : 0; c._rupG = sg; });
+  if (p.seek && S.day % 5 === 0) stepProcure();
+}
+const offerScore = o => o.unit + o.freight * (0.2 + 1.6 * polFr());
+function bestOffer(g, haul) { let best = null; supplierList(g).forEach(s => { const o = supOffer(g, s.id, haul), sc = offerScore(o); if (!best || sc < best.sc) best = { id: 'co:' + s.id, o, sc }; }); const im = supOffer(g, 'import', haul); if (!best || offerScore(im) < best.sc) best = { id: 'import', o: im, sc: offerScore(im) }; return best; }
+function stepProcure() {
+  let n = 0;
+  eachBuilding(c => { const T = TYPES[c.t]; if (!c.conn || c.t === 'npc' || n >= 3) return;
+    const ins = (FLEVEL[c.t] || c.t === 'foundry') && recOf(c) ? Object.keys(recOf(c).in) : T.ret ? T.ret.sells.filter(x => x !== 'estate') : []; if (!ins.length) return;
+    ins.forEach(g => { if (!GOODS[g]) return; const mode = (c.src && c.src[g]) || 'auto', best = bestOffer(g, c.haul); if (!best) return;
+      if (mode === 'auto') { if ((c._rup | 0) >= polTol() && c._rupG === g) { c.src = c.src || {}; c.src[g] = best.id; n++; say(`Rupture de ${GOODS[g].name.toLowerCase()} depuis ${c._rup} jours : ${T.name.toLowerCase()} se tourne vers ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré).`, 'info'); } }
+      else if (mode.indexOf('co:') === 0) { const cur = supOffer(g, mode.slice(3), c.haul); if (best.sc < offerScore(cur) * 0.95 && best.id !== mode) { c.src[g] = best.id; n++; say(`Meilleur fournisseur trouvé pour ${GOODS[g].name.toLowerCase()} : ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré au lieu de ${cur.total.toFixed(2).replace('.', ',')}).`, 'info'); } } }); });
+}
 // Indice de fréquentation (Customer Index) : six facteurs pondérés, 0 à 100, qui pilote directement l'affluence du magasin
 function custIndex(c) {
   const T = TYPES[c.t], sl = Math.max(1, slotsN(c)), kn = shelfKeys(c).length;
@@ -2183,7 +2222,7 @@ Object.keys(AD_CH).forEach(k => { AD_CH[k].max *= K_SIZE; AD_CH[k].step *= K_SIZ
 const AD_KEYS = ['tv', 'radio', 'press', 'net', 'infl'];
 const BRAND_STRAT = { unique: ['Marque unique par produit', 'Chaque produit a sa marque : meilleure perception de qualité (+15 %), mais la notoriété se construit produit par produit (−10 %).'], range: ['Marque de gamme', 'Une marque couvre une gamme de produits : équilibre entre coût et image.'], corp: ['Marque d\'entreprise', 'Une seule marque pour tout : la notoriété est partagée entre tous tes magasins (+15 %), mais une mauvaise image les touche tous.'] };
 const brandStrat = () => (S && S.brandStrat) || 'range';
-const adScaleOf = c => (({ s1: 1, s2: 2.2, s3: 4, s4: 16, immo: 1.5 })[c.t] || 1) * K_SIZE;
+const adScaleOf = c => (({ s1: 1, s2: 2.2, s3: 4, s4: 16, immo: 1.5 })[c.t] || 1) * K_SIZE * adEr();
 const adOf = c => c.ad || (c.ad = { tv: 0, radio: 0, net: 0 });
 const adSpend = c => TYPES[c.t].ret ? AD_KEYS.reduce((a, k) => a + (adOf(c)[k] || 0), 0) : 0;
 function adRt(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] || 0; pw += (AD_CH[k].rt || 0.2) * (1 - Math.exp(-b / (AD_CH[k].scale * adScaleOf(c)))); }); return pw; }
@@ -2194,7 +2233,7 @@ function adPower(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] ||
 const adTarget = c => 100 * clamp(adPower(c) / 1.5, 0, 1);
 // Publicité PAR PRODUIT : le budget par canal est dans S.prod[pk].ad ; l'échelle dépend de la classe (grand public = gros budgets)
 const PAD_K = { basic: 3, std: 2, lux: 1.2, estate: 1.5 };
-const padScale = (pk, ak) => AD_CH[ak].scale * K_SIZE * (PAD_K[PRODUCTS[pk].cls] || 1);
+const padScale = (pk, ak) => AD_CH[ak].scale * K_SIZE * (PAD_K[PRODUCTS[pk].cls] || 1) * adEr();
 const padOf = ps => ps.ad || (ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 });
 const padSpend = ps => AD_KEYS.reduce((a, k) => a + (padOf(ps)[k] || 0), 0);
 function padPower(pk) { const ad = padOf(S.prod[pk]); return AD_KEYS.reduce((a, k) => a + AD_CH[k].gain * (1 - Math.exp(-(ad[k] || 0) / padScale(pk, k))), 0); }
@@ -2314,7 +2353,7 @@ function step() {
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = (S.patents || 0) * 70 * (casteIs('innovateur') ? 1.5 : 1);
-  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepNpcDensify();
+  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepNpcDensify(); stepPolicy();
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
   if (S.day % 5 === 0 || !S._trf) { S._trf = 1; trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }   // !S._trf : après un chargement, le trafic (non sauvegardé) est recalculé tout de suite
   if (S.day % 5 === 0) stepGoal();
@@ -2999,7 +3038,11 @@ function updateHUD() {
     el('loanV').textContent = `Dette ${money(S.loan || 0)} · plafond ${money(lim)}`;
     el('loanUp').disabled = (S.loan || 0) + 20000 > lim;
     el('loanDn').disabled = !(S.loan > 0) || S.cash < 1000;
-    { const pp = (S.pol && S.pol.price) || 0; if (document.activeElement !== el('polPrice')) el('polPrice').value = -pp; el('polPriceV').textContent = POL_N[String(pp)] || 'Équilibré'; el('polNote').textContent = pp > 0 ? 'Prix plus bas : plus de clients, marges plus fines.' : pp < 0 ? 'Prix plus hauts : meilleure marge, moins de clients.' : 'Prix du marché sur tes magasins.'; el('polAlert').textContent = 'Alertes de stock bas : ' + (S.pol && S.pol.noAlert ? 'non' : 'oui'); el('polAlert').setAttribute('aria-pressed', S.pol && S.pol.noAlert ? 'false' : 'true'); }
+    { const pp = (S.pol && S.pol.price) || 0; if (document.activeElement !== el('polPrice')) el('polPrice').value = -pp; el('polPriceV').textContent = POL_N[String(pp)] || 'Équilibré'; el('polNote').textContent = pp > 0 ? 'Prix plus bas : plus de clients, marges plus fines.' : pp < 0 ? 'Prix plus hauts : meilleure marge, moins de clients.' : 'Prix du marché sur tes magasins.'; el('polAlert').textContent = 'Alertes de stock bas : ' + (S.pol && S.pol.noAlert ? 'non' : 'oui'); el('polAlert').setAttribute('aria-pressed', S.pol && S.pol.noAlert ? 'false' : 'true');
+      [['polNoLoss', 'noLoss', 'Ne jamais vendre sous le coût', 0], ['polSeek', 'seek', 'Chercher de meilleurs fournisseurs', 0], ['polInfP', 'noInfP', 'Prix selon l\'inflation', 1], ['polInfA', 'noInfA', 'Publicité selon l\'inflation', 1]].forEach(([id, k, lab, inv]) => { const on = inv ? !polOn(k) : polOn(k); el(id).textContent = lab + ' : ' + (on ? 'oui' : 'non'); el(id).setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      if (document.activeElement !== el('polFr')) el('polFr').value = Math.round(polFr() * 100); el('polFrV').textContent = Math.round(polFr() * 100) + ' %'; if (document.activeElement !== el('polTol')) el('polTol').value = polTol(); el('polTolV').textContent = polTol() + ' jour' + (polTol() > 1 ? 's' : '');
+      el('polNote2').textContent = (polOn('seek') ? 'Les usines et magasins en rupture depuis plus de ' + polTol() + ' jours, et ceux qui paient trop cher, changent de fournisseur ; le fret pèse ' + Math.round(polFr() * 100) + ' % dans le choix (plus il pèse, plus on achète près).' : 'Recherche de fournisseurs désactivée : tes choix manuels restent en place.') + (polOn('noLoss') ? ' Un magasin dont le coût d\'achat dépasse le CA relève son prix de rayon.' : '');
+      el('polNote3').textContent = 'Sans ajustement, tes prix de rayon et ton budget publicitaire perdent du terrain à chaque point d\'inflation (' + Math.round((cpi() - 1) * 1000) / 10 + ' % depuis le début). Les options automatiques réalignent tout tous les 30 jours.'; }
     el('tax').value = Math.round(S.tax * 100);
     el('taxV').textContent = Math.round(S.tax * 100) + ' %';
     el('taxNote').textContent = S.tax > 0.3 ? 'Impôt élevé : la ville finance de meilleurs services (humeur +), mais tes bénéfices fondent.' : S.tax < 0.2 ? 'Impôt bas : tu gardes plus de bénéfices, mais les services publics et l\'humeur en pâtissent.' : 'Impôt équilibré.';
@@ -3406,9 +3449,13 @@ function renderEmpire() {
 }
 el('empire').addEventListener('click', e => { const bb = e.target.closest('[data-brand]'); if (bb) { S.brandStrat = bb.dataset.brand; say(`Stratégie de marque : ${BRAND_STRAT[S.brandStrat][0]}.`, 'info'); renderEmpire(); save(); return; }
    const b = e.target.closest('[data-open]'); if (!b) return; const [x, y] = b.dataset.open.split(',').map(Number); openBuilding(x, y); });
-const POL_N = { '-1': 'Marge maximale (prix +8 %)', '-0.5': 'Marge (prix +4 %)', '0': 'Équilibré', '0.5': 'Parts de marché (prix −4 %)', '1': 'Parts de marché maximales (prix −8 %)' };
+const POL_N = { '-1': 'Maximiser la marge (prix +8 %)', '-0.75': 'Marge (prix +6 %)', '-0.5': 'Marge (prix +4 %)', '-0.25': 'Plutôt marge (prix +2 %)', '0': 'Équilibré', '0.25': 'Plutôt parts (prix −2 %)', '0.5': 'Parts de marché (prix −4 %)', '0.75': 'Parts de marché (prix −6 %)', '1': 'Maximiser la part de marché (prix −8 %)' };
 el('polPrice').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.price = -+e.target.value; updateHUD(); });
 el('polAlert').onclick = () => { S.pol = S.pol || {}; S.pol.noAlert = !S.pol.noAlert; updateHUD(); };
+[['polNoLoss', 'noLoss'], ['polSeek', 'seek'], ['polInfP', 'noInfP'], ['polInfA', 'noInfA']].forEach(([id, k]) => { el(id).onclick = () => { S.pol = S.pol || {}; S.pol[k] = !S.pol[k]; if (k === 'noInfP' && !S.pol[k]) adjustInfl('p'); if (k === 'noInfA' && !S.pol[k]) adjustInfl('a'); updateHUD(); save(); }; });
+el('polAdjNow').onclick = () => { adjustInfl(); say('Prix de rayon et budgets publicitaires réalignés sur l\'inflation.', 'info'); updateHUD(); save(); };
+el('polFr').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.fr = +e.target.value / 100; updateHUD(); });
+el('polTol').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.tol = +e.target.value; updateHUD(); });
 function creditLimit() { return Math.max(0, (casteIs('banquier') ? Math.round(0.5 * portValue() / 1000) * 1000 : 0) + Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.5 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
 el('loanUp').onclick = () => { if ((S.loan || 0) + 20000 <= creditLimit()) { S.loan = (S.loan || 0) + 20000; S.cash += 20000; say('Emprunt de 20 000 $ (intérêts 0,06 %/jour).', 'info'); updateHUD(); save(); } };
 el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, 20000, Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
