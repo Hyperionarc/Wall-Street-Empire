@@ -550,3 +550,21 @@ La dette de fin passe de 1 Md$ (course à l'effet de levier sur les tours) à 10
 
 **Limites** : le bot n'exploite pas encore les chaînes usines-produits intégrées (elles perdent de l'argent dans nos montages sans mines, les audits d'usines restent ceux de la passe 16) ; les résultats d'un même profil varient de ±5 % selon le moindre changement de règle (chaos des décisions), d'où des plages et non des dates exactes ; le plafond de dette 0,45 × valorisation est un réglage du bot, le plafond du jeu reste `creditLimit()`.
 
+
+## Passe 22 : qualité des scénarios et du tutoriel
+
+**Jeu de bout en bout** : chaque scénario a été rejoué (écran de démarrage, sélection du mode, caste, barre d'outils, panneaux) avec Playwright, puis le bot « bon » a mené les scénarios 1 à 5 jusqu'à la victoire (S1 4 116 j, S2 4 732 j, S3 5 500 j, S4 et S5 revérifiés après le passage des rayons à 12). `tools/tests/t08_scenarios.js` rejoue le parcours avec de vrais clics.
+
+**Corrections**
+- Le temps ne court plus pendant le choix de la caste (le scénario perdait 2 à 4 jours avant le premier clic, et la partie tournait derrière l'écran de caste après un rechargement). `S.mode.await` est conservé dans la sauvegarde.
+- Écran de fin : « Scénario suivant » (annonce du déblocage), « Réessayer ce scénario » et liste des **jalons manqués** en cas de défaite, bouton « Menu principal ». Les cartes verrouillées de l'écran de démarrage sont plus lisibles (contraste, bordure pointillée).
+- Onglet Objectifs : liste des jalons du scénario avec coches, temps restant et condition de victoire (2 produits, exports, filiales).
+- `advisorTips` n'affiche plus l'ancien tutoriel libre pendant un scénario (il contredisait le tutoriel guidé).
+
+**Tutoriels guidés** (barre d'objectif, jamais sur la carte) : scénario 1 en 5 étapes (Petit marché, ouvrir le commerce, emprunter, 3 commerces, « Compris »), **scénario 2** en 5 étapes (mine, usine, production, produits R&D, commerce), **scénario 4** en 4 étapes (siège, introduction, rachat, OPA). Chaque étape a une détection, une progression collante (une étape validée ne revient pas en arrière), un bouton « Passer », et un surlignage doré animé avec une flèche qui suit le **chemin de clics** : catégorie, puis famille, puis bouton (ou Menu, onglet, bouton Emprunter). La flèche reste correcte en pause (rafraîchissement toutes les 400 ms).
+
+**Anti-frustration** : `stuckInfo()` détecte « plus d'argent » (avec plafond de dette atteint ou non), « mines sans débouché » (ni usine ni port), « tu fabriques mais tu ne vends pas », usines vides, dépassement du plafond de dette ; un message d'avertissement est émis tous les 40 jours au plus quand la situation bloque. Le bouton **Conseil** de la barre d'objectif affiche l'explication et désigne l'élément à cliquer.
+
+**Capitalism-like** : 12 produits au plus par magasin (4 / 8 / 12 / 12 ; le grand magasin passe de 16 à 12 emplacements, les anciennes sauvegardes sont tronquées à l'affichage). Les fiches d'usine affichent sans défiler la ligne « Sources automatiques » (intrant ← fournisseur) avec « Recalculer » ; les fiches de magasin affichent « Rayons n / 12 » avec « Remplir les rayons ».
+
+**Compatibilité** : sauvegarde v8 inchangée (champs `md.await` et `md.f.ti` optionnels), aucun montant UI modifié (mensuels).
