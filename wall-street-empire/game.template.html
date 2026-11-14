@@ -1871,7 +1871,7 @@ function evaluate() {
     if (T.ext) { c.piped = (T.ext === 'oil' || T.ext === 'coal') && pipeAdj(c, pm); c.linked = extLinked(c, lm) || c.piped; c.conn = true; } else if (c.t === 'pipeline' || c.t === 'pylon' || c.t === 'cable') { c.conn = true; } else c.conn = footConn(c);
     if (isPlant(c.t)) gridEval(c, gm);
     cc[c.t]++;
-    upkeep += T.upkeep * (c.t === 'res' ? 1 : m * (1 + 0.1 * (c.qual || 0))) + phOvh(c);
+    upkeep += T.upkeep * (c.t === 'res' ? 1 : m * (1 + 0.1 * (c.qual || 0))) * (FLEVEL[c.t] ? actF(c) : 1) + phOvh(c);   // usine vide : entretien réduit à 25 % (mise sous cocon), comme l'effectif
     value += T.cost * 0.9 + upgradeSpent(c) * 0.6 + landVal(c);
     if (c.conn) {
       cn[c.t]++; un[c.t] += unitsOf(c); jobs += jobsOf(c); c.haul = haulOf(c);
@@ -2572,6 +2572,7 @@ function step() {
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = (S.patents || 0) * 70 * (casteIs('innovateur') ? 1.5 : 1);
   stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepNpcDensify(); stepPolicy(); stepSites();
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
+  if (S.day % 30 === 0 && S.day > 0 && !(S.pol && S.pol.noAlert)) { let nv = 0, cv = 0; eachBuilding(c => { if (c.conn && FLEVEL[c.t] && c.limit === 'noprod' && (c.days || 0) > 20) { nv++; cv += ((c.upk || 0) + (c.wages || 0)) * 30; } }); if (nv) say(`${nv} usine${nv > 1 ? 's' : ''} sans produit coûte${nv > 1 ? 'nt' : ''} ≈ ${money(cv)} par mois (effectif et entretien réduits) : choisis un produit ou démolis-${nv > 1 ? 'les' : 'la'}.`, 'warn'); }
   if (S.day % 5 === 0 || !S._trf) { S._trf = 1; trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }   // !S._trf : après un chargement, le trafic (non sauvegardé) est recalculé tout de suite
   if (S.day % 5 === 0) stepGoal();
   stepControl();
@@ -2802,7 +2803,7 @@ function step() {
     else if (T.ret) c.pRev = (c._rev || 0) * mult;
     else if (c.t === 'port') c.pRev = revExport / Math.max(1, portN);
     else if (c.t === 'wh') c.pRev = c._rev || 0;
-    const up = (T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))) + phOvh(c)) * cpi();
+    const up = (T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))) * (FLEVEL[c.t] ? actF(c) : 1) + phOvh(c)) * cpi();
     // Séparation : production valorisée interne (mines, usines : non encaissée) / chiffre d'affaires encaissé ; intrants importés (décaissés) / prélevés sur stock local (transfert interne)
     c.pInt = (T.ext || T.rec) ? c.pRev : 0;
     { const ip = T.ret ? (c._inImpR || 0) : T.ext ? (c._xcost || 0) : c.t === 'wh' || c.t === 'tv' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
