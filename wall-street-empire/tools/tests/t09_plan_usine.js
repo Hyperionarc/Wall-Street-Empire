@@ -20,14 +20,14 @@ exports.run = async (t, L) => {
   // 1. Plan par défaut : capacité, effectif et entretien identiques à l'ancienne formule
   const d = await pg.evaluate(() => { const { W, f, run } = window.B; const T = W.TYPES.f2; const A = run(20); const e = W.planEvalC(f);
     return { plan: f.plan == null, dim: W.PLAN_DIM.f2.join('x'), ucap: W.unitsOf(f) / W.unitsBase(f), e, A, qty: W.RECIPES.steel.out, un: f._un, fill: A.fill }; });
-  t.check('plan par défaut : aucune donnée stockée (c.plan absent) et grille 3×3 pour la grande usine', d.plan && d.dim === '3x3', d.dim);
+  t.check('plan par défaut : aucune donnée stockée (c.plan absent) et 12 emplacements (sol 3×2 + portes) pour la grande usine', d.plan && d.dim === '3x2', d.dim);
   t.check('plan par défaut : débit 100 %, une machine (capacité inchangée), pas de goulot', d.e.F === 1 && d.e.mk === 1 && d.ucap === 1 && !d.e.lim && Math.abs(d.e.jw - 1) < 1e-9 && Math.abs(d.e.uw - 1) < 1e-9, `F=${d.e.F} mk=${d.e.mk} jw=${d.e.jw} uw=${d.e.uw}`);
   t.range('plan par défaut : production = capacité nominale × effectif × (1 − pertes)', d.A.out / (d.un * d.A.fill * d.qty), 0.93, 1.001, '', 3);
   const base = d.A;
   // 2. 2 machines + 2 achats + 2 ventes = 2× la production ; une seule machine de plus : bridée par les lignes d'achat et de vente
   const two = await pg.evaluate(() => { const { W, f, run } = window.B; const r = {};
-    W.planSet(f, ['buy', 'buy', '', 'stock', 'make', 'sell', 'make', 'sell', '']); r.full = run(20, 12); r.fe = W.planEvalC(f);
-    W.planSet(f, ['buy', '', '', 'stock', 'make', 'sell', 'make', '', '']); r.half = run(20, 12); r.he = W.planEvalC(f);
+    W.planSet(f, ['stock', 'make', 'make', '', '', '', 'buy', 'buy', '', 'sell', 'sell', '']); r.full = run(20, 12); r.fe = W.planEvalC(f);
+    W.planSet(f, ['stock', 'make', 'make', '', '', '', 'buy', '', '', 'sell', '', '']); r.half = run(20, 12); r.he = W.planEvalC(f);
     W.planSet(f, W.planDefault(f)); r.back = run(20, 12); r.cnull = f.plan == null; return r; });
   const norm = x => x.out / x.fill;
   t.range('2 machines + 2 achats + 2 ventes = 2× la production (à effectif égal)', norm(two.full) / norm(base), 1.93, 2.05, '', 3);
@@ -36,12 +36,12 @@ exports.run = async (t, L) => {
   t.check('revenir au plan par défaut redonne la capacité d\'origine et efface c.plan', Math.abs(norm(two.back) / norm(base) - 1) < 0.03 && two.cnull, `${(norm(two.back) / norm(base)).toFixed(3)}`);
   t.check('effectif et entretien suivent le plan (2 machines : +52 % d\'effectif de base, +69 %… selon unités)', two.fe.jw > 1.5 && two.fe.uw > 1.5, `effectif ×${two.fe.jw.toFixed(2)}`);
   // 3. Goulot de vente : 0 ligne de vente = production bloquée, message « Sortie pleine »
-  const sell0 = await pg.evaluate(() => { const { W, f, run } = window.B; W.planSet(f, ['buy', '', '', 'stock', 'make', '', '', '', '']); const A = run(12, 6); W.openBuilding(f.x, f.y); const txt = document.getElementById('bbody').textContent;
+  const sell0 = await pg.evaluate(() => { const { W, f, run } = window.B; W.planSet(f, ['stock', 'make', '', '', '', '', 'buy', '', '', '', '', '']); const A = run(12, 6); W.openBuilding(f.x, f.y); const txt = document.getElementById('bbody').textContent;
     const bn = document.querySelector('.bnbanner b') ? document.querySelector('.bnbanner b').textContent : ''; W.planSet(f, W.planDefault(f)); return { out: A.out, limit: A.limit, F: A.F, bn, hasGrid: !!document.querySelector('.plgrid'), cells: document.querySelectorAll('.plc').length, bad: document.querySelectorAll('.plc.bad').length }; });
   t.check('0 ligne de vente : production bloquée (≈ 0) et limite pl_sell0', sell0.out < 1e-6 && sell0.limit === 'pl_sell0' && sell0.F === 0 || (sell0.F < 0.01 && sell0.out < 0.5), `out=${sell0.out.toFixed(1)} F=${sell0.F} limite=${sell0.limit}`);
-  t.check('goulot visible : bandeau « Sortie pleine » et case de vente absente signalée', /Sortie pleine/.test(sell0.bn) && sell0.hasGrid && sell0.cells === 9, sell0.bn);
+  t.check('goulot visible : bandeau « Sortie pleine » et case de vente absente signalée', /Sortie pleine/.test(sell0.bn) && sell0.hasGrid && sell0.cells === 12, sell0.bn);
   // 4. Manque de personnel à l'achat : curseur d'affectation sous-doté -> débit réduit proportionnellement
-  const staff = await pg.evaluate(() => { const { W, f, run } = window.B; W.planSet(f, ['buy', 'buy', '', 'stock', 'make', 'sell', 'make', 'sell', '']); run(5, 8); const e0 = W.planEvalC(f), ok = run(10, 4);
+  const staff = await pg.evaluate(() => { const { W, f, run } = window.B; W.planSet(f, ['stock', 'make', 'make', '', '', '', 'buy', 'buy', '', 'sell', 'sell', '']); run(5, 8); const e0 = W.planEvalC(f), ok = run(10, 4);
     const n = e0.n, tot = n.make * 0.52 + n.buy * 0.16 + n.stock * 0.15 + n.sell * 0.17; const idl = { prod: n.make * 0.52 / tot, buy: n.buy * 0.16 / tot, stock: n.stock * 0.15 / tot, sell: n.sell * 0.17 / tot };
     f.dept = { prod: idl.prod, buy: idl.buy * 0.4, stock: idl.stock, sell: idl.sell }; const A = run(10, 4), e = W.planEvalC(f); const lim = A.limit; W.planSet(f, W.planDefault(f)); return { ok: ok.out / ok.fill, low: A.out / A.fill, F: e.F, lim, sbuy: e.f.sbuy }; });
   t.check('personnel insuffisant à l\'achat : débit réduit (limite pl_sbuy), liens non assurés', staff.lim === 'pl_sbuy' && staff.F < 0.6 && staff.F > 0.3, `F=${staff.F.toFixed(2)} limite=${staff.lim}`);
@@ -55,7 +55,7 @@ exports.run = async (t, L) => {
     const plan0 = W.planOf(f).slice(); const base = run(16, 8); o.base = base;
     const prm = W.RECIPES.rweld; o.lvl = prm.lvl; o.inKeys = Object.keys(prm.in).join(','); o.price = W.GOODS.rweld.base; o.makers = ['rweld', 'rpaint', 'rasm', 'r6'].map(k => W.RECIPES[k] ? W.RECIPES[k].lvl : 0).join(',');
     const cash0 = S.cash; S.stock.rweld = 0; const ok = W.planAdd(f, 2, 'robot', 'rweld'); o.ok = ok; o.paid = cash0 - S.cash; o.cell = W.planOf(f)[2];
-    const rb = run(16, 8); o.rb = rb; o.mk = W.planEvalC(f).mk; o.jw = W.planEvalC(f).jw; o.roi = W.robotRoi(f, 'r6', 6);
+    const rb = run(16, 8); o.rb = rb; o.mk = W.planEvalC(f).mk; o.jw = W.planEvalC(f).jw; o.roi = W.robotRoi(f, 'r6', 3);
     o.dept = f.dept === null;
     // usure : robot à 95 % remplacé par un robot du stock (consommé) ; sinon acheté au marché
     f.rb[2].w = 0.95; S.stock.rweld = 3; const st0 = S.stock.rweld; W.step(); o.replaced = f.rb[2].w < 0.1 && S.stock.rweld < st0;
@@ -85,21 +85,21 @@ exports.run = async (t, L) => {
   // 7. Sauvegarde v8 : plan et robots restitués ; ancienne sauvegarde (sans plan) = plan par défaut
   const ctx = await (await L.browser()).newContext({ viewport: { width: 1280, height: 900 } });
   pg = await L.newPage({ ctx, wait: 500 }); await L.setup(pg, { cash: 5e10 }); await L.inject(pg); await pg.evaluate(SETUP);
-  const sv1 = await pg.evaluate(() => { const { W, S, f } = window.B; W.planSet(f, ['buy', 'buy', 'robot', 'stock', 'make', 'sell', 'make', 'sell', '']); f.rb = { 2: { k: 'r6', w: 0.31 } }; W.planSet(f, W.planOf(f)); while (S.day % 5 !== 0 || S.day < 1) { window.B.pre(); W.step(); } window.B.pre(); W.step(); while (S.day % 5 !== 0) { window.B.pre(); W.step(); }
-    const raw = localStorage.getItem('wse-city-v8'); const sv = JSON.parse(raw); return { v: sv.v, raw: raw.length, plan: f.plan.join(','), w: f.rb[2].w, pos: [f.x, f.y], day: S.day }; });
+  const sv1 = await pg.evaluate(() => { const { W, S, f } = window.B; W.planSet(f, ['robot', 'stock', 'make', 'make', '', '', 'buy', 'buy', '', 'sell', 'sell', '']); f.rb = { 0: { k: 'r6', w: 0.31 } }; W.planSet(f, W.planOf(f)); while (S.day % 5 !== 0 || S.day < 1) { window.B.pre(); W.step(); } window.B.pre(); W.step(); while (S.day % 5 !== 0) { window.B.pre(); W.step(); }
+    const raw = localStorage.getItem('wse-city-v8'); const sv = JSON.parse(raw); return { v: sv.v, raw: raw.length, plan: f.plan.join(','), w: f.rb[0].w, pos: [f.x, f.y], day: S.day }; });
   t.check('sauvegarde v8 conservée avec le plan (clé pl) et les robots (rb)', sv1.v === 8 && sv1.raw > 1000 && /robot/.test(sv1.plan), `v${sv1.v} · ${sv1.plan}`);
   await pg.close(); pg = await ctx.newPage(); pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message)); await pg.goto(L.URL);
   const ld = await pg.evaluate(pos => { const W = window.WSE, S = W.S, c = S.grid[pos[1] * W.N + pos[0]]; return c && c.t === 'f2' ? { plan: c.plan && c.plan.join(','), rb: c.rb, mk: W.planEvalC(c).mk, n: W.planEvalC(c).n } : null; }, sv1.pos);
-  t.check('rechargement : plan et robot (type, usure) restitués à l\'identique', !!ld && ld.plan === sv1.plan && ld.rb && ld.rb[2].k === 'r6' && Math.abs(ld.rb[2].w - sv1.w) < 0.01 && ld.n.make === 2, ld ? ld.plan : 'absent');
+  t.check('rechargement : plan et robot (type, usure) restitués à l\'identique', !!ld && ld.plan === sv1.plan && ld.rb && ld.rb[0].k === 'r6' && Math.abs(ld.rb[0].w - sv1.w) < 0.01 && ld.n.make === 2, ld ? ld.plan : 'absent');
   await pg.close(); await ctx.addInitScript(() => { try { const raw = JSON.parse(localStorage.getItem('wse-city-v8')); raw.g.forEach(r => { if (r && r[20] && r[20].pl) { delete r[20].pl; delete r[20].rb; r[14] = 0; } }); localStorage.setItem('wse-city-v8', JSON.stringify(raw)); } catch (e) {} });   // simule une sauvegarde v8 d'avant la passe 24
-  pg = await ctx.newPage(); pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message)); await pg.goto(L.URL); await pg.waitForTimeout(400);
+  pg = await ctx.newPage(); pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message)); await pg.goto(L.URL); await pg.waitForTimeout(900);
   const ld2 = await pg.evaluate(pos => { const W = window.WSE, S = W.S, c = S.grid[pos[1] * W.N + pos[0]]; return c ? { plan: c.plan == null, e: W.planEvalC(c), pl: W.planOf(c).join(',') } : null; }, sv1.pos);
-  t.check('ancienne sauvegarde (sans plan) : plan par défaut, capacité inchangée', ld2 && ld2.plan && ld2.e.F === 1 && ld2.e.mk === 1 && /^buy,,,stock,make,sell/.test(ld2.pl), ld2 ? ld2.pl : '');
+  t.check('ancienne sauvegarde (sans plan) : plan par défaut, capacité inchangée', ld2 && ld2.plan && ld2.e.F === 1 && ld2.e.mk === 1 && /^stock,make,,,,,buy,,,sell/.test(ld2.pl), ld2 ? ld2.pl : '');
   t.check('aucune erreur de page (rechargements)', pg.errs.length === 0, pg.errs.slice(0, 2).join(' | '));
   await ctx.close();
 
   // 8. Déterminisme : deux parties identiques avec le même plan donnent le même état
-  const run2 = async () => { const p = await bench(L); const r = await p.evaluate(() => { const { W, S, f, run } = window.B; W.planSet(f, ['buy', 'buy', '', 'stock', 'make', 'sell', 'make', 'sell', 'robot']); S.stock.r6 = 5; W.planAdd(f, 8, 'robot', 'r6'); const A = run(40); return { out: A.out, cash: S.cash, w: f.rb && f.rb[8] && f.rb[8].w, day: S.day, errs: 0 }; }); const e = p.errs.length; await p.context().close(); return Object.assign(r, { e }); };
+  const run2 = async () => { const p = await bench(L); const r = await p.evaluate(() => { const { W, S, f, run } = window.B; W.planSet(f, ['stock', 'make', 'make', '', '', '', 'buy', 'buy', '', 'sell', 'sell', '']); S.stock.r6 = 5; W.planAdd(f, 5, 'robot', 'r6'); const A = run(40); return { out: A.out, cash: S.cash, w: f.rb && f.rb[5] && f.rb[5].w, day: S.day, errs: 0 }; }); const e = p.errs.length; await p.context().close(); return Object.assign(r, { e }); };
   const A = await run2(), B2 = await run2();
   t.check('déterminisme : deux parties identiques (plan + robot) donnent la même production, trésorerie et usure', A.out === B2.out && A.cash === B2.cash && A.w === B2.w && A.e + B2.e === 0, `${A.out.toFixed(3)} / ${B2.out.toFixed(3)}`);
 
@@ -108,7 +108,7 @@ exports.run = async (t, L) => {
     const p = await L.newPage({ w: vp.w, h: vp.h, wait: 600 }); await L.setup(p, { cash: 5e10 }); await L.inject(p); await p.evaluate(SETUP);
     const ui = await p.evaluate(async () => { const { W, S, f } = window.B; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 200));
       const q = s => document.querySelector(s); const o = { grid: !!q('.plgrid'), cells: document.querySelectorAll('.plc').length, flows: document.querySelectorAll('.plflow div').length };
-      const free = [...document.querySelectorAll('.plc.free')][0]; free.click(); await new Promise(r => setTimeout(r, 100)); o.menu = [...document.querySelectorAll('.plrow')].map(b => b.textContent.slice(0, 22));
+      const free = document.querySelector('[data-act="plansel:2"]'); free.click(); await new Promise(r => setTimeout(r, 100)); o.menu = [...document.querySelectorAll('.plrow')].map(b => b.textContent.slice(0, 22));
       const cash0 = S.cash; document.querySelector('[data-act="planadd:make"]').click(); await new Promise(r => setTimeout(r, 100)); o.made = W.planEvalC(f).n.make === 2 && S.cash < cash0; o.cost = cash0 - S.cash;
       await new Promise(r => setTimeout(r, 400)); o.scene = W.scene && W.scene.kind; const cv = document.getElementById('bscene'); o.cw = cv.width; o.noBtn = !document.querySelector('[data-act="planview"]');
       o.tiles = document.querySelectorAll('#btiles .tile').length; o.vit = (document.getElementById('bvit') || {}).textContent || ''; o.stats = (document.getElementById('bstats') || {}).textContent || '';
@@ -116,7 +116,7 @@ exports.run = async (t, L) => {
       W.bAct('plandel:' + W.planOf(f).findIndex(u => u === 'make')); o.fx = W.scene.fx.length;
       const sc = W.scene, a = sc.ox + (sc.X0 + 0.5 * sc.cs - (sc.Y0 + 0.5 * sc.cs)) * sc.tw / 2; o.canvasOK = cv.width > 300;
       return o; });
-    t.check(`interface ${vp.n} : mini-carte 3×3, 4 débits chiffrés, menu d'ajout, pose d'une machine et vue isométrique du plan`, ui.grid && ui.cells === 9 && ui.flows === 4 && ui.menu.length >= 8 && ui.made && ui.scene === 'plan' && ui.canvasOK && ui.noBtn && ui.tiles === 4 && ui.vit.indexOf(ui.nm0) >= 0 && ui.vit2.indexOf(ui.nm) >= 0 && ui.sceneKey && ui.fx > 0 && /Cadence/.test(ui.stats), `tuiles ${ui.tiles} · vit ${ui.vit.slice(0, 40)} / ${ui.vit2.slice(0, 40)} (${ui.nm0}, ${ui.nm}) · clé ${ui.sceneKey} · fx ${ui.fx} · bouton ${ui.noBtn} · ${ui.cells} cases · menu ${ui.menu.length} lignes · machine ${Math.round(ui.cost)} $ · scène ${ui.scene}`);
+    t.check(`interface ${vp.n} : mini-carte 3×3, 4 débits chiffrés, menu d'ajout, pose d'une machine et vue isométrique du plan`, ui.grid && ui.cells === 12 && ui.flows === 4 && ui.menu.length >= 6 && ui.made && ui.scene === 'plan' && ui.canvasOK && ui.noBtn && ui.tiles === 4 && ui.vit.indexOf(ui.nm0) >= 0 && ui.vit2.indexOf(ui.nm) >= 0 && ui.sceneKey && ui.fx > 0 && /Cadence/.test(ui.stats), `tuiles ${ui.tiles} · vit ${ui.vit.slice(0, 40)} / ${ui.vit2.slice(0, 40)} (${ui.nm0}, ${ui.nm}) · clé ${ui.sceneKey} · fx ${ui.fx} · bouton ${ui.noBtn} · ${ui.cells} cases · menu ${ui.menu.length} lignes · machine ${Math.round(ui.cost)} $ · scène ${ui.scene}`);
     t.check(`interface ${vp.n} : aucune erreur de page`, p.errs.length === 0, p.errs.slice(0, 2).join(' | '));
     await p.context().close();
   }
@@ -124,19 +124,20 @@ exports.run = async (t, L) => {
   // 10. Choix libre de chaque case (passe 26) : remplacer une unité par une autre, vente en première colonne, déplacement, pas de « première case libre » imposée
   pg = await bench(L);
   const ch = await pg.evaluate(async () => { const { W, S, f } = window.B, o = {}; const q = s2 => document.querySelector(s2);
-    W.planSet(f, ['buy', '', '', 'stock', 'make', 'sell', '', '', '']); W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 200));
-    const c0 = S.cash, rf = W.planRefund(f, 4); o.ok = W.planReplace(f, 4, 'sell'); o.net = c0 - S.cash; o.expect = W.planUnitCost(f, 'sell') - rf; o.plan = W.planOf(f).join(',');
-    o.same = W.planReplace(f, 4, 'sell');   // remplacer par le même type : refusé
-    o.col0 = W.planAdd(f, 6, 'sell'); o.sells = W.planEvalC(f).n.sell; o.noMachine = W.planEvalC(f).n.make;
-    W.planSet(f, ['buy', '', '', 'stock', 'make', 'sell', '', '', '']); W.bAct('plansel:4'); await new Promise(r => setTimeout(r, 150));
+    W.planSet(f, ['stock', 'make', '', '', '', '', 'buy', '', '', 'sell', '', '']); W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 200));
+    const c0 = S.cash, rf = W.planRefund(f, 0); o.ok = W.planReplace(f, 0, 'make'); o.net = c0 - S.cash; o.expect = W.planUnitCost(f, 'make') - rf; o.plan = W.planOf(f).join(',');
+    o.same = W.planReplace(f, 0, 'make');   // remplacer par le même type : refusé
+    o.lockedBefore = !W.slotOpen(f, 10); o.lockedAdd = W.planAdd(f, 10, 'sell'); f.lvl = 1; o.col0 = W.planAdd(f, 10, 'sell'); f.lvl = 0; o.sells = W.planEvalC(f).n.sell;
+    o.badDoor = W.planAdd(f, 7, 'make') || W.planAdd(f, 3, 'sell');   // une machine ne se pose pas à une porte, une vente pas au sol
+    W.planSet(f, ['stock', 'make', '', '', '', '', 'buy', '', '', 'sell', '', '']); W.bAct('plansel:0'); await new Promise(r => setTimeout(r, 150));
     o.menu = [...document.querySelectorAll('#bpop [data-act]')].map(b => b.dataset.act + (b.disabled ? '!' : '')); const before = W.planOf(f).join(','); W.setPlanSel(-1); W.bAct('planadd:make'); o.noSel = W.planOf(f).join(',') === before;
-    W.bAct('plansel:4'); W.bAct('planadd:sell'); o.viaMenu = W.planOf(f)[4];
-    o.mv = W.planMove(f, 5, 8) || W.planMove(f, 3, 8); o.after = W.planOf(f).join(',');
+    W.bAct('plansel:0'); W.bAct('planadd:make'); o.viaMenu = W.planOf(f)[0];
+    o.mv = W.planMove(f, 1, 8) || W.planMove(f, 1, 3); o.after = W.planOf(f).join(','); o.mvDoor = W.planMove(f, 3, 7);
     W.bAct('plantool:make'); const tl = document.querySelectorAll('#bpal .tool').length; o.tools = tl; W.bAct('plantool:make'); return o; });
-  t.check('remplacer une unité par une autre en un clic : coût net = coût − 50 % de l\'unité reprise, même type refusé', ch.ok && ch.plan.split(',')[4] === 'sell' && Math.abs(ch.net - ch.expect) < 1 && !ch.same, `net ${Math.round(ch.net)} attendu ${Math.round(ch.expect)} · ${ch.plan}`);
-  t.check('une vente se pose en première colonne (aucune position imposée) et le débit dépend du nombre d\'unités', ch.col0 && ch.sells >= 2, `ventes ${ch.sells}`);
-  t.check('menu d\'une case occupée : tous les types proposés (remplacement) + vider + déplacer ; sans case choisie la pose est refusée', /planadd:buy/.test(ch.menu.join()) && /planadd:sell(?!!)/.test(ch.menu.join()) && /plandel:4/.test(ch.menu.join()) && /planadd:make!/.test(ch.menu.join()) && ch.noSel && ch.viaMenu === 'sell', ch.menu.join(' '));
-  t.check('déplacement d\'une unité vers une case libre et palette d\'outils permanente (5 unités + gomme)', ch.mv && ch.tools === 6, `${ch.after} · outils ${ch.tools}`);
+  t.check('remplacer une unité par une autre en un clic : coût net = coût − 50 % de l\'unité reprise, même type refusé', ch.ok && ch.plan.split(',')[0] === 'make' && Math.abs(ch.net - ch.expect) < 1 && !ch.same, `net ${Math.round(ch.net)} attendu ${Math.round(ch.expect)} · ${ch.plan}`);
+  t.check('une porte de sortie verrouillée au niveau 0 refuse la pose, puis l\'accepte après le niveau ; chaque type a son emplacement (pas de machine à une porte, pas de vente au sol)', ch.lockedBefore && !ch.lockedAdd && ch.col0 && ch.sells >= 2 && !ch.badDoor, `ventes ${ch.sells}`);
+  t.check('menu d\'une case du sol : machine / stock / robots + vider + déplacer (pas d\'achat ni de vente) ; sans case choisie la pose est refusée', /planadd:make/.test(ch.menu.join()) && !/planadd:buy/.test(ch.menu.join()) && !/planadd:sell/.test(ch.menu.join()) && /plandel:0/.test(ch.menu.join()) && ch.noSel && ch.viaMenu === 'make', ch.menu.join(' '));
+  t.check('déplacement d\'une unité vers une case libre (jamais vers une porte de mauvais type) et palette d\'outils permanente (5 unités + gomme)', ch.mv && !ch.mvDoor && ch.tools === 6, `${ch.after} · outils ${ch.tools}`);
   t.check('aucune erreur de page (plan libre)', pg.errs.length === 0, pg.errs.slice(0, 2).join(' | '));
   await pg.context().close();
 };
