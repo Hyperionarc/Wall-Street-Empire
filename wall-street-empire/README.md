@@ -489,4 +489,27 @@ Le nombre d'ouvriers suit l'effectif réel (comme les usines) ; à l'arrêt (peu
 
 **Écrans de début et de fin** : scénarios verrouillés plus lisibles avec la condition de déblocage ; choix de caste en cartes horizontales (les 6 castes tiennent sans défiler sur ordinateur, 6 cartes compactes sur mobile) ; titres et textes ≥ 11 px.
 
-**Reste à faire** : bureaux, tours et banques gardent l'ancienne scène 2D ; le canvas de l'intérieur n'est pas redimensionné dynamiquement au changement d'orientation du téléphone ; première image d'un site un peu plus longue (50 à 130 ms, construction du décor).
+**Reste à faire** : (bureaux, tours et banques : traité en passe 20) ; le canvas de l'intérieur n'est pas redimensionné dynamiquement au changement d'orientation du téléphone ; première image d'un site un peu plus longue (50 à 130 ms, construction du décor).
+
+
+## Passe 20 : intérieurs isométriques des bâtiments de services
+
+Tous les bâtiments de services qui gardaient l'ancienne scène 2D (rangée de bureaux) ont maintenant un intérieur isométrique 2:1 dans le style des halles d'usines et des sites. Une seule scène (`kind: 'bld'`, `mkBld` / `updBld` / `drawBld`) : décor statique dessiné une fois dans un canvas de cache, objets triés en profondeur à chaque image, mêmes primitives que les usines (`isoP`, `sbox`, `cbox`, `cyl`, `person`, `alertIcon`) plus quelques nouvelles (`hcyl` cylindre horizontal, `onX`, `wsSlot` poste de travail, `longBox` meuble découpé en tronçons).
+
+- **Tour Tech** : open-space (3 rangées de postes, écrans animés), salle de réunion vitrée avec écran et présentateur, coin café, ascenseur avec afficheur d'étage, canapé, deux coursiers.
+- **BTP** : plans au mur, casiers à casques, table de maquette avec grue, postes et chefs de chantier. **Agence immobilière** : vitrine d'annonces, table de maquettes, conseillers et clients qui entrent, discutent au bureau puis repartent. **Logements** : appartement en coupe (salon, chambre, habitants).
+- **Banque** : hall en marbre, guichets vitrés avec afficheur de tickets, clients qui font la queue ou passent au distributeur, bureau du directeur, coffre à porte ronde et lingots, garde.
+- **Data center** : trois rangées de baies avec LEDs (cadence liée à l'activité), allées froides, climatiseurs à ventilateurs, batteries, mur de supervision, opérateurs et techniciens en casque qui s'arrêtent aux baies.
+- **R&D** : paillasses avec flacons qui bullent, microscopes, écrans de courbes, centrifugeuse, imprimante 3D, hotte, table holographique, tableau blanc, hélice d'ADN et compteur de brevets (avancement du prochain brevet).
+- **Siège social** : salle du conseil vitrée (table, présentation animée), bureaux de direction, accueil avec visiteurs, globe, drapeaux ; les cadres CFO / IR embauchés apparaissent.
+- **Station média** : plateau avec décor de ville, bandeau défilant, présentateurs, caméras qui balayent, projecteurs et faisceaux, « EN DIRECT » clignotant, régie avec mur d'écrans et console, cabine radio.
+- **Équipement sportif** : terrain avec lignes et paniers, joueurs et balle qui rebondit, gradins avec supporters, tapis de course, vestiaires, tableau d'affichage.
+- **Terminal portuaire** : plein air, navire amarré qui tangue, portique qui décharge un conteneur sur un camion, chariot cavalier, parcs à conteneurs, douane, dockers.
+- **Énergie** : centrale à charbon (soute, tapis, chaudière en coupe avec flammes, turbine et alternateur qui tournent, cheminée et fumée, salle de commande), solaire (panneaux avec reflets selon l'ensoleillement, soleil, onduleurs et batteries, équipes de nettoyage), éolien (éoliennes dont la vitesse suit le vent, tour en coupe avec technicien qui monte, anémomètre, manche à air), nucléaire (enceinte en coupe avec cuve et cœur lumineux, barres de contrôle, générateurs de vapeur, salle des turbines, tours aéroréfrigérantes, salle de commande).
+- **Tour de location** : coupe de l'immeuble en étages éclatés (2 ou 3 selon la hauteur), ascenseur qui monte et descend, accueil au rez-de-chaussée ; les étages loués (taux d'occupation réel) sont peuplés, les autres affichent « À LOUER ».
+
+**Effectif et états** : le nombre de silhouettes suit `jobsOf(c) × fillOf(c)` (bornes par type, les postes vides restent visibles, écran éteint). L'activité (`c.util`) règle la vitesse de frappe, la cadence des LEDs, le flux de clients, la vitesse des turbines et du vent. Arrêt : bâtiment hors route (`c.conn`), `c.limit` `grid` / `storm` / `road` / `coal` ou effectif < 30 % : scène assombrie, personnes immobiles, appareils éteints et alerte avec le motif (« Hors réseau », « Tempête », « Sans route », « Manque de charbon », « Manque de personnel »). La légende au-dessus du canvas donne les chiffres (employés, revenu mensuel, production, stock de charbon, audience, etc.).
+
+Coût mesuré (Chromium sans GPU) : 0,1 à 1,0 ms par image (limite 2 ms), le plus lourd étant l'équipement sportif. Sur mobile 390 px la scène défile horizontalement comme les usines.
+
+**Reste à faire** : les personnes sont toujours dessinées de face (pas de vue de dos aux bureaux) ; pas de file d'attente matérialisée (cordons) à la banque ; la tour de location ne montre que 2 à 3 étages pour rester lisible ; l'éolien et le solaire n'animent pas les nuages selon la météo réelle ; aucun son.
