@@ -326,3 +326,14 @@ Sources (lecture qualitative de capitalismlab.com, aucune formule officielle : v
 - Data center : bonus de loyer de la caste innovateur ramené de ×1,5 à ×1,12 (EBITDA 58 % -> 44 %, CA/employé ≈ 570 k$ ; banquier inchangé à 37 %).
 - Onglets des bâtiments : tableaux financiers lisibles en mobile 390 px, libellés collés corrigés (Logistique, Effectifs), rendement annuel plafonné à ±1 000 %.
 - Concurrents : classement (rang, part, tendance, ventes/mois, valeur) ; Recherche : compteurs par ère et grille à deux colonnes.
+
+## Passe 12 : intérieur des usines en vue isométrique
+
+L'onglet « Intérieur » des usines (petite, moyenne, grande, méga-usine) et de la fonderie n'est plus une coupe latérale 2D mais une halle isométrique (projection 2:1, palette de la ville) entièrement dessinée en canvas :
+
+- **Halle** : sol en losange, murs avec poutres, fenêtres et enseigne ; la méga-usine est une grande halle à deux lignes de production.
+- **Flux** : palettes d'intrants à gauche (couleur et forme selon la marchandise : fûts, sacs, lingots, minerai, bobines, planches), tapis roulants vers la machine, puis produits finis vers la sortie (palettes de cartons étiquetés ou vignette du produit, camion de livraison). Plus aucun motif cadeau.
+- **Machines par type** : scie, presse, four (fonderie avec creuset), bobineuse, cuves de réacteur, four rotatif, bétonnière, emballeuse, bras robotisés d'assemblage ; portiques de finition supplémentaires selon le niveau.
+- **Ouvriers** : leur nombre suit l'effectif réel (`jobsOf × fill`) ; manutentionnaires (port de caisses), opérateurs, emballeurs, chef d'équipe, chargeur. Cadence liée à l'utilisation (`c.util`) et à la production (`c.out`).
+- **États** : pénurie d'un intrant (palette vide, icône d'alerte sur la machine et l'intrant, machine à l'arrêt), sortie pleine (`_full` : tapis bloqués, pause des ouvriers, camion parti), arrêt prolongé (ouvriers en pause).
+- **Performance** : scène redessinée à 30 images/s au plus, environ 1 à 1,5 ms par image, arrêtée hors de l'onglet.

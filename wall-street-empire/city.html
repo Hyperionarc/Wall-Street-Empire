@@ -5014,9 +5014,9 @@ function drawItem(g, k, x, y, s) {
   const R = (a, b, w, h, r, c) => { g.fillStyle = c; rrect(g, a, b, w, h, r); g.fill(); };
   const sd = hash(k.length * 7, k.charCodeAt(0), 5);
   switch (k) {
-    case 'basic': R(-12, -24, 24, 24, 3, '#d9b27c'); R(-12, -24, 24, 6, 2, '#c99a58'); g.fillStyle = '#69db7c'; g.beginPath(); g.arc(-4, -26, 4, 0, 7); g.fill(); g.fillStyle = '#ff6b6b'; g.beginPath(); g.arc(4, -27, 4, 0, 7); g.fill(); break;
+    case 'basic': R(-12, -22, 24, 22, 2, '#c99a5a'); R(-12, -22, 24, 5, 1, '#e0b878'); R(-7, -14, 14, 8, 1, '#46d39a'); break;
     case 'std': R(-14, -26, 28, 26, 3, '#e3e8f5'); R(-14, -26, 28, 6, 2, '#9aa4d6'); g.fillStyle = '#7f96ff'; g.beginPath(); g.arc(0, -11, 7, 0, 7); g.fill(); g.fillStyle = '#e3e8f5'; g.beginPath(); g.arc(0, -11, 4, 0, 7); g.fill(); break;
-    case 'lux': R(-14, -22, 28, 22, 2, '#2b3358'); R(-14, -22, 28, 5, 1, '#f2b84b'); R(-2, -22, 4, 22, 0, '#f2b84b'); g.fillStyle = '#f2b84b'; g.beginPath(); g.arc(-5, -25, 4, 0, 7); g.arc(5, -25, 4, 0, 7); g.fill(); break;
+    case 'lux': R(-14, -22, 28, 22, 2, '#2b3358'); R(-14, -22, 28, 5, 1, '#3d466f'); R(-8, -14, 16, 8, 1, '#f2b84b'); break;
     case 'wheat': g.strokeStyle = '#a8861f'; g.lineWidth = 2; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(i * 6, 0); g.lineTo(i * 6, -20); g.stroke(); g.fillStyle = '#f2d35a'; g.fillRect(i * 6 - 2, -28, 5, 10); } break;
     case 'sugar': g.strokeStyle = '#3f9a3a'; g.lineWidth = 4; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(i * 8, 0); g.lineTo(i * 8 + 2, -26); g.stroke(); } g.strokeStyle = '#d6f5c8'; g.lineWidth = 2; g.beginPath(); g.moveTo(-9, -10); g.lineTo(-5, -10); g.moveTo(-1, -16); g.lineTo(3, -16); g.stroke(); break;
     case 'cotton': g.fillStyle = '#5a9a45'; g.beginPath(); g.arc(0, -6, 9, 0, 7); g.fill(); g.fillStyle = '#fff'; [[-4, -10], [4, -6], [0, -14], [-5, -4]].forEach(a => { g.beginPath(); g.arc(a[0], a[1], 4.5, 0, 7); g.fill(); }); break;
@@ -5084,129 +5084,329 @@ function facKind(rec) {
   return ({ plank: 'saw', stud: 'saw', osb: 'press', steel: 'furnace', ingot: 'furnace', gcase: 'furnace', glass: 'furnace', silicon: 'furnace', essence: 'reactor', wire: 'spool', plastic: 'reactor', cement: 'kiln', concrete: 'mixer', pack: 'pack', flour: 'mixer', fabric: 'spool', tire: 'press', motor: 'assembly', battery: 'assembly', circuit: 'assembly', screen: 'assembly' })[o] || 'generic';
 }
 const EMPTY_REC = { in: {}, out: '', qty: 0, name: 'Usine vide' };   // atelier à l'arrêt : aucun produit choisi
+/* --- usine / atelier en vue isométrique (Passe 12) : halle, tapis, machines par type, ouvriers --- */
+const FSH = { oil: 'barrel', plastic: 'barrel', flour: 'sack', sugar: 'sack', cement: 'sack', cotton: 'sack', wheat: 'sack', concrete: 'sack', copper: 'ingot', gold: 'ingot', ingot: 'ingot', steel: 'bar', iron: 'ore', coal: 'ore', limestone: 'ore', sand: 'ore', gravel: 'ore', wire: 'coil', fabric: 'coil', rubber: 'coil', tire: 'ring', plank: 'plank', stud: 'plank', osb: 'sheet', wood: 'plank' };
+const shCache = {};
+function fshade(col, a) {
+  const key = col + a; if (shCache[key]) return shCache[key];
+  const m = /^#([0-9a-f]{6})$/i.exec(col || ''), n = m ? parseInt(m[1], 16) : 0x8f9acb, f = v => Math.max(0, Math.min(255, Math.round(v + a)));
+  return (shCache[key] = `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`);
+}
+const cbox = (g, sc, x, y, w, h, z, col, z0) => sbox(g, sc, x, y, w, h, z, fshade(col, 38), col, fshade(col, -34), z0);
+function cyl(g, sc, x, y, r, z0, z1, col, topCol) {
+  const p0 = isoP(sc, x, y, z0), p1 = isoP(sc, x, y, z1), rx = r * sc.tw * 0.707, ry = r * sc.tw * 0.354;
+  g.fillStyle = col; g.fillRect(p0[0] - rx, p1[1], 2 * rx, p0[1] - p1[1]); g.beginPath(); g.ellipse(p0[0], p0[1], rx, ry, 0, 0, 7); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(p0[0] + rx * 0.25, p1[1], rx * 0.75, p0[1] - p1[1]); g.beginPath(); g.ellipse(p0[0], p0[1], rx, ry, 0, 0, Math.PI); g.lineTo(p0[0] + rx * 0.25, p0[1]); g.fill();
+  g.fillStyle = topCol || fshade(col, 40); g.beginPath(); g.ellipse(p1[0], p1[1], rx, ry, 0, 0, 7); g.fill();
+}
+function onY(g, sc, x, y, z, fn) { const p = isoP(sc, x, y, z), k = sc.tw / 44; g.save(); g.translate(p[0], p[1]); g.transform(1, 0.5, 0, 1, 0, 0); g.scale(k, k); fn(); g.restore(); }
+function gear(g, r, n, col, hub) { g.fillStyle = col; for (let i = 0; i < n; i++) { g.rotate(Math.PI * 2 / n); g.fillRect(-r * 0.16, -r * 1.2, r * 0.32, r * 0.5); } g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.fillStyle = hub; g.beginPath(); g.arc(0, 0, r * 0.38, 0, 7); g.fill(); }
+// objet posé sur un tapis / une palette (x, y au sol, z hauteur de pose) : forme selon la marchandise
+function fItem(g, sc, shape, x, y, z, col, prod) {
+  const P = (a, b, c) => isoP(sc, a, b, c), c0 = col || '#8f9acb';
+  switch (shape) {
+    case 'barrel': { cyl(g, sc, x, y, 0.2, z, z + 14, c0); const p = P(x, y, z + 7), rx = 0.2 * sc.tw * 0.707; g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1; g.beginPath(); g.ellipse(p[0], p[1], rx, rx / 2, 0, 0, Math.PI); g.stroke(); break; }
+    case 'sack': { sbox(g, sc, x - 0.22, y - 0.17, 0.44, 0.34, z + 10, fshade(c0, 50), fshade(c0, 10), fshade(c0, -30), z); const q = P(x, y + 0.17, z + 7); g.fillStyle = 'rgba(30,30,60,.45)'; g.fillRect(q[0] - 4, q[1] - 3, 8, 3); break; }
+    case 'ingot': cbox(g, sc, x - 0.24, y - 0.15, 0.48, 0.3, z + 4, c0, z); cbox(g, sc, x - 0.16, y - 0.1, 0.32, 0.2, z + 8, fshade(c0, 20), z + 4); break;
+    case 'bar': for (let i = 0; i < 3; i++) cbox(g, sc, x - 0.32, y - 0.2 + i * 0.14, 0.64, 0.1, z + 4 + (i % 2) * 2, c0, z); break;
+    case 'ore': cbox(g, sc, x - 0.22, y - 0.18, 0.26, 0.26, z + 7, c0, z); cbox(g, sc, x + 0.02, y - 0.05, 0.22, 0.24, z + 5, fshade(c0, -15), z); cbox(g, sc, x - 0.12, y - 0.05, 0.2, 0.2, z + 11, fshade(c0, 12), z + 5); break;
+    case 'coil': { cyl(g, sc, x, y, 0.26, z, z + 9, c0); const p = P(x, y, z + 9); g.fillStyle = '#1d2140'; g.beginPath(); g.ellipse(p[0], p[1], 0.09 * sc.tw * 0.707, 0.09 * sc.tw * 0.354, 0, 0, 7); g.fill(); break; }
+    case 'ring': { cyl(g, sc, x, y, 0.27, z, z + 7, '#23262f', '#3d4150'); const p = P(x, y, z + 7); g.fillStyle = '#8f9acb'; g.beginPath(); g.ellipse(p[0], p[1], 0.1 * sc.tw * 0.707, 0.1 * sc.tw * 0.354, 0, 0, 7); g.fill(); break; }
+    case 'plank': for (let i = 0; i < 3; i++) cbox(g, sc, x - 0.32, y - 0.15, 0.64, 0.3, z + 3 * (i + 1), i % 2 ? '#e3c08a' : '#d9b27c', z + 3 * i); break;
+    case 'sheet': cbox(g, sc, x - 0.3, y - 0.26, 0.6, 0.52, z + 5, '#c8995a', z); break;
+    case 'semi': cbox(g, sc, x - 0.2, y - 0.16, 0.4, 0.32, z + 8, '#9aa4c8', z); cbox(g, sc, x - 0.12, y - 0.1, 0.24, 0.2, z + 12, fshade(c0, 0), z + 8); break;
+    case 'carton': {   // carton kraft avec étiquette de couleur (ou vignette du produit)
+      cbox(g, sc, x - 0.25, y - 0.22, 0.5, 0.44, z + 11, '#c99a5a', z);
+      const yb = y + 0.22, a = P(x - 0.17, yb, z + 8), b = P(x + 0.17, yb, z + 8), d = P(x + 0.17, yb, z + 3), e = P(x - 0.17, yb, z + 3);
+      if (prod && prod.complete) { quad(g, [a, b, d, e], '#fff'); g.drawImage(prod, (a[0] + b[0]) / 2 - 7, a[1] - 3, 14, 14); } else quad(g, [a, b, d, e], c0, 'rgba(0,0,0,.25)');
+      break; }
+    default: cbox(g, sc, x - 0.24, y - 0.22, 0.48, 0.44, z + 12, c0, z); { const p = P(x, y + 0.22, z + 6); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(p[0] - 5, p[1] - 3, 10, 5); }
+  }
+}
+function palette(g, sc, x, y) { cbox(g, sc, x - 0.45, y - 0.45, 0.9, 0.9, 3, '#b98a54', 0); g.strokeStyle = 'rgba(0,0,0,.25)'; const a = isoP(sc, x - 0.45, y + 0.45, 1.5), b = isoP(sc, x + 0.45, y + 0.45, 1.5); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+function alertIcon(g, px, py, t, txt) {
+  const b = Math.sin(t * 6) * 2; g.save(); g.translate(px, py + b);
+  g.fillStyle = '#ff5a5f'; g.strokeStyle = '#fff'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(0, -17); g.lineTo(11, 3); g.lineTo(-11, 3); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#fff'; g.font = '800 13px sans-serif'; g.textAlign = 'center'; g.fillText('!', 0, 1);
+  if (txt) { g.font = '700 10px sans-serif'; const w = g.measureText(txt).width + 10; g.fillStyle = 'rgba(14,16,40,.88)'; rrect(g, -w / 2, 6, w, 14, 5); g.fill(); g.fillStyle = '#ffb3b5'; g.fillText(txt, 0, 16); }
+  g.restore();
+}
+function facKind2(fk) { return fk; }
+const FCLS = { f1: 0, f2: 1, f3: 2, f4: 3, foundry: 4 };
 function mkFac(c) {
-  const rec = recOf(c) || EMPTY_REC, rnd = mkRnd(c.seed), ins = Object.keys(rec.in).slice(0, 3);
-  const sc = { kind: 'fac', fk: facKind(rec), recKey: rec.out, ins, rec, rnd, time: 0, crates: [], outs: [], sp: ins.map(() => 0), ph: 0, smoke: [], ws: [], parts: [], stack: 0, bg: document.createElement('canvas') };
-  for (let i = 0; i < 2; i++) { const w = newPerson(rnd, 150 + i * 330, 205); w.shirt = '#ff8a3d'; w.hat = '#ffd43b'; w.pants = '#3a4a6b'; sc.ws.push(w); }
-  sc.bg.width = SCW; sc.bg.height = SCH;
-  const g = sc.bg.getContext('2d'), fl = g.createLinearGradient(0, 0, 0, SCH); fl.addColorStop(0, '#2b3358'); fl.addColorStop(1, '#3d466f'); g.fillStyle = fl; g.fillRect(0, 0, SCW, SCH);
-  g.fillStyle = 'rgba(255,255,255,.05)'; for (let x = 0; x < SCW; x += 50) g.fillRect(x, 0, 2, SCH);
-  g.fillStyle = '#f2b84b'; g.fillRect(0, SCH - 6, SCW, 6);
-  ins.forEach((k, i) => { const y = 92 + i * 30; g.fillStyle = '#242a4a'; g.fillRect(14, y, 306, 10); g.fillStyle = '#3d4466'; g.fillRect(14, y, 306, 4); });
-  g.fillStyle = '#242a4a'; g.fillRect(480, 128, 160, 10); g.fillStyle = '#3d4466'; g.fillRect(480, 128, 160, 4);
-  // vitrine du produit
-  g.fillStyle = '#12163a'; rrect(g, 648, 14, 142, 188, 10); g.fill(); g.strokeStyle = 'rgba(242,184,75,.6)'; g.lineWidth = 2; rrect(g, 648, 14, 142, 188, 10); g.stroke();
-  g.fillStyle = '#242a4a'; rrect(g, 660, 164, 118, 12, 4); g.fill();
+  const rec = recOf(c) || EMPTY_REC, rnd = mkRnd(c.seed), T = TYPES[c.t], fk0 = facKind(rec), fk = fk0 !== 'generic' ? fk0 : ({ f1: 'press', f2: 'assembly', f3: 'reactor', f4: 'assembly' })[c.t] || 'generic', ins = Object.keys(rec.in).slice(0, 3), nIn = ins.length;
+  const cls = FCLS[c.t] != null ? FCLS[c.t] : 0, lvl = clamp(c.lvl || 0, 0, 4);
+  const GW = [17, 19, 21, 23, 17][cls], GH = [8, 9, 10, 15, 8][cls], nL = cls === 3 ? 2 : 1, wallH = [74, 78, 84, 96, 80][cls];
+  const tw = Math.min(48, Math.floor(1560 / (GW + GH + 3.5)) & ~1), oy = wallH + 22, WW = Math.ceil((GW + GH + 3.5) * tw / 2) + 28;
+  const m1h = Math.max(2.4, (nIn - 1) * 1.15 + 1.5), xm = 5.4, mw = 2.8, xe = GW - 4.6;
+  const nSmax = Math.max(0, Math.floor((xe - 0.6 - (xm + mw + 0.6)) / 2.3)), nS = Math.min(nSmax, [Math.floor(lvl / 2), 1 + Math.floor(lvl / 2), 1 + Math.floor(lvl / 2), 2 + Math.floor(lvl / 2), Math.floor(lvl / 2)][cls]);
+  const ycs = nL === 1 ? [GH / 2 - 0.4] : [3.7, 9.0], yd = ycs.reduce((a, b) => a + b, 0) / nL;
+  const ox = GH * tw / 2 + 14;
+  const sc = { kind: 'fac', fk, recKey: rec.out, lvl: c.lvl || 0, ins, rec, rnd, time: 0, ph: 0, bph: 0, GW, GH, tw, ox, oy, wallH, xm, mw, m1h, xe, nIn, cls, T, parts: [], stall: 0, run: 0, eff: 0, W: WW, lines: [], ws: [], yd, H: Math.round(oy + (GW + 3.5 + GH) * tw / 4 + 34), bg: document.createElement('canvas'), truck: { x: 0, st: 'in', t: 0, load: 0 }, loadT: 0 };
+  ycs.forEach((yc, li) => {
+    const L = { yc, lanes: ins.map((g, i) => ({ g, y: yc + (i - (nIn - 1) / 2) * 1.15, items: [], sp: 0.3 + i * 0.4, pend: 0 })), out: [], st: [], proc: 0, stack: 0, busy: 0, flash: 0 };
+    for (let j = 0; j < nS; j++) L.st.push({ x: xm + mw + 0.7 + j * 2.3, kind: (j + li) % 3, act: 0, conv: j === nS - 1 });
+    sc.lines.push(L);
+  });
+  // ouvriers : rôles par ordre de priorité (effectif réel -> nombre d'ouvriers visibles)
+  const roles = [];
+  sc.lines.forEach((L, li) => { roles.push({ r: 'op', L: li }); roles.push({ r: 'pack', L: li }); });
+  sc.lines.forEach((L, li) => L.lanes.forEach((ln, i) => roles.push({ r: 'haul', L: li, i })));
+  sc.lines.forEach((L, li) => L.st.forEach((s, j) => roles.push({ r: 'stop', L: li, j })));
+  roles.push({ r: 'sup' }); roles.push({ r: 'load' });
+  sc.lines.forEach((L, li) => { roles.push({ r: 'op2', L: li }); L.lanes.forEach((ln, i) => roles.push({ r: 'haul2', L: li, i })); });
+  while (roles.length < 24) roles.push({ r: 'idle', n: roles.length });
+  roles.forEach((ro, i) => { const w = newPerson(rnd, 2 + rnd() * 3, GH - 1.2); Object.assign(w, ro); w.spd = 1.15 + rnd() * 0.35; w.st = 'home'; w.t = rnd() * 2; w.brk = 0; w.slot = i;
+    w.shirt = { op: '#ff8a3d', op2: '#ff8a3d', stop: '#ff8a3d', haul: '#2f9bff', haul2: '#2f9bff', pack: '#46d39a', sup: '#e9edff', load: '#46d39a', idle: SHIRTS[i % SHIRTS.length] }[ro.r]; w.hat = { sup: '#ffffff', idle: i % 2 ? '#ffd43b' : null }[ro.r] !== undefined ? ({ sup: '#ffffff', idle: i % 2 ? '#ffd43b' : null })[ro.r] : '#ffd43b'; w.pants = '#3a4a6b'; w.arm = 0.1; w.carry = null; sc.ws.push(w); });
+  // décor statique : sol, murs, poutres, fenêtres, zones
+  sc.bg.width = WW; sc.bg.height = sc.H; const g = sc.bg.getContext('2d'), P = (x, y, z) => isoP(sc, x, y, z);
+  for (let x = 0; x < GW; x++) for (let y = 0; y < GH; y++) quad(g, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], (x + y) % 2 ? '#586194' : '#4f5888');
+  // apron du quai
+  for (let x = GW; x < GW + 3.5; x += 1) for (let y = yd - 1.4; y < yd + 1.4; y += 1) quad(g, [P(x, y), P(x + 1, y), P(x + 1, y + 1), P(x, y + 1)], (x + y) % 2 ? '#3a3f5e' : '#353a58');
+  quad(g, [P(0, 0), P(GW, 0), P(GW, GH), P(0, GH)], 'rgba(0,0,0,0)');
+  sc.lines.forEach(L => {   // zone de travail et marquage jaune
+    const y0 = L.yc - m1h / 2 - 0.5, y1 = L.yc + m1h / 2 + 1.2; quad(g, [P(2.2, y0), P(xe + 2.4, y0), P(xe + 2.4, y1), P(2.2, y1)], 'rgba(0,0,0,.14)');
+    [[2.2, y0, xe + 2.4, y0], [2.2, y1, xe + 2.4, y1]].forEach(a => { for (let x = a[0]; x < a[2] - 0.5; x += 1) quad(g, [P(x, a[1] - 0.04), P(x + 0.55, a[1] - 0.04), P(x + 0.55, a[1] + 0.04), P(x, a[1] + 0.04)], '#f2b84b'); });
+  });
+  const wl = '#34407a', wd = '#242c5e';
+  quad(g, [P(0, 0, 0), P(GW, 0, 0), P(GW, 0, wallH), P(0, 0, wallH)], wl); quad(g, [P(0, 0, 0), P(0, GH, 0), P(0, GH, wallH), P(0, 0, wallH)], wd);
+  quad(g, [P(0, 0, 0), P(GW, 0, 0), P(GW, 0, 7), P(0, 0, 7)], '#1c2350'); quad(g, [P(0, 0, 0), P(0, GH, 0), P(0, GH, 7), P(0, 0, 7)], '#161c42');
+  for (let x = 1; x + 2 <= GW; x += 3) { const a = [P(x + 0.35, 0, wallH - 16), P(x + 2.0, 0, wallH - 16), P(x + 2.0, 0, wallH - 50), P(x + 0.35, 0, wallH - 50)]; quad(g, a, '#7fb4e6', '#1c2350'); quad(g, [a[0], P(x + 0.9, 0, wallH - 16), P(x + 0.35, 0, wallH - 40), a[3]], 'rgba(255,255,255,.18)'); }
+  for (let y = 1; y + 2 <= GH; y += 3) { const a = [P(0, y + 0.35, wallH - 16), P(0, y + 2.0, wallH - 16), P(0, y + 2.0, wallH - 50), P(0, y + 0.35, wallH - 50)]; quad(g, a, '#5f8fc4', '#161c42'); }
+  quad(g, [P(0, 0, wallH - 7), P(GW, 0, wallH - 7), P(GW, 0, wallH), P(0, 0, wallH)], '#f2b84b'); quad(g, [P(0, 0, wallH - 7), P(0, GH, wallH - 7), P(0, GH, wallH), P(0, 0, wallH)], '#c99a3a');
+  for (let x = 0; x <= GW; x += 3) { sbox(g, sc, x, 0, 0.4, 0.4, wallH, '#6a7399', '#4a5382', '#3d466f'); }
+  for (let y = 3; y <= GH; y += 3) { sbox(g, sc, 0, y, 0.4, 0.4, wallH, '#6a7399', '#4a5382', '#3d466f'); }
+  g.strokeStyle = 'rgba(255,255,255,.07)'; g.lineWidth = 2; for (let x = 0; x + 3 <= GW; x += 3) { const a = P(x + 0.4, 0, wallH - 8), b = P(x + 3, 0, 8); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+  // enseigne
+  g.save(); const a = P(GW / 2 - 3.2, 0, wallH - 12), b = P(GW / 2 + 3.2, 0, wallH - 12), d = P(GW / 2 + 3.2, 0, wallH - 32), e = P(GW / 2 - 3.2, 0, wallH - 32);
+  quad(g, [a, b, d, e], '#12163a', T.color); g.translate(a[0], a[1]); g.transform(1, 0.5, 0, 1, 0, 0); g.fillStyle = T.color; g.font = '800 ' + Math.round(tw * 0.34) + 'px sans-serif'; g.textAlign = 'center'; g.fillText((c.t === 'foundry' ? 'FONDERIE' : T.name.toUpperCase()), 3.2 * tw / 2, 17 * tw / 44 + 6); g.restore();
+  // quai : porte de la halle côté sortie
+  quad(g, [P(GW, yd - 1.1, 0), P(GW, yd + 1.1, 0), P(GW, yd + 1.1, 40), P(GW, yd - 1.1, 40)], '#12163a');
+  // râteliers et palettes en réserve le long du mur gauche, vestiaire / coin pause
+  for (let y = 0.8; y + 0.9 < GH - 2.2; y += 1.0) { if (sc.lines.some(L => L.lanes.some(ln => Math.abs(ln.y - (y + 0.45)) < 0.55))) continue; sbox(g, sc, 0.1, y, 0.5, 0.9, 30, '#5a6288', '#3d466f', '#323a62'); for (let z = 0; z < 2; z++) { const col = PCOL[Math.floor(hash(y * 7, z, 5) * 8) % 8]; sbox(g, sc, 0.15, y + 0.08, 0.4, 0.74, 12 + z * 14, fshade(col, 30), col, fshade(col, -25), 3 + z * 14); } }
+  const by = GH - 1.3;
+  cbox(g, sc, 1.0, by - 0.25, 1.6, 0.5, 9, '#7a4a30', 0); cbox(g, sc, 3.1, by - 0.35, 0.6, 0.7, 20, '#e8ecff', 0); { const q = P(3.4, by + 0.35, 15); g.fillStyle = '#ff6b6b'; g.fillRect(q[0] - 3, q[1] - 5, 6, 4); }
+  cbox(g, sc, 0.3, by - 1.2, 0.5, 1.0, 40, '#8f9acb', 0);
+  [[0.7, 0.7], [GW - 0.8, 0.7]].forEach(p => cbox(g, sc, p[0], p[1], 0.35, 0.35, 16, '#ff5a5f', 0));
   return sc;
 }
+function fwalk(w, tx, ty, dt) {
+  const dx = tx - w.x, dy = ty - w.y, d = Math.hypot(dx, dy), st = w.spd * dt;
+  if (d <= st) { w.x = tx; w.y = ty; w.moving = false; return true; }
+  w.x += dx / d * st; w.y += dy / d * st; w.dir = (dx - dy) >= 0 ? 1 : -1; w.moving = true; w.ph += dt * 9; return false;
+}
 function updFac(sc, c, dt) {
-  const run = clamp((c.util || 0) * 1.4, 0, 1), rnd = sc.rnd; sc.time += dt; sc.ph += dt * run * 3; sc.run = run;
-  const g0 = sc.rec.in;
-  sc.ins.forEach((g, i) => {
-    const starved = c.limit === g;
-    sc.sp[i] -= dt * run; if (sc.sp[i] <= 0 && !starved && run > 0.02) { sc.crates.push({ x: 120, i, g }); sc.sp[i] = 0.9 + rnd() * 0.5; }
+  const rnd = sc.rnd, util = clamp(c.util || 0, 0, 1), lim = c.limit, full = lim === '_full', starved = !!lim && !full && sc.ins.indexOf(lim) >= 0;
+  const oc = clamp(0.75 + 0.25 * Math.min(1, (c.out || 0) / Math.max(1, sc.rec.qty * 0.5)), 0.75, 1);
+  const run = clamp(util * 1.4, 0, 1), eff = (full ? 0 : starved ? (util < 0.35 ? 0 : run * 0.4) : run) * oc;
+  sc.time += dt; sc.run = run; sc.eff = eff; sc.full = full; sc.starved = starved ? lim : null; sc.ph += dt * eff * 3; sc.bph = (sc.bph + dt * Math.max(eff, full ? 0 : run * 0.3) * 1.5) % 1;
+  sc.stall = eff < 0.05 ? sc.stall + dt : 0;
+  const staff = jobsOf(c) * fillOf(c), nW = clamp(Math.round(1.7 * Math.sqrt(staff)), 2, 22); sc.nW = nW;
+  const spd = 2.0 * eff, act = eff > 0.05, nIn = sc.nIn, T = sc.time;
+  const emit = (n, x, y, vx, vy, col, life, sz) => { if (sc.parts.length > 70) return; for (let i = 0; i < n; i++) sc.parts.push({ x: x + (rnd() - .5) * 6, y, vx: vx + (rnd() - .5) * 40, vy: vy - rnd() * 40, col, life: life * (0.6 + rnd() * .6), t: 0, sz: sz || 2 }); };
+  const P = (x, y, z) => isoP(sc, x, y, z), xm = sc.xm, mw = sc.mw, xe = sc.xe;
+  sc.lines.forEach((L, li) => {
+    if (full) L.stack = Math.min(12, L.stack + dt * 3);
+    L.flash = Math.max(0, L.flash - dt); L.busy = Math.max(0, L.busy - dt * eff);
+    // tapis d'entrée : les caisses avancent, se mettent en file devant la machine
+    L.lanes.forEach(ln => {
+      ln.sp -= dt * (act ? 1 : 0); const starvedL = starved && ln.g === lim;
+      ln.items.sort((a, b) => b.x - a.x); let lead = ln.pend >= 2 ? xm - 0.7 : xm - 0.05;
+      ln.items.forEach(it => { it.x = Math.min(it.x + spd * dt, lead - 0.0); lead = it.x - 0.62; if (it.x >= xm - 0.06 && !it.dead && ln.pend < 2) { it.dead = true; ln.pend++; L.flash = 0.35; } });
+      ln.items = ln.items.filter(it => !it.dead);
+      ln.starved = starvedL;
+      const hasH = sc.ws.some((w, i) => i < sc.nW && w.r === 'haul' && w.L === li && w.lane === ln) || sc.ws.some((w, i) => i < sc.nW && w.r === 'haul2' && w.L === li && w.lane === ln);
+      ln.manual = hasH;
+      if (!hasH && act && !starvedL && ln.sp <= 0 && (!ln.items.length || ln.items[ln.items.length - 1].x > 3.0 + 0.7)) { ln.items.push({ x: 3.0 }); ln.sp = 0.8 / Math.max(0.2, eff) + rnd() * 0.3; }
+    });
+    // machine principale : consomme un lot de chaque intrant, émet une pièce
+    const lastX = L.out.length ? Math.min.apply(null, L.out.map(o => o.x)) : 99;
+    if (L.busy <= 0 && L.proc > 0) { L.proc = 0; L.out.push({ x: xm + mw + 0.05, st: L.st.length ? 0 : 1 }); L.flash = 0.3; }
+    if (L.proc === 0 && act && L.lanes.every(ln => ln.pend >= 1) && lastX > xm + mw + 0.7) { L.lanes.forEach(ln => ln.pend--); L.proc = 1; L.busy = 1.1; }
+    // tapis de sortie
+    L.out.sort((a, b) => b.x - a.x); let lead = xe;
+    L.out.forEach(o => { o.x = Math.min(o.x + spd * dt, lead); lead = o.x - 0.62; L.st.forEach(s => { if (Math.abs(o.x - (s.x + 0.85)) < 0.3) { s.act = 0.6; if (s.conv && o.st === 0 && o.x >= s.x + 0.85 - 0.05) o.st = 1; } }); });
+    L.st.forEach(s => { s.act = Math.max(0, s.act - dt); });
+    const px = P(xm + mw / 2, L.yc, 40);
+    if (act) {
+      const f = sc.fk;
+      if (f === 'saw' && rnd() < dt * 40) { const q = P(xm + mw * rnd(), L.yc + sc.m1h / 2, 12); emit(1, q[0], q[1], 60, -40, '#ffcf70', 0.5, 2); emit(1, q[0], q[1], 80, -10, '#e0b878', 0.7, 2.5); }
+      if (f === 'furnace' && rnd() < dt * 12) { const q = P(xm + mw - 0.7, L.yc - sc.m1h / 2 + 0.7, 86); emit(1, q[0], q[1], 8, -26, 'rgba(210,215,240,.7)', 1.6, 4); if (rnd() < 0.5) { const q2 = P(xm + mw / 2, L.yc + sc.m1h / 2, 22); emit(1, q2[0], q2[1], 0, -60, '#ff9a3d', 0.7, 2.5); } }
+      if (f === 'assembly' && L.busy > 0 && rnd() < dt * 18) emit(1, px[0], px[1] + 18, 0, -50, '#bfe8ff', 0.4, 2);
+      if (f === 'press' && rnd() < dt * 5) emit(1, px[0] - 10, px[1] + 20, -30, -30, '#e9edff', 1, 3.5);
+      if (f === 'reactor' && rnd() < dt * 10) emit(1, px[0] + (rnd() - .5) * 40, px[1] + 6, 0, -40, '#9be7ff', 0.9, 2.5);
+      if (f === 'kiln' && rnd() < dt * 10) { const q = P(xm + mw, L.yc, 28); emit(1, q[0], q[1], 40, -40, '#ffb347', 0.6, 3); }
+      if (f === 'mixer' && rnd() < dt * 6) { const q = P(xm + mw, L.yc, 12); emit(1, q[0], q[1], 30, -10, '#b6b8c2', 0.6, 2.5); }
+      if (f === 'spool' && rnd() < dt * 8) emit(1, px[0], px[1] + 14, 0, -20, '#f2b87a', 0.4, 1.8);
+      if (f === 'generic' && rnd() < dt * 4) emit(1, px[0] + 20, px[1] - 20, 0, -30, 'rgba(210,215,240,.6)', 1.2, 4);
+    }
   });
-  sc.crates.forEach(cr => { cr.x += 70 * run * dt; if (cr.x > 318) { cr.dead = true; sc.flash = 0.4; if (rnd() < 0.55) sc.outs.push({ x: 484 }); } });
-  sc.crates = sc.crates.filter(cr => !cr.dead);
-  sc.outs.forEach(o => { o.x += 70 * run * dt; if (o.x >= 640) { o.dead = true; sc.stack = Math.min(9, sc.stack + 1); sc.stackT = sc.time; } });
-  sc.outs = sc.outs.filter(o => !o.dead);
-  if (sc.stack > 0 && sc.time - (sc.stackT || 0) > 4) { sc.stack--; sc.stackT = sc.time; }
-  const emit = (n, x, y, vx, vy, col, life, sz) => { for (let i = 0; i < n; i++) sc.parts.push({ x: x + (rnd() - .5) * 8, y, vx: vx + (rnd() - .5) * 60, vy: vy - rnd() * 60, col, life: life * (0.6 + rnd() * .6), t: 0, sz: sz || 2 }); };
-  const working = run > 0.05 && sc.crates.some(cr => cr.x > 240) || (sc.flash || 0) > 0;
-  sc.flash = Math.max(0, (sc.flash || 0) - dt);
-  if (run > 0.05) {
-    if (sc.fk === 'saw' && rnd() < dt * 40 * (working ? 1 : 0.2)) { emit(1, 403, 140, 80, -40, '#ffcf70', 0.5, 2); emit(1, 403, 142, 120, -10, '#e0b878', 0.7, 2.5); }
-    if (sc.fk === 'furnace' && rnd() < dt * 18) emit(1, 403, 120, 0, -80, '#ff9a3d', 0.7, 3);
-    if (sc.fk === 'assembly' && working && rnd() < dt * 20) emit(1, 400, 128, 0, -50, '#8fd8ff', 0.4, 2);
-    if (sc.fk === 'press' && rnd() < dt * 5) emit(1, 330, 125, -30, -30, '#e9edff', 1, 4);
-    if (sc.fk === 'reactor' && rnd() < dt * 10) emit(1, 400 + (rnd() - .5) * 30, 150, 0, -40, '#9be7ff', 0.9, 2.5);
-    if (sc.fk === 'kiln' && rnd() < dt * 10) emit(1, 440, 110, 40, -50, '#ffb347', 0.6, 3);
-    if (sc.fk === 'mixer' && rnd() < dt * 6) emit(1, 470, 150, 40, -10, '#b6b8c2', 0.6, 2.5);
-    if (sc.fk === 'spool' && rnd() < dt * 8) emit(1, 380, 130, 0, -20, '#f2b87a', 0.4, 1.8);
-  }
-  sc.parts.forEach(p => { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 140 * dt; }); sc.parts = sc.parts.filter(p => p.t < p.life);
-  sc.smoke.forEach(s => { s.y -= 18 * dt; s.x += 6 * dt; s.a -= dt * 0.5; }); sc.smoke = sc.smoke.filter(s => s.a > 0);
-  if (run > 0.05 && ['furnace', 'kiln', 'generic'].indexOf(sc.fk) >= 0 && rnd() < dt * 4) sc.smoke.push({ x: 440 + rnd() * 14, y: 40, a: 1 });
-  sc.ws.forEach((w, i) => { w.arm = run > 0.05 ? 0.9 + Math.sin(sc.time * 4 + i * 2) * 0.4 : 0.1; });
+  sc.parts.forEach(p => { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.sz > 3 ? -10 : 140) * dt; }); sc.parts = sc.parts.filter(p => p.t < p.life);
+  // camion : charge les palettes pleines, repart, revient
+  const tk = sc.truck, totStack = sc.lines.reduce((a, L) => a + L.stack, 0);
+  if (full) { if (tk.st === 'dock' || tk.st === 'in') { tk.st = 'out'; tk.t = 0; } }
+  tk.t += dt;
+  if (tk.st === 'in') { tk.x = Math.max(0, 6 - tk.t * 2.5); if (tk.x <= 0) { tk.st = 'dock'; tk.t = 0; } }
+  else if (tk.st === 'dock') { if (totStack >= 6 && tk.t > 1) { sc.lines.forEach(L => { L.stack = Math.max(0, L.stack - Math.ceil(6 / sc.lines.length)); }); tk.load++; tk.t = 0; if (tk.load >= 3) { tk.st = 'out'; tk.t = 0; } } }
+  else if (tk.st === 'out') { tk.x += dt * 2.5; if (tk.x > 7) { tk.x = 7; if (!full && tk.t > 6) { tk.st = 'in'; tk.t = 0; tk.load = 0; } } }
+  // ouvriers
+  const stallBreak = sc.stall > 3;
+  sc.ws.forEach((w, wi) => {
+    if (wi >= sc.nW) { w.hidden = true; return; } w.hidden = false;
+    const L = sc.lines[w.L || 0], yc = L.yc, front = yc + sc.m1h / 2 + 0.65; w.t -= dt;
+    const brkSpot = () => [1.8 + (w.slot % 5) * 0.95 + ((w.slot >> 2) % 2) * 0.45, sc.GH - 1.25 + ((w.slot >> 1) % 3) * 0.38];
+    if (w.r !== 'op' && w.r !== 'op2' && w.carry == null && w.brk <= 0 && (stallBreak || rnd() < dt * 0.012 * (1.2 - run))) w.brk = stallBreak ? 1 : 5 + rnd() * 6;
+    if (w.brk > 0) { w.brk -= dt; if (stallBreak) w.brk = Math.max(w.brk, 0.5); const sp = brkSpot(); if (fwalk(w, sp[0], sp[1], dt)) { w.arm = 0.1; w.dir = 1; } return; }
+    if (w.r === 'op' || w.r === 'op2') {
+      const hx = xm + mw * (w.r === 'op' ? 0.35 : 0.72); if (fwalk(w, hx, front, dt)) { w.dir = 1; w.arm = act ? 0.9 + Math.sin(T * 5 + w.slot) * 0.45 : 0.1; }
+    } else if (w.r === 'stop') {
+      const s = L.st[w.j]; if (s && fwalk(w, s.x + 0.85, yc + 1.15, dt)) { w.dir = 1; w.arm = s.act > 0 ? 0.9 + Math.sin(T * 7 + w.slot) * 0.45 : 0.1; }
+    } else if (w.r === 'haul' || w.r === 'haul2') {
+      if (!w.lane) w.lane = L.lanes[w.i % L.lanes.length];
+      const ln = w.lane, sec = w.r === 'haul2' ? 0.55 : 0;
+      if (w.st === 'home' || w.st === 'wait') { if (fwalk(w, 2.5, ln.y + 0.4 + sec, dt)) { w.arm = 0.1; w.dir = 1; w.st = 'wait'; if (act && !ln.starved && ln.sp <= 0 && (!ln.items.length || ln.items[ln.items.length - 1].x > 3.0 + 0.7)) { w.st = 'pick'; ln.sp = 1.2; } } }
+      else if (w.st === 'pick') { if (fwalk(w, 1.75, ln.y + 0.1 + sec, dt)) { w.arm = 0.7; w.t = 0.45; w.st = 'grab'; } }
+      else if (w.st === 'grab') { if (w.t <= 0) { w.carry = ln.g; w.st = 'bring'; } }
+      else if (w.st === 'bring') { if (fwalk(w, 2.65, ln.y + 0.15 + sec, dt)) { ln.items.push({ x: 3.0 }); w.carry = null; w.arm = 0.4; ln.sp = (act ? 0.6 / Math.max(0.25, eff) : 2) + rnd() * 0.3; w.st = 'wait'; } }
+    } else if (w.r === 'pack') {
+      const ex = xe + 0.2, ey = yc + 0.85;
+      if (w.st === 'home' || w.st === 'wait') { if (fwalk(w, ex, ey, dt)) { w.dir = 1; w.arm = 0.1; const it = L.out.find(o => o.x >= xe - 0.02 && o.st === 1); if (it && !full && L.stack < 12) { L.out.splice(L.out.indexOf(it), 1); w.carry = 'carton'; w.st = 'carry'; } } }
+      else if (w.st === 'carry') { if (fwalk(w, xe + 1.1, yc + 0.95, dt)) { L.stack = Math.min(12, L.stack + 1); w.carry = null; w.st = 'wait'; w.arm = 0.4; } }
+    } else if (w.r === 'sup') {
+      if (w.st === 'home' || w.st === 'wait') { if (w.t <= 0) { w.tx = 3 + rnd() * (sc.GW - 8); w.ty = sc.GH - 2.0 - rnd() * 0.5 - (sc.lines.length > 1 ? 0 : 0); w.st = 'go'; } w.arm = 0.1; }
+      else if (w.st === 'go') { if (fwalk(w, w.tx, w.ty, dt)) { w.st = 'wait'; w.t = 2 + rnd() * 3; } }
+    } else if (w.r === 'load') {
+      const tx = sc.GW - 3.0, ty = sc.yd + 1.3; if (fwalk(w, tx, ty, dt)) { w.dir = 1; w.arm = tk.st === 'dock' && totStack >= 5 ? 0.9 + Math.sin(T * 6) * 0.4 : 0.1; }
+    } else {
+      if (w.st !== 'go') { w.st = 'go'; w.tx = 3.2 + rnd() * (xe - 2.2); w.ty = Math.min(sc.GH - 2.0, front + 0.9) + rnd() * 0.5; w.t = 0; } if (fwalk(w, w.tx, w.ty, dt)) { w.arm = 0.1; w.dir = 1; if (w.t <= 0) w.t = 1.5 + rnd() * 3; else if (w.t < 0.05) w.st = 'home'; }
+    }
+  });
 }
 function drawFac(sc, c, g) {
   g.drawImage(sc.bg, 0, 0);
-  const T = TYPES[c.t], run = sc.run != null ? sc.run : clamp((c.util || 0) * 1.4, 0, 1), t = sc.time, fk = sc.fk, ph = sc.ph;
-  sc.smoke.forEach(s => { g.fillStyle = `rgba(200,205,230,${s.a * 0.35})`; g.beginPath(); g.arc(s.x, s.y, 8 + (1 - s.a) * 10, 0, 7); g.fill(); });
-  const cx = 403, bad = c.limit && (c.util || 0) < 0.35;
-  // ----- machine
-  const body = (col) => { g.fillStyle = '#4a5382'; rrect(g, 324, 56, 158, 134, 8); g.fill(); g.fillStyle = col || T.color; rrect(g, 332, 62, 142, 14, 5); g.fill(); };
-  if (fk === 'saw') {
-    body('#8a6a3a'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
-    const discs = sc.recKey === 'stud' ? [[372, 132, 26], [403, 132, 26], [434, 132, 26]] : [[403, 134, 44]];
-    discs.forEach(([x, y, r], i) => { g.save(); g.translate(x, y); g.rotate(ph * 6 * (i % 2 ? -1 : 1)); g.fillStyle = '#cfd5ee'; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.fillStyle = '#e9edff'; for (let k = 0; k < 28; k++) { g.rotate(Math.PI * 2 / 28); g.beginPath(); g.moveTo(r - 1, -2.5); g.lineTo(r + 5, 0); g.lineTo(r - 1, 2.5); g.fill(); } g.fillStyle = '#8f9acb'; g.beginPath(); g.arc(0, 0, r * .55, 0, 7); g.fill(); g.fillStyle = '#4a5382'; g.beginPath(); g.arc(0, 0, 6, 0, 7); g.fill(); g.restore(); });
-    g.fillStyle = 'rgba(255,138,61,.55)'; g.fillRect(340, 84, 126, 14);
-  } else if (fk === 'press') {
-    body('#d9a45a'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
-    const dz = run > 0.05 ? (0.5 + 0.5 * Math.sin(ph * 3)) : 0; const ty = 90 + dz * 38;
-    g.fillStyle = '#8f9acb'; g.fillRect(352, 84, 8, ty - 84); g.fillRect(446, 84, 8, ty - 84);
-    g.fillStyle = '#c9cfe8'; rrect(g, 350, ty, 106, 14, 3); g.fill(); g.fillStyle = '#6a7399'; rrect(g, 350, 154, 106, 14, 3); g.fill();
-    g.fillStyle = '#c8995a'; g.fillRect(358, 146, 90, 8); for (let i = 0; i < 14; i++) { g.fillStyle = hash(i, 1, 1) > .5 ? '#a9763a' : '#e0b878'; g.fillRect(358 + hash(i, 2, 3) * 82, 147 + hash(i, 3, 3) * 5, 5, 2); }
-  } else if (fk === 'furnace') {
-    body('#c4664a'); g.fillStyle = '#8a3b2b'; rrect(g, 340, 84, 126, 96, 6); g.fill();
-    g.strokeStyle = 'rgba(0,0,0,.25)'; for (let y = 90; y < 180; y += 12) { g.beginPath(); g.moveTo(340, y); g.lineTo(466, y); g.stroke(); }
-    const fl = run > 0.05 ? 0.7 + 0.3 * Math.sin(t * 14) : 0.15; const gr = g.createRadialGradient(403, 140, 4, 403, 140, 44); gr.addColorStop(0, `rgba(255,230,120,${fl})`); gr.addColorStop(0.5, `rgba(255,120,40,${fl})`); gr.addColorStop(1, 'rgba(120,30,10,0)');
-    g.fillStyle = '#1d1010'; rrect(g, 366, 112, 74, 56, 20); g.fill(); g.fillStyle = gr; g.fillRect(350, 100, 106, 80);
-    g.fillStyle = '#3d466f'; g.fillRect(432, 20, 16, 40);
-  } else if (fk === 'spool') {
-    body('#d68a4a'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
-    g.strokeStyle = '#f2b87a'; g.lineWidth = 2; g.beginPath(); g.moveTo(340, 132); g.lineTo(430, 132); g.stroke();
-    [372, 392, 412].forEach(x => { g.fillStyle = '#c9cfe8'; g.fillRect(x, 124, 6, 16); });
-    g.save(); g.translate(440, 132); g.rotate(ph * 4); g.fillStyle = '#6a7399'; g.beginPath(); g.arc(0, 0, 34, 0, 7); g.fill(); g.fillStyle = '#d68a4a'; g.beginPath(); g.arc(0, 0, 24 + Math.min(8, (sc.stack || 0)), 0, 7); g.fill(); g.strokeStyle = '#f2b87a'; g.lineWidth = 1; for (let k = 0; k < 6; k++) { g.rotate(Math.PI / 3); g.beginPath(); g.moveTo(8, 0); g.lineTo(24, 0); g.stroke(); } g.restore();
-  } else if (fk === 'reactor') {
-    body('#5f8aff'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
-    g.fillStyle = '#9aa4d6'; rrect(g, 366, 62, 74, 114, 14); g.fill(); g.fillStyle = '#12163a'; rrect(g, 372, 68, 62, 102, 10); g.fill();
-    const lv = 40 + 30 * (0.5 + 0.5 * Math.sin(t * 1.5)); g.fillStyle = 'rgba(63,216,255,.55)'; g.fillRect(372, 170 - lv, 62, lv);
-    g.fillStyle = '#c9cfe8'; for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(380 + k * 15 + Math.sin(t * 5 + k) * 3, 170 - ((t * 30 + k * 20) % lv), 2.5, 0, 7); g.fill(); }
-  } else if (fk === 'kiln') {
-    body('#9a9ca6'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
-    g.save(); g.translate(403, 134); g.rotate(-0.12); g.fillStyle = '#8f94a6'; rrect(g, -58, -26, 116, 52, 22); g.fill(); g.strokeStyle = '#6a7090'; g.lineWidth = 3; for (let k = -40; k < 50; k += 22) { g.beginPath(); g.moveTo(k, -26); g.lineTo(k, 26); g.stroke(); }
-    g.fillStyle = 'rgba(255,255,255,.18)'; for (let k = 0; k < 5; k++) { const yy = -20 + ((ph * 20 + k * 11) % 44); g.fillRect(-52, yy, 104, 3); } g.restore();
-    const f = run > 0.05 ? 0.6 + 0.4 * Math.sin(t * 16) : 0; g.fillStyle = `rgba(255,150,40,${f})`; g.beginPath(); g.ellipse(470, 150, 12 + f * 8, 8, 0, 0, 7); g.fill();
-  } else if (fk === 'mixer') {
-    body('#e8e4d8'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
-    g.save(); g.translate(403, 128); g.rotate(-0.25); g.fillStyle = '#ffb347'; g.beginPath(); g.moveTo(-44, -26); g.lineTo(34, -34); g.lineTo(34, 34); g.lineTo(-44, 26); g.closePath(); g.fill();
-    g.strokeStyle = '#c4801f'; g.lineWidth = 5; for (let k = 0; k < 6; k++) { const x = -36 + ((ph * 25 + k * 14) % 80); g.beginPath(); g.moveTo(x, -28 + (x + 36) * 0.0); g.lineTo(x + 12, 28); g.stroke(); } g.restore();
-    g.fillStyle = '#9a9ca6'; g.beginPath(); g.moveTo(440, 150); g.lineTo(470, 134); g.lineTo(478, 160); g.closePath(); g.fill();
-  } else if (fk === 'pack') {
-    body('#c99a5a'); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
-    const f = run > 0.05 ? Math.abs(Math.sin(ph * 2)) : 0; g.fillStyle = '#c99a5a'; g.fillRect(376, 130, 54, 40);
-    g.save(); g.translate(376, 130); g.rotate(-f * 1.5); g.fillStyle = '#e0b878'; g.fillRect(0, -6, 27, 6); g.restore(); g.save(); g.translate(430, 130); g.rotate(f * 1.5); g.fillStyle = '#e0b878'; g.fillRect(-27, -6, 27, 6); g.restore();
-    g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(400, 130, 6, 40);
-  } else if (fk === 'assembly') {
-    body(T.color); g.fillStyle = '#1d2140'; rrect(g, 340, 84, 126, 96, 6); g.fill();
-    g.fillStyle = '#6a7399'; rrect(g, 360, 160, 86, 12, 3); g.fill();
-    // produit en cours d'assemblage (image)
-    const key = sc.recKey, im = PRODUCTS[key] ? artOf(key, S.prod[key].q) : null; const prog = run > 0.05 ? (t * 0.45) % 1 : 0.3;
-    if (im && im.complete) { g.save(); g.beginPath(); g.rect(366, 158 - 70 * prog, 74, 70 * prog + 2); g.clip(); g.drawImage(im, 366, 94, 74, 74); g.restore(); } else { drawItem(g, key, 403, 160, 1.6 * (0.4 + 0.6 * prog)); }
-    const a1 = run > 0.05 ? Math.sin(t * 2.2) * 0.9 : -0.5, a2 = run > 0.05 ? Math.cos(t * 3.1) * 0.8 + 0.8 : 0.9;
-    g.strokeStyle = '#ff8a3d'; g.lineWidth = 9; g.lineCap = 'round'; g.beginPath(); g.moveTo(350, 170); const ex = 350 + Math.sin(a1) * 46 + 30, ey = 170 - Math.cos(a1) * 46 - 10; g.lineTo(ex, ey); const hx = ex + Math.cos(a2) * 34, hy = ey - Math.sin(a2) * 24; g.lineTo(hx, hy); g.stroke();
-    g.fillStyle = '#ffd43b'; g.beginPath(); g.arc(ex, ey, 6, 0, 7); g.fill(); g.fillStyle = '#e9edff'; g.beginPath(); g.arc(hx, hy, 5, 0, 7); g.fill();
-    if (run > 0.05 && Math.sin(t * 14) > 0.6) { g.fillStyle = '#bfe8ff'; g.beginPath(); g.arc(hx, hy, 4, 0, 7); g.fill(); }
-  } else {
-    body(); g.fillStyle = '#1d2140'; rrect(g, 342, 94, 122, 70, 6); g.fill();
-    [[372, 128], [424, 128]].forEach(([x, y], i) => { g.save(); g.translate(x, y); g.rotate(ph * (i ? -1 : 1)); g.fillStyle = '#c9cfe8'; for (let k = 0; k < 8; k++) { g.rotate(Math.PI / 4); g.fillRect(-3, -20, 6, 8); } g.beginPath(); g.arc(0, 0, 14, 0, 7); g.fill(); g.fillStyle = '#1d2140'; g.beginPath(); g.arc(0, 0, 5, 0, 7); g.fill(); g.restore(); });
-  }
-  g.fillStyle = bad ? (Math.sin(t * 8) > 0 ? '#ff5a5f' : '#7a2a30') : run > 0.05 ? '#46d39a' : '#6b7090'; g.beginPath(); g.arc(470, 68, 5, 0, 7); g.fill();
-  // ----- convoyeurs et pièces
-  sc.ins.forEach((k, i) => { const y = 92 + i * 30; g.fillStyle = 'rgba(8,10,30,.7)'; g.fillRect(14, y - 4, 104, 14); g.fillStyle = GOODS[k].color; g.fillRect(18, y - 1, 7, 7); g.fillStyle = c.limit === k ? '#ff8a8e' : '#e9edff'; g.font = '600 10px sans-serif'; g.textAlign = 'left'; g.fillText((GOODS[k].name + (c.limit === k ? ' · PÉNURIE' : '')).slice(0, 18), 29, y + 7); });
-  sc.crates.forEach(cr => drawItem(g, cr.g, cr.x + 8, 92 + cr.i * 30 + 3, 0.9));
-  const ok = sc.recKey, oimg = PRODUCTS[ok] ? artOf(ok, S.prod[ok].q) : null;
-  sc.outs.forEach(o => { if (oimg && oimg.complete) g.drawImage(oimg, o.x, 98, 34, 34); else drawItem(g, ok, o.x + 12, 133, 1); });
-  // ----- particules
-  sc.parts.forEach(p => { g.globalAlpha = Math.max(0, 1 - p.t / p.life); g.fillStyle = p.col; g.fillRect(p.x, p.y, p.sz, p.sz); }); g.globalAlpha = 1;
-  // ----- vitrine : le produit fabriqué
-  g.fillStyle = '#e9edff'; g.textAlign = 'center'; let fs = 11; g.font = `700 ${fs}px sans-serif`; while (g.measureText(sc.rec.name.toUpperCase()).width > 128 && fs > 7) { fs--; g.font = `700 ${fs}px sans-serif`; } g.fillText(sc.rec.name.toUpperCase(), 719, 30);
-  if (oimg && oimg.complete) g.drawImage(oimg, 668, 38, 102, 102); else drawItem(g, ok, 719, 140, 2.2);
-  for (let k = 0; k < sc.stack; k++) { const col = k % 3, row = Math.floor(k / 3); if (oimg && oimg.complete) g.drawImage(oimg, 668 + col * 34, 142 - row * 0 + 0, 0, 0); drawItem(g, PRODUCTS[ok] ? 'pack' : ok, 684 + col * 34, 162 - row * 12, 0.9); }
-  g.fillStyle = 'rgba(255,255,255,.8)'; g.font = '600 10px sans-serif'; g.fillText(`${f1(c.out)} / jour · ${f1(gPrice(ok))} $`, 719, 193);
-  const ps = sc.ws.map(w => ({ y: w.y, f: () => person(g, w.x, w.y, { shirt: w.shirt, skin: w.skin, hair: w.hair, ph: w.ph, moving: false, arm: w.arm, dir: 1, hat: w.hat, pants: w.pants }) })); ps.forEach(o => o.f());
-  setCap(`${sc.rec.name} · utilisation ${pct(clamp(c.util || 0, 0, 1))}`);
+  const P = (x, y, z) => isoP(sc, x, y, z), t = sc.time, ph = sc.ph, eff = sc.eff, act = eff > 0.05, fk = sc.fk, T = sc.T, xm = sc.xm, mw = sc.mw, m1h = sc.m1h, xe = sc.xe, GW = sc.GW, k = sc.tw / 44, objs = [], topAl = [];
+  const ok = sc.recKey, oimg = PRODUCTS[ok] ? artOf(ok, S.prod[ok].q) : null, oshape = PRODUCTS[ok] || ok === 'basic' || ok === 'std' || ok === 'lux' ? 'carton' : (FSH[ok] || 'crate'), ocol = GOODS[ok] ? GOODS[ok].color : T.color;
+  const lampCol = sc.full ? '#ffb347' : sc.starved ? (Math.sin(t * 8) > 0 ? '#ff5a5f' : '#7a2a30') : act ? '#46d39a' : '#6b7090';
+  const belt = (x0, x1, y, wcol) => { for (let x = Math.floor(x0); x < x1; x++) { const a = Math.max(x, x0), b = Math.min(x + 1, x1); objs.push({ k: (a + b) / 2 + y, f: () => {
+    sbox(g, sc, a, y - 0.36, b - a, 0.72, 7, '#262b4c', '#4a5382', '#3d466f', 2);
+    for (let i = 0; i < 4; i++) { const xs = x + ((i * 0.25 + sc.bph) % 1); if (xs > a && xs + 0.12 < b) quad(g, [P(xs, y - 0.3, 7), P(xs + 0.12, y - 0.3, 7), P(xs + 0.12, y + 0.3, 7), P(xs, y + 0.3, 7)], 'rgba(255,255,255,.12)'); }
+    if (x % 2 === 0) sbox(g, sc, a + 0.2, y + 0.3, 0.12, 0.1, 3, '#1d2140', '#1d2140', '#161a33', 0);
+  } }); } };
+  const mach = (L) => {
+    const x = xm, y0 = L.yc - m1h / 2, w = mw, h = m1h, front = y0 + h, cx = x + w / 2, cy = L.yc, bz = 6, busy = L.busy > 0;
+    cbox(g, sc, x, y0, w, h, bz, '#2c3258', 0);
+    let top = 40;
+    const lamp = (tz) => { const q = P(x + w - 0.35, front - 0.35, tz + 5); g.fillStyle = lampCol; g.beginPath(); g.arc(q[0], q[1], 3.2 * k + 0.8, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1; g.stroke(); };
+    if (fk === 'saw') {
+      top = 32; cbox(g, sc, x + 0.1, y0 + 0.1, w - 0.2, h - 0.2, 32, '#8a6a3a', bz);
+      quad(g, [P(x + 0.35, front - 0.1, 28), P(x + w - 0.35, front - 0.1, 28), P(x + w - 0.35, front - 0.1, 9), P(x + 0.35, front - 0.1, 9)], '#1d2140');
+      const nd = sc.rec.out === 'stud' ? 3 : 1; for (let i = 0; i < nd; i++) { const cxd = x + w * (i + 0.5) / nd; onY(g, sc, cxd, front - 0.1, 18, () => { g.rotate(ph * 7 * (i % 2 ? -1 : 1)); gear(g, nd > 1 ? 6.5 : 9, 14, '#e9edff', '#8f9acb'); g.fillStyle = '#cfd5ee'; g.beginPath(); g.arc(0, 0, nd > 1 ? 6.5 : 9, 0, 7); g.fill(); g.fillStyle = '#8f9acb'; g.beginPath(); g.arc(0, 0, 3, 0, 7); g.fill(); }); }
+      quad(g, [P(x + 0.35, front - 0.1, 29), P(x + w - 0.35, front - 0.1, 29), P(x + w - 0.35, front - 0.1, 25), P(x + 0.35, front - 0.1, 25)], 'rgba(255,138,61,.6)');
+    } else if (fk === 'press') {
+      top = 62; cbox(g, sc, x + 0.15, y0 + 0.15, w - 0.3, h - 0.3, 14, '#6a7399', bz);
+      [[x + 0.25, y0 + 0.25], [x + w - 0.45, y0 + 0.25]].forEach(p => cbox(g, sc, p[0], p[1], 0.2, 0.2, 54, '#8f9acb', 14));
+      cbox(g, sc, x + 0.55, y0 + 0.55, w - 1.1, h - 1.1, 19, '#c8995a', 14);
+      const dz = act ? 0.5 + 0.5 * Math.sin(ph * 3) : 0.1; cbox(g, sc, x + 0.45, y0 + 0.45, w - 0.9, h - 0.9, 24 + (1 - dz) * 22 + 6, '#c9cfe8', 24 + (1 - dz) * 22);
+      [[x + 0.25, front - 0.45], [x + w - 0.45, front - 0.45]].forEach(p => cbox(g, sc, p[0], p[1], 0.2, 0.2, 54, '#8f9acb', 14));
+      cbox(g, sc, x + 0.15, y0 + 0.15, 0.3, h - 0.3, 60, '#aab3c7', 54); cbox(g, sc, x + w - 0.45, y0 + 0.15, 0.3, h - 0.3, 60, '#aab3c7', 54);
+    } else if (fk === 'furnace') {
+      top = 90; const fnd = c.t === 'foundry'; cbox(g, sc, x + 0.1, y0 + 0.1, w - 0.2, h - 0.2, 44, fnd ? '#a8605a' : '#c4664a', bz);
+      for (let z = 14; z < 44; z += 8) quad(g, [P(x + 0.1, front - 0.1, z), P(x + w - 0.1, front - 0.1, z), P(x + w - 0.1, front - 0.1, z + 0.8), P(x + 0.1, front - 0.1, z + 0.8)], 'rgba(0,0,0,.22)');
+      const fl = act ? 0.75 + 0.25 * Math.sin(t * 14) : 0.2; quad(g, [P(x + 0.7, front - 0.1, 32), P(x + w - 0.7, front - 0.1, 32), P(x + w - 0.7, front - 0.1, 10), P(x + 0.7, front - 0.1, 10)], '#1d1010');
+      quad(g, [P(x + 0.9, front - 0.1, 28), P(x + w - 0.9, front - 0.1, 28), P(x + w - 0.9, front - 0.1, 12), P(x + 0.9, front - 0.1, 12)], `rgba(255,${fnd ? 220 : 130},${fnd ? 120 : 40},${fl})`);
+      cyl(g, sc, x + w - 0.7, y0 + 0.7, 0.35, 44, 90, '#4a5382'); if (fnd) { cyl(g, sc, cx - 0.3, cy, 0.55, 44, 58, '#6a7399'); const q = P(cx - 0.3, cy, 58); g.fillStyle = `rgba(255,${180 + 50 * Math.sin(t * 5)},60,.95)`; g.beginPath(); g.ellipse(q[0], q[1], 0.45 * sc.tw * 0.707, 0.45 * sc.tw * 0.354, 0, 0, 7); g.fill(); }
+    } else if (fk === 'spool') {
+      top = 44; cbox(g, sc, x + 0.2, y0 + 0.2, w - 0.4, h - 0.4, 18, '#d68a4a', bz);
+      [0.3, 0.7].forEach((u, i) => { const rx = x + w * u; cbox(g, sc, rx - 0.07, front - 0.45, 0.14, 0.14, 40, '#6a7399', 18); onY(g, sc, rx, front - 0.3, 30, () => { g.rotate(ph * 4 * (i ? -1 : 1)); g.fillStyle = '#6a7399'; g.beginPath(); g.arc(0, 0, 13, 0, 7); g.fill(); g.fillStyle = '#d68a4a'; g.beginPath(); g.arc(0, 0, 9, 0, 7); g.fill(); g.strokeStyle = '#f2b87a'; g.lineWidth = 1; for (let q = 0; q < 6; q++) { g.rotate(Math.PI / 3); g.beginPath(); g.moveTo(3, 0); g.lineTo(9, 0); g.stroke(); } g.fillStyle = '#1d2140'; g.beginPath(); g.arc(0, 0, 2.5, 0, 7); g.fill(); }); });
+      const a = P(x + w * 0.3, front - 0.3, 24), b = P(x + w * 0.7, front - 0.3, 24); g.strokeStyle = '#f2b87a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+    } else if (fk === 'reactor') {
+      top = 64; cbox(g, sc, x + 0.1, y0 + 0.1, w - 0.2, h - 0.2, 12, '#4a5382', bz);
+      const lc = GOODS[sc.ins[0]] ? GOODS[sc.ins[0]].color : '#3fd8ff';
+      cbox(g, sc, x + 0.8, cy - 0.1, w - 1.6, 0.2, 44, '#8f9acb', 38);
+      [x + 0.75, x + w - 0.75].forEach((tx, i) => { cyl(g, sc, tx, cy, 0.55, 12, 56, '#9aa4d6', '#c9cfe8'); const q = P(tx, cy + 0.55, 12); const lv = 12 + 22 * (0.5 + 0.5 * Math.sin(t * 1.3 + i * 2)); g.fillStyle = '#12163a'; g.fillRect(q[0] - 5, q[1] - 38, 10, 34); g.fillStyle = lc; g.fillRect(q[0] - 4, q[1] - 5 - lv, 8, lv); if (act) { g.fillStyle = '#e9edff'; g.beginPath(); g.arc(q[0] + Math.sin(t * 5 + i) * 2, q[1] - 6 - ((t * 20 + i * 9) % lv), 1.6, 0, 7); g.fill(); } });
+    } else if (fk === 'kiln') {
+      top = 50; const a = P(x + 0.2, cy, 28), b = P(x + w - 0.2, cy, 28), r = 15 * k + 2;
+      cbox(g, sc, x + 0.5, cy - 0.35, 0.3, 0.7, 18, '#4a5382', bz); cbox(g, sc, x + w - 0.8, cy - 0.35, 0.3, 0.7, 18, '#4a5382', bz);
+      g.lineCap = 'butt'; g.strokeStyle = '#6a7090'; g.lineWidth = r * 2 * 0.9; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+      g.strokeStyle = '#9a9ca6'; g.lineWidth = r * 1.3; g.beginPath(); g.moveTo(a[0], a[1] - r * 0.3); g.lineTo(b[0], b[1] - r * 0.3); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = 2; for (let i = 0; i < 4; i++) { const yo = -r + ((ph * 14 + i * r / 2) % (2 * r)) * 0.9; g.beginPath(); g.moveTo(a[0], a[1] + yo * 0.95); g.lineTo(b[0], b[1] + yo * 0.95); g.stroke(); }
+      g.strokeStyle = '#3d4150'; g.lineWidth = 3; [0.3, 0.55, 0.8].forEach(u => { const p = P(x + w * u, cy, 28); g.beginPath(); g.moveTo(p[0], p[1] - r); g.lineTo(p[0], p[1] + r * 0.9); g.stroke(); });
+      const f = act ? 0.6 + 0.4 * Math.sin(t * 16) : 0.1, q = P(x + w, cy, 28); g.fillStyle = `rgba(255,150,40,${f})`; g.beginPath(); g.ellipse(q[0] + 4, q[1], 6 + f * 6, r * 0.8, 0, 0, 7); g.fill();
+    } else if (fk === 'mixer') {
+      top = 56; cbox(g, sc, x + 0.2, y0 + 0.2, w - 0.4, h - 0.4, 12, '#9a9ca6', bz);
+      const p0 = P(cx, cy, 14), p1 = P(cx, cy, 40), rx = 0.85 * sc.tw * 0.707; cyl(g, sc, cx, cy, 0.85, 14, 40, '#ffb347', '#d98a2a');
+      g.save(); g.beginPath(); g.rect(p0[0] - rx, p1[1], rx * 2, p0[1] - p1[1]); g.clip(); g.strokeStyle = 'rgba(196,128,31,.75)'; g.lineWidth = 4; for (let i = -2; i < 6; i++) { const xx = p0[0] - rx + ((ph * 18 + i * 14) % 80) - 14; g.beginPath(); g.moveTo(xx, p0[1] + 8); g.lineTo(xx + 14, p1[1] - 4); g.stroke(); } g.restore();
+      cyl(g, sc, cx, cy, 0.45, 40, 56, '#b6b8c2', '#9a9ca6'); cbox(g, sc, x + w - 0.55, cy - 0.2, 0.55, 0.4, 14, '#8a8e9c', 8);
+    } else if (fk === 'pack') {
+      top = 48; cbox(g, sc, x + 0.2, y0 + 0.2, w - 0.4, h - 0.4, 22, '#c99a5a', bz);
+      const f = act ? Math.abs(Math.sin(ph * 2)) : 0; [x + 0.3, x + w - 0.5].forEach(px => cbox(g, sc, px, y0 + 0.3, 0.2, 0.2, 46, '#8f9acb', 22));
+      cbox(g, sc, x + 0.3, y0 + 0.3, w - 0.6, h - 0.6, 36 + f * 8 + 5, '#e0b878', 36 + f * 8);
+      [x + 0.3, x + w - 0.5].forEach(px => cbox(g, sc, px, front - 0.5, 0.2, 0.2, 46, '#8f9acb', 22));
+    } else if (fk === 'assembly') {
+      top = 60; cbox(g, sc, x + 0.2, y0 + 0.3, w - 0.4, h - 0.6, 14, '#6a7399', bz); cbox(g, sc, cx - 0.7, cy - 0.7, 1.4, 1.4, 20, '#3d466f', 14);
+      const key = sc.recKey, im = oimg, prog = act ? (t * 0.45) % 1 : 0.35, q = P(cx, cy, 24), sz = 34 * k + 10;
+      if (im && im.complete) { g.save(); g.beginPath(); g.rect(q[0] - sz / 2, q[1] - sz * prog, sz, sz * prog + 2); g.clip(); g.drawImage(im, q[0] - sz / 2, q[1] - sz, sz, sz); g.restore(); } else drawItem(g, key, q[0], q[1] + 2, 1.3 * k * (0.5 + 0.5 * prog));
+      [[x + 0.45, y0 + 0.55], [x + w - 0.75, front - 0.85]].forEach((pp, i) => {
+        cbox(g, sc, pp[0], pp[1], 0.3, 0.3, 30, '#4a5382', 14); const b = P(pp[0] + 0.15, pp[1] + 0.15, 32), a1 = act ? Math.sin(t * 2.2 + i * 2) * 0.7 : -0.4 + i * 0.2, a2 = act ? Math.cos(t * 3.1 + i) * 0.7 + 0.9 : 0.9;
+        const ex = b[0] + (i ? -1 : 1) * Math.sin(a1 + 0.7) * 26 * k - 0, ey = b[1] - Math.cos(a1 + 0.7) * 26 * k, hx = ex + (i ? 1 : -1) * Math.cos(a2) * 20 * k, hy = ey + Math.sin(a2) * 14 * k - 4;
+        g.lineCap = 'round'; g.strokeStyle = '#ff8a3d'; g.lineWidth = 6 * k + 1; g.beginPath(); g.moveTo(b[0], b[1]); g.lineTo(ex, ey); g.lineTo(hx, hy); g.stroke();
+        g.fillStyle = '#ffd43b'; g.beginPath(); g.arc(ex, ey, 3.5 * k + 1, 0, 7); g.fill(); g.fillStyle = '#e9edff'; g.beginPath(); g.arc(hx, hy, 3 * k + 1, 0, 7); g.fill();
+        if (act && Math.sin(t * 14 + i * 3) > 0.6) { g.fillStyle = '#bfe8ff'; g.beginPath(); g.arc(hx, hy, 4, 0, 7); g.fill(); } });
+    } else {
+      top = 40; cbox(g, sc, x + 0.15, y0 + 0.15, w - 0.3, h - 0.3, 36, '#4a5382', bz); quad(g, [P(x + 0.4, front - 0.15, 32), P(x + w - 0.4, front - 0.15, 32), P(x + w - 0.4, front - 0.15, 10), P(x + 0.4, front - 0.15, 10)], '#1d2140');
+      [0.3, 0.7].forEach((u, i) => onY(g, sc, x + w * u, front - 0.15, 21, () => { g.rotate(ph * (i ? -1.2 : 1.2)); gear(g, 8, 8, '#c9cfe8', '#1d2140'); }));
+    }
+    lamp(top);
+    if (sc.starved && L === sc.lines[0] || (sc.starved && L !== sc.lines[0])) { const q = P(cx, cy, top + 12); L.alert = [q[0], q[1]]; } else L.alert = null;
+    L.top = top;
+  };
+  const station = (L, s) => {
+    const x = s.x, y = L.yc, a = s.act > 0, n = s.kind;
+    objs.push({ k: x + 0.45 + y - 0.78, f: () => cbox(g, sc, x + 0.35, y - 0.78, 0.2, 0.2, 46, '#6a7399', 0) });
+    objs.push({ k: x + 0.85 + y - 0.1, f: () => {   // poutre du portique
+      cbox(g, sc, x + 0.3, y - 0.78, 0.3, 1.56, 46, '#8f9acb', 40);
+      const b = P(x + 0.45, y, 40);
+      if (n === 0) { const h = a ? 0.5 + 0.5 * Math.sin(t * 14) : 0.2; g.strokeStyle = '#ff8a3d'; g.lineWidth = 4; g.beginPath(); g.moveTo(b[0], b[1]); g.lineTo(b[0], b[1] + 8 + h * 8); g.stroke(); g.fillStyle = '#e9edff'; g.fillRect(b[0] - 5, b[1] + 8 + h * 8, 10, 4); }
+      else if (n === 1) { const e = P(x + 0.45, y, 20 + (a ? 6 * Math.abs(Math.sin(t * 12)) : 8)); g.fillStyle = '#c9cfe8'; g.fillRect(e[0] - 3, b[1], 6, e[1] - b[1]); g.fillStyle = '#ffd43b'; g.fillRect(e[0] - 8, e[1] - 2, 16, 5); }
+      else { const sw = a ? Math.sin(t * 9) : 0, p0 = P(x + 0.45, y - 0.35, 12), p1 = P(x + 0.45, y + 0.35, 12); g.fillStyle = 'rgba(63,216,255,.5)'; g.beginPath(); g.moveTo(b[0], b[1]); g.lineTo(p0[0] + sw * 6, p0[1]); g.lineTo(p1[0] + sw * 6, p1[1]); g.closePath(); g.fill(); }
+    } });
+    objs.push({ k: x + 0.45 + y + 0.78, f: () => cbox(g, sc, x + 0.35, y + 0.6, 0.2, 0.2, 46, '#6a7399', 0) });
+  };
+  sc.lines.forEach((L, li) => {
+    // palettes d'intrants + tapis + caisses
+    L.lanes.forEach(ln => {
+      const gc = GOODS[ln.g] ? GOODS[ln.g].color : '#8f9acb', sh = FSH[ln.g] || 'crate', stock = S.stock[ln.g] || 0, lv = ln.starved ? 0 : clamp(Math.ceil(Math.log10(1 + stock)), 1, 3);
+      objs.push({ k: 1.0 + ln.y, f: () => { palette(g, sc, 1.0, ln.y); for (let i = 0; i < 4; i++) { const px = 0.78 + (i & 1) * 0.44, py = ln.y - 0.22 + (i >> 1) * 0.44; for (let z = 0; z < lv; z++) fItem(g, sc, sh, px, py, 3 + z * (sh === 'barrel' ? 14 : sh === 'sack' ? 10 : 12), gc); } if (ln.starved) { const q = P(1.0, ln.y, 18); topAl.push([Math.max(54, q[0]), q[1] - 14, (GOODS[ln.g].name + ' manquant').slice(0, 22)]); } } });
+      belt(3.0, xm, ln.y);
+      ln.items.forEach(it => objs.push({ k: it.x + ln.y + 0.05, f: () => fItem(g, sc, sh, it.x, ln.y, 7, gc) }));
+    });
+    belt(xm + mw, xe, L.yc);
+    objs.push({ k: xm + mw / 2 + L.yc + m1h / 2 - 0.2, f: () => mach(L) });
+    L.st.forEach(s => station(L, s));
+    L.out.forEach(o => objs.push({ k: o.x + L.yc + 0.05, f: () => fItem(g, sc, o.st ? oshape : 'semi', o.x, L.yc, 7, ocol, oimg) }));
+    // palettes de sortie : cartons empilés
+    [-0.45, 0.45].forEach((dy, pi) => objs.push({ k: xe + 1.5 + L.yc + dy, f: () => { palette(g, sc, xe + 1.5, L.yc + dy); const n0 = pi * 6, n = clamp(L.stack - n0, 0, 6); for (let i = 0; i < n; i++) { const lay = Math.floor(i / 2), col = i % 2; fItem(g, sc, oshape, xe + 1.5 - 0.0, L.yc + dy - 0.17 + col * 0.34, 3 + lay * 12, ocol, oimg); } } }));
+    if (sc.full) objs.push({ k: 99, f: () => { const q = P(xe + 1.5, L.yc, 44); g.font = '700 10px sans-serif'; const w = 84; g.fillStyle = 'rgba(255,179,71,.95)'; rrect(g, q[0] - w / 2, q[1] - 8, w, 16, 6); g.fill(); g.fillStyle = '#2b1d12'; g.textAlign = 'center'; g.fillText('Sortie pleine', q[0], q[1] + 3); } });
+  });
+  // camion
+  const tk = sc.truck, tx = GW - 2.4 + tk.x, ty = sc.yd - 0.65;
+  if (tk.x < 6.5) objs.push({ k: tx + 1.4 + sc.yd, f: () => {
+    g.globalAlpha = clamp(1 - Math.max(0, tk.x - 3) / 3.5, 0, 1);
+    cbox(g, sc, tx, ty, 1.5, 1.3, 32, '#e8ecff', 4); cbox(g, sc, tx + 1.5, ty + 0.05, 0.7, 1.2, 22, T.color, 4);
+    quad(g, [P(tx + 1.5, ty + 1.25, 20), P(tx + 2.1, ty + 1.25, 20), P(tx + 2.1, ty + 1.25, 14), P(tx + 1.5, ty + 1.25, 14)], '#9fe0ff');
+    quad(g, [P(tx + 0.1, ty + 1.3, 26), P(tx + 1.4, ty + 1.3, 26), P(tx + 1.4, ty + 1.3, 20), P(tx + 0.1, ty + 1.3, 20)], ocol);
+    g.fillStyle = '#12163a'; [tx + 0.3, tx + 1.7].forEach(wx => { const q = P(wx, ty + 1.3, 4); g.beginPath(); g.ellipse(q[0], q[1], 5 * k + 1, 6 * k + 1, 0, 0, 7); g.fill(); });
+    g.globalAlpha = 1; } });
+  // ouvriers
+  const s = sc.tw / 52;
+  sc.ws.forEach(w => { if (w.hidden) return; objs.push({ k: w.x + w.y + 0.2, f: () => { const q = P(w.x, w.y, 0); const gc = w.carry === 'carton' ? '#c99a5a' : w.carry && GOODS[w.carry] ? GOODS[w.carry].color : null; const shp = w.carry === 'carton' ? 'carton' : w.carry ? FSH[w.carry] : null;
+    person(g, q[0], q[1], { s, shirt: w.shirt, skin: w.skin, hair: w.hair, ph: w.ph, moving: w.moving, arm: w.carry ? 1.25 : w.arm, dir: w.dir, hat: w.hat, pants: w.pants, tool: gc ? (gg, hx, hy) => { gg.fillStyle = gc; rrect(gg, hx - 6, hy - 8, 12, 11, 2); gg.fill(); gg.fillStyle = 'rgba(255,255,255,.4)'; gg.fillRect(hx - 5, hy - 7, 10, 3); gg.fillStyle = 'rgba(0,0,0,.2)'; gg.fillRect(hx, hy - 8, 6, 11); } : (w.r === 'sup' ? (gg, hx, hy) => { gg.fillStyle = '#e9edff'; gg.fillRect(hx - 3, hy - 6, 7, 9); gg.fillStyle = '#8f9acb'; gg.fillRect(hx - 2, hy - 4, 5, 1); } : null) });
+    } }); });
+  objs.sort((a, b) => a.k - b.k).forEach(o => o.f());
+  sc.parts.forEach(p => { g.globalAlpha = Math.max(0, 1 - p.t / p.life); g.fillStyle = p.col; if (p.sz > 3) { g.beginPath(); g.arc(p.x, p.y, p.sz + p.t * 3, 0, 7); g.fill(); } else g.fillRect(p.x, p.y, p.sz, p.sz); }); g.globalAlpha = 1;
+  sc.lines.forEach(L => { if (L.alert) alertIcon(g, L.alert[0], L.alert[1], t, null); }); topAl.forEach(a => alertIcon(g, a[0], a[1], t, a[2]));
+  g.textAlign = 'left';
+  setCap(`${sc.rec.name} · utilisation ${pct(clamp(c.util || 0, 0, 1))} · ${f1(c.out)} / jour · ${sc.nW} ouvriers${sc.full ? ' · sortie pleine' : sc.starved ? ' · pénurie : ' + gName(sc.starved).toLowerCase() : sc.stall > 3 ? ' · à l\'arrêt' : ''}`);
 }
 
 /* --- entrepôt --- */
@@ -5264,12 +5464,12 @@ function sceneReset(c) {
   const T = TYPES[c.t];
   const upd = (s, c2, dt) => ({ retail: updRetail, ext: updExt, fac: updFac, off: updOff, wh: updWh })[s.kind](s, c2, dt);
   scene = T.ext ? mkExt(c) : (T.ret && c.t !== 'immo') ? mkRetail(c) : (T.rec) ? mkFac(c) : c.t === 'wh' ? mkWh(c) : mkOffice(c);
-  scene.cid = c.t + c.x + '_' + c.y; scene.H = scene.H || SCH; el('bscene').height = scene.H; capLast = ''; el('bcap').textContent = '';
+  scene.cid = c.t + c.x + '_' + c.y; scene.H = scene.H || SCH; el('bscene').width = scene.W || SCW; el('bscene').height = scene.H; capLast = ''; el('bcap').textContent = '';
   for (let i = 0; i < 200; i++) upd(scene, c, 0.05);
 }
 function sceneFrame(dt) {
   const c = bsel && cell(bsel.x, bsel.y); if (!c || !scene) return;
-  if (scene.kind === 'fac') { const r = recOf(c); if ((r ? r.out : '') !== scene.recKey) sceneReset(c); }
+  if (scene.kind === 'fac') { const r = recOf(c); if ((r ? r.out : '') !== scene.recKey || (c.lvl || 0) !== scene.lvl) sceneReset(c); }
   const cv = el('bscene'), g = cv.getContext('2d');
   ({ retail: updRetail, ext: updExt, fac: updFac, off: updOff, wh: updWh })[scene.kind](scene, c, dt);
   g.clearRect(0, 0, SCW, cv.height); g.textAlign = 'left';
@@ -5278,6 +5478,7 @@ function sceneFrame(dt) {
 function sceneLoop(ts) {
   scRaf = 0;
   if (el('bview').hidden || bTab !== 'int') return;
+  if (ts - scLast < 31) { scRaf = requestAnimationFrame(sceneLoop); return; }   // 30 images/s max
   const dt = Math.min(0.05, (ts - scLast) / 1000 || 0.016); scLast = ts;
   sceneFrame(dt);
   scRaf = requestAnimationFrame(sceneLoop);
