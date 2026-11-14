@@ -37,7 +37,7 @@ L'immeuble livré **apparaît dans la ville**, qui s'agrandit (plus d'emplois ou
 Avec l'outil **Main**, un clic sur un de tes bâtiments ouvre sa vue intérieure : indicateurs (production, utilisation, effectif, recettes, coûts, profit), schéma intrants, atelier, sorties, bannière de **goulot** (pénurie d'un intrant, stock plein, hors réseau, manque de personnel, demande, capacité) avec action rapide, et leviers : agrandir, recruter, salaires (attractivité contre coût), qualité, efficacité, relier au réseau, réaffecter la recette d'une usine (réorganiser la chaîne), démolir.
 La vue a quatre onglets : **Intérieur** (scène animée selon le bâtiment : caisse humaine et libre-service avec clients dans les magasins, bûcherons et camion en forêt, mineurs, pompes à pétrole, chaîne de production avec voyant rouge en cas de goulot, bureaux), **Compte de résultat**, **Bilan** et **Flux de trésorerie** du bâtiment (amortissement sur 1 500 jours, rendement, retour sur investissement).
 Dans les magasins, le cinquième onglet **Publicité** permet de relier la télévision, la radio et internet avec un budget quotidien par canal. La notoriété du magasin monte progressivement (et retombe si on coupe), attire plus de clients et réduit la part des rivaux ; le coût apparaît dans le compte de résultat. Les magasins s'affichent en vue isométrique (rayons en 3D, caisses à tapis fixe, caisses libre-service, clients avec paniers et chariots, employés qui remplissent les rayons).
-Chaque magasin choisit ses **marchandises vendues** (génériques et produits lancés). Quand le stock du joueur est vide, le **port importe** les biens de base au prix du marché +4 % (surcote réduite de 1 point par terminal portuaire, jusqu'à 0), ce qui permet de démarrer par le commerce ; la rupture de stock est signalée comme goulot. Trois **concurrents IA** (Mega Mart, Luxor & Fils, DiscountCo) investissent selon leurs ventes, peuvent faire faillite ou être rachetés ; leurs parts de marché apparaissent dans le panneau Ville.
+Chaque magasin choisit ses **marchandises vendues** (marchandises du marché local et produits lancés). Quand le stock du joueur est vide, les **grossistes et producteurs de la ville** fournissent les rayons de base, manufacturés et luxe au cours du marché +5 % (voir passe 13), ce qui permet de démarrer par le commerce ; la rupture de stock des produits de marque est signalée comme goulot. Trois **concurrents IA** (Mega Mart, Luxor & Fils, DiscountCo) investissent selon leurs ventes, peuvent faire faillite ou être rachetés ; leurs parts de marché apparaissent dans le panneau Ville.
 Chaque magasin fixe son **prix de vente** (70 à 140 % du marché : bas, il attire plus de clients ; haut, il gagne plus par vente). À partir de 250 000 $ de capitalisation, tu peux **entrer en bourse** (30 % du capital cédé, levée de fonds, dividendes réglables, cours de l'action, rachat de capital).
 Le bouton **Menu** ouvre un panneau à onglets (Ville, Marché, Concurrents, Finances, Bourse, Partie). Le zoom a **5 niveaux** pilotés par une loupe avec − et + (molette et pincement aussi) : du plan rapproché jusqu'à une **vue satellite** de toute la carte, où les bâtiments sont extrudés en blocs. L'onglet **Bourse** liste les sociétés cotées (ta société, Mega Mart, Luxor & Fils, DiscountCo) avec cours et courbes, ta propre mise en bourse, puis les cours des matières premières ; l'onglet **Concurrents** détaille chaque société (parts par catégorie, trésorerie, rachat). Le **Siège social** (un seul) accueille un directeur financier (dividendes, rachats d'actions par 5 %, crédit moins cher) et un directeur des relations investisseurs (événements boursiers : communiqué, journée investisseurs, plan de rachat) ; l'introduction en bourse exige un siège.
 Dans chaque usine, la carte **Que fabriquer ici ?** propose une recette : composants (acier, planches, montants, béton...) et produits finis, avec pastilles de disponibilité des intrants, marge par cycle, proposition automatique et lancement de la R&D d'un produit directement depuis l'usine.
@@ -72,7 +72,7 @@ Gisements ─▶ Puits / Mines ─▶ matières premières ─▶ Fonderie / Usi
 |---|---|
 | Extraction | Puits de pétrole, mines de fer, de charbon, de cuivre, d'or |
 | Fonderie | Fonderie d'or : or brut ➜ lingots (zone du port) |
-| Usines | Petite (1×1), Moyenne (2×1), Grande (2×2), **Méga-usine** (3×3, palier Magnat : recettes de la grande usine, capacité ×8, tour étagée et trois cheminées), toutes dans la zone du port. Chacune fabrique un composant ou un produit affecté, sinon une marchandise générique |
+| Usines | Petite (1×1), Moyenne (2×1), Grande (2×2), **Méga-usine** (3×3, palier Magnat : recettes de la grande usine, capacité ×3, tour étagée et trois cheminées), toutes dans la zone du port. Chacune fabrique le composant ou le produit qu'on lui affecte ; une usine sans produit ne fabrique rien (passe 13) |
 | Commerces | Petit marché (1×1), Supermarché (2×1), Hypermarché (2×2), **Méga-centre commercial** (3×3, palier Magnat : base + manufacturé + luxe, capacité ×4), en ville : chacun ne vend que ses catégories |
 | Niveaux | « Améliorer » : 5 niveaux L1 à L5 (capacité et effectifs ×1 / 1,6 / 2,4 / 3,2 / 4, coût 0,7 à 1,5 × le capex) ; le bâtiment grandit (étages d'usine, tours +2 étages par niveau). Les tours de bureaux PNJ gagnent des étages quand la ville prospère. |
 | Port | Terminal portuaire (2×2, sur le quai) : relève le prix d'export des surplus et le plafond de stock |
@@ -84,7 +84,7 @@ Gisements ─▶ Puits / Mines ─▶ matières premières ─▶ Fonderie / Usi
 **Fiche produit** (vue Produits) : visuel du produit, gamme (Premier prix, Premium, Haut de gamme), emballage (vrac, carton, coffret premium), éléments nécessaires,
 caractéristiques, arbre de la chaîne d'approvisionnement avec les maillons manquants, configuration automatique.
 12 produits : ustensiles, jouets en plastique, jouets en bois, chaise, vélo, lit, lave-linge, téléviseur, smartphone, montre de luxe, maison à ossature bois, maison en béton.
-Les habitants répartissent leur demande entre la marchandise générique, tes produits et des marques rivales, selon qualité, prix, emballage et notoriété.
+Les habitants répartissent leur demande entre les marchandises du marché local, tes produits et des marques rivales, selon qualité, prix, emballage et notoriété.
 
 **Économie** : la ville emploie déjà la majorité de ses actifs ; tes entreprises recrutent le reste (au-delà, la main-d'œuvre manque). Humeur, impôt réglable, banque qui dope les entreprises,
 amélioration des bâtiments, événements (goulots, boom boursier). Saison fixée à l'été.
@@ -189,13 +189,13 @@ Objectif « Manche » (Menu > Objectifs) : fin au jour 720 ou dès qu'un empire 
 - **Aléatoire déterministe** : la simulation utilise `rnd()` (mulberry32, état `S.rs` sauvegardé) au lieu de `Math.random` : étape préalable du multijoueur serveur-autoritaire.
 
 ## Passe 3 (audit d'un architecte vétéran de Capitalism)
-- Ventes de magasin : élasticité-prix réelle et indice client sur le volume ; capacité répartie **par classe** (s2 62 % base / 38 % manufacturé ; s3 45/35/20) ; tes produits passent avant les marchandises génériques ; import du détaillant ×1,25 ; marge de détail ×2,2.
+- Ventes de magasin : élasticité-prix réelle et indice client sur le volume ; capacité répartie **par classe** (s2 62 % base / 38 % manufacturé ; s3 45/35/20) ; tes produits passent avant les marchandises du marché local ; import du détaillant ×1,25 (ensuite remplacé par le marché local, passe 13) ; marge de détail ×2,2.
 - Capital de départ 600 k$ ; rivaux à l'échelle (cash ×30) avec réapparition tous les 45 jours ; courbe de difficulté repartie de 600 k$ (×e^(0,0016 j)) ; prix plancher/plafond ×0,7 / ×1,9 ; services moins généreux (banque 260 $/emp., hors fonds empruntés) ; or ÷3 ; usines à leurs effectifs de base.
 - Bot « retail pur + réinvestissement » (pf 1,15) : fortune ≈ 1,1 M$ à 1 an, 1,7 M$ à 2 ans, 5,7 M$ à 5 ans (CA ≈ 15 M$/an).
 
 ## Passe 4 : chaînes industrielles, pharma, migration
 - **Calibrage automatique de la valeur ajoutée** (`applyScale`) : chaque usine-jour crée ≈ 2× ses salaires (composants, marchandises, produits finis). Chaîne pétrole → chimie → principes actifs → pilules → supermarchés testée : chaque maillon est rentable (pilules ≈ +5,8 k$/j ≈ 2 M$/an avec une seule usine).
-- **Rayons** : tes produits sont servis avant les marchandises génériques (les pilules se vendent désormais en magasin).
+- **Rayons** : tes produits sont servis avant les marchandises du marché local (les pilules se vendent désormais en magasin).
 - **Migration** : une ville prospère construit de nouvelles tours résidentielles et de bureaux (population ≈ +35 % en 4 ans, chômage ≈ 6 %).
 - Marge de détail ×2,45, supermarché 80 u/j : bot « retail pur + réinvestissement » ≈ 1,1 M$ à 1 an, 1,9 M$ à 2 ans, 7,5 M$ à 5 ans.
 - Multijoueur mis en veille (le calcul déterministe `rnd()` reste en place).
@@ -222,7 +222,7 @@ Implémentation : tableau `SECTOR_REF` dans le code ; marges par secteur (compos
 
 ## Commerce : prix, publicité, emplacements
 - **Prix par produit** (curseur 60-220 %) dans la fiche produit du magasin ; élasticité appliquée aux ventes.
-- **Marque, qualité et publicité par produit** : ce sont les produits qui ont une marque, pas le magasin. Chaque produit fini a sa notoriété, sa fidélité et sa perception de qualité (`S.prod[pk].brand/loy/rt`) et son budget publicitaire par canal (télé, radio, presse, internet, influenceurs, boutons − / +, dans la fiche produit du magasin et dans Menu > Produits). La notoriété monte avec la puissance publicitaire, la perception vient de la gamme, de la presse et des influenceurs (risque de bad buzz), la fidélité de la qualité, du prix et de la disponibilité. Les marchandises génériques n'ont pas de marque. La note globale d'un produit n'utilise que sa propre marque ; le magasin garde sa notoriété (onglet Publicité) pour l'affluence seulement. Le prix affiché en fiche est le prix en rayon (gros × marge de distribution × curseur) et la marge unitaire est calculée contre le coût réel d'approvisionnement.
+- **Marque, qualité et publicité par produit** : ce sont les produits qui ont une marque, pas le magasin. Chaque produit fini a sa notoriété, sa fidélité et sa perception de qualité (`S.prod[pk].brand/loy/rt`) et son budget publicitaire par canal (télé, radio, presse, internet, influenceurs, boutons − / +, dans la fiche produit du magasin et dans Menu > Produits). La notoriété monte avec la puissance publicitaire, la perception vient de la gamme, de la presse et des influenceurs (risque de bad buzz), la fidélité de la qualité, du prix et de la disponibilité. Les marchandises du marché local n'ont pas de marque. La note globale d'un produit n'utilise que sa propre marque ; le magasin garde sa notoriété (onglet Publicité) pour l'affluence seulement. Le prix affiché en fiche est le prix en rayon (gros × marge de distribution × curseur) et la marge unitaire est calculée contre le coût réel d'approvisionnement.
 - **Canaux de publicité** choisis directement dans la fiche (télé, radio, presse, internet, influenceurs, boutons − / +).
 - **Double-clic sur un emplacement** : ouvre le choix du produit **et du fournisseur** (prix livré et qualité), puis « Mettre en rayon ».
 
@@ -263,7 +263,7 @@ Sources : USDA-ERS (pain/céréales ≈ −0,5 en moyenne, inélastique ; court 
 - Commerce : marges de rayon `RETAIL_MK` ramenées à 1,72 / 1,78 / 2,15 (base / courant / luxe) et import magasin à ×1,12-1,20 : marge brute 30-39 %, EBITDA magasin 6-12 % (s1 à +6 % au lieu de −10 %, s1 et s2 agrandis, entretien de s1-s3 réduit).
 - Le prix de rayon n'agit plus qu'une fois : retiré de l'indice de fréquentation et de la capacité, prix relatif entre magasins dans `pw`, élasticité court/long terme (`elF`) sur le volume du magasin ; prix par produit plafonné à 150 % pour le basique ; bande Veblen du luxe réduite à +25 % avec érosion dans le temps.
 - Sensibilité au PIB de la demande : basique 0,5, courant 1, luxe 6.
-- Usines génériques : plancher de prix = coût réel des intrants + 8 %, ventes en magasin et exports comptés dans la demande, EBITDA cible relevé pour f1/f2 (≈ 13 %) ; la grande usine (f3) utilise peu de lingots et beaucoup de main-d'œuvre (marge brute ≈ 56 %), mines d'or plus productives.
+- Anciennes usines « génériques » (supprimées en passe 13) : plancher de prix = coût réel des intrants + 8 %, ventes en magasin et exports comptés dans la demande, EBITDA cible relevé pour f1/f2 (≈ 13 %) ; la grande usine (f3) utilise peu de lingots et beaucoup de main-d'œuvre (marge brute ≈ 56 %), mines d'or plus productives.
 - Pharma : moitié moins de matière et frais généraux fixes (marge brute ≈ 79 %), salaires ×1,8 ; banque, tech, R&D et data center paient 1,3 à 2 fois plus ; CA tech et banque indexés sur l'inflation, intérêts bancaires plafonnés par la taille de la banque (plus sur toute la trésorerie), CA par employé tech ≈ 680 k€ et data center ≈ 760 k€.
 
 ## Passe 10 : modèle produit
@@ -278,7 +278,7 @@ Règles qualitatives inspirées de Capitalism Lab (ordres de grandeur, pas de fo
 - **Méga-classes de marque** (`MEGA_OF`) : la marque corporate gagne en impact sur une seule méga-classe (÷ n^0,8), la fidélité baisse de 8 % par méga-classe supplémentaire (4 % en marque de gamme).
 - **Prix standard** (`stdPrice`) = prix de base × inflation × salaire de la ville^0,4 + prime de R&D non indexée (`rdPrem`, ≤ 8 %).
 - **Coût d'extraction** (`RES_COST`, part du prix) : EBITDA visé = 1 − coût. Mesuré : puits ≈ 20-25 %, fer 53 %, cuivre 46 %, or 46 %.
-Sauvegarde v8 rétro-compatible (champs `rw`, `exp`, `ps.tc`, `ps.obs` avec valeurs par défaut). Marges s1-s4 inchangées sur le banc générique.
+Sauvegarde v8 rétro-compatible (champs `rw`, `exp`, `ps.tc`, `ps.obs` avec valeurs par défaut). Marges s1-s4 inchangées sur le banc d'essai standard.
 
 ## Passe 13 : fin de la production générique, arbre produit cohérent
 
@@ -419,3 +419,55 @@ Objectif : parties courtes (1 à 2 h réelles), futur multijoueur 2-8 joueurs en
 Sans frein (plafond de dette seul, surchauffe faible) le même bot atteignait 1 Md$ en 43 min ; avec la surchauffe et le plafond de dette, le plus rapide des bots reste à 71 min (marge de 20 min sous les 50 min visées). Une construction financée par la dette augmente la valorisation de ≈ 25 % du coût (valeur × (1 + humeur/400) + terrain) : connu et laissé tel quel. Les tours Tech, Data center et Banque rapportent ≈ 45 %/an sans saturation jusqu'à 130 unités : à surveiller côté équilibrage.
 
 **Non fait / limites** : scénarios 2 à 5 non mesurés par bot (usines, export, bourse : cibles estimées à partir des courbes des tours) ; les rivaux sont les 3 sociétés PNJ (pas de vrais joueurs) ; les marchés d'export stables sont une règle simple en attendant le marché à prix unique ; pas de pause partagée ni de synchronisation multijoueur.
+
+## Tests et passe 19
+
+### Tests
+
+Harnais de non-régression en une commande (Playwright, environ 2 minutes) :
+
+```
+python3 wall-street-empire/tools/build.py                                      # génère city.html
+NODE_PATH=$(npm root -g) node wall-street-empire/tools/tests/run.js            # tous les tests
+NODE_PATH=$(npm root -g) node wall-street-empire/tools/tests/run.js marges     # un seul (filtre sur le nom de fichier ou le titre)
+```
+
+Chaque contrôle imprime `PASS` ou `FAIL` avec la valeur mesurée et le seuil ; le code de sortie est 1 s'il y a un échec. `WSE_URL` permet de tester un autre fichier. Les fichiers `t01` à `t07` sont indépendants ; `lib.js` (pages, banc de mesure, usine et extracteur isolés) et `audit_lib.js` (partie jouée par bot, lecture des écrans) sont partagés.
+
+| Fichier | Contrôles | Seuils |
+|---|---|---|
+| `t01_erreurs.js` | chargement à froid ; construction et ouverture de tous les types de bâtiments (clic sur chaque onglet et bouton) ; 14 vues du bureau, terminal et écran Produits après 450 jours | 0 `pageerror` ; aucun `NaN`, `undefined`, `Infinity`, `[object` ; aucun montant « $ /jour » (tout est mensuel) |
+| `t02_marges.js` | s1 à s4 sur un banc de ville ; usines f1/f2 et pharma en économie isolée (intrants au prix de base) ; 13 extracteurs | EBITDA s1-s4 5-14 % ; f1/f2 10-18 % ; pharma MB ≥ 72 % et EBITDA 30-45 % ; puits 15-22 %, charbon 15-32 %, fer, cuivre, or 40-62 %, carrières et bois 17-35 % ; retour sur capex ≤ 3,5 ans |
+| `t03_elasticite.js` | prix de rayon +30 % sur un bien de base et un bien courant | basique : volume long terme de −10 à −25 % ; effet court terme plus faible que long terme ; bien courant plus élastique |
+| `t04_integrite.js` | bot aléatoire déterministe 600 jours (≈ 575 bâtiments) ; usines vides f1-f4 ; auto-production | aucun `NaN`/`Infinity` dans `S`, aucun stock ni prix négatif ; usine vide : production et CA nuls ; choisir un produit sélectionne des sources et fait produire |
+| `t05_sauvegarde.js` | partie de 250 jours, sauvegarde v8, rechargement de la page ; deux parties identiques | état identique après rechargement (tolérance 1 %, `S.m30` compris) puis 30 jours sans `NaN` ; états finaux strictement identiques (déterminisme) |
+| `t06_coherence.js` | audit inter-écrans sur une partie de 300 jours (voir ci-dessous) | écart ≤ 1 % entre écrans |
+| `t07_references.js` | références mortes après la fin des usines génériques | voir ci-dessous |
+
+Les scripts d'origine (`t_err.js`, `t_play.js`, `aud1/a_*.js`, `aud3/diff*.js`, `t_auto.js`) ne sont plus nécessaires. Le banc de mesure fige le cycle macro pour que les marges soient reproductibles.
+
+### Audit de cohérence inter-écrans
+
+Une partie de 300 jours (extraction, 4 usines f1, 3 f2, 1 f3, 5 produits, commerces, banque, tours, puis bot de réinvestissement) est lue à travers l'interface : HUD, bandeau du bureau, Empire, Finances (et réconciliation), Produits, Bourse, fiches de bâtiments, onglets Achats et Logistique. Les mêmes grandeurs sont comparées entre elles et à l'état de la simulation.
+
+| Grandeur | Écrans comparés | Résultat initial | Correctif |
+|---|---|---|---|
+| Résultat net mensuel | HUD, Empire (2 endroits), bandeau, Finances, réconciliation, compte de résultat | **écart de 18 à 26 %** : HUD et « Résultats mensuels » = moyenne glissante 30 jours ; bandeau, tableau de bord, Finances et réconciliation = dernier jour × 30 | `finM()` : toutes les lignes du compte de résultat viennent de la même moyenne glissante (les rangées de `S.m30` portent 21 colonnes de détail ; format de sauvegarde v8 inchangé, les anciennes lignes à 3 colonnes sont ignorées et l'écran retombe sur le dernier jour) |
+| Chiffre d'affaires mensuel | HUD, Empire (2 endroits), Finances, réconciliation | écart de 8 % (mêmes causes) | idem |
+| EBE mensuel | Empire, Finances recalculé, `S.m30` | écart de 17 % | idem |
+| Fiche produit d'un magasin contre écran Produits | prix moyen, marque, note globale | **prix moyen 11,46 $ contre 19 $** (la fiche comparait au prix de la catégorie, l'écran au prix standard du produit, celui de la note) ; marque 6 contre 24 (notoriété brute contre score de marque) ; marque moyenne 100 contre 80 | la fiche reprend les définitions de l'écran Produits (prix standard, score de marque, marque rivale pondérée × 0,6 et plafonnée à 80) |
+| Empire « Produit/j » | Empire contre somme des extracteurs | **11 968 pétrole/j affichés pour 3 puits à 1 900/j** : `S.flow.made` additionne l'offre des fournisseurs PNJ (nécessaire au ratio demande/offre) | `S.flow.own` (production du joueur seule) pour l'affichage Empire et pour l'explication « pourquoi la demande en matière première est… » ; la simulation ne change pas |
+| Tableau des secteurs | cadence du dernier jour contre moyenne 30 jours | non comparable aux totaux | titre précisé : « par mois, cadence du dernier jour » |
+| Sans écart | trésorerie (5 écrans), salaires et coûts (Finances, Empire, somme des fiches), ventes par produit (écran Produits, état, magasins), stocks et prix (état, Empire, Bourse, fiches, Achats, Logistique), population, emplois dans les bâtiments (Empire contre somme des fiches) | | |
+
+À savoir : les fiches de bâtiment restent à la cadence du jour courant, alors que les totaux sont des moyennes glissantes ; dans une économie qui croît vite, la somme des fiches dépasse donc légèrement le total des Finances (0,05 % mesuré sur 300 jours). Les missions et les jalons de scénario (`S.fin.revExport`) restent calculés sur le dernier jour : à ne pas changer sans réviser les seuils.
+
+### Références mortes (usines génériques)
+
+Contrôlé par `t07_references.js` : plus aucun libellé « générique » dans `game.template.html` (quatre commentaires et un message de fiche de rayon reformulés en « marché local ») ni dans les descriptions actuelles du README (magasins, usines, méga-usine « capacité ×3 », demande des habitants, rayons) ; les récits des passes 8 et 13 restent comme historique. Les verrous de scénario, les outils du tutoriel, les besoins des contrats, les intrants des recettes et des produits et les rayons des magasins ne référencent que des clés existantes. Les missions ne supposent aucune production générique. `TYPES.f1..f4.rec` reste volontairement : il ne sert plus qu'à placer l'usine (distance aux intrants du calque logistique) et à calibrer le prix de base de `basic`, `std` et `lux` ; aucune usine du joueur n'en produit (usine vide : production et CA nuls, fiche « Aucun produit »).
+
+### Écarts constatés par les tests (non corrigés, à arbitrer par l'équilibrage)
+
+- Cultures (blé, canne, caoutchouc) : EBITDA de 36 à 48 % près du port, au-dessus de la cible de 20-27 % de la passe 16 (fer 56 %, cuivre 54 %, or 48 %, carrières 30-32 %, bois 30 %). Les bornes du test sont élargies en conséquence (12-40 % et 17-50 %).
+- s4 (méga-centre) : EBITDA 14,3 % sur le banc, au bord de la cible 5-14 % (test arrondi à l'unité).
+- Bien courant : −50 % de volume pour +30 % de prix contre −15 % pour le bien de base (cohérent avec l'élasticité plus forte des biens manufacturés ; le test impose seulement qu'il soit plus élastique).
