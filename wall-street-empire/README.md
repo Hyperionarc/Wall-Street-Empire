@@ -337,3 +337,37 @@ L'onglet « Intérieur » des usines (petite, moyenne, grande, méga-usine) et d
 - **Ouvriers** : leur nombre suit l'effectif réel (`jobsOf × fill`) ; manutentionnaires (port de caisses), opérateurs, emballeurs, chef d'équipe, chargeur. Cadence liée à l'utilisation (`c.util`) et à la production (`c.out`).
 - **États** : pénurie d'un intrant (palette vide, icône d'alerte sur la machine et l'intrant, machine à l'arrêt), sortie pleine (`_full` : tapis bloqués, pause des ouvriers, camion parti), arrêt prolongé (ouvriers en pause).
 - **Performance** : scène redessinée à 30 images/s au plus, environ 1 à 1,5 ms par image, arrêtée hors de l'onglet.
+
+## Passe 16 : équilibrage et QA post-fusion
+
+#### Feuille maîtresse d'équilibrage (passe 16)
+
+Mesures par simulation (scripts `a_iso.js`, `a_ext.js`, `aud1_a_retail.js`) : usines alimentées au prix de base (stock local), prix figés, 100 % d'effectif ; extracteurs sur le gisement le plus proche du port, macro figée. EBITDA = (CA − intrants − salaires − entretien − fret) / CA. Montants en $ par jour dans les scripts, affichés en mensuel dans le jeu.
+
+| Bâtiment / produit | Cible | Avant | Après | Action |
+|---|---|---|---|---|
+| Puits de pétrole (EBITDA) | 15-20 % | 2-5 % | 19 % | RES_COST 0,82, entretien calibré sur 88 % de la production nominale |
+| Puits : retour sur capex | ≤ 3 ans | > 50 ans | 2,6 ans | capex = 2,5 ans d'EBITDA (10,3 M$ → 5,2 M$) |
+| Mine de charbon | ≈ 27 % | 21 % (7 % à 114 cases du port) | 30 % ; retour 2,5 ans | idem |
+| Fer / cuivre / or | 40-60 % | 44 / 42 / 38 % | 54 / 52 / 46 % ; retour 1,8-2,3 ans | idem, fret typique du gisement |
+| Gravier, sable, calcaire, bois, cultures | 20-27 % | 12-20 % | ≈ 20-27 % (calibrage commun) | idem |
+| Magasin s1 / s2 | 6-12 % | 15 / 15 % | 8 / 7 % (MB 34 %) | marge de rayon basique 1,72 → 1,58, courante 1,78 → 1,62 |
+| Grand magasin s3 | 6-12 % | 14 % | 7 % (MB 42 %, luxe 47 %) | luxe 2,15 → 2,0 |
+| Méga-centre s4 | 6-12 % | 19 % | 13 % | idem |
+| Centrale à charbon | 35 % | 34 % (analytique) | inchangé | — |
+| Nucléaire : retour | ≤ 5 ans | 6 ans | 4,4 ans | capex 30 → 22 M$ |
+| Solaire / éolien | ≈ 55 % | 65-69 % (analytique) | inchangé (écart 25 %) | — |
+| Fonderie / composants f1-f2 | 11-27 % selon recette | 7-17 % (composants bon marché) | 12-27 % | fret par unité intégré au prix de base (pack 7 → 15 %, farine 12 → 15 %, pain 14 → 20 %) |
+| Pharma (céphalalgie, toux, obésité) : MB / EBITDA | MB ≥ 72 %, 30-45 % | 77 / 37 % | 78 / 39 %, 72-88 % de MB | — |
+| Luxe (bijoux, parfum, soin, sac, montre) : MB / EBITDA | 50-70 % / 25-35 % | 55-75 % / 30 % | idem | — |
+| Électronique (TV, téléphone, tablette, ordinateur, console) | MB 40-57 % | MB 42-57 %, EBITDA 28-30 % | idem | niveau Apple, laissé |
+| Maison bois / béton (f2) | 8-18 % | 14 % | 14 % | — |
+| Banque | EBITDA 38-48 %, ≈ 700 k$ / emp. | 43 %, 687 k$ | inchangé | — |
+| Tech | ≈ 730 k$ / emp. | 46 %, 680 k$ | inchangé | — |
+| Data center | 38-47 %, 330-750 k$ / emp. | 37-44 %, 507-567 k$ | inchangé | — |
+| Tour de location (off) | 8-12 % de rendement brut | EBITDA 45 %, retour ≈ 2,7 ans | non corrigé | signalé : rendement ≈ 80 % du capex, à rééquilibrer avec le mode multi-villes |
+| Station média (tv) | EBITDA 25-35 % | 34 % | inchangé | — |
+| Usine vide (méga-usine) | pas de ruine silencieuse | 2,9 M$/mois | ≈ 1 M$/mois + alerte mensuelle | entretien × 25 % + message |
+| CA ÷ salaires | ≥ 3 | 3,6-102 (min. écran 3,6) | idem (min. 3,6) | — |
+
+Contrôles longs : 2200 jours de bot aléatoire (1 270 bâtiments) sans NaN ni stock négatif, pas de pageerror ; empire intégré 1800 jours (3 récessions simulées) sans spirale (trésorerie stable, pas de dette) ; déterminisme vérifié ; `t_play.js` sans « bad ».
