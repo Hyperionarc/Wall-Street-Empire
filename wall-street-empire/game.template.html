@@ -1618,6 +1618,7 @@ function cellExtra(c) {
   if (c.rent != null && Math.abs(c.rent - 1) > 1e-3) o.rn = +c.rent.toFixed(3);
   if (c.mr != null && Math.abs(c.mr - 1) > 1e-3) o.mb = +c.mr.toFixed(3); if (c.adp != null && Math.abs(c.adp - 1) > 1e-3) o.ap = +c.adp.toFixed(3);
   if (c.lp) { o.lp = Math.round(c.lp); o.lpm = +(c.lpm || 1).toFixed(4); }
+  if (c.acq) o.aq = Math.round(c.acq);
   if (c.pkd) { const pd = {}; Object.keys(c.pkd).forEach(k => { if (c.pk && c.pk[k]) pd[k] = Math.min(400, c.pkd[k].d | 0); }); if (Object.keys(pd).length) o.pd = pd; }
   return Object.keys(o).length ? o : 0;
 }
@@ -1625,7 +1626,7 @@ function dedupMods(a) { const m = new Map(); (a || []).forEach(x => m.set(x[0] +
 function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
-    const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
+    const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
     localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, x11: S.x11 || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
@@ -1642,7 +1643,7 @@ function load() {
       if (!TYPES[r[0]]) return null;
       const c = mkCell(r[0], r[1]); c.lvl = clamp(r[2] | 0, 0, 4); if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
       if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3); if (r[19] && typeof r[19] === 'object') c.src = r[19];
-      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.mb != null) c.mr = clamp(+e.mb, 0, 3); if (e.ap != null) c.adp = clamp(+e.ap || 1, 0.4, 2); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; } }
+      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.mb != null) c.mr = clamp(+e.mb, 0, 3); if (e.ap != null) c.adp = clamp(+e.ap || 1, 0.4, 2); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; } if (e.aq > 0) c.acq = +e.aq; }
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
@@ -1652,7 +1653,7 @@ function load() {
     (Array.isArray(d.npcMods) ? d.npcMods : []).forEach(m => { const c = grid[idx(m[0], m[1])]; if (!c || c.t !== 'npc') return; if (m[2] === 'x') grid[idx(m[0], m[1])] = null; else { c.k = m[2]; c.floors = m[3]; } });
     if (d.npcGrow) Object.keys(d.npcGrow).forEach(k => { const [gx, gy] = k.split(',').map(Number), c = inb(gx, gy) && grid[idx(gx, gy)], v = d.npcGrow[k]; if (c && c.t === 'npc' && c.k === 'off' && Array.isArray(v)) { c.floors = Math.max(c.floors, v[0] | 0); c.f0 = v[1] | 0 || c.floors; } });
     const dep = new Array(N * N).fill(null);
-    (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) dep[a[0]] = { k: a[1], r: a[2] }; });
+    (d.dep || []).forEach(a => { if (DEPOSITS[a[1]]) { dep[a[0]] = { k: a[1], r: a[2] }; if (a[3] > 1) dep[a[0]].pm = +a[3]; if (a[4]) dep[a[0]].own = 1; } });
     if (!dep.some(q => q && CROPS[q.k])) genCropFields(dep);
     const S0 = {
       cash: +d.cash, pop: +d.pop, day: d.day | 0, grid, dep, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: d.boomUntil == null ? -1 : (+d.boomUntil | 0),
@@ -2380,6 +2381,24 @@ function competitionAt(x, y) { let n = 0; siteIndex().stores.forEach(q => { if (
 function pubNear(x, y) { let n = 0; if (!siteC.pub) { siteC.pub = []; S.grid.forEach(c => { if (c && c.t === 'npc' && c.k === 'mon' && PUB[c.m] && /^(edu|edu2|sante|admin)$/.test(PUB[c.m][1])) siteC.pub.push([c.x, c.y]); }); } siteC.pub.forEach(q => { if (Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 7) n++; }); return n; }
 function trafficAt(x, y) { if (trfDirty || !trf) rebuildTraffic(); return clamp(trf[idx(x, y)] * (1 + 0.12 * Math.min(3, pubNear(x, y))) / (1 + 0.3 * competitionAt(x, y)), 0, 1); }
 function residentsNear(x, y, r) { let s = 0; eachBuilding(b => { if (Math.abs(b.x - x) + Math.abs(b.y - y) > r) return; if (b.t === 'npc') { if (b.k === 'res') s += 5 * b.floors; else if (b.k === 'house') s += 5; } else if (b.t === 'res') s += 6 + 4 * b.floors; }); return s * K_POP; }
+/* ---------- Ressources naturelles : prime du site, sites neufs, ressources illimitées ---------- */
+const MINE_K = { oil: 1, iron: 1, coal: 1, copper: 1, gold: 1, gravel: 1, sand: 1, limestone: 1 };   // gisements non renouvelables
+function sitePremium(x, y, key) { const T = TYPES[key]; if (!T || !T.ext || !MINE_K[T.ext]) return 0; const d = S.dep[idx(x, y)]; if (!d || d.k !== T.ext || d.own) return 0; return Math.round(DEPOSITS[d.k].res * GOODS[d.k].base * 0.03 * (d.pm || 1) * cpi() / 1000) * 1000; }
+function stepSites() {
+  const rs = X11().rs; if (!rs || !rs.q || !rs.q.length) return;
+  rs.q = rs.q.filter(e => {
+    if (e.day > S.day) return true;
+    const k = e.k, kc = k.charCodeAt(0) + k.length; rs.gen = rs.gen || {}; if ((rs.gen[k] || 0) >= 6) return false;
+    let sx = -1, sy = -1; for (let i = 0; i < 400 && sx < 0; i++) { const x = Math.floor(hash(S.day, i, kc) * N), y = Math.floor(hash(i, S.day, kc + 9) * N), id = idx(x, y); if (ZONE[id] === 0 && !isRoadPos(x, y) && !S.grid[id] && !S.dep[id] && !inCity(x, y)) { sx = x; sy = y; } }
+    if (sx < 0) return false;
+    const gen = (rs.gen[k] = (rs.gen[k] || 0) + 1), pm = +Math.pow(1.6, gen).toFixed(3), n = 5 + Math.floor(hash(S.day, gen, kc) * 5); let x = sx, y = sy, put = 0;
+    for (let i = 0; i < 60 && put < n; i++) { const id = idx(x, y); if (inb(x, y) && ZONE[id] === 0 && !isRoadPos(x, y) && !S.grid[id] && !S.dep[id]) { S.dep[id] = { k, r: Math.round(DEPOSITS[k].res * 0.75), pm }; put++; } const dd = Math.floor(hash(i, S.day, kc + 3) * 4); x += [1, -1, 0, 0][dd]; y += [0, 0, 1, -1][dd]; }
+    say(`Nouveau gisement de ${DEPOSITS[k].name} découvert en (${sx + 1}, ${sy + 1}) : ${put} cases. Les sites neufs coûtent bien plus cher à acquérir (prime ×${pm.toString().replace('.', ',')} par rapport aux premiers).`, 'info'); trfDirty = true; siteC.dirty = true;
+    return false;
+  });
+}
+const unlimitedRes = () => !!(X11().unl);
+function unitAcq(c) { const T = TYPES[c.t], base = c.acq || (landCostFor(c.x, c.y, c.t) + sitePremium(c.x, c.y, c.t) + DEPOSITS[T.ext].res * GOODS[T.ext].base * 0.03), res0 = DEPOSITS[T.ext].res; return base / res0 * cpi(); }
 function siteInfo(x, y, key) {
   const T = TYPES[key]; if (!T || key === 'road') return null;
   const land = landCostFor(x, y, key), info = { key, land, build: T.cost, total: T.cost + land };
@@ -2389,7 +2408,7 @@ function siteInfo(x, y, key) {
     const inU = Object.values(rec.in).reduce((a, b) => a + b, 0), transport = (inU + outU) * haul * TRANS * cpi(), lossV = outU * price * loss;
     info.kind = 'ind'; info.haul = haul; info.loss = loss; info.transport = transport; info.lossV = lossV; info.access = roadDist(x, y, key); info.year = land + 360 * (transport + lossV) + 2500 * Math.max(0, info.access - 1);
     info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); info.dMarket = marketDist(x, y);
-  } else if (T.ext) { info.kind = 'ext'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
+  } else if (T.ext) { info.prem = sitePremium(x, y, key); info.total += info.prem; const dd = S.dep[idx(x, y)]; info.dep = dd && dd.k === T.ext ? dd : null; info.kind = 'ext'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
   else if (key === 'wh') { info.kind = 'wh'; info.dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); }
   else info.kind = 'oth';
   return info;
@@ -2415,7 +2434,7 @@ function step() {
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   S.day++;
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = (S.patents || 0) * 70 * (casteIs('innovateur') ? 1.5 : 1);
-  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepNpcDensify(); stepPolicy();
+  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepNpcDensify(); stepPolicy(); stepSites();
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
   if (S.day % 5 === 0 || !S._trf) { S._trf = 1; trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }   // !S._trf : après un chargement, le trafic (non sauvegardé) est recalculé tout de suite
   if (S.day % 5 === 0) stepGoal();
@@ -2444,10 +2463,11 @@ function step() {
     if (!T.ext) return;
     const d = S.dep[idx(c.x, c.y)], fill = fillOf(c), nominal = T.rate * unitsOf(c);
     let out = nominal * fill * (S.day <= c.alertUntil ? 0.75 : 1) * (c.linked === false ? UNLINKED_EFF : 1) * (CROPS[T.ext] ? TM.crop * soilMult(c) : T.ext === 'wood' ? TM.wood : T.ext === 'oil' ? TM.oil : TM.ore);
-    if (CROPS[T.ext]) { /* sol renouvelable */ } else if (!d || d.k !== T.ext) out = 0; else { out = Math.min(out, d.r); d.r -= out; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} à l'arrêt. Ouvre une nouvelle mine ailleurs.`, 'bad'); } }
+    if (CROPS[T.ext]) { /* sol renouvelable */ } else if (!d || d.k !== T.ext) out = 0; else if (unlimitedRes() && MINE_K[T.ext]) { const rem = Math.min(out, d.r); d.r -= rem; c._xcost = (out - rem) * unitAcq(c); indImport += c._xcost; c.inCost = c._xcost; c.dry = false; } else { out = Math.min(out, d.r); d.r -= out; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} à l'arrêt. Ouvre une nouvelle mine ailleurs.`, 'bad'); } }
     out *= 1 - wasteOf(c); c.out = out; S.stock[T.ext] += out; made[T.ext] += out;
     c.util = nominal > 0 ? out / nominal : 0;
-    c.limit = (d && d.r < 1) ? 'reserve' : c.linked === false ? 'link' : S.day <= c.alertUntil ? 'alert' : fill < 0.97 ? 'staff' : null;
+    if (!(unlimitedRes() && MINE_K[T.ext])) { c._xcost = 0; }
+    c.limit = (d && d.r < 1 && !(unlimitedRes() && MINE_K[T.ext])) ? 'reserve' : c.linked === false ? 'link' : S.day <= c.alertUntil ? 'alert' : fill < 0.97 ? 'staff' : null;
   });
   // 2. Industrie : fonderie, composants, puis produits finis. Une usine non affectée produit la marchandise générique.
   const runRecipe = (list, inp, tgt) => {
@@ -2650,7 +2670,7 @@ function step() {
     const up = (T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))) + phOvh(c)) * cpi();
     // Séparation : production valorisée interne (mines, usines : non encaissée) / chiffre d'affaires encaissé ; intrants importés (décaissés) / prélevés sur stock local (transfert interne)
     c.pInt = (T.ext || T.rec) ? c.pRev : 0;
-    { const ip = T.ret ? (c._inImpR || 0) : c.t === 'wh' || c.t === 'tv' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
+    { const ip = T.ret ? (c._inImpR || 0) : T.ext ? (c._xcost || 0) : c.t === 'wh' || c.t === 'tv' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
     REC.pInt += c.pInt; REC.pCash += c.pRev - c.pInt; REC.inImp += c.inImp; REC.inLoc += c.inLoc; REC.wag += c.wages; REC.upk += up; REC.tra += c.transport; REC.ad += c.adCost || 0;
     c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
     c.profit = c.pRev - c.cost;
@@ -2870,12 +2890,13 @@ function place(x, y, key) {
     if (!quiet) { say(err, 'warn'); if (key === 'road') lastRoadMsg = performance.now(); }
     return false;
   }
-  const land = landCostFor(x, y, key), tot = Math.round(T.cost * casteCost(key) * Math.max(1, cpi())) + land;
-  if (S.cash < tot) { say(`Trésorerie insuffisante pour ${T.name.toLowerCase()} : ${money(T.cost)} de construction + ${money(land)} de terrain.`, 'bad'); return false; }
+  const land = landCostFor(x, y, key), prem = sitePremium(x, y, key), tot = Math.round(T.cost * casteCost(key) * Math.max(1, cpi())) + land + prem;
+  if (S.cash < tot) { say(`Trésorerie insuffisante pour ${T.name.toLowerCase()} : ${money(T.cost)} de construction + ${money(land)} de terrain${prem > 0 ? ' + ' + money(prem) + ' de prime du site' : ''}.`, 'bad'); return false; }
   S.cash -= tot; trfDirty = true; siteC.dirty = true;
   let b;
   if (key === 'road') { b = mkCell('road'); b.x = x; b.y = y; b.own = true; S.grid[idx(x, y)] = b; }
-  else { b = placeBuilding(x, y, key); if (land > 0) { b.lp = land; b.lpm = landMult(x, y); } }
+  else { b = placeBuilding(x, y, key); if (land > 0) { b.lp = land; b.lpm = landMult(x, y); }
+    if (T.ext && MINE_K[T.ext]) { const dd = S.dep[idx(x, y)]; b.acq = land + prem; if (dd && dd.k === T.ext && !dd.own) { dd.own = 1; const rs = X11().rs = X11().rs || { q: [], gen: {} }; rs.q.push({ k: T.ext, day: S.day + 12 + Math.floor(hash(S.day, x * 7 + y, 5) * 20) }); } } }
   flyers.push({ x, y, text: '-' + fmt(tot), t: performance.now(), col: '#ff8a8e' });
   if (T.ret) b.traffic = trafficAt(x, y);
   if (T.ext) { if (!extLinked(b, linkedMask())) say('Hors réseau : rendement de ' + Math.round(UNLINKED_EFF * 100) + ' %. Relie-la à la ville avec l\'outil Relier pour atteindre 100 %.', 'info'); }
@@ -2951,7 +2972,7 @@ function inspect(x, y) {
   if (!c) {
     if (d && d.k === 'wood') say(`Forêt · réserve ${fmt(d.r)} unités, elle repousse lentement. Pose un camp de bûcherons.`, 'info');
     else if (d && CROPS[d.k]) say(`Terre agricole · ${DEPOSITS[d.k].name}. Pose une exploitation dessus : le sol se renouvelle.`, 'info');
-    else if (d) say(`Gisement de ${DEPOSITS[d.k].name} · réserve ${fmt(d.r)} unités. Pose une mine ou une carrière dessus.`, 'info');
+    else if (d) { const pm = d.own ? 0 : Math.round(DEPOSITS[d.k].res * GOODS[d.k].base * 0.03 * (d.pm || 1) * cpi()); say(`Gisement de ${DEPOSITS[d.k].name} · réserve ${fmt(d.r)} unités${MINE_K[d.k] ? ' · prime du site ' + (pm ? money(pm) + (d.pm > 1 ? ' (site neuf ×' + String(d.pm).replace('.', ',') + ')' : '') : 'déjà acquise') : ''}. Pose une mine ou une carrière dessus.`, 'info'); }
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
   }
@@ -3384,6 +3405,10 @@ el('openTerm').onclick = () => openTerm();
 el('bankbox').addEventListener('click', e => { const b = e.target.closest('[data-bk]'); if (!b) return; const a = b.dataset.bk; if (a === 'lend') bkLend(1e6); else if (a === 'lend5') bkLend(5e6); else if (a === 'repay') bkRepay(1e6); else if (a === 'up') bkUp(); });
 el('portfolio').addEventListener('click', e => { const b = e.target.closest('[data-pf]'); if (b) { tSel = b.dataset.pf; openTerm(); } });
 /* ---------- Objectifs, score, classement, PDG ---------- */
+function resHTML() {
+  const u = unlimitedRes(), rs = X11().rs || { q: [], gen: {} };
+  return `<h3>RESSOURCES NATURELLES</h3><div class="tcard"><small>Ressources illimitées : une mine épuisée continue de produire, au coût d'acquisition d'origine ÷ réserve d'origine × inflation par unité extraite au-delà de la réserve. Sinon, il faut ouvrir de nouveaux sites, qui apparaissent peu après l'acquisition des anciens et coûtent bien plus cher (prime ×1,6 par génération, visible au survol).</small><div class="seg2" style="margin-top:6px"><button class="btn ${u ? '' : 'sec'}" data-unl="1" style="min-height:28px;padding:3px 10px;font-size:12px">Illimitées</button><button class="btn ${u ? 'sec' : ''}" data-unl="0" style="min-height:28px;padding:3px 10px;font-size:12px">Limitées</button></div><small>Sites neufs découverts : ${Object.keys(rs.gen || {}).reduce((a, k) => a + rs.gen[k], 0)} · en prospection : ${(rs.q || []).length}</small></div>`;
+}
 function subHTML() {
   const o = X11().obj || {}, b = o.sub;
   if (!b) return `<p class="note">Aucun sous-objectif en cours${S.day < 20 ? ' (le premier arrive après 20 jours)' : ' : le prochain arrive bientôt'}. Réussis : ${o.n || 0} · manqués : ${o.fail || 0}.</p>`;
@@ -3415,6 +3440,7 @@ function renderGoals() {
   const sk = Object.keys(SKILLS).map(k => { const l = skillOf(k), cost = skillCost(l); return `<div class="tcard"><b>${SKILLS[k].n} <span class="pip" style="color:var(--gold)">${'●'.repeat(l)}${'○'.repeat(SKILL_MAX - l)}</span></b><small>${SKILLS[k].d}</small>${l < SKILL_MAX ? `<button class="btn" data-skill="${k}" ${(S.kp || 0) >= cost ? '' : 'disabled'}>Améliorer · ${cost} point${cost > 1 ? 's' : ''}</button>` : '<small>Maîtrise maximale</small>'}</div>`; }).join('');
   const h = `<h3>OBJECTIF</h3><div class="tcard ${S.goalDone === 'win' ? 'done' : ''}"><b>${G.n}${S.goalDone === 'win' ? ' · victoire ✓' : S.goalDone === 'lose' ? ' · échec' : ''}</b><small>${G.d}</small>${prog}</div><div class="seg2" style="margin:6px 0;flex-wrap:wrap">${sel}</div>
     ${optHTML()}
+    ${resHTML()}
     <h3>SOUS-OBJECTIF</h3>${subHTML()}
     <h3>DOMINATION DES MARCHÉS</h3>${domHTML()}
     <h3>SCORE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Score</small><b class="gold">${fmt(playerScore())}</b></div><div><small>Classement mondial</small><b>${rank} / ${rows.length}</b></div><div><small>Part de marché</small><b>${Math.round(ms * 100)} %</b></div><div><small>Fortune personnelle</small><b>${money(Math.round(personalNet() * cpi()))}</b></div><div><small>Missions</small><b>${(S.done || []).length} / ${MISSIONS.length}</b></div></div>
@@ -3425,6 +3451,7 @@ function renderGoals() {
 }
 el('goals').addEventListener('click', e => {
   const ob = e.target.closest('[data-opt]'); if (ob) { const [k, v] = ob.dataset.opt.split(':'); S.opt = S.opt || {}; S.opt[k] = +v; if (k === 'n') syncRivals(); renderGoals(); save(); return; }
+  const ub = e.target.closest('[data-unl]'); if (ub) { X11().unl = ub.dataset.unl === '1'; renderGoals(); save(); return; }
   const db = e.target.closest('[data-dom]'); if (db) { X11().obj = X11().obj || {}; X11().obj.arg = db.dataset.dom; S.streak = 0; renderGoals(); save(); return; }
   const mb = e.target.closest('[data-omult]'); if (mb) { setObjective(S.goal, +mb.dataset.omult); S.goalDone = null; renderGoals(); save(); return; }
   const tb = e.target.closest('[data-train]'); if (tb && !tb.disabled) { const r = tb.dataset.train, p = (S.cx || {})[r]; if (p && (S.kp || 0) >= 1) { S.kp--; p.exp[XROLE[r].dom] = Math.min(100, p.exp[XROLE[r].dom] + 6); TM = techMults(); say(`${p.name} se forme : expertise ${Math.round(p.exp[XROLE[r].dom])}.`, 'good'); renderGoals(); updateHUD(); save(); } return; }
@@ -6385,7 +6412,7 @@ function updateSiteTip() {
   else if (i.kind === 'ind') { h += row('Distance moyenne de transport', `${i.haul} cases`) + row('Port / marché', `${i.dPort} / ${i.dMarket} cases`) + row('Frais de transport', `${mj(i.transport)} /mois`) + row('Perte de rendement (délais)', `${(i.loss * 100).toFixed(1).replace('.', ',')} % ≈ ${mj(i.lossV)} /mois`, i.loss > 0.1 ? 'neg' : '') + row('Accès routier', i.access <= 1 ? 'sur la rue' : `ruelle de ${i.access - 1} case(s) (+${money(2500 * (i.access - 1))}/an)`, i.access > 2 ? 'neg' : '') + row('Coût sur 1 an (terrain + accès + logistique)', money(i.year));
     bestTile = bestSite(hover.x, hover.y, tool); h += bestTile && bestTile.year < i.year - 50 ? `<div class="adv2">★ Meilleur emplacement proche : case (${bestTile.x + 1}, ${bestTile.y + 1}), ${money(i.year - bestTile.year)} d'économie sur 1 an.</div>` : '<div class="adv2">Tu es déjà sur un très bon emplacement.</div>'; if (!(bestTile && bestTile.year < i.year - 50)) bestTile = null; }
   else if (i.kind === 'ext' && CROPS[T0.ext]) { const f = fertility(hover.x, hover.y, T0.ext), dc = waterDist(hover.x, hover.y); h += row('Fertilité du sol', Math.round(f * 100) + ' %', f > 0.95 ? 'pos' : f < 0.65 ? 'neg' : '') + row('Distance à la mer (eau)', dc + ' cases') + row('Distance au port', i.dPort + ' cases') + `<div class="adv2">${f < 0.65 ? 'Sol pauvre pour cette culture.' : 'Terre fertile.'} Irrigation possible ensuite (+10 % par niveau, protège de la sécheresse).</div>`; }
-  else if (i.kind === 'ext') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Une route reliée au réseau évite 35 % de pertes de rendement.</div>';
+  else if (i.kind === 'ext') h += (MINE_K[T0.ext] ? row('Prime du site (droit d\'exploitation)', i.dep ? (i.prem > 0 ? money(i.prem) : 'déjà acquise') : 'aucun gisement ici', i.prem > 0 ? 'neg' : '') + (i.dep ? row('Réserve', fmt(i.dep.r) + ' unités' + (i.dep.pm > 1 ? ' · site neuf ×' + String(i.dep.pm).replace('.', ',') : '')) : '') : '') + row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Une route reliée au réseau évite 35 % de pertes de rendement.</div>';
   else if (i.kind === 'wh') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Plus près du port : imports et exports moins chers.</div>';
   tip.innerHTML = h; tip.hidden = false;
 }
@@ -6667,7 +6694,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { productSVG, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
