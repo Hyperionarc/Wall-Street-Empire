@@ -956,6 +956,8 @@ const TYPES = {
   s2:      { name: 'Supermarché',   sub: 'Base + manufact.', cost: 3500, color: '#7f96ff', jobs: 12, upkeep: 4,  w: 2, h: 1, tier: 1, ret: { cap: 110, sells: ['basic', 'std'] } },
   s3:      { name: 'Hypermarché',   sub: 'Tout + luxe',     cost: 12000, color: '#ff4fa3', jobs: 35, upkeep: 10, w: 2, h: 2, tier: 2, ret: { cap: 300, sells: ['basic', 'std', 'lux'] } },
   port:    { name: 'Terminal portuaire', sub: 'Export à bon prix', cost: 9000, color: '#5fb0ff', jobs: 30, upkeep: 8, w: 2, h: 2 },
+  off:     { name: 'Tour de location', sub: 'Bureaux à louer', cost: 24000000, color: '#8fd0ff', jobs: 10, upkeep: 28000, tier: 1 },
+  sport:   { name: 'Équipement sportif', sub: 'Attractivité du quartier', cost: 3000000, color: '#7fe0a0', jobs: 3, upkeep: 2500, tier: 1 },
   npc:     { name: 'Immeuble',      sub: 'Ville existante', cost: 0,     color: '#8f9acb', jobs: 0,  upkeep: 0 }
 };
 const INDUSTRIAL = ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 'f4'];
@@ -1336,7 +1338,7 @@ const ICONS = {
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const ICON_OF = { s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+const ICON_OF = { off: 'tech', sport: 'res', s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
@@ -1345,7 +1347,7 @@ const TOOL_META = {
   bull: { name: 'Démolir', sub: 'Gratuit', color: '#ff5a5f' }
 };
 const CATS = [
-  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'bank', 'hq', 'rd', 'dc', 'buyout'] },
+  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'off', 'bank', 'sport', 'hq', 'rd', 'dc', 'buyout'] },
   { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'road', 'link'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
@@ -1354,7 +1356,7 @@ const CATS = [
 ];
 // Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
 const FAMS = {
-  ville: [['Habitat', ['res']], ['Bureaux', ['tech', 'bank']], ['Direction', ['hq', 'rd', 'dc']], ['Rachat', ['buyout']]],
+  ville: [['Habitat', ['res', 'sport']], ['Bureaux', ['tech', 'off', 'bank']], ['Direction', ['hq', 'rd', 'dc']], ['Rachat', ['buyout']]],
   agri: [['Fermes', ['fwheat', 'fsugar', 'fcotton', 'frubber']], ['Accès', ['road', 'link']]],
   extr: [['Énergie', ['well', 'mcoal', 'pipeline']], ['Métaux', ['miron', 'mcopper', 'mgold']], ['Bois', ['logging']], ['Accès', ['road', 'link']]],
   btp: [['Carrières', ['qgravel', 'qsand', 'qlime']], ['Chantiers', ['btp']]],
@@ -1451,6 +1453,7 @@ function mkCell(t, seed) {
   let floors = 1;
   if (t === 'res') floors = 1 + Math.floor(seed * 3.99) % 3;
   if (t === 'tech') floors = 5 + Math.floor(seed * 2.99);
+  if (t === 'off') floors = 6 + Math.floor(seed * 2.99); if (t === 'sport') floors = 1;
   if (t === 'bank') floors = 3 + Math.floor(seed * 1.99);
   if (t === 'rd') floors = 4; if (t === 'dc') floors = 3;
   if (t === 'hq') floors = 7 + Math.floor(seed * 2.99);
@@ -1611,6 +1614,8 @@ function cellExtra(c) {
   if (c.ci != null) o.ci = Math.round(c.ci * 1e4) / 1e4;   // indice de fréquentation : relu par crewEff avant son recalcul
   if (c.inv) { const iv = {}; Object.keys(c.inv).forEach(g => { if (c.inv[g] > 0.5) iv[g] = Math.round(c.inv[g]); }); if (Object.keys(iv).length) o.inv = iv; }
   if (c.alertUntil > 0) o.al = c.alertUntil | 0;
+  if (c.rent != null && Math.abs(c.rent - 1) > 1e-3) o.rn = +c.rent.toFixed(3);
+  if (c.lp) { o.lp = Math.round(c.lp); o.lpm = +(c.lpm || 1).toFixed(4); }
   if (c.pkd) { const pd = {}; Object.keys(c.pkd).forEach(k => { if (c.pk && c.pk[k]) pd[k] = Math.min(400, c.pkd[k].d | 0); }); if (Object.keys(pd).length) o.pd = pd; }
   return Object.keys(o).length ? o : 0;
 }
@@ -1635,7 +1640,7 @@ function load() {
       if (!TYPES[r[0]]) return null;
       const c = mkCell(r[0], r[1]); c.lvl = clamp(r[2] | 0, 0, 4); if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
       if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3); if (r[19] && typeof r[19] === 'object') c.src = r[19];
-      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; }
+      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; } }
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
@@ -1734,7 +1739,7 @@ function evaluate() {
     if (isPlant(c.t)) gridEval(c, gm);
     cc[c.t]++;
     upkeep += T.upkeep * (c.t === 'res' ? 1 : m * (1 + 0.1 * (c.qual || 0))) + phOvh(c);
-    value += T.cost * 0.9 + upgradeSpent(c) * 0.6;
+    value += T.cost * 0.9 + upgradeSpent(c) * 0.6 + landVal(c);
     if (c.conn) {
       cn[c.t]++; un[c.t] += unitsOf(c); jobs += jobsOf(c); c.haul = haulOf(c);
       if (c.t === 'res') cap += 6 + 4 * c.floors;
@@ -1848,7 +1853,7 @@ function setCaste(k) {
   S.caste = k; if (first && S.day < 6) S.cash += CASTES[k].cash;
   TM = techMults(); el('caste').hidden = true; say(`Tu joues : ${CASTES[k].n}.`, 'gold'); refreshStats(); updateHUD(); save();
 }
-const CASTE_BLD = { industriel: ['f1', 'f2', 'f3', 'f4', 'foundry', 'port', 'wh'], promoteur: ['res', 'btp', 'immo', 'buyout', 'hq', 'wh'], banquier: ['bank', 'hq', 'tech'], negociant: ['pipeline', 'plant', 'port', 'wh', 'well'], agriculteur: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'wh'], innovateur: ['rd', 'dc', 'tech', 'hq'] };
+const CASTE_BLD = { industriel: ['f1', 'f2', 'f3', 'f4', 'foundry', 'port', 'wh'], promoteur: ['res', 'btp', 'immo', 'buyout', 'hq', 'wh', 'off', 'sport'], banquier: ['bank', 'hq', 'tech'], negociant: ['pipeline', 'plant', 'port', 'wh', 'well'], agriculteur: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'wh'], innovateur: ['rd', 'dc', 'tech', 'hq'] };
 const CASTE_SPEC = { industriel: ['Usines et fonderies −12 % de coût', 'Production +5 %', 'OPA dès 10 % du capital (prime 20 %)', 'Rachat de rivaux −15 %'], promoteur: ['Constructions urbaines −15 %', 'Rachat d\'immeubles −30 %', 'Chantiers BTP payés +25 %', 'Les promoteurs IA te disputent les îlots'], banquier: ['Banque de 100 M$ de ressources propres', 'Levier ×5, ×10 puis ×20', 'Prêts sur collatéral, intérêts −40 %', 'Plafond d\'emprunt ×1,5'], negociant: ['Cartels et embargos −50 %', 'Exports +15 %, intrants −4 %', 'Pipelines −40 %, centrales −20 %', 'Électricité +30 %, pétrole +10 %'], agriculteur: ['Fermes −25 %', 'Cultures +15 %, sols +8 %', 'Irrigation −30 %', 'Sécheresses deux fois moins sévères'], innovateur: ['Recherche −30 % de durée, −20 % de coût', 'R&D et data centers −25 %', 'Brevets +50 %, loyer de calcul +50 %', 'Boost d\'IA jusqu\'à +12 % partout'] };
 function showCasteDetail(k) {
   const C = CASTES[k], img = CASTE_IMG[k] ? `<img alt="${C.n}" src="${CASTE_IMG[k]}">` : casteSVG(k), mine = TECHS.filter(x => x.caste === k), common = TECHS.filter(x => !x.caste);
@@ -1911,7 +1916,7 @@ const curAssets = () => Math.max(0, S.cash - (S.loan || 0)) + stockValue();
 function subVal(m) { return m === 'dom' ? (domRows().some(r => r.kind === 'cat' && r.lead) ? 1 : 0) : m === 'debt' ? (S.loan || 0) / Math.max(1, curAssets() + (S.loan || 0)) : objVal(m); }
 function stepSub() {
   const o = X11().obj = X11().obj || {};
-  if (!o.sub) { if (S.day < 20 || S.day < (o.cd || 0)) return; const pool = SUBS.map(d => Object.assign({ id: d.id }, d.mk())).filter(x => x.need !== false), pick = pool[Math.floor(rnd() * pool.length)];
+  if (!o.sub) { if (S.day < 20 || S.day < (o.cd || 0)) return; const pool = SUBS.map(d => Object.assign({ id: d.id }, d.mk())).filter(x => x.need !== false), pick = pool[Math.floor(hash(S.day, (o.n || 0) * 7 + (o.fail || 0), 61) * pool.length)];
     o.sub = { id: pick.id, t: pick.t, metric: pick.metric, target: pick.target, until: S.day + pick.days, kp: pick.id === 'dom' ? 2 : 1 }; say(`Sous-objectif : ${pick.t} (${pick.days} jours). Récompense : ${o.sub.kp} point${o.sub.kp > 1 ? 's' : ''} de connaissance ; échec : le cours et la trésorerie en pâtissent.`, 'info'); return; }
   const b = o.sub, v = subVal(b.metric), ok = b.metric === 'debt' ? v <= b.target : v >= b.target;
   if (ok) { addKp(b.kp, 'sous-objectif atteint'); o.n = (o.n || 0) + 1; o.sub = null; o.cd = S.day + 15; }
@@ -2347,7 +2352,7 @@ function landValue(x, y) {
   const dc = Math.hypot(x - 30, y - 30), dp = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y);
   return clamp(z === 1 ? 0.5 + 0.5 * Math.max(0, 1 - dc / 22) : (z === 2 || z === 4) ? 0.3 + 0.35 * Math.max(0, 1 - dp / 30) : 0.06 + 0.3 * Math.max(0, 1 - dc / 45), 0, 1);
 }
-const landPrice = (x, y) => Math.round((150 + 1900 * Math.pow(landValue(x, y), 1.6)) / 10) * 10;
+const landPrice = (x, y) => Math.round((150 + 1900 * Math.pow(landValue(x, y), 1.6)) * landMult(x, y) * LAND_K / 10) * 10;
 function landCostFor(x, y, key) { const T = TYPES[key]; if (!T || key === 'road') return 0; let s = 0; for (let ox = 0; ox < (T.w || 1); ox++) for (let oy = 0; oy < (T.h || 1); oy++) s += inb(x + ox, y + oy) ? landPrice(x + ox, y + oy) : 0; return Math.round(s * (T.ext ? 0.3 : 1)); }
 function siteIndex() {
   if (!siteC.dirty && siteC.day === S.day) return siteC;
@@ -2602,6 +2607,7 @@ function step() {
       if (!c.gridOk) c.limit = 'grid'; else if (storm) c.limit = 'storm';
       mwh *= loss; S._pSup += mwh; c.pRev = mwh * (S.power ? S.power.price : ELEC_BASE) * (casteIs('negociant') ? 1.3 : 1); revTech += c.pRev;
     }
+    if (c.t === 'off') revTech += stepRent(c);
     if (c.t === 'tech') { c.pRev = jobsOf(c) * 1650 * (0.3 + 0.7 * fill) * qualMult(c) * mult * cpi(); revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = (TYPES.bank.jobs * levelMult(c) * crewEff(c) * 1500 + Math.min(Math.max(0, S.cash - (S.loan || 0)), TYPES.bank.jobs * levelMult(c) * crewEff(c) * 4e6) * 0.0001) * qualMult(c) * cpi(); revBank += c.pRev; }   // intérêts sur un encours de prêts plafonné par la taille de la banque (≈ 4 M$ de crédits par employé), pas sur toute la trésorerie
     if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && !T.ext && !T.rec && !T.ret) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
@@ -2780,7 +2786,7 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierNow() < T.tier);
 }
-const ZONE_NEED = { btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
+const ZONE_NEED = { off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
 ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
 const zoneOk = (key, z) => (key === 'pylon' || key === 'cable') ? (z === 0 || z === 2 || z === 4) : z === ZONE_NEED[key];
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
@@ -2866,7 +2872,7 @@ function place(x, y, key) {
   S.cash -= tot; trfDirty = true; siteC.dirty = true;
   let b;
   if (key === 'road') { b = mkCell('road'); b.x = x; b.y = y; b.own = true; S.grid[idx(x, y)] = b; }
-  else b = placeBuilding(x, y, key);
+  else { b = placeBuilding(x, y, key); if (land > 0) { b.lp = land; b.lpm = landMult(x, y); } }
   flyers.push({ x, y, text: '-' + fmt(tot), t: performance.now(), col: '#ff8a8e' });
   if (T.ret) b.traffic = trafficAt(x, y);
   if (T.ext) { if (!extLinked(b, linkedMask())) say('Hors réseau : rendement de ' + Math.round(UNLINKED_EFF * 100) + ' %. Relie-la à la ville avec l\'outil Relier pour atteindre 100 %.', 'info'); }
@@ -3501,6 +3507,14 @@ function monthlyHTML() {
   const pc = m.ca > 0 ? Math.round(100 * m.ebe / m.ca) : 0;
   return `<h3>RÉSULTATS MENSUELS${m.n < 30 ? ' (estimés sur ' + m.n + ' j)' : ' (30 jours glissants)'}</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Chiffre d'affaires / mois</small><b class="gold">${money(m.ca)}</b></div><div><small>EBE / mois</small><b class="${m.ebe >= 0 ? 'pos' : 'neg'}">${m.ebe >= 0 ? '+' : '−'}${money(Math.abs(m.ebe))}</b><small>marge d'EBE ${pc} %</small></div><div><small>Résultat net / mois</small><b class="${m.net >= 0 ? 'pos' : 'neg'}">${m.net >= 0 ? '+' : '−'}${money(Math.abs(m.net))}</b></div><div><small>Résultat net / an (×12)</small><b>${money(m.net * 12)}</b></div></div>`;
 }
+function reHTML() {
+  const R = reRefresh(), ks = Object.keys(R.idx).sort((a, b) => R.idx[a] - R.idx[b]); let own = 0, nOff = 0, land = 0;
+  eachBuilding(c => { if (c.t === 'off') { own += c.pRev || 0; nOff++; } land += landVal(c); });
+  const nm = k => { const [bx, by] = k.split(',').map(Number); return `quartier ${String.fromCharCode(65 + bx)}${by + 1}`; }, fm = v => (v > 0 ? '+' : '') + Math.round(v * 100) + ' %';
+  return `<h3>IMMOBILIER</h3><p class="note">Indice offre/demande de bureaux par quartier : négatif = la demande dépasse l'offre, donc de la place pour de nouvelles tours et des loyers plus hauts. Terrain : le prix suit l'inflation, le trafic et les commerces voisins.</p>
+  <div class="kpis" style="grid-template-columns:repeat(3,1fr)"><div><small>Tours de location</small><b>${nOff}</b></div><div><small>Loyers / mois</small><b class="pos">${mj(own)}</b></div><div><small>Valeur des terrains</small><b>${money(Math.round(land))}</b></div></div>
+  <div class="finrow"><span>À investir : ${ks.slice(0, 3).map(nm).join(', ')}</span><b class="pos">${fm(R.idx[ks[0]])}</b></div><div class="finrow"><span>Saturés : ${ks.slice(-2).map(nm).join(', ')}</span><b class="neg">${fm(R.idx[ks[ks.length - 1]])}</b></div>`;
+}
 function renderEmpire() {
   if (el('panel').hidden || el('empire').closest('section').hidden) return;
   const st = S.stats || {}, ev = evaluate(), raw = st.raw || 0, fl = S.float || 0, F = S.fin || {};
@@ -3509,6 +3523,7 @@ function renderEmpire() {
   const kp = (l, v, c, s) => `<div><small>${l}</small><b class="${c || ''}">${v}</b>${s ? `<small>${s}</small>` : ''}</div>`;
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / mois', (F.net >= 0 ? '+' : '−') + mj(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : fx2(px) + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Habitants', fmt(st.pop || 0), '', fmt(st.playerJobs || 0) + ' emplois dans tes bâtiments')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
+  h += reHTML();
   h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
   h += monthlyHTML();
   h += sectorHTML();
@@ -4217,7 +4232,48 @@ function auditCard(c) {
   return `<div class="lever wide" id="audit"><h4>Auditeur de cohérence <span class="pip ${bad ? 'neg' : ''}">${bad ? bad + ' alerte(s) grave(s)' : ''}${bad && warn ? ' · ' : ''}${warn ? warn + ' avertissement(s)' : ''}</span></h4>` + al.map(a => `<div class="bnbanner ${a.sev}"><b>${a.t}</b><span>${a.d}</span><div class="acts">${btn(a.fix)}${btn(a.fix2)}</div></div>`).join('') + `</div>`;
 }
 /* ---------- Vues dédiées par type de bâtiment (hors extraction, usine, commerce) ---------- */
-const SVC_KIND = t => isPlant(t) ? 'power' : ({ wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
+/* ---------- Immobilier : indice offre/demande par quartier, CBD, commodités, terrain ---------- */
+const CBD = { x: 30, y: 30 }, RENT_BASE = 2300 * K_SIZE, LAND_K = 12;
+const reKey = (x, y) => Math.floor((x - CITY.x0) / GRID) + ',' + Math.floor((y - CITY.y0) / GRID);
+function reRefresh() {
+  if (S._re && S._re.day === S.day) return S._re;
+  if (S._re && S._re.day > S.day - 5 && !S._re.dirty) return S._re;
+  const sup = {}, res = {}, am = [];
+  eachBuilding(b => {
+    const k = reKey(b.x, b.y);
+    if (b.t === 'npc') { if (b.k === 'off') sup[k] = (sup[k] || 0) + b.floors; else if (b.k === 'res') res[k] = (res[k] || 0) + 5 * b.floors; else if (b.k === 'house') res[k] = (res[k] || 0) + 5; else if (b.k === 'park') am.push([b.x, b.y, 0.09]); else if (b.k === 'mon') am.push([b.x, b.y, 0.12]); return; }
+    if (b.t === 'tech' || b.t === 'off') sup[k] = (sup[k] || 0) + lvFloors(b);
+    else if (b.t === 'res') res[k] = (res[k] || 0) + 6 + 4 * b.floors;
+    else if (b.t === 'sport') am.push([b.x, b.y, 0.14 + 0.03 * (b.lvl || 0)]);
+    else if (TYPES[b.t].ret && b.conn) am.push([b.x, b.y, 0.045]);
+  });
+  const Dtot = Math.max(1, (S.pop || 0) * 0.4114 / Math.max(0.01, S.jpf || 1));
+  // lissage spatial (blocs voisins) : la demande de bureaux vient des habitants des alentours, l'offre est aussi captée par les blocs voisins
+  const sm = (tab, bx, by) => { let a = tab[bx + ',' + by] || 0, r1 = 0, r2 = 0; for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const d = Math.max(Math.abs(i), Math.abs(j)); if (!d) continue; const v = tab[(bx + i) + ',' + (by + j)] || 0; if (d === 1) r1 += v / 8; else r2 += v / 16; } return 0.4 * a + 0.4 * r1 + 0.2 * r2; };
+  const BL = Math.ceil((CITY.x1 - CITY.x0 + 1) / GRID), supS = {}, demS = {}; let ws = 0;
+  for (let bx = 0; bx < BL; bx++) for (let by = 0; by < BL; by++) { const k = bx + ',' + by; supS[k] = sm(sup, bx, by); demS[k] = sm(res, bx, by); ws += demS[k]; }
+  const idx = {}; Object.keys(supS).forEach(k => { const d = Dtot * demS[k] / Math.max(1, ws); idx[k] = clamp((supS[k] - d) / Math.max(4, d), -0.7, 0.7); });
+  S._re = { day: S.day, idx, am, sup, dirty: false, D: Dtot };
+  return S._re;
+}
+const reIdxAt = (x, y) => { const R = reRefresh(), v = R.idx[reKey(x, y)]; return v == null ? (inCity(x, y) ? 0 : -0.3) : v; };
+function reAmen(x, y) { const R = reRefresh(); let a = 0; R.am.forEach(q => { if (Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 7) a += q[2]; }); return Math.min(1, a); }
+function reAttr(c) { const dist = Math.hypot(c.x - CBD.x, c.y - CBD.y), cbd = 1 - clamp(dist / 26, 0, 1), am = reAmen(c.x, c.y), tr = clamp(c.traffic != null ? c.traffic : trafficAt(c.x, c.y), 0, 1);
+  return { dist, cbd, am, tr, attr: clamp(0.55 + 0.35 * cbd + 0.35 * am + 0.25 * tr, 0.5, 1.5) }; }
+// Loyer : 100 % = loyer du marché ; les locataires réagissent sur plusieurs mois (baux)
+function stepRent(c) {
+  const A = reAttr(c), idx = reIdxAt(c.x, c.y), r = clamp(c.rent == null ? 1 : c.rent, 0.6, 1.6);
+  c._rEff = c._rEff == null ? r : c._rEff + (r - c._rEff) / 60;
+  const tgt = clamp(1.05 - 0.6 * idx - 0.9 * (c._rEff - 1), 0.05, 1); c._occ = c._occ == null ? tgt : c._occ + (tgt - c._occ) / 45;
+  const fl = lvFloors(c), fillS = 0.5 + 0.5 * fillOf(c);
+  c._A = A; c._idx = idx; c._tgt = tgt;
+  c.pRev = fl * RENT_BASE * A.attr * cpi() * c._occ * c._rEff * qualMult(c) * fillS; c.out = fl * c._occ; c.util = c._occ;
+  return c.pRev;
+}
+// Terrain : le prix suit l'inflation, le trafic et les commerces voisins
+function landMult(x, y) { const tr = clamp(trf ? trf[idx(x, y)] : 0.3, 0, 1.2), st = siteIndex().stores; let n = 0; for (let i = 0; i < st.length; i++) if (Math.abs(st[i][0] - x) + Math.abs(st[i][1] - y) <= 7) n++; return cpi() * (0.92 + 0.5 * tr + 0.025 * Math.min(8, n)); }
+const landVal = c => c.lp ? c.lp * clamp(landMult(c.x, c.y) / (c.lpm || 1), 0.6, 5) : 0;
+const SVC_KIND = t => isPlant(t) ? 'power' : ({ off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
 const svcOf = c => { const T = TYPES[c.t]; return (T.ext || T.rec || T.ret) ? null : SVC_KIND(c.t); };
 const hasBld = t => { let n = 0; eachBuilding(b => { if (b.t === t && b.conn) n++; }); return n; };
 function svcInfo(c) {
@@ -4268,6 +4324,18 @@ function svcInfo(c) {
     R.utilLbl = 'taux d\'occupation';
     R.kpi = [['Loyers / mois', mj(pr), 'pos'], ['Occupation', pct(fill)], ['Loyer / poste', money(jobs * fill > 0 ? pr / (jobs * fill) : 0)]];
     R.bn = ok(`Locaux occupés à ${pct(fill)} : loyers ${mj(pr)}/mois`, c.t === 'dc' ? 'Les loyers dépendent des postes pourvus ; chaque data center renforce aussi la puissance de calcul (IA).' : 'Les loyers dépendent des postes pourvus et de la qualité du bâtiment.');
+  } else if (k === 'off') {
+    const A = c._A || reAttr(c), idx = c._idx != null ? c._idx : reIdxAt(c.x, c.y), r = c.rent == null ? 1 : c.rent, pr = c.pRev || 0, ix = Math.round(idx * 100);
+    R.inH = nb('Quartier', `indice offre/demande ${ix > 0 ? '+' : ''}${ix} % : ${idx < -0.05 ? '<span class="pos">demande > offre, bon endroit pour investir</span>' : idx > 0.05 ? '<span class="neg">offre > demande, bureaux difficiles à louer</span>' : 'marché équilibré'}`) + nb('Attractivité', `${Math.round(A.attr * 100)} % : CBD à ${f1(A.dist)} cases · commodités ${Math.round(A.am * 100)} % · trafic ${Math.round(A.tr * 100)} %`) + nb('Terrain', `${money(Math.round(landVal(c)))} (${c.lp ? '×' + f1(landVal(c) / c.lp) + ' depuis l\'achat' : 'acheté avant la v11'})`);
+    R.outH = `<div class="bn"><b>Loyer : <span id="rentv">${Math.round(r * 100)} %</span> du marché</b><input type="range" data-rent="1" min="60" max="160" step="5" value="${Math.round(r * 100)}" aria-label="Loyer en pourcentage du marché"><small>Occupation visée ${Math.round((c._tgt != null ? c._tgt : 1) * 100)} % · les baux s'ajustent en 2 à 3 mois. 100 % = loyer de marché.</small></div>` + nb('Loyers', `${mj(pr)} /mois`);
+    R.util = clamp(c._occ != null ? c._occ : 0, 0, 1); R.utilLbl = 'taux d\'occupation';
+    R.kpi = [['Loyers / mois', mj(pr), 'pos'], ['Occupation', pct(R.util)], ['Indice quartier', (ix > 0 ? '+' : '') + ix + ' %', ix < -5 ? 'pos' : ix > 5 ? 'neg' : ''], ['Distance au CBD', f1(A.dist) + ' cases']];
+    R.bn = ok(`Occupation ${pct(R.util)} · loyers ${mj(pr)}/mois`, 'Loyer plus haut = plus de recettes par étage mais moins de locataires ; un quartier en pénurie d\'offre (indice négatif) supporte des loyers supérieurs. Parcs, commerces et équipements sportifs à 7 cases augmentent l\'attractivité.');
+  } else if (k === 'sport') {
+    R.inH = nb('Rôle', 'équipement communautaire : il augmente l\'attractivité (et donc les loyers) des tours à moins de 7 cases');
+    R.outH = nb('Effet', `+${Math.round((0.14 + 0.03 * (c.lvl || 0)) * 100)} points de commodités autour`);
+    R.kpi = [['Commodités apportées', '+' + Math.round((0.14 + 0.03 * (c.lvl || 0)) * 100) + ' %'], ['Entretien / mois', mj(c.upk || 0), 'neg']];
+    R.bn = ok('Équipement en service', 'Ne rapporte rien directement : il valorise les tours de location voisines.');
   } else if (k === 'port') {
     const pr = c.pRev || 0, np = (S.stats && S.stats.cn && S.stats.cn.port) || 1;
     R.inH = nb('Marchandises à exporter', 'surplus des usines et mines, au cours mondial');
@@ -4417,7 +4485,8 @@ function bAct(a) {
   refreshStats(); updateHUD(); renderBuilding(true);
 }
 el('bview').addEventListener('input', e => { if (e.target.dataset && e.target.dataset.dept && bsel) { const c0 = cell(bsel.x, bsel.y); if (!c0) return; const k = e.target.dataset.dept, d = deptOf(c0), v = +e.target.value / 100, others = DEPTS.map(x => x[0]).filter(x => x !== k), rest = 1 - v, sum = others.reduce((a, x) => a + d[x], 0); others.forEach(x => { d[x] = sum > 0.001 ? d[x] / sum * rest : rest / 3; }); d[k] = v; DEPTS.forEach(([x]) => { const o = el('dv-' + x); if (o) o.textContent = Math.round(d[x] * 100) + ' %'; const sl = document.querySelector(`#bview input[data-dept="${x}"]`); if (sl && x !== k) sl.value = Math.round(d[x] * 100); }); return; } if (e.target.dataset && e.target.dataset.pf && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) c0.pf = +e.target.value / 100; return; } const k = e.target.dataset && e.target.dataset.ad; if (!k || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; adOf(c)[k] = +e.target.value; const o = el('adv-' + k); if (o) o.textContent = mj(+e.target.value) + ' /mois'; });
-el('bview').addEventListener('input', e => { const pk = e.target.dataset && e.target.dataset.pk; if (!pk || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.pk = c0.pk || {}; c0.pk[pk] = +e.target.value / 100; const o = el('pkv'); if (o) o.textContent = e.target.value + ' %'; });
+el('bview').addEventListener('input', e => { const rt = e.target.dataset && e.target.dataset.rent; if (rt && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) { c0.rent = +e.target.value / 100; const o = el('rentv'); if (o) o.textContent = e.target.value + ' %'; } return; }
+  const pk = e.target.dataset && e.target.dataset.pk; if (!pk || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.pk = c0.pk || {}; c0.pk[pk] = +e.target.value / 100; const o = el('pkv'); if (o) o.textContent = e.target.value + ' %'; });
 el('bview').addEventListener('change', e => { if (e.target.dataset && (e.target.dataset.pk || e.target.dataset.ad || e.target.dataset.pf || e.target.dataset.dept)) { bvHtml = ''; updateHUD(); renderBuilding(true); } });
 el('bview').addEventListener('dblclick', e => { const b = e.target.closest('[data-act^="slot:"]'); if (!b || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; supB = { x: c.x, y: c.y }; spI = +b.dataset.act.slice(5); supMode = 'slot'; el('supview').hidden = false; renderSlotPick(); });
 el('bview').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) bAct(b.dataset.act); });
@@ -6108,9 +6177,9 @@ function drawTileOf(a, x, y, ox, oy, o) {
       const fw = (a.w + a.h) * 66 * 1.06, sc = fw / (m.right - m.left), dw = m.w * sc, dh = m.h * sc * grow * (1 + 0.1 * (a.lvl || 0)), tx = p.x - (m.tipx - m.w / 2) * sc, by = p.y + 66 + 4;
       ctx.drawImage(m.img, tx - dw / 2, by - dh, dw, dh); a._top = by - dh;
     }
-  } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') {
+  } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport') {
     const k = Math.floor(a.seed * 997);
-    const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' || a.t === 'rd' || a.t === 'dc' ? 'tech' + (k % 2) : 'bank' + (k % 2);
+    const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' ? 'tech' + (k % 2) : a.t === 'sport' ? 'res' + (k % 9) : 'bank' + (k % 2);
     const floors = Math.max(1, Math.round(lvFloors(a) * (a.t === 'res' ? 1 : grow)));
     const bx = p.x - 50, by = p.y - 27;
     for (let i = 0; i < floors; i++) blit(name, bx, by - i * FH);
@@ -6130,8 +6199,8 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
   ctx.globalAlpha = alpha;
   const T = TYPES[a.t];
   let topY = a._top == null ? p.y - 28 : a._top;
-  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') {
-    if (a.t === 'tech' && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
+  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport') {
+    if ((a.t === 'tech' || a.t === 'off') && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
       ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 10; ctx.fillStyle = '#ff5a5f';
       ctx.beginPath(); ctx.arc(p.x, topY + 26, 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
     }
@@ -6265,7 +6334,7 @@ function drawSatellite(now) {
   eachVisible(vr, (x, y) => {
     const rc = S.grid[idx(x, y)]; if (!rc || rc.t === 'road' || rc.t === 'part') return;
     const a = rc, T = TYPES[a.t]; if (!T) return;
-    const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
+    const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
     const H = fl * 15 + 6, w = a.w || 1, h = a.h || 1;
     const col = a.t === 'npc' ? [175 + (a.seed * 50 | 0) - 25, 185 + (a.seed * 40 | 0) - 20, 215] : (MM_COL[a.t] || [150, 150, 170]);
     const A = iso(x, y), B = iso(x + w, y), C = iso(x + w, y + h), D = iso(x, y + h);
