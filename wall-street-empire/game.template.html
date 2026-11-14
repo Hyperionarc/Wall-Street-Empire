@@ -700,13 +700,29 @@ body.vopen #feed{z-index:9}
 .mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
 .mcard{display:flex;flex-direction:column;gap:3px;text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-hi);color:var(--fg);cursor:pointer;font:inherit}
 .mcard b{color:var(--gold);font-size:14px}.mcard small{color:var(--mut);font-size:12px}.mcard em{font-style:normal;color:var(--cyan);font-size:11px}
-.mcard:hover:not(:disabled){border-color:var(--gold)}.mcard.lk{opacity:.45;cursor:not-allowed}
+.mcard:hover:not(:disabled){border-color:var(--gold)}.mcard.lk{opacity:.7;cursor:not-allowed;background:rgba(20,26,66,.55)}.mcard.lk b{color:#b9a46a}.mcard.lk em{color:#8fb4c9}
 .elead{font-size:15px;margin:4px 0}
 .ekp{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0}
 .ekp div{background:var(--panel-hi);border-radius:8px;padding:8px}.ekp small{display:block;color:var(--mut);font-size:11px}.ekp b{font-size:16px}
 .erow{position:relative;display:flex;justify-content:space-between;gap:8px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;text-align:left}
 .erow.me{color:var(--gold);font-weight:700}.erow i{position:absolute;left:0;bottom:0;height:2px;background:var(--cyan);opacity:.7}
 .eact{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+/* Passe 18 : caste en cartes horizontales (6 castes visibles sans défiler), écrans de début et de fin plus lisibles */
+.cgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ccard{display:grid;grid-template-columns:112px minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:12px;row-gap:3px;align-items:start}
+.ccard .cpic{grid-row:1 / span 3;grid-column:1}
+.ccard b,.ccard em,.ccard small{grid-column:2}
+@media (max-width:899px){.cgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:599px){
+  .cgrid{grid-template-columns:1fr;gap:8px}
+  .ccard{grid-template-columns:86px minmax(0,1fr);padding:8px;column-gap:10px}
+  .ccard small{font-size:12px}.ccard em{font-size:11px}
+  #caste h2,.mbox h2,.ebox h2{font-size:26px}
+  .mcard em{font-size:12px}.mcard small{font-size:12.5px}
+}
+.mbox h4,.ebox h4{font-size:11px}
+#modesel:not([hidden]) ~ #feed,#endscr:not([hidden]) ~ #feed,#caste:not([hidden]) ~ #feed{display:none}
+
 </style>
 </head>
 <body>
@@ -7692,7 +7708,7 @@ el('endscr').addEventListener('click', e => { const b = e.target.closest('[data-
 function progOf() { try { return JSON.parse(localStorage.getItem('wse-prog') || '{}'); } catch (e) { return {}; } }
 function showModes() {
   const pr = progOf(), card = (k, n, d, extra, lock) => `<button class="mcard ${lock ? 'lk' : ''}" data-mode="${k}" ${lock ? 'disabled' : ''}><b>${n}</b><small>${d}</small><em>${extra}</em></button>`;
-  const sc = [1, 2, 3, 4, 5].map(i => { const k = 's' + i, S0 = SCN[k], lock = i > 1 && !pr['s' + (i - 1)] && !location.search.includes('open'); return card(k, `${i}. ${S0.n}`, S0.d, `${S0.min} min · objectif ${fmtV(S0.tgt)}${pr[k] ? ' · terminé (' + fmt(pr[k]) + ' pts)' : ''}`, lock); }).join('');
+  const sc = [1, 2, 3, 4, 5].map(i => { const k = 's' + i, S0 = SCN[k], lock = i > 1 && !pr['s' + (i - 1)] && !location.search.includes('open'); return card(k, `${i}. ${S0.n}`, S0.d, lock ? `Verrouillé · termine d'abord le scénario ${i - 1} · ${S0.min} min` : `${S0.min} min · objectif ${fmtV(S0.tgt)}${pr[k] ? ' · terminé (' + fmt(pr[k]) + ' pts)' : ''}`, lock); }).join('');
   el('modesel').innerHTML = `<div class="mbox"><h2>NOUVELLE PARTIE</h2><p class="note">Choisis ton mode, puis ta caste. Les scénarios se débloquent l'un après l'autre ; le Round est la partie compétitive de 90 minutes (jusqu'à 8 joueurs plus tard).</p>
     <h4>Round compétitif</h4><div class="mgrid">${card('round', 'Round · 1 Md$ en 90 min', MODE_INFO.round.d, 'classement, rachats majoritaires, écran de résultats', false)}</div>
     <h4>Scénarios</h4><div class="mgrid">${sc}</div>
