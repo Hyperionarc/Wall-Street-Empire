@@ -748,6 +748,7 @@ body.vopen #feed{z-index:9}
     <h3>FINANCES</h3>
     <div id="fin"></div>
     <div class="loanrow"><span id="loanV"></span><button class="btn sec" id="loanUp">Emprunter 20 k</button><button class="btn sec" id="loanDn">Rembourser</button></div>
+    <p class="note" id="loanNote"></p>
     <h3>POLITIQUE DE GESTION</h3>
     <p class="note">Réglages par défaut appliqués à toute l'entreprise, comme le COO de Capitalism Lab.</p>
     <div class="taxrow"><span>Prix</span><input type="range" id="polPrice" min="-1" max="1" step="0.25" value="0" aria-label="Marge contre parts de marché"><b id="polPriceV">Équilibré</b></div>
@@ -1952,12 +1953,13 @@ function tradeShares(id, qty, buy) {
   else { qty = Math.min(qty, h.n); if (qty <= 0) return false; let gain = 0; for (let i = 0; i < qty; i++) gain += px * (1 - 0.0007 * (i / 10)) - spread / 2; S.cash += gain; h.cost *= (h.n - qty) / h.n; h.n -= qty; r.mood = clamp((r.mood || 0) - qty / RSH * 0.4, -0.2, 0.35); say(`Vente de ${fmt(qty)} actions ${r.name} (${money(gain)}).`, 'info'); }
   if (h.n <= 0) delete S.port[id]; updateHUD(); return true;
 }
+const raiseAmt = raw => { const f = 0.1, pr = S.prem || 1.1; return f * raw * pr / (1 - f * pr); };
 function launchOpa(id) {
   const r = (S.rivals || []).find(x => x.id === id), h = (S.port || {})[id]; if (!r) return false;
   const stake = h ? h.n / RSH : 0, minS = casteIs('industriel') ? 0.1 : 0.2; if (stake < minS) { say(`Il faut détenir au moins ${Math.round(minS * 100)} % du capital pour lancer une OPA.`, 'warn'); return false; }
-  const cost = (1 - stake) * RSH * rivalPx(r) * (casteIs('industriel') ? 1.2 : 1.35); if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter le reste du capital avec une prime de 35 %.`, 'bad'); return false; }
-  const p = 0.55 + 0.4 * stake;
-  if (rnd() < p) { S.cash -= cost; S.cash += Math.max(0, r.cash) * 0.5; S.subs = S.subs || []; S.subs.push({ name: r.name, inc: Math.max(40, (r.rev || 0) * 0.12) }); delete S.port[id]; S.rivals = S.rivals.filter(x => x !== r); say(`OPA réussie sur ${r.name} : la société devient ta filiale (${money(cost)}).`, 'gold'); }
+  const hostile = stake >= 0.5, cost = (1 - stake) * RSH * rivalPx(r) * (hostile ? 1.12 : casteIs('industriel') ? 1.2 : 1.35); if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter le reste du capital${hostile ? ' (prime de 12 % : tu as déjà le contrôle)' : ' avec une prime de 35 %'}.`, 'bad'); return false; }
+  const p = hostile ? 1 : 0.55 + 0.4 * stake;
+  if (rnd() < p) { S.cash -= cost; S.cash += Math.max(0, r.cash) * 0.5; S.subs = S.subs || []; S.subs.push({ name: r.name, inc: Math.max(40, (r.rev || 0) * 0.12) }); delete S.port[id]; S.rivals = S.rivals.filter(x => x !== r); say(hostile ? `Prise de contrôle hostile sur ${r.name} : avec ${Math.round(stake * 100)} % des actions, le conseil ne peut plus s'opposer (${money(cost)}).` : `OPA réussie sur ${r.name} : la société devient ta filiale (${money(cost)}).`, 'gold'); }
   else { const fees = cost * 0.08; S.cash -= fees; r.mood = clamp((r.mood || 0) + 0.1, -0.2, 0.35); say(`OPA sur ${r.name} repoussée par le conseil : frais de ${money(fees)}.`, 'bad'); }
   updateHUD(); return true;
 }
@@ -2220,6 +2222,12 @@ function adjustInfl(which) {
   if (which !== 'p') { const k = clamp(cpi() / (p.ca || cpi()), 1, 3); if (k > 1.0005) { eachBuilding(c => { if (c.ad) AD_KEYS.forEach(a => { if (c.ad[a]) c.ad[a] = Math.round(c.ad[a] * k); }); }); PKEYS.forEach(pk => { const ad = S.prod[pk] && S.prod[pk].ad; if (ad) AD_KEYS.forEach(a => { if (ad[a]) ad[a] = Math.round(ad[a] * k); }); }); } p.ca = cpi(); }
   if (which !== 'a') p.cp = cpi();
 }
+function stepControl() {
+  const o = X11(); if (!(S.float >= 0.5)) { o.warn = 0; return; }
+  if (!o.warn) { o.warn = 1; say(`Les actionnaires extérieurs détiennent ${Math.round(S.float * 100)} % de ton capital : un rival peut lancer une prise de contrôle hostile. Rachète des actions pour repasser sous 50 %.`, 'warn'); }
+  if (S.day % 30 === 0 && (S.rivals || []).length && rnd() < clamp((S.float - 0.45) * 1.1, 0, 0.55)) { S.exec = { cfo: 0, ir: 0 }; S.cx = {}; S.prem = Math.max(0.6, (S.prem || 1.1) * 0.85); S.pb = (S.pb || 0) - 0.1; o.takeovers = (o.takeovers || 0) + 1; TM = techMults();
+    say('Prise de contrôle hostile : un rival a acquis la majorité du capital. La direction est remplacée (cadres, CFO et IR partent) et le cours chute de 15 %. Rachète des actions pour reprendre la main.', 'bad'); }
+}
 function stepPolicy() {
   const p = S.pol || (S.pol = {}); if (p.cp == null) p.cp = cpi(); if (p.ca == null) p.ca = cpi();
   if (S.day % 30 === 0) { if (!p.noInfP) p.cp = cpi(); if (!p.noInfA) adjustInfl('a'); }
@@ -2404,6 +2412,7 @@ function step() {
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
   if (S.day % 5 === 0 || !S._trf) { S._trf = 1; trfDirty = true; siteC.dirty = true; eachBuilding(b => { if (TYPES[b.t].ret) b.traffic = trafficAt(b.x, b.y); }); }   // !S._trf : après un chargement, le trafic (non sauvegardé) est recalculé tout de suite
   if (S.day % 5 === 0) stepGoal();
+  stepControl();
   if (S.research) { S.research.left -= 1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto'); if (S.research.left <= 0) { S.tech = S.tech || {}; S.tech[S.research.id] = S.day; say(`Recherche terminée : ${TECH_BY[S.research.id].n}. ${TECH_BY[S.research.id].d2}`, 'gold'); S.research = null; TM = techMults(); } }
   maybeEvent();
   const workforce = S.pop * 0.55;
@@ -3076,15 +3085,20 @@ function updateHUD() {
     else bh = `<div class="finrow"><span>Cours de l'action</span><b class="${(S.sp || []).length > 1 && S.sp[S.sp.length - 1] >= S.sp[S.sp.length - 2] ? 'pos' : 'neg'}">${fx2(price)} $</b></div><div class="finrow"><span>Capitalisation boursière</span><b>${money(raw * (S.prem || 1.1))}</b></div><div class="finrow"><span>Flottant (actionnaires extérieurs)</span><b>${Math.round(S.float * 100)} %</b></div><div class="finrow"><span>Prime de marché</span><b>${Math.round((S.prem - 1) * 100)} %</b></div><canvas id="spk" width="320" height="50" style="width:100%;height:46px"></canvas>${dir}
       <div class="taxrow"><span>Dividendes</span><input type="range" id="payout" min="0" max="60" step="5" value="${Math.round((S.payout || 0) * 100)}" aria-label="Part des bénéfices distribuée" ${cfo ? '' : 'disabled'}><b>${cfo ? Math.round((S.payout || 0) * 100) + ' %' : 'CFO requis'}</b></div>
       <p class="note">Les dividendes soutiennent le cours mais sortent de ta trésorerie, à hauteur du flottant. Réglage réservé au directeur financier.</p>
-      <button class="btn sec" id="buyback" ${cfo && S.float >= 0.05 && S.cash >= 0.05 * raw * S.prem ? '' : 'disabled'}>Racheter 5 % du capital · ${money(0.05 * raw * (S.prem || 1.1))}${cfo ? '' : ' (CFO requis)'}</button>
+      <button class="btn sec" id="buyback" ${(cfo || S.float >= 0.5) && S.float >= 0.05 && S.cash >= 0.05 * raw * S.prem ? '' : 'disabled'}>Racheter 5 % du capital · ${money(0.05 * raw * (S.prem || 1.1))}${cfo || S.float >= 0.5 ? '' : ' (CFO requis)'}</button>
+      <button class="btn sec" id="raise" style="margin-top:6px" ${hq && S.float < 0.8 ? '' : 'disabled'}>Augmentation de capital · émettre 10 % : lève ${money(raiseAmt(raw))}, ta part passe de ${Math.round((1 - S.float) * 100)} % à ${Math.round((1 - S.float) * 90)} %</button>
+      <p class="note">Une levée dilue tous les actionnaires, toi compris, et pèse sur le cours. Au-delà de 50 % de flottant, un rival peut tenter une prise de contrôle hostile.${S.float >= 0.5 ? ' <b class="neg">Tu es sous la barre des 50 % : rachète des actions.</b>' : ''}</p>
       <h3 style="margin-top:12px">ÉVÉNEMENTS BOURSIERS</h3>${Object.keys(IR_EVENTS).map(k => { const E = IR_EVENTS[k], cd = Math.max(0, ((S.irCd || {})[k] || 0) - S.day); return `<div class="rv"><span><b>${E.n}</b><small>${E.d}</small></span><button class="btn sec" data-ir="${k}" ${ir && !cd && S.cash >= E.cost ? '' : 'disabled'}>${ir ? (cd ? cd + ' j' : money(E.cost)) : 'IR requis'}</button></div>`; }).join('')}`;
     if (!document.activeElement || document.activeElement.id !== 'payout') { if (el('bourse').dataset.h !== bh) { el('bourse').innerHTML = bh; el('bourse').dataset.h = bh; } }
     if (listed && el('spk')) drawSeries(el('spk'), S.sp || [], '#46d39a', true);
     const lim = creditLimit();
     { const bkEl = el('bankbox'); if (bkEl) { let bh = ''; if (casteIs('banquier')) { const b = bkInit(), L = BK_LVL[b.lvl], nxt = BK_LVL[b.lvl + 1]; bh = `<div class="fcard" style="border:1px solid ${CASTES.banquier.col}"><h4>Ma banque · ${L.n}</h4><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Ressources propres</small><b>${money(b.res)}</b></div><div><small>Tradable (20 %)</small><b>${money(b.res * 0.2)}</b></div><div><small>Exigence fonds propres</small><b>${Math.round(L.ratio * 100)} %</b></div><div><small>Levier</small><b>×${Math.round(1 / L.ratio)}</b></div><div><small>Crédits octroyés</small><b>${money(b.loans)}</b></div><div><small>Intérêts / mois</small><b class="pos">+${mj(b.inc || 0)}</b></div><div><small>Capacité restante</small><b>${money(bkCap())}</b></div><div><small>Demande de crédit</small><b>${money(bkDemand())}</b></div></div><div class="seg2" style="margin-top:6px"><button class="btn" data-bk="lend">Prêter 1 M$</button><button class="btn sec" data-bk="lend5">Prêter 5 M$</button><button class="btn sec" data-bk="repay">Récupérer 1 M$</button></div>${nxt ? `<button class="btn sec" data-bk="up" style="margin-top:6px">Passer ${nxt.n} : fonds propres ${Math.round(nxt.ratio * 100)} % (requiert ${money(BK_REQ[b.lvl + 1])} de crédits)</button>` : ''}<small class="note">Les crédits rapportent taux + 3 % ; plus le levier est haut, plus les pertes sont élevées, surtout en récession. Ton portefeuille d'actions peut servir de collatéral pour emprunter (plafond d'emprunt +50 %).</small></div>`; } if (bkEl.dataset.h !== bh) { bkEl.innerHTML = bh; bkEl.dataset.h = bh; } } }
-    el('loanV').textContent = `Dette ${money(S.loan || 0)} · plafond ${money(lim)}`;
-    el('loanUp').disabled = (S.loan || 0) + 20000 > lim;
-    el('loanDn').disabled = !(S.loan > 0) || S.cash < 1000;
+    { const st = loanStep(), rate = (S.macro.rate + 0.02) * (execOn('cfo') ? 0.75 : 1) * TM.interest, ca = curAssetsCL();
+      el('loanV').textContent = `Dette ${money(S.loan || 0)} · plafond ${money(lim)}`;
+      el('loanUp').textContent = 'Emprunter ' + money(st); el('loanDn').textContent = 'Rembourser ' + money(st);
+      el('loanUp').disabled = (S.loan || 0) + st > lim;
+      el('loanDn').disabled = !(S.loan > 0) || S.cash < Math.min(st, S.loan || 0);
+      el('loanNote').textContent = `Plafond = 100 % des actifs courants (${money(ca)} : trésorerie propre + stocks). Taux ${(rate * 100).toFixed(1).replace('.', ',')} % · intérêts ${mj((S.loan || 0) * rate / 360)}/mois. Le principal n'est jamais exigible, et l'inflation l'érode : ta dette vaut ${money((S.loan || 0) / cpi())} en dollars d'origine.`; }
     { const pp = (S.pol && S.pol.price) || 0; if (document.activeElement !== el('polPrice')) el('polPrice').value = -pp; el('polPriceV').textContent = POL_N[String(pp)] || 'Équilibré'; el('polNote').textContent = pp > 0 ? 'Prix plus bas : plus de clients, marges plus fines.' : pp < 0 ? 'Prix plus hauts : meilleure marge, moins de clients.' : 'Prix du marché sur tes magasins.'; el('polAlert').textContent = 'Alertes de stock bas : ' + (S.pol && S.pol.noAlert ? 'non' : 'oui'); el('polAlert').setAttribute('aria-pressed', S.pol && S.pol.noAlert ? 'false' : 'true');
       [['polNoLoss', 'noLoss', 'Ne jamais vendre sous le coût', 0], ['polSeek', 'seek', 'Chercher de meilleurs fournisseurs', 0], ['polInfP', 'noInfP', 'Prix selon l\'inflation', 1], ['polInfA', 'noInfA', 'Publicité selon l\'inflation', 1]].forEach(([id, k, lab, inv]) => { const on = inv ? !polOn(k) : polOn(k); el(id).textContent = lab + ' : ' + (on ? 'oui' : 'non'); el(id).setAttribute('aria-pressed', on ? 'true' : 'false'); });
       if (document.activeElement !== el('polFr')) el('polFr').value = Math.round(polFr() * 100); el('polFrV').textContent = Math.round(polFr() * 100) + ' %'; if (document.activeElement !== el('polTol')) el('polTol').value = polTol(); el('polTolV').textContent = polTol() + ' jour' + (polTol() > 1 ? 's' : '');
@@ -3111,7 +3125,8 @@ el('bourse').addEventListener('click', e => {
   if (e.target.id === 'openhq') { const h = hqOf(); if (h) openBuilding(h.x, h.y); return; }
   const irb = e.target.closest && e.target.closest('[data-ir]'); if (irb && !irb.disabled) { irEvent(irb.dataset.ir); return; }
   if (e.target.id === 'ipo' && !(S.float > 0) && raw >= IPO_MIN && hqOf()) { const f = 0.3, prem = 1.1, post = raw / (1 - f * prem); S.cash += post - raw; S.float = f; S.prem = prem; S.sp = []; say(`Introduction en bourse réussie : ${money(post - raw)} levés pour 30 % du capital.`, 'gold'); refreshStats(); updateHUD(); save(); }
-  if (e.target.id === 'buyback' && S.float >= 0.05 && execOn('cfo')) { const c = 0.05 * raw * (S.prem || 1.1); if (S.cash >= c) { S.cash -= c; S.float = Math.max(0, S.float - 0.05); if (S.float < 0.001) { S.float = 0; S.sp = []; } say(`Rachat de 5 % du capital pour ${money(c)}.`, 'info'); refreshStats(); updateHUD(); save(); } }
+  if (e.target.id === 'raise' && S.float > 0 && S.float < 0.8 && hqOf()) { const f = 0.1, amt = raiseAmt(raw), old = (1 - S.float) * 100; S.cash += amt; S.float = S.float * (1 - f) + f; S.prem = Math.max(0.6, (S.prem || 1.1) * 0.97); S.pb = (S.pb || 0) - 0.03; say(`Augmentation de capital : ${money(amt)} levés. Ta part passe de ${Math.round(old)} % à ${Math.round((1 - S.float) * 100)} %.`, 'info'); refreshStats(); updateHUD(); save(); }
+  if (e.target.id === 'buyback' && S.float >= 0.05 && (execOn('cfo') || S.float >= 0.5)) { const c = 0.05 * raw * (S.prem || 1.1); if (S.cash >= c) { S.cash -= c; S.float = Math.max(0, S.float - 0.05); if (S.float < 0.001) { S.float = 0; S.sp = []; } say(`Rachat de 5 % du capital pour ${money(c)}.`, 'info'); refreshStats(); updateHUD(); save(); } }
 });
 el('bourse').addEventListener('input', e => { if (e.target.id === 'payout') { S.payout = +e.target.value / 100; e.target.nextElementSibling.textContent = e.target.value + ' %'; } });
 /* ---------- Guide du fabricant ---------- */
@@ -3526,9 +3541,13 @@ el('polAlert').onclick = () => { S.pol = S.pol || {}; S.pol.noAlert = !S.pol.noA
 el('polAdjNow').onclick = () => { adjustInfl(); say('Prix de rayon et budgets publicitaires réalignés sur l\'inflation.', 'info'); updateHUD(); save(); };
 el('polFr').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.fr = +e.target.value / 100; updateHUD(); });
 el('polTol').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.tol = +e.target.value; updateHUD(); });
-function creditLimit() { return Math.max(0, (casteIs('banquier') ? Math.round(0.5 * portValue() / 1000) * 1000 : 0) + Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.5 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
-el('loanUp').onclick = () => { if ((S.loan || 0) + 20000 <= creditLimit()) { S.loan = (S.loan || 0) + 20000; S.cash += 20000; say('Emprunt de 20 000 $ (intérêts 0,06 %/jour).', 'info'); updateHUD(); save(); } };
-el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, 20000, Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
+const LOAN_STEPS = [20000, 50000, 100000, 250000, 500000, 1e6, 2.5e6, 5e6, 1e7, 2.5e7, 5e7, 1e8];
+function loanStep() { const lim = creditLimit(), t = lim / 12; let st = LOAN_STEPS[0]; LOAN_STEPS.forEach(v => { if (v <= t) st = v; }); return st; }
+const curAssetsCL = () => Math.max(0, S.cash - (S.loan || 0)) + stockValue();   // actifs courants : trésorerie propre + stocks
+function creditLimit() { return Math.max(Math.round(curAssetsCL() * (casteIs('banquier') ? 1.5 : 1) * (execOn('cfo') ? 1.2 : 1) / 1000) * 1000, creditLimit0()); }
+function creditLimit0() { return Math.max(0, (casteIs('banquier') ? Math.round(0.5 * portValue() / 1000) * 1000 : 0) + Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.5 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
+el('loanUp').onclick = () => { const st = loanStep(); if ((S.loan || 0) + st <= creditLimit()) { S.loan = (S.loan || 0) + st; S.cash += st; say(`Emprunt de ${money(st)} (taux ${(100 * ((S.macro.rate + 0.02) * (execOn('cfo') ? 0.75 : 1) * TM.interest)).toFixed(1).replace('.', ',')} % par an, aucun remboursement obligatoire).`, 'info'); updateHUD(); save(); } };
+el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, loanStep(), Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
 function setBar(id, v) {
   const e = el(id);
   e.className = v < 0 ? 'n' : '';
