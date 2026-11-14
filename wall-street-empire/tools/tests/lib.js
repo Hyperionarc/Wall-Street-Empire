@@ -74,10 +74,10 @@ async function bench(setupSrc, warm, meas, opts = {}) {
 }
 
 // Économie isolée d'une usine : intrants au prix de base (stock local), prix figés, sortie vidée chaque jour, macro figée.
-async function isoFactory(key) {
+async function isoFactory(key, preSrc) {   // preSrc : code optionnel (W, S) qui crée le produit à mesurer (produit composé) et renvoie sa clé
   const pg = await newPage({ wait: 500 }); await setup(pg, { cash: 5e10 });
-  const r = await pg.evaluate((key) => {
-    const W = window.WSE, S = W.S, N = W.N; const m = S.macro; m.boom = 0; m.phase = Math.PI; m.gdp = 0.03; m.infl = 0.02; m.rate = 0.04;
+  const r = await pg.evaluate(({ key, preSrc }) => {
+    const W = window.WSE, S = W.S, N = W.N; if (preSrc) key = new Function('W', 'S', preSrc)(W, S); const m = S.macro; m.boom = 0; m.phase = Math.PI; m.gdp = 0.03; m.infl = 0.02; m.rate = 0.04;
     const put = (k, x0, x1, y0, y1) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (!W.footprintError(x, y, k) && W.place(x, y, k)) { try { W.autoConnect(x, y); } catch (e) {} return S.grid[y * N + x]; } };
     const isP = !!W.PRODUCTS[key]; const rec = isP ? W.PRODUCTS[key] : W.RECIPES[key]; const fk = ['', 'f1', 'f2', 'f3', 'f4'][rec.lvl];
     const f = put(fk, 66, 84, 54, 84); put('port', 66, 84, 54, 84); for (let i = 0; i < 10; i++) put('res', 14, 44, 14, 44); put('s2', 14, 44, 14, 44);
@@ -87,11 +87,11 @@ async function isoFactory(key) {
     for (let i = 0; i < 20; i++) { pre(); W.step(); }
     const A = { pRev: 0, cogs: 0, wag: 0, upk: 0, tr: 0, out: 0, util: 0 }, D = 40;
     for (let i = 0; i < D; i++) { pre(); W.step(); A.pRev += f.pRev || 0; A.cogs += f.inCost || 0; A.wag += f.wages || 0; A.upk += f.upk || 0; A.tr += f.transport || 0; A.out += f.out || 0; A.util += f.util || 0; }
-    Object.keys(A).forEach(k => A[k] /= D); A.fk = fk; return A;
-  }, key);
+    Object.keys(A).forEach(k => A[k] /= D); A.fk = fk; A.key = key; return A;
+  }, { key, preSrc });
   const errs = pg.errs; await pg.context().close();
   const eb = r.pRev - r.cogs - r.wag - r.upk - r.tr;
-  return { key, fk: r.fk, ca: r.pRev, out: r.out, gm: r.pRev > 0 ? (r.pRev - r.cogs) / r.pRev : NaN, eb: r.pRev > 0 ? eb / r.pRev : NaN, util: r.util, errs };
+  return { key: r.key, fk: r.fk, ca: r.pRev, out: r.out, gm: r.pRev > 0 ? (r.pRev - r.cogs) / r.pRev : NaN, eb: r.pRev > 0 ? eb / r.pRev : NaN, util: r.util, errs };
 }
 // Extracteur sur le gisement le plus proche du port (rank near) ou médian.
 async function isoExtractor(key, dep, rank = 'near') {

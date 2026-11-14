@@ -374,6 +374,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 #cview .clist{overflow-y:auto;border-right:1px solid var(--line);padding:6px;min-height:0}
 #cview .cdet{overflow-y:auto;padding:12px;min-height:0}
 @media (max-width:720px){#cview .cbody{grid-template-columns:1fr;grid-template-rows:38% 1fr}#cview .clist{border-right:0;border-bottom:1px solid var(--line)}}
+.cmm{display:flex;align-items:center;gap:8px;border-radius:10px;padding:4px 10px 4px 4px;text-align:left}.cmm .cmth{width:38px;height:38px;border-radius:8px;overflow:hidden;flex:0 0 38px}.cmm .cmth svg{width:100%;height:100%;display:block}.cmm b{font-size:12px;display:block}.cmm small{display:block;font-size:10px;color:var(--mut);font-weight:400}.cmg.no{opacity:.65}.cmsw{width:26px;height:26px;min-height:0;border-radius:50%;border:2px solid var(--line);padding:0}.cmsw[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 0 2px rgba(242,184,75,.35)}
 .cfilters{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 6px}
 .cfilters button{min-height:28px;padding:2px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:11.5px}
 .cfilters button[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
@@ -1052,6 +1053,23 @@ const GOODS = {
   rpaint:  { name: 'Robot de peinture',    base: 80000, color: '#ff6b9a', grp: 'comp' },
   rasm:    { name: 'Robot d\'assemblage',  base: 90000, color: '#6fe3c1', grp: 'comp' },
   r6:      { name: 'Robot 6 axes',         base: 110000, color: '#7aa8ff', grp: 'comp' },
+  paper   : { name: 'Papier et carton', base: 20, color: '#e8e2cf', grp: 'comp' },
+  milk    : { name: 'Lait', base: 20, color: '#f4f6fa', grp: 'comp' },
+  meat    : { name: 'Viandes', base: 20, color: '#d9605a', grp: 'comp' },
+  spirit  : { name: 'Alcools et ferments', base: 20, color: '#d9a05a', grp: 'comp' },
+  ceramic : { name: 'Céramique', base: 20, color: '#e0d3c0', grp: 'comp' },
+  hardware: { name: 'Fermetures et quincaillerie', base: 20, color: '#aab3c7', grp: 'comp' },
+  case    : { name: 'Boîtiers et coques', base: 20, color: '#6f7a9a', grp: 'comp' },
+  foam    : { name: 'Mousse et rembourrage', base: 20, color: '#f3e6a0', grp: 'comp' },
+  paint   : { name: 'Peintures et vernis', base: 20, color: '#ff8f6b', grp: 'comp' },
+  rubberp : { name: 'Pièces en caoutchouc', base: 20, color: '#5a5668', grp: 'comp' },
+  leather : { name: 'Cuir', base: 20, color: '#a8693a', grp: 'comp' },
+  tfabric : { name: 'Textiles techniques', base: 20, color: '#5fd0c0', grp: 'comp' },
+  led     : { name: 'Éclairage LED', base: 20, color: '#fff08a', grp: 'comp' },
+  engine  : { name: 'Moteurs thermiques', base: 20, color: '#ff7a5c', grp: 'comp' },
+  chassis : { name: 'Châssis et carrosserie', base: 20, color: '#7f8fb8', grp: 'comp' },
+  sensor  : { name: 'Capteurs et optiques', base: 20, color: '#8f7fff', grp: 'comp' },
+  pv      : { name: 'Cellules photovoltaïques', base: 20, color: '#3a63c9', grp: 'comp' },
   basic:   { name: 'Biens de base',        base: 18,  color: '#46d39a', grp: 'goods' },
   std:     { name: 'Biens manufacturés',   base: 45,  color: '#7f96ff', grp: 'goods' },
   lux:     { name: 'Produits de luxe',     base: 140, color: '#ff4fa3', grp: 'goods' }
@@ -1150,7 +1168,25 @@ const RECIPES = {
   rweld:   { name: 'Robot de soudure',     lvl: 2, in: { steel: 3, motor: 1, circuit: 0.5, wire: 2, battery: 0.5 }, out: 0.01 },
   rpaint:  { name: 'Robot de peinture',    lvl: 2, in: { steel: 2, motor: 1, circuit: 0.5, chem: 1.5, wire: 1 },    out: 0.01 },
   rasm:    { name: 'Robot d\'assemblage',  lvl: 3, in: { steel: 2, motor: 2, circuit: 2, wire: 2, plastic: 1 },      out: 0.01 },
-  r6:      { name: 'Robot 6 axes',         lvl: 3, in: { steel: 3, motor: 2, circuit: 1, battery: 0.5, wire: 2 },  out: 0.01 }
+  r6:      { name: 'Robot 6 axes',         lvl: 3, in: { steel: 3, motor: 2, circuit: 1, battery: 0.5, wire: 2 },  out: 0.01 },
+  // Passe 25 : intermédiaires de l'élevage, du papier, de la quincaillerie, du cuir, de l'automobile et de l'optique (l'ordre respecte les dépendances)
+  paper:   { name: 'Papier et carton',     lvl: 1, in: { wood: 3 },                         out: 5 },
+  milk:    { name: 'Lait',                 lvl: 1, in: { wheat: 4 },                        out: 4 },
+  meat:    { name: 'Viandes',              lvl: 1, in: { wheat: 5 },                        out: 3 },
+  spirit:  { name: 'Alcools et ferments',  lvl: 2, in: { sugar: 4, wheat: 1 },              out: 3 },
+  ceramic: { name: 'Céramique',            lvl: 1, in: { sand: 3, limestone: 1, coal: 1 },  out: 4 },
+  hardware: { name: 'Fermetures et quincaillerie', lvl: 1, in: { steel: 2, plastic: 1 },   out: 6 },
+  case:    { name: 'Boîtiers et coques',   lvl: 1, in: { plastic: 2, steel: 1 },           out: 4 },
+  foam:    { name: 'Mousse et rembourrage', lvl: 1, in: { chem: 2, plastic: 1 },           out: 5 },
+  paint:   { name: 'Peintures et vernis',  lvl: 1, in: { chem: 2, limestone: 1 },           out: 4 },
+  rubberp: { name: 'Pièces en caoutchouc', lvl: 1, in: { rubber: 3, chem: 1 },             out: 3 },
+  leather: { name: 'Cuir',                 lvl: 2, in: { wheat: 4, chem: 1 },               out: 2 },
+  tfabric: { name: 'Textiles techniques',  lvl: 2, in: { fabric: 2, plastic: 2 },           out: 3 },
+  led:     { name: 'Éclairage LED',        lvl: 2, in: { glass: 2, wire: 1, silicon: 0.5 }, out: 4 },
+  engine:  { name: 'Moteurs thermiques',   lvl: 2, in: { steel: 3, wire: 1, oil: 1 },       out: 2 },
+  chassis: { name: 'Châssis et carrosserie', lvl: 2, in: { steel: 5, paint: 1 },           out: 2 },
+  sensor:  { name: 'Capteurs et optiques', lvl: 3, in: { glass: 2, silicon: 1, plastic: 1 }, out: 3 },
+  pv:      { name: 'Cellules photovoltaïques', lvl: 3, in: { silicon: 2, glass: 1, wire: 0.5 }, out: 2 }
 };
 const RKEYS = Object.keys(RECIPES);
 const FLEVEL = { f1: 1, f2: 2, f3: 3, f4: 4 };   // f4 (méga-usine) : toutes les recettes de la grande usine + l'électronique grand public de masse, capacité ×3
@@ -1196,7 +1232,64 @@ const PRODUCTS = {
   laptop:   { name: 'Ordinateur portable',   cls: 'lux',   lvl: 4, in: { screen: 2, circuit: 4, battery: 2, plastic: 3, steel: 1 }, out: 3, ref: 1100, rnd: 70000, days: 26, tier: 3, free: 1, desc: 'Ordinateur portable : écran, carte mère, batterie et châssis.' },
   console:  { name: 'Console de jeux',       cls: 'lux',   lvl: 4, in: { circuit: 3, plastic: 4, wire: 1, steel: 0.5 }, out: 4, ref: 520, rnd: 65000, days: 28, tier: 3, free: 1, desc: 'Console de salon : cartes électroniques de calcul, boîtier plastique.' }
 };
+// ===== Passe 25 : extension de l'arbre (45 produits finis), même format que ci-dessus. pkg : emballage fourni d'office (pot, bouteille, barquette)
+const P25 = {
+  // Alimentation et boissons
+  yogurt:   { name: 'Yaourts',                 cls: 'basic', lvl: 1, in: { milk: 2, sugar: 0.5 },                  out: 8,  ref: 6,   rnd: 1100,  days: 4,  tier: 0, free: 1, pkg: 1, desc: 'Pots de yaourt sucré : du lait, du sucre et un emballage. Un produit frais de toutes les semaines.' },
+  cheese:   { name: 'Fromages',                cls: 'basic', lvl: 1, in: { milk: 4, essence: 0.3 },                out: 8,  ref: 10,  rnd: 1500,  days: 6,  tier: 0, pkg: 1, desc: 'Fromages affinés : du lait et des ferments aromatiques.' },
+  pasta:    { name: 'Pâtes alimentaires',      cls: 'basic', lvl: 1, in: { flour: 3 },                              out: 9,  ref: 6,   rnd: 900,   days: 3,  tier: 0, free: 1, desc: 'Pâtes sèches en paquet : de la farine, rien de plus.' },
+  chocolate: { name: 'Chocolat',               cls: 'basic', lvl: 1, in: { sugar: 2, milk: 1.5, essence: 0.4 },    out: 8,  ref: 9,   rnd: 1400,  days: 5,  tier: 0, desc: 'Tablettes de chocolat au lait : sucre, lait et arômes.' },
+  readymeal: { name: 'Plats cuisinés',         cls: 'basic', lvl: 2, in: { meat: 2, flour: 2 },                    out: 6,  ref: 12,  rnd: 2400,  days: 7,  tier: 1, pkg: 1, desc: 'Barquettes de plats préparés : viande, féculents et emballage alimentaire.' },
+  soda:     { name: 'Sodas',                   cls: 'basic', lvl: 1, in: { sugar: 2.5, essence: 0.4 },              out: 10, ref: 5,   rnd: 1000,  days: 3,  tier: 0, pkg: 1, desc: 'Boissons gazeuses sucrées en bouteille.' },
+  beer:     { name: 'Bière',                   cls: 'basic', lvl: 1, in: { wheat: 3, sugar: 1 },                    out: 9,  ref: 6,   rnd: 1300,  days: 5,  tier: 0, pkg: 1, desc: 'Bière de grande consommation : céréales maltées et sucre de fermentation.' },
+  spirits:  { name: 'Spiritueux',              cls: 'std',   lvl: 2, in: { spirit: 4, glass: 2.5 },                 out: 6,  ref: 30,  rnd: 4200,  days: 10, tier: 1, desc: 'Eaux-de-vie et liqueurs en bouteille de verre.' },
+  whisky:   { name: 'Whisky de luxe',          cls: 'lux',   lvl: 3, in: { spirit: 6, plank: 2, glass: 3 },         out: 5,  ref: 90,  rnd: 22000, days: 20, tier: 2, desc: 'Single malt vieilli en fût de bois, vendu en carafe de cristal.' },
+  // Santé et beauté
+  vitamins: { name: 'Compléments alimentaires', cls: 'basic', lvl: 2, in: { api: 0.4, sugar: 1.5, plastic: 0.5 },    out: 12, ref: 8,   rnd: 6000,  days: 10, tier: 1, desc: 'Vitamines et minéraux en gélules : un peu de principe actif, du sucre et un flacon.' },
+  antibio:  { name: 'Antibiotiques',           cls: 'std',   lvl: 2, in: { api: 0.8, chem: 0.5, plastic: 0.4 },     out: 8,  ref: 40,  rnd: 40000, days: 60, tier: 1, pharma: 1, desc: 'Traitement antibactérien sur ordonnance : R&D réglementaire longue, marges élevées.' },
+  shampoo:  { name: 'Shampooings',             cls: 'basic', lvl: 1, in: { chem: 2, essence: 0.5, plastic: 0.5 },   out: 8,  ref: 8,   rnd: 1500,  days: 4,  tier: 0, free: 1, desc: 'Flacons de shampooing parfumé pour toute la famille.' },
+  toothpaste: { name: 'Dentifrice',            cls: 'basic', lvl: 1, in: { chem: 2, essence: 0.5 },                 out: 10, ref: 5,   rnd: 1200,  days: 4,  tier: 0, free: 1, desc: 'Tubes de dentifrice à la menthe.' },
+  makeup:   { name: 'Maquillage',              cls: 'std',   lvl: 2, in: { essence: 2, chem: 1, glass: 1 },         out: 8,  ref: 25,  rnd: 4500,  days: 10, tier: 1, desc: 'Rouges à lèvres et fonds de teint en flacons de verre.' },
+  hygiene:  { name: 'Couches et hygiène',      cls: 'basic', lvl: 1, in: { fabric: 1.5, plastic: 1, chem: 0.3 },    out: 12, ref: 5,   rnd: 1300,  days: 4,  tier: 0, desc: 'Couches, lingettes et protections : ouate, film plastique et absorbant.' },
+  // Mode
+  jacket:   { name: 'Vestes',                  cls: 'std',   lvl: 2, in: { fabric: 3, leather: 1.5, hardware: 0.5 }, out: 4, ref: 90,  rnd: 4500,  days: 10, tier: 1, desc: 'Vestes en tissu et cuir avec fermeture à glissière : le grand classique de la mi-saison.' },
+  leathershoes: { name: 'Chaussures en cuir',  cls: 'std',   lvl: 2, in: { leather: 2, rubberp: 1 },                out: 4,  ref: 90,  rnd: 4800,  days: 10, tier: 1, desc: 'Chaussures de ville : tige en cuir, semelle en caoutchouc.' },
+  dress:    { name: 'Robes',                   cls: 'std',   lvl: 2, in: { fabric: 5, hardware: 0.3 },              out: 4,  ref: 70,  rnd: 4200,  days: 9,  tier: 1, desc: 'Robes en tissu léger avec fermeture.' },
+  socks:    { name: 'Chaussettes et sous-vêtements', cls: 'basic', lvl: 1, in: { fabric: 3, rubberp: 0.3 },          out: 14, ref: 6,   rnd: 1000,  days: 3,  tier: 0, free: 1, desc: 'Chaussettes et basiques en coton élastique : un achat très régulier.' },
+  bag:      { name: 'Sacs en cuir',            cls: 'std',   lvl: 2, in: { leather: 2.5, hardware: 0.6 },           out: 4,  ref: 90,  rnd: 4800,  days: 10, tier: 1, desc: 'Sacs à main et besaces en cuir, avec fermoirs métalliques.' },
+  couture:  { name: 'Haute couture',           cls: 'lux',   lvl: 3, in: { fabric: 4, leather: 1, ingot: 0.2 },     out: 2,  ref: 900, rnd: 28000, days: 24, tier: 2, desc: 'Pièces de défilé : étoffes précieuses, cuir et broderies d\'or.' },
+  // Électronique et électroménager
+  camera:   { name: 'Appareils photo',         cls: 'lux',   lvl: 3, in: { sensor: 4, case: 1.5, battery: 2 },      out: 3,  ref: 400, rnd: 24000, days: 18, tier: 2, desc: 'Appareil photo numérique : capteur optique, boîtier et batterie.' },
+  smartwatch: { name: 'Montres connectées',    cls: 'lux',   lvl: 3, in: { screen: 1, circuit: 1, battery: 1 },     out: 4,  ref: 250, rnd: 22000, days: 18, tier: 2, desc: 'Montre intelligente : petit écran, carte électronique et batterie.' },
+  headphones: { name: 'Casques audio',         cls: 'std',   lvl: 2, in: { circuit: 0.8, case: 1.5, battery: 0.8 }, out: 5,  ref: 70,  rnd: 6500,  days: 12, tier: 1, desc: 'Casques sans fil : carte, coque et batterie.' },
+  microwave: { name: 'Fours micro-ondes',      cls: 'std',   lvl: 2, in: { steel: 3, circuit: 0.8, wire: 1 },       out: 3,  ref: 120, rnd: 6000,  days: 12, tier: 1, desc: 'Four micro-ondes : caisson en acier, carte de commande et câblage.' },
+  vacuum:   { name: 'Aspirateurs',             cls: 'std',   lvl: 2, in: { motor: 1.5, case: 2, wire: 0.5 },        out: 4,  ref: 100, rnd: 5500,  days: 11, tier: 1, desc: 'Aspirateurs traîneaux : moteur, coque plastique et câble.' },
+  lamp:     { name: 'Luminaires LED',          cls: 'basic', lvl: 1, in: { led: 2, case: 1 },                       out: 8,  ref: 9,   rnd: 2000,  days: 5,  tier: 0, desc: 'Lampes et ampoules LED à faible consommation.' },
+  desktop:  { name: 'Ordinateurs de bureau',   cls: 'lux',   lvl: 3, in: { circuit: 3, screen: 1, case: 2 },        out: 3,  ref: 700, rnd: 40000, days: 22, tier: 2, desc: 'Tour et écran : carte mère, dalle et boîtier. Les portables le remplacent peu à peu.' },
+  solarpanel: { name: 'Panneaux solaires',     cls: 'std',   lvl: 3, in: { pv: 3, steel: 1, wire: 0.5 },            out: 4,  ref: 180, rnd: 22000, days: 20, tier: 2, desc: 'Panneaux photovoltaïques en cadre d\'acier pour toitures et fermes solaires.' },
+  // Maison et meubles
+  sofa:     { name: 'Canapés',                 cls: 'std',   lvl: 2, in: { foam: 3, fabric: 3, plank: 2 },          out: 3,  ref: 160, rnd: 5200,  days: 11, tier: 1, desc: 'Canapés rembourrés : structure en bois, mousse et tissu d\'ameublement.' },
+  table:    { name: 'Tables',                  cls: 'basic', lvl: 1, in: { plank: 6, hardware: 0.5 },               out: 5,  ref: 40,  rnd: 1800,  days: 6,  tier: 0, desc: 'Tables en bois massif avec visserie.' },
+  wardrobe: { name: 'Armoires',                cls: 'std',   lvl: 2, in: { plank: 8, hardware: 1, paint: 0.5 },     out: 3,  ref: 190, rnd: 5000,  days: 11, tier: 1, desc: 'Armoires laquées à portes battantes.' },
+  tableware: { name: 'Vaisselle en céramique', cls: 'basic', lvl: 1, in: { ceramic: 4 },                            out: 8,  ref: 8,   rnd: 1200,  days: 4,  tier: 0, free: 1, desc: 'Assiettes, bols et tasses en céramique.' },
+  books:    { name: 'Livres et cahiers',       cls: 'basic', lvl: 1, in: { paper: 4, chem: 0.4 },                   out: 10, ref: 6,   rnd: 1100,  days: 4,  tier: 0, desc: 'Livres de poche, cahiers et fournitures : du papier et de l\'encre.' },
+  // Sport et loisirs, jouets
+  sportswear: { name: 'Vêtements de sport',    cls: 'std',   lvl: 2, in: { tfabric: 3, hardware: 0.2 },             out: 5,  ref: 40,  rnd: 4000,  days: 9,  tier: 1, desc: 'Vêtements techniques respirants pour courir et s\'entraîner.' },
+  tent:     { name: 'Tentes et camping',       cls: 'std',   lvl: 2, in: { tfabric: 4, steel: 1 },                  out: 3,  ref: 110, rnd: 4300,  days: 10, tier: 1, desc: 'Tentes imperméables sur arceaux d\'acier.' },
+  ebike:    { name: 'Vélos électriques',       cls: 'std',   lvl: 2, in: { steel: 4, motor: 1, battery: 1 },        out: 4,  ref: 150, rnd: 8000,  days: 14, tier: 2, desc: 'Vélo à assistance électrique : cadre acier, moteur et batterie.' },
+  dolls:    { name: 'Poupées et peluches',     cls: 'basic', lvl: 1, in: { fabric: 2, plastic: 2 },                 out: 8,  ref: 10,  rnd: 1300,  days: 4,  tier: 0, desc: 'Peluches en tissu et poupées en plastique.' },
+  etoys:    { name: 'Jouets électroniques',    cls: 'std',   lvl: 2, in: { plastic: 3, circuit: 0.3, battery: 0.6 }, out: 6, ref: 30,  rnd: 3800,  days: 9,  tier: 1, desc: 'Robots et jouets à piles : plastique, carte et batterie.' },
+  // Auto et mobilité, outils, animaux
+  car:      { name: 'Voitures',                cls: 'lux',   lvl: 3, in: { engine: 3, chassis: 4, tire: 4 },        out: 1,  ref: 900, rnd: 90000, days: 30, tier: 3, desc: 'Voiture de série : groupe motopropulseur, châssis et pneus. Un produit lourd et cher.' },
+  scooter:  { name: 'Scooters',                cls: 'std',   lvl: 2, in: { engine: 0.5, chassis: 0.8, tire: 1 },    out: 3,  ref: 180, rnd: 9000,  days: 14, tier: 2, desc: 'Deux-roues urbain : petit moteur thermique, carrosserie et pneus.' },
+  lube:     { name: 'Lubrifiants et carburants', cls: 'basic', lvl: 1, in: { oil: 3, chem: 1 },                    out: 10, ref: 9,   rnd: 1100,  days: 4,  tier: 0, pkg: 1, desc: 'Bidons d\'huile moteur et additifs pour automobilistes.' },
+  handtools: { name: 'Outillage à main',       cls: 'std',   lvl: 1, in: { steel: 4, plank: 1.5 },                  out: 6,  ref: 20,  rnd: 2000,  days: 6,  tier: 0, free: 1, desc: 'Marteaux, tournevis et clés : acier trempé et manches en bois.' },
+  powertools: { name: 'Outillage électroportatif', cls: 'std', lvl: 2, in: { motor: 0.8, battery: 0.8, case: 1.5 }, out: 4,  ref: 100, rnd: 5600,  days: 11, tier: 1, desc: 'Perceuses et visseuses sans fil : moteur, batterie et carter.' },
+  petfood:  { name: 'Aliments pour animaux',   cls: 'basic', lvl: 1, in: { meat: 2, flour: 2 },                     out: 10, ref: 6,   rnd: 1100,  days: 4,  tier: 0, desc: 'Croquettes et pâtées pour chiens et chats.' }
+};
+Object.assign(PRODUCTS, P25);
 const PKEYS = Object.keys(PRODUCTS);
+const LEGACY_P = new Set(PKEYS.filter(k => !P25[k]));   // les 35 produits d'origine : référence du poids de demande (typeW) pour ne rien changer à leur équilibre
 // Gammes : qualité, intrants, R&D, prix de référence
 const QTIER = [
   { n: 'Premier prix',  q: 35, inMult: 0.8,  rnd: 0.6, ref: 0.75, tag: 'Simple et économique' },
@@ -1236,6 +1329,68 @@ const PROD_TECH = {
   headache: [['insilico', 60], ['auto', 25], ['wms', 15]], cough: [['insilico', 60], ['auto', 25], ['wms', 15]], obesity: [['insilico', 60], ['auto', 25], ['wms', 15]]
 };
 const TECH_SHARE = { phone: 80, tv: 70, obesity: 70, headache: 50, cough: 50, washer: 50, tyres: 35, watch: 30, bike: 25, sneakers: 25, mattress: 20, bed: 15, jeans: 15, utensils: 15, toys: 15, house_wood: 15, house_concrete: 15, bread: 10, biscuits: 10, tshirt: 10, woodtoys: 10, chair: 10, candy: 5 };
+// ===== Passe 25 : tables du modèle produit pour les 45 nouveaux produits (poids prix/qualité/marque, nécessité, demande par habitant, succession, technologies)
+Object.assign(PROD_W, {
+  yogurt: [40, 25, 35], cheese: [35, 30, 35], pasta: [50, 25, 25], chocolate: [25, 25, 50], readymeal: [35, 35, 30], soda: [30, 15, 55], beer: [30, 20, 50], spirits: [25, 30, 45], whisky: [10, 30, 60],
+  vitamins: [30, 30, 40], antibio: [30, 25, 45], shampoo: [35, 25, 40], toothpaste: [35, 25, 40], makeup: [20, 30, 50], hygiene: [45, 30, 25],
+  jacket: [30, 30, 40], leathershoes: [25, 35, 40], dress: [25, 30, 45], socks: [50, 25, 25], bag: [20, 30, 50], couture: [5, 25, 70],
+  camera: [20, 45, 35], smartwatch: [20, 35, 45], headphones: [25, 35, 40], microwave: [35, 40, 25], vacuum: [35, 40, 25], lamp: [45, 30, 25], desktop: [30, 45, 25], solarpanel: [40, 45, 15],
+  sofa: [30, 45, 25], table: [40, 40, 20], wardrobe: [35, 45, 20], tableware: [45, 30, 25], books: [40, 30, 30],
+  sportswear: [25, 30, 45], tent: [35, 45, 20], ebike: [30, 40, 30], dolls: [35, 30, 35], etoys: [30, 30, 40],
+  car: [25, 40, 35], scooter: [30, 40, 30], lube: [45, 30, 25], handtools: [40, 40, 20], powertools: [30, 45, 25], petfood: [40, 30, 30]
+});
+Object.assign(NECESS, {
+  yogurt: 70, cheese: 55, pasta: 85, chocolate: 25, readymeal: 50, soda: 30, beer: 28, spirits: 12, whisky: 2, vitamins: 45, antibio: 78, shampoo: 60, toothpaste: 75, makeup: 18, hygiene: 80,
+  jacket: 35, leathershoes: 40, dress: 30, socks: 70, bag: 22, couture: 2, camera: 8, smartwatch: 10, headphones: 15, microwave: 40, vacuum: 40, lamp: 55, desktop: 20, solarpanel: 25,
+  sofa: 30, table: 55, wardrobe: 40, tableware: 60, books: 40, sportswear: 30, tent: 12, ebike: 20, dolls: 30, etoys: 22, car: 30, scooter: 25, lube: 45, handtools: 45, powertools: 20, petfood: 65
+});
+Object.assign(DEMAND_PC, {
+  yogurt: 1.0, cheese: 0.5, pasta: 0.8, chocolate: 0.5, readymeal: 0.4, soda: 1.0, beer: 0.7, spirits: 0.12, whisky: 0.02, vitamins: 0.3, antibio: 0.5, shampoo: 0.6, toothpaste: 0.6, makeup: 0.15, hygiene: 0.8,
+  jacket: 0.15, leathershoes: 0.2, dress: 0.2, socks: 0.8, bag: 0.1, couture: 0.01, camera: 0.05, smartwatch: 0.1, headphones: 0.15, microwave: 0.05, vacuum: 0.05, lamp: 0.4, desktop: 0.04, solarpanel: 0.03,
+  sofa: 0.04, table: 0.06, wardrobe: 0.04, tableware: 0.3, books: 0.5, sportswear: 0.25, tent: 0.04, ebike: 0.05, dolls: 0.2, etoys: 0.15, car: 0.01, scooter: 0.03, lube: 0.3, handtools: 0.15, powertools: 0.08, petfood: 0.5
+});
+Object.assign(MEGA_N, { appl: 'Électroménager', home: 'Maison et meubles', sport: 'Sport et loisirs', toys: 'Jouets', auto: 'Auto et mobilité', tools: 'Outils et bricolage' });
+Object.assign(MEGA_OF, {
+  yogurt: 'food', cheese: 'food', pasta: 'food', chocolate: 'food', readymeal: 'food', soda: 'food', beer: 'food', spirits: 'food', whisky: 'luxury',
+  vitamins: 'health', antibio: 'health', shampoo: 'health', toothpaste: 'health', makeup: 'health', hygiene: 'health',
+  jacket: 'fashion', leathershoes: 'fashion', dress: 'fashion', socks: 'fashion', bag: 'fashion', couture: 'luxury',
+  camera: 'elec', smartwatch: 'elec', headphones: 'elec', desktop: 'elec', microwave: 'appl', vacuum: 'appl',
+  sofa: 'home', table: 'home', wardrobe: 'home', tableware: 'home', sportswear: 'sport', tent: 'sport', ebike: 'sport', dolls: 'toys', etoys: 'toys',
+  car: 'auto', scooter: 'auto', lube: 'auto', handtools: 'tools', powertools: 'tools'
+});
+Object.assign(OBSO, {
+  yogurt: 0.01, cheese: 0.005, pasta: 0, chocolate: 0.02, readymeal: 0.03, soda: 0.03, beer: 0.02, spirits: 0.01, whisky: 0.005, vitamins: 0.02, antibio: 0.01, shampoo: 0.02, toothpaste: 0.01, makeup: 0.04, hygiene: 0.01,
+  jacket: 0.04, leathershoes: 0.03, dress: 0.05, socks: 0.02, bag: 0.04, couture: 0.02, camera: 0.07, smartwatch: 0.1, headphones: 0.07, microwave: 0.03, vacuum: 0.03, lamp: 0.03, desktop: 0.08, solarpanel: 0.04,
+  sofa: 0.02, table: 0.01, wardrobe: 0.01, tableware: 0.01, books: 0.03, sportswear: 0.05, tent: 0.02, ebike: 0.05, dolls: 0.03, etoys: 0.06, car: 0.02, scooter: 0.03, lube: 0.01, handtools: 0.01, powertools: 0.04, petfood: 0.01
+});
+SUCC.desktop = { by: 'laptop', keep: 0.5, at: 1080 };
+{
+  const AG = [['agri1', 40], ['agri2', 30], ['wms', 30]], TX = [['blast2', 40], ['auto', 35], ['lean', 25]], EL = [['auto', 40], ['insilico', 30], ['blast2', 30]], AP = [['blast2', 30], ['auto', 40], ['lean', 30]], WD = [['saw1', 45], ['blast2', 25], ['auto', 30]], MT = [['blast1', 35], ['blast2', 35], ['auto', 30]], HL = [['insilico', 40], ['auto', 30], ['wms', 30]];
+  const set = (tech, ts, ks) => ks.forEach(k => { PROD_TECH[k] = tech; TECH_SHARE[k] = ts[k] != null ? ts[k] : 15; });
+  set(AG, { yogurt: 8, cheese: 8, pasta: 8, chocolate: 8, readymeal: 10, soda: 8, beer: 8, spirits: 12, whisky: 15, petfood: 8 }, ['yogurt', 'cheese', 'pasta', 'chocolate', 'readymeal', 'soda', 'beer', 'spirits', 'whisky', 'petfood']);
+  set(HL, { vitamins: 25, shampoo: 15, toothpaste: 15, makeup: 20, hygiene: 12 }, ['vitamins', 'shampoo', 'toothpaste', 'makeup', 'hygiene']);
+  PROD_TECH.antibio = PROD_TECH.headache; TECH_SHARE.antibio = 50;
+  set(TX, { jacket: 12, leathershoes: 15, dress: 12, socks: 8, bag: 12, couture: 15, sportswear: 25, tent: 20 }, ['jacket', 'leathershoes', 'dress', 'socks', 'bag', 'couture', 'sportswear', 'tent']);
+  set(EL, { camera: 60, smartwatch: 65, headphones: 45, desktop: 60, solarpanel: 55 }, ['camera', 'smartwatch', 'headphones', 'desktop', 'solarpanel']);
+  set(AP, { microwave: 35, vacuum: 30, lamp: 30, etoys: 35, ebike: 30, car: 40, scooter: 30, powertools: 25 }, ['microwave', 'vacuum', 'lamp', 'etoys', 'ebike', 'car', 'scooter', 'powertools']);
+  set(WD, { sofa: 12, table: 10, wardrobe: 12, books: 8, tableware: 10, dolls: 12 }, ['sofa', 'table', 'wardrobe', 'books', 'tableware', 'dolls']);
+  set(MT, { handtools: 20, lube: 10 }, ['handtools', 'lube']);
+}
+// Familles d'affichage (catalogue, écran Produits) : purement visuel, ne change ni la demande ni la fidélité de marque
+const FAM = {
+  'Alimentation': ['bread', 'biscuits', 'candy', 'yogurt', 'cheese', 'pasta', 'chocolate', 'readymeal', 'petfood'], 'Boissons': ['soda', 'beer', 'spirits', 'whisky'],
+  'Santé et beauté': ['headache', 'cough', 'obesity', 'antibio', 'vitamins', 'soap', 'cream', 'shampoo', 'toothpaste', 'makeup', 'hygiene', 'perfume', 'skincare'],
+  'Mode': ['tshirt', 'jeans', 'sneakers', 'socks', 'dress', 'jacket', 'leathershoes', 'bag', 'handbag', 'couture', 'jewelry', 'watch'],
+  'Électronique': ['phone', 'tv', 'tablet', 'laptop', 'desktop', 'console', 'camera', 'smartwatch', 'headphones', 'lamp'],
+  'Électroménager': ['washer', 'fridge', 'blender', 'microwave', 'vacuum', 'solarpanel'],
+  'Maison et meubles': ['chair', 'table', 'bed', 'mattress', 'sofa', 'wardrobe', 'utensils', 'glassware', 'tableware', 'books'],
+  'Jouets et sport': ['toys', 'woodtoys', 'dolls', 'etoys', 'bike', 'ebike', 'sportswear', 'tent'],
+  'Auto et outils': ['tyres', 'car', 'scooter', 'lube', 'handtools', 'powertools'],
+  'Immobilier': ['house_wood', 'house_concrete']
+};
+const FAM_OF = {}; Object.keys(FAM).forEach(f => FAM[f].forEach(k => { FAM_OF[k] = f; }));
+const famOf = pk => PRODUCTS[pk] && PRODUCTS[pk].custom ? 'Tes créations' : FAM_OF[pk] || 'Autres';
+const FAM_ORDER = Object.keys(FAM).concat(['Tes créations']);
 // Coût d'extraction en part du prix de vente (1-99 %) : 1 − RES_COST = EBITDA visé. Plus haut pour l'or (rare, transformable en bien de consommation),
 // plus bas pour le fer (nombreuses étapes de transformation en aval) ; pétrole : marge de major (15-20 %).
 const RES_COST = { oil: 0.82, coal: 0.73, iron: 0.45, copper: 0.55, gold: 0.52, wood: 0.78, gravel: 0.73, sand: 0.73, limestone: 0.73, wheat: 0.80, sugar: 0.80, cotton: 0.80, rubber: 0.78 };
@@ -1306,7 +1461,7 @@ function elF(cls, p, d, sole, nec) {
 function trackPk(c, key) { const p = (c.pk && c.pk[key]) || 1; c.pkd = c.pkd || {}; const o = c.pkd[key]; if (!o) c.pkd[key] = { p, d: 99 }; else if (Math.abs(o.p - p) > 1e-3) { o.p = p; o.d = 0; } else o.d++; return c.pkd[key]; }
 const EL_RAW = { oil: 0.5, coal: 0.7, iron: 0.8, copper: 0.9, gold: 1.5, wood: 0.9, steel: 1, plastic: 1.2 };
 const elRaw = g => EL_RAW[g] || 1;
-const LOCAL_D = { oil: 700, coal: 320, iron: 300, copper: 150, gold: 12, wood: 300, gravel: 450, sand: 400, limestone: 300, wheat: 500, sugar: 450, cotton: 400, rubber: 300, steel: 260, plastic: 420, flour: 250, fabric: 250, plank: 300, cement: 250, ingot: 20, wire: 250, pack: 250, chem: 300, api: 120, tire: 120, stud: 250, osb: 150, concrete: 400, motor: 60, battery: 80, circuit: 60, gcase: 10, screen: 60, glass: 220, silicon: 50, essence: 90, rweld: 0.3, rpaint: 0.3, rasm: 0.25, r6: 0.25 };
+const LOCAL_D = { oil: 700, coal: 320, iron: 300, copper: 150, gold: 12, wood: 300, gravel: 450, sand: 400, limestone: 300, wheat: 500, sugar: 450, cotton: 400, rubber: 300, steel: 260, plastic: 420, flour: 250, fabric: 250, plank: 300, cement: 250, ingot: 20, wire: 250, pack: 250, chem: 300, api: 120, tire: 120, stud: 250, osb: 150, concrete: 400, motor: 60, battery: 80, circuit: 60, gcase: 10, screen: 60, glass: 220, silicon: 50, essence: 90, paper: 200, milk: 220, meat: 200, spirit: 90, ceramic: 150, hardware: 150, case: 120, foam: 110, paint: 140, rubberp: 100, leather: 70, tfabric: 60, led: 80, engine: 40, chassis: 40, sensor: 30, pv: 25, rweld: 0.3, rpaint: 0.3, rasm: 0.25, r6: 0.25 };
 const NPC_IMP = 0.4, NPC_CAP = 0.3;   // offre de base (importations) et capacité maximale des producteurs PNJ, en part de la demande locale : offre PNJ mûre ≈ 70 % de la demande : une usine du joueur couvre le reste
 const LOCAL_CO = { oil: 'Lone Star Oil', coal: 'Black Hills Coal', iron: 'Mesabi Iron Works', copper: 'Arizona Copper', steel: 'Great Lakes Steel', plastic: 'Gulf Polymers' };
 let OWN = {};
@@ -1444,9 +1599,10 @@ function stepRivals(rivalPart) {
   S.rivals = rs.filter(r => { if (r.cash < 0 && rivalSum(r) < 0.1) { say(`${r.name} fait faillite : ses clients se tournent vers toi et ses rivaux.`, 'good'); if (S.port && S.port[r.id]) { say(`Tes actions ${r.name} deviennent sans valeur.`, 'warn'); delete S.port[r.id]; } return false; } return true; });
 }
 const recipeOf = k => RECIPES[k] || PRODUCTS[k];
+const newProdState = q => ({ st: 'locked', q: q == null ? 1 : q, pack: 1, rnd: 0, pf: 1, tc: null, obs: 1, brand: 0, loy: 0, rt: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] });
 function initProd() {
   const o = {};
-  PKEYS.forEach(pk => { o[pk] = { st: 'locked', q: 1, pack: 1, rnd: 0, pf: 1, tc: null, obs: 1, brand: 0, loy: 0, rt: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
+  PKEYS.forEach(pk => { o[pk] = newProdState(PRODUCTS[pk].q0); });
   return o;
 }
 const cpi = () => (S && S.cpi) || 1;
@@ -1503,7 +1659,7 @@ function affordOf(pk) { const rw = (S && S.rw) || 1, req = reqRW(pk); return rw 
 function recF(pk) { const gD = (S.macro ? S.macro.gdp : 0.03) - 0.03; return clamp(1 + 4 * gD * (0.55 - necOf(pk) / 100), 0.8, 1.2); }   // récession : les produits peu nécessaires s'effondrent, les nécessaires tiennent
 function megaCount() { const s = new Set(); PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') s.add(megaOf(pk)); }); return Math.max(1, s.size); }
 const corpLoyF = () => { const n = megaCount(), st = brandStrat(); return st === 'corp' ? Math.max(0.6, 1 - 0.08 * (n - 1)) : st === 'range' ? Math.max(0.8, 1 - 0.04 * (n - 1)) : 1; };   // diversifier entre méga-classes dilue la fidélité
-function typeW(pk) { const cls = PRODUCTS[pk].cls, ks = PKEYS.filter(k => PRODUCTS[k].cls === cls), mean = ks.reduce((a, k) => a + (DEMAND_PC[k] || 0.3), 0) / ks.length; return clamp(Math.pow((DEMAND_PC[pk] || 0.3) / mean, 0.6), 0.35, 2.2); }
+function typeW(pk) { const cls = PRODUCTS[pk].cls, ks = PKEYS.filter(k => PRODUCTS[k].cls === cls && LEGACY_P.has(k)), mean = ks.reduce((a, k) => a + (DEMAND_PC[k] || 0.3), 0) / ks.length; return clamp(Math.pow((DEMAND_PC[pk] || 0.3) / mean, 0.6), 0.35, 2.2); }
 function outMul(pk) { const s = SUCC[pk]; if (!s) return 1; const sp = S.prod[s.by], pr = Math.max(clamp(((S.day || 0) - s.at) / 360, 0, 1), sp && sp.st === 'on' ? clamp(adoptOf(sp) / 0.6, 0, 1) : 0); return s.keep + (1 - s.keep) * (1 - pr); }
 function iqua(pk) { const inp = productInputs(pk), ts = TECH_SHARE[pk] == null ? 15 : TECH_SHARE[pk], gs = Object.keys(inp).filter(g => g !== 'pack'), tot = gs.reduce((a, g) => a + inp[g] * (GOODS[g] ? GOODS[g].base : 1), 0) || 1, o = {}; gs.forEach(g => { o[g] = Math.round((100 - ts) * inp[g] * (GOODS[g] ? GOODS[g].base : 1) / tot); }); return { w: o, tech: ts }; }
 function techComp(pk) { const L = PROD_TECH[pk] || []; return 0.97 + 0.18 * L.reduce((a, t) => a + (S.tech && S.tech[t[0]] ? t[1] : 0), 0) / 100; }
@@ -1579,6 +1735,7 @@ const SECTOR_REF = {
   construction:{ ebitda: '8-18 %', rpe: 'Vinci EBITDA 17,7 %, Bouygues 4,5 %' },
   port:     { ebitda: '22-27 %', rpe: 'DP World ≈ 174 k$ par employé' }
 };
+let CALREF = null;
 const RETAIL_MK = { basic: 1.58, std: 1.62, lux: 2.0, estate: 1 }, retailMk = cls => RETAIL_MK[cls] || 1.4;   // prix de rayon = prix de gros × marge (distribution : marge brute 28-45 %, luxe plus haut ; Walmart ≈ 24 %, Costco ≈ 12 %, luxe ≈ 60 %)
 const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salaires sectoriels : banque, tech et pharma paient ≈ 2× la moyenne
 (function applyScale() {
@@ -1605,9 +1762,9 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   Object.keys(LOCAL_D).forEach(k => { LOCAL_D[k] *= K_SIZE; });
   // Calibrage par l'EBITDA du secteur (SECTOR_REF) : prix d'équilibre = (intrants + coûts fixes par cycle) / (production × (1 - EBITDA - transport))
   const CAL = { wf: 1.2, uf: 0.85, tr: 0.03 };   // coefficient salarial effectif, taux d'utilisation effectif des usines, transport
-  const EB_REC = { steel: 0.15, chem: 0.17, api: 0.25, plastic: 0.17, wire: 0.13, plank: 0.18, stud: 0.18, osb: 0.18, cement: 0.28, concrete: 0.18, flour: 0.15, fabric: 0.15, tire: 0.15, pack: 0.15, motor: 0.18, battery: 0.18, circuit: 0.22, gcase: 0.22, screen: 0.22, glass: 0.15, silicon: 0.2, essence: 0.22, rweld: 0.22, rpaint: 0.22, rasm: 0.22, r6: 0.22 };
+  const EB_REC = { steel: 0.15, chem: 0.17, api: 0.25, plastic: 0.17, wire: 0.13, plank: 0.18, stud: 0.18, osb: 0.18, cement: 0.28, concrete: 0.18, flour: 0.15, fabric: 0.15, tire: 0.15, pack: 0.15, motor: 0.18, battery: 0.18, circuit: 0.22, gcase: 0.22, screen: 0.22, glass: 0.15, silicon: 0.2, essence: 0.22, paper: 0.15, milk: 0.15, meat: 0.16, spirit: 0.22, ceramic: 0.17, hardware: 0.16, case: 0.17, foam: 0.16, paint: 0.17, rubberp: 0.16, leather: 0.2, tfabric: 0.18, led: 0.2, engine: 0.2, chassis: 0.18, sensor: 0.22, pv: 0.22, rweld: 0.22, rpaint: 0.22, rasm: 0.22, r6: 0.22 };
   const EB_GEN = { basic: 0.16, std: 0.16, lux: 0.38 }, EB_PROD = { basic: 0.20, std: 0.17, lux: 0.30, estate: 0.15, pharma: 0.38 };
-  const EB_PK = { tv: 0.22, phone: 0.22, tablet: 0.21, laptop: 0.21, console: 0.22 };   // électronique grand public : marges d'assemblage ≈ 20 % (Samsung, Dell), pas celles du luxe
+  const EB_PK = { tv: 0.22, phone: 0.22, tablet: 0.21, laptop: 0.21, console: 0.22, whisky: 0.27, couture: 0.27, camera: 0.22, smartwatch: 0.22, desktop: 0.21, car: 0.2 };   // électronique grand public : marges d'assemblage ≈ 20 % (Samsung, Dell), pas celles du luxe
   const HAUL_TYP = { oil: 32, coal: 40, iron: 60, copper: 80, gold: 129 }, X_FAC = 0.88;   // distance typique au port des gisements (médiane) ; production réelle / nominale
   const EB_EXT = {}; Object.keys(RES_COST).forEach(g => { EB_EXT[g] = +(1 - RES_COST[g]).toFixed(2); });   // EBITDA visé = 1 − coût d'extraction (RES_COST)
   const PH_OVH = 1.0;   // frais généraux pharma = 1 × le coût des matières → marge brute ≈ 75 %
@@ -1621,7 +1778,9 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   const setIn = (g, inp, out) => { GOODS[g].inp = inp; GOODS[g].inO = out; GOODS[g].inS = Math.min(0.9, inV(inp) / (out * GOODS[g].base)); };   // part des intrants dans le prix : le cours suit le coût des intrants
   RKEYS.forEach(k => setIn(k, RECIPES[k].in, RECIPES[k].out)); setIn('ingot', TYPES.foundry.rec.in, TYPES.foundry.rec.out.ingot);
   ['f1', 'f2', 'f3'].forEach((f, i) => setIn(['basic', 'std', 'lux'][i], TYPES[f].rec.in, TYPES[f].rec.out[['basic', 'std', 'lux'][i]]));
-  PKEYS.forEach(k => { const P = PRODUCTS[k], inp = Object.assign({}, P.in); if (P.cls !== 'estate' && P.cls !== 'basic') inp.pack = (inp.pack || 0) + P.out; P.ovh = P.pharma ? PH_OVH * inV(inp) : 0; P.ref = solveP(inV(inp) + facFix('f' + P.lvl) + (P.pharma ? (PH_W - 1) * TYPES['f' + P.lvl].jobs * WAGE_K * CAL.wf / (3.2 * K_SIZE * CAL.uf * (TYPES['f' + P.lvl].capK || 1)) : 0) + P.ovh, P.out, P.pharma ? EB_PROD.pharma : EB_PK[k] || EB_PROD[P.cls] || 0.14); });
+  const calProd = (P, k) => { const inp = Object.assign({}, P.in); if ((P.cls !== 'estate' && P.cls !== 'basic') || P.pkg) inp.pack = (inp.pack || 0) + P.out; const ovh = P.pharma ? PH_OVH * inV(inp) : 0; const n = P.lvl, fx = facFix('f' + n) + (P.pharma ? (PH_W - 1) * TYPES['f' + n].jobs * WAGE_K * CAL.wf / (3.2 * K_SIZE * CAL.uf * (TYPES['f' + n].capK || 1)) : 0); return { ovh, ref: solveP(inV(inp) + fx + ovh, P.out, P.pharma ? EB_PROD.pharma : P.eb || EB_PK[k] || EB_PROD[P.cls] || 0.14) }; };
+  CALREF = calProd;   // exposé pour le composeur (produits créés en cours de partie)
+  PKEYS.forEach(k => { const r = calProd(PRODUCTS[k], k); PRODUCTS[k].ovh = r.ovh; PRODUCTS[k].ref = r.ref; });
   // Extraction : salaires ≈ 7 % du CA (≈ 0,7 M$ par employé et par an), entretien déduit de l'EBITDA visé
   Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; T.jobs0 = T.jobs;
     const rate = ({ well: 400, miron: 350, mcoal: 350, qgravel: 450, qsand: 450, qlime: 380, mgold: 30, logging: 120 }[k] || T.rate * 5) * K_SIZE; T.rate = rate; });
@@ -1911,6 +2070,7 @@ function newCity() {
     sold: 0, made: { ingot: 0 }, done: [], won: false, stats: {}
   };
   GKEYS.forEach(g => { S0.stock[g] = 0; S0.price[g] = GOODS[g].base; S0.ph[g] = [GOODS[g].base]; });
+  S0.cprod = []; syncCustom([]);   // passe 25 : aucun produit composé au départ
   S0.prod = initProd();
   S0.cm = {};
   S0.contracts = []; S0.houses = 0; S0.built = []; S0.cid = 0; S0.cdone = 0; S0.lots = 0;
@@ -1951,7 +2111,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1960,6 +2120,7 @@ function load() {
     if (!raw) return null;
     const d = JSON.parse(raw);
     if (!d || (d.v !== 7 && d.v !== 8) || !Array.isArray(d.g) || d.g.length !== N * N) return null;
+    const cprod = syncCustom(d.cprod);   // passe 25 : produits composés (absents des anciennes sauvegardes), enregistrés avant la grille et les produits
     const grid = d.g.map((r, i) => {
       if (!r) return null;
       if (r[0] === 'part') return { t: 'part', ai: r[1], ox: r[2], oy: r[3] };
@@ -1990,7 +2151,7 @@ function load() {
     S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
     S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
-    S0.prod = initProd();
+    S0.cprod = cprod; S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
     GKEYS.forEach(g => {
       S0.stock[g] = (d.stock && d.stock[g]) || 0;
@@ -2524,7 +2685,7 @@ const execPay = lv => Math.round((150 + 8 * lv) * (S.cpi || 1) * Math.pow(clamp(
 const cxSalary = p => execPay(Math.max.apply(null, Object.values(p.exp)));
 function normGoods() {
   GKEYS.forEach(g => { if (S.stock[g] == null) S.stock[g] = 0; if (S.price[g] == null) S.price[g] = GOODS[g].base * cpi(); if (S.ph && !S.ph[g]) S.ph[g] = []; });
-  PKEYS.forEach(pk => { if (!S.prod[pk]) S.prod[pk] = { st: 'locked', q: 1, pack: 1, rnd: 0, pf: 1, tc: null, obs: 1, brand: 0, loy: 0, rt: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
+  PKEYS.forEach(pk => { if (!S.prod[pk]) S.prod[pk] = newProdState(PRODUCTS[pk].q0); });
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (!ps.ad) { ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; if (ps.adv === 1) ps.ad.radio = 50 * K_SIZE; else if (ps.adv === 2) ps.ad.tv = 150 * K_SIZE; } delete ps.adv; if (ps.rt == null) ps.rt = QTIER[ps.q].q; if (ps.loy == null) ps.loy = 20; });
 }
 function stepTalent() {
@@ -4340,9 +4501,68 @@ function houseSVG(pk, t, id) {
     <rect x="${t ? 206 : 190}" y="92" width="14" height="30" fill="#7a6e66"/>`;
   return h;
 }
+// ===== Passe 25 : bibliothèque de silhouettes pour les vignettes des nouveaux produits et des produits composés (repère 300x300 de productSVG)
+// g(a, b, m, id) : a = couleur principale, b = couleur secondaire, m = métal (or en haut de gamme), id = suffixe des dégradés de productSVG
+const GLYPHS = {
+  jar: (a, b, m) => `<path d="M82 118 H218 L204 244 Q202 256 190 256 H110 Q98 256 96 244 Z" fill="${a}"/><rect x="76" y="98" width="148" height="24" rx="9" fill="${m}"/><rect x="100" y="148" width="100" height="62" rx="10" fill="#fff" opacity=".92"/><circle cx="150" cy="180" r="17" fill="${b}"/><path d="M92 130 L104 244" stroke="#fff" stroke-opacity=".3" stroke-width="7" stroke-linecap="round"/>`,
+  bottle: (a, b, m) => `<path d="M132 44 H168 V76 Q198 98 198 134 V244 Q198 258 184 258 H116 Q102 258 102 244 V134 Q102 98 132 76 Z" fill="${a}"/><rect x="126" y="26" width="48" height="22" rx="6" fill="${m}"/><rect x="102" y="140" width="96" height="66" fill="#fff" opacity=".92"/><circle cx="150" cy="173" r="19" fill="${b}"/><path d="M114 110 V236" stroke="#fff" stroke-opacity=".3" stroke-width="8" stroke-linecap="round"/>`,
+  cheese: (a, b, m) => `<path d="M46 168 v52 a104 40 0 0 0 208 0 v-52 z" fill="${a}"/><ellipse cx="150" cy="168" rx="104" ry="40" fill="${b}"/><circle cx="116" cy="170" r="11" fill="${a}" opacity=".7"/><circle cx="176" cy="156" r="9" fill="${a}" opacity=".7"/><circle cx="196" cy="182" r="7" fill="${a}" opacity=".7"/><path d="M150 132 L254 168 L150 168 Z" fill="${m}" opacity=".35"/>`,
+  sack: (a, b, m) => `<path d="M78 92 Q150 66 222 92 L242 246 Q242 262 226 262 H74 Q58 262 58 246 Z" fill="${a}"/><path d="M78 92 Q150 66 222 92 L226 116 Q150 92 74 116 Z" fill="${b}"/><rect x="92" y="142" width="116" height="78" rx="12" fill="#fff" opacity=".92"/><circle cx="150" cy="181" r="21" fill="${b}"/><path d="M70 130 L80 250" stroke="#fff" stroke-opacity=".28" stroke-width="7" stroke-linecap="round"/>`,
+  bar: (a, b, m) => `<g transform="rotate(-10 150 160)"><rect x="46" y="112" width="208" height="98" rx="14" fill="${a}"/><rect x="46" y="112" width="208" height="28" rx="14" fill="${b}"/>${[0, 1, 2, 3, 4, 5].map(i => `<rect x="${58 + i * 33}" y="146" width="26" height="22" rx="4" fill="#fff" opacity=".16"/><rect x="${58 + i * 33}" y="174" width="26" height="22" rx="4" fill="#fff" opacity=".16"/>`).join('')}<path d="M40 130 l-14 12 14 12 M260 130 l14 12 -14 12" stroke="${m}" stroke-width="6" fill="none"/></g>`,
+  plate: (a, b, m) => `<rect x="44" y="140" width="212" height="112" rx="18" fill="${a}"/><rect x="56" y="152" width="88" height="88" rx="12" fill="${b}" opacity=".9"/><circle cx="208" cy="180" r="30" fill="#f2c14e"/><circle cx="214" cy="222" r="18" fill="#58c27d"/><circle cx="100" cy="196" r="24" fill="#e8584f"/><rect x="44" y="140" width="212" height="112" rx="18" fill="#fff" opacity=".16"/>`,
+  tube: (a, b, m) => `<rect x="116" y="38" width="68" height="44" rx="9" fill="${m}"/><path d="M102 82 H198 L186 250 Q150 264 114 250 Z" fill="${a}"/><rect x="114" y="130" width="72" height="64" rx="7" fill="#fff" opacity=".92"/><circle cx="150" cy="162" r="18" fill="${b}"/><path d="M114 94 L122 240" stroke="#fff" stroke-opacity=".3" stroke-width="7" stroke-linecap="round"/>`,
+  pill: (a, b, m) => `<rect x="86" y="96" width="128" height="160" rx="20" fill="${a}"/><rect x="78" y="62" width="144" height="40" rx="12" fill="${m}"/><rect x="98" y="136" width="104" height="76" rx="8" fill="#fff" opacity=".92"/><path d="M150 150 v48 M126 174 h48" stroke="${b}" stroke-width="12" stroke-linecap="round"/><g transform="rotate(-28 238 232)"><rect x="206" y="218" width="64" height="28" rx="14" fill="#fff"/><path d="M238 218 H256 A14 14 0 0 1 256 246 H238 Z" fill="${b}"/></g>`,
+  tee: (a, b, m) => `<path d="M108 48 L52 80 L34 134 L72 150 L84 128 V254 H216 V128 L228 150 L266 134 L248 80 L192 48 Q150 84 108 48 Z" fill="${a}"/><path d="M108 48 Q150 84 192 48 Q150 66 108 48 Z" fill="${b}"/><rect x="104" y="158" width="92" height="44" rx="6" fill="${b}" opacity=".35"/><path d="M84 128 V254" stroke="#fff" stroke-opacity=".25" stroke-width="5"/>`,
+  jacket: (a, b, m) => `<path d="M104 46 L50 74 L36 238 H72 L84 132 V256 H216 V132 L228 238 H264 L250 74 L196 46 Q150 78 104 46 Z" fill="${a}"/><path d="M104 46 L150 150 L196 46 Q150 78 104 46 Z" fill="${b}"/><path d="M150 100 V256" stroke="${m}" stroke-width="5" stroke-dasharray="6 4"/><rect x="96" y="184" width="40" height="30" rx="4" fill="${b}" opacity=".55"/><rect x="164" y="184" width="40" height="30" rx="4" fill="${b}" opacity=".55"/>`,
+  dress: (a, b, m) => `<path d="M118 38 H132 L150 76 L168 38 H182 L196 106 L252 258 H48 L104 106 Z" fill="${a}"/><rect x="100" y="104" width="100" height="16" rx="6" fill="${b}"/><path d="M104 124 L66 252 M150 126 V256 M196 124 L234 252" stroke="#fff" stroke-opacity=".22" stroke-width="5"/><circle cx="150" cy="112" r="8" fill="${m}"/>`,
+  sock: (a, b, m) => `<path d="M108 44 H186 V150 L238 186 Q264 208 246 238 Q222 266 188 240 L108 192 Z" fill="${a}"/><rect x="108" y="44" width="78" height="30" rx="6" fill="${b}"/><path d="M108 100 H186 M108 124 H186" stroke="${b}" stroke-width="8" opacity=".7"/><ellipse cx="230" cy="236" rx="30" ry="22" fill="${b}" opacity=".85" transform="rotate(30 230 236)"/>`,
+  shoe: (a, b, m) => `<path d="M38 196 V148 Q38 136 52 134 L116 124 Q140 122 150 140 L168 168 Q226 170 258 196 Q268 208 262 226 V236 H38 Z" fill="${a}"/><rect x="34" y="226" width="232" height="26" rx="10" fill="${b}"/><path d="M118 130 L134 156 M104 134 L120 160 M134 140 L148 164" stroke="${m}" stroke-width="5" stroke-linecap="round"/><path d="M52 200 H250" stroke="#fff" stroke-opacity=".22" stroke-width="5"/>`,
+  bag: (a, b, m) => `<path d="M96 120 Q96 40 150 40 Q204 40 204 120" stroke="${b}" stroke-width="12" fill="none"/><rect x="50" y="108" width="200" height="146" rx="24" fill="${a}"/><path d="M50 130 Q150 196 250 130 V132 Q150 204 50 132 Z" fill="${b}" opacity=".7"/><rect x="132" y="170" width="36" height="30" rx="8" fill="${m}"/><path d="M64 120 V236" stroke="#fff" stroke-opacity=".22" stroke-width="6"/>`,
+  sofa: (a, b, m) => `<rect x="58" y="86" width="184" height="86" rx="26" fill="${a}"/><rect x="26" y="128" width="54" height="106" rx="24" fill="${b}"/><rect x="220" y="128" width="54" height="106" rx="24" fill="${b}"/><rect x="62" y="150" width="176" height="84" rx="20" fill="${a}"/><path d="M150 152 V234" stroke="#000" stroke-opacity=".18" stroke-width="3"/><rect x="50" y="236" width="14" height="22" rx="4" fill="${m}"/><rect x="236" y="236" width="14" height="22" rx="4" fill="${m}"/><rect x="66" y="94" width="168" height="20" rx="10" fill="#fff" opacity=".18"/>`,
+  table: (a, b, m) => `<rect x="30" y="112" width="240" height="26" rx="8" fill="${a}"/><rect x="30" y="112" width="240" height="8" rx="4" fill="#fff" opacity=".25"/><rect x="52" y="136" width="20" height="120" rx="5" fill="${b}"/><rect x="228" y="136" width="20" height="120" rx="5" fill="${b}"/><rect x="72" y="170" width="156" height="10" rx="4" fill="${b}" opacity=".8"/><circle cx="150" cy="96" r="14" fill="${m}"/>`,
+  wardrobe: (a, b, m) => `<rect x="62" y="30" width="176" height="224" rx="10" fill="${a}"/><rect x="72" y="44" width="76" height="196" rx="6" fill="${b}"/><rect x="152" y="44" width="76" height="196" rx="6" fill="${b}"/><circle cx="136" cy="150" r="6" fill="${m}"/><circle cx="164" cy="150" r="6" fill="${m}"/><rect x="74" y="254" width="18" height="12" rx="3" fill="${a}"/><rect x="208" y="254" width="18" height="12" rx="3" fill="${a}"/><rect x="82" y="56" width="56" height="12" rx="4" fill="#fff" opacity=".18"/>`,
+  dishes: (a, b, m) => `<ellipse cx="150" cy="238" rx="106" ry="26" fill="${b}"/><ellipse cx="150" cy="226" rx="106" ry="26" fill="${a}"/><ellipse cx="150" cy="226" rx="74" ry="16" fill="#fff" opacity=".35"/><ellipse cx="150" cy="190" rx="92" ry="22" fill="${b}"/><ellipse cx="150" cy="180" rx="92" ry="22" fill="${a}"/><ellipse cx="150" cy="180" rx="62" ry="12" fill="#fff" opacity=".35"/><path d="M96 120 H204 L194 168 Q150 184 106 168 Z" fill="${a}"/><ellipse cx="150" cy="120" rx="54" ry="12" fill="${b}"/>`,
+  book: (a, b, m) => `<rect x="68" y="46" width="168" height="214" rx="8" fill="${a}"/><rect x="68" y="46" width="24" height="214" rx="6" fill="${b}"/><rect x="108" y="82" width="104" height="14" rx="4" fill="#fff" opacity=".9"/><rect x="108" y="108" width="74" height="10" rx="4" fill="#fff" opacity=".6"/><circle cx="160" cy="190" r="26" fill="${m}" opacity=".9"/><rect x="226" y="52" width="10" height="204" fill="#f4f6fa"/>`,
+  camera: (a, b, m, id) => `<rect x="94" y="62" width="64" height="40" rx="10" fill="${a}"/><rect x="36" y="94" width="228" height="150" rx="24" fill="${a}"/><rect x="36" y="94" width="228" height="42" rx="20" fill="${b}" opacity=".55"/><circle cx="150" cy="172" r="56" fill="#0d1424"/><circle cx="150" cy="172" r="44" fill="url(#gl${id})"/><ellipse cx="134" cy="154" rx="16" ry="8" fill="#fff" opacity=".4" transform="rotate(-30 134 154)"/><rect x="206" y="108" width="34" height="18" rx="5" fill="${m}"/><circle cx="64" cy="118" r="7" fill="#e8584f"/>`,
+  swatch: (a, b, m, id) => `<rect x="112" y="12" width="76" height="100" rx="14" fill="${b}"/><rect x="112" y="188" width="76" height="100" rx="14" fill="${b}"/><rect x="214" y="136" width="12" height="26" rx="4" fill="${m}"/><rect x="82" y="84" width="136" height="132" rx="38" fill="${a}"/><rect x="94" y="96" width="112" height="108" rx="30" fill="url(#sc${id})"/><path d="M150 132 V152 L168 164" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none"/><circle cx="150" cy="150" r="48" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="3"/>`,
+  headphones: (a, b, m) => `<path d="M66 196 V150 Q66 56 150 56 Q234 56 234 150 V196" stroke="${a}" stroke-width="18" fill="none" stroke-linecap="round"/><rect x="44" y="156" width="58" height="98" rx="26" fill="${b}"/><rect x="198" y="156" width="58" height="98" rx="26" fill="${b}"/><rect x="82" y="170" width="20" height="70" rx="10" fill="${m}"/><rect x="198" y="170" width="20" height="70" rx="10" fill="${m}"/>`,
+  microwave: (a, b, m) => `<rect x="26" y="80" width="248" height="164" rx="16" fill="${a}"/><rect x="44" y="98" width="156" height="128" rx="10" fill="#0d1424"/><rect x="52" y="106" width="140" height="112" rx="6" fill="#ffd96a" opacity=".22"/><rect x="212" y="98" width="46" height="128" rx="8" fill="${b}"/><rect x="220" y="108" width="30" height="20" rx="3" fill="#7be3a1"/><circle cx="235" cy="158" r="12" fill="${m}"/><circle cx="235" cy="196" r="9" fill="${m}"/>`,
+  vacuum: (a, b, m) => `<ellipse cx="124" cy="214" rx="90" ry="44" fill="${a}"/><ellipse cx="124" cy="198" rx="78" ry="26" fill="#fff" opacity=".2"/><path d="M200 196 Q268 150 232 96 L252 64" stroke="${b}" stroke-width="14" fill="none" stroke-linecap="round"/><rect x="232" y="46" width="40" height="22" rx="8" fill="${m}"/><circle cx="76" cy="256" r="18" fill="#1d2230"/><circle cx="172" cy="256" r="18" fill="#1d2230"/><circle cx="124" cy="206" r="16" fill="${b}"/>`,
+  lamp: (a, b, m) => `<circle cx="150" cy="116" r="68" fill="#fff3a0" opacity=".9"/><circle cx="150" cy="116" r="86" fill="#fff3a0" opacity=".2"/><path d="M128 140 L136 108 L150 128 L164 108 L172 140" stroke="${m}" stroke-width="5" fill="none"/><path d="M114 168 H186 L178 190 H122 Z" fill="${b}"/><rect x="118" y="188" width="64" height="62" rx="10" fill="${a}"/><path d="M118 206 H182 M118 224 H182" stroke="#000" stroke-opacity=".2" stroke-width="4"/>`,
+  monitor: (a, b, m, id) => `<rect x="40" y="44" width="220" height="156" rx="12" fill="${a}"/><rect x="50" y="54" width="200" height="132" rx="6" fill="url(#sc${id})"/><path d="M50 186 L120 110 L170 150 L210 96 L250 186 Z" fill="#0d1230" opacity=".3"/><rect x="132" y="200" width="36" height="32" fill="${b}"/><rect x="92" y="230" width="116" height="14" rx="7" fill="${b}"/><rect x="214" y="206" width="8" height="8" rx="2" fill="${m}"/>`,
+  panel: (a, b, m) => `<path d="M40 232 L98 78 H264 L206 232 Z" fill="${b}"/><path d="M52 224 L106 86 H252 L198 224 Z" fill="${a}"/>${[1, 2, 3].map(i => `<path d="M${52 + i * 36} 224 L${106 + i * 36 - 0} 86" stroke="#9fc0ff" stroke-opacity=".5" stroke-width="3"/>`).join('')}${[1, 2].map(i => `<path d="M${52 + i * 18 - 0} ${86 + i * 46} H${252 - i * 18}" stroke="#9fc0ff" stroke-opacity=".5" stroke-width="3"/>`).join('')}<circle cx="60" cy="52" r="24" fill="${m}"/>`,
+  tent: (a, b, m) => `<path d="M24 252 L150 56 L276 252 Z" fill="${a}"/><path d="M150 56 L104 252 H196 Z" fill="${b}"/><path d="M150 56 V252" stroke="#000" stroke-opacity=".25" stroke-width="3"/><path d="M24 252 L150 56 M276 252 L150 56" stroke="${m}" stroke-width="5"/><path d="M14 256 H286" stroke="#58c27d" stroke-width="8" stroke-linecap="round"/>`,
+  ebike: (a, b, m) => `<g fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="72" cy="204" r="48" stroke="#1d2230" stroke-width="9"/><circle cx="228" cy="204" r="48" stroke="#1d2230" stroke-width="9"/><path d="M72 204 L130 120 H196 L228 204 M130 120 L152 204 H72 M152 204 L196 120" stroke="${a}" stroke-width="8"/><path d="M196 120 L188 90 L214 84" stroke="${b}" stroke-width="7"/><path d="M114 108 H148" stroke="#1d2230" stroke-width="12"/></g><rect x="128" y="132" width="40" height="26" rx="6" fill="${b}" transform="rotate(32 148 145)"/><circle cx="152" cy="204" r="14" fill="${m}"/><path d="M168 96 l-8 18 h12 l-8 18" stroke="#f2d24b" stroke-width="5" fill="none"/>`,
+  doll: (a, b, m) => `<circle cx="104" cy="60" r="24" fill="${a}"/><circle cx="196" cy="60" r="24" fill="${a}"/><circle cx="104" cy="60" r="12" fill="${b}"/><circle cx="196" cy="60" r="12" fill="${b}"/><ellipse cx="150" cy="212" rx="64" ry="58" fill="${a}"/><ellipse cx="150" cy="218" rx="38" ry="38" fill="${b}"/><circle cx="150" cy="104" r="54" fill="${a}"/><ellipse cx="150" cy="122" rx="26" ry="20" fill="${b}"/><circle cx="130" cy="94" r="7" fill="#1d2230"/><circle cx="170" cy="94" r="7" fill="#1d2230"/><ellipse cx="150" cy="114" rx="8" ry="6" fill="#1d2230"/><circle cx="82" cy="196" r="20" fill="${a}"/><circle cx="218" cy="196" r="20" fill="${a}"/><path d="M130 142 L150 152 L170 142 L150 160 Z" fill="${m}"/>`,
+  robot: (a, b, m) => `<path d="M150 56 V34" stroke="${b}" stroke-width="7"/><circle cx="150" cy="30" r="10" fill="${m}"/><rect x="92" y="56" width="116" height="84" rx="18" fill="${a}"/><circle cx="124" cy="96" r="14" fill="#fff"/><circle cx="176" cy="96" r="14" fill="#fff"/><circle cx="124" cy="96" r="6" fill="#1d2230"/><circle cx="176" cy="96" r="6" fill="#1d2230"/><rect x="82" y="150" width="136" height="100" rx="16" fill="${b}"/><rect x="108" y="170" width="84" height="22" rx="6" fill="${a}" opacity=".7"/><rect x="40" y="154" width="36" height="76" rx="16" fill="${a}"/><rect x="224" y="154" width="36" height="76" rx="16" fill="${a}"/><circle cx="150" cy="222" r="9" fill="${m}"/>`,
+  car: (a, b, m) => `<path d="M30 196 Q30 156 82 150 L116 100 Q128 88 148 88 H198 Q216 88 228 106 L252 148 Q274 154 274 196 V218 H30 Z" fill="${a}"/><path d="M126 106 H192 L216 148 H106 Z" fill="#cfeeff" opacity=".85"/><path d="M150 106 V148" stroke="${a}" stroke-width="5"/><rect x="250" y="168" width="22" height="14" rx="5" fill="${m}"/><rect x="28" y="168" width="18" height="14" rx="5" fill="#ff7a5c"/><circle cx="90" cy="222" r="30" fill="#1d2230"/><circle cx="90" cy="222" r="13" fill="${b}"/><circle cx="214" cy="222" r="30" fill="#1d2230"/><circle cx="214" cy="222" r="13" fill="${b}"/>`,
+  scooter: (a, b, m) => `<circle cx="66" cy="226" r="32" fill="#1d2230"/><circle cx="66" cy="226" r="13" fill="${b}"/><circle cx="238" cy="226" r="32" fill="#1d2230"/><circle cx="238" cy="226" r="13" fill="${b}"/><path d="M84 196 Q84 150 128 150 H196 L214 100 H244" stroke="${a}" stroke-width="20" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="98" y="116" width="86" height="28" rx="14" fill="${b}"/><path d="M226 100 L214 214" stroke="${a}" stroke-width="12" stroke-linecap="round"/><circle cx="246" cy="98" r="9" fill="${m}"/>`,
+  oilcan: (a, b, m) => `<path d="M82 112 H198 V250 Q198 262 186 262 H94 Q82 262 82 250 Z" fill="${a}"/><rect x="104" y="92" width="72" height="24" rx="6" fill="${b}"/><path d="M198 136 L244 104 V66" stroke="${b}" stroke-width="14" fill="none" stroke-linecap="round"/><rect x="94" y="152" width="92" height="70" rx="8" fill="#fff" opacity=".92"/><path d="M140 164 Q158 190 140 206 Q122 190 140 164 Z" fill="${m}"/>`,
+  hammer: (a, b, m) => `<g transform="rotate(38 150 150)"><rect x="136" y="64" width="28" height="206" rx="10" fill="#b98a54"/><rect x="136" y="64" width="9" height="206" rx="4" fill="#fff" opacity=".2"/><rect x="78" y="38" width="144" height="50" rx="9" fill="${a}"/><path d="M222 44 Q262 58 270 88 L222 84 Z" fill="${b}"/><rect x="78" y="38" width="144" height="12" rx="6" fill="#fff" opacity=".3"/></g>`,
+  drill: (a, b, m) => `<path d="M44 82 H196 Q226 82 226 112 V146 H132 V240 H86 V146 H44 Z" fill="${a}"/><rect x="224" y="94" width="40" height="40" rx="6" fill="${b}"/><rect x="262" y="108" width="26" height="12" rx="4" fill="${m}"/><rect x="76" y="238" width="68" height="26" rx="8" fill="${b}"/><circle cx="104" cy="112" r="9" fill="${b}"/><rect x="150" y="98" width="40" height="22" rx="6" fill="#fff" opacity=".25"/>`,
+  gem: (a, b, m) => `<path d="M72 112 L106 66 H194 L228 112 L150 252 Z" fill="${a}" opacity=".92"/><path d="M72 112 H228 M106 66 L124 112 L150 252 L176 112 L194 66 M124 112 L150 66 L176 112" stroke="#fff" stroke-opacity=".7" stroke-width="3.5" fill="none"/><path d="M106 66 H150 L124 112 H72 Z" fill="#fff" opacity=".22"/><circle cx="238" cy="62" r="9" fill="${m}"/>`,
+  spray: (a, b, m) => `<rect x="86" y="118" width="116" height="140" rx="22" fill="${a}"/><rect x="108" y="86" width="72" height="38" rx="8" fill="${b}"/><path d="M130 86 V56 H206 Q232 56 232 84 H190 V90 Z" fill="${m}"/><rect x="198" y="92" width="22" height="46" rx="8" fill="${b}"/><rect x="98" y="156" width="92" height="64" rx="8" fill="#fff" opacity=".92"/><circle cx="144" cy="188" r="16" fill="${b}"/>`,
+  ball: (a, b, m) => `<circle cx="150" cy="150" r="104" fill="${a}"/><path d="M150 96 L196 130 L178 184 H122 L104 130 Z" fill="${b}"/><path d="M150 96 V46 M196 130 L246 112 M178 184 L210 226 M122 184 L90 226 M104 130 L54 112" stroke="${b}" stroke-width="5" fill="none"/><ellipse cx="116" cy="96" rx="30" ry="16" fill="#fff" opacity=".25" transform="rotate(-30 116 96)"/>`
+};
+// pk -> [silhouette, couleur principale, couleur secondaire]
+const GLY = {
+  yogurt: ['jar', '#f4f6fa', '#f48fb1'], cheese: ['cheese', '#f2c14e', '#fbe08a'], pasta: ['sack', '#e6c35c', '#c98a3a'], chocolate: ['bar', '#7a4a2a', '#c99a63'], readymeal: ['plate', '#e8e2d0', '#d9605a'],
+  soda: ['bottle', '#e8584f', '#f4f6fa'], beer: ['bottle', '#c98a2a', '#f2d24b'], spirits: ['bottle', '#8a5a34', '#f2b84b'], whisky: ['bottle', '#6d4629', '#f2b84b'],
+  vitamins: ['pill', '#f2a23a', '#58c27d'], antibio: ['pill', '#4aa8e0', '#e8584f'], shampoo: ['spray', '#7fd0ff', '#4a79e0'], toothpaste: ['tube', '#3fb6d8', '#e8584f'], makeup: ['tube', '#e86fa8', '#f4f6fa'], hygiene: ['sack', '#bfe9ff', '#7fd0ff'],
+  jacket: ['jacket', '#3b4a6e', '#a8693a'], leathershoes: ['shoe', '#8a4f2a', '#4a2a14'], dress: ['dress', '#c94a82', '#f2b84b'], socks: ['sock', '#3fb6d8', '#f4f6fa'], bag: ['bag', '#a8693a', '#6d4629'], couture: ['dress', '#1d2230', '#e8a8d0'],
+  camera: ['camera', '#2b2f3f', '#8f7fff'], smartwatch: ['swatch', '#3a3f55', '#1d2230'], headphones: ['headphones', '#e8584f', '#2b2f3f'], microwave: ['microwave', '#cdd6e2', '#56657a'], vacuum: ['vacuum', '#e8584f', '#56657a'], lamp: ['lamp', '#aab6c6', '#56657a'], desktop: ['monitor', '#2b2f3f', '#56657a'], solarpanel: ['panel', '#1f4fb0', '#cdd6e2'],
+  sofa: ['sofa', '#6f8fb8', '#52709a'], table: ['table', '#c28f58', '#94693b'], wardrobe: ['wardrobe', '#a97c43', '#c79a5d'], tableware: ['dishes', '#f4f6fa', '#4a79e0'], books: ['book', '#4a79e0', '#2f4fa0'],
+  sportswear: ['tee', '#5fd0c0', '#2f9e90'], tent: ['tent', '#f2a23a', '#e8584f'], ebike: ['ebike', '#58c27d', '#2b2f3f'], dolls: ['doll', '#c08f5a', '#e8c9a0'], etoys: ['robot', '#4a79e0', '#aab6c6'],
+  car: ['car', '#e8584f', '#aab6c6'], scooter: ['scooter', '#3fb6d8', '#2b2f3f'], lube: ['oilcan', '#f2a23a', '#2b2f3f'], handtools: ['hammer', '#9aa4b8', '#6f7a9a'], powertools: ['drill', '#f2a23a', '#2b2f3f'], petfood: ['sack', '#a8693a', '#f4f6fa']
+};
+function glyphArt(gy, t, id) {
+  const gold = `url(#gd${id})`, m = t === 2 ? gold : t === 1 ? '#cdd6e2' : '#aab6c6', f = GLYPHS[gy[0]] || GLYPHS.sack;
+  return f(gy[1], gy[2], m, id) + (t === 2 ? `<path d="M244 40 l6 12 13 2 -10 9 3 13 -12 -7 -12 7 3 -13 -10 -9 13 -2z" fill="${gold}"/>` : '');
+}
 // illustrations des produits de la passe 11 (hygiène, verre, soins, électroménager, luxe, tech) : même repère 300x300 que productSVG
 function newSVG(pk, t, id) {
   const P = TIERPAL[t], gold = `url(#gd${id})`, glass = 'rgba(170,220,248,.42)', glassS = '#e9f7ff';
+  { const gy = GLY[pk] || (PRODUCTS[pk] && PRODUCTS[pk].gly); if (gy) return glyphArt(gy, t, id); }   // passe 25 : produits de l'arbre étendu et produits composés
   const shine = (x, y, w, h, r) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r || w / 2}" fill="#fff" opacity=".3"/>`;
   if (pk === 'soap') {
     const c = ['#4aa8e0', '#46d39a', '#1d2230'][t], d = ['#2f7fb5', '#2a9a70', '#0a0c12'][t];
@@ -4543,7 +4763,9 @@ function extraSVG(pk, t, id) {
   return `<path d="M50 120 L150 78 L250 120 V222 L150 262 L50 222 Z" fill="#c9a36a"/><path d="M50 120 L150 162 L250 120 M150 162 V262" stroke="#a9834a" stroke-width="3" fill="none"/>
     <path d="M128 90 L192 114 V146 L128 122 Z" fill="#e6d3a8" opacity=".85"/><rect x="170" y="190" width="56" height="30" rx="5" fill="${tag}" transform="skewY(-22) translate(0 82)"/>`;
 }
-function productSVG(pk, t) {
+const psvgCache = {};
+function productSVG(pk, t) { const k = pk + '|' + t; return psvgCache[k] || (psvgCache[k] = productSVG0(pk, t)); }
+function productSVG0(pk, t) {
   const P = TIERPAL[t], id = pk + t;
   const defs = `<defs>
     <linearGradient id="bg${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#232c58"/><stop offset="1" stop-color="#0d1230"/></linearGradient>
@@ -4614,7 +4836,7 @@ function productSVG(pk, t) {
     g = Array.from({ length: n }, (_, i) => { const w = 150 - i * 26, x = 150 - w / 2 + (i % 2 ? 6 : -6), y = 232 - i * 46; return `<rect x="${x}" y="${y}" width="${w}" height="42" rx="7" fill="${cols[i % 4]}"/><rect x="${x}" y="${y}" width="${w}" height="12" rx="6" fill="#fff" opacity=".18"/>${[0, 1, 2].slice(0, Math.max(1, Math.floor(w / 44))).map(k => `<circle cx="${x + 20 + k * 38}" cy="${y - 2}" r="8" fill="${cols[i % 4]}"/>`).join('')}`; }).join('') +
       (t === 2 ? `<path d="M150 ${232 - n * 46 - 16} l7 14 15 2 -11 10 3 15 -14 -7 -14 7 3 -15 -11 -10 15 -2z" fill="#f2b84b"/>` : '');
   }
-  if (!g && PRODUCTS[pk].pharma) {
+  if (!g && PRODUCTS[pk].pharma && !GLY[pk]) {
     const acc = ['#ff6b6b', '#46d39a', '#f2b84b'][t];
     g = pk === 'headache' ? `<rect x="60" y="86" width="180" height="128" rx="12" fill="#e9edf7"/>${[0, 1, 2, 3].map(r => [0, 1, 2].map(c => `<ellipse cx="${100 + c * 50}" cy="${118 + r * 28}" rx="15" ry="9" fill="${r % 2 ? '#fff' : acc}" stroke="#aab4d0"/>`).join('')).join('')}<rect x="60" y="86" width="180" height="14" rx="6" fill="${acc}"/>`
       : pk === 'cough' ? `<rect x="112" y="64" width="76" height="30" rx="6" fill="#d9dfef"/><path d="M104 94 h92 v140 a14 14 0 0 1 -14 14 h-64 a14 14 0 0 1 -14 -14 z" fill="${acc}" opacity=".9"/><rect x="104" y="140" width="92" height="56" fill="#fff" opacity=".9"/><path d="M142 156 h16 M150 148 v16" stroke="${acc}" stroke-width="7"/>`
@@ -4642,7 +4864,7 @@ function launchProduct(pk) {
   if (ps.st !== 'locked') return false;
   if (pr.tier > tierNow()) { say(`${pr.name} se débloque au palier ${TIERS[pr.tier].n}.`, 'warn'); return false; }
   if (S.cash < cost) { say(`Il faut ${money(cost)} pour développer ${pr.name.toLowerCase()}.`, 'bad'); return false; }
-  S.cash -= cost; ps.st = 'rnd'; ps.rnd = pr.days; ps.tc = null; ps.obs = 1; if (pr.cls === 'basic') ps.pack = 0; ps.brand = 0; ps.loy = 20; ps.rt = QTIER[ps.q].q; ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; ps.stock = 0;
+  S.cash -= cost; ps.st = 'rnd'; ps.rnd = pr.days; ps.tc = null; ps.obs = 1; if (pr.cls === 'basic' && !pr.pkg) ps.pack = 0; ps.brand = 0; ps.loy = 20; ps.rt = QTIER[ps.q].q; ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; ps.stock = 0;
   if (pr.free) { ps.st = 'on'; ps.rnd = 0; ps.pf = 1; ps.A = 0.03; ps.age = 0; ps._q = ps.q; say(`Produit standard : ${pr.name} se fabrique tout de suite (aucune R&D). Choisis les usines dans le catalogue.`, 'good'); refreshStats(); updateHUD(); return true; }
   const dd = pr.pharma ? Math.round(pr.days / (TM.pharma * (1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto')))) : pr.days; say(`Développement lancé : ${pr.name}, gamme ${QTIER[ps.q].n.toLowerCase()} (${pr.days} jours${pr.pharma && dd < pr.days ? ', accéléré à ~' + dd + ' jours' : ''}).`, 'info');
   refreshStats(); updateHUD(); return true;
@@ -4657,6 +4879,150 @@ function changeTier(pk, i) {
   S.cash -= cost; ps.q = i; ps.pf = 1; ps.brand *= 0.8;
   say(`${pr.name} passe en gamme ${QTIER[i].n.toLowerCase()} (${money(cost)}).`, 'good');
   refreshStats(); return true;
+}
+// ===== Passe 25 : composeur de produits. Un « modèle » (jouet, meuble, vêtement, appareil, snack…) + jusqu'à 3 composants compatibles = un produit viable.
+// Le produit composé est enregistré comme un produit ordinaire (PRODUCTS, tables de demande, vignette) : fiche, demande, auto-production et sauvegarde suivent sans cas particulier.
+// Quantités : dose du modèle × poids de l'emplacement × (prix de référence / prix du bien)^0,5 : un bien cher se dose moins mais coûte plus. Prix de référence : même calibrage que le catalogue (EBITDA de la classe).
+const CM_MAX = 12;
+const CM_COLORS = [['#e8584f', '#f4f6fa'], ['#f2a23a', '#2b2f3f'], ['#f2d24b', '#a8693a'], ['#58c27d', '#f4f6fa'], ['#3fb6d8', '#2b2f3f'], ['#4a79e0', '#f4f6fa'], ['#a265e0', '#f4f6fa'], ['#e86fa8', '#f4f6fa'], ['#f4f6fa', '#4a79e0'], ['#2b2f3f', '#f2b84b']];
+const CM_SLOTW = [[1], [0.65, 0.35], [0.5, 0.3, 0.2]], CM_RICH = [0.8, 1, 1.15];
+const EDIBLE = new Set(['wheat', 'sugar', 'flour', 'milk', 'meat', 'essence', 'spirit', 'api']);
+const CMODELS = {
+  snack: { name: 'Snack et confiserie', noun: 'Snack', art: 'un snack', cls: 'basic', lvl: 1, fam: 'Alimentation', gly: 'bar', an: 'biscuits', tier: 0, out: 8, u: 5, rb: 12, food: 1, w: [35, 25, 40], nec: 50, dpc: 0.7, obso: 0.02, ts: 8, tech: 'AG', mega: 'food',
+    core: ['flour', 'sugar', 'milk', 'wheat'], allow: ['flour', 'sugar', 'milk', 'wheat', 'essence'],
+    syn: [['flour', 'sugar', 10, 'Pâtisserie : farine et sucre'], ['sugar', 'milk', 10, 'Douceur lactée : sucre et lait'], ['milk', 'essence', 7, 'Lait aromatisé'], ['sugar', 'essence', 7, 'Arômes sucrés'], ['flour', 'milk', 6, 'Pâte au lait']] },
+  drink: { name: 'Boisson', noun: 'Boisson', art: 'une boisson', cls: 'basic', lvl: 1, fam: 'Boissons', gly: 'bottle', an: 'candy', tier: 0, out: 10, u: 3.2, rb: 10, food: 1, pkg: 1, w: [30, 20, 50], nec: 30, dpc: 0.9, obso: 0.03, ts: 8, tech: 'AG', mega: 'food',
+    core: ['sugar', 'wheat', 'milk', 'spirit'], allow: ['sugar', 'essence', 'wheat', 'milk', 'spirit'],
+    syn: [['sugar', 'essence', 12, 'Soda aromatisé'], ['wheat', 'sugar', 8, 'Boisson maltée'], ['milk', 'sugar', 6, 'Boisson lactée'], ['spirit', 'essence', 10, 'Liqueur aromatisée'], ['spirit', 'sugar', 8, 'Liqueur sucrée']] },
+  toy: { name: 'Jouet', noun: 'Jouet', art: 'un jouet', cls: 'basic', lvl: 1, fam: 'Jouets et sport', gly: 'doll', an: 'toys', tier: 0, out: 8, u: 5.5, rb: 12, w: [35, 30, 35], nec: 30, dpc: 0.25, obso: 0.04, ts: 15, tech: 'WD',
+    core: ['plastic', 'plank', 'fabric', 'foam', 'paper'], allow: ['plastic', 'plank', 'fabric', 'foam', 'rubberp', 'paper', 'paint', 'circuit', 'battery', 'led'],
+    syn: [['plank', 'paint', 10, 'Jouet en bois peint'], ['fabric', 'foam', 12, 'Peluche rembourrée'], ['plastic', 'circuit', 12, 'Jouet électronique'], ['circuit', 'battery', 10, 'Jouet à piles'], ['led', 'circuit', 8, 'Jouet lumineux'], ['paper', 'paint', 8, 'Jeu illustré'], ['plastic', 'paint', 6, 'Plastique coloré'], ['plastic', 'battery', 6, 'Jouet autonome']] },
+  furniture: { name: 'Meuble', noun: 'Meuble', art: 'un meuble', cls: 'std', lvl: 2, fam: 'Maison et meubles', gly: 'sofa', an: 'bed', tier: 1, out: 4, u: 28, rb: 12, w: [35, 45, 20], nec: 40, dpc: 0.06, obso: 0.02, ts: 12, tech: 'WD', mega: 'home',
+    core: ['plank', 'steel', 'osb', 'stud'], allow: ['plank', 'steel', 'foam', 'fabric', 'leather', 'paint', 'hardware', 'glass', 'ceramic', 'osb', 'stud'],
+    syn: [['plank', 'hardware', 10, 'Assemblage solide'], ['foam', 'fabric', 12, 'Rembourrage en tissu'], ['foam', 'leather', 14, 'Cuir et mousse : fauteuil haut de gamme'], ['plank', 'paint', 8, 'Finition laquée'], ['steel', 'glass', 8, 'Design métal et verre'], ['plank', 'fabric', 6, 'Bois habillé'], ['plank', 'steel', 7, 'Structure mixte'], ['osb', 'paint', 6, 'Panneau décoré']] },
+  garment: { name: 'Vêtement', noun: 'Vêtement', art: 'un vêtement', cls: 'std', lvl: 2, fam: 'Mode', gly: 'tee', an: 'jeans', tier: 1, out: 4, u: 17, rb: 16, w: [30, 30, 40], nec: 40, dpc: 0.3, obso: 0.04, ts: 12, tech: 'TX', mega: 'fashion',
+    core: ['fabric', 'leather', 'tfabric', 'cotton'], allow: ['fabric', 'leather', 'hardware', 'tfabric', 'rubberp', 'plastic', 'cotton'],
+    syn: [['fabric', 'hardware', 8, 'Fermetures et boutons'], ['fabric', 'leather', 12, 'Cuir et tissu : veste'], ['leather', 'hardware', 10, 'Maroquinerie ferrée'], ['tfabric', 'hardware', 8, 'Technique et fermetures'], ['tfabric', 'rubberp', 8, 'Technique et adhérence'], ['cotton', 'fabric', 6, 'Tissu pur coton']] },
+  appliance: { name: 'Appareil (électroménager)', noun: 'Appareil', art: 'un appareil', cls: 'std', lvl: 2, fam: 'Électroménager', gly: 'microwave', an: 'blender', tier: 1, out: 4, u: 24, rb: 26, w: [30, 45, 25], nec: 40, dpc: 0.08, obso: 0.04, ts: 30, tech: 'AP', mega: 'appl',
+    core: ['motor', 'circuit', 'battery', 'wire'], allow: ['motor', 'steel', 'case', 'circuit', 'wire', 'plastic', 'battery', 'led', 'glass'],
+    syn: [['motor', 'case', 12, 'Moteur sous carter'], ['motor', 'steel', 8, 'Carcasse métallique'], ['circuit', 'case', 10, 'Commande électronique'], ['motor', 'circuit', 12, 'Moteur piloté'], ['battery', 'motor', 10, 'Appareil sans fil'], ['wire', 'steel', 6, 'Résistance chauffante'], ['glass', 'led', 6, 'Vitre éclairée']] },
+  gadget: { name: 'Électronique grand public', noun: 'Gadget', art: 'un appareil électronique', cls: 'lux', lvl: 3, fam: 'Électronique', gly: 'monitor', an: 'tv', tier: 2, out: 4, u: 75, rb: 60, eb: 0.22, w: [20, 40, 40], nec: 12, dpc: 0.08, obso: 0.08, ts: 60, tech: 'EL', mega: 'elec',
+    core: ['circuit', 'screen', 'sensor', 'silicon'], allow: ['circuit', 'screen', 'battery', 'case', 'sensor', 'led', 'silicon', 'plastic', 'wire', 'gcase'],
+    syn: [['screen', 'circuit', 14, 'Écran piloté par une carte'], ['circuit', 'battery', 10, 'Autonomie embarquée'], ['sensor', 'circuit', 12, 'Capteurs intelligents'], ['screen', 'battery', 8, 'Écran nomade'], ['case', 'circuit', 6, 'Électronique protégée'], ['sensor', 'case', 8, 'Boîtier optique'], ['gcase', 'circuit', 10, 'Édition précieuse'], ['silicon', 'circuit', 8, 'Puce sur mesure']] },
+  cosmetic: { name: 'Beauté et soins', noun: 'Soin', art: 'un produit de beauté', cls: 'std', lvl: 2, fam: 'Santé et beauté', gly: 'tube', an: 'cream', tier: 1, out: 8, u: 7.5, rb: 18, food: 1, w: [30, 30, 40], nec: 20, dpc: 0.3, obso: 0.03, ts: 20, tech: 'HL', mega: 'health',
+    core: ['essence', 'chem', 'api', 'milk'], allow: ['essence', 'chem', 'api', 'glass', 'plastic', 'milk', 'spirit', 'sugar'],
+    syn: [['essence', 'glass', 12, 'Flacon parfumé'], ['essence', 'milk', 10, 'Soin au lait'], ['essence', 'api', 10, 'Actifs et parfum'], ['chem', 'essence', 8, 'Base et parfum'], ['api', 'milk', 8, 'Actifs apaisants'], ['spirit', 'essence', 12, 'Eau de parfum']] },
+  tool: { name: 'Outillage', noun: 'Outil', art: 'un outil', cls: 'std', lvl: 1, fam: 'Auto et outils', gly: 'hammer', an: 'utensils', tier: 0, out: 6, u: 11, rb: 12, w: [40, 40, 20], nec: 40, dpc: 0.1, obso: 0.02, ts: 20, tech: 'MT', mega: 'tools',
+    core: ['steel', 'hardware', 'motor'], allow: ['steel', 'plank', 'motor', 'battery', 'case', 'hardware', 'rubberp', 'plastic', 'wire'],
+    syn: [['steel', 'plank', 10, 'Manche en bois'], ['steel', 'rubberp', 8, 'Poignée caoutchouc'], ['motor', 'battery', 12, 'Outil sans fil'], ['motor', 'case', 8, 'Moteur protégé'], ['steel', 'hardware', 8, 'Visserie assortie'], ['steel', 'case', 6, 'Coffret rigide']] },
+  sportgear: { name: 'Équipement de sport', noun: 'Équipement', art: 'un équipement de sport', cls: 'std', lvl: 2, fam: 'Jouets et sport', gly: 'tent', an: 'sneakers', tier: 1, out: 4, u: 22, rb: 15, w: [25, 35, 40], nec: 22, dpc: 0.12, obso: 0.05, ts: 20, tech: 'TX', mega: 'sport',
+    core: ['tfabric', 'rubberp', 'steel', 'foam'], allow: ['tfabric', 'rubberp', 'steel', 'plastic', 'fabric', 'foam', 'motor', 'battery', 'leather'],
+    syn: [['tfabric', 'rubberp', 12, 'Technique et adhérence'], ['tfabric', 'plastic', 6, 'Étanche et léger'], ['foam', 'fabric', 8, 'Amorti textile'], ['steel', 'rubberp', 8, 'Barre et grip'], ['motor', 'battery', 10, 'Assistance électrique'], ['steel', 'motor', 8, 'Machine motorisée'], ['leather', 'rubberp', 8, 'Semelle cuir']] },
+  vehicle: { name: 'Véhicule', noun: 'Véhicule', art: 'un véhicule', cls: 'lux', lvl: 3, fam: 'Auto et outils', gly: 'car', an: 'car', tier: 3, out: 1, u: 420, rb: 45, eb: 0.2, w: [25, 40, 35], nec: 30, dpc: 0.01, obso: 0.02, ts: 40, tech: 'AP', mega: 'auto',
+    core: ['chassis', 'steel'], allow: ['engine', 'chassis', 'tire', 'battery', 'motor', 'steel', 'paint', 'leather', 'glass', 'circuit'],
+    syn: [['engine', 'chassis', 14, 'Groupe motopropulseur'], ['motor', 'battery', 14, 'Motorisation électrique'], ['chassis', 'tire', 12, 'Châssis roulant'], ['paint', 'chassis', 8, 'Carrosserie peinte'], ['leather', 'chassis', 6, 'Sellerie cuir'], ['circuit', 'battery', 6, 'Électronique de bord'], ['glass', 'chassis', 6, 'Pare-brise et vitres']] },
+  luxe: { name: 'Luxe et accessoires', noun: 'Pièce de luxe', art: 'un article de luxe', cls: 'lux', lvl: 3, fam: 'Mode', gly: 'gem', an: 'handbag', tier: 2, out: 3, u: 90, rb: 70, eb: 0.27, w: [10, 30, 60], nec: 3, dpc: 0.03, obso: 0.02, ts: 15, tech: 'TX', mega: 'luxury',
+    core: ['ingot', 'gcase', 'leather', 'essence'], allow: ['ingot', 'gcase', 'glass', 'leather', 'essence', 'fabric', 'wire', 'spirit', 'silicon', 'ceramic'],
+    syn: [['ingot', 'glass', 14, 'Or et cristal'], ['ingot', 'leather', 12, 'Or et cuir'], ['gcase', 'glass', 12, 'Boîtier et verre saphir'], ['essence', 'glass', 14, 'Flacon de luxe'], ['leather', 'fabric', 8, 'Maroquinerie toilée'], ['leather', 'wire', 8, 'Fermoirs en cuivre'], ['spirit', 'glass', 8, 'Carafe de cave'], ['ingot', 'essence', 6, 'Parfum à l\'or']] },
+  household: { name: 'Maison et entretien', noun: 'Produit ménager', art: 'un produit ménager', cls: 'basic', lvl: 1, fam: 'Maison et meubles', gly: 'spray', an: 'soap', tier: 0, out: 10, u: 3.8, rb: 9, w: [40, 30, 30], nec: 55, dpc: 0.8, obso: 0.01, ts: 10, tech: 'MT',
+    core: ['chem', 'paper', 'plastic', 'ceramic'], allow: ['chem', 'essence', 'plastic', 'paper', 'ceramic', 'paint', 'foam', 'sand', 'limestone'],
+    syn: [['chem', 'essence', 10, 'Détergent parfumé'], ['chem', 'plastic', 6, 'Flacon dosé'], ['paper', 'chem', 8, 'Papier traité'], ['ceramic', 'paint', 8, 'Faïence décorée'], ['chem', 'limestone', 6, 'Détartrant'], ['paper', 'plastic', 6, 'Papier plastifié']] },
+  stationery: { name: 'Papeterie et livres', noun: 'Papeterie', art: 'une fourniture de papeterie', cls: 'basic', lvl: 1, fam: 'Maison et meubles', gly: 'book', an: 'books', tier: 0, out: 10, u: 3.4, rb: 8, w: [40, 30, 30], nec: 40, dpc: 0.5, obso: 0.03, ts: 8, tech: 'WD',
+    core: ['paper', 'wood'], allow: ['paper', 'chem', 'plastic', 'wood', 'plank', 'fabric', 'paint', 'led'],
+    syn: [['paper', 'chem', 10, 'Encre d\'imprimerie'], ['paper', 'plastic', 6, 'Couverture plastifiée'], ['paper', 'fabric', 8, 'Reliure toilée'], ['paper', 'paint', 6, 'Couleurs vives'], ['wood', 'paper', 8, 'Crayons et cahiers']] },
+  pet: { name: 'Animaux de compagnie', noun: 'Produit animalier', art: 'un produit pour animaux', cls: 'basic', lvl: 1, fam: 'Alimentation', gly: 'sack', an: 'petfood', tier: 0, out: 10, u: 4.4, rb: 9, food: 1, w: [40, 30, 30], nec: 60, dpc: 0.4, obso: 0.01, ts: 8, tech: 'AG',
+    core: ['meat', 'flour', 'wheat', 'milk'], allow: ['meat', 'flour', 'wheat', 'milk', 'sugar', 'plastic', 'fabric', 'foam'],
+    syn: [['meat', 'flour', 12, 'Croquettes complètes'], ['meat', 'wheat', 8, 'Ration céréalière'], ['milk', 'wheat', 6, 'Lait maternisé'], ['fabric', 'foam', 10, 'Coussin pour animaux'], ['plastic', 'fabric', 6, 'Jouet à mâcher']] },
+  parapharm: { name: 'Parapharmacie', noun: 'Parapharmacie', art: 'un produit de parapharmacie', cls: 'basic', lvl: 2, fam: 'Santé et beauté', gly: 'pill', an: 'vitamins', tier: 1, out: 12, u: 3, rb: 18, food: 1, w: [30, 30, 40], nec: 50, dpc: 0.3, obso: 0.02, ts: 25, tech: 'HL', mega: 'health',
+    core: ['api'], allow: ['api', 'sugar', 'chem', 'plastic', 'essence', 'milk', 'wheat'],
+    syn: [['api', 'sugar', 10, 'Comprimés sucrés'], ['api', 'essence', 8, 'Arôme masquant'], ['api', 'milk', 8, 'Complément protéiné'], ['api', 'chem', 6, 'Formulation soignée']] }
+};
+const CM_TECH = { AG: [['agri1', 40], ['agri2', 30], ['wms', 30]], TX: [['blast2', 40], ['auto', 35], ['lean', 25]], EL: [['auto', 40], ['insilico', 30], ['blast2', 30]], AP: [['blast2', 30], ['auto', 40], ['lean', 30]], WD: [['saw1', 45], ['blast2', 25], ['auto', 30]], MT: [['blast1', 35], ['blast2', 35], ['auto', 30]], HL: [['insilico', 40], ['auto', 30], ['wms', 30]] };
+const cmQs = g => clamp(28 + 15 * Math.log(Math.max(1, GOODS[g].base) / 5), 28, 92);   // « noblesse » d'un composant d'après son prix de base : 28 (matière brute) à 92 (or travaillé)
+const cmGoodsOk = () => GKEYS.filter(g => GOODS[g].grp !== 'goods' && g !== 'pack');
+function cmWhy(M, g) {
+  const n = GOODS[g].name;
+  if (M.food && !EDIBLE.has(g) && !M.allow.includes(g)) return `${n} ne convient pas pour ${M.art} : ce n'est ni comestible ni cosmétique, la santé des clients serait en jeu.`;
+  if (GOODS[g].grp === 'raw') return `${n} est une matière brute : elle doit d'abord être transformée en composant avant d'entrer dans ${M.art}.`;
+  return `${n} n'entre dans aucune recette réaliste pour ${M.art} (compatibles : ${M.allow.slice(0, 6).map(x => GOODS[x].name.toLowerCase()).join(', ')}…).`;
+}
+const cmClean = s => String(s == null ? '' : s).replace(/[<>&"`\\/\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 28);
+function cmSuggest(mk, goods) {
+  const M = CMODELS[mk]; if (!M || !goods.length) return M ? M.noun : '';
+  const nm = g => GOODS[g].name.toLowerCase().replace(/^(le |la |les |l')/, '').split(/[ ,]/)[0];
+  let out = M.noun; goods.forEach((g, i) => { const t = out + (i ? '-' : ' ') + nm(g); if (t.length <= 28) out = t; });
+  return cmClean(out);
+}
+// Évalue une association (sans rien créer). Retourne { ok, err } ou le détail complet du produit qui en résulterait.
+function cmpEval(mk, goods, ctx) {
+  const M = CMODELS[mk]; if (!M) return { ok: false, err: 'Choisis d\'abord un modèle de produit.' };
+  goods = (goods || []).filter((g, i, a) => a.indexOf(g) === i);
+  if (!goods.length) return { ok: false, err: 'Choisis au moins un composant (trois au maximum).', M };
+  if (goods.length > 3) return { ok: false, err: 'Trois composants au maximum par produit.', M };
+  for (const g of goods) { if (!GOODS[g] || GOODS[g].grp === 'goods' || g === 'pack') return { ok: false, err: 'Composant inconnu.', M }; if (!M.allow.includes(g)) return { ok: false, err: cmWhy(M, g), M, bad: g }; }
+  if (!goods.some(g => M.core.includes(g))) return { ok: false, err: `Il manque l'ingrédient principal : ajoute ${M.core.slice(0, 4).map(g => GOODS[g].name.toLowerCase()).join(', ')}.`, M };
+  const n = goods.length, W = CM_SLOTW[n - 1], D0 = M.u * M.out / M.rb, inp = {};
+  goods.forEach((g, i) => { const f = clamp(Math.sqrt(M.rb / Math.max(1, GOODS[g].base)), 0.15, 3); inp[g] = Math.round(D0 * W[i] * CM_RICH[n - 1] * f * K_IND * 100) / 100; });
+  const syn = []; M.syn.forEach(s => { if (goods.includes(s[0]) && goods.includes(s[1])) syn.push({ a: s[0], b: s[1], bonus: s[2], txt: s[3] }); });
+  const base = goods.reduce((a, g, i) => a + W[i] * cmQs(g), 0), bonus = syn.reduce((a, s) => a + s.bonus, 0) + (n === 3 ? 3 : n === 1 ? -4 : 0);
+  const q = clamp(Math.round(base + bonus), 10, 98), qi = q < 42 ? 0 : q < 64 ? 1 : 2;
+  const P = { in: inp, out: M.out * K_IND, cls: M.cls, lvl: M.lvl, pkg: M.pkg, eb: M.eb }, ref = cmRef(P, qi);
+  const packed = M.cls !== 'basic' || M.pkg, cost = (Object.keys(inp).reduce((a, g) => a + inp[g] * GOODS[g].base, 0) * QTIER[qi].inMult + (packed ? P.out * GOODS.pack.base : 0)) / P.out, price = ref * QTIER[qi].ref;
+  // nouveauté : 1 − ressemblance maximale (Jaccard sur les composants) avec les produits existants de la même classe ; une copie conforme ne coûte que 15 % de la R&D du modèle
+  let sim = 0, simKey = '', dup = '';
+  PKEYS.forEach(k => { const O = PRODUCTS[k]; if (O.cls !== M.cls) return; const A = Object.keys(O.in), u = new Set(goods.concat(A)), it = goods.filter(g => A.includes(g)).length, j = it / u.size; if (j > sim) { sim = j; simKey = k; } if (O.custom && O.m === mk && A.length === goods.length && it === goods.length) dup = k; });
+  if (dup) return { ok: false, err: `Tu as déjà composé « ${PRODUCTS[dup].name} » avec exactement cette association.`, M };
+  const nov = Math.round((1 - sim) * 100) / 100, an = PRODUCTS[M.an];
+  const rnd = cmRnd(an, nov, n), days = cmDays(an, nov);
+  const eb = M.eb || EB_PROD_PUB[M.cls] || 0.17;
+  return { ok: true, M, mk, goods, inp, out: P.out, q, qi, syn, ref, price, cost, margin: price - cost, mpct: (price - cost) / Math.max(0.01, price), nov, sim, simKey, rnd, days, eb, name: cmSuggest(mk, goods) };
+}
+// R&D du produit composé : réduite (15 % à 75 % de celle du produit de référence du modèle), proportionnelle à sa nouveauté ; durée de même
+const cmRnd = (an, nov, n) => Math.round(an.rnd * (0.15 + 0.6 * nov) * (0.9 + 0.1 * n)), cmDays = (an, nov) => Math.max(2, Math.round(an.days * (0.3 + 0.7 * nov)));
+// prix de référence (équivalent gamme Premium) calibré pour que l'EBITDA visé soit tenu dans la gamme choisie d'emblée (intrants × coefficient de gamme, prix × coefficient de gamme)
+const cmRef = (P, qi, k) => { const Q = Object.assign({}, P, { in: {} }); Object.keys(P.in).forEach(g => { Q.in[g] = P.in[g] * QTIER[qi].inMult; }); return CALREF(Q, k || '').ref / QTIER[qi].ref; };
+const EB_PROD_PUB = { basic: 0.20, std: 0.17, lux: 0.30 };
+function buildCustom(d) {
+  const M = CMODELS[d.m]; if (!M || !Array.isArray(d.g) || !d.g.length || d.g.some(g => !GOODS[g])) return null;
+  const ev = cmpCalc(d.m, d.g);
+  const col = CM_COLORS[(d.c | 0) % CM_COLORS.length];
+  const P = { name: d.n, cls: M.cls, lvl: M.lvl, in: ev.inp, out: ev.out, ref: 0, rnd: cmRnd(PRODUCTS[M.an], d.nov, d.g.length), days: cmDays(PRODUCTS[M.an], d.nov), tier: M.tier, custom: 1, m: d.m, fam: M.fam, pkg: M.pkg, eb: M.eb, gly: [M.gly, col[0], col[1]], q0: ev.qi, qv: ev.q,
+    desc: `${M.name} composé : ${d.g.map(g => GOODS[g].name.toLowerCase()).join(' + ')}. Création de ton groupe.` };
+  P.ref = cmRef(P, ev.qi, d.k); return P;
+}
+// copie de cmpEval sans la détection de doublon (reconstruction à la lecture d'une sauvegarde)
+function cmpCalc(mk, goods) {
+  const M = CMODELS[mk], n = goods.length, W = CM_SLOTW[n - 1], D0 = M.u * M.out / M.rb, inp = {};
+  goods.forEach((g, i) => { const f = clamp(Math.sqrt(M.rb / Math.max(1, GOODS[g].base)), 0.15, 3); inp[g] = Math.round(D0 * W[i] * CM_RICH[n - 1] * f * K_IND * 100) / 100; });
+  const syn = M.syn.filter(s => goods.includes(s[0]) && goods.includes(s[1])), base = goods.reduce((a, g, i) => a + W[i] * cmQs(g), 0), bonus = syn.reduce((a, s) => a + s[2], 0) + (n === 3 ? 3 : n === 1 ? -4 : 0), q = clamp(Math.round(base + bonus), 10, 98);
+  return { inp, out: M.out * K_IND, q, qi: q < 42 ? 0 : q < 64 ? 1 : 2 };
+}
+function regCustom(d) {
+  const P = buildCustom(d); if (!P) return false;
+  const k = d.k, M = CMODELS[d.m], q = P.qv;
+  PRODUCTS[k] = P; if (PKEYS.indexOf(k) < 0) PKEYS.push(k);
+  PROD_W[k] = M.w.slice(); NECESS[k] = M.nec; DEMAND_PC[k] = Math.round(M.dpc * (0.85 + 0.3 * q / 100) * 1000) / 1000; OBSO[k] = M.obso; TECH_SHARE[k] = M.ts; PROD_TECH[k] = CM_TECH[M.tech] || []; if (M.mega) MEGA_OF[k] = M.mega; else delete MEGA_OF[k];
+  return true;
+}
+// (re)construit la liste des produits composés : appelé à chaque nouvelle partie et à chaque chargement, avant initProd
+function syncCustom(list) {
+  PKEYS.filter(k => PRODUCTS[k] && PRODUCTS[k].custom).forEach(k => { delete PRODUCTS[k]; [PROD_W, NECESS, DEMAND_PC, OBSO, TECH_SHARE, PROD_TECH, MEGA_OF].forEach(t => { delete t[k]; }); });
+  const keep = PKEYS.filter(k => PRODUCTS[k]); PKEYS.length = 0; keep.forEach(k => PKEYS.push(k));
+  for (const k in psvgCache) delete psvgCache[k];
+  const ok = []; (Array.isArray(list) ? list : []).slice(0, CM_MAX).forEach(d => { if (d && /^cp\d+$/.test(d.k) && typeof d.n === 'string' && !PRODUCTS[d.k]) { const dd = { k: d.k, m: d.m, g: Array.isArray(d.g) ? d.g.slice(0, 3) : [], n: cmClean(d.n) || 'Produit composé', c: d.c | 0, nov: clamp(+d.nov || 0, 0, 1), day: d.day | 0 }; if (regCustom(dd)) ok.push(dd); } });
+  return ok;
+}
+// Crée un produit composé dans la partie en cours (sans le lancer). Retourne { ok, key } ou { ok: false, err }.
+function cmpCreate(mk, goods, name, colIdx) {
+  const E = cmpEval(mk, goods); if (!E.ok) return { ok: false, err: E.err };
+  if ((S.cprod || []).length >= CM_MAX) return { ok: false, err: `Tu as déjà composé ${CM_MAX} produits : c'est le maximum.` };
+  let nm = cmClean(name) || E.name; const taken = x => PKEYS.some(k => PRODUCTS[k].name.toLowerCase() === x.toLowerCase());
+  if (taken(nm)) { const b0 = nm.slice(0, 24); let i = 2; while (taken(b0 + ' ' + i)) i++; nm = b0 + ' ' + i; }
+  const n = Math.max(0, ...(S.cprod || []).map(x => +x.k.slice(2))) + 1, d = { k: 'cp' + n, m: mk, g: E.goods.slice(), n: nm, c: (colIdx | 0) % CM_COLORS.length, nov: E.nov, day: S.day | 0 };
+  if (!regCustom(d)) return { ok: false, err: 'Association impossible.' };
+  (S.cprod || (S.cprod = [])).push(d); S.prod[d.k] = newProdState(PRODUCTS[d.k].q0);
+  say(`Nouveau produit composé : ${nm} (${E.M.name.toLowerCase()}, gamme ${QTIER[E.qi].n.toLowerCase()}). R&D ${money(PRODUCTS[d.k].rnd * QTIER[E.qi].rnd)} · ${PRODUCTS[d.k].days} jours.`, 'good');
+  return { ok: true, key: d.k };
 }
 function assignRecipe(k, max) {
   const lvl = recipeOf(k).lvl, cands = [];
@@ -4860,13 +5226,14 @@ function compSheetHTML(k) {
 function renderProducts() {
   if (el('pview').hidden) return;
   const tr = tierNow();
-  const cards = PKEYS.map(pk => {
+  const cardOf = pk => {
     const pr = PRODUCTS[pk], ps = S.prod[pk], locked = pr.tier > tr && ps.st === 'locked';
     const status = locked ? 'Palier ' + TIERS[pr.tier].n : ps.st === 'locked' ? 'À développer' : ps.st === 'rnd' ? 'R&D ' + ps.rnd + ' j' : 'Lancé · ' + Math.round(ps.share * 100) + ' %';
     return `<button type="button" class="pcard${pk === selProd ? ' sel' : ''}${locked ? ' lock' : ''}" data-p="${pk}"><span class="th">${productSVG(pk, ps.q)}</span><b>${pr.name}</b><small>${status}</small></button>`;
-  }).join('');
+  };
+  const cards = FAM_ORDER.map(f => { const ks = PKEYS.filter(k => famOf(k) === f); return ks.length ? `<div class="cgrp" style="margin:8px 2px 4px">${f} · ${ks.length}</div><div class="pcards">${ks.map(cardOf).join('')}</div>` : ''; }).join('');
   const chips = RKEYS.map(k => { const n = sourceInfo(k).n; return `<button type="button" class="pchip${k === selProd ? ' sel' : ''}" data-p="${k}"><i style="background:${GOODS[k].color}"></i>${RECIPES[k].name}<small>${n ? n + ' usine(s)' : 'non produit'}</small></button>`; }).join('');
-  const html = `<div class="plh">PRODUITS FINIS <small style="font-weight:400;opacity:.8;text-transform:none;letter-spacing:0">· double-clique sur un produit pour le fabriquer automatiquement</small></div><div class="pcards">${cards}</div><div class="plh">COMPOSANTS</div><div class="pchips">${chips}</div>${contractsHTML()}`;
+  const html = `<div class="plh">PRODUITS FINIS <small style="font-weight:400;opacity:.8;text-transform:none;letter-spacing:0">· double-clique sur un produit pour le fabriquer automatiquement · ${PKEYS.length} produits ; compose les tiens dans le catalogue d'une usine (onglet Composer)</small></div>${cards}<div class="plh">COMPOSANTS</div><div class="pchips">${chips}</div>${contractsHTML()}`;
   if (html !== pvLast.list) { el('plist').innerHTML = html; pvLast.list = html; }
   const detail = isProd(selProd) ? sheetHTML(selProd) : compSheetHTML(selProd);
   if (detail !== pvLast.detail) {
@@ -7125,13 +7492,13 @@ function hasSource(g) {
   else if (g === 'ingot') eachBuilding(b => { if (b.t === 'foundry') ok = true; });
   return ok;
 }
-const RGRP = { flour: 'Agriculture et textile', fabric: 'Agriculture et textile', tire: 'Agriculture et textile', plank: 'Bois et construction', stud: 'Bois et construction', osb: 'Bois et construction', cement: 'Bois et construction', concrete: 'Bois et construction', steel: 'Métal, énergie, emballage', plastic: 'Métal, énergie, emballage', wire: 'Métal, énergie, emballage', pack: 'Métal, énergie, emballage', glass: 'Métal, énergie, emballage', silicon: 'Électronique', essence: 'Chimie et parfumerie', motor: 'Électronique', battery: 'Électronique', circuit: 'Électronique', screen: 'Électronique', gcase: 'Électronique', rweld: 'Robotique', rpaint: 'Robotique', rasm: 'Robotique', r6: 'Robotique' };
+const RGRP = { flour: 'Agriculture et textile', fabric: 'Agriculture et textile', tire: 'Agriculture et textile', plank: 'Bois et construction', stud: 'Bois et construction', osb: 'Bois et construction', cement: 'Bois et construction', concrete: 'Bois et construction', steel: 'Métal, énergie, emballage', plastic: 'Métal, énergie, emballage', wire: 'Métal, énergie, emballage', pack: 'Métal, énergie, emballage', glass: 'Métal, énergie, emballage', silicon: 'Électronique', essence: 'Chimie et parfumerie', motor: 'Électronique', battery: 'Électronique', circuit: 'Électronique', screen: 'Électronique', gcase: 'Électronique', paper: 'Bois et construction', milk: 'Agriculture et textile', meat: 'Agriculture et textile', leather: 'Agriculture et textile', tfabric: 'Agriculture et textile', spirit: 'Chimie et parfumerie', paint: 'Chimie et parfumerie', foam: 'Chimie et parfumerie', rubberp: 'Chimie et parfumerie', ceramic: 'Bois et construction', hardware: 'Métal, énergie, emballage', case: 'Métal, énergie, emballage', engine: 'Mécanique et automobile', chassis: 'Mécanique et automobile', led: 'Électronique', sensor: 'Électronique', pv: 'Électronique', rweld: 'Robotique', rpaint: 'Robotique', rasm: 'Robotique', r6: 'Robotique' };
 const CLSN = { basic: 'Biens de base', std: 'Biens manufacturés', lux: 'Produits de luxe', estate: 'Immobilier' };
 const gPriceAny = g => GOODS[g] ? S.price[g] : (PRODUCTS[g] ? prodPrice(g) : 0);
 function recipeItems(c) {
   const lv = FLEVEL[c.t], items = [];
   RKEYS.forEach(k => { const R = RECIPES[k]; items.push({ key: k, kind: 'comp', name: R.name, lvl: R.lvl, inp: R.in, out: R.out, price: S.price[k], st: 'ok', grp: RGRP[k] || 'Composants' }); });
-  PKEYS.forEach(pk => { const pr = PRODUCTS[pk], ps = S.prod[pk]; items.push({ key: pk, kind: 'prod', name: pr.name, lvl: pr.lvl, inp: productInputs(pk), out: pr.out, price: ps.st === 'on' ? prodPrice(pk) : pr.ref * QTIER[ps.q].ref, st: ps.st, tier: pr.tier, rnd: pr.free ? 0 : Math.round(pr.rnd * QTIER[ps.q].rnd), free: !!pr.free, days: ps.rnd, grp: CLSN[pr.cls], desc: pr.desc }); });
+  PKEYS.forEach(pk => { const pr = PRODUCTS[pk], ps = S.prod[pk]; items.push({ key: pk, kind: 'prod', name: pr.name, lvl: pr.lvl, inp: productInputs(pk), out: pr.out, price: ps.st === 'on' ? prodPrice(pk) : pr.ref * QTIER[ps.q].ref, st: ps.st, tier: pr.tier, rnd: pr.free ? 0 : Math.round(pr.rnd * QTIER[ps.q].rnd), free: !!pr.free, days: ps.rnd, grp: famOf(pk), desc: pr.desc }); });
   items.forEach(it => {
     let cost = 0, score = 1; it.chips = [];
     Object.keys(it.inp).forEach(g => { const need = it.inp[g], st = S.stock[g] != null ? S.stock[g] : (S.prod[g] ? S.prod[g].stock : 0), src = hasSource(g); cost += need * gPriceAny(g); const lvl = st >= need ? 'g' : (st > 0.5 || src) ? 'o' : 'r'; score *= lvl === 'g' ? 1 : lvl === 'o' ? 0.6 : 0.05; it.chips.push({ g, need, st, lvl, src }); });
@@ -7150,12 +7517,60 @@ function prodHeader(c) {
   return `<div class="prodhead"><span class="rth">${it ? itemThumb(it) : '<img alt="" src="' + compIcon('steel') + '" style="opacity:.35">'}</span><div class="ph1"><small>Production actuelle</small><b>${name}</b><small>${sub}</small>${best && best.key !== key ? `<small>Proposition : ${best.name} (${money(best.margin)} / cycle)</small>` : ''}</div><button class="btn" data-act="catalog">Choisir la production</button>${key && key !== 'g' ? '<button class="btn sec" data-act="autosrc" title="Choisit tout seul fournisseurs et imports pour tous les intrants">Sources automatiques</button>' : ''}</div>`;
 }
 /* --- catalogue de production (inspiré de Capitalism) --- */
+// ----- Passe 25 : onglet « Composer » du catalogue de production
+let cmpModel = '', cmpPicks = [], cmpName = '', cmpCol = 0, cmpMsg = '';
+function glyphThumb(gy, t) {
+  const P = TIERPAL[t], id = 'gt' + gy[0] + t + gy[1].replace('#', '');
+  const defs = `<defs><linearGradient id="bg${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#232c58"/><stop offset="1" stop-color="#0d1230"/></linearGradient><linearGradient id="gd${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset=".5" stop-color="#f2b84b"/><stop offset="1" stop-color="#b9831f"/></linearGradient><radialGradient id="gl${id}" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#cfeeff"/><stop offset=".5" stop-color="#2f6a95"/><stop offset="1" stop-color="#0a1e32"/></radialGradient><linearGradient id="sc${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3fd8ff"/><stop offset=".5" stop-color="#7f96ff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs>`;
+  return `<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${defs}<rect width="300" height="300" rx="18" fill="url(#bg${id})"/><ellipse cx="150" cy="268" rx="104" ry="11" fill="#000" opacity=".35"/>${glyphArt(gy, t, id)}</svg>`;
+}
+function composerHTML(c) {
+  const lv = FLEVEL[c.t], cyc = unitsOf(c) * fillOf(c), M = CMODELS[cmpModel], col = CM_COLORS[cmpCol], E = M ? cmpEval(cmpModel, cmpPicks) : null;
+  const H4 = t => `<h4 style="margin:12px 0 4px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)">${t}</h4>`;
+  const models = Object.keys(CMODELS).map(k => { const m = CMODELS[k]; return `<button class="chip2 cmm" data-cat="cm:${k}" aria-pressed="${k === cmpModel}"><span class="cmth">${glyphThumb([m.gly, col[0], col[1]], 1)}</span><span><b>${m.name}</b><small>${CLSN[m.cls]} · ${LVL_NAME[m.lvl]}</small></span></button>`; }).join('');
+  const chip = (g, ok) => { const pk = cmpPicks.indexOf(g) >= 0, src = (RAW_SRC[g] || RECIPES[g] || g === 'ingot') ? sourceInfo(g).n : 0; return `<button class="chip2 crp cmg${ok ? '' : ' no'}" data-cat="cg:${g}" aria-pressed="${pk}"><b>${GOODS[g].name}</b><small>${f1(S.price[g] || GOODS[g].base)} $ · ${src ? 'produit chez toi' : 'achat ou import'}</small></button>`; };
+  let goodsH = '';
+  if (M) {
+    const others = cmGoodsOk().filter(g => !M.allow.includes(g));
+    goodsH = H4(`2. Associe jusqu'à 3 composants (le premier est l'ingrédient principal)`) + `<div class="rlist">${M.allow.map(g => chip(g, true)).join('')}</div><details style="margin-top:8px"${cmpPicks.some(g => !M.allow.includes(g)) ? ' open' : ''}><summary class="note" style="cursor:pointer">Autres composants (le jeu refuse les combinaisons absurdes et explique pourquoi)</summary><div class="rlist" style="margin-top:6px">${others.map(g => chip(g, false)).join('')}</div></details>`;
+  }
+  let prev = '';
+  if (!M) prev = `<p class="note">Choisis un modèle de produit : il fixe la catégorie de vente, le niveau d'usine et les composants compatibles.</p>`;
+  else if (!E.ok) prev = `<div class="bnbanner ${cmpPicks.length ? 'warn' : ''}"><b>${cmpPicks.length ? 'Association refusée' : 'À toi de composer'}</b><span>${E.err}</span></div>`;
+  else {
+    const needLv = M.lvl > lv, tierOk = M.tier <= tierNow(), cost = Math.round(E.rnd * QTIER[E.qi].rnd);
+    const sw = CM_COLORS.map((cc, i) => `<button class="cmsw" data-cat="cc:${i}" aria-pressed="${i === cmpCol}" aria-label="Couleur ${i + 1}" style="background:linear-gradient(135deg,${cc[0]} 55%,${cc[1]} 55%)"></button>`).join('');
+    const sim = E.sim >= 0.34 && E.simKey ? ` · ressemble à ${PRODUCTS[E.simKey].name.toLowerCase()} (${Math.round(E.sim * 100)} %) : R&D réduite` : '';
+    prev = `<div class="hero"><div class="photo2">${glyphThumb([M.gly, col[0], col[1]], E.qi)}</div><div><h3>Aperçu du produit</h3>
+      <label class="note" for="cmpname">Nom du produit (laisse vide pour « ${E.name} »)</label><input id="cmpname" type="text" maxlength="28" value="${cmpName}" placeholder="${E.name}" style="display:block;width:100%;margin:3px 0 6px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:#0d1230;color:inherit">
+      <div class="note">Couleur de la vignette</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0">${sw}</div></div></div>
+      <div class="kpis" style="grid-template-columns:repeat(2,1fr)">
+      <div><small>Qualité de l'association</small><b>${E.q} / 100 · gamme ${QTIER[E.qi].n.toLowerCase()}</b></div>
+      <div><small>Positionnement</small><b>${CLSN[M.cls]} · ${QTIER[E.qi].tag.toLowerCase()}</b></div>
+      <div><small>Prix de référence (gros)</small><b>${f1(E.price)} $ / unité</b></div>
+      <div><small>Coût des intrants</small><b class="neg">${f1(E.cost)} $ / unité</b></div>
+      <div><small>Marge brute unitaire</small><b class="${E.margin >= 0 ? 'pos' : 'neg'}">${E.margin >= 0 ? '+' : '−'}${f1(Math.abs(E.margin))} $ · ${Math.round(E.mpct * 100)} %</b></div>
+      <div><small>Marge par mois (cette usine)</small><b class="pos">+${mj(E.margin * E.out * cyc)} <small>(${f1(cyc)} cycles/j)</small></b></div>
+      <div><small>R&D</small><b>${money(cost)} · ${E.days} jours</b></div>
+      <div><small>Nouveauté</small><b>${Math.round(E.nov * 100)} %${sim}</b></div></div>
+      ${E.syn.length ? `<div class="bnbanner"><b>Synergies de qualité (+${E.syn.reduce((a, s) => a + s.bonus, 0)})</b><span>${E.syn.map(s => `${s.txt} (${GOODS[s.a].name.toLowerCase()} + ${GOODS[s.b].name.toLowerCase()})`).join(' · ')}</span></div>` : `<p class="note">Aucune synergie particulière : la qualité vient des seuls composants. Essaie d'autres associations pour monter en gamme.</p>`}
+      <p class="note">Quantités par cycle : ${Object.keys(E.inp).map(g => `${GOODS[g].name.toLowerCase()} ×${f1(E.inp[g] * QTIER[E.qi].inMult)}`).join(', ')}.</p>
+      ${needLv ? `<div class="bnbanner warn"><b>${LVL_NAME[M.lvl]} requise</b><span>Cette usine ne peut pas fabriquer ce produit, mais tu peux le créer et le lancer dans une usine de niveau suffisant.</span></div>` : ''}
+      ${tierOk ? '' : `<div class="bnbanner warn"><b>Palier ${TIERS[M.tier].n} requis</b><span>Tu peux créer le produit maintenant et le lancer plus tard.</span></div>`}
+      <div class="actions" style="margin-top:8px"><button class="btn" data-cat="cmgo" ${needLv || !tierOk || S.cash < cost ? 'disabled' : ''}>▶ Créer et tout lancer · R&D ${money(cost)}</button><button class="btn sec" data-cat="cmmk">Créer sans lancer</button></div>
+      ${S.cash < cost ? `<small class="note neg" style="display:block;margin-top:4px">Trésorerie insuffisante pour la R&D : il manque ${money(cost - S.cash)}.</small>` : ''}`;
+  }
+  const mine = (S.cprod || []).map(d => `<button class="chip2 cmm" data-cat="cmsel:${d.k}"><span class="cmth">${productSVG(d.k, S.prod[d.k].q)}</span><span><b>${PRODUCTS[d.k].name}</b><small>${S.prod[d.k].st === 'on' ? 'lancé' : S.prod[d.k].st === 'rnd' ? 'R&D ' + S.prod[d.k].rnd + ' j' : 'à lancer'}</small></span></button>`).join('');
+  return `<div class="cmp"><p class="note" style="margin:2px 0 6px">Compose ton propre produit : un <b>modèle</b> (jouet, meuble, vêtement, appareil, snack…) et jusqu'à <b>3 composants</b> compatibles. Le jeu calcule la qualité (synergies), le prix, la marge et le positionnement. Le produit rejoint ensuite l'écran Produits comme les autres.</p>
+    ${H4('1. Choisis un modèle')}<div class="rlist">${models}</div>${goodsH}${H4('3. Résultat')}${cmpMsg ? `<div class="bnbanner warn"><b>Info</b><span>${cmpMsg}</span></div>` : ''}${prev}
+    ${mine ? H4(`Tes produits composés (${(S.cprod || []).length}/${CM_MAX})`) + `<div class="rlist">${mine}</div>` : ''}</div>`;
+}
 let catFac = null, catSel = '', catFilter = 'all', cvHtml = '', cvDown = false;
 function openCatalog(c) {
   closeViews('c');
   catFac = { x: c.x, y: c.y }; const items = recipeItems(c), cur = recOf(c);
   const best = items.filter(i => i.eligible && i.score > 0).sort((a, b) => b.score - a.score)[0];
-  catSel = c.prod || (best ? best.key : items[0].key); catFilter = 'all'; cvHtml = '';
+  catSel = c.prod || (best ? best.key : items[0].key); catFilter = 'all'; cvHtml = ''; cmpMsg = '';
   el('bview').hidden = true; el('pview').hidden = true; el('cview').hidden = false; renderCatalog(true);
 }
 function closeCatalog(back) { el('cview').hidden = true; cvHtml = ''; if (back && catFac) { const c = cell(catFac.x, catFac.y); if (c) { el('bview').hidden = false; bvHtml = ''; renderBuilding(true); } } }
@@ -7170,11 +7585,14 @@ function treeHtml(g, depth, seen) {
 function renderCatalog(force) {
   if (el('cview').hidden) return;
   if (cvDown && !force) return;
+  if (catFilter === 'compose' && !force) return;   // le composeur ne se redessine qu'à tes clics (saisie du nom préservée)
   const c = catFac && cell(catFac.x, catFac.y); if (!c || !FLEVEL[c.t]) { closeCatalog(false); return; }
   const lv = FLEVEL[c.t], T = TYPES[c.t], items = recipeItems(c), cur = c.prod || '';
   const best = items.filter(i => i.eligible && i.score > 0).sort((a, b) => b.score - a.score)[0];
   const it = items.find(i => i.key === catSel) || items[0], cyc = unitsOf(c) * fillOf(c);
   const flt = items.filter(i => catFilter === 'all' || (catFilter === 'comp' && i.kind === 'comp') || (catFilter === 'prod' && i.kind === 'prod') || (catFilter === 'ok' && i.eligible && i.lvl <= lv));
+  const gOrd = []; items.forEach(i => { if (i.kind === 'comp' && gOrd.indexOf(i.grp) < 0) gOrd.push(i.grp); });
+  flt.sort((a, b) => a.kind !== b.kind ? (a.kind === 'comp' ? -1 : 1) : a.kind === 'comp' ? gOrd.indexOf(a.grp) - gOrd.indexOf(b.grp) : FAM_ORDER.indexOf(a.grp) - FAM_ORDER.indexOf(b.grp));   // familles regroupées (passe 25)
   let list = '', lastG = '';
   flt.forEach(i => { if (i.grp !== lastG) { list += `<div class="cgrp">${i.grp}</div>`; lastG = i.grp; }
     const status = i.lvl > lv ? LVL_NAME[i.lvl] : i.kind === 'prod' && i.st === 'locked' ? (i.free ? 'standard · sans R&D' : 'nouveau · R&D') : i.kind === 'prod' && i.st === 'rnd' ? 'R&D ' + i.days + ' j' : i.kind === 'prod' ? 'lancé' : 'composant';
@@ -7206,8 +7624,8 @@ function renderCatalog(force) {
   <div style="position:sticky;bottom:-1px;background:#141a3c;border-top:1px solid rgba(242,184,75,.35);padding:8px 0 4px;margin-top:10px;z-index:3">
   ${isProd && cur !== it.key && it.lvl <= lv ? (() => { const miss = []; chainLeaves(it.key).forEach(g => { const si = sourceInfo(g); if (!si.n) miss.push(si.label); }); const st = (ok, txt) => `<li class="${ok ? 'pos' : 'neg'}">${ok ? '✔' : '✖'} ${txt}</li>`; return `<div class="note" style="margin:0 0 6px"><b>Comment lancer ce produit :</b><ul style="margin:4px 0 0 18px">${st(it.st !== 'locked' || !!it.free, it.st === 'locked' && !it.free ? 'R&D de ' + pr.days + ' jours (' + money(it.rnd) + ')' : 'Produit disponible')}${st(!miss.length, miss.length ? 'À construire : ' + [...new Set(miss)].slice(0, 4).join(', ') : 'Matières premières : sources en place')}${st(true, 'Cette usine (' + LVL_NAME[FLEVEL[c.t]] + ') peut le fabriquer')}</ul><small>Le bouton ci-dessous enchaîne tout : R&D, affectation de l'usine, composants et fournisseurs.</small></div>`; })() : ''}
   <div class="actions" style="margin-top:6px">${btns}</div></div>`;
-  const filt = [['all', 'Tout'], ['comp', 'Composants'], ['prod', 'Produits finis'], ['ok', 'Faisables ici']].map(f => `<button data-cat="f:${f[0]}" aria-pressed="${catFilter === f[0]}">${f[1]}</button>`).join('');
-  const html = `<div class="chead"><b>CHOISIR LA PRODUCTION</b><span>${T.name} · case ${c.x + 1}, ${c.y + 1} · ${f1(cyc)} cycles/jour</span><button class="ibtn" data-cat="close">Retour à l'usine</button></div><div class="cbody"><div class="clist"><div class="cfilters">${filt}</div>${list || '<p class="note">Aucun résultat.</p>'}</div><div class="cdet">${det}</div></div>`;
+  const filt = [['all', 'Tout'], ['comp', 'Composants'], ['prod', 'Produits finis'], ['ok', 'Faisables ici'], ['compose', '✚ Composer']].map(f => `<button data-cat="f:${f[0]}" aria-pressed="${catFilter === f[0]}">${f[1]}</button>`).join('');
+  const html = catFilter === 'compose' ? `<div class="chead"><b>COMPOSER UN PRODUIT</b><span>${T.name} · case ${c.x + 1}, ${c.y + 1} · ${f1(cyc)} cycles/jour</span><button class="ibtn" data-cat="close">Retour à l'usine</button></div><div class="cbody" style="grid-template-columns:1fr"><div class="cdet"><div class="cfilters">${filt}</div>${composerHTML(c)}</div></div>` : `<div class="chead"><b>CHOISIR LA PRODUCTION</b><span>${T.name} · case ${c.x + 1}, ${c.y + 1} · ${f1(cyc)} cycles/jour</span><button class="ibtn" data-cat="close">Retour à l'usine</button></div><div class="cbody"><div class="clist"><div class="cfilters">${filt}</div>${list || '<p class="note">Aucun résultat.</p>'}</div><div class="cdet">${det}</div></div>`;
   if (html === cvHtml) return;
   const lt = el('cview').querySelector('.clist') ? el('cview').querySelector('.clist').scrollTop : 0, dt = el('cview').querySelector('.cdet') ? el('cview').querySelector('.cdet').scrollTop : 0;
   el('cview').innerHTML = html; cvHtml = html;
@@ -7219,7 +7637,16 @@ el('cview').addEventListener('click', e => {
   const a = b.dataset.cat, c = catFac && cell(catFac.x, catFac.y); const [k, v] = [a.split(':')[0], a.slice(a.indexOf(':') + 1)];
   if (a === 'close') return closeCatalog(true);
   if (k === 'sel') { catSel = v; cvHtml = ''; el('cview').querySelector('.cdet').scrollTop = 0; }
-  else if (k === 'f') { catFilter = v; cvHtml = ''; }
+  else if (k === 'f') { catFilter = v; cvHtml = ''; cmpMsg = ''; }
+  else if (k === 'cm') { cmpModel = v; cmpPicks = []; cmpMsg = ''; cvHtml = ''; }
+  else if (k === 'cg') { const i = cmpPicks.indexOf(v); cmpMsg = ''; if (i >= 0) cmpPicks.splice(i, 1); else if (cmpPicks.length >= 3) cmpMsg = 'Trois composants au maximum : retire-en un d\'abord.'; else cmpPicks.push(v); cvHtml = ''; }
+  else if (k === 'cc') { cmpCol = +v | 0; cvHtml = ''; }
+  else if (k === 'cmsel') { catFilter = 'all'; catSel = v; cvHtml = ''; }
+  else if (k === 'cmgo' || k === 'cmmk') {
+    const r = cmpCreate(cmpModel, cmpPicks, cmpName, cmpCol); cvHtml = '';
+    if (!r.ok) cmpMsg = r.err;
+    else { cmpPicks = []; cmpName = ''; cmpMsg = ''; if (k === 'cmgo' && c && easyLaunch(c, r.key)) { refreshStats(); return closeCatalog(true); } catFilter = 'all'; catSel = r.key; }
+  }
   else if (!c) return;
   else if (k === 'make') { c.prod = v; c.src = {}; say(`${recipeOf(v).name} : production lancée dans cette usine.`, 'good'); autoSource(c); refreshStats(); updateHUD(); return closeCatalog(true); }
   else if (k === 'easy') { if (easyLaunch(c, v)) { refreshStats(); return closeCatalog(true); } }
@@ -7229,6 +7656,7 @@ el('cview').addEventListener('click', e => {
   else if (k === 'sheet') { closeCatalog(false); selProd = v; setPview(true); return; }
   renderCatalog(true);
 });
+el('cview').addEventListener('input', e => { if (e.target.id === 'cmpname') cmpName = cmClean(e.target.value); });
 ['pointerdown'].forEach(t2 => el('cview').addEventListener(t2, () => { cvDown = true; }, { passive: true }));
 ['pointerup', 'pointercancel'].forEach(t2 => window.addEventListener(t2, () => { setTimeout(() => { cvDown = false; }, 60); }, { passive: true }));
 function farmCard(c) {
@@ -8993,7 +9421,7 @@ setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
 const tileToScreen = (x, y) => { const c = iso(x + 0.5, y + 0.5), r = cvs.getBoundingClientRect(); return { x: r.left + vx + (c.x - cam.x) * z, y: r.top + vy + (c.y - cam.y) * z }; };
-window.WSE = { easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { CMODELS, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 })();
 </script>
 </body>
