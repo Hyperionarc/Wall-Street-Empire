@@ -544,6 +544,7 @@ body.vopen #feed{z-index:9}
 .pickbox{padding:8px;margin-top:6px;border-radius:8px;background:rgba(47,126,232,.12);border:1px solid #2f7ee8;font-size:12px}
 .whtab select{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:2px 4px;font-size:11.5px}
 .whtab td{padding:3px 6px}
+@media (max-width:560px){.fint.whtab td:first-child{white-space:nowrap;overflow-wrap:normal}.whtab select{max-width:66px;padding:2px 0;font-size:11px}.whtab td,.whtab th{padding:3px 2px}.fint.whtab th{white-space:normal;line-height:1.1}}
 .svview,#svview{position:absolute;z-index:9;left:max(12px,env(safe-area-inset-left,0px));top:calc(var(--hud-h) + 8px);width:min(1100px,calc(100% - 24px));max-height:calc(100% - var(--hud-h) - var(--bar-h) - 20px);display:flex;flex-direction:column;border-radius:12px;background:linear-gradient(180deg,#0b1030,#080b22);border:1px solid var(--cyan);overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 #svview[hidden]{display:none}
 @media (min-width:900px){#svview{left:calc(max(12px,env(safe-area-inset-left,0px)) + 168px);width:min(1100px,calc(100% - 192px))}}
@@ -656,6 +657,26 @@ body.vopen #feed{z-index:9}
   #sup-bar,.supbar{position:sticky;bottom:0;z-index:3}
 }
 
+
+/* Passe 18 : mobile, scène défilante plus grande, onglets sur deux lignes, toast fin en haut */
+#bsw{position:relative}
+@media (max-width:599px){
+  #bsw{overflow-x:auto;overflow-y:hidden;border-radius:10px;border:1px solid var(--line);background:#12163a;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  #bsw::-webkit-scrollbar{display:none}
+  #bscene{width:auto;max-width:none;height:min(340px,44vh);max-height:none;border:0;border-radius:0}
+  #bcap{font-size:12px;line-height:1.35;margin:6px 2px}
+  .btabs{flex-wrap:wrap;overflow:visible;gap:5px}
+  .btabs button{flex:1 1 auto;min-height:32px;padding:3px 9px;font-size:12px}
+  body.vopen #feed{top:max(3px,env(safe-area-inset-top,0px));left:8px;right:8px;align-items:center}
+  body.vopen #feed .msg{width:fit-content;max-width:100%;padding:3px 10px;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:999px;border-left-width:1px;opacity:.94;box-shadow:0 2px 10px rgba(0,0,0,.45)}
+  body.vopen #panel .phead{padding-top:max(26px,env(safe-area-inset-top,0px)) !important}
+  #panel .pnav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible;gap:3px;padding:6px}
+  #panel .pnav button{min-height:32px;padding:4px 2px;justify-content:center;gap:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #panel .pnav button i{display:none}
+  .advbar{position:static;margin:-10px -10px 10px;padding:6px 10px;font-size:11.5px;gap:3px 12px}
+
+  body.vopen #bview,body.vopen #cview,body.vopen #gview,body.vopen #svview,body.vopen #tview,body.vopen #pview,body.vopen #supview{padding-top:26px !important}
+}
 /* Passe 15 : barre d'objectif, sélection de partie, fin de partie */
 .objbar{pointer-events:auto;background:rgba(10,14,40,.82);border:1px solid var(--line);border-radius:10px;padding:5px 10px 6px;font-size:12px;line-height:1.3}
 .objbar .orow{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
@@ -853,7 +874,7 @@ body.vopen #feed{z-index:9}
     </div>
     <div id="bkpi"></div>
     <div id="bcap" aria-live="off"></div>
-    <canvas id="bscene" width="800" height="220" aria-label="Scène animée de l'intérieur du bâtiment"></canvas>
+    <div id="bsw"><canvas id="bscene" width="800" height="220" aria-label="Scène animée de l'intérieur du bâtiment"></canvas></div>
     <div id="bbody"></div>
   </aside>
 
@@ -4926,7 +4947,7 @@ function renderBuilding(force) {
   </div>
   <div class="actions"><button class="btn sec" data-act="bull">Démolir</button></div>`;
   const html = bTab === 'int' ? htmlInt : bTab === 'pu' ? purTab(c) : bTab === 'wh' ? whTab(c) : bTab === 'lg' ? lgTab(c) : bTab === 'st' ? stTab(c) : bTab === 'ad' ? adTab(c) : bTab === 'ex' ? exTab(c) : finTab(c, bTab);
-  el('bscene').style.display = bTab === 'int' ? 'block' : 'none'; el('bcap').style.display = bTab === 'int' ? 'block' : 'none';
+  el('bsw').style.display = bTab === 'int' ? 'block' : 'none'; el('bcap').style.display = bTab === 'int' ? 'block' : 'none';
   const kh = bTab === 'int' ? kpiHtml : '';
   if (kh + html === bvHtml) return;
   const top = el('bview').scrollTop;
@@ -5168,7 +5189,7 @@ function drawRetail(sc, c, g) {
   objs.sort((a, b) => a.k - b.k).forEach(o => o.f());
   quad(g, [P(0.9, sc.GH, 52), P(2.5, sc.GH, 52), P(2.5, sc.GH, 0), P(0.9, sc.GH, 0)], 'rgba(150,215,255,.16)', 'rgba(200,230,255,.8)');
   setCap(`${sc.cust.length} clients en magasin · fréquentation ${Math.round(custIndex(c).idx * 100)}/100 · ${f1(c.out)} ventes/j${adSpend(c) ? ' · pub ' + Math.round(c.aw || 0) + ' %' : ''}`);
-  if (c.limit === 'stock' || c.limit === 'noshelf') { g.fillStyle = 'rgba(255,90,95,.9)'; rrect(g, 10, 32, 190, 20, 6); g.fill(); g.fillStyle = '#fff'; g.font = '700 11px sans-serif'; g.fillText(c.limit === 'stock' ? 'RUPTURE DE STOCK' : 'AUCUN PRODUIT EN RAYON', 18, 46); }
+  if (c.limit === 'stock' || c.limit === 'noshelf') { const ls = sc.ls || 1; g.textAlign = 'left'; g.font = '700 ' + Math.round(11 * ls) + 'px sans-serif'; const lt = c.limit === 'stock' ? 'RUPTURE DE STOCK' : 'AUCUN PRODUIT EN RAYON', lw = g.measureText(lt).width + 16 * ls; g.fillStyle = 'rgba(255,90,95,.92)'; rrect(g, 10, 12, lw, 20 * ls, 6); g.fill(); g.fillStyle = '#fff'; g.fillText(lt, 18, 12 + 14 * ls); }
 }
 function lighten(col) { const n = parseInt(col.slice(1), 16), r = Math.min(255, (n >> 16) + 50), gg = Math.min(255, ((n >> 8) & 255) + 50), b = Math.min(255, (n & 255) + 50); return `rgb(${r},${gg},${b})`; }
 
@@ -5235,6 +5256,12 @@ function drawItem(g, k, x, y, s) {
       g.fillStyle = '#6a7390'; g.beginPath(); g.ellipse(0, -8, 17, 7, 0, 0, 7); g.fill(); g.fillStyle = '#aab3cf'; g.beginPath(); g.ellipse(0, -11, 17, 7, 0, 0, 7); g.fill(); g.strokeStyle = '#e4e9f5'; g.lineWidth = 1; g.beginPath(); g.moveTo(-10, -12); g.lineTo(10, -10); g.moveTo(-6, -8); g.lineTo(8, -14); g.stroke(); break;
     case 'essence':
       R(-9, -26, 18, 8, 2, '#c9a3ff'); R(-14, -18, 28, 18, 6, '#e6a8ff'); R(-10, -14, 20, 10, 3, 'rgba(255,255,255,.5)'); break;
+    case 'chem':
+      g.fillStyle = 'rgba(200,235,255,.45)'; g.beginPath(); g.moveTo(-4, -26); g.lineTo(4, -26); g.lineTo(4, -16); g.lineTo(14, 0); g.lineTo(-14, 0); g.lineTo(-4, -16); g.closePath(); g.fill(); g.strokeStyle = '#e9f7ff'; g.lineWidth = 1.5; g.stroke();
+      g.fillStyle = '#4fc3ff'; g.beginPath(); g.moveTo(-9, -7); g.lineTo(9, -7); g.lineTo(14, 0); g.lineTo(-14, 0); g.closePath(); g.fill(); R(-6, -29, 12, 4, 1.5, '#e9edff'); g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.arc(-3, -4, 1.6, 0, 7); g.arc(3, -3, 1.2, 0, 7); g.fill(); break;
+    case 'api':
+      R(-13, -12, 26, 12, 6, '#f4f6fa'); g.save(); g.beginPath(); g.rect(-13, -12, 13, 12); g.clip(); R(-13, -12, 26, 12, 6, '#ff7fbf'); g.restore(); g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(-10, -10, 18, 2);
+      R(-9, -26, 18, 12, 3, 'rgba(255,159,208,.5)'); R(-9, -26, 18, 4, 2, '#e9edff'); g.fillStyle = '#ff9fd0'; g.fillRect(-7, -19, 14, 4); break;
     case 'gcase':
       R(-15, -18, 30, 18, 3, '#f2b84b'); R(-15, -18, 30, 5, 2, '#ffe08a'); g.fillStyle = '#b9831f'; g.fillRect(-2, -10, 4, 5); break;
     default:
@@ -5928,7 +5955,7 @@ function sceneReset(c) {
   const T = TYPES[c.t];
   const upd = (s, c2, dt) => ({ retail: updRetail, site: updSite, fac: updFac, off: updOff })[s.kind](s, c2, dt);
   scene = (T.ext || c.t === 'wh') ? mkSite(c) : (T.ret && c.t !== 'immo') ? mkRetail(c) : (T.rec) ? mkFac(c) : mkOffice(c);
-  scene.cid = c.t + c.x + '_' + c.y; scene.H = scene.H || SCH; el('bscene').width = scene.W || SCW; el('bscene').height = scene.H; capLast = ''; el('bcap').textContent = '';
+  scene.cid = c.t + c.x + '_' + c.y; scene.H = scene.H || SCH; el('bscene').width = scene.W || SCW; el('bscene').height = scene.H; capLast = ''; el('bcap').textContent = ''; { const sw = el('bsw'); if (sw) setTimeout(() => { sw.scrollLeft = Math.max(0, (sw.scrollWidth - sw.clientWidth) / 2); }, 0); }
   for (let i = 0; i < 200; i++) upd(scene, c, 0.05);
 }
 function sceneFrame(dt) {
@@ -7724,7 +7751,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF };
+window.WSE = { compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF };
 })();
 </script>
 </body>
