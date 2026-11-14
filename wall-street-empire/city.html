@@ -1369,6 +1369,9 @@ function initProd() {
 const cpi = () => (S && S.cpi) || 1;
 const prodPrice = pk => PRODUCTS[pk].ref * QTIER[S.prod[pk].q].ref * S.prod[pk].pf * cpi();
 const prodOn = pk => S.prod[pk] && S.prod[pk].st === 'on';
+const EXP_BASE = 0.82, EXP_PORT = 0.04, EXP_CONG = 0.25;   // export : taux de base, bonus par port, congestion du marché étranger (voir passe 21)
+const PROD_COVER = 15, PROD_FLOOR = 1500;   // jours de ventes en stock au maximum ; plancher de démarrage (unités)
+const prodRoom = pk => Math.max(PROD_FLOOR * ((PRODUCTS[pk].out || 100) / 100) * 0.3 + 300, PROD_COVER * (S.prod[pk].qm || 0) / 30);
 // composants par cycle de production, avec l'effet de la gamme et de l'emballage
 function productInputs(pk) {
   const pr = PRODUCTS[pk], ps = S.prod[pk], inp = {};
@@ -1377,6 +1380,7 @@ function productInputs(pk) {
   return inp;
 }
 function outPrice(c) {
+  if (c.t === 'foundry') return S.price.ingot;   // passe 21 : la fonderie valorisait ses lingots à 0 (perte fictive de 100 k$/jour à l'écran)
   if (c.prod && RECIPES[c.prod]) return S.price[c.prod];
   if (c.prod && prodOn(c.prod)) return prodPrice(c.prod);
   return 0;
@@ -1525,6 +1529,7 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   const EB_REC = { steel: 0.15, chem: 0.17, api: 0.25, plastic: 0.17, wire: 0.13, plank: 0.18, stud: 0.18, osb: 0.18, cement: 0.28, concrete: 0.18, flour: 0.15, fabric: 0.15, tire: 0.15, pack: 0.15, motor: 0.18, battery: 0.18, circuit: 0.22, gcase: 0.22, screen: 0.22, glass: 0.15, silicon: 0.2, essence: 0.22 };
   const EB_GEN = { basic: 0.16, std: 0.16, lux: 0.38 }, EB_PROD = { basic: 0.20, std: 0.17, lux: 0.30, estate: 0.15, pharma: 0.38 };
   const EB_PK = { tv: 0.22, phone: 0.22, tablet: 0.21, laptop: 0.21, console: 0.22 };   // électronique grand public : marges d'assemblage ≈ 20 % (Samsung, Dell), pas celles du luxe
+  const Y_CROP = { wheat: 1.06, sugar: 1.38, cotton: 1.02, rubber: 1.38 };   // passe 21 : rendement réel des cultures près du port (fertilité du sol, irrigation) : 36-48 % d'EBITDA mesurés contre 20-27 % visés, l'entretien est recalé sur ce rendement
   const HAUL_TYP = { oil: 32, coal: 40, iron: 60, copper: 80, gold: 129 }, X_FAC = 0.88;   // distance typique au port des gisements (médiane) ; production réelle / nominale
   const EB_EXT = {}; Object.keys(RES_COST).forEach(g => { EB_EXT[g] = +(1 - RES_COST[g]).toFixed(2); });   // EBITDA visé = 1 − coût d'extraction (RES_COST)
   const PH_OVH = 1.0;   // frais généraux pharma = 1 × le coût des matières → marge brute ≈ 75 %
@@ -1543,7 +1548,7 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; T.jobs0 = T.jobs;
     const rate = ({ well: 400, miron: 350, mcoal: 350, qgravel: 450, qsand: 450, qlime: 380, mgold: 30, logging: 120 }[k] || T.rate * 5) * K_SIZE; T.rate = rate; });
   Object.keys(DEPOSITS).forEach(k => { DEPOSITS[k].res *= 5 * K_SIZE; });
-  Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; const rev = T.rate * GOODS[T.ext].base; const eb = EB_EXT[T.ext] || 0.25; T.cost = Math.round(Math.min(0.9, Math.max(0.35, 2.5 * eb)) * rev * 360 / 50000) * 50000; T.jobs = Math.max(4, Math.round(rev * 0.06 / WAGE_K)); const trx = Math.min(0.12, TRANS * (HAUL_TYP[T.ext] || 50) / GOODS[T.ext].base); T.upkeep = Math.max(50, Math.round(X_FAC * rev * (1 - eb - trx) - T.jobs * WAGE_K * CAL.wf)); });   // capex = 2,5 ans d'EBITDA (plafonné à 0,9 an de CA) ; entretien calibré sur la production réelle (≈ 88 % du nominal : effectif, cours un peu sous la base) et le fret typique du gisement
+  Object.keys(TYPES).forEach(k => { const T = TYPES[k]; if (!T.ext) return; const rev = T.rate * GOODS[T.ext].base; const eb = EB_EXT[T.ext] || 0.25; T.cost = Math.round(Math.min(0.9, Math.max(0.35, 2.5 * eb)) * rev * 360 / 50000) * 50000; T.jobs = Math.max(4, Math.round(rev * 0.06 / WAGE_K)); const trx = Math.min(0.12, TRANS * (HAUL_TYP[T.ext] || 50) / GOODS[T.ext].base); T.upkeep = Math.max(50, Math.round((Y_CROP[T.ext] || X_FAC) * rev * (1 - eb - trx) - T.jobs * WAGE_K * CAL.wf)); });   // capex = 2,5 ans d'EBITDA (plafonné à 0,9 an de CA) ; entretien calibré sur la production réelle (≈ 88 % du nominal : effectif, cours un peu sous la base) et le fret typique du gisement
   // Méga-centre commercial (s4, 3×3) : mêmes rayons que s3, capacité ×4, capex et effectifs en proportion (la méga-usine f4 est définie plus haut)
   TYPES.s4 = Object.assign({}, TYPES.s3, { name: 'Méga-centre commercial', sub: 'Base + manufact. + luxe, ×4', cost: TYPES.s3.cost * 4, upkeep: TYPES.s3.upkeep * 4, jobs: TYPES.s3.jobs * 4, w: 3, h: 3, tier: 3, color: '#ff7ad0', ret: { cap: TYPES.s3.ret.cap * 4, sells: TYPES.s3.ret.sells.slice() } });
   TIERS.forEach(x => { x.at *= SCALE_M; });
@@ -2743,7 +2748,7 @@ function step() {
       const outV = tgt.good ? tgt.qty * S.price[tgt.good] : tgt.prod ? tgt.qty * prodPrice(tgt.prod) : 0, inV = Object.keys(inp).reduce((a, k) => a + inp[k] * S.price[k] * impR * 1.1, 0);
       let short = inV > outV * 0.85 ? 0 : Math.max(0, tot - S.stock[g]);   // l'import automatique n'a lieu que si la fabrication reste rentable
       list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0;
-        if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) q = need; else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }
+        if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) { if (c._autoBuy && c._autoBuy[g] && inV > outV * 0.85) { c._noBuy = GOODS[g].name.toLowerCase(); q = 0; } else q = need; }   // achat choisi par l'auto-production : suspendu tant que les prix du marché rendent la fabrication déficitaire (un choix manuel reste respecté) else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }
         if (q > 0.01) { const of = mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3), c.haul) : null; const cost = of ? q * of.total * TM.buy * modOf('buy') : q * S.price[g] * impR * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; indImport += cost; c._impCost = (c._impCost || 0) + cost; c._impIn = (c._impIn || 0) + q; c._impV = (c._impV || 0) + q * S.price[g]; } });
     });
     let r = units, lim = null;
@@ -2865,14 +2870,14 @@ function step() {
   if (S.day > 0 && S.day % 10 === 0 && S.pop > 0.72 * cap && cap < 900000) { const pm = clamp(0.25 + 4 * (S.macro.gdp - 0.02) + (((S.stats && S.stats.happy) || 60) - 60) / 100, 0.05, 0.9); if (rnd() < pm) { addNpcTower('res', 6 + Math.floor(rnd() * 6)); if (rnd() < 0.85) addNpcTower('off', 8 + Math.floor(rnd() * 8)); } }
   // 4. Surplus exporté au-delà du plafond de stock
   let revExp = stepLocalMarket(made, want);
-  const portN = cn.port || 0, expRate = Math.min(0.95, Math.max(0.6 + 0.15 * portN, (S.rivals && S.rivals.length) ? 0.78 : 0) * TM.export);
+  const portN = cn.port || 0, expRate = Math.min(0.95, (EXP_BASE + EXP_PORT * portN) * TM.export);   // passe 21 : l'export réalise 82 % du cours au 1er port (+4 points par port), moins la congestion du marché étranger
   { const wr = stepWarehouses(portN, expRate); importCost += wr.imp; revExp += wr.rev; }
   { const tp = 30000 * (1 + 2.5 * portN) * (1 + 0.25 * (cn.wh || 0)); let used = 0;   // débit portuaire total par jour
     GKEYS.forEach(g => { const thr = Math.max(7500, 0.5 * capFor(g)); let ex = Math.max(0, S.stock[g] - thr); if (!(ex > 0)) return;
       const foreign = Math.max(4000, (LOCAL_D[g] || 100) * 4 * (S.pop / 10000) * 0.1), q = Math.min(ex, Math.max(0, tp - used), foreign * 1.5); if (q <= 0) return; used += q;
-      S.stock[g] -= q; if (g === 'basic' || g === 'std' || g === 'lux') want[g] += q; S.xsum = S.xsum || {}; S.xsum[g] = (S.xsum[g] || 0) + q * S.price[g]; revExp += xmF(g) * q * S.price[g] * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)) / (1 + 0.35 * q / foreign); S.expSold = S.expSold || {}; S.expSold[g] = q; });
+      S.stock[g] -= q; if (g === 'basic' || g === 'std' || g === 'lux') want[g] += q; S.xsum = S.xsum || {}; S.xsum[g] = (S.xsum[g] || 0) + q * S.price[g]; revExp += xmF(g) * q * S.price[g] * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)) / (1 + EXP_CONG * q / foreign); S.expSold = S.expSold || {}; S.expSold[g] = q; });
     S._portUse = used; S._portCap = tp; }
-  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 10000); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } });
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - prodRoom(pk)); if (ex > 0) { ps.stock -= ex; ps.exp = ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } else ps.exp = 0; });   // passe 21 : le surplus au-delà de ~15 jours de ventes part à l'export (cours - 10 pts) au lieu de dormir jusqu'à 10 000 unités
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
   const P = S.price;
@@ -4424,9 +4429,9 @@ function changeTier(pk, i) {
   say(`${pr.name} passe en gamme ${QTIER[i].n.toLowerCase()} (${money(cost)}).`, 'good');
   refreshStats(); return true;
 }
-function assignRecipe(k, max) {
+function assignRecipe(k, max, exact) {   // exact (passe 21, auto-production) : seulement les usines du niveau de la recette, jamais une grande usine (200 emplois) pour fabriquer du plastique
   const lvl = recipeOf(k).lvl, cands = [];
-  eachBuilding(c => { if (FLEVEL[c.t] && c.conn && FLEVEL[c.t] >= lvl && c.prod !== k && freeFact(c)) cands.push(c); });
+  eachBuilding(c => { if (FLEVEL[c.t] && c.conn && (exact ? FLEVEL[c.t] === lvl : FLEVEL[c.t] >= lvl) && c.prod !== k && freeFact(c)) cands.push(c); });
   cands.sort((a, b) => FLEVEL[a.t] - FLEVEL[b.t]);
   const n = Math.min(cands.length, max || 999);
   for (let i = 0; i < n; i++) { cands[i].prod = k; cands[i].src = {}; if (recOf(cands[i])) autoSource(cands[i], true); }   // le choix d'un produit lance l'auto-production : fournisseurs et imports sélectionnés selon l'arborescence
@@ -4479,18 +4484,27 @@ function autoSource(c, quiet) {
     const G = GOODS[g]; if (!G) return;
     const sub = RECIPES[g];
     if (sub) {   // composant fabriqué : une usine libre de bon niveau le produit, sinon on l'achète
-      if (!sourceInfo(g).n) assignRecipe(g, 1);
+      if (!sourceInfo(g).n) assignRecipe(g, 1, true);
       if (sourceInfo(g).n) { rows.push(G.name + ' : fabriqué dans ton groupe'); Object.keys(sub.in).forEach(i => walk(i, depth + 1)); return; }
     }
     if (sourceInfo(g).n > 0 && !sub) { rows.push(G.name + ' : ta propre extraction'); return; }
     rows.push(G.name + ' : acheté');
   };
+  const bought = []; c._autoBuy = {};
   Object.keys(R.in).forEach(g => {
-    const own = sourceInfo(g).n > 0 || (RECIPES[g] && assignRecipe(g, 1) && sourceInfo(g).n > 0);
+    const own = sourceInfo(g).n > 0 || (RECIPES[g] && assignRecipe(g, 1, true) && sourceInfo(g).n > 0);
     if (own) { c.src[g] = 'auto'; rows.push(GOODS[g].name + ' : ton groupe'); if (RECIPES[g]) Object.keys(RECIPES[g].in).forEach(i => walk(i, 1)); return; }
-    const cards = supCards(c, g).filter(x => x.id !== 'local').sort((a, b) => b.overall - a.overall), best = cards[0];
-    if (best) { c.src[g] = best.id === 'import' ? 'port' : best.id; rows.push(GOODS[g].name + ' : ' + (best.id === 'import' ? 'import par le port' : best.name) + ' (note ' + best.overall + ')'); }
+    // passe 21 : on choisit le fournisseur le MOINS CHER livré (qualité >= 50), pas la meilleure note : la marge d'une usine est de 15-20 %, un achat à +30 % la ruine
+    const cards = supCards(c, g).filter(x => x.id !== 'local').sort((a, b) => (b.o.q >= 50 ? 1 : 0) - (a.o.q >= 50 ? 1 : 0) || a.o.total - b.o.total), best = cards[0];
+    if (best) { c.src[g] = best.id === 'import' ? 'port' : best.id; c._autoBuy[g] = 1; bought.push([g, best]); rows.push(GOODS[g].name + ' : ' + (best.id === 'import' ? 'import par le port' : best.name) + ' (' + best.o.total.toFixed(2).replace('.', ',') + ' $ livré)'); }
   });
+  // Rentabilité (seuil 80 % : le surplus part à l'export à ~78 % du cours, au-delà la fabrication perd de l'argent) : si les intrants achetés rendent le cycle déficitaire, on n'achète rien (l'usine attend ta propre production) plutôt que de perdre de l'argent
+  if (bought.length) {
+    const outV = R.qty * (PRODUCTS[R.out] ? prodPrice(R.out) : S.price[R.out]), T0 = TYPES[c.t];
+    let inV = 0; Object.keys(R.in).forEach(g => { const b = bought.find(x => x[0] === g); inV += R.in[g] * (b ? b[1].o.total : S.price[g]); });
+    const fix = (T0.jobs * WAGE_K * 1.2 + T0.upkeep) * cpi() / (3.2 * K_SIZE * 0.85 * (T0.capK || 1));
+    if (inV + fix > 0.8 * outV) { bought.forEach(b => { c.src[b[0]] = 'local'; }); c._noBuy = bought.map(b => GOODS[b[0]].name.toLowerCase()).join(', '); rows.unshift('achats suspendus (' + c._noBuy + ') : trop chers pour que la production reste rentable, construis ta propre production'); } else delete c._noBuy;
+  } else delete c._noBuy;
   if (!quiet) say(`Auto-production ${recipeOf(c.prod) ? recipeOf(c.prod).name.toLowerCase() : ''} : ${rows.slice(0, 4).join(' ; ')}.`, 'good');
   return rows.length;
 }
@@ -4499,7 +4513,7 @@ function autoChain(pk) {
   RKEYS.forEach(g => {
     if (!need[g]) return;
     const deficit = Math.ceil(need[g] - unitsOn(g) - 0.01);
-    if (deficit > 0) { const n = assignRecipe(g, deficit); added += n; if (n < deficit) missing.push(`${deficit - n} ${LVL_NAME[RECIPES[g].lvl]}(s) pour ${RECIPES[g].name.toLowerCase()}`); }
+    if (deficit > 0) { const n = assignRecipe(g, deficit, true); added += n; if (n < deficit) missing.push(`${deficit - n} ${LVL_NAME[RECIPES[g].lvl]}(s) pour ${RECIPES[g].name.toLowerCase()}`); }
   });
   chainLeaves(pk).forEach(g => { const si = sourceInfo(g); if (!si.n) missing.push(si.label); });
   if (added) say(`Chaîne configurée : ${added} usine(s) affectée(s).`, 'good');
@@ -4898,6 +4912,10 @@ function svcInfo(c) {
 function bottleneck(c) {
   const T = TYPES[c.t], L = c.limit;
   if (!c.conn) return { sev: 'bad', t: 'Bâtiment non relié à une rue', d: 'Il ne produit rien tant qu\'aucune route ne le dessert.', acts: T.ext || isPlant(c.t) ? [['link', 'Relier au réseau']] : [] };
+  if (!L && (FLEVEL[c.t] || c.t === 'foundry') && recOf(c) && (c.days || 0) > 10 && (c.profit || 0) < 0) {   // usine qui tourne mais perd de l'argent : on dit pourquoi
+    const r = recOf(c), buys = Object.keys(r.in).filter(g => (c.src && c.src[g] && c.src[g] !== 'auto' && c.src[g] !== 'local') || (c._impIn || 0) > 0.01), worst = buys.sort((a, b) => gPrice(b) * r.in[b] - gPrice(a) * r.in[a])[0];
+    return { sev: 'warn', t: 'Usine déficitaire : les intrants coûtent plus que la production ne rapporte', d: worst ? `Tu achètes ${gName(worst).toLowerCase()} dehors (fournisseur ou import) : c'est ce qui ruine la marge. Produis-le toi-même (mine, ferme ou usine dédiée) ou change de fournisseur.` : 'Les salaires et l\'entretien dépassent la valeur produite : l\'usine est surdimensionnée pour la demande. Ouvre des magasins ou des débouchés, ou réduis son activité.', acts: worst ? [['opensup:' + worst, 'Choisir un fournisseur']] : [] };
+  }
   if (!L) { const sv = svcInfo(c); if (sv) return sv.bn; return { sev: 'ok', t: 'Aucun goulot : le bâtiment tourne à plein régime', d: 'Pour produire plus : agrandir, améliorer l\'efficacité ou recruter.', acts: [] }; }
   if (L === 'reserve') return { sev: 'bad', t: 'Gisement épuisé', d: 'Plus rien à extraire ici. Ouvre un nouveau site ailleurs, ou démolis.', acts: [] };
   if (L === 'link') return { sev: 'warn', t: 'Hors réseau : rendement 65 % et transport +50 %', d: 'Une route reliée à la ville rétablit 100 % du rendement.', acts: [['link', 'Relier au réseau']] };
@@ -4914,9 +4932,14 @@ function bottleneck(c) {
   if (L === 'noshelf') return { sev: 'bad', t: 'Aucune marchandise sélectionnée', d: 'Coche au moins une marchandise dans « Marchandises vendues » ci-dessous.', acts: [] };
   if (L === 'capacity') return { sev: 'ok', t: 'Capacité saturée : la demande dépasse ce magasin', d: 'Il vend ' + pct(clamp(c.util || 0, 0, 1)) + ' de sa capacité nominale. Agrandis-le ou construis-en un autre.', acts: [['up', 'Agrandir']] };
   const acts = [];
+  const isFac = !!(FLEVEL[c.t] || c.t === 'foundry'), gn = gName(L).toLowerCase();
   if (RECIPES[L]) acts.push(['make:' + L, 'Affecter une usine à ' + RECIPES[L].name.toLowerCase()]);
   else if (RAW_SRC[L] && TYPES[RAW_SRC[L]]) { const rt = RAW_SRC[L], have = hasBld(rt); acts.push(['info:' + TYPES[rt].name + '|' + (have ? 1 : 0), (have ? 'Extraction insuffisante : ' : 'Il faut : ') + TYPES[rt].name.toLowerCase()]); }
-  return { sev: 'bad', t: `Goulot : pénurie ${dEl(gName(L).toLowerCase())}`, d: `Stock ${fmt(gStock(L))}, il en manque pour alimenter la ligne. ${RECIPES[L] ? 'Affecte-lui une usine.' : RAW_SRC[L] ? (hasBld(RAW_SRC[L]) ? 'Agrandis ou ajoute : ' : 'Construis : ') + TYPES[RAW_SRC[L]].name.toLowerCase() + '.' : ''}`, acts };
+  if (isFac && GOODS[L]) acts.push(['opensup:' + L, 'Choisir un fournisseur']);
+  // Conseil actionnable (passe 21) : « manque de cuivre : construis une mine de cuivre, ou choisis un fournisseur »
+  const fix = RECIPES[L] ? `construis ou affecte une ${LVL_NAME[RECIPES[L].lvl]} pour ${RECIPES[L].name.toLowerCase()}` : RAW_SRC[L] && TYPES[RAW_SRC[L]] ? (hasBld(RAW_SRC[L]) ? 'agrandis ou ajoute : ' : 'construis : ') + TYPES[RAW_SRC[L]].name.toLowerCase() : L === 'ingot' ? 'construis une fonderie d\'or' : 'trouve une source';
+  const buyNote = c._noBuy ? ` Les achats ont été suspendus (${c._noBuy}) car les fournisseurs sont trop chers pour que cette usine reste rentable.` : '';
+  return { sev: 'bad', t: `Goulot : manque ${dEl(gn)}`, d: `Manque ${dEl(gn)} : ${fix}${isFac ? ', ou choisis un fournisseur' : ''}. Stock ${fmt(gStock(L))}, cours ${f1(gPrice(L))} $.${buyNote}`, acts };
 }
 function renderBuilding(force) {
   if (!bsel || el('bview').hidden) return;
@@ -8390,7 +8413,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF };
+window.WSE = { chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF };
 })();
 </script>
 </body>
