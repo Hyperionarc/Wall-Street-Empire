@@ -908,33 +908,31 @@ La vue **Dessus** est maintenant la vue par défaut de l'intérieur d'une usine 
 - **Mobile 390×844** : canevas net (résolution ×2), zoom initial 1,8 centré sur la fabrication, pincer et glisser, boutons Achat / Fabrication / Vente, carte de réserve compacte.
 - Coût d'une image : environ 1 à 4 ms en rendu logiciel (les objets lourds sont des sprites mis en cache : racks, machines, camions, bureau, murs, piles, convoyeurs des quais).
 
-### Architecture d'assets : sprites PNG facultatifs
-Le jeu dessine tout en vectoriel ; **si un PNG existe, il remplace le dessin vectoriel correspondant**, sinon le vectoriel reste (chaque objet se remplace indépendamment). Déposer les fichiers dans `wall-street-empire/assets/factory/<nom>.png`, puis lancer `python3 wall-street-empire/tools/build.py` : le script les embarque en base64 dans `city.html` (jeton `__FAC_JSON__`, comme les portraits et les HQ) ; seuls les noms de la liste ci-dessous sont pris en compte. En JavaScript : `WSE.fac.load(nom, dataURI)` charge un sprite à chaud, `WSE.fac.img(nom)` dit s'il est actif, `WSE.fac.FAC_SPEC` liste les noms.
+### Sprites de l'usine (assets/factory) et chargeur
+Le jeu embarque les **29 sprites isométriques** de `assets/factory/` (générés par `tools/factory_sprites/`, voir `assets/factory/_apercu.png`) : `build.py` les encode en base64 dans `city.html` (jetons `__FAC_JSON__` sprites, `__FACSH_JSON__` ombres, `__FACANCH_JSON__` ancres ; environ 1,1 Mo, page ≈ 3,7 Mo). **Si un PNG existe il remplace le dessin vectoriel correspondant ; s'il manque, le vectoriel reste** (chaque objet se remplace indépendamment ; `WSE.fac.unload(nom)` ou la suppression du fichier + `build.py` le prouvent : la vue se redessine entièrement en vectoriel, test `t14`). `WSE.fac.load(nom, dataURI)` charge un sprite à chaud (sans ombre), `WSE.fac.img(nom)` dit s'il est actif, `WSE.fac.FAC_SPEC` donne les ancres.
 
-Gabarit commun : **PNG à fond transparent, 64 à 256 px de large, éclairage isométrique 2:1 depuis le haut-gauche** (face du dessus la plus claire, face gauche moyenne, face droite la plus sombre), dessiné pour une **case de 64 px de large** (losange 64×32) : le jeu met l'image à l'échelle `tw / 64` (`tw` = largeur d'une case à l'écran). Pas d'ombre portée dans l'image (le jeu en ajoute une). **Ancre** = point de l'image (fraction de la largeur, de la hauteur) posé au centre de l'emprise au sol de l'objet.
+Gabarit : PNG à fond transparent, 256 px de large (128 px pour bobines, plaques, palettes, buisson), éclairage isométrique 2:1 depuis le haut-gauche ; **ombre portée dans un calque séparé** (`ombres/<nom>.png`, même cadrage, dessiné sous le sprite). `ancres.json` donne pour chaque fichier le **point d'ancrage** (`ancre_x`, `ancre_y` en px, posé au centre de l'emprise au sol) et l'**échelle** `echelle_px_par_m` : le jeu dessine à `(tw / 2) / echelle_px_par_m` (`tw` = largeur d'une case à l'écran, 1 case = 1 m), ce qui agrandit automatiquement les objets réduits (camions, bureau, quai). Les tuiles `herbe_tuile` et `sol_beton_tuile` (256×128, raccordables, ancre = sommet bas) couvrent 2×2 cases.
 
-| Fichier | Remplace | Taille conseillée | Ancre (x ; y) | Emprise |
-|---|---|---|---|---|
-| `bobine.png` | piles de bobines et anneaux (acier, cuivre, fil, tissu) | 96×128 | 0,5 ; 0,82 | 2×2 cases |
-| `plaque.png` | piles de plaques, barres, planches | 128×96 | 0,5 ; 0,78 | 2×2 cases |
-| `palette.png` | palette chargée (vrac, sacs, caisses) | 96×96 | 0,5 ; 0,80 | 2×2 cases |
-| `carton.png` | carton sur les convoyeurs | 32×32 | 0,5 ; 0,80 | 0,5 case |
-| `rack.png` | un plot de stock complet (2 travées, 3 niveaux, plein) | 224×224 | 0,5 ; 0,82 | 3,5×3,4 cases |
-| `camion_blanc.png`, `camion_rouge.png`, `camion_bleu.png` | camion de quai, cabine vers le bas-droite (axe x) | 256×160 | 0,5 ; 0,70 | 5,6×2,6 cases |
-| `convoyeur_droit.png` | tronçon de convoyeur d'une case, droit selon x (retourné pour les tronçons selon y) ; tous les tronçons droits l'utilisent | 64×48 | 0,5 ; 0,70 | 1 case |
-| `convoyeur_coin.png` | coin de convoyeur (réservé : les coins restent vectoriels pour l'instant ; à fournir, il sera branché sans changer le gabarit) | 64×48 | 0,5 ; 0,70 | 1 case |
-| `machine.png` | machine de production d'un plot | 224×224 | 0,5 ; 0,82 | 3,5×3,4 cases |
-| `robot.png` | robot (socle et enceinte) ; le bras animé reste dessiné par le jeu | 160×192 | 0,5 ; 0,82 | 3,5×3,4 cases |
-| `ouvrier.png` | ouvrier debout (casque jaune) | 32×64 | 0,5 ; 0,96 | pieds |
-| `bureau.png` | local bureau vitré avec employés | 384×288 | 0,5 ; 0,82 | 7,8×5,7 cases |
-| `arbre.png` | arbre (taille légèrement variée par le jeu) | 128×160 | 0,5 ; 0,88 | tronc |
-| `herbe.png` | tuile de sol herbeuse (losange 64×32), répétée | 64×32 | 0,5 ; 0,5 | 1 case |
-| `quai.png` | porte de quai avec rampe | 160×128 | 0,5 ; 0,80 | 2,8 cases |
+| Fichier | Où il est utilisé dans la vue Dessus |
+|---|---|
+| `herbe_tuile`, `sol_beton_tuile` | extérieur herbeux ; sol clair de chaque dalle de zone |
+| `bobine_acier`, `bobine_cuivre`, `plaques_acier` | zone ACHATS : piles de matière (acier et aluminium = bobines d'acier, cuivre et fil = bobines de cuivre, barres et tôles = plaques) ; les autres biens gardent un dessin vectoriel à la couleur de `GOODS` |
+| `palette_cartons`, `palette_vide` | palettes aux quais d'achat et de vente (`palette_vide` réservée) |
+| `rack_stockage`, `rack_vide` | plot de stock : deux travées ; `rack_vide` dessous, `rack_stockage` rogné par le bas par-dessus selon le **stock réel** |
+| `convoyeur_droit` | tous les tronçons droits (miroir pour l'axe y) ; `convoyeur_coin` : réservé (coins vectoriels pour l'instant) |
+| `machine_assemblage`, `presse`, `robot_6_axes` | machines (presse / scie = presse ; fours et cuves restent vectoriels) et robots |
+| `camion_blanc`, `camion_rouge`, `camion_bleu` et `_ouvert` | camions aux quais, remorque ouverte une fois à quai |
+| `quai_chargement` | portes de quai des unités posées (miroir pour le mur sud-ouest) |
+| `bureau_vitre` | local bureau |
+| `ouvrier_gilet_orange`, `ouvrier_gilet_bleu` | ouvriers : planches de 4 poses 128×200 (marche, porte un carton, machine, debout) choisies selon la tâche, miroir selon le sens |
+| `chariot_elevateur` | chariot qui patrouille entre les quais d'achat et les piles |
+| `arbre`, `buisson` | arbres et buissons autour du bâtiment |
+| `mur_bas_gauche`, `mur_bas_droite` | non utilisés (les murs bas restent vectoriels) |
 
-Les sprites actifs sont listés par `build.py` (« sprites usine : ... », « aucun » tant qu'aucun PNG n'est déposé).
+Limite connue : les camions fournis montrent leur arrière ouvert côté bas-droite ; ils sont donc posés « nez au quai » (le recul n'est animé que par la distance).
 
 ### Tests
-`t14_vue_dessus.js` (18 contrôles) : vue par défaut = Dessus et ordre des angles, quatre zones, cartes de KPI et valeurs réelles, clic sur une zone / un rack / une machine, ajout d'unité visible (l'image du plot change, camion au quai), alerte posée sur le convoyeur (pixels rouges) et menu d'actions, vue éclatée / assemblée, chargeur de sprites avec repli, mobile 390×844. `t12_usine_immersive.js` est adapté (ordre des angles, géométrie des quais en vue Dessus).
+`t14_vue_dessus.js` (18 contrôles) : vue par défaut = Dessus et ordre des angles, quatre zones, cartes de KPI et valeurs réelles, clic sur une zone / un rack / une machine, ajout d'unité visible (l'image du plot change, camion au quai), alerte posée sur le convoyeur (pixels rouges) et menu d'actions, vue éclatée / assemblée, chargeur de sprites (29 noms, ancres, remplacement d'un PNG, repli vectoriel complet), mobile 390×844. `t12_usine_immersive.js` est adapté (ordre des angles, géométrie des quais en vue Dessus).
 
 ### Limites connues
-Le rendu vectoriel reste moins riche que les rendus 3D de l'image de référence (matériaux, reflets, foule, décor) : c'est ce que les sprites générés doivent combler. Les anciens angles Isométrique et Garage sont inchangés.
+Les objets sans sprite (fours, cuves, lingots, fûts, sacs, bacs) restent vectoriels ; pas de coins de convoyeur ni de bobines couchées. Les anciens angles Isométrique et Garage sont inchangés.
