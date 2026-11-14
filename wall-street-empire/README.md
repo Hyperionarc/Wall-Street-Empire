@@ -471,3 +471,22 @@ Contrôlé par `t07_references.js` : plus aucun libellé « générique » dans 
 - Cultures (blé, canne, caoutchouc) : EBITDA de 36 à 48 % près du port, au-dessus de la cible de 20-27 % de la passe 16 (fer 56 %, cuivre 54 %, or 48 %, carrières 30-32 %, bois 30 %). Les bornes du test sont élargies en conséquence (12-40 % et 17-50 %).
 - s4 (méga-centre) : EBITDA 14,3 % sur le banc, au bord de la cible 5-14 % (test arrondi à l'unité).
 - Bien courant : −50 % de volume pour +30 % de prix contre −15 % pour le bien de base (cohérent avec l'élasticité plus forte des biens manufacturés ; le test impose seulement qu'il soit plus élastique).
+
+## Passe 18 : visuels et mobile
+
+**Produits** : les 12 produits qui utilisaient le carton de repli (savons et détergents, verrerie, crèmes et soins, petit électroménager, réfrigérateur, bijoux en or, parfum de luxe, soins de luxe, sac de créateur, tablette, ordinateur portable, console de jeux) ont chacun une illustration SVG en 3 gammes (`newSVG`, même repère 300x300 et même palette que `productSVG`). Les composants chimiques et principes actifs ont une icône (`drawItem`). Vérifiés dans les cartes, les fiches, le catalogue de production, les rayons de magasin et sur les cartons de l'intérieur des usines.
+
+**Intérieur des sites en isométrique 2:1** (`mkSite` / `updSite` / `drawSite`, remplacent l'ancien rendu 2D de `mkExt` et de l'entrepôt) :
+- mines et carrières : fosse à parois stratifiées, pelleteuse animée, ouvriers piocheurs, convoyeur incliné, concasseur, tas, chargeuse et camion ;
+- puits de pétrole : chevalets de pompage animés, pipelines, derrick, bacs avec jauge, poste de chargement ;
+- fermes (blé, canne, coton, hévéa) : rangées de plants coupées par la moissonneuse (un canvas par rangée), tracteur, grange et silo ;
+- camp de bûcherons : forêt d'arbres abattus et repoussant, ouvriers, débusqueuse, tas de grumes ;
+- entrepôt : halle, racks remplis selon le stock réel (couleur par bien), chariots élévateurs, quai.
+
+Le nombre d'ouvriers suit l'effectif réel (comme les usines) ; à l'arrêt (peu d'activité, stock plein, gisement épuisé, manque de personnel) les ouvriers vont à la cabane de pause, les engins s'immobilisent et une alerte s'affiche. Coût mesuré : 0,6 à 1,0 ms par image (limite 2 ms). Aucun `Math.random` : générateur à graine du bâtiment.
+
+**Mobile 390x844** : le toast est une pastille fine d'une ligne en haut de l'écran quand un panneau est ouvert (un seul message) et reste sous le HUD sinon ; il est masqué pendant les écrans de début, de caste et de fin ; les en-têtes de panneaux réservent la place. Onglets des bâtiments sur deux lignes (plus de défilement caché), menu du bureau en grille de 4 colonnes, bandeau conseiller non collant, table du stock d'entrepôt lisible. La scène intérieure est plus grande et défile horizontalement ; les libellés dessinés dans le canvas (alertes, « Sortie pleine », « Rupture de stock ») sont agrandis du facteur de réduction pour rester à 11 px à l'écran (`sc.ls`). Correction : le libellé « Rupture de stock » du magasin n'est plus tronqué.
+
+**Écrans de début et de fin** : scénarios verrouillés plus lisibles avec la condition de déblocage ; choix de caste en cartes horizontales (les 6 castes tiennent sans défiler sur ordinateur, 6 cartes compactes sur mobile) ; titres et textes ≥ 11 px.
+
+**Reste à faire** : bureaux, tours et banques gardent l'ancienne scène 2D ; le canvas de l'intérieur n'est pas redimensionné dynamiquement au changement d'orientation du téléphone ; première image d'un site un peu plus longue (50 à 130 ms, construction du décor).
