@@ -837,3 +837,18 @@ Chaînes **mal construites** (doivent rester perdantes ou nulles) :
 - Tests : `t11_alertes_scene.js` (clic réel sur l'alerte d'intrant manquant, « Sources automatiques », la production reprend, zone ≥ 44 px, caméra) et nouvelle section 10 de `t09` (remplacer, vente en première colonne, déplacer, outils).
 
 **Non fait** (demandes ultérieures) : mode plein écran immersif avec transition de caméra depuis la ville, rotation de caméra, pincer pour zoomer sur mobile, ambiance sonore WebAudio, poussière / vapeur animées, arrière-plan sans cadre autour du losange, ouvriers cliquables, curseurs cadence / qualité / maintenance, pannes et inspecteur, objectifs persistants et galerie.
+
+
+## Passe 29 : poser un commerce sur du bâti existant (rachat PNJ, négociation avec un rival)
+
+Un seul geste : on choisit un bâtiment urbain (magasin, immobilier, tour...) et on le pose là où on veut, même sur des maisons ou immeubles déjà construits.
+
+- **Bâti PNJ** : `place()` détecte l'emprise occupée (`acqPlan`, `footprintError(x, y, key, true)`), ouvre la bulle « Cette case est occupée par 2 maisons : racheter 38 000 $ puis construire ? » (rachat = `buyoutCost` par case, remise Promoteur de 30 %, + construction et terrain, total, effet sur la ville) ; l'emprise passe en orange au survol et pendant la bulle. Confirmer : `acqExec` paie, rase (`S.npcMods`), construit, de façon atomique (annulé si la pose échoue) ; trésorerie insuffisante = refus avec le manque affiché. Les bâtiments publics (`mon`) ne sont jamais vendus. Les habitants déplacés réduisent la capacité d'habitat (`evaluate`, annoncée dans la bulle) et les bureaux rasés retirent des emplois.
+- **Propriété** : `ownerOf(cell)` renvoie `'npc'`, `'me'`, un rival (`'r1'`...) ou un joueur humain (`'h:nom'`). Environ 10 % des bâtiments de moins de 13 étages appartiennent aux rivaux (déterministe, `hash`), marqués à la couleur du rival sur la carte ; les transferts sont sauvegardés dans `nown`. Leurs loyers (7 %/an de la valeur) s'ajoutent à leurs ventes (`rivalRents`), sans toucher aux marges s1-s4.
+- **Négociation** (bâtiment d'un rival) : fenêtre « Négocier avec X » (valeur estimée, loyers, relation `S.rel`, offre au curseur, avocat optionnel à 2 % de la valeur qui baisse la réserve du vendeur de 6 %), 3 tours maximum, réponses déterministes accepté / contre-offre / refusé selon l'écart avec la réserve du vendeur (`hash`), refus = 20 jours avant une nouvelle tentative, le rival encaisse le prix.
+- **API multijoueur** : `WSE.acq.demandeAchat(buyerId, sellerId, cellId, offre)` renvoie un état `pending | accepted | countered | refused` ; pour un vendeur humain la demande reste `pending` (stub solo : réponse automatique après 2 jours, `stepReqs`) ; `repondreAchat(id, 'accept' | 'refuse' | 'counter', offre)` pour la réponse manuelle.
+- **UX** : infobulle au survol (« Maison — PNJ : racheter 900 $ », « Immeuble de X : à négocier »), cases acquérables teintées en orange autour du curseur, Échap annule, bulle en bas sur mobile.
+- **Sauvegarde v8** rétro-compatible : champs optionnels `nown`, `neg`, `reqs`, `rid`.
+- Tests : `tools/tests/t13_acquisition.js`.
+
+**Reste** : négociation multi-propriétaires séquentielle (une fenêtre par rival) ; pas de rachat sec d'un bien de rival sans construire (l'outil « Acheter un terrain bâti » renvoie vers la pose d'un commerce) ; joueurs humains réels (réseau) à brancher sur `demandeAchat`.
