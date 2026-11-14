@@ -742,6 +742,7 @@ body.vopen #feed{z-index:9}
     <h3>MA SOCIÉTÉ EN BOURSE</h3>
     <div id="bourse"></div>
     <h3>COURS DES MATIÈRES PREMIÈRES ET MARCHANDISES</h3>
+    <div id="mkdet"></div>
     <div id="goods"></div>
     </section>
     <section data-sec="rivals" hidden>
@@ -1203,13 +1204,42 @@ function placeNpcFarm(g, owner) {
 // Générateur pseudo-aléatoire déterministe (mulberry32) : la simulation ne doit jamais appeler Math.random (rejouable côté serveur)
 let _RS0 = 0x1badf00d;
 function rnd() { let a = (S ? (S.rs = ((S.rs == null ? _RS0 : S.rs) + 0x6D2B79F5) | 0) : (_RS0 = (_RS0 + 0x6D2B79F5) | 0)); let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+// Prix unique par bien : ancrage (base × répercussion du coût des intrants × inflation × primes), plancher (jamais sous le coût réel des intrants + 8 %) et plafond (×1,6 de l'ancrage)
+function marketBounds(g) {
+  const G = GOODS[g], P = S.price; let pass = 1;
+  if (G.inp) { let a = 0, b = 0; Object.keys(G.inp).forEach(h => { a += G.inp[h] * P[h] / cpi(); b += G.inp[h] * GOODS[h].base; }); pass = 1 - G.inS + G.inS * clamp(a / b, 0.7, 1.5); }   // répercussion du coût des intrants
+  const base = G.base * pass * cpi() * modOf('px_' + g) * (G.grp === 'raw' ? 1 + Math.max(0, S.macro.gdp - 0.03) * 3 : 1);
+  let fl = base * (G.inp ? 0.86 : 0.75);
+  if (G.inp && G.inO) { let ci = 0; Object.keys(G.inp).forEach(h => { ci += G.inp[h] * P[h]; }); fl = Math.min(base * 1.4, Math.max(fl, 1.08 * ci / G.inO)); }   // un produit transformé ne se vend jamais durablement sous le coût réel de ses intrants + 8 %
+  return { base, fl, cap: Math.max(fl, base * 1.6), pass };
+}
+// Indicateurs de marché : tendance sur 30 jours, état (pénurie / équilibre / saturation / plancher / plafond)
+function trend30(g) { const a = S.ph && S.ph[g]; if (!a || a.length < 3) return 0; const n = a.length, ref = a[Math.max(0, n - 31)]; return ref > 0 ? a[n - 1] / ref - 1 : 0; }
+function mktState(g) {
+  const mb = marketBounds(g), p = S.price[g], ratio = (S.rat && S.rat[g] != null) ? S.rat[g] : 1;
+  if (p <= mb.fl * 1.03 && mb.cap > mb.fl * 1.05) return { k: 'floor', t: 'Saturé · prix plancher', c: 'neg' };
+  if (p >= mb.cap * 0.97 && mb.cap > mb.fl * 1.05) return { k: 'cap', t: 'Pénurie · prix plafond', c: 'neg' };
+  if (ratio > 1.3) return { k: 'short', t: 'Pénurie', c: 'neg' };
+  if (ratio < 0.75) return { k: 'glut', t: 'Saturé (offre abondante)', c: 'warn' };
+  return { k: 'ok', t: 'Équilibré', c: 'pos' };
+}
+function mktAlerts() {   // alerte une seule fois par bien tant que l'état ne change pas, au plus tous les 30 jours (déterministe, non sauvegardé)
+  const st = S._mst || (S._mst = {}), cd = S._mcd || (S._mcd = {});
+  GKEYS.forEach(g => {
+    const m = mktState(g), prev = st[g]; st[g] = m.k;
+    if (prev === undefined || prev === m.k || m.k === 'ok') return;
+    if ((cd[g] || -99) > S.day - 30) return;
+    const mine = (S.stock[g] || 0) > 1 || (S.locSold && S.locSold[g] > 0.5); if (!mine) return;
+    cd[g] = S.day; say(`Marché du ${GOODS[g].name.toLowerCase()} : ${m.t.toLowerCase()} (${S.price[g].toFixed(1).replace('.', ',')} $, ${trend30(g) >= 0 ? '+' : '−'}${Math.abs(trend30(g) * 100).toFixed(0)} % sur 30 j).`, m.k === 'glut' || m.k === 'floor' ? 'warn' : 'bad');
+  });
+}
 const FREIGHT = 0.006;   // part du prix par case de distance
 const SUP_CITY = ['Houston', 'Rotterdam', 'Shenzhen', 'Dubaï', 'Santiago', 'Norilsk', 'Singapour', 'Hambourg', 'Lagos', 'Sydney', 'Zurich', 'Mumbai'];
 const dealOf = (g, id) => { const d = (S.deals || {})[g + ':' + id]; return d && d.until >= S.day ? d : null; };
 const SEA_D = { f1: 90, f2: 70, f3: 60, f4: 80, f5: 85 };   // distance maritime par puissance étrangère (cases équivalentes)
-function freightTip(o) { const f = v => v.toFixed(2).replace('.', ','); return o && o.seg ? `Coût livré : ${f(o.unit)} $ (marchandise) + ${o.segN.map((n, i) => f(o.seg[i]) + ' $ ' + n).join(' + ')} = ${f(o.total)} $` : o ? `Coût livré : ${f(o.unit)} $ + ${f(o.freight)} $ de transport = ${f(o.total)} $` : ''; }
+function freightTip(o) { const f = v => v.toFixed(2).replace('.', ','), fm = o && o.base ? `\nFormule : prix du marché ${f(o.base)} $ × coefficient fournisseur ×${f(o.unit / o.base)}${o.q ? ' (qualité livrée ' + Math.round(o.q) + ' %)' : ''} + fret (${(FREIGHT * 100).toFixed(1).replace('.', ',')} % du prix par case × ${Math.round((o.freight || 0) / (o.base * FREIGHT))} cases équivalentes). Le prix du marché est unique ; seul le fret distingue local, fournisseur et import.` : ''; return o && o.seg ? `Coût livré : ${f(o.unit)} $ (marchandise) + ${o.segN.map((n, i) => f(o.seg[i]) + ' $ ' + n).join(' + ')} = ${f(o.total)} $${fm}` : o ? `Coût livré : ${f(o.unit)} $ + ${f(o.freight)} $ de transport = ${f(o.total)} $${fm}` : ''; }
 function supOffer(g, id, haul) {
-  const o = supOffer0(g, id, haul), d = dealOf(g, id); if (id !== 'local') { const fm = 1 + 0.12 * (((S.forces ? S.forces.suppliers : 50) - 50) / 50); o.unit *= fm; o.total = o.unit + o.freight; } if (d) { o.unit *= d.m; o.total = o.unit + o.freight; o.deal = d; }
+  const o = supOffer0(g, id, haul), d = dealOf(g, id); o.base = (S.price[g] || GOODS[g].base); if (id !== 'local') { const fm = 1 + 0.12 * (((S.forces ? S.forces.suppliers : 50) - 50) / 50); o.unit *= fm; o.total = o.unit + o.freight; } if (d) { o.unit *= d.m; o.total = o.unit + o.freight; o.deal = d; }
   return o;
 }
 function supOffer0(g, id, haul) {
@@ -2654,6 +2684,7 @@ function step() {
   const rwS = (S.rw || 1) - 1;   // salaire réel : quand il monte, la demande se déplace du basique vers le courant puis le luxe
   gMul.basic *= clamp(1 - 0.15 * rwS, 0.85, 1.05); gMul.std *= clamp(1 + 0.25 * rwS, 0.85, 1.4); gMul.lux *= clamp(1 + 0.8 * rwS, 0.6, 1.6);
   const dem = { basic: S.pop * DEM_PER_POP.basic * dMul * gMul.basic, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100) * dMul * gMul.std, lux: S.pop * DEM_PER_POP.lux * dMul * gMul.lux, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) * dMul * gMul.estate };
+  S._dw = { dMul, gD, rwS, happy: happyPrev, gMul: Object.assign({}, gMul), dem: Object.assign({}, dem), pop: S.pop, cls: {} };
   let retUnits = 0;
   const nCls = {}; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) R.sells.forEach(k => { nCls[k] = (nCls[k] || 0) + 1; }); });
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._capNom = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; c._cap = c._capNom; retUnits += R.cap * u; const df = clamp((0.45 + 0.9 * (c.ci == null ? 0.5 : c.ci)) * 0.8, 0.1, 1); c._cap *= df; c._df = df;
@@ -2684,7 +2715,8 @@ function step() {
     const RIVAL = rivalAttr(cls), totalAttr = Math.max(0.001, items.reduce((a, i) => a + i.attr, 0) + RIVAL);
     const sh0 = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0; }), cw = sh0.reduce((a, c) => a + (c._cap || 1), 0) || 1, pfAvg = sh0.reduce((a, c) => a + (c._cap || 1) * pfOf(c), 0) / cw;
     const pfdAvg = sh0.reduce((a, c) => a + (c._cap || 1) * (c._pfd == null ? 99 : c._pfd), 0) / cw;
-    const Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length)) * (sh0.length ? clamp(elF(cls, pfAvg, pfdAvg, true), 0.5, 1.6) : 1);
+    const pfEl = sh0.length ? clamp(elF(cls, pfAvg, pfdAvg, true), 0.5, 1.6) : 1, Dc = dem[cls] * (1 + 0.12 * Math.min(4, mine.length)) * pfEl;
+    S._dw.cls[cls] = { Dc, pfEl, pfAvg, nProd: mine.length, rivShare: RIVAL / totalAttr, nShops: sh0.length };
     Dtot[cls] = Dc; rivalPart[cls] = Dc * RIVAL / totalAttr;
     items.sort((a, b) => (a.k === 'g' ? 1 : 0) - (b.k === 'g' ? 1 : 0));   // tes produits d'abord, les marchandises génériques ensuite
     buildings.forEach(c => { const R = TYPES[c.t].ret; if (!R || R.sells.indexOf(cls) < 0 || !c._lc) return; let s = 0; items.forEach(it => { if (shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)) s += it.attr; }); (c._sa || (c._sa = {}))[cls] = s || 1; (c._na || (c._na = {}))[cls] = items.filter(it => shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)).length; });
@@ -2821,22 +2853,20 @@ function step() {
 
   // 7. Prix : offre et demande. Le cours vise base × f(demande / offre) : f = 1 à l'équilibre, jusqu'à ×1,3 en pénurie et ×0,82 en surproduction (courbe douce, jamais collée aux bornes)
   GKEYS.forEach(g => {
-    const G = GOODS[g];
-    let pass = 1; if (G.inp) { let a = 0, b = 0; Object.keys(G.inp).forEach(h => { a += G.inp[h] * P[h] / cpi(); b += G.inp[h] * GOODS[h].base; }); pass = 1 - G.inS + G.inS * clamp(a / b, 0.7, 1.5); }   // répercussion du coût des intrants
-    const base = G.base * pass * cpi() * modOf('px_' + g) * (G.grp === 'raw' ? 1 + Math.max(0, S.macro.gdp - 0.03) * 3 : 1);
+    const G = GOODS[g], mb = marketBounds(g), base = mb.base, fl = mb.fl;
     const r0 = (want[g] + 1) / (made[g] + 1), rt = S.rat || (S.rat = {}), ratio = rt[g] = rt[g] == null ? r0 : rt[g] + (r0 - rt[g]) * 0.25;   // rapport demande / offre lissé
     const f = ratio >= 1 ? 1 + 0.30 * Math.tanh(0.7 * (ratio - 1)) : 1 - (G.inp ? 0.12 : 0.18) * Math.tanh(1.4 * (1 - ratio));
-    let fl = base * (G.inp ? 0.86 : 0.75);
-    if (G.inp && G.inO) { let ci = 0; Object.keys(G.inp).forEach(h => { ci += G.inp[h] * P[h]; }); fl = Math.min(base * 1.4, Math.max(fl, 1.08 * ci / G.inO)); }   // un produit transformé ne se vend jamais durablement sous le coût réel de ses intrants + 8 %
-    P[g] = clamp(P[g] + (base * f - P[g]) * 0.10, fl, Math.max(fl, base * 1.6));
+    P[g] = clamp(P[g] + (base * f - P[g]) * 0.10, fl, mb.cap);
     const h = S.ph[g]; h.push(P[g]); if (h.length > 60) h.shift();
   });
+  mktAlerts();
 
   // 8. Humeur, population
   const satB = Dtot.basic > 0.5 ? (rivalPart.basic + sold.basic) / Dtot.basic : 1;
   const satS = Dtot.std > 0.3 ? (rivalPart.std + sold.std) / Dtot.std : 1;
   const satL = Dtot.lux > 0.2 ? (rivalPart.lux + sold.lux) / Dtot.lux : 1;
   const sat = satB * 0.6 + satS * 0.25 + satL * 0.15;
+  S._dw.sat = { basic: satB, std: satS, lux: satL, all: sat };
   const pol = nres ? polluted / nres : 0;
   const happy = clamp(55 + sat * 25 - unemp * 50 - pol * 25 + (jobs > workforce ? 6 : 0) + pubBonus() + (boomOn() ? 8 : 0) - 2 * Math.max(0, S.diff || 0) + (rate - 0.25) * 60, 0, 100);
   const target = cap * (0.35 + 0.65 * happy / 100);
@@ -3149,7 +3179,7 @@ const goodsBox = el('goods');
   GKEYS.filter(g => GOODS[g].grp === grp).forEach(g => {
     const d = document.createElement('div');
     d.className = 'goods'; d.id = 'g-' + g;
-    d.innerHTML = `<span class="nm"><i style="background:${GOODS[g].color}"></i>${GOODS[g].name}</span><span class="px" id="gp-${g}">–</span><canvas id="gc-${g}" width="116" height="56"></canvas><small id="gs-${g}"></small>`;
+    d.innerHTML = `<span class="nm"><i style="background:${GOODS[g].color}"></i>${GOODS[g].name}</span><span class="px" id="gp-${g}">–</span><canvas id="gc-${g}" width="116" height="56"></canvas><small id="gs-${g}"></small>`; d.style.cursor = 'pointer'; d.title = 'Clique pour le détail : prix, bornes, demande';
     goodsBox.appendChild(d);
   });
 });
@@ -3206,12 +3236,12 @@ function updateHUD() {
   if (!el('cview').hidden) renderCatalog();
   if (!el('panel').hidden) {
     GKEYS.forEach(g => {
-      const ph = S.ph[g], p = S.price[g], prev = ph.length > 1 ? ph[ph.length - 2] : p;
-      const d = prev ? (p - prev) / prev * 100 : 0;
-      el('gp-' + g).innerHTML = p.toFixed(1).replace('.', ',') + ' $ <span class="' + (d >= 0 ? 'pos' : 'neg') + '" style="font-size:10.5px">' + (d >= 0 ? '▲' : '▼') + '</span>';
-      el('gs-' + g).textContent = 'stock ' + fmt(S.stock[g]);
+      const ph = S.ph[g], p = S.price[g], t30 = trend30(g), ms = mktState(g);
+      el('gp-' + g).innerHTML = p.toFixed(1).replace('.', ',') + ' $ <span class="' + (Math.abs(t30) < 0.005 ? '' : t30 >= 0 ? 'pos' : 'neg') + '" style="font-size:10.5px" title="Tendance sur 30 jours">' + (t30 >= 0.005 ? '↑' : t30 <= -0.005 ? '↓' : '→') + ' ' + Math.abs(t30 * 100).toFixed(0) + ' %</span>';
+      el('gs-' + g).innerHTML = 'stock ' + fmt(S.stock[g]) + (ms.k === 'ok' ? '' : ' · <b class="' + ms.c + '">' + ms.t + '</b>');
       drawSeries(el('gc-' + g), ph, GOODS[g].color, true);
     });
+    renderMarketDet();
     const CN = { basic: 'Base', std: 'Manuf.', lux: 'Luxe', estate: 'Immo' };
     let rh = '';
     const mk = S.mkt || {};
@@ -3402,7 +3432,8 @@ function renderProdScreen() {
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0"><div style="flex:1;min-width:180px">${spark(hist, gmode === 'rev' ? '#f2b84b' : '#46d39a')}<small style="color:var(--mut)">${gmode === 'rev' ? 'CA de détail' : 'Unités vendues'} par mois · 12 derniers mois</small></div><div style="text-align:center"><canvas id="prd-${pk}" width="64" height="64"></canvas><br><small>Production</small></div><div style="text-align:center"><canvas id="pie-${pk}" width="64" height="64" title="Part de marché de la catégorie"></canvas><br><small>Détail</small></div></div>
       <table><tr><th></th><th>Local (toi)</th><th>Moyenne</th><th>Concern</th></tr>${row('Prix en rayon', money(loc), money(avg), Math.round(W.price * 100) + ' %', loc <= avg)}${row('Qualité', Math.round(sc.quality), cityQ, Math.round(W.quality * 100) + ' %', sc.quality >= cityQ)}${row('Marque', Math.round(sc.brand), Math.round(clamp(rivB * 0.6, 0, 80)), Math.round(W.brand * 100) + ' %', sc.brand >= rivB * 0.6)}${row('Note globale', Math.round(sc.overall), ovAvg, '', sc.overall >= ovAvg)}</table>
       ${ps.st === 'on' ? '<details style="margin:4px 0"><summary style="cursor:pointer;font-size:11.5px">Modèle produit (nécessité, technologie, cycle de vie…)</summary>' + prodModelHTML(pk) + '</details>' : ''}<small>Vendu : <b>${fmt(Math.round(ps.qm || 0))}</b> u/mois · CA de détail <b>${money(ps.rm || 0)}</b>/mois · stock ${fmt(Math.round(ps.stock || 0))} · fidélité ${Math.round(ps.loy || 0)} · publicité ${padSpend(ps) ? money(padSpend(ps) * 30) + '/mois' : 'aucune'}</small></div></div>`; }).join('');
-  const h = cards || '<p class="note">Aucun produit lancé. Utilise « Choisir la production » dans une usine pour développer un produit.</p>';
+  const dwhy = `<details ${window._dwOpen ? 'open' : ''} ontoggle="window._dwOpen=this.open" style="margin:6px 0"><summary style="cursor:pointer;font-weight:600">Pourquoi la demande des habitants est-elle ce qu'elle est ?</summary>${demandWhyAll()}</details>`;
+  const h = dwhy + (cards || '<p class="note">Aucun produit lancé. Utilise « Choisir la production » dans une usine pour développer un produit.</p>');
   if (el('prodscreen').dataset.h !== h) { el('prodscreen').innerHTML = h; el('prodscreen').dataset.h = h; }
   on.forEach(pk => { const cp = el('prd-' + pk), mp = mk[PRODUCTS[pk].cls]; if (cp && mp) { const ps = S.prod[pk], rivU = mp.riv.reduce((a, r) => a + r.s, 0) * ((S.stats && S.stats.dem && S.stats.dem[PRODUCTS[pk].cls]) || 1), mine = ps.made || ps.sold || 0; drawPie(cp, [[mine, '#f2b84b'], [rivU, '#ff4fa3'], [Math.max(0, ((S.stats && S.stats.dem && S.stats.dem[PRODUCTS[pk].cls]) || 1) * 0.2), '#3b4262']]); }
     const cv = el('pie-' + pk); if (!cv) return; const m = mk[PRODUCTS[pk].cls]; if (!m) return; drawPie(cv, [[m.you, '#f2b84b']].concat(m.riv.map(r => { const rv = (S.rivals || []).find(x => x.id === r.id); return [r.s, rv ? rv.col : '#888']; })).concat([[Math.max(0, 1 - m.you - m.riv.reduce((a, r) => a + r.s, 0)), '#3b4262']])); });
@@ -3765,6 +3796,57 @@ function drawSeries(c, h, col, small) {
   const e = pts[pts.length - 1];
   g.beginPath(); g.arc(e[0], e[1], 4.5, 0, 7); g.fillStyle = col; g.fill();
 }
+
+
+/* ---------- Marché : détail d'un bien et « pourquoi la demande est… » ---------- */
+let mkSel = 'basic';
+const pctS = x => { const r = Math.round(x * 100); return (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r) + ' %'; };
+const effC = x => Math.abs(x) < 0.005 ? '' : x > 0 ? 'pos' : 'neg';
+const fq2 = v => v >= 100 ? fmt(v) : f1(v);
+const whyRow = (l, note, eff, txt) => `<div class="finrow"><span>${l}<small style="display:block;color:var(--mut);font-size:10.5px">${note || ''}</small></span><b class="${eff == null ? '' : effC(eff)}">${txt != null ? txt : pctS(eff)}</b></div>`;
+const verdictOf = m => m > 1.08 ? 'forte' : m < 0.92 ? 'faible' : 'normale';
+function demandWhyRaw(g) {
+  const G = GOODS[g], D0 = LOCAL_D[g] * (S.pop / 10000), gdpm = clamp(1 + 4 * ((S.macro ? S.macro.gdp : 0.03) - 0.03), 0.8, 1.5), rel = Math.max(0.2, S.price[g] / (G.base * cpi())), el1 = clamp(Math.pow(rel, -elRaw(g)), 0.4, 1.8);
+  const n = (S.npcSup || {})[g] || { cap: 0 }, Dl = D0 * gdpm * el1, myCap = Math.max(1, ((S.flow && S.flow.made && S.flow.made[g]) || 0)), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1, sold = (S.locSold || {})[g] || 0, avail = Math.max(0, S.stock[g] - 750), served = Dl * ROOM * share;
+  const m = gdpm * el1;
+  return `<h4 style="margin:8px 0 4px">Pourquoi la demande ${dEl(G.name.toLowerCase())} est ${verdictOf(m)}</h4><small class="note">Besoin industriel de la ville (hors besoins des habitants). Demande = population × coefficient du bien × cycle macro × élasticité au prix.</small>`
+    + whyRow('Population', `${fmt(S.pop)} habitants × ${LOCAL_D[g]} u. pour 10 000 hab.`, null, fq2(D0 * ROOM * DM) + ' u/mois')
+    + whyRow('Cycle macro (PIB)', `croissance ${((S.macro ? S.macro.gdp : 0.03) * 100).toFixed(1).replace('.', ',')} %`, gdpm - 1)
+    + whyRow('Prix relatif', `prix ${rel.toFixed(2).replace('.', ',')} × la référence · élasticité ${elRaw(g)} : cher = on achète moins`, el1 - 1)
+    + whyRow('Concurrence locale', n.cap > 0 ? `producteurs locaux ${fq2(n.cap * DM)} u/mois · ta part de la demande ${Math.round(share * 100)} %` : 'aucun producteur local installé (100 % de la demande te revient)', share - 1, n.cap > 0 ? pctS(share - 1) : '0 %')
+    + whyRow('Disponibilité', `stock vendable ${fmt(avail)} u. (réserve de 750 u. non vendue) · demande servie ${fq2(Math.min(avail, served) * DM)} / ${fq2(served * DM)} u/mois`, avail >= served ? 0 : -(1 - avail / Math.max(1e-9, served)), avail >= served ? 'servie' : pctS(-(1 - avail / Math.max(1e-9, served))));
+}
+const CLS_ROLE = { basic: ['Besoin vital', 'nourrit la croissance de la population (60 % de la satisfaction)'], std: ['Confort', 'bonheur et richesse (25 % de la satisfaction)'], lux: ['Luxe', 'richesse et prestige (15 % de la satisfaction)'], estate: ['Logement', 'demande immobilière'] };
+function demandWhyCls(cls) {
+  const W = S._dw; if (!W || !W.cls || !W.cls[cls]) return '<small class="note">La demande s\'affiche après le premier jour de simulation.</small>';
+  const c = W.cls[cls], gk = { basic: [0.5, 0.95, 1.05], std: [1, 0.9, 1.1], lux: [6, 0.7, 1.4], estate: [1, 0.9, 1.1] }[cls], gdpP = clamp(1 + gk[0] * W.gD, gk[1], gk[2]), rwP = W.gMul[cls] / Math.max(1e-9, gdpP);
+  const hap = cls === 'std' || cls === 'estate' ? 0.6 + 0.4 * W.happy / 100 : 1, boost = 1 + 0.12 * Math.min(4, c.nProd), per = cls === 'estate' ? 0.00032 : DEM_PER_POP[cls], sat = W.sat ? W.sat[cls] : null;
+  const m = W.dMul * gdpP * rwP * hap * boost * c.pfEl, role = CLS_ROLE[cls];
+  return `<h4 style="margin:8px 0 4px">Pourquoi la demande ${cls === 'estate' ? 'de logement' : 'en ' + CLSN[cls].toLowerCase()} est ${verdictOf(m)} · <small style="color:var(--mut)">${role[0]}</small></h4><small class="note">${role[0]} : ${role[1]}.</small>`
+    + whyRow('Population', `${fmt(W.pop)} habitants × ${(per * 1000).toFixed(1).replace('.', ',')} u. pour 1 000 hab.`, null, fq2(W.pop * per * DM) + ' u/mois')
+    + whyRow('Technologies, événements, difficulté', 'multiplicateur global de demande', W.dMul - 1)
+    + whyRow('Cycle macro (PIB)', `croissance ${((W.gD + 0.03) * 100).toFixed(1).replace('.', ',')} % · sensibilité ${cls === 'lux' ? 'très forte' : cls === 'basic' ? 'faible' : 'moyenne'}`, gdpP - 1)
+    + whyRow('Salaire réel', 'quand il monte, la demande passe du basique vers le courant puis le luxe', rwP - 1)
+    + (cls === 'std' || cls === 'estate' ? whyRow('Bonheur', `${Math.round(W.happy)} / 100`, hap - 1) : '')
+    + whyRow('Produits lancés', `${c.nProd} produit(s) de ta marque dans cette catégorie (+12 % chacun, 4 max)`, boost - 1)
+    + whyRow('Prix en rayon', c.nShops ? `ton prix moyen ×${c.pfAvg.toFixed(2).replace('.', ',')} de la référence (élasticité)` : 'aucun magasin ne vend cette catégorie', c.pfEl - 1)
+    + whyRow('Concurrence', `les rivaux captent ${Math.round(c.rivShare * 100)} % des ventes de la catégorie`, -c.rivShare, '−' + Math.round(c.rivShare * 100) + ' %')
+    + (sat != null && cls !== 'estate' ? whyRow('Disponibilité (satisfaction)', 'part de la demande réellement servie (toi + rivaux)', sat - 1, Math.round(sat * 100) + ' %') : '');
+}
+function renderMarketDet() {
+  const box = el('mkdet'); if (!box || box.closest('section').hidden) return; const g = mkSel; if (!GOODS[g] || !S.price[g]) return;
+  const G = GOODS[g], mb = marketBounds(g), p = S.price[g], t30 = trend30(g), ms = mktState(g), ratio = (S.rat && S.rat[g] != null) ? S.rat[g] : 1;
+  let anchor = `prix de base ${px1(G.base * cpi())} (inflation incluse)`; if (G.inp) { let ci = 0; Object.keys(G.inp).forEach(h => { ci += G.inp[h] * S.price[h]; }); anchor = `ancrage ${px1(mb.base)} : ${Object.keys(G.inp).length} intrant(s) à ${px1(ci / Math.max(1, G.inO || 1))} par unité, répercutés à ${Math.round(G.inS * 100)} %`; }
+  const why = (G.grp === 'goods' && CLS_ROLE[g]) ? demandWhyCls(g) : LOCAL_D[g] ? demandWhyRaw(g) : '<small class="note">Ce bien n\'a pas de demande urbaine directe : il se vend à tes usines, à tes magasins et à l\'export.</small>';
+  const h = `<div class="tcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>${G.name}</b><span><b class="${t30 >= 0 ? 'pos' : 'neg'}">${px1(p)} ${t30 >= 0.005 ? '↑' : t30 <= -0.005 ? '↓' : '→'} ${Math.abs(t30 * 100).toFixed(0)} % / 30 j</b></span></div>
+    <div class="finrow"><span>État du marché</span><b class="${ms.c}">${ms.t}</b></div>
+    <div class="finrow"><span>Demande / offre</span><b>${ratio.toFixed(2).replace('.', ',')}</b></div>
+    <div class="finrow"><span>Prix unique du marché</span><b>${px1(mb.fl)} – ${px1(mb.cap)}</b></div>
+    <small class="note">${anchor}. Un seul prix par bien : tes achats le font monter, tes ventes le font baisser (lissé) ; l'import et le fournisseur ne changent que le fret.</small>${why}</div>`;
+  if (box.dataset.h !== h) { box.innerHTML = h; box.dataset.h = h; }
+}
+el('goods').addEventListener('click', e => { const r = e.target.closest('.goods'); if (!r) return; mkSel = r.id.slice(2); renderMarketDet(); });
+function demandWhyAll() { return ['basic', 'std', 'lux', 'estate'].map(demandWhyCls).join(''); }
 
 /* ---------- BTP : chantiers pour les entreprises ---------- */
 const CONTRACT_TYPES = [

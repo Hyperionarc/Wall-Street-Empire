@@ -337,3 +337,17 @@ L'onglet « Intérieur » des usines (petite, moyenne, grande, méga-usine) et d
 - **Ouvriers** : leur nombre suit l'effectif réel (`jobsOf × fill`) ; manutentionnaires (port de caisses), opérateurs, emballeurs, chef d'équipe, chargeur. Cadence liée à l'utilisation (`c.util`) et à la production (`c.out`).
 - **États** : pénurie d'un intrant (palette vide, icône d'alerte sur la machine et l'intrant, machine à l'arrêt), sortie pleine (`_full` : tapis bloqués, pause des ouvriers, camion parti), arrêt prolongé (ouvriers en pause).
 - **Performance** : scène redessinée à 30 images/s au plus, environ 1 à 1,5 ms par image, arrêtée hors de l'onglet.
+
+## Passe 14 : le marché (prix unique, demande lisible)
+
+**Prix unique par bien.** Chaque bien (matière, composant, marchandise de rayon) n'a qu'un cours `S.price[g]` ; l'ancrage, le plancher et le plafond sont centralisés dans `marketBounds(g)` (ancrage = base × répercussion du coût des intrants × inflation × primes ; plancher = intrants + 8 % ; plafond = ×1,6 de l'ancrage). Les achats (demande) font monter le cours et les ventes (offre) le font baisser, lissés par le rapport demande/offre `S.rat[g]` : pas d'auto-équilibrage opaque. L'import, le fournisseur et l'étranger ne créent pas de second prix : ils ne diffèrent que par le coefficient fournisseur et le fret (`FREIGHT` = 0,6 % du prix par case), ce qui garde « import toujours plus cher que local ». Refactorisation sans changement numérique : dynamique vérifiée identique bit à bit (200 jours, prix, trésorerie, population) avant/après, donc marges inchangées.
+
+**Audit des prix de base.** Valeur ajoutée (prix de sortie ÷ valeur des intrants aux prix de base) des biens transformés : 1,27 à 1,9 en général (ingot 1,67, acier 1,46, ciment 1,89), exceptions assumées : écrans 3,95 et luxe 2,59 (marge technologique/marque). Laissés tels quels pour ne pas bouger les marges.
+
+**Indicateurs.** Chaque bien du panneau Bourse affiche le prix, la tendance sur 30 jours (↑ ↓ →) et un état : équilibré, pénurie, saturé, prix plancher / plafond. Cliquer sur une ligne ouvre le détail (ancrage, bornes, demande/offre). Alerte au journal (une par bien et par mois au plus) quand un bien que tu stockes ou vends bascule en pénurie ou saturation.
+
+**« Pourquoi la demande est… ».** Pour les besoins des habitants (base = vital, croissance de la population ; manufacturé = confort ; luxe = richesse ; logement) et pour les biens industriels : facteurs chiffrés en % (population, technologie/événements, PIB, salaire réel, bonheur, produits lancés, prix en rayon, concurrence, disponibilité). Affiché dans le détail d'un bien (Bourse) et dans l'écran Produits. Pas de saisonnalité de la demande dans le jeu : non affichée.
+
+**Coût livré.** L'infobulle affiche la formule : prix du marché × coefficient fournisseur (qualité livrée) + fret (0,6 % du prix par case × distance). La fraîcheur n'est pas modélisée.
+
+Sources : notes de conception d'Offworld Trading Company (prix unique par marché), Anno 1800 (besoins de base/luxe), Game Developer « How to tune a simulation game ».
