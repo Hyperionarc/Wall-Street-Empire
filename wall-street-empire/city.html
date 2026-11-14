@@ -655,6 +655,37 @@ body.vopen #feed{z-index:9}
   #cview .clist{max-height:38vh;overflow-y:auto}
   #sup-bar,.supbar{position:sticky;bottom:0;z-index:3}
 }
+
+/* Passe 15 : barre d'objectif, sélection de partie, fin de partie */
+.objbar{pointer-events:auto;background:rgba(10,14,40,.82);border:1px solid var(--line);border-radius:10px;padding:5px 10px 6px;font-size:12px;line-height:1.3}
+.objbar .orow{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.objbar .omode{font-family:var(--font-d);font-weight:800;letter-spacing:.06em;color:var(--gold);text-transform:uppercase;font-size:12px}
+.objbar .ogoal{flex:1 1 220px;min-width:0;color:var(--fg)}
+.objbar .ogoal b{color:var(--cyan);font-weight:600}
+.objbar .ork,.objbar .otm{font-family:var(--font-m,monospace);color:var(--fg)}
+.objbar .ocu{color:var(--green)}.objbar .ohot{color:var(--orange)}.objbar .neg{color:var(--red)}
+.objbar .obar{height:4px;border-radius:2px;background:rgba(255,255,255,.1);margin-top:4px;overflow:hidden}
+.objbar .obar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--gold));transition:width .4s}
+.objbar .otut{margin-top:4px;color:var(--gold)}
+.tool.pulse{animation:tpulse 1.1s ease-in-out infinite;outline:2px solid var(--gold)}
+@keyframes tpulse{50%{box-shadow:0 0 14px 2px var(--gold)}}
+#modesel,#endscr{position:absolute;z-index:30;inset:0;display:flex;align-items:flex-start;justify-content:center;background:rgba(4,6,20,.9);backdrop-filter:blur(6px);overflow-y:auto;padding:16px}
+#modesel[hidden],#endscr[hidden]{display:none}
+#modesel>*,#endscr>*{margin-top:auto;margin-bottom:auto}
+.mbox,.ebox{max-width:880px;width:100%;text-align:center}
+.mbox h2,.ebox h2{margin:0 0 6px;font-family:var(--font-d);font-weight:800;font-size:32px;letter-spacing:.12em;color:var(--gold)}
+.ebox.lose h2,.ebox.time h2{color:var(--orange)}
+.mbox h4,.ebox h4{margin:14px 0 6px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
+.mcard{display:flex;flex-direction:column;gap:3px;text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel-hi);color:var(--fg);cursor:pointer;font:inherit}
+.mcard b{color:var(--gold);font-size:14px}.mcard small{color:var(--mut);font-size:12px}.mcard em{font-style:normal;color:var(--cyan);font-size:11px}
+.mcard:hover:not(:disabled){border-color:var(--gold)}.mcard.lk{opacity:.45;cursor:not-allowed}
+.elead{font-size:15px;margin:4px 0}
+.ekp{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0}
+.ekp div{background:var(--panel-hi);border-radius:8px;padding:8px}.ekp small{display:block;color:var(--mut);font-size:11px}.ekp b{font-size:16px}
+.erow{position:relative;display:flex;justify-content:space-between;gap:8px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px;text-align:left}
+.erow.me{color:var(--gold);font-weight:700}.erow i{position:absolute;left:0;bottom:0;height:2px;background:var(--cyan);opacity:.7}
+.eact{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -682,6 +713,7 @@ body.vopen #feed{z-index:9}
         <div class="chip"><small>Humeur</small><strong id="vHappy">–</strong><em id="vTax"></em></div>
         <div class="chip"><small>Date</small><strong id="vDate">–</strong><em id="vSeason"></em></div>
       </div>
+      <div id="objbar" class="objbar" aria-live="polite"></div>
     </div>
   </header>
 
@@ -830,6 +862,8 @@ body.vopen #feed{z-index:9}
   <aside id="svview" hidden></aside>
   <aside id="tview" hidden></aside>
   <div id="caste" hidden></div>
+  <div id="modesel" hidden></div>
+  <div id="endscr" hidden></div>
   <div id="evcard" hidden role="alertdialog" aria-live="assertive"></div>
 
   <div id="sitetip" hidden></div>
@@ -1240,7 +1274,7 @@ function stepRivals(rivalPart) {
   rs.forEach(r => {
     let rev = 0;
     RIV_CLS.forEach(cls => { const A = rivalAttr(cls); if (A > 0 && rivalPart[cls] > 0) rev += rivalPart[cls] * (r.att[cls] / A) * (S.price[cls] || 300); });
-    r.rev = rev; r.cash += rev * 0.2 - rivalSum(r) * RIV_OPEX;
+    r.rev = rev; r.pf = rev * 0.2 - rivalSum(r) * RIV_OPEX; r.cash += r.pf;
     if (S.day % 5 === 0 && r.cash > 3 * RIV_EXPAND) {
       const w = RIV_CLS.map(k => r.att[k] + 0.05); let tot = w.reduce((a, b) => a + b, 0), x = rnd() * tot, i = 0;
       while (x > w[i] && i < 3) { x -= w[i]; i++; }
@@ -1249,6 +1283,12 @@ function stepRivals(rivalPart) {
     if (r.cash < 0) { const b4 = rivalSum(r); RIV_CLS.forEach(k => { r.att[k] *= 0.95; }); r.cash += (b4 - rivalSum(r)) * RIV_ASSET * 0.6; }   // vente forcée d'actifs : la trésorerie ne reste jamais négative durablement
     r.mood = clamp((r.mood || 0) * 0.95 + (rnd() - 0.5) * 0.04, -0.2, 0.2);
     r.sp = r.sp || []; r.sp.push(rivalValue(r) / RSH * (1 + r.mood)); if (r.sp.length > 60) r.sp.shift();
+  });
+  S.subDiv = 0;
+  rs.forEach(r => {   // rachat majoritaire (> 50 %) : le rival devient une filiale gérée par l'IA, qui verse des dividendes au prorata de ta part
+    const st = stakeOf(r.id);
+    if (!r.sub && st > 0.5) { r.sub = 1; say(`Contrôle de ${r.name} (${Math.round(st * 100)} % du capital) : le rival est éliminé et devient ta filiale, gérée par l'IA. Elle te verse des dividendes au prorata de ta part.`, 'gold'); }
+    if (r.sub) { const pay = 0.6 * Math.max(0, r.pf || 0), mine = pay * st; r.cash -= pay; S.cash += mine; S.subDiv += mine; }
   });
   S.rivals = rs.filter(r => { if (r.cash < 0 && rivalSum(r) < 0.1) { say(`${r.name} fait faillite : ses clients se tournent vers toi et ses rivaux.`, 'good'); if (S.port && S.port[r.id]) { say(`Tes actions ${r.name} deviennent sans valeur.`, 'warn'); delete S.port[r.id]; } return false; } return true; });
 }
@@ -1728,7 +1768,7 @@ function newCity() {
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
   const npc = genNpc(grid);
-  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap * K_POP / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.npcGrow = {}; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
+  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap * K_POP / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.npcGrow = {}; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.mode = { k: 'free' }; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
   S0.pop = Math.round(npc.cap * K_POP * 0.85);
   S0.cash = 600000 * K_SIZE;
   return S0;
@@ -1756,7 +1796,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1792,6 +1832,7 @@ function load() {
     };
     S0.cm = d.cm || {};
     S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
+    S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -2175,15 +2216,17 @@ function stepMacro() {
 // Difficulté adaptative : si le joueur s'enrichit trop vite, le monde se durcit ; s'il stagne, le monde l'aide
 function stepDifficulty() {
   if (S.day % 10 !== 0 || S.day < 30) return;
-  const W0 = 0.9e6 * K_SIZE, expected = W0 * Math.exp(0.0016 * S.day), ratio = ((S.stats && S.stats.worth) || W0) / expected;
-  const d = ratio > 3.2 ? 3 : ratio > 2.2 ? 2 : ratio > 1.5 ? 1 : ratio < 0.85 ? -1 : 0;
+  const ex = expectedVal(S.day), v = isTimed() ? valuation() : ((S.stats && S.stats.worth) || ex), ratio = v / Math.max(1, ex);
+  const T = isTimed() ? DIFF_T : [1.5, 2.2, 3.2, 0.85];
+  const d = ratio > T[2] ? 3 : ratio > T[1] ? 2 : ratio > T[0] ? 1 : ratio < T[3] ? -1 : 0;
   if (d !== (S.diff || 0)) {
     const msg = { 3: 'Surchauffe : régulation, impôts, salaires et rivaux montent d\'un cran. L\'indécence a un prix !', 2: 'Tu t\'enrichis très vite : les rivaux contre-attaquent et les coûts montent.', 1: 'Belle croissance : la concurrence se réveille.', 0: 'Le marché retrouve son équilibre.', '-1': 'Les conditions s\'assouplissent pour t\'aider à décoller.' }[String(d)];
-    say(msg, d > 0 ? 'warn' : 'good');
+    say(msg + (isTimed() && d > 0 ? ` (impôt +${Math.round(REG_TAX * d * 100)} pts, salaires +${Math.round(REG_WAGE * d * 100)} %, plafond de dette −${Math.round(REG_DEBT * d * 100)} %)` : ''), d > 0 ? 'warn' : 'good');
   }
   S.diff = d;
 }
-const diffMult = () => 1 + 0.05 * Math.max(0, (S && S.diff) || 0);
+const DIFF_T = [1.4, 2.0, 2.8, 0.7];   // seuils (valorisation / courbe attendue) des niveaux 1, 2, 3 et du coup de pouce
+const diffMult = () => 1 + REG_WAGE * Math.max(0, (S && S.diff) || 0);
 const easeMult = () => (S && S.diff < 0) ? 1.1 : 1;
 const macroState = () => { const g = S.macro ? S.macro.gdp : 0.03; return boomOn() && g > 0.05 ? 'Supercycle de croissance' : g > 0.05 ? 'Boom' : g > 0.02 ? 'Expansion' : g > 0 ? 'Ralentissement' : 'Récession'; };
 // Recherche : arbre de technologies en 3 ères (une recherche à la fois)
@@ -2742,7 +2785,7 @@ function step() {
   { const tp = 30000 * (1 + 2.5 * portN) * (1 + 0.25 * (cn.wh || 0)); let used = 0;   // débit portuaire total par jour
     GKEYS.forEach(g => { const thr = Math.max(7500, 0.5 * capFor(g)); let ex = Math.max(0, S.stock[g] - thr); if (!(ex > 0)) return;
       const foreign = Math.max(4000, (LOCAL_D[g] || 100) * 4 * (S.pop / 10000) * 0.1), q = Math.min(ex, Math.max(0, tp - used), foreign * 1.5); if (q <= 0) return; used += q;
-      S.stock[g] -= q; if (g === 'basic' || g === 'std' || g === 'lux') want[g] += q; revExp += q * S.price[g] * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)) / (1 + 0.35 * q / foreign); S.expSold = S.expSold || {}; S.expSold[g] = q; });
+      S.stock[g] -= q; if (g === 'basic' || g === 'std' || g === 'lux') want[g] += q; S.xsum = S.xsum || {}; S.xsum[g] = (S.xsum[g] || 0) + q * S.price[g]; revExp += xmF(g) * q * S.price[g] * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)) / (1 + 0.35 * q / foreign); S.expSold = S.expSold || {}; S.expSold[g] = q; });
     S._portUse = used; S._portCap = tp; }
   PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - 10000); if (ex > 0) { ps.stock -= ex; revExp += ex * prodPrice(pk) * (expRate - 0.1); } });
 
@@ -2777,9 +2820,9 @@ function step() {
   const revRetail = revRetVal * mult, revExport = revExp * mult;
   let advCost = adTotal; PKEYS.forEach(pk => { const ps = S.prod[pk]; ps.adCost = ps.st === 'on' ? padSpend(ps) : 0; advCost += ps.adCost; });
   S.loan = S.loan || 0;
-  const loanRate = (S.macro.rate + 0.02) * (execOn('cfo') ? 0.75 : 1) * TM.interest;
+  const loanRate = loanRateNow();
   const interest = S.loan * loanRate / 360 + Math.max(0, -S.cash) * (loanRate + 0.04) / 360;   // découvert facturé au taux du prêt + 4 points (pas de défaite automatique)
-  const rate = S.tax;
+  const rate = S.tax + regTax();
   const upkeepI = upkeep * cpi();
   const preTax = revRetail + revExport + revTech + revBank - wagesTotal - upkeepI - transportTotal - advCost - interest - importCost;
   S.lossC = S.lossC || 0; let taxable = preTax; if (preTax < 0) { S.lossC = Math.min(S.lossC - preTax, 5e7); taxable = 0; } else { const used = Math.min(S.lossC, preTax); S.lossC -= used; taxable = preTax - used; }
@@ -2911,6 +2954,8 @@ function step() {
     demC: clamp(1 - (retUnits * (0.4 + 0.6 * staff)) / Math.max(1, dem.basic + dem.std + dem.lux), -1, 1),
     demI: clamp(unemp * 2 - 0.2, -1, 1)
   };
+  if (S.day % 30 === 0) xmUpdate();
+  stepMode();
   checkMissions();
   if (S.day % 5 === 0) save();
   updateHUD();
@@ -2941,7 +2986,7 @@ function checkMissions() {
 const tierNow = () => (S && S.unlockAll) ? 9 : tierOf(S.stats.worth || 0);
 function toolLocked(k) {
   const T = TYPES[k];
-  return !!(T && T.tier && tierNow() < T.tier);
+  return !!(T && ((T.tier && tierNow() < T.tier) || modeLocked(k)));
 }
 const ZONE_NEED = { tv: 1, off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
 ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
@@ -3017,7 +3062,7 @@ function place(x, y, key) {
   const T = TYPES[key];
   if (!T) return false;
   if (key === 'hq' && hqOf()) { say('Tu as déjà un siège social : ouvre-le avec l\'outil Main pour gérer ta direction.', 'info'); return false; }
-  if (toolLocked(key)) { say(`${T.name} se débloque au palier ${TIERS[T.tier].n}.`, 'warn'); return false; }
+  if (toolLocked(key)) { say(`${T.name} se débloque ${modeLocked(key) ? 'au scénario ' + unlockScn(key) : 'au palier ' + TIERS[T.tier].n}.`, 'warn'); return false; }
   const err = key === 'road' ? roadError(x, y) : footprintError(x, y, key);
   if (err) {
     const quiet = key === 'road' && (err === 'Case occupée.' || performance.now() - lastRoadMsg < 2000);
@@ -3162,7 +3207,7 @@ MISSIONS.forEach(m => {
 });
 
 function updateHUD() {
-  const st = S.stats;
+  const st = S.stats; updObj();
   el('vCash').textContent = isMob() ? cmpd(S.cash) : money(S.cash); el('vCash').title = money(S.cash);
   el('vCash').className = S.cash < 0 ? 'neg' : '';
   const net = st.net || 0;
@@ -3197,7 +3242,7 @@ function updateHUD() {
     const lock = toolLocked(k);
     b.classList.toggle('locked', lock);
     b.classList.toggle('poor', !lock && S.cash < T.cost);
-    b.querySelector('small').textContent = lock ? TIERS[T.tier].n : money(T.cost);
+    b.querySelector('small').textContent = lock ? lockLabel(k) : money(T.cost);
   });
 
   S.done.forEach(id => { const li = el('ms-' + id); if (li) li.classList.add('done'); });
@@ -3266,12 +3311,12 @@ function updateHUD() {
     if (listed && el('spk')) drawSeries(el('spk'), S.sp || [], '#46d39a', true);
     const lim = creditLimit();
     { const bkEl = el('bankbox'); if (bkEl) { let bh = ''; if (casteIs('banquier')) { const b = bkInit(), L = BK_LVL[b.lvl], nxt = BK_LVL[b.lvl + 1]; bh = `<div class="fcard" style="border:1px solid ${CASTES.banquier.col}"><h4>Ma banque · ${L.n}</h4><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Ressources propres</small><b>${money(b.res)}</b></div><div><small>Tradable (20 %)</small><b>${money(b.res * 0.2)}</b></div><div><small>Exigence fonds propres</small><b>${Math.round(L.ratio * 100)} %</b></div><div><small>Levier</small><b>×${Math.round(1 / L.ratio)}</b></div><div><small>Crédits octroyés</small><b>${money(b.loans)}</b></div><div><small>Intérêts / mois</small><b class="pos">+${mj(b.inc || 0)}</b></div><div><small>Capacité restante</small><b>${money(bkCap())}</b></div><div><small>Demande de crédit</small><b>${money(bkDemand())}</b></div></div><div class="seg2" style="margin-top:6px"><button class="btn" data-bk="lend">Prêter 1 M$</button><button class="btn sec" data-bk="lend5">Prêter 5 M$</button><button class="btn sec" data-bk="repay">Récupérer 1 M$</button></div>${nxt ? `<button class="btn sec" data-bk="up" style="margin-top:6px">Passer ${nxt.n} : fonds propres ${Math.round(nxt.ratio * 100)} % (requiert ${money(BK_REQ[b.lvl + 1])} de crédits)</button>` : ''}<small class="note">Les crédits rapportent taux + 3 % ; plus le levier est haut, plus les pertes sont élevées, surtout en récession. Ton portefeuille d'actions peut servir de collatéral pour emprunter (plafond d'emprunt +50 %).</small></div>`; } if (bkEl.dataset.h !== bh) { bkEl.innerHTML = bh; bkEl.dataset.h = bh; } } }
-    { const st = loanStep(), rate = (S.macro.rate + 0.02) * (execOn('cfo') ? 0.75 : 1) * TM.interest, ca = curAssetsCL();
+    { const st = loanStep(), rate = loanRateNow(), ca = curAssetsCL();
       el('loanV').textContent = `Dette ${money(S.loan || 0)} · plafond ${money(lim)}`;
       el('loanUp').textContent = 'Emprunter ' + money(st); el('loanDn').textContent = 'Rembourser ' + money(st);
       el('loanUp').disabled = (S.loan || 0) + st > lim;
       el('loanDn').disabled = !(S.loan > 0) || S.cash < Math.min(st, S.loan || 0);
-      el('loanNote').textContent = `Plafond = 100 % des actifs courants (${money(ca)} : trésorerie propre + stocks). Taux ${(rate * 100).toFixed(1).replace('.', ',')} % · intérêts ${mj((S.loan || 0) * rate / 360)}/mois. Le principal n'est jamais exigible, et l'inflation l'érode : ta dette vaut ${money((S.loan || 0) / cpi())} en dollars d'origine.`; }
+      el('loanNote').textContent = `Plafond = 100 % des actifs courants (${money(ca)} : trésorerie propre + stocks). Taux ${(rate * 100).toFixed(1).replace('.', ',')} % · intérêts ${mj((S.loan || 0) * rate / 360)}/mois. Plafond limité à 3 ans d'EBE (dette graduée), prime de levier incluse dans le taux${catchUp().on ? ', rattrapage −' + Math.round(catchUp().disc * 100) + ' %' : ''}. Le principal n'est jamais exigible, et l'inflation l'érode : ta dette vaut ${money((S.loan || 0) / cpi())} en dollars d'origine.`; }
     { const pp = (S.pol && S.pol.price) || 0; if (document.activeElement !== el('polPrice')) el('polPrice').value = -pp; el('polPriceV').textContent = POL_N[String(pp)] || 'Équilibré'; el('polNote').textContent = pp > 0 ? 'Prix plus bas : plus de clients, marges plus fines.' : pp < 0 ? 'Prix plus hauts : meilleure marge, moins de clients.' : 'Prix du marché sur tes magasins.'; el('polAlert').textContent = 'Alertes de stock bas : ' + (S.pol && S.pol.noAlert ? 'non' : 'oui'); el('polAlert').setAttribute('aria-pressed', S.pol && S.pol.noAlert ? 'false' : 'true');
       [['polNoLoss', 'noLoss', 'Ne jamais vendre sous le coût', 0], ['polSeek', 'seek', 'Chercher de meilleurs fournisseurs', 0], ['polInfP', 'noInfP', 'Prix selon l\'inflation', 1], ['polInfA', 'noInfA', 'Publicité selon l\'inflation', 1]].forEach(([id, k, lab, inv]) => { const on = inv ? !polOn(k) : polOn(k); el(id).textContent = lab + ' : ' + (on ? 'oui' : 'non'); el(id).setAttribute('aria-pressed', on ? 'true' : 'false'); });
       if (document.activeElement !== el('polFr')) el('polFr').value = Math.round(polFr() * 100); el('polFrV').textContent = Math.round(polFr() * 100) + ' %'; if (document.activeElement !== el('polTol')) el('polTol').value = polTol(); el('polTolV').textContent = polTol() + ' jour' + (polTol() > 1 ? 's' : '');
@@ -3475,7 +3520,7 @@ function drawLine(cv, arr) {
   g.strokeStyle = '#46d39a'; g.lineWidth = 2; g.beginPath(); arr.forEach((v, i) => { const x = i / (arr.length - 1) * (W2 - 4) + 2; i ? g.lineTo(x, Y(v)) : g.moveTo(x, Y(v)); }); g.stroke();
   g.fillStyle = '#e9edff'; g.font = '11px monospace'; g.textAlign = 'left'; g.fillText(fx2(mx) + ' $', 4, 11); g.fillText(fx2(mn) + ' $', 4, H2 - 3);
 }
-function openTerm() { closeViews('t'); seedGti(); el('cview').hidden = true; el('gview').hidden = true; el('svview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('tview').hidden = false; tHtml = ''; if (!(S.rivals || []).find(r => r.id === tSel) && S.rivals && S.rivals[0]) tSel = S.rivals[0].id; renderTerm(true); }
+function openTerm() { if (isScn() && modeK() < 's4') { say('La bourse s\'ouvre au scénario 4.', 'warn'); return; } closeViews('t'); seedGti(); el('cview').hidden = true; el('gview').hidden = true; el('svview').hidden = true; el('pview').hidden = true; el('bview').hidden = true; el('tview').hidden = false; tHtml = ''; if (!(S.rivals || []).find(r => r.id === tSel) && S.rivals && S.rivals[0]) tSel = S.rivals[0].id; renderTerm(true); }
 function closeTerm() { el('tview').hidden = true; tHtml = ''; }
 function drawCandles(cv, h) {
   const g = cv.getContext('2d'), W2 = cv.width, H2 = cv.height; g.clearRect(0, 0, W2, H2);
@@ -3503,7 +3548,7 @@ function stockUI(rs, r, hold, stake, px) {
    <table class="fint"><tr><th>Société</th><th>Cours</th><th>PER</th><th>Détenu</th><th>Valeur</th></tr>${rows}</table></div>
    <div class="tgrid" style="margin-top:10px"><div class="tpanel"><h4>${r ? r.name : '—'} · fiche</h4>${stats}</div>
    <div class="tpanel"><h4>Cours · ${r ? r.name : ''}</h4><div style="display:flex;gap:4px;margin-bottom:4px">${[['Court', 15], ['Mois', 30], ['Total', 60]].map(([l, n]) => `<button class="btn ${tPer === n ? '' : 'sec'}" data-t="per:${n}" style="min-height:24px;padding:2px 8px;font-size:11px">${l}</button>`).join('')}</div><canvas id="pcanvas" width="520" height="170" style="width:100%"></canvas></div></div>
-   <div class="tgrid" style="margin-top:10px"><div class="tpanel"><h4>Actionnaires</h4><table class="fint"><tr><th>Actionnaire</th><th>Actions</th><th>%</th><th>Valeur</th></tr>${hs}</table></div>
+   <div class="tgrid" style="margin-top:10px"><div class="tpanel"><h4>Actionnaires</h4><small class="note">Plus de 50 % des actions : le rival est éliminé et devient ta filiale, gérée par l'IA ; elle te verse des dividendes au prorata de ta part. ${r ? 'Ta part : ' + f((stake || 0) * 100, 1) + ' %' + (r.sub ? ' · filiale' : '') : ''}</small><table class="fint"><tr><th>Actionnaire</th><th>Actions</th><th>%</th><th>Valeur</th></tr>${hs}</table></div>
    <div class="tpanel"><h4>Ordre de bourse</h4><div class="finrow"><span>Quantité</span><span><button class="btn sec" data-t="pct-" style="min-height:26px;padding:2px 10px">−</button> <b>${tPct} %</b> <button class="btn sec" data-t="pct+" style="min-height:26px;padding:2px 10px">+</button></span></div><small class="note">${tPct} % × ${fmt(RSH)} actions × ${f(px)} $ = <b>${money(qty * px)}</b></small><div class="seg2" style="margin-top:8px"><button class="btn" data-t="buy">Acheter</button><button class="btn sec" data-t="sell" ${hold ? '' : 'disabled'}>Vendre</button></div><small class="note">Tu détiens ${fmt(hold ? hold.n : 0)} actions (${Math.round(stake * 100)} %). Chaque ordre déplace le cours.</small></div></div>
    <div class="tpanel" style="margin-top:10px"><h4>Portefeuille</h4>${ports ? `<table class="fint"><tr><th>Titre</th><th>Qté</th><th>Coût moyen</th><th>Cours</th><th>Valeur</th><th>Gain</th><th>%</th></tr>${ports}<tr class="tot"><td>Total</td><td></td><td></td><td></td><td>${money(val)}</td><td class="${val - tot >= 0 ? 'pos' : 'neg'}">${val - tot >= 0 ? '+' : '−'}${money(Math.abs(val - tot))}</td><td></td></tr></table>` : '<small>Aucune participation. Achète des actions d\'un rival pour préparer une OPA (20 % minimum).</small>'}</div>`;
 }
@@ -3586,6 +3631,7 @@ function renderGoals() {
     ${resHTML()}
     <h3>SOUS-OBJECTIF</h3>${subHTML()}
     <h3>DOMINATION DES MARCHÉS</h3>${domHTML()}
+    ${antiHTML()}
     <h3>SCORE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Score</small><b class="gold">${fmt(playerScore())}</b></div><div><small>Classement mondial</small><b>${rank} / ${rows.length}</b></div><div><small>Part de marché</small><b>${Math.round(ms * 100)} %</b></div><div><small>Fortune personnelle</small><b>${money(Math.round(personalNet() * cpi()))}</b></div><div><small>Missions</small><b>${(S.done || []).length} / ${MISSIONS.length}</b></div></div>
     <h3>CLASSEMENT DES EMPIRES</h3>${rk}
     <h3>FORMATION DES DIRIGEANTS</h3>${trainHTML()}
@@ -3734,9 +3780,10 @@ el('polTol').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.tol = +
 const LOAN_STEPS = [20000, 50000, 100000, 250000, 500000, 1e6, 2.5e6, 5e6, 1e7, 2.5e7, 5e7, 1e8];
 function loanStep() { const lim = creditLimit(), t = lim / 12; let st = LOAN_STEPS[0]; LOAN_STEPS.forEach(v => { if (v <= t) st = v; }); return st; }
 const curAssetsCL = () => Math.max(0, S.cash - (S.loan || 0)) + stockValue();   // actifs courants : trésorerie propre + stocks
-function creditLimit() { return Math.max(Math.round(curAssetsCL() * (casteIs('banquier') ? 1.5 : 1) * (execOn('cfo') ? 1.2 : 1) / 1000) * 1000, creditLimit0()); }
+function creditLimit() { const b = creditLimitBase(); return casteIs('banquier') ? b : Math.min(b, debtCapEbe()) * (1 - REG_DEBT * Math.max(0, S.diff || 0)); }
+function creditLimitBase() { return Math.max(Math.round(curAssetsCL() * (casteIs('banquier') ? 1.5 : 1) * (execOn('cfo') ? 1.2 : 1) / 1000) * 1000, creditLimit0()); }
 function creditLimit0() { return Math.max(0, (casteIs('banquier') ? Math.round(0.5 * portValue() / 1000) * 1000 : 0) + Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.5 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
-el('loanUp').onclick = () => { const st = loanStep(); if ((S.loan || 0) + st <= creditLimit()) { S.loan = (S.loan || 0) + st; S.cash += st; say(`Emprunt de ${money(st)} (taux ${(100 * ((S.macro.rate + 0.02) * (execOn('cfo') ? 0.75 : 1) * TM.interest)).toFixed(1).replace('.', ',')} % par an, aucun remboursement obligatoire).`, 'info'); updateHUD(); save(); } };
+el('loanUp').onclick = () => { const st = loanStep(); if ((S.loan || 0) + st <= creditLimit()) { S.loan = (S.loan || 0) + st; S.cash += st; say(`Emprunt de ${money(st)} (taux ${(100 * (loanRateNow())).toFixed(1).replace('.', ',')} % par an, aucun remboursement obligatoire).`, 'info'); updateHUD(); save(); } };
 el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, loanStep(), Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
 function setBar(id, v) {
   const e = el(id);
@@ -4348,6 +4395,7 @@ function recOf(c) {
 function qualCost(c) { return (c.qual || 0) >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.5 * (1 + (c.qual || 0))); }
 function effCost(c) { return (c.eff || 0) >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.4 * (1 + (c.eff || 0))); }
 function openBuilding(x, y) {
+  if (S.mode && S.mode.f) S.mode.f.open = 1;
   closeViews('b'); bPick = -1;
   const c = cell(x, y); if (!c) return;
   bsel = { x: c.x, y: c.y }; selected = { x: c.x, y: c.y };
@@ -5935,6 +5983,7 @@ function setTool(k) {
   cvs.style.cursor = k === 'view' ? 'grab' : 'crosshair';
 }
 function setSpeed(s) {
+  if (s === 3 && modeK() === 'round') s = 1;
   speed = s;
   el('spd0').setAttribute('aria-pressed', s === 0);
   el('spd1').setAttribute('aria-pressed', s === 1);
@@ -6027,8 +6076,7 @@ el('rst').onclick = () => {
     return;
   }
   clearTimeout(rstTimer); rstTimer = 0; b.textContent = 'Reset'; b.classList.remove('warn');
-  newCity(); makeDecor(); cars = []; refreshStats(); S.hist = [Math.round(S.stats.worth)]; centerOn(START.x, START.y); updateHUD(); save(); showCaste(false);
-  say('Nouvelle ville créée.', 'info');
+  showModes();
 };
 
 /* ---------- Canvas / caméra ---------- */
@@ -6811,7 +6859,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   if (!S) return;
   const dt = Math.min(0.1, (now - (frame.last || now)) / 1000); frame.last = now;
-  if (speed) { frame.acc = (frame.acc || 0) + dt * 1000 * (speed === 3 ? 3 : 1); let g = 0; while (frame.acc >= DAY_MS && g++ < 5) { frame.acc -= DAY_MS; step(); } }
+  if (speed) { frame.acc = (frame.acc || 0) + dt * 1000 * (speed === 3 ? 3 : 1); let g = 0; while (frame.acc >= dayMs() && g++ < 5) { frame.acc -= dayMs(); step(); } }
   updateCars(dt); updateShips(dt);
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -7065,16 +7113,191 @@ if (window.ResizeObserver) { const ro = new ResizeObserver(() => resize()); ro.o
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => resize());
 document.addEventListener('visibilitychange', () => { if (document.hidden && S) save(); });
 
+/* ---------- Passe 15 : modes de partie, objectifs, classement, fin de partie, anti-boule de neige ---------- */
+// Rythme : en scénario et en round, un jour de jeu dure DAY_MS_RND ms à vitesse ×1 (le mode Libre garde DAY_MS). Un round de ROUND_MIN minutes à ×1 = ROUND_DAYS jours.
+const DAY_MS_RND = 750, ROUND_MIN = 90, ROUND_TARGET = 1e9;
+const minToDays = m => Math.round(m * 60000 / DAY_MS_RND);
+const daysToMin = d => d * DAY_MS_RND / 60000;
+const ROUND_DAYS = minToDays(ROUND_MIN);
+const modeK = () => (S && S.mode && S.mode.k) || 'free';
+const dayMs = () => modeK() === 'free' ? DAY_MS : DAY_MS_RND;
+const isScn = () => /^s[1-5]$/.test(modeK());
+const isTimed = () => modeK() !== 'free';
+const valuation = () => { const st = (S && S.stats) || {}; return st.raw != null ? st.raw : (st.worth || (S && S.cash) || 0); };
+const fmtV = v => v >= 1e9 ? (v / 1e9).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' Md$' : mM(v);
+const cnOf = k => ((S.stats && S.stats.cn) || {})[k] || 0;
+const subCount = () => (S.rivals || []).filter(r => r.sub).length + (S.subs || []).length;
+const stakeOf = id => { const h = (S.port || {})[id]; return h ? h.n / RSH : 0; };
+// Verrous de scénario : les bâtiments absents de la liste sont verrouillés (déblocage progressif)
+const L1 = ['road', 'res', 's1', 's2', 's3', 'sport'];
+const L2 = L1.concat(['off', 'tv', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'qgravel', 'qsand', 'qlime', 'fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'f2', 'f3', 'foundry', 'btp', 'immo', 'pipeline', 'pylon', 'plant', 'wh']);
+const L3 = L2.concat(['port', 'solar', 'wind', 'cable', 'nuclear', 'dc', 'tech', 'rd', 'f4', 's4']);
+const L4 = L3.concat(['bank', 'hq']);
+const SCN_LOCK = { s1: L1, s2: L2, s3: L3, s4: L4, s5: null };
+const modeLocked = k => { if (!isScn()) return false; const L = SCN_LOCK[modeK()]; return !!L && TYPES[k] && L.indexOf(k) < 0; };
+const unlockScn = k => { for (let i = 1; i <= 5; i++) { const L = SCN_LOCK['s' + i]; if (!L || L.indexOf(k) >= 0) return i; } return 5; };
+const lockLabel = k => modeLocked(k) ? 'Scénario ' + unlockScn(k) : (TYPES[k] && TIERS[TYPES[k].tier] ? TIERS[TYPES[k].tier].n : '');
+const SCN = {
+  s1: { n: 'Ville et commerce', min: 60, cash: 3e6, tgt: 80e6, d: 'Pose des logements et des commerces, ajuste les prix, emprunte avec mesure : fais grimper ta valorisation à 80 M$ en 60 minutes.',
+    ms: [{ t: 'Ouvrir 3 commerces', f: () => [cnOf('s1') + cnOf('s2') + cnOf('s3'), 3] }, { t: 'Atteindre 8 M$ de valorisation', f: () => [valuation(), 8e6, fmtV] }, { t: 'Un hypermarché en service', f: () => [cnOf('s3'), 1] }, { t: 'Atteindre 30 M$ de valorisation', f: () => [valuation(), 30e6, fmtV] }, { t: 'Atteindre 80 M$ de valorisation', f: () => [valuation(), 80e6, fmtV] }],
+    tuto: [{ t: 'Choisis le menu Commerce et pose un Petit marché le long d\'une rue (case au bord d\'un bloc).', ok: () => cnOf('s1') + cnOf('s2') + cnOf('s3') > 0, tool: 's1' }, { t: 'Ouvre ton commerce avec l\'outil Main : onglets Prix et Effectifs, ajuste le prix de rayon.', ok: () => !!(S.mode.f || {}).open }, { t: 'Emprunte à la banque (Menu > Finances) : le plafond et le taux sont affichés.', ok: () => (S.loan || 0) > 0 || !!(S.mode.f || {}).loanSeen }, { t: 'Pose un Supermarché ou 2 autres commerces pour vendre plus.', ok: () => cnOf('s1') + cnOf('s2') + cnOf('s3') >= 3 }, { t: 'Surveille ton rang et ton jalon dans la barre d\'objectif : le reste est à toi.', ok: () => S.day >= 25 }] },
+  s2: { n: 'Usines et produits', min: 75, cash: 12e6, tgt: 250e6, d: 'Extrais, fabrique, lance des produits : 250 M$ de valorisation en 75 minutes avec au moins 2 produits lancés.',
+    ms: [{ t: 'Construire une usine', f: () => [cnOf('f1') + cnOf('f2') + cnOf('f3') + cnOf('foundry'), 1] }, { t: 'Lancer 2 produits', f: () => [PKEYS.filter(pk => S.prod[pk].st === 'on').length, 2] }, { t: 'Atteindre 100 M$ de valorisation', f: () => [valuation(), 100e6, fmtV] }, { t: 'Atteindre 250 M$ de valorisation', f: () => [valuation(), 250e6, fmtV] }],
+    req: () => PKEYS.filter(pk => S.prod[pk].st === 'on').length >= 2 },
+  s3: { n: 'Marchés et export', min: 90, cash: 40e6, tgt: 400e6, d: 'Ouvre le port, exporte, prends des parts de marché : 400 M$ de valorisation et 1,5 M$/mois d\'exports en 90 minutes.',
+    ms: [{ t: 'Terminal portuaire en service', f: () => [cnOf('port'), 1] }, { t: 'Exports de 0,5 M$/mois', f: () => [((S.fin || {}).revExport || 0) * DM, 0.5e6, mM] }, { t: 'Part de marché moyenne de 15 %', f: () => [marketShareAvg(), 0.15, v => Math.round(v * 100) + ' %'] }, { t: 'Atteindre 200 M$ de valorisation', f: () => [valuation(), 200e6, fmtV] }, { t: 'Exports de 1,5 M$/mois', f: () => [((S.fin || {}).revExport || 0) * DM, 1.5e6, mM] }, { t: 'Atteindre 400 M$ de valorisation', f: () => [valuation(), 400e6, fmtV] }],
+    req: () => ((S.fin || {}).revExport || 0) * DM >= 1.5e6 },
+  s4: { n: 'Bourse et OPA', min: 100, cash: 100e6, tgt: 700e6, d: 'Entre en bourse, rachète la majorité (plus de 50 %) d\'un rival : il devient ta filiale. 700 M$ de valorisation en 100 minutes.',
+    ms: [{ t: 'Introduire ta société en bourse', f: () => [S.float > 0 ? 1 : 0, 1] }, { t: 'Détenir 20 % du capital d\'un rival', f: () => [Math.max(0, ...(S.rivals || []).map(r => stakeOf(r.id))), 0.2, v => Math.round(v * 100) + ' %'] }, { t: 'Prendre le contrôle (plus de 50 %) d\'un rival', f: () => [subCount(), 1] }, { t: 'Atteindre 300 M$ de valorisation', f: () => [valuation(), 300e6, fmtV] }, { t: 'Atteindre 700 M$ de valorisation', f: () => [valuation(), 700e6, fmtV] }],
+    req: () => subCount() >= 1 },
+  s5: { n: 'Empire', min: 120, cash: 3e6, tgt: ROUND_TARGET, d: 'Le grand final : 1 milliard de $ de valorisation et au moins 2 filiales en 120 minutes, de la première échoppe à la bourse.',
+    ms: [{ t: 'Atteindre 25 M$ de valorisation (Entrepreneur)', f: () => [valuation(), TIERS[1].at, fmtV] }, { t: 'Atteindre 70 M$ de valorisation (Industriel)', f: () => [valuation(), TIERS[2].at, fmtV] }, { t: 'Atteindre 250 M$ de valorisation (Magnat)', f: () => [valuation(), TIERS[3].at, fmtV] }, { t: 'Contrôler 2 sociétés rivales', f: () => [subCount(), 2] }, { t: 'Atteindre 1 Md$ de valorisation', f: () => [valuation(), ROUND_TARGET, fmtV] }],
+    req: () => subCount() >= 2 }
+};
+const MODE_INFO = { free: { n: 'Libre', d: 'Bac à sable : aucune limite de temps ni d\'objectif imposé. Tout se débloque avec ta fortune.' }, round: { n: 'Round compétitif', d: 'Atteins 1 Md$ de valorisation avant la fin du temps (90 min). Classement public, rachat majoritaire des rivaux, vitesse commune ×1.' } };
+function modeDays() { const k = modeK(); return k === 'round' ? ROUND_DAYS : isScn() ? minToDays(SCN[k].min) : 0; }
+function modeTarget() { const k = modeK(); return k === 'round' ? ROUND_TARGET : isScn() ? SCN[k].tgt : 0; }
+function modeName() { const k = modeK(); return k === 'round' ? 'Round compétitif' : isScn() ? 'Scénario ' + k.slice(1) + ' · ' + SCN[k].n : 'Libre'; }
+// Classement public : tous voient la valorisation de tous (toi, rivaux, grands groupes)
+const npcVal = x => x[1] * (1 + x[2] * (S.day || 0) * (isTimed() ? 0.08 : 1));
+function ranking() {
+  const rows = [{ id: 'you', n: 'Ton empire', v: valuation(), me: 1, kind: 'you' }];
+  (S.rivals || []).forEach(r => { if (!r.sub) rows.push({ id: r.id, n: r.name, v: rivalValue(r), col: r.col, kind: 'rival' }); });
+  NPC_TOP.forEach(x => rows.push({ n: x[0], v: npcVal(x), kind: 'groupe' }));
+  rows.sort((a, b) => b.v - a.v); return rows;
+}
+const rankPlayers = () => { const r = ranking().filter(x => x.kind !== 'groupe'); return [r.findIndex(x => x.me) + 1, r.length]; };
+const rankWorld = () => { const r = ranking(); return [r.findIndex(x => x.me) + 1, r.length]; };
+// Rattrapage public : le retardataire (moins de 70 % du leader des joueurs) emprunte moins cher ; le leader paie une prime de levier
+const leaderVal = () => Math.max(valuation(), ...(S.rivals || []).filter(r => !r.sub).map(r => rivalValue(r)));
+function catchUp() { const v = valuation(), L = leaderVal(), ratio = L > 0 ? v / L : 1; return { on: ratio < 0.7 && (S.rivals || []).length > 0, ratio, disc: ratio < 0.7 ? 0.35 : 0, leader: ratio >= 1 }; }
+function levPts() { const raw = Math.max(1, valuation()), l = (S.loan || 0) / (raw + (S.loan || 0)); return 0.06 * clamp(l / 0.5, 0, 1); }
+function loanRateNow() { return (((S.macro && S.macro.rate) || 0.04) + 0.02 + levPts()) * (execOn('cfo') ? 0.75 : 1) * TM.interest * (1 - catchUp().disc); }
+const DEBT_X = 3;   // dette maximale : 3 ans d'EBE (en plus du plafond sur actifs)
+function annEbe() { const a = S.m30 || []; if (!a.length) return 0; return a.reduce((t, r) => t + r[1], 0) * 360 / a.length; }
+function debtCapEbe() { return Math.max(0.2 * Math.max(0, (S.stats && S.stats.worth) || 0), DEBT_X * Math.max(0, annEbe())); }
+// Marchés d'export stables : 2 par joueur (tes 2 meilleurs débouchés) ; les autres se vendent au cours spot
+const XM_MAX = 2, XM_SPOT = 0.88;
+function xmF(g) { const xm = S.xm || []; return (!xm.length || xm.indexOf(g) >= 0) ? 1 : XM_SPOT; }
+function xmUpdate() { const s = S.xsum || {}; S.xm = Object.keys(s).sort((a, b) => s[b] - s[a]).slice(0, XM_MAX); Object.keys(s).forEach(k => { s[k] *= 0.5; }); }
+// Difficulté adaptative : la courbe attendue mène à 1 Md$ en ROUND_DAYS (un joueur qui la suit n'a aucun malus)
+// Forme de la courbe attendue (part du logarithme du chemin parcouru), mesurée sur un bon joueur : départ rapide (levier), plateau des commerces, envol des tours
+const CURVE = [0, 0.19, 0.32, 0.42, 0.48, 0.53, 0.63, 0.72, 0.82, 0.92, 1];
+function expectedVal(day) {
+  if (!isTimed()) return 0.9e6 * K_SIZE * Math.exp(0.0016 * day);
+  const W0 = (S.mode && S.mode.w0) || 3e6, D = modeDays(), T = Math.max(W0 * 1.5, modeTarget()), f = Math.max(0, day / D) * 10, i = Math.min(9, Math.floor(f)), sh = f >= 10 ? 1 + (f - 10) * 0.08 : CURVE[i] + (CURVE[i + 1] - CURVE[i]) * (f - i);
+  return W0 * Math.pow(T / W0, sh);
+}
+const REG_TAX = 0.05, REG_WAGE = 0.08, REG_DEBT = 0.15;   // par niveau de surchauffe : impôt +5 pts, salaires +8 %, plafond de dette −15 %
+const regTax = () => REG_TAX * Math.max(0, (S && S.diff) || 0);
+function stepMode() {
+  const m = S.mode; if (!m) return;
+  if (isTimed() && !m.done) {
+    if (S.day % 5 === 0) modeNotify();
+    const v = valuation(), D = modeDays(), tg = modeTarget();
+    if (m.k === 'round') {
+      if (v >= tg) return endGame('win', 'Un milliard de dollars de valorisation : tu remportes le round !');
+      if ((S.rivals || []).length && (S.rivals || []).every(r => r.sub)) return endGame('win', 'Tous les rivaux sont tes filiales : domination totale.');
+      if (S.day >= D) { const rk = rankWorld(); return endGame(rk[0] === 1 ? 'win' : 'time', rk[0] === 1 ? 'Temps écoulé : tu as la plus grande valorisation.' : 'Temps écoulé : tu termines ' + rk[0] + 'e sur ' + rk[1] + '.'); }
+    } else {
+      const sc = SCN[m.k];
+      if (v >= tg && (!sc.req || sc.req())) return endGame('win', 'Objectif du scénario atteint : ' + fmtV(tg) + ' de valorisation.');
+      if (S.day >= D) return endGame('lose', 'Temps écoulé : l\'objectif de ' + fmtV(tg) + (sc.req && !sc.req() ? ' et ses conditions n\'ont' : ' n\'a') + ' pas été atteint.');
+    }
+  }
+}
+function modeNotify() {
+  const m = S.mode, n = m.n || (m.n = {}), D = modeDays(), left = D - S.day;
+  if (D) { [[0.5, 'La moitié du temps est écoulée'], [0.25, 'Plus qu\'un quart du temps'], [0.1, 'Dernière ligne droite']].forEach(([f, t]) => { if (left <= D * f && !n['t' + f]) { n['t' + f] = 1; say(`${t} : il reste ${Math.max(1, Math.round(daysToMin(left)))} min à vitesse normale.`, 'warn'); } }); }
+  const cm = curMilestone(); if (cm && n.ms != null && n.ms !== cm.t && n.ms) say('Jalon atteint : ' + n.ms + '.', 'gold'); n.ms = cm ? cm.t : '';
+  const rk = rankPlayers(); if (n.rk && n.rk !== rk[0]) say(rk[0] < n.rk ? `Tu passes ${rk[0] === 1 ? 'en tête' : rk[0] + 'e'} des ${rk[1]} joueurs.` : `Un rival te dépasse : tu es ${rk[0]}e sur ${rk[1]}.`, rk[0] < n.rk ? 'good' : 'warn'); n.rk = rk[0];
+  const cu = catchUp(); if (cu.on !== !!n.cu) { n.cu = cu.on; if (cu.on) say(`Rattrapage public : tu es à ${Math.round(cu.ratio * 100)} % du leader, tes crédits coûtent ${Math.round(cu.disc * 100)} % de moins.`, 'info'); }
+  if (S.diff >= 2 && !n.hot) { n.hot = 1; say('Surchauffe : impôts et salaires montent tant que tu files bien au-dessus de la courbe attendue.', 'warn'); }
+}
+function curMilestone() {
+  const m = S.mode, v = valuation();
+  if (isScn()) { const sc = SCN[m.k]; for (const x of sc.ms) { const r = x.f(); if (!(r[0] >= r[1])) return { t: x.t, v: r[0], g: r[1], f: r[2] || (q => fmt(q)) }; } return { t: 'Objectif final', v, g: sc.tgt, f: fmtV }; }
+  const tg = m.k === 'round' ? ROUND_TARGET : 0, ts = [TIERS[1].at, TIERS[2].at, TIERS[3].at, TIERS[4].at, ROUND_TARGET];
+  for (let i = 0; i < ts.length; i++) if (v < ts[i]) return { t: i < 4 ? 'Palier ' + TIERS[i + 1].n : (m.k === 'round' ? 'Victoire : 1 Md$' : 'Cap du milliard'), v, g: ts[i], f: fmtV };
+  return { t: 'Au-delà du milliard', v, g: v, f: fmtV };
+}
+function scoreParts() {
+  const st = S.stats || {}, v = valuation(), won = S.mode && S.mode.done === 'win', D = modeDays();
+  return [['Valorisation', Math.round(v / 1e6)], ['Parts de marché', Math.round(marketShareAvg() * 300)], ['Emplois', Math.round((st.playerJobs || 0) / 50)], ['Missions', (S.done || []).length * 5], ['Technologies', Object.keys(S.tech || {}).length * 10], ['Filiales', subCount() * 40], ['Rapidité', won && D ? Math.round(clamp((D - S.day) / D, 0, 1) * 200) : 0]];
+}
+function endGame(kind, msg) {
+  const m = S.mode; if (m.done) return; m.done = kind; m.endDay = S.day;
+  const rows = ranking(), parts = scoreParts(), total = parts.reduce((a, p) => a + p[1], 0);
+  m.res = { kind, msg, day: S.day, min: Math.round(daysToMin(S.day)), val: valuation(), net: Math.round(personalNet() * cpi()), ms: Math.round(marketShareAvg() * 100), rank: rankWorld(), rows: rows.slice(0, 8).concat(rows.slice(8).filter(r => r.me)).map(r => [r.n, Math.round(r.v), r.me ? 1 : 0]), parts, total };
+  try { const key = 'wse-prog', p = JSON.parse(localStorage.getItem(key) || '{}'); if (kind === 'win') p[m.k] = Math.max(p[m.k] || 0, total); localStorage.setItem(key, JSON.stringify(p)); } catch (e) { /* stockage indisponible */ }
+  setSpeed(0); showEnd(); save();
+}
+function showEnd() {
+  const r = S.mode.res; if (!r) return; const box = el('endscr');
+  const head = { win: 'VICTOIRE', lose: 'OBJECTIF MANQUÉ', time: 'TEMPS ÉCOULÉ' }[r.kind] || 'FIN DE PARTIE';
+  const tot = Math.max(1, r.total);
+  box.innerHTML = `<div class="ebox ${r.kind}"><h2>${head}</h2><p class="elead">${r.msg}</p><small>${modeName()} · ${fmt(r.day)} jours · ${r.min} min à vitesse normale</small>
+    <div class="ekp"><div><small>Valorisation</small><b class="gold">${fmtV(r.val)}</b></div><div><small>Fortune personnelle</small><b>${fmtV(r.net)}</b></div><div><small>Parts de marché</small><b>${r.ms} %</b></div><div><small>Classement</small><b>${r.rank[0]} / ${r.rank[1]}</b></div></div>
+    <h4>Classement final</h4>${r.rows.map((x, i) => `<div class="erow ${x[2] ? 'me' : ''}"><span>${x[2] && i >= 8 ? r.rank[0] : i + 1}. ${x[0]}</span><b>${fmtV(x[1])}</b></div>`).join('')}
+    <h4>Répartition du score · ${fmt(r.total)} pts</h4>${r.parts.map(p => `<div class="erow"><span>${p[0]}</span><i style="width:${Math.round(p[1] / tot * 100)}%"></i><b>${fmt(p[1])} pts · ${Math.round(p[1] / tot * 100)} %</b></div>`).join('')}
+    <div class="eact"><button class="btn" data-end="cont">Continuer en Libre</button><button class="btn sec" data-end="new">Nouvelle partie</button></div></div>`;
+  box.hidden = false;
+}
+el('endscr').addEventListener('click', e => { const b = e.target.closest('[data-end]'); if (!b) return; if (b.dataset.end === 'cont') { el('endscr').hidden = true; S.mode.k = 'free'; S.mode.cont = 1; buildTools(); setSpeed(1); syncSpeedUI(); updateHUD(); save(); } else { el('endscr').hidden = true; showModes(); } });
+// Sélection de partie : Libre, 5 scénarios (déblocage progressif), Round compétitif
+function progOf() { try { return JSON.parse(localStorage.getItem('wse-prog') || '{}'); } catch (e) { return {}; } }
+function showModes() {
+  const pr = progOf(), card = (k, n, d, extra, lock) => `<button class="mcard ${lock ? 'lk' : ''}" data-mode="${k}" ${lock ? 'disabled' : ''}><b>${n}</b><small>${d}</small><em>${extra}</em></button>`;
+  const sc = [1, 2, 3, 4, 5].map(i => { const k = 's' + i, S0 = SCN[k], lock = i > 1 && !pr['s' + (i - 1)] && !location.search.includes('open'); return card(k, `${i}. ${S0.n}`, S0.d, `${S0.min} min · objectif ${fmtV(S0.tgt)}${pr[k] ? ' · terminé (' + fmt(pr[k]) + ' pts)' : ''}`, lock); }).join('');
+  el('modesel').innerHTML = `<div class="mbox"><h2>NOUVELLE PARTIE</h2><p class="note">Choisis ton mode, puis ta caste. Les scénarios se débloquent l'un après l'autre ; le Round est la partie compétitive de 90 minutes (jusqu'à 8 joueurs plus tard).</p>
+    <h4>Round compétitif</h4><div class="mgrid">${card('round', 'Round · 1 Md$ en 90 min', MODE_INFO.round.d, 'classement, rachats majoritaires, écran de résultats', false)}</div>
+    <h4>Scénarios</h4><div class="mgrid">${sc}</div>
+    <h4>Bac à sable</h4><div class="mgrid">${card('free', 'Libre', MODE_INFO.free.d, 'sans limite de temps', false)}</div>${S.mode && S.mode.pending ? '' : '<button class="btn sec" data-mode="">Annuler</button>'}</div>`;
+  el('modesel').hidden = false;
+}
+el('modesel').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (!b || b.disabled) return; const k = b.dataset.mode; if (!k) { el('modesel').hidden = true; return; } startMode(k); });
+function syncSpeedUI() { const s3 = el('spd3'); const lock = modeK() === 'round'; s3.disabled = lock; s3.title = lock ? 'Round : vitesse commune, pas d\'accélération' : 'Vitesse rapide ×3'; if (lock && speed === 3) setSpeed(1); }
+function startMode(k) {
+  const fresh = S.mode && S.mode.pending && k === 'free' && S.day === 0;
+  el('modesel').hidden = true; el('endscr').hidden = true;
+  if (!fresh) { newCity(); makeDecor(); cars = []; centerOn(START.x, START.y); }
+  S.mode = { k, t0: 0, done: null, n: {}, f: {} };
+  if (k === 'round') { S.cash = 3e6; S.noEv = false; }
+  if (isScn()) { S.cash = SCN[k].cash; S.noEv = k === 's1'; }
+  S.unlockAll = true; S.mode.w0 = S.cash;
+  setSpeed(1); syncSpeedUI(); refreshStats(); S.hist = [Math.round(S.stats.worth)]; buildTools(); updateHUD(); save(); showCaste(false);
+  say(k === 'free' ? 'Mode Libre.' : modeName() + ' : ' + (k === 'round' ? MODE_INFO.round.d : SCN[k].d), 'gold');
+}
+// Barre d'objectif du HUD : jalon suivant, progression, rang, temps
+function tutoCur() { if (modeK() !== 's1' || (S.mode.f || {}).tdone) return null; const T = SCN.s1.tuto; for (let i = 0; i < T.length; i++) if (!T[i].ok()) return { i, n: T.length, s: T[i] }; (S.mode.f || (S.mode.f = {})).tdone = 1; say('Tutoriel terminé : à toi de jouer !', 'gold'); return null; }
+function updObj() {
+  const box = el('objbar'); if (!box || !S || !S.mode) return;
+  const cm = curMilestone(), pct = cm.g > 0 ? clamp(cm.v / cm.g, 0, 1) : 1, rk = rankPlayers(), cu = catchUp(), tu = tutoCur();
+  const D = modeDays(), left = D ? Math.max(0, D - S.day) : 0;
+  const tm = D ? `<span class="otm ${left < D * 0.1 ? 'neg' : ''}" title="Temps restant à vitesse normale">⏱ ${Math.max(0, Math.round(daysToMin(left)))} min</span>` : '';
+  const h = `<div class="orow"><span class="omode">${modeName()}</span><span class="ogoal"><b>${cm.t}</b> · ${cm.f(cm.v)} / ${cm.f(cm.g)}</span>${tm}<span class="ork" title="Classement par valorisation parmi les joueurs (monde : ${rankWorld()[0]} / ${rankWorld()[1]})">Rang ${rk[0]}/${rk[1]}</span>${cu.on ? `<span class="ocu" title="Rattrapage public : tu es à ${Math.round(cu.ratio * 100)} % du leader">Rattrapage −${Math.round(cu.disc * 100)} % crédits</span>` : ''}${(S.diff || 0) > 0 ? `<span class="ohot" title="Régulation : impôt +${Math.round(regTax() * 100)} pts, salaires +${Math.round(REG_WAGE * S.diff * 100)} %">Surchauffe ${S.diff}</span>` : ''}</div><div class="obar"><i style="width:${Math.round(pct * 100)}%"></i></div>${tu ? `<div class="otut">Tutoriel ${tu.i + 1}/${tu.n} : ${tu.s.t}</div>` : ''}`;
+  if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
+  document.querySelectorAll('.tool.pulse').forEach(b => b.classList.remove('pulse'));
+  if (tu && tu.s.tool) { const b = document.querySelector('.tool[data-k="' + tu.s.tool + '"]'); if (b) b.classList.add('pulse'); }
+}
+function antiHTML() {
+  const cu = catchUp(), xm = S.xm || [], lim = creditLimit();
+  return `<h3>ANTI-BOULE DE NEIGE (RÈGLES PUBLIQUES)</h3><div class="tcard"><b>Rattrapage</b><small>${cu.on ? `Actif : tu es à ${Math.round(cu.ratio * 100)} % du leader, intérêts −${Math.round(cu.disc * 100)} %.` : 'Inactif : rattrapage dès que tu passes sous 70 % de la valorisation du leader.'}</small></div>
+    <div class="tcard"><b>Dette graduée</b><small>Plafond ${money(lim)} (le plus bas de : actifs courants, 3 ans d'EBE ${money(Math.round(DEBT_X * Math.max(0, annEbe())))}). Prime de levier +${(levPts() * 100).toFixed(1).replace('.', ',')} pt, taux ${(loanRateNow() * 100).toFixed(1).replace('.', ',')} %.</small></div>
+    <div class="tcard"><b>Surchauffe</b><small>Courbe attendue ${fmtV(expectedVal(S.day))} ; niveau ${S.diff || 0} : impôt +${Math.round(regTax() * 100)} pts, salaires +${Math.round(REG_WAGE * Math.max(0, S.diff || 0) * 100)} %, plafond de dette −${Math.round(REG_DEBT * Math.max(0, S.diff || 0) * 100)} %. Visible pour tous les joueurs.</small></div>
+    <div class="tcard"><b>Marchés d'export stables (${xm.length}/${XM_MAX})</b><small>${xm.length ? xm.map(g => GOODS[g] ? GOODS[g].name : g).join(', ') : 'Choisis par ton volume exporté'} : au cours du marché. Les autres exports se vendent à ${Math.round(XM_SPOT * 100)} % du cours (spot).</small></div>`;
+}
+
 /* ---------- Démarrage ---------- */
 buildZones();
-S = load() || newCity();
+const _ld = load(); S = _ld || newCity(); if (!S.mode) S.mode = { k: 'free' }; if (!_ld) { S.mode.pending = 1; speed = 0; }
 makeDecor();
 buildTools();
 resize();
 updateZoomUI();
 if (!S.macro) S.macro = { phase: 0.6, gdp: 0.04, infl: 0.02, rate: 0.04, h: [] };
 TM = techMults(); if (S.event) showEvent();
-setTimeout(() => showCaste(false), 3200);
+setTimeout(() => { if (S.mode.pending && S.day === 0) showModes(); else { if (S.mode.done && S.mode.res && !S.mode.cont) showEnd(); showCaste(false); } syncSpeedUI(); }, 3200);
 refreshStats();
 if (!S.hist.length) S.hist.push(Math.round(S.stats.worth));
 checkMissions();
@@ -7084,7 +7307,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF };
 })();
 </script>
 </body>

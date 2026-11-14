@@ -3548,7 +3548,7 @@ function stockUI(rs, r, hold, stake, px) {
    <table class="fint"><tr><th>Société</th><th>Cours</th><th>PER</th><th>Détenu</th><th>Valeur</th></tr>${rows}</table></div>
    <div class="tgrid" style="margin-top:10px"><div class="tpanel"><h4>${r ? r.name : '—'} · fiche</h4>${stats}</div>
    <div class="tpanel"><h4>Cours · ${r ? r.name : ''}</h4><div style="display:flex;gap:4px;margin-bottom:4px">${[['Court', 15], ['Mois', 30], ['Total', 60]].map(([l, n]) => `<button class="btn ${tPer === n ? '' : 'sec'}" data-t="per:${n}" style="min-height:24px;padding:2px 8px;font-size:11px">${l}</button>`).join('')}</div><canvas id="pcanvas" width="520" height="170" style="width:100%"></canvas></div></div>
-   <div class="tgrid" style="margin-top:10px"><div class="tpanel"><h4>Actionnaires</h4><table class="fint"><tr><th>Actionnaire</th><th>Actions</th><th>%</th><th>Valeur</th></tr>${hs}</table></div>
+   <div class="tgrid" style="margin-top:10px"><div class="tpanel"><h4>Actionnaires</h4><small class="note">Plus de 50 % des actions : le rival est éliminé et devient ta filiale, gérée par l'IA ; elle te verse des dividendes au prorata de ta part. ${r ? 'Ta part : ' + f((stake || 0) * 100, 1) + ' %' + (r.sub ? ' · filiale' : '') : ''}</small><table class="fint"><tr><th>Actionnaire</th><th>Actions</th><th>%</th><th>Valeur</th></tr>${hs}</table></div>
    <div class="tpanel"><h4>Ordre de bourse</h4><div class="finrow"><span>Quantité</span><span><button class="btn sec" data-t="pct-" style="min-height:26px;padding:2px 10px">−</button> <b>${tPct} %</b> <button class="btn sec" data-t="pct+" style="min-height:26px;padding:2px 10px">+</button></span></div><small class="note">${tPct} % × ${fmt(RSH)} actions × ${f(px)} $ = <b>${money(qty * px)}</b></small><div class="seg2" style="margin-top:8px"><button class="btn" data-t="buy">Acheter</button><button class="btn sec" data-t="sell" ${hold ? '' : 'disabled'}>Vendre</button></div><small class="note">Tu détiens ${fmt(hold ? hold.n : 0)} actions (${Math.round(stake * 100)} %). Chaque ordre déplace le cours.</small></div></div>
    <div class="tpanel" style="margin-top:10px"><h4>Portefeuille</h4>${ports ? `<table class="fint"><tr><th>Titre</th><th>Qté</th><th>Coût moyen</th><th>Cours</th><th>Valeur</th><th>Gain</th><th>%</th></tr>${ports}<tr class="tot"><td>Total</td><td></td><td></td><td></td><td>${money(val)}</td><td class="${val - tot >= 0 ? 'pos' : 'neg'}">${val - tot >= 0 ? '+' : '−'}${money(Math.abs(val - tot))}</td><td></td></tr></table>` : '<small>Aucune participation. Achète des actions d\'un rival pour préparer une OPA (20 % minimum).</small>'}</div>`;
 }
@@ -7228,7 +7228,7 @@ function scoreParts() {
 function endGame(kind, msg) {
   const m = S.mode; if (m.done) return; m.done = kind; m.endDay = S.day;
   const rows = ranking(), parts = scoreParts(), total = parts.reduce((a, p) => a + p[1], 0);
-  m.res = { kind, msg, day: S.day, min: Math.round(daysToMin(S.day)), val: valuation(), net: Math.round(personalNet() * cpi()), ms: Math.round(marketShareAvg() * 100), rank: rankWorld(), rows: rows.slice(0, 8).map(r => [r.n, Math.round(r.v), r.me ? 1 : 0]), parts, total };
+  m.res = { kind, msg, day: S.day, min: Math.round(daysToMin(S.day)), val: valuation(), net: Math.round(personalNet() * cpi()), ms: Math.round(marketShareAvg() * 100), rank: rankWorld(), rows: rows.slice(0, 8).concat(rows.slice(8).filter(r => r.me)).map(r => [r.n, Math.round(r.v), r.me ? 1 : 0]), parts, total };
   try { const key = 'wse-prog', p = JSON.parse(localStorage.getItem(key) || '{}'); if (kind === 'win') p[m.k] = Math.max(p[m.k] || 0, total); localStorage.setItem(key, JSON.stringify(p)); } catch (e) { /* stockage indisponible */ }
   setSpeed(0); showEnd(); save();
 }
@@ -7238,7 +7238,7 @@ function showEnd() {
   const tot = Math.max(1, r.total);
   box.innerHTML = `<div class="ebox ${r.kind}"><h2>${head}</h2><p class="elead">${r.msg}</p><small>${modeName()} · ${fmt(r.day)} jours · ${r.min} min à vitesse normale</small>
     <div class="ekp"><div><small>Valorisation</small><b class="gold">${fmtV(r.val)}</b></div><div><small>Fortune personnelle</small><b>${fmtV(r.net)}</b></div><div><small>Parts de marché</small><b>${r.ms} %</b></div><div><small>Classement</small><b>${r.rank[0]} / ${r.rank[1]}</b></div></div>
-    <h4>Classement final</h4>${r.rows.map((x, i) => `<div class="erow ${x[2] ? 'me' : ''}"><span>${i + 1}. ${x[0]}</span><b>${fmtV(x[1])}</b></div>`).join('')}
+    <h4>Classement final</h4>${r.rows.map((x, i) => `<div class="erow ${x[2] ? 'me' : ''}"><span>${x[2] && i >= 8 ? r.rank[0] : i + 1}. ${x[0]}</span><b>${fmtV(x[1])}</b></div>`).join('')}
     <h4>Répartition du score · ${fmt(r.total)} pts</h4>${r.parts.map(p => `<div class="erow"><span>${p[0]}</span><i style="width:${Math.round(p[1] / tot * 100)}%"></i><b>${fmt(p[1])} pts · ${Math.round(p[1] / tot * 100)} %</b></div>`).join('')}
     <div class="eact"><button class="btn" data-end="cont">Continuer en Libre</button><button class="btn sec" data-end="new">Nouvelle partie</button></div></div>`;
   box.hidden = false;
@@ -7264,7 +7264,7 @@ function startMode(k) {
   S.mode = { k, t0: 0, done: null, n: {}, f: {} };
   if (k === 'round') { S.cash = 3e6; S.noEv = false; }
   if (isScn()) { S.cash = SCN[k].cash; S.noEv = k === 's1'; }
-  S.unlockAll = true;
+  S.unlockAll = true; S.mode.w0 = S.cash;
   setSpeed(1); syncSpeedUI(); refreshStats(); S.hist = [Math.round(S.stats.worth)]; buildTools(); updateHUD(); save(); showCaste(false);
   say(k === 'free' ? 'Mode Libre.' : modeName() + ' : ' + (k === 'round' ? MODE_INFO.round.d : SCN[k].d), 'gold');
 }
