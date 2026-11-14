@@ -1472,14 +1472,14 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   // Méga-usine (3×3) : mêmes recettes que la grande usine + électronique de masse ; capacité ×3 (et non ×8 : la demande par produit est limitée), 2,4× les effectifs, capex ×3,2. L'effectif suit l'activité (jobsOf).
   TYPES.f4 = Object.assign({}, TYPES.f3, { name: 'Méga-usine', sub: 'Électronique de masse, ×3', cost: TYPES.f3.cost * 3.2, upkeep: TYPES.f3.upkeep * 3, jobs: TYPES.f3.jobs * 2.4, jobs0: (TYPES.f3.jobs0 || TYPES.f3.jobs) * 2.4, w: 3, h: 3, tier: 3, capK: 3, color: '#ff7ad0', rec: { in: Object.assign({}, TYPES.f3.rec.in), out: Object.assign({}, TYPES.f3.rec.out) } });
   // Commerces : un supermarché ≈ 3,8 M$ de CA/an, 13 employés (≈ 290 k$ par employé, comme Walmart), 2-3 fois plus grand qu'avant
-  setC('s1', 250000, 70); setC('s2', 1200000, 300); setC('s3', 4000000, 1000);
+  setC('s1', 110000, 50); setC('s2', 700000, 300); setC('s3', 4000000, 1000);   // retour sur capex 3-5 ans pour s1/s2 (EBITDA 9-12 %), s3 ≈ 3,5 ans
   TYPES.s1.ret.cap = 110; TYPES.s2.ret.cap = 400; TYPES.s3.ret.cap = 540; TYPES.s1.jobs = 1; TYPES.s2.jobs = 5; TYPES.s3.jobs = 16;
   ['res', 'wh', 'hq', 'btp', 'immo', 'port'].forEach(k => { TYPES[k].cost *= 30 * K_SIZE; TYPES[k].upkeep *= 30 * K_SIZE; });
   ['plant', 'solar', 'wind', 'nuclear'].forEach(k => { TYPES[k].cost *= K_SIZE; TYPES[k].upkeep *= K_SIZE; });
   // Énergie : centrale à charbon ≈ 300 MWh/j (coût du combustible ≈ 33 % du CA, EBITDA ≈ 35 %), nucléaire ≈ 1 000 MWh/j (EBITDA ≈ 45 %), solaire et éolien ≈ 55 %
   TYPES.plant.jobs = 10; TYPES.nuclear.jobs = 25; TYPES.solar.jobs = 4; TYPES.wind.jobs = 2; TYPES.solar.upkeep = 2270; TYPES.wind.upkeep = 1340;   // EBITDA ≈ 55 % au prix de base du réseau (30 $/MWh) : maintenance, onduleurs et pales, sans l'effet d'aubaine d'avant (65-69 %)
   // Services : CA par employé et par jour (banque ≈ 1 500, tech ≈ 1 100, data center ≈ 1 000 ≈ OVHcloud) et EBITDA 40-45 %
-  setC('bank', 40000000, 48000); setC('tech', 30000000, 52000); setC('dc', 25000000, 42000); setC('rd', 15000000, 8000);
+  setC('bank', 35000000, 48000); setC('tech', 26000000, 52000); setC('dc', 22000000, 42000); setC('rd', 15000000, 8000);   // capex −12 % (passe 17) : la 1re tour reste très rentable, mais le plafond de demande par type (svcSat) borne désormais le parc de services
   TYPES.bank.jobs = 60; TYPES.tech.jobs = 70; TYPES.dc.jobs = 60; TYPES.rd.jobs = 40;
   Object.keys(LOCAL_D).forEach(k => { LOCAL_D[k] *= K_SIZE; });
   // Calibrage par l'EBITDA du secteur (SECTOR_REF) : prix d'équilibre = (intrants + coûts fixes par cycle) / (production × (1 - EBITDA - transport))
@@ -1974,7 +1974,7 @@ const WAGE = [{ n: 'Bas', m: 0.8, attr: 0.85, prod: 0.93 }, { n: 'Normal', m: 1,
 const wageMkt = () => clamp(1 + 1.5 * (0.10 - ((S && S.stats && S.stats.unemp) || 0.1)), 0.8, 1.4);   // chômage bas = salaires plus chers
 // Rendements décroissants des services : la demande (bureaux tech, calcul, crédit) dépend de la taille de la ville ; n tours du même type se partagent une demande finie (D),
 // la recette totale vaut D × (1 − e^(−U/D)) : la 1re tour est pleine, la 10e rapporte à peine un tiers. Réseau : chaque autre type de service présent ajoute 12 % de demande ; concurrence : −7 % par rival.
-const SVC_POP = { tech: 45000, dc: 60000, bank: 40000 };
+const SVC_POP = { tech: 36000, dc: 48000, bank: 32000 };
 function svcSat(list) {
   const U = { tech: 0, dc: 0, bank: 0 }; list.forEach(c => { if ((c.t === 'tech' || c.t === 'dc' || c.t === 'bank') && c.conn) U[c.t] += levelMult(c); });
   const kinds = Object.keys(U).filter(k => U[k] > 0).length, comp = clamp(1 - 0.07 * (S.rivals || []).length, 0.6, 1), out = {};
@@ -7231,24 +7231,24 @@ const subCount = () => (S.rivals || []).filter(r => r.sub).length + (S.subs || [
 const stakeOf = id => { const h = (S.port || {})[id]; return h ? h.n / RSH : 0; };
 // Verrous de scénario : les bâtiments absents de la liste sont verrouillés (déblocage progressif)
 const L1 = ['road', 'res', 's1', 's2', 's3', 'sport'];
-const L2 = L1.concat(['off', 'tv', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'qgravel', 'qsand', 'qlime', 'fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'f2', 'f3', 'foundry', 'btp', 'immo', 'pipeline', 'pylon', 'plant', 'wh']);
-const L3 = L2.concat(['port', 'solar', 'wind', 'cable', 'nuclear', 'dc', 'tech', 'rd', 'f4', 's4']);
+const L2 = L1.concat(['off', 'tv', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'qgravel', 'qsand', 'qlime', 'fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'f2', 'f3', 'foundry', 'btp', 'immo', 'pipeline', 'pylon', 'plant', 'wh', 'port']);   // le port s'ouvre dès le scénario 2 : sans exportation, les mines n'ont pas de débouché
+const L3 = L2.concat(['solar', 'wind', 'cable', 'nuclear', 'dc', 'tech', 'rd', 'f4', 's4']);
 const L4 = L3.concat(['bank', 'hq']);
 const SCN_LOCK = { s1: L1, s2: L2, s3: L3, s4: L4, s5: null };
 const modeLocked = k => { if (!isScn()) return false; const L = SCN_LOCK[modeK()]; return !!L && TYPES[k] && L.indexOf(k) < 0; };
 const unlockScn = k => { for (let i = 1; i <= 5; i++) { const L = SCN_LOCK['s' + i]; if (!L || L.indexOf(k) >= 0) return i; } return 5; };
 const lockLabel = k => modeLocked(k) ? 'Scénario ' + unlockScn(k) : (TYPES[k] && TIERS[TYPES[k].tier] ? TIERS[TYPES[k].tier].n : '');
 const SCN = {
-  s1: { n: 'Ville et commerce', min: 60, cash: 3e6, tgt: 80e6, d: 'Pose des logements et des commerces, ajuste les prix, emprunte avec mesure : fais grimper ta valorisation à 80 M$ en 60 minutes.',
-    ms: [{ t: 'Ouvrir 3 commerces', f: () => [cnOf('s1') + cnOf('s2') + cnOf('s3'), 3] }, { t: 'Atteindre 8 M$ de valorisation', f: () => [valuation(), 8e6, fmtV] }, { t: 'Un hypermarché en service', f: () => [cnOf('s3'), 1] }, { t: 'Atteindre 30 M$ de valorisation', f: () => [valuation(), 30e6, fmtV] }, { t: 'Atteindre 80 M$ de valorisation', f: () => [valuation(), 80e6, fmtV] }],
+  s1: { n: 'Ville et commerce', min: 60, cash: 3e6, tgt: 40e6, d: 'Pose des logements et des commerces, ajuste les prix, emprunte avec mesure : fais grimper ta valorisation à 40 M$ en 60 minutes.',
+    ms: [{ t: 'Ouvrir 3 commerces', f: () => [cnOf('s1') + cnOf('s2') + cnOf('s3'), 3] }, { t: 'Atteindre 6 M$ de valorisation', f: () => [valuation(), 6e6, fmtV] }, { t: 'Un hypermarché en service', f: () => [cnOf('s3'), 1] }, { t: 'Atteindre 20 M$ de valorisation', f: () => [valuation(), 20e6, fmtV] }, { t: 'Atteindre 40 M$ de valorisation', f: () => [valuation(), 40e6, fmtV] }],
     tuto: [{ t: 'Choisis le menu Commerce et pose un Petit marché le long d\'une rue (case au bord d\'un bloc).', ok: () => cnOf('s1') + cnOf('s2') + cnOf('s3') > 0, tool: 's1' }, { t: 'Ouvre ton commerce avec l\'outil Main : onglets Prix et Effectifs, ajuste le prix de rayon.', ok: () => !!(S.mode.f || {}).open }, { t: 'Emprunte à la banque (Menu > Finances) : le plafond et le taux sont affichés.', ok: () => (S.loan || 0) > 0 || !!(S.mode.f || {}).loanSeen }, { t: 'Pose un Supermarché ou 2 autres commerces pour vendre plus.', ok: () => cnOf('s1') + cnOf('s2') + cnOf('s3') >= 3 }, { t: 'Surveille ton rang et ton jalon dans la barre d\'objectif : le reste est à toi.', ok: () => S.day >= 25 }] },
-  s2: { n: 'Usines et produits', min: 75, cash: 12e6, tgt: 250e6, d: 'Extrais, fabrique, lance des produits : 250 M$ de valorisation en 75 minutes avec au moins 2 produits lancés.',
-    ms: [{ t: 'Construire une usine', f: () => [cnOf('f1') + cnOf('f2') + cnOf('f3') + cnOf('foundry'), 1] }, { t: 'Lancer 2 produits', f: () => [PKEYS.filter(pk => S.prod[pk].st === 'on').length, 2] }, { t: 'Atteindre 100 M$ de valorisation', f: () => [valuation(), 100e6, fmtV] }, { t: 'Atteindre 250 M$ de valorisation', f: () => [valuation(), 250e6, fmtV] }],
+  s2: { n: 'Usines et produits', min: 75, cash: 12e6, tgt: 60e6, d: 'Extrais, fabrique, lance des produits : 60 M$ de valorisation en 75 minutes avec au moins 2 produits lancés.',
+    ms: [{ t: 'Construire une usine', f: () => [cnOf('f1') + cnOf('f2') + cnOf('f3') + cnOf('foundry'), 1] }, { t: 'Lancer 2 produits', f: () => [PKEYS.filter(pk => S.prod[pk].st === 'on').length, 2] }, { t: 'Atteindre 30 M$ de valorisation', f: () => [valuation(), 30e6, fmtV] }, { t: 'Atteindre 60 M$ de valorisation', f: () => [valuation(), 60e6, fmtV] }],
     req: () => PKEYS.filter(pk => S.prod[pk].st === 'on').length >= 2 },
-  s3: { n: 'Marchés et export', min: 90, cash: 40e6, tgt: 400e6, d: 'Ouvre le port, exporte, prends des parts de marché : 400 M$ de valorisation et 1,5 M$/mois d\'exports en 90 minutes.',
-    ms: [{ t: 'Terminal portuaire en service', f: () => [cnOf('port'), 1] }, { t: 'Exports de 0,5 M$/mois', f: () => [((S.fin || {}).revExport || 0) * DM, 0.5e6, mM] }, { t: 'Part de marché moyenne de 15 %', f: () => [marketShareAvg(), 0.15, v => Math.round(v * 100) + ' %'] }, { t: 'Atteindre 200 M$ de valorisation', f: () => [valuation(), 200e6, fmtV] }, { t: 'Exports de 1,5 M$/mois', f: () => [((S.fin || {}).revExport || 0) * DM, 1.5e6, mM] }, { t: 'Atteindre 400 M$ de valorisation', f: () => [valuation(), 400e6, fmtV] }],
+  s3: { n: 'Marchés et export', min: 90, cash: 15e6, tgt: 250e6, d: 'Ouvre le port, exporte, prends des parts de marché : 250 M$ de valorisation et 1,5 M$/mois d\'exports en 90 minutes.',
+    ms: [{ t: 'Terminal portuaire en service', f: () => [cnOf('port'), 1] }, { t: 'Exports de 0,5 M$/mois', f: () => [((S.fin || {}).revExport || 0) * DM, 0.5e6, mM] }, { t: 'Part de marché moyenne de 15 %', f: () => [marketShareAvg(), 0.15, v => Math.round(v * 100) + ' %'] }, { t: 'Atteindre 100 M$ de valorisation', f: () => [valuation(), 100e6, fmtV] }, { t: 'Exports de 1,5 M$/mois', f: () => [((S.fin || {}).revExport || 0) * DM, 1.5e6, mM] }, { t: 'Atteindre 250 M$ de valorisation', f: () => [valuation(), 250e6, fmtV] }],
     req: () => ((S.fin || {}).revExport || 0) * DM >= 1.5e6 },
-  s4: { n: 'Bourse et OPA', min: 100, cash: 100e6, tgt: 700e6, d: 'Entre en bourse, rachète la majorité (plus de 50 %) d\'un rival : il devient ta filiale. 700 M$ de valorisation en 100 minutes.',
+  s4: { n: 'Bourse et OPA', min: 100, cash: 10e6, tgt: 700e6, d: 'Entre en bourse, rachète la majorité (plus de 50 %) d\'un rival : il devient ta filiale. 700 M$ de valorisation en 100 minutes.',
     ms: [{ t: 'Introduire ta société en bourse', f: () => [S.float > 0 ? 1 : 0, 1] }, { t: 'Détenir 20 % du capital d\'un rival', f: () => [Math.max(0, ...(S.rivals || []).map(r => stakeOf(r.id))), 0.2, v => Math.round(v * 100) + ' %'] }, { t: 'Prendre le contrôle (plus de 50 %) d\'un rival', f: () => [subCount(), 1] }, { t: 'Atteindre 300 M$ de valorisation', f: () => [valuation(), 300e6, fmtV] }, { t: 'Atteindre 700 M$ de valorisation', f: () => [valuation(), 700e6, fmtV] }],
     req: () => subCount() >= 1 },
   s5: { n: 'Empire', min: 120, cash: 3e6, tgt: ROUND_TARGET, d: 'Le grand final : 1 milliard de $ de valorisation et au moins 2 filiales en 120 minutes, de la première échoppe à la bourse.',
