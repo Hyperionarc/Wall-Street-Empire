@@ -78,15 +78,20 @@ exports.run = async (t, L) => {
 
   // 6. Chargeur de sprites facultatif : un PNG remplace le dessin vectoriel, sinon repli vectoriel (aucune erreur)
   pg = await bench(L); await pg.evaluate(PIX);
-  const sp = await pg.evaluate(async () => { const { W, f } = window.B; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 600)); const F = W.fac, o = {};
-    o.names = Object.keys(F.FAC_SPEC).join(','); o.none = Object.keys(F.FAC_IMG).length; o.bad = F.load('inconnu', 'data:image/png;base64,AAAA');
+  const sp = await pg.evaluate(async () => { const { W, f } = window.B; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 900)); const F = W.fac, o = {};
+    o.names = F.FAC_NAMES.join(','); o.n = F.FAC_NAMES.length; o.active = F.FAC_NAMES.filter(n => F.img(n)).length; o.bad = F.load('inconnu', 'data:image/png;base64,AAAA');
+    o.anch = !!(F.FAC_SPEC.rack_stockage && F.FAC_SPEC.rack_stockage.ancre_x > 0 && F.FAC_SPEC.camion_blanc.echelle_px_par_m > 0);
     const cv = document.createElement('canvas'); cv.width = 64; cv.height = 96; const q = cv.getContext('2d'); q.fillStyle = '#ff00ff'; q.fillRect(0, 0, 64, 96); const uri = cv.toDataURL('image/png');
-    const sc0 = W.scene; let before = window.PIX(sc0.W * 0.5, sc0.H * 0.5, 600).mag;
-    o.ok = F.load('arbre', uri); await new Promise(r => setTimeout(r, 400)); for (let i = 0; i < 3; i++) W.sceneFrame(0.03); await new Promise(r => setTimeout(r, 100));
-    o.loaded = !!F.img('arbre'); o.mag = window.PIX(W.scene.W * 0.5, W.scene.H * 0.5, 800).mag; o.before = before; o.truckVec = !F.img('camion_rouge');
+    o.before = window.PIX(W.scene.W * 0.5, W.scene.H * 0.5, 900).mag;
+    o.ok = F.load('arbre', uri); await new Promise(r => setTimeout(r, 700)); for (let i = 0; i < 3; i++) W.sceneFrame(0.03); await new Promise(r => setTimeout(r, 100));
+    o.mag = window.PIX(W.scene.W * 0.5, W.scene.H * 0.5, 900).mag;
+    // repli : tous les sprites retirés -> dessin vectoriel complet, aucune erreur, image non vide
+    F.FAC_NAMES.forEach(n => F.unload(n)); await new Promise(r => setTimeout(r, 600)); for (let i = 0; i < 3; i++) W.sceneFrame(0.03); await new Promise(r => setTimeout(r, 100));
+    o.left = F.FAC_NAMES.filter(n => F.img(n)).length; o.vec = window.PIX(W.scene.W * 0.5, W.scene.H * 0.5, 600); o.magAfter = window.PIX(W.scene.W * 0.5, W.scene.H * 0.5, 900).mag; o.top = W.scene.top;
     return o; });
-  t.check('chargeur de sprites : 17 noms documentés (bobine, plaque, palette, rack, camions, convoyeurs, machine, robot, ouvrier, bureau, arbre, herbe, quai...), aucun PNG = repli vectoriel', /bobine/.test(sp.names) && /camion_bleu/.test(sp.names) && /quai/.test(sp.names) && sp.names.split(',').length === 17 && sp.none === 0 && sp.bad === false, sp.names);
-  t.check('un PNG chargé (arbre) remplace le dessin vectoriel de tous les arbres ; les autres objets gardent le repli vectoriel', sp.ok && sp.loaded && sp.mag > 800 && sp.before === 0 && sp.truckVec, `pixels magenta ${sp.before} → ${sp.mag}`);
+  t.check('chargeur de sprites : 29 noms (bobines, plaques, palettes, racks, camions et camions ouverts, convoyeurs, machine, presse, robot, ouvriers, bureau, arbre, buisson, herbe, sol, quai, chariot...) avec leurs ancres', sp.n === 29 && /rack_stockage/.test(sp.names) && /camion_bleu_ouvert/.test(sp.names) && /quai_chargement/.test(sp.names) && sp.anch && sp.bad === false, sp.names.slice(0, 80));
+  t.check('les sprites embarqués sont actifs dans la vue Dessus (≥ 25 sur 29) ; un PNG chargé (arbre) remplace le dessin des arbres', sp.active >= 25 && sp.ok && sp.mag > 800 && sp.before === 0, `actifs ${sp.active} · pixels magenta ${sp.before} → ${sp.mag}`);
+  t.check('repli vectoriel : sans aucun sprite la vue se redessine entièrement en vectoriel, sans erreur', sp.left === 0 && sp.top && sp.vec.s > 0 && sp.magAfter === 0, `sprites restants ${sp.left}`);
   t.check('aucune erreur de page (sprites)', pg.errs.length === 0, pg.errs.slice(0, 2).join(' | '));
   await pg.context().close();
 

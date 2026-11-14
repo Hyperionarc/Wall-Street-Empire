@@ -59,7 +59,7 @@ exports.run = async (t, L) => {
   for (const a of ['garage', 'iso', 'top']) {
     await pg.click(`[data-ang="${a}"]`); await pg.waitForTimeout(500);
     const r = await pg.evaluate(() => { const W = window.WSE, sc = W.scene, sr = document.getElementById('bsw').getBoundingClientRect(), o = {}; o.ang = sc.ang;
-      const tryAt = i => { const q = W.planSlotXY(sc, i), z = i >= 6 ? 36 : 0, m = sc.top ? q : i >= 6 ? (i < 9 ? [0, q[1]] : [q[0], 0]) : q, p = sc.M(m[0], m[1], z); return { x: sr.left + p[0], y: sr.top + p[1], hit: W.planSlotAt(sc, ...(() => { const k = document.getElementById('bscene').getBoundingClientRect(); return [(sr.left + p[0] - k.left) / (k.width / document.getElementById('bscene').width), (sr.top + p[1] - k.top) / (k.height / document.getElementById('bscene').height)]; })()) }; };
+      const tryAt = i => { const q = W.planSlotXY(sc, i), z = sc.top ? 4 : i >= 6 ? 36 : 0, m = sc.top ? q : i >= 6 ? (i < 9 ? [0, q[1]] : [q[0], 0]) : q, p = sc.M(m[0], m[1], z); return { x: sr.left + p[0], y: sr.top + p[1], hit: W.planSlotAt(sc, ...(() => { const k = document.getElementById('bscene').getBoundingClientRect(); return [(sr.left + p[0] - k.left) / (k.width / document.getElementById('bscene').width), (sr.top + p[1] - k.top) / (k.height / document.getElementById('bscene').height)]; })()) }; };
       o.floor = tryAt(1); o.door = tryAt(9); o.lockedDoor = tryAt(11); o.hits = sc.hits.length; return o; });
     ang.push(r);
     await pg.mouse.click(r.floor.x, r.floor.y); await pg.waitForTimeout(250); const s1 = await pg.evaluate(() => (document.querySelector('#bpop .plsel b') || {}).textContent || '');
