@@ -568,3 +568,19 @@ La dette de fin passe de 1 Md$ (course à l'effet de levier sur les tours) à 10
 **Capitalism-like** : 12 produits au plus par magasin (4 / 8 / 12 / 12 ; le grand magasin passe de 16 à 12 emplacements, les anciennes sauvegardes sont tronquées à l'affichage). Les fiches d'usine affichent sans défiler la ligne « Sources automatiques » (intrant ← fournisseur) avec « Recalculer » ; les fiches de magasin affichent « Rayons n / 12 » avec « Remplir les rayons ».
 
 **Compatibilité** : sauvegarde v8 inchangée (champs `md.await` et `md.f.ti` optionnels), aucun montant UI modifié (mensuels).
+
+## Passe 24 : plan d'usine (grille d'unités) et robots
+
+Inspiré de l'écran d'usine de Capitalism Lab : on redessine l'usine sur une grille où l'on pose des unités.
+
+**Modèle** (`c.plan`, tableau de cases `'buy' | 'stock' | 'make' | 'sell' | 'robot' | ''`). Grille selon la taille : petite usine 3×2, moyenne, grande et méga-usine 3×3. Absent = plan par défaut (1 achat, 1 stock, 1 machine, 1 vente) : capacité, effectifs, entretien et marges sont identiques à avant (t02 inchangé).
+- *machine* : cadence ×n (2 machines = 2× la production) ; *achat* et *vente* : débit de 125 % d'une machine chacun ; *stock* : sans stock, débit ×0,6 (ruptures), un stock couvre 2 machines ; *robot* : voir ci-dessous.
+- Débit effectif `F` = min(achat, vente, stock, personnel des services) ; la limite devient un goulot visible (`pl_buy`, `pl_sell0` « Sortie pleine », `pl_stock`, `pl_make`, `pl_sbuy/pl_sstock/pl_ssell` « manque de personnel à l'achat / au stock / à la vente »). Les services sous-dotés (curseurs d'affectation du personnel) réduisent le débit proportionnellement.
+- Coût : part du capex du bâtiment × niveau (achat 10 %, stock 8 %, machine 38 %, vente 12 %, robot 2 % + le robot lui-même) ; effectif et entretien proportionnels aux unités (poids 0,16 / 0,15 / 0,52 / 0,17). Retirer rembourse 50 %. Changer le plan réinitialise la répartition du personnel (auto).
+- Sauvegarde v8 rétro-compatible : clés `pl` (plan) et `rb` (robots) dans les extras de case, absentes si plan par défaut.
+
+**Éditeur** (onglet Intérieur d'une usine) : mini-carte de la grille avec débits chiffrés (achat / stock / machines / vente par jour), goulot en rouge, clic sur une case libre = menu d'ajout (coût, capacité avant → après, postes en plus, mur « ENTRÉE » / « SORTIE »), clic sur une case occupée = déplacer ou retirer, **double-clic** (ou bouton « Ajout rapide ») = pose de l'unité limitante. « Vue 3D du plan » bascule la scène isométrique : une unité 3D par case (palettes d'entrée, rack de stock, machines, bras de robot animés et usés, quai de vente avec camions), enseignes ENTRÉE / FABRICATION / SORTIE sur le mur du haut, case cliquable. Un plan modifié s'ouvre directement dans cette vue.
+
+**Robots** : 4 biens `rweld` (soudure), `rpaint` (peinture), `rasm` (assemblage), `r6` (6 axes), fabriqués par usines moyennes / grandes (acier, moteurs, circuits, câbles, batteries, chimie, plastique), cours calibré comme les autres composants. Une case robot immobilise un robot (pris dans le stock, sinon acheté au cours +25 %) : +10 à +22 % de cadence d'une machine et −6 à −12 % d'effectif de machine ; usure de 480 à 720 jours (rendement −45 % en fin de vie), remplacement automatique vers 93 % (stock puis marché), sinon panne et alerte. ROI en jours affiché dans le menu. Demande des usines PNJ et rivales via `LOCAL_D` (+12 % par rival) ; les robots ne s'exportent pas et ne se vendent localement qu'au-dessus de 2 unités en stock.
+
+Tests : `tools/tests/t09_plan_usine.js` (31 contrôles : plan par défaut, 2× machines, goulots, personnel, robots, sauvegarde, déterminisme, interface bureau et mobile).
