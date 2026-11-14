@@ -6590,7 +6590,7 @@ function bAct(a) {
   else if (a.indexOf('adset:') === 0) { const [, ak, dd] = a.split(':'), C = AD_CH[ak]; if (C) { c.ad = c.ad || {}; c.ad[ak] = clamp((c.ad[ak] || 0) + (+dd) * C.step * (dd > 0 && !(c.ad[ak] > 0) ? 2 : 1), 0, C.max); } }
   else if (a.indexOf('supp:') === 0) { const g = a.split(':')[1], mm = a.slice(a.indexOf(':', 5) + 1); c.src = c.src || {}; c.src[g] = mm; }
   else if (a === 'imp') c.imp = c.imp === false ? true : false;
-  else if (a.indexOf('slot:') === 0) { const i = +a.slice(5); bPick = bPick === i ? -1 : i; }
+  else if (a.indexOf('slot:') === 0) { const i = +a.slice(5); bPick = i; supB = { x: c.x, y: c.y }; spI = i; supMode = 'slot'; el('supview').hidden = false; renderSlotPick(); return; }   // un clic sur un emplacement ouvre directement la page de sélection du produit et du fournisseur
   else if (a.indexOf('setslot:') === 0) { const [, i, k] = a.split(':'); const N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[+i] = k; bPick = -1; }
   else if (a.indexOf('clrslot:') === 0) { const i = +a.slice(8), N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[i] = null; bPick = -1; }
   else if (a.indexOf('raise:') === 0) { const [, k, v] = a.split(':'); c.pk = c.pk || {}; c.pk[k] = clamp(+v / 100, 0.6, 2.2); }
@@ -6608,7 +6608,7 @@ el('bview').addEventListener('input', e => { const mbI = e.target.dataset && (e.
   const rt = e.target.dataset && e.target.dataset.rent; if (rt && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) { c0.rent = +e.target.value / 100; const o = el('rentv'); if (o) o.textContent = e.target.value + ' %'; } return; }
   const pk = e.target.dataset && e.target.dataset.pk; if (!pk || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.pk = c0.pk || {}; c0.pk[pk] = +e.target.value / 100; const o = el('pkv'); if (o) o.textContent = e.target.value + ' %'; });
 el('bview').addEventListener('change', e => { if (e.target.dataset && (e.target.dataset.pk || e.target.dataset.ad || e.target.dataset.pf || e.target.dataset.dept)) { bvHtml = ''; updateHUD(); renderBuilding(true); } });
-el('bview').addEventListener('dblclick', e => { const b = e.target.closest('[data-act^="slot:"]'); if (!b || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; supB = { x: c.x, y: c.y }; spI = +b.dataset.act.slice(5); supMode = 'slot'; el('supview').hidden = false; renderSlotPick(); });
+// (le double-clic sur un emplacement n'est plus nécessaire : un simple clic ouvre la page de sélection)
 el('bview').addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) bAct(b.dataset.act); });
 ['pointerdown'].forEach(t => el('bview').addEventListener(t, () => { bvDown = true; }, { passive: true }));
 ['pointerup', 'pointercancel'].forEach(t => window.addEventListener(t, () => { setTimeout(() => { bvDown = false; }, 60); }, { passive: true }));
@@ -9221,7 +9221,16 @@ function renderSlotPick() {
   const cards = all.filter(i => placed.indexOf(i.key) < 0).map(it => { const cls = it.gen ? it.key.slice(2) : PRODUCTS[it.key].cls, mk = retailMk(cls), price = it.price * mk;
     const sup = it.gen ? `<select data-sps="${cls}" style="margin-top:4px;width:100%"><option value="auto">Fournisseur : automatique</option>${supCards(c, cls).map(x => `<option value="${x.id}" title="${freightTip(x.o)}" ${((c.src && c.src[cls]) || 'auto') === x.id ? 'selected' : ''}>${x.name} · ${f(x.o.total)} $ livré · Q${x.o.q}</option>`).join('')}</select>` : '<small>Fournisseur : ta propre production</small>';
     return `<div class="sc" style="cursor:default"><div style="width:84px;height:84px;background:#fff;border-radius:6px;overflow:hidden;display:grid;place-items:center">${slotThumb(it.key)}</div><div><h5>${it.name.replace(' (marché local)', '')}</h5><div class="sg"><span>Prix en rayon<b>${f(price)} $</b></span><span>Coût de gros<b>${f(it.price)} $</b></span><span>Stock<b>${fmt(Math.round(it.stock))}</b></span><span>Marge<b>${Math.round((1 - 1 / mk) * 100)} %</b></span></div>${sup}</div><button class="btn" data-s="slotput:${it.key}">Mettre en rayon</button></div>`; }).join('');
-  el('supview').innerHTML = `<div class="sh"><span>EMPLACEMENT ${spI + 1} : CHOISIS LE PRODUIT ET LE FOURNISSEUR</span></div>${cards || '<p class="note">Tous les produits disponibles sont déjà en rayon.</p>'}<div class="sb"><span></span><button class="btn sec" data-s="cancel">Annuler</button></div>`;
+  // Produits du marché, proposés par d'autres sociétés : choisis le produit ET l'offreur ; un clic l'achète et le met sur cet emplacement
+  let mkCards = '';
+  if (mkOn()) {
+    const R0 = TYPES[c.t].ret, cand = PKEYS.filter(pk => R0 && R0.sells.indexOf(PRODUCTS[pk].cls) >= 0 && placed.indexOf(pk) < 0 && S.prod[pk].st !== 'rnd' && mkOffers(pk).length && mkBest(pk))
+      .map(pk => { const offs = mkOffers(pk).map(o => offerAt(pk, o)).sort((a, b) => a.total - b.total), mkp = retailMk(PRODUCTS[pk].cls); return { pk, offs, best: offs[0], rp: offs[0].total * mkp }; })
+      .sort((a, b) => a.rp - b.rp).slice(0, 30);
+    mkCards = cand.length ? `<div class="sh" style="margin-top:6px"><span>PRODUITS PROPOSÉS PAR D'AUTRES SOCIÉTÉS (${cand.length})</span></div>` + cand.map(x => `<div class="sc" style="cursor:default;grid-template-columns:84px 1fr 118px"><div style="width:84px;height:84px;background:#fff;border-radius:6px;overflow:hidden;display:grid;place-items:center">${slotThumb(x.pk)}</div><div><h5>${PRODUCTS[x.pk].name}</h5><div class="sg"><span>Prix livré<b>${f(x.best.total)} $</b></span><span>Prix en rayon<b>${f(x.rp)} $</b></span><span>Offreurs<b>${x.offs.length}</b></span></div><select data-spo="${x.pk}" style="margin-top:4px;width:100%">${x.offs.map(o => `<option value="${o.id}">${o.name} · ${f(o.total)} $ livré · délai ${o.delay} j</option>`).join('')}</select></div><button class="btn" data-s="mkput:${x.pk}" style="white-space:normal;line-height:1.2;padding:6px 8px">Acheter et mettre ici</button></div>`).join('') : '';
+  }
+  const emptyMsg = mkCards ? '' : '<p class="note">Aucun autre produit à proposer pour ce type de magasin pour l\'instant. Lance un produit (vue Produits) ou choisis un fournisseur de marchandises du marché local.</p>';
+  el('supview').innerHTML = `<div class="sh"><span>EMPLACEMENT ${spI + 1} : CHOISIS LE PRODUIT ET LE FOURNISSEUR</span></div>${cards || emptyMsg}${mkCards}<div class="sb"><span></span><button class="btn sec" data-s="cancel">Annuler</button></div>`;
 }
 function renderSup() {
   if (supMode === 'slot') return renderSlotPick();
@@ -9245,6 +9254,16 @@ function renderSup() {
 function openSup(c, g) { supMode = 'sup'; supB = { x: c.x, y: c.y }; supG = g; supSel = null; supNeg = false; el('supview').hidden = false; renderSup(); }
 el('supview').addEventListener('click', e => {
   const b = e.target.closest('[data-s]'); if (!b) return; const a = b.dataset.s, c = supB && cell(supB.x, supB.y); if (!c) return;
+  if (a.indexOf('mkput:') === 0) {
+    const pk = a.slice(6), sel = el('supview').querySelector('select[data-spo="' + pk + '"]'), oid = sel ? sel.value : null;
+    const N0 = slotsN(c), snap = (c.slots || shelfKeys(c).concat(Array(N0).fill(null)).slice(0, N0)).slice(0, N0);   // état des rayons avant l'achat : mkBuy peut en poser un ailleurs, on ne touche que l'emplacement choisi
+    if (mkBuy(pk, oid, null, true)) {
+      c.slots = snap.slice(); c.slots[spI] = pk;
+      say(`${PRODUCTS[pk].name} : achat régulier lancé et mis sur l'emplacement ${spI + 1}.`, 'good');
+      el('supview').hidden = true; supMode = 'sup'; bPick = -1; renderBuilding(true); save();
+    }
+    return;
+  }
   if (a.indexOf('slotput:') === 0) { const key = a.slice(8), N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[spI] = key; el('supview').hidden = true; supMode = 'sup'; bPick = -1; renderBuilding(true); save(); return; }
   const ins = supIns(c);
   if (a === 'cancel') { el('supview').hidden = true; return; }
