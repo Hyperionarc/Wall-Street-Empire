@@ -2510,7 +2510,7 @@ function step() {
     if (c.t === 'tech') { c.pRev = jobsOf(c) * 1650 * (0.3 + 0.7 * fill) * qualMult(c) * mult * cpi(); revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = (TYPES.bank.jobs * levelMult(c) * crewEff(c) * 1500 + Math.min(Math.max(0, S.cash - (S.loan || 0)), TYPES.bank.jobs * levelMult(c) * crewEff(c) * 4e6) * 0.0001) * qualMult(c) * cpi(); revBank += c.pRev; }   // intérêts sur un encours de prêts plafonné par la taille de la banque (≈ 4 M$ de crédits par employé), pas sur toute la trésorerie
     if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && !T.ext && !T.rec && !T.ret) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
-    if (T.jobs) { c.wages = jobsOf(c) * crewWage(c) * sectWage(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
+    if (T.jobs) { if (FLEVEL[c.t]) c._actE = (c._actE == null ? 1 : c._actE) + ((c.util || 0) - (c._actE == null ? 1 : c._actE)) * 0.05; c.wages = (FLEVEL[c.t] ? 0.4 + 0.6 * clamp(c._actE == null ? 1 : c._actE, 0, 1) : 1) * jobsOf(c) * crewWage(c) * sectWage(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
     if (c.t === 'wh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
     c.transport = c.out * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
     c.adCost = adSpend(c); adTotal += c.adCost;
@@ -3827,6 +3827,30 @@ function chainLeaves(pk) {
   return Object.keys(set);
 }
 function unitsOn(g) { let u = 0; eachBuilding(c => { if (c.prod === g && c.conn && FLEVEL[c.t] >= RECIPES[g].lvl) u += capOf(c); }); return u; }
+// Auto-production : pour chaque intrant de l'usine, choisit tout seul la meilleure source (ta production, concurrents, port) et
+// affecte des usines libres aux composants intermédiaires manquants, en suivant l'arborescence produit du guide du fabricant.
+function autoSource(c, quiet) {
+  const R = recOf(c); if (!R) return 0; c.src = c.src || {}; const rows = [];
+  const walk = (g, depth) => {
+    if (depth > 6) return;
+    const G = GOODS[g]; if (!G) return;
+    const sub = RECIPES[g];
+    if (sub) {   // composant fabriqué : une usine libre de bon niveau le produit, sinon on l'achète
+      if (!sourceInfo(g).n) assignRecipe(g, 1);
+      if (sourceInfo(g).n) { rows.push(G.name + ' : fabriqué dans ton groupe'); Object.keys(sub.in).forEach(i => walk(i, depth + 1)); return; }
+    }
+    if (sourceInfo(g).n > 0 && !sub) { rows.push(G.name + ' : ta propre extraction'); return; }
+    rows.push(G.name + ' : acheté');
+  };
+  Object.keys(R.in).forEach(g => {
+    const own = sourceInfo(g).n > 0 || (RECIPES[g] && assignRecipe(g, 1) && sourceInfo(g).n > 0);
+    if (own) { c.src[g] = 'auto'; rows.push(GOODS[g].name + ' : ton groupe'); if (RECIPES[g]) Object.keys(RECIPES[g].in).forEach(i => walk(i, 1)); return; }
+    const cards = supCards(c, g).filter(x => x.id !== 'local').sort((a, b) => b.overall - a.overall), best = cards[0];
+    if (best) { c.src[g] = best.id === 'import' ? 'port' : best.id; rows.push(GOODS[g].name + ' : ' + (best.id === 'import' ? 'import par le port' : best.name) + ' (note ' + best.overall + ')'); }
+  });
+  if (!quiet) say(`Auto-production ${recipeOf(c.prod) ? recipeOf(c.prod).name.toLowerCase() : ''} : ${rows.slice(0, 4).join(' ; ')}.`, 'good');
+  return rows.length;
+}
 function autoChain(pk) {
   const { need } = chainNeeds(pk); let added = 0; const missing = [];
   RKEYS.forEach(g => {
@@ -4186,8 +4210,8 @@ function renderBuilding(force) {
     outHtml = `<div class="bn"><b>${gName(T.ext)}</b><small>${f1(c.out)} / jour · ${f1(S.price[T.ext])} $ · stock ${fmt(S.stock[T.ext])}</small></div>`;
   } else if (rec) {
     Object.keys(rec.in).forEach(g => {
-      const need = rec.in[g] * (c._u || unitsOf(c) * fill), st = gStock(g), ok = st >= need;
-      inHtml += `<div class="bn ${c.limit === g ? 'lim' : ''}"><b>${gName(g)}</b><small class="${ok ? 'pos' : 'neg'}">besoin ${f1(need)}/j · stock ${fmt(st)} · ${f1(gPrice(g))} $</small></div>`;
+      const need = rec.in[g] * (c._u || unitsOf(c) * fill), real = rec.in[g] * (c._un || 0) * (c.util || 0), st = gStock(g), ok = st >= real;
+      inHtml += `<div class="bn ${c.limit === g ? 'lim' : ''}"><b>${gName(g)}</b><small class="${ok ? 'pos' : 'neg'}">consomme ${f1(real)}/j (pleine capacité ${f1(need)}) · stock ${fmt(st)} · ${f1(gPrice(g))} $</small></div>`;
     });
     outHtml = `<div class="bn ${c.limit === '_full' ? 'lim' : ''}"><b>${gName(rec.out)}</b><small>${f1(c.out)} / jour · ${f1(gPrice(rec.out))} $ · stock ${fmt(gStock(rec.out))}</small></div>`;
   } else if (T.ret) {
@@ -4275,7 +4299,8 @@ function bAct(a) {
   else if (a === 'pf100') c.pf = 1;
   else if (a === 'autoslots') { c.slots = null; c.shelf = null; bPick = -1; }
   else if (a.indexOf('tab:') === 0) { /* géré plus haut */ }
-  else if (a.indexOf('recipe:') === 0) c.prod = a.slice(7) || null;
+  else if (a.indexOf('recipe:') === 0) { c.prod = a.slice(7) || null; c.src = {}; if (c.prod) autoSource(c); }
+  else if (a === 'autosrc') { autoSource(c); }
   else if (a.indexOf('make:') === 0) { const n = assignRecipe(a.slice(5), 1); say(n ? 'Usine affectée à ' + RECIPES[a.slice(5)].name.toLowerCase() + '.' : 'Aucune usine libre : construis-en une.', n ? 'good' : 'warn'); }
   else if (a.indexOf('info:') === 0) { const [nm, have] = a.slice(5).split('|'); say((have === '1' ? 'Agrandis ou ajoute : ' : 'Construis : ') + nm.toLowerCase() + '.', 'info'); }
   refreshStats(); updateHUD(); renderBuilding(true);
@@ -4871,8 +4896,8 @@ function itemThumb(it) { return it.kind === 'prod' ? productSVG(it.key, S.prod[i
 function prodHeader(c) {
   const items = recipeItems(c), cur = recOf(c), key = c.prod && cur && cur.out === c.prod ? c.prod : '', it = items.find(i => i.key === key);
   const best = items.filter(i => i.eligible && i.score > 0).sort((a, b) => b.score - a.score)[0];
-  const name = it ? it.name : 'Biens génériques', sub = it ? `marge ${it.margin >= 0 ? '+' : '−'}${money(Math.abs(it.margin))} par cycle` : 'pas de recette choisie : l\'usine fabrique la marchandise de base';
-  return `<div class="prodhead"><span class="rth">${it ? itemThumb(it) : '<img alt="" src="' + compIcon('steel') + '">'}</span><div class="ph1"><small>Production actuelle</small><b>${name}</b><small>${sub}</small>${best && best.key !== key ? `<small>Proposition : ${best.name} (${money(best.margin)} / cycle)</small>` : ''}</div><button class="btn" data-act="catalog">Choisir la production</button></div>`;
+  const gcls = Object.keys(TYPES[c.t].rec.out)[0], name = it ? it.name : (CLSN[gcls] || 'Biens') + ' · génériques', sub = it ? `marge ${it.margin >= 0 ? '+' : '−'}${money(Math.abs(it.margin))} par cycle` : 'aucun produit choisi : l\'usine fabrique la marchandise ' + ({ basic: 'de base', std: 'manufacturée', lux: 'de luxe' }[gcls] || '') + ' sans marque. Choisis un produit pour vendre sous ta marque.';
+  return `<div class="prodhead"><span class="rth">${it ? itemThumb(it) : '<img alt="" src="' + compIcon('steel') + '">'}</span><div class="ph1"><small>Production actuelle</small><b>${name}</b><small>${sub}</small>${best && best.key !== key ? `<small>Proposition : ${best.name} (${money(best.margin)} / cycle)</small>` : ''}</div><button class="btn" data-act="catalog">Choisir la production</button>${key && key !== 'g' ? '<button class="btn sec" data-act="autosrc" title="Choisit tout seul fournisseurs et imports pour tous les intrants">Sources automatiques</button>' : ''}</div>`;
 }
 /* --- catalogue de production (inspiré de Capitalism) --- */
 let catFac = null, catSel = '', catFilter = 'all', cvHtml = '', cvDown = false;
@@ -4942,7 +4967,7 @@ el('cview').addEventListener('click', e => {
   if (k === 'sel') { catSel = v; cvHtml = ''; el('cview').querySelector('.cdet').scrollTop = 0; }
   else if (k === 'f') { catFilter = v; cvHtml = ''; }
   else if (!c) return;
-  else if (k === 'make') { c.prod = v; say(`${recipeOf(v).name} : production lancée dans cette usine.`, 'good'); refreshStats(); updateHUD(); return closeCatalog(true); }
+  else if (k === 'make') { c.prod = v; c.src = {}; say(`${recipeOf(v).name} : production lancée dans cette usine.`, 'good'); autoSource(c); refreshStats(); updateHUD(); return closeCatalog(true); }
   else if (k === 'launch') { if (launchProduct(v)) { c.prod = v; } }
   else if (k === 'all') { const n = recipeOf(v).lvl ? assignRecipe(v, 99) : 0; say(n ? `${n} usine(s) affectée(s) à ${recipeOf(v).name.toLowerCase()}.` : 'Aucune usine libre compatible.', n ? 'good' : 'warn'); updateHUD(); }
   else if (k === 'guide') { closeCatalog(false); openGuide(v); return; }
