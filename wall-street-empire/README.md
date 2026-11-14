@@ -265,3 +265,17 @@ Sources : USDA-ERS (pain/céréales ≈ −0,5 en moyenne, inélastique ; court 
 - Sensibilité au PIB de la demande : basique 0,5, courant 1, luxe 6.
 - Usines génériques : plancher de prix = coût réel des intrants + 8 %, ventes en magasin et exports comptés dans la demande, EBITDA cible relevé pour f1/f2 (≈ 13 %) ; la grande usine (f3) utilise peu de lingots et beaucoup de main-d'œuvre (marge brute ≈ 56 %), mines d'or plus productives.
 - Pharma : moitié moins de matière et frais généraux fixes (marge brute ≈ 79 %), salaires ×1,8 ; banque, tech, R&D et data center paient 1,3 à 2 fois plus ; CA tech et banque indexés sur l'inflation, intérêts bancaires plafonnés par la taille de la banque (plus sur toute la trésorerie), CA par employé tech ≈ 680 k€ et data center ≈ 760 k€.
+
+## Passe 10 : modèle produit
+Règles qualitatives inspirées de Capitalism Lab (ordres de grandeur, pas de formules officielles), mesurées sur le jeu. Sources : capitalismlab.com/mod/advanced-modding/advanced-modding-products/, /new-features/technology-disruption/, /new-features/product-class-expertise/, /improvements/mega-product-class/, /beginners-guide-gameplay-basics/.
+- **Pondération par produit** (`PROD_W`, prix/qualité/marque sur 100) : pain 45/30/25, téléphone 20/40/40, montre 15/30/55, pilules 30/25/45. Utilisée par `productScore`, `attractiveness`, l'écran Produits et la fiche (`scoreW(cls, pk)`).
+- **Nécessité 0-100** (`NECESS`) : multiplie l'élasticité (`necMult` = 1,4 − 0,8 × nécessité, via `elF`), règle la sensibilité à la récession (`recF`) et le salaire réel requis (`reqRW`, `affordOf`).
+- **Demande par habitant** (`DEMAND_PC`, u/an/hab) : pondère le poids du produit face aux autres de sa classe (`typeW`).
+- **Salaire réel** (`S.rw`, indice 100 au départ, suit PIB et emploi) : déplace la demande de basique vers courant puis luxe ; un produit de luxe sous le salaire réel requis voit ses acheteurs fondre. Indicateur dans Empire > Conjoncture.
+- **Cycle de vie** : obsolescence annuelle par produit (`OBSO`, après 1 an d'âge), remplacement OUTBY/OUTREMAIN (`SUCC` : jouets en bois vers plastique, 40 % conservés ; maison bois vers béton, 50 %), affiché dans la fiche.
+- **Technologie** : niveau par produit (`ps.tc`) −10 %/an sans R&D, entretenu par les centres de R&D (gain × pointe du marché/100 ; pointe `techFront` = 100 + 4 points/an), expertise par méga-classe (+4 par R&D réussie, +0,5/mois si tech à jour ; +1 % de vitesse de R&D par point). Qualité réelle (`trueQ`) = part des intrants (IQUA, qualité fournisseurs) + part technologie (3 technologies max, poids sommant à 100, `PROD_TECH`, `TECH_SHARE` ; téléphone 80 % techno).
+- **Produits chers** : au-delà de `EXP_T` (3 500 $ réels), cadence de fabrication = seuil / prix (jours par unité = prix / seuil). Effet : montre haut de gamme ×0,9, maisons ×0,5.
+- **Méga-classes de marque** (`MEGA_OF`) : la marque corporate gagne en impact sur une seule méga-classe (÷ n^0,8), la fidélité baisse de 8 % par méga-classe supplémentaire (4 % en marque de gamme).
+- **Prix standard** (`stdPrice`) = prix de base × inflation × salaire de la ville^0,4 + prime de R&D non indexée (`rdPrem`, ≤ 8 %).
+- **Coût d'extraction** (`RES_COST`, part du prix) : EBITDA visé = 1 − coût. Mesuré : puits ≈ 20-25 %, fer 53 %, cuivre 46 %, or 46 %.
+Sauvegarde v8 rétro-compatible (champs `rw`, `exp`, `ps.tc`, `ps.obs` avec valeurs par défaut). Marges s1-s4 inchangées sur le banc générique.

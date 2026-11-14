@@ -1016,6 +1016,50 @@ const QTIER = [
   { n: 'Premium',       q: 62, inMult: 1,    rnd: 1,   ref: 1,    tag: 'Le bon compromis' },
   { n: 'Haut de gamme', q: 85, inMult: 1.35, rnd: 1.8, ref: 1.5,  tag: 'Finitions soignées' }
 ];
+// ===== Passe 10 : modèle produit (inspiré de Capitalism Lab ; ordres de grandeur, pas de formules officielles)
+// Pondération prix / qualité / marque PAR PRODUIT (0-100, somme 100). Source : capitalismlab.com/mod/advanced-modding/advanced-modding-products/
+// (exemples de la doc : cigarettes marque 60 / qualité 15 / prix 25 ; viande surgelée 20 / 40 / 40 ; téléphone mobile qualité 40).
+const PROD_W = {
+  utensils: [40, 35, 25], bread: [45, 30, 25], biscuits: [35, 25, 40], candy: [30, 20, 50], tshirt: [35, 25, 40], jeans: [30, 30, 40], sneakers: [20, 30, 50],
+  tyres: [35, 45, 20], mattress: [35, 45, 20], toys: [35, 30, 35], woodtoys: [40, 40, 20], chair: [45, 35, 20], bed: [35, 45, 20], house_wood: [40, 45, 15], house_concrete: [40, 45, 15],
+  bike: [35, 40, 25], washer: [30, 45, 25], tv: [25, 45, 30], phone: [20, 40, 40], headache: [30, 25, 45], cough: [30, 25, 45], obesity: [20, 35, 45], watch: [15, 30, 55]
+};   // [prix, qualité, marque]
+// Indice de nécessité 0-100 : plus il est haut, plus la demande est inélastique, stable en récession, et accessible à bas salaire réel.
+const NECESS = { bread: 95, headache: 80, cough: 75, utensils: 70, tshirt: 65, biscuits: 60, chair: 55, bed: 55, mattress: 50, tyres: 50, jeans: 45, washer: 45, sneakers: 40, bike: 35, phone: 35, toys: 30, candy: 25, woodtoys: 25, tv: 25, obesity: 20, house_wood: 85, house_concrete: 85, watch: 3 };
+// Demande annuelle moyenne par habitant (unités/an/hab, échelle du jeu) : pondère le poids du produit face aux autres de sa classe
+const DEMAND_PC = { bread: 2.2, biscuits: 1.0, candy: 0.6, tshirt: 0.5, utensils: 0.2, toys: 0.3, woodtoys: 0.15, chair: 0.15, headache: 1.2, jeans: 0.45, sneakers: 0.35, tyres: 0.3, mattress: 0.12, bed: 0.06, bike: 0.12, washer: 0.05, cough: 0.4, house_wood: 0.06, house_concrete: 0.05, tv: 0.2, phone: 0.35, watch: 0.03, obesity: 0.05 };
+// Méga-classes de marque (capitalismlab.com/improvements/mega-product-class/) ; un produit hors table forme sa propre méga-classe
+const MEGA_OF = { bread: 'food', biscuits: 'food', candy: 'food', headache: 'health', cough: 'health', obesity: 'health', tshirt: 'fashion', jeans: 'fashion', sneakers: 'fashion', tv: 'elec', phone: 'elec', watch: 'luxury' };
+const MEGA_N = { food: 'Alimentation et boissons', health: 'Santé et beauté', fashion: 'Mode', elec: 'Électronique', luxury: 'Luxe' };
+const megaOf = pk => MEGA_OF[pk] || pk;
+const megaName = pk => MEGA_N[megaOf(pk)] || PRODUCTS[pk].name;
+// Obsolescence annuelle de la demande (part perdue par an une fois le produit mûr) et remplacement OUTBY/OUTREMAIN :
+// quand le successeur apparaît (au jour `at` sur le marché, ou dès que tu le lances), l'ancien produit garde `keep` de sa demande
+const OBSO = { bread: 0, headache: 0.01, cough: 0.01, obesity: 0.01, house_wood: 0.01, house_concrete: 0.01, utensils: 0.02, tshirt: 0.03, jeans: 0.03, sneakers: 0.05, candy: 0.02, biscuits: 0.02, toys: 0.04, woodtoys: 0.04, chair: 0.02, bed: 0.02, mattress: 0.02, tyres: 0.02, bike: 0.03, washer: 0.04, tv: 0.07, phone: 0.09, watch: 0.01 };
+const SUCC = { woodtoys: { by: 'toys', keep: 0.4, at: 720 }, house_wood: { by: 'house_concrete', keep: 0.5, at: 900 } };
+// Technologies (3 au maximum par produit, poids sommant à 100) et part de la qualité apportée par la technologie de production (phone : 80 % comme dans la doc) ;
+// le complément (100 − part techno) vient des intrants (IQUA). capitalismlab.com/new-features/technology-disruption/
+const PROD_TECH = {
+  bread: [['agri1', 40], ['agri2', 30], ['wms', 30]], biscuits: [['agri1', 40], ['agri2', 30], ['wms', 30]], candy: [['agri1', 40], ['agri2', 30], ['wms', 30]],
+  tshirt: [['blast2', 40], ['auto', 35], ['lean', 25]], jeans: [['blast2', 40], ['auto', 35], ['lean', 25]], sneakers: [['blast2', 40], ['auto', 35], ['lean', 25]],
+  woodtoys: [['saw1', 45], ['blast2', 25], ['auto', 30]], chair: [['saw1', 45], ['blast2', 25], ['auto', 30]], bed: [['saw1', 45], ['blast2', 25], ['auto', 30]], mattress: [['saw1', 45], ['blast2', 25], ['auto', 30]],
+  utensils: [['blast1', 35], ['blast2', 35], ['auto', 30]], bike: [['blast1', 35], ['blast2', 35], ['auto', 30]], tyres: [['blast1', 35], ['blast2', 35], ['auto', 30]],
+  toys: [['blast2', 40], ['auto', 30], ['lean', 30]], house_wood: [['saw1', 30], ['blast2', 30], ['auto', 40]], house_concrete: [['blast1', 30], ['blast2', 30], ['auto', 40]],
+  washer: [['blast2', 30], ['auto', 40], ['lean', 30]], tv: [['auto', 40], ['insilico', 30], ['blast2', 30]], phone: [['auto', 40], ['insilico', 30], ['blast2', 30]], watch: [['auto', 40], ['blast2', 30], ['crm', 30]],
+  headache: [['insilico', 60], ['auto', 25], ['wms', 15]], cough: [['insilico', 60], ['auto', 25], ['wms', 15]], obesity: [['insilico', 60], ['auto', 25], ['wms', 15]]
+};
+const TECH_SHARE = { phone: 80, tv: 70, obesity: 70, headache: 50, cough: 50, washer: 50, tyres: 35, watch: 30, bike: 25, sneakers: 25, mattress: 20, bed: 15, jeans: 15, utensils: 15, toys: 15, house_wood: 15, house_concrete: 15, bread: 10, biscuits: 10, tshirt: 10, woodtoys: 10, chair: 10, candy: 5 };
+// Coût d'extraction en part du prix de vente (1-99 %) : 1 − RES_COST = EBITDA visé. Plus haut pour l'or (rare, transformable en bien de consommation),
+// plus bas pour le fer (nombreuses étapes de transformation en aval) ; pétrole : marge de major (15-20 %).
+const RES_COST = { oil: 0.88, coal: 0.73, iron: 0.45, copper: 0.55, gold: 0.52, wood: 0.78, gravel: 0.73, sand: 0.73, limestone: 0.73, wheat: 0.80, sugar: 0.80, cotton: 0.80, rubber: 0.78 };
+const EXP_T = 3500;   // seuil des produits chers (prix réel) : temps de fabrication = prix / seuil (en jours par unité) pour les produits au-dessus
+const slowOf = pk => { const p = PRODUCTS[pk].ref * QTIER[S && S.prod ? S.prod[pk].q : 1].ref * (S && S.prod ? S.prod[pk].pf : 1); return clamp(EXP_T / Math.max(1, p), 0.2, 1); };
+const techFront = () => 100 + 4 * ((S && S.day) || 0) / 360;   // niveau de technologie de pointe du marché : +4 points par an
+const expOf = pk => ((S && S.exp) || {})[megaOf(pk)] || 0;
+const ptech = ps => ps.tc == null ? techFront() : ps.tc;
+// Prix standard = prix de base indexé sur l'inflation et sur le salaire de la ville + prime de R&D en dollars courants (NON indexée sur l'inflation)
+const rdPrem = pk => Math.min(0.08 * PRODUCTS[pk].ref, PRODUCTS[pk].rnd / 80000);
+function stdPrice(pk) { const wf = clamp(Math.pow(((S && S.rw) || 1) * wageMkt(), 0.4), 0.85, 1.25); return PRODUCTS[pk].ref * QTIER[1].ref * cpi() * wf + rdPrem(pk); }
 // Emballage : nombre d'emballages par unité (composant « Emballages »), effet sur l'attrait
 const PACK = [{ n: 'Vrac', per: 0, attr: 0.85, tag: 'Sans emballage' }, { n: 'Carton', per: 1, attr: 1, tag: 'Carton standard' }, { n: 'Coffret premium', per: 2, attr: 1.15, tag: 'Coffret soigné' }];
 // Concurrents IA : chacun a une part d'attractivité par catégorie, une trésorerie, et investit ou fait faillite selon ses ventes
@@ -1063,12 +1107,12 @@ const EL_CLS = { basic: 0.9, std: 1.4, lux: 2.2, estate: 1.6 };   // ordre de gr
 const EL_T = { basic: { tot: [0.08, 0.3], sub: [0.25, 0.8] }, std: { tot: [0.4, 1.0], sub: [0.6, 1.2] }, estate: { tot: [0.5, 1.1], sub: [0.4, 0.8] } };
 const EL_TAU = 75;   // jours pour que les habitudes d'achat s'ajustent
 // Luxe : effet Veblen/snob limité — dans une bande étroite (jusqu'à +25 %) une hausse de prix ne fait pas baisser la demande à court terme, mais l'effet s'érode en quelques mois ; au-delà le marché se détourne nettement.
-function elF(cls, p, d, sole) {
+function elF(cls, p, d, sole, nec) {
   if (Math.abs(p - 1) < 1e-4) return 1;
   const w = 1 - Math.exp(-(d || 0) / EL_TAU);
-  if (cls === 'lux') { const e = 0.1 - 0.5 * w; return p <= 1.25 ? Math.pow(p, e) : Math.pow(1.25, e) * Math.pow(p / 1.25, -(1 + 2 * w)); }
+  if (cls === 'lux') { const e = 0.1 - 0.5 * w, nm = nec == null ? 1 : necMult(nec); return p <= 1.25 ? Math.pow(p, e) : Math.pow(1.25, e) * Math.pow(p / 1.25, -(1 + 2 * w) * nm); }
   const T = EL_T[cls] || EL_T.std, mix = a => a[0] + (a[1] - a[0]) * w;
-  return Math.pow(p, -(mix(T.tot) + (sole ? 0 : mix(T.sub))));
+  return Math.pow(p, -(mix(T.tot) + (sole ? 0 : mix(T.sub))) * (nec == null ? 1 : necMult(nec)));
 }
 function trackPk(c, key) { const p = (c.pk && c.pk[key]) || 1; c.pkd = c.pkd || {}; const o = c.pkd[key]; if (!o) c.pkd[key] = { p, d: 99 }; else if (Math.abs(o.p - p) > 1e-3) { o.p = p; o.d = 0; } else o.d++; return c.pkd[key]; }
 const EL_RAW = { oil: 0.5, coal: 0.7, iron: 0.8, copper: 0.9, gold: 1.5, wood: 0.9, steel: 1, plastic: 1.2 };
@@ -1172,7 +1216,7 @@ function stepRivals(rivalPart) {
 const recipeOf = k => RECIPES[k] || PRODUCTS[k];
 function initProd() {
   const o = {};
-  PKEYS.forEach(pk => { o[pk] = { st: 'locked', q: 1, pack: 1, rnd: 0, pf: 1, brand: 0, loy: 0, rt: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
+  PKEYS.forEach(pk => { o[pk] = { st: 'locked', q: 1, pack: 1, rnd: 0, pf: 1, tc: null, obs: 1, brand: 0, loy: 0, rt: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
   return o;
 }
 const cpi = () => (S && S.cpi) || 1;
@@ -1193,14 +1237,14 @@ function outPrice(c) {
 // Note produit : marque, qualité et prix pondérés selon la catégorie (comme Capitalism Lab)
 const SCORE_W = { basic: { price: 0.45, quality: 0.30, brand: 0.25 }, std: { price: 0.33, quality: 0.40, brand: 0.27 }, lux: { price: 0.15, quality: 0.35, brand: 0.50 }, estate: { price: 0.40, quality: 0.45, brand: 0.15 } };
 // Segments d'acheteurs : en récession le prix pèse plus, en boom la marque et la qualité
-function scoreW(cls) {
-  const b = SCORE_W[cls], sh = clamp((0.03 - (S.macro ? S.macro.gdp : 0.03)) * 3, -0.1, 0.1), w = { price: b.price + sh, quality: b.quality - 0.4 * sh, brand: b.brand - 0.6 * sh }, s = w.price + w.quality + w.brand;
+function scoreW(cls, pk) {
+  const pw = pk && PROD_W[pk], b = pw ? { price: pw[0] / 100, quality: pw[1] / 100, brand: pw[2] / 100 } : SCORE_W[cls], sh = clamp((0.03 - (S.macro ? S.macro.gdp : 0.03)) * 3, -0.1, 0.1), w = { price: b.price + sh, quality: b.quality - 0.4 * sh, brand: b.brand - 0.6 * sh }, s = w.price + w.quality + w.brand;
   return { price: w.price / s, quality: w.quality / s, brand: w.brand / s };
 }
 function productScore(pk) {
-  const ps = S.prod[pk], pr = PRODUCTS[pk], w = scoreW(pr.cls), avgP = pr.ref * QTIER[1].ref * cpi();
+  const ps = S.prod[pk], pr = PRODUCTS[pk], w = scoreW(pr.cls, pk), avgP = stdPrice(pk);
   // marque PROPRE du produit : notoriété (publicité du produit) et fidélité ; qualité = perception (gamme, presse, influenceurs)
-  const price = clamp(50 * Math.pow(avgP / prodPrice(pk), 1.2), 0, 100), quality = clamp(ps.rt == null ? QTIER[ps.q].q : ps.rt, 0, 100), brand = clamp(0.65 * ps.brand + 0.35 * (ps.loy || 0), 0, 100);
+  const price = clamp(50 * Math.pow(avgP / prodPrice(pk), 1.2), 0, 100), quality = clamp(ps.rt == null ? QTIER[ps.q].q : ps.rt, 0, 100), brand = clamp(0.65 * ps.brand + 0.35 * (ps.loy || 0) + (brandStrat() === 'corp' && S._brandAvg ? 0.25 * clamp(S._brandAvg.aw || 0, 0, 100) / Math.pow(megaCount(), 0.8) : 0), 0, 100);
   return { price, quality, brand, overall: w.price * price + w.quality * quality + w.brand * brand, w };
 }
 // Dynamique d'adoption (modèle de Bass) : innovateurs (p, tirés par la notoriété) et imitateurs (q, bouche-à-oreille tiré par la perception de qualité)
@@ -1208,18 +1252,72 @@ const adoptOf = ps => ps.A == null ? 1 : ps.A;
 function lifeStage(ps) { const A = adoptOf(ps); return A < 0.15 ? 'Lancement' : (ps.age || 0) > 420 ? 'Déclin' : A < 0.6 ? 'Croissance' : 'Maturité'; }
 function stepAdoption() {
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps.st !== 'on' || ps.A == null) return;
-    if (ps._q !== undefined && ps.q > ps._q) { ps.A = Math.max(ps.A, 0.55); ps.age = 180; say(`Relance de ${PRODUCTS[pk].name} : la nouvelle qualité relance l'adoption.`, 'info'); } ps._q = ps.q;
+    if (ps._q !== undefined && ps.q > ps._q) { ps.A = Math.max(ps.A, 0.55); ps.age = 180; ps.obs = 1; say(`Relance de ${PRODUCTS[pk].name} : la nouvelle qualité relance l'adoption.`, 'info'); } ps._q = ps.q;
     ps.age = (ps.age || 0) + 1;
     const p = 0.01 + 0.03 * ps.brand / 100, q = 0.05 + 0.06 * (ps.rt == null ? 50 : ps.rt) / 100;
     ps.A += (p + q * ps.A) * (1 - ps.A) * 0.5;
     if (ps.age > 420) ps.A -= 0.0012 * (1 + (ps.age - 420) / 400);
+    if (ps.age > 360) ps.obs = Math.max(0.3, (ps.obs == null ? 1 : ps.obs) * (1 - (OBSO[pk] == null ? 0.02 : OBSO[pk]) / 360));
     ps.A = clamp(ps.A, 0.03, 1); });
 }
 function attractiveness(pk) {
   const ps = S.prod[pk], pr = PRODUCTS[pk], happy = (S.stats && S.stats.happy != null ? S.stats.happy : 60);
   const wealth = 1 + (ps.q - 1) * (happy - 60) / 250;   // une population heureuse préfère le haut de gamme
-  return Math.pow(productScore(pk).overall / 50, 1.6) * 1.6 * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth * (0.2 + 0.8 * adoptOf(ps));
+  return Math.pow(productScore(pk).overall / 50, 1.6) * 1.6 * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth * (0.2 + 0.8 * adoptOf(ps)) * typeW(pk) * (ps.obs == null ? 1 : ps.obs) * outMul(pk);
 }
+// --- Passe 10 : logique du modèle produit
+const necOf = pk => NECESS[pk] == null ? 50 : NECESS[pk];
+const necMult = nec => 1.4 - 0.8 * nec / 100;   // multiplicateur d'élasticité : nécessité 100 → ×0,6 (inélastique), 0 → ×1,4
+const reqRW = pk => 0.7 + 0.5 * Math.pow(1 - necOf(pk) / 100, 1.5);   // salaire réel (indice 1 = départ) que le produit suppose pour trouver ses acheteurs
+function affordOf(pk) { const rw = (S && S.rw) || 1, req = reqRW(pk); return rw >= req ? 1 : Math.max(0.1, Math.pow(rw / req, 0.5 + 2 * (1 - necOf(pk) / 100))); }
+function recF(pk) { const gD = (S.macro ? S.macro.gdp : 0.03) - 0.03; return clamp(1 + 4 * gD * (0.55 - necOf(pk) / 100), 0.8, 1.2); }   // récession : les produits peu nécessaires s'effondrent, les nécessaires tiennent
+function megaCount() { const s = new Set(); PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') s.add(megaOf(pk)); }); return Math.max(1, s.size); }
+const corpLoyF = () => { const n = megaCount(), st = brandStrat(); return st === 'corp' ? Math.max(0.6, 1 - 0.08 * (n - 1)) : st === 'range' ? Math.max(0.8, 1 - 0.04 * (n - 1)) : 1; };   // diversifier entre méga-classes dilue la fidélité
+function typeW(pk) { const cls = PRODUCTS[pk].cls, ks = PKEYS.filter(k => PRODUCTS[k].cls === cls), mean = ks.reduce((a, k) => a + (DEMAND_PC[k] || 0.3), 0) / ks.length; return clamp(Math.pow((DEMAND_PC[pk] || 0.3) / mean, 0.6), 0.35, 2.2); }
+function outMul(pk) { const s = SUCC[pk]; if (!s) return 1; const sp = S.prod[s.by], pr = Math.max(clamp(((S.day || 0) - s.at) / 360, 0, 1), sp && sp.st === 'on' ? clamp(adoptOf(sp) / 0.6, 0, 1) : 0); return s.keep + (1 - s.keep) * (1 - pr); }
+function iqua(pk) { const inp = productInputs(pk), ts = TECH_SHARE[pk] == null ? 15 : TECH_SHARE[pk], gs = Object.keys(inp).filter(g => g !== 'pack'), tot = gs.reduce((a, g) => a + inp[g] * (GOODS[g] ? GOODS[g].base : 1), 0) || 1, o = {}; gs.forEach(g => { o[g] = Math.round((100 - ts) * inp[g] * (GOODS[g] ? GOODS[g].base : 1) / tot); }); return { w: o, tech: ts }; }
+function techComp(pk) { const L = PROD_TECH[pk] || []; return 0.97 + 0.18 * L.reduce((a, t) => a + (S.tech && S.tech[t[0]] ? t[1] : 0), 0) / 100; }
+// Qualité réelle = part des intrants (qualité des fournisseurs) + complément apporté par la technologie (niveau du produit / pointe du marché × technologies acquises)
+function trueQ(pk) {
+  const ps = S.prod[pk], base = QTIER[ps.q].q, ts = TECH_SHARE[pk] == null ? 15 : TECH_SHARE[pk], fi = ps._fi == null ? 1 : ps._fi, tp = ptech(ps) / techFront() * techComp(pk);
+  return clamp(base * ((100 - ts) * fi + ts * tp) / 100, 0, 100);
+}
+function updInputQ(pk) { const ps = S.prod[pk], w = iqua(pk).w, ks = Object.keys(w), tot = ks.reduce((a, g) => a + w[g], 0); if (!tot) { ps._fi = 1; return; } const iq = ks.reduce((a, g) => a + w[g] * (suppliersOf(g).length ? gQual(g) : 50), 0) / tot; ps._fi = 0.85 + 0.3 * clamp(iq / 100, 0, 1); }
+// Technologie de chaque produit : -10 %/an sans R&D ; la R&D (centres de R&D, expertise de la méga-classe) l'entretient, davantage quand la pointe du marché dépasse 100
+function stepProdTech() {
+  const front = techFront(), on = PKEYS.filter(pk => S.prod[pk].st === 'on'), n = Math.max(1, on.length / 3);
+  on.forEach(pk => { const ps = S.prod[pk]; if (ps.tc == null) ps.tc = front;
+    const gain = 0.032 * (S.rdPower || 0) * (1 + 0.01 * expOf(pk)) * (front / 100) / n;
+    ps.tc = clamp(ps.tc * (1 - 0.10 / 360) + gain, 10, front * 1.4);
+    if (S.day % 30 === 15) { updInputQ(pk); if (ps.tc >= front * 0.98 && (S.rdPower || 0) > 0) gainExp(pk, 0.5); }
+  });
+}
+function gainExp(pk, v) { S.exp = S.exp || {}; const m = megaOf(pk), e = S.exp[m] || 0; S.exp[m] = Math.min(100, e + v * (1 - e / 120)); }
+function lifeLine(pk) {
+  const pr = PRODUCTS[pk], s = SUCC[pk], ob = OBSO[pk] == null ? 0.02 : OBSO[pk]; let t = `obsolescence ${Math.round(ob * 100)} %/an`;
+  if (s) { const m = outMul(pk), dl = s.at - (S.day || 0); t += ` · remplacé par ${PRODUCTS[s.by].name.toLowerCase()} (garde ${Math.round(s.keep * 100)} % de sa demande) : ` + (m >= 0.999 ? (dl > 0 ? `arrivée du successeur dans ~${dl} j` : 'successeur imminent') : `demande actuelle ${Math.round(m * 100)} %`); }
+  return t;
+}
+function prodModelHTML(pk) {
+  const pr = PRODUCTS[pk], ps = S.prod[pk], W = scoreW(pr.cls, pk), iq = iqua(pk), tl = PROD_TECH[pk] || [], f = v => (Math.round(v * 10) / 10).toString().replace('.', ','), front = techFront();
+  const days = EXP_T / Math.max(1, pr.ref * QTIER[ps.q].ref * ps.pf) < 1 ? (pr.ref * QTIER[ps.q].ref * ps.pf / EXP_T) : 0;
+  const inRows = Object.keys(iq.w).map(g => `${GOODS[g].name} ${iq.w[g]}`).join(' · ');
+  const techRows = tl.map(t => `${TECH_BY[t[0]] ? TECH_BY[t[0]].n : t[0]} ${t[1]}${S.tech && S.tech[t[0]] ? ' ✓' : ''}`).join(' · ');
+  return `<div class="gqual" style="margin-top:6px"><b>Modèle produit</b>
+   <div class="qr"><span>Poids d'achat (prix / qualité / marque)</span><span>${Math.round(W.price * 100)} / ${Math.round(W.quality * 100)} / ${Math.round(W.brand * 100)}</span></div>
+   <div class="qr"><span>Indice de nécessité</span><span>${necOf(pk)} / 100 · élasticité ×${f(necMult(necOf(pk)))}</span></div>
+   <div class="qr"><span>Demande moyenne</span><span>${f(DEMAND_PC[pk] || 0)} u/an/habitant ≈ ${fmt(Math.round(S.pop * (DEMAND_PC[pk] || 0) / 360))} u/jour</span></div>
+   <div class="qr"><span>Salaire réel requis · actuel</span><span>${Math.round(reqRW(pk) * 100)} · ${Math.round(((S.rw || 1)) * 100)}${affordOf(pk) < 0.99 ? ' (acheteurs à ' + Math.round(affordOf(pk) * 100) + ' %)' : ''}</span></div>
+   <div class="qr"><span>Prix standard (base + prime R&D)</span><span>${f(stdPrice(pk))} $ (dont prime R&D ${f(rdPrem(pk))} $, non indexée)</span></div>
+   <div class="qr"><span>Qualité réelle ${Math.round(trueQ(pk))} %</span><span>intrants ${100 - iq.tech} % · technologie ${iq.tech} %</span></div>
+   <div class="qr"><span>Intrants (poids IQUA)</span><span>${inRows}</span></div>
+   <div class="qr"><span>Technologies (max. 3)</span><span>${techRows}</span></div>
+   <div class="qr"><span>Niveau techno · pointe du marché · expertise</span><span>${Math.round(ptech(ps))} · ${Math.round(front)} · ${Math.round(expOf(pk))}</span></div>
+   <div class="qr"><span>Méga-classe de marque</span><span>${megaName(pk)} (${megaCount()} active${megaCount() > 1 ? 's' : ''}, fidélité ×${f(corpLoyF())})</span></div>
+   <div class="qr"><span>Cycle de vie</span><span>${lifeLine(pk)}</span></div>
+   ${days ? `<div class="qr"><span>Produit cher</span><span>fabrication ${f(days)} j par unité (prix / seuil ${fmt(EXP_T)})</span></div>` : ''}</div>`;
+}
+
 
 // ===== ÉCHELLE ÉCONOMIQUE (audit « Chief Architect ») : population ~340 k, volumes industriels ×25, capex ≈ 1 an de chiffre d'affaires à pleine charge
 const K_POP = 30, K_IND = 25, K_SIZE = 5, ROOM = 0.08, WAGE_K = 120;
@@ -1276,7 +1374,7 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   const CAL = { wf: 1.2, uf: 0.85, tr: 0.03 };   // coefficient salarial effectif, taux d'utilisation effectif des usines, transport
   const EB_REC = { steel: 0.15, chem: 0.17, api: 0.25, plastic: 0.17, wire: 0.13, plank: 0.18, stud: 0.18, osb: 0.18, cement: 0.28, concrete: 0.18, flour: 0.15, fabric: 0.15, tire: 0.15, pack: 0.15, motor: 0.18, battery: 0.18, circuit: 0.22, gcase: 0.22, screen: 0.22 };
   const EB_GEN = { basic: 0.16, std: 0.16, lux: 0.38 }, EB_PROD = { basic: 0.20, std: 0.17, lux: 0.32, estate: 0.15, pharma: 0.42 };
-  const EB_EXT = { oil: 0.50, coal: 0.27, iron: 0.50, copper: 0.40, gold: 0.48, wood: 0.22, gravel: 0.27, sand: 0.27, limestone: 0.27, wheat: 0.20, sugar: 0.20, cotton: 0.20, rubber: 0.22 };
+  const EB_EXT = {}; Object.keys(RES_COST).forEach(g => { EB_EXT[g] = +(1 - RES_COST[g]).toFixed(2); });   // EBITDA visé = 1 − coût d'extraction (RES_COST)
   const PH_OVH = 1.0;   // frais généraux pharma = 1 × le coût des matières → marge brute ≈ 75 %
   const inV = rc => Object.keys(rc).reduce((a, g) => a + rc[g] * GOODS[g].base, 0);
   const facFix = t => (TYPES[t].jobs * WAGE_K * CAL.wf + TYPES[t].upkeep) / (3.2 * K_SIZE * CAL.uf);   // coûts fixes d'un cycle de recette
@@ -1612,7 +1710,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push([i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, g, dep }));
   } catch (e) { /* stockage indisponible */ }
 }
 function load() {
@@ -1647,7 +1745,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.prod = initProd();
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -1977,6 +2075,7 @@ function stepMacro() {
   m.infl = clamp(m.infl + (0.02 + 0.6 * (m.gdp - 0.03) - m.infl) * 0.02, -0.01, 0.12);
   m.rate = clamp(m.rate + (0.035 + 1.4 * (m.infl - 0.02) - m.rate) * 0.02 - (m.boom ? 0.0004 : 0), 0.005, 0.14);
   S.cpi = (S.cpi || 1) * (1 + m.infl / 360);
+  S.rw = clamp((S.rw || 1) * (1 + (0.6 * m.gdp - 0.006 + 0.1 * (0.10 - ((S.stats && S.stats.unemp) || 0.1))) / 360), 0.7, 3);   // salaire réel (indice 1 au départ) : suit la croissance et l'emploi
   m.h = m.h || []; m.h.push(m.gdp); if (m.h.length > 120) m.h.shift();
 }
 // Difficulté adaptative : si le joueur s'enrichit trop vite, le monde se durcit ; s'il stagne, le monde l'aide
@@ -2119,7 +2218,7 @@ const execPay = lv => Math.round((150 + 8 * lv) * (S.cpi || 1) * Math.pow(clamp(
 const cxSalary = p => execPay(Math.max.apply(null, Object.values(p.exp)));
 function normGoods() {
   GKEYS.forEach(g => { if (S.stock[g] == null) S.stock[g] = 0; if (S.price[g] == null) S.price[g] = GOODS[g].base * cpi(); if (S.ph && !S.ph[g]) S.ph[g] = []; });
-  PKEYS.forEach(pk => { if (!S.prod[pk]) S.prod[pk] = { st: 'locked', q: 1, pack: 1, rnd: 0, pf: 1, brand: 0, loy: 0, rt: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
+  PKEYS.forEach(pk => { if (!S.prod[pk]) S.prod[pk] = { st: 'locked', q: 1, pack: 1, rnd: 0, pf: 1, tc: null, obs: 1, brand: 0, loy: 0, rt: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] }; });
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (!ps.ad) { ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; if (ps.adv === 1) ps.ad.radio = 50 * K_SIZE; else if (ps.adv === 2) ps.ad.tv = 150 * K_SIZE; } delete ps.adv; if (ps.rt == null) ps.rt = QTIER[ps.q].q; if (ps.loy == null) ps.loy = 20; });
 }
 function stepTalent() {
@@ -2351,7 +2450,7 @@ function step() {
   const runRecipe = (list, inp, tgt) => {
     if (!list.length) return;
     let units = 0;
-    list.forEach(c => { c._un = unitsOf(c); c._u = c._un * fillOf(c); units += c._u; });
+    list.forEach(c => { c._un = unitsOf(c) * (tgt.slow || 1); c._u = c._un * fillOf(c); units += c._u; });
     list.forEach(c => { c._impCost = 0; c._impIn = 0; c._impV = 0; });
     // fournisseurs : chaque usine choisit pour chaque intrant Auto (stock local puis port), Port (import) ou Local (stock seulement)
     Object.keys(inp).forEach(g => {
@@ -2385,7 +2484,7 @@ function step() {
   const runsOn = key => factories.filter(c => c.prod === key && FLEVEL[c.t] >= recipeOf(key).lvl);
   runRecipe(buildings.filter(c => c.t === 'foundry'), TYPES.foundry.rec.in, { good: 'ingot', qty: TYPES.foundry.rec.out.ingot });
   RKEYS.forEach(k => runRecipe(runsOn(k), RECIPES[k].in, { good: k, qty: RECIPES[k].out }));
-  PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') runRecipe(runsOn(pk), productInputs(pk), { prod: pk, qty: PRODUCTS[pk].out }); });
+  PKEYS.forEach(pk => { if (S.prod[pk].st === 'on') runRecipe(runsOn(pk), productInputs(pk), { prod: pk, qty: PRODUCTS[pk].out, slow: slowOf(pk) }); });
   ['f1', 'f2', 'f3', 'f4'].forEach(t => {
     const T = TYPES[t];
     runRecipe(factories.filter(c => c.t === t && !(c.prod && (RECIPES[c.prod] || prodOn(c.prod)))), T.rec.in, { good: Object.keys(T.rec.out)[0], qty: Object.values(T.rec.out)[0] });
@@ -2396,6 +2495,8 @@ function step() {
   const happyPrev = S.stats.happy == null ? 60 : S.stats.happy;
   const dMul = TM.demand * modOf('demand') * easeMult(), gD = S.macro.gdp - 0.03;   // sensibilité de la demande au PIB : biens de base ≈ 0,5, courants ≈ 1, luxe ≈ 6
   const gMul = { basic: clamp(1 + 0.5 * gD, 0.95, 1.05), std: clamp(1 + 1 * gD, 0.9, 1.1), lux: clamp(1 + 6 * gD, 0.7, 1.4), estate: clamp(1 + 1 * gD, 0.9, 1.1) };
+  const rwS = (S.rw || 1) - 1;   // salaire réel : quand il monte, la demande se déplace du basique vers le courant puis le luxe
+  gMul.basic *= clamp(1 - 0.15 * rwS, 0.85, 1.05); gMul.std *= clamp(1 + 0.25 * rwS, 0.85, 1.4); gMul.lux *= clamp(1 + 0.8 * rwS, 0.6, 1.6);
   const dem = { basic: S.pop * DEM_PER_POP.basic * dMul * gMul.basic, std: S.pop * DEM_PER_POP.std * (0.6 + 0.4 * happyPrev / 100) * dMul * gMul.std, lux: S.pop * DEM_PER_POP.lux * dMul * gMul.lux, estate: S.pop * 0.00032 * (0.6 + 0.4 * happyPrev / 100) * dMul * gMul.estate };
   let retUnits = 0;
   const nCls = {}; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) R.sells.forEach(k => { nCls[k] = (nCls[k] || 0) + 1; }); });
@@ -2433,18 +2534,18 @@ function step() {
     items.sort((a, b) => (a.k === 'g' ? 1 : 0) - (b.k === 'g' ? 1 : 0));   // tes produits d'abord, les marchandises génériques ensuite
     buildings.forEach(c => { const R = TYPES[c.t].ret; if (!R || R.sells.indexOf(cls) < 0 || !c._lc) return; let s = 0; items.forEach(it => { if (shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)) s += it.attr; }); (c._sa || (c._sa = {}))[cls] = s || 1; (c._na || (c._na = {}))[cls] = items.filter(it => shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)).length; });
     items.forEach(it => {
-      const key = it.k === 'g' ? 'g_' + cls : it.k, wi = Dc * it.attr / totalAttr, gen = it.k === 'g';
+      const key = it.k === 'g' ? 'g_' + cls : it.k, gen = it.k === 'g', nec = gen ? null : necOf(it.k), wi = Dc * it.attr / totalAttr * (gen ? 1 : affordOf(it.k) * recF(it.k));
       const car = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0 && shelfOk(c, key); });
       car.forEach(c => trackPk(c, key));
       const pfk = car.length ? car.reduce((a, c) => a + pfOfK(c, key), 0) / car.length : 1;
       const dAvg = car.length ? car.reduce((a, c) => a + c.pkd[key].d, 0) / car.length : 99, soleAll = car.length && car.every(c => ((c._na && c._na[cls]) || 1) <= 1);
-      let need = wi * clamp(elF(cls, pfk / Math.max(0.5, car.length ? car.reduce((a, c) => a + pfOf(c), 0) / car.length : 1), dAvg, soleAll), 0.3, 1.8), got = 0, stockLeft = it.stock, fromStock = 0;
+      let need = wi * clamp(elF(cls, pfk / Math.max(0.5, car.length ? car.reduce((a, c) => a + pfOf(c), 0) / car.length : 1), dAvg, soleAll, nec), 0.3, 1.8), got = 0, stockLeft = it.stock, fromStock = 0;
       for (let pass = 0; pass < 2 && need > 1e-6; pass++) {
         const ws = car.reduce((a, c) => a + ((c._lc[cls] || 0) > 0.01 ? c._cap * c.adF * c.pw : 0), 0); if (ws <= 0) break;
         const n0 = need;
         car.forEach(c => {
           if ((c._lc[cls] || 0) <= 0.01) return;
-          const share = n0 * c._cap * c.adF * c.pw / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * elF(cls, Math.max(0.4, pkOf(c, key)), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1) - (c.sales[key] || 0); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem));
+          const share = n0 * c._cap * c.adF * c.pw / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * elF(cls, Math.max(0.4, pkOf(c, key)), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1, nec) - (c.sales[key] || 0); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem));
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * importRate / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
           stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key); c._cl += fs * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
@@ -2472,7 +2573,7 @@ function step() {
     }
   });
   S.mkt = {}; RIV_CLS.forEach(cls => { const D = Math.max(0.001, Dtot[cls]); S.mkt[cls] = { you: sold[cls] / D, riv: (S.rivals || []).map(r => ({ id: r.id, s: rivalPart[cls] * (rivalAttr(cls) > 0 ? r.att[cls] / rivalAttr(cls) : 0) / D })) }; });
-  stepRivals(rivalPart); stepForeign(); stepAdoption(); stepForces(); stepIndex();
+  stepRivals(rivalPart); stepForeign(); stepAdoption(); stepProdTech(); stepForces(); stepIndex();
   const soldTotal = sold.basic + sold.std + sold.lux;
   S.sold += soldTotal;
   S.houses = (S.houses || 0) + sold.estate; S.lots = S.lots || 0;
@@ -2593,18 +2694,18 @@ function step() {
     if (ps.st === 'on') {
       const ad = padOf(ps), bT = clamp(100 * clamp(padPower(pk) / 1.5, 0, 1) + (ps.sold > 0.1 ? 6 : 0), 0, 100);
       ps.brand = clamp(ps.brand + (bT - ps.brand) * 0.07, 0, 100);
-      const rtT = clamp(QTIER[ps.q].q * 0.9 + 18 * clamp(padRt(pk) / 1.2, 0, 1), 0, 100), rt0 = ps.rt == null ? QTIER[ps.q].q : ps.rt;
+      const rtT = clamp(trueQ(pk) * 0.9 + 18 * clamp(padRt(pk) / 1.2, 0, 1), 0, 100), rt0 = ps.rt == null ? QTIER[ps.q].q : ps.rt;
       ps.rt = clamp(rt0 + (rtT - rt0) * (ad.press > 0 ? 0.045 : 0.03), 0, 100);
       if ((ad.infl || 0) > 0 && rnd() < 0.0018 * Math.min(3, ad.infl / padScale(pk, 'infl'))) { ps.rt = Math.max(0, ps.rt - 12); ps.brand = Math.max(0, ps.brand - 3); say(`Bad buzz autour de ${PRODUCTS[pk].name} : un influenceur dérape, la perception de qualité chute.`, 'warn'); }
       const satP = ps.stock > ps.sold ? 100 : 40;
-      ps.loy = clamp((ps.loy || 0) + ((0.5 * ps.rt + 0.3 * satP + 0.2 * productScore(pk).price) - (ps.loy || 0)) * 0.02, 0, 100);
+      ps.loy = clamp((ps.loy || 0) + ((0.5 * ps.rt + 0.3 * satP + 0.2 * productScore(pk).price) * corpLoyF() - (ps.loy || 0)) * 0.02, 0, 100);
       ps.ph.push(ps.share * 100); if (ps.ph.length > 40) ps.ph.shift();
       { const key = pk; let rr = 0; buildings.forEach(c => { const q = c.sales && c.sales[key]; if (q) rr += q * prodPrice(pk) * retailMk(PRODUCTS[pk].cls) * pfOfK(c, key); });
         ps.rr = rr; ps.qm = (ps.qm || 0) * (29 / 30) + (ps.sold || 0); ps.rm = (ps.rm || 0) * (29 / 30) + rr; ps._bq = (ps._bq || 0) + (ps.sold || 0); ps._br = (ps._br || 0) + rr;
         if (S.day % 30 === 29) { (ps.hq || (ps.hq = [])).push(ps._bq); (ps.hr || (ps.hr = [])).push(ps._br); ps._bq = 0; ps._br = 0; if (ps.hq.length > 36) { ps.hq.shift(); ps.hr.shift(); } } }
     } else if (ps.st === 'rnd') {
-      ps.rnd -= PRODUCTS[pk].pharma ? TM.pharma * (1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto')) : 1;
-      if (ps.rnd <= 0) { ps.st = 'on'; ps.pf = 1; ps.A = 0.03; ps.age = 0; ps._q = ps.q; say(`Produit lancé : ${PRODUCTS[pk].name}. Affecte-lui des usines dans la vue Produits.`, 'gold'); }
+      ps.rnd -= (PRODUCTS[pk].pharma ? TM.pharma * (1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto')) : 1) * (1 + 0.01 * expOf(pk));
+      if (ps.rnd <= 0) { ps.st = 'on'; ps.pf = 1; ps.A = 0.03; ps.age = 0; ps._q = ps.q; ps.tc = techFront(); ps.obs = 1; gainExp(pk, 4); updInputQ(pk); say(`Produit lancé : ${PRODUCTS[pk].name}. Affecte-lui des usines dans la vue Produits.`, 'gold'); }
     }
   });
 
@@ -3078,7 +3179,7 @@ function renderGuide(force) {
   let diag;
   if (gMode === 'in') {
     const ins = Object.keys(inp), src = RAW_SRC[k] ? `<div class="gcard"><div class="gimg"><img alt="" src="${compIcon(k)}"></div><div><div class="gt">Matière première</div><div class="gu">Extraite par : ${TYPES[RAW_SRC[k]].name.toLowerCase()}</div><div class="gq">${hasSource(k) ? 'Source en place' : 'Aucune source construite'}</div></div></div>` : '';
-    diag = `<div class="gdiag"><div class="gcol">${ins.map(g => card(g, inp[g], RECIPES[g] || g === 'ingot' || PRODUCTS[g] || RAW_SRC[g])).join('') || src}</div><div class="grail"></div><div class="gcol">${qual}${prodBox}</div></div>`;
+    diag = `<div class="gdiag"><div class="gcol">${ins.map(g => card(g, inp[g], RECIPES[g] || g === 'ingot' || PRODUCTS[g] || RAW_SRC[g])).join('') || src}</div><div class="grail"></div><div class="gcol">${qual}${prodBox}${pr ? prodModelHTML(k) : ''}</div></div>`;
   } else {
     const users = []; RKEYS.forEach(r => { if (RECIPES[r].in[k]) users.push([r, RECIPES[r].in[k]]); }); PKEYS.forEach(pk => { const i = productInputs(pk); if (i[k]) users.push([pk, i[k]]); }); if (k === 'gold') users.push(['ingot', 4]);
     diag = `<div class="gdiag rev"><div class="gcol">${prodBox}</div><div class="grail"></div><div class="gcol">${users.map(([g, qty]) => card(g, qty, true)).join('') || '<p class="note" style="color:#cfe0ff">Ce produit se vend directement aux habitants ou à l\'export : aucun autre produit ne l\'utilise.</p>'}</div></div>`;
@@ -3117,13 +3218,13 @@ function renderProdScreen() {
   const on = PKEYS.filter(pk => S.prod[pk].st !== 'locked');
   const mk = S.mkt || {};
   const gmode = S.prodGraph || 'qty', spark = (arr, col) => { const w = 250, h = 64; if (!arr || arr.length < 2) return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="64"><text x="8" y="36" fill="#8f9acb" font-size="11">Historique en cours (1 point par mois)</text></svg>`; const mx = Math.max(...arr, 1), pts = arr.map((v, i) => `${(i / (arr.length - 1) * (w - 8) + 4).toFixed(1)},${(h - 6 - v / mx * (h - 14)).toFixed(1)}`).join(' '); return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="64"><polyline fill="none" stroke="${col}" stroke-width="2" points="${pts}"/><text x="4" y="10" fill="#cfe0ff" font-size="10">${fmt(Math.round(mx))}</text></svg>`; };
-  const cards = on.map(pk => { const pr = PRODUCTS[pk], ps = S.prod[pk], m = mk[pr.cls], sc = productScore(pk), W = sc.w, mkp = retailMk(pr.cls), loc = prodPrice(pk) * mkp, avg = pr.ref * QTIER[1].ref * cpi() * mkp, rivB = (S.rivals || []).length ? 100 * (S.rivals.reduce((a, r) => a + (r.att[pr.cls] || 0), 0) / S.rivals.length) * 3 : 0;
+  const cards = on.map(pk => { const pr = PRODUCTS[pk], ps = S.prod[pk], m = mk[pr.cls], sc = productScore(pk), W = sc.w, mkp = retailMk(pr.cls), loc = prodPrice(pk) * mkp, avg = stdPrice(pk) * mkp, rivB = (S.rivals || []).length ? 100 * (S.rivals.reduce((a, r) => a + (r.att[pr.cls] || 0), 0) / S.rivals.length) * 3 : 0;
     const cityQ = { basic: 45, std: 55, lux: 70, estate: 60 }[pr.cls] || 50, ovAvg = Math.round(W.price * 50 + W.quality * cityQ + W.brand * clamp(rivB * 0.6, 0, 80)), hist = gmode === 'rev' ? (ps.hr || []).concat([ps._br || 0]) : (ps.hq || []).concat([ps._bq || 0]);
     const row = (l, a, b2, c2, good) => `<tr><td>${l}</td><td class="${good == null ? '' : good ? 'pos' : 'neg'}">${a}</td><td>${b2}</td><td>${c2}</td></tr>`;
     return `<div class="pmcard"><span class="rth">${gThumb(pk)}</span><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap"><span><b>${pr.name}</b> <small style="color:var(--mut)">${ps.st === 'on' ? CLSN[pr.cls] + ' · ' + lifeStage(ps) : 'R&D en cours'}</small></span><span><button class="btn ${gmode === 'qty' ? '' : 'sec'}" data-pg="qty" style="min-height:22px;padding:1px 8px;font-size:10.5px">Quantité vendue</button> <button class="btn ${gmode === 'rev' ? '' : 'sec'}" data-pg="rev" style="min-height:22px;padding:1px 8px;font-size:10.5px">Chiffre d'affaires</button></span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0"><div style="flex:1;min-width:180px">${spark(hist, gmode === 'rev' ? '#f2b84b' : '#46d39a')}<small style="color:var(--mut)">${gmode === 'rev' ? 'CA de détail' : 'Unités vendues'} par mois · 12 derniers mois</small></div><div style="text-align:center"><canvas id="prd-${pk}" width="64" height="64"></canvas><br><small>Production</small></div><div style="text-align:center"><canvas id="pie-${pk}" width="64" height="64" title="Part de marché de la catégorie"></canvas><br><small>Détail</small></div></div>
       <table><tr><th></th><th>Local (toi)</th><th>Moyenne</th><th>Concern</th></tr>${row('Prix en rayon', money(loc), money(avg), Math.round(W.price * 100) + ' %', loc <= avg)}${row('Qualité', Math.round(sc.quality), cityQ, Math.round(W.quality * 100) + ' %', sc.quality >= cityQ)}${row('Marque', Math.round(sc.brand), Math.round(clamp(rivB * 0.6, 0, 80)), Math.round(W.brand * 100) + ' %', sc.brand >= rivB * 0.6)}${row('Note globale', Math.round(sc.overall), ovAvg, '', sc.overall >= ovAvg)}</table>
-      <small>Vendu : <b>${fmt(Math.round(ps.qm || 0))}</b> u/mois · CA de détail <b>${money(ps.rm || 0)}</b>/mois · stock ${fmt(Math.round(ps.stock || 0))} · fidélité ${Math.round(ps.loy || 0)} · publicité ${padSpend(ps) ? money(padSpend(ps) * 30) + '/mois' : 'aucune'}</small></div></div>`; }).join('');
+      ${ps.st === 'on' ? '<details style="margin:4px 0"><summary style="cursor:pointer;font-size:11.5px">Modèle produit (nécessité, technologie, cycle de vie…)</summary>' + prodModelHTML(pk) + '</details>' : ''}<small>Vendu : <b>${fmt(Math.round(ps.qm || 0))}</b> u/mois · CA de détail <b>${money(ps.rm || 0)}</b>/mois · stock ${fmt(Math.round(ps.stock || 0))} · fidélité ${Math.round(ps.loy || 0)} · publicité ${padSpend(ps) ? money(padSpend(ps) * 30) + '/mois' : 'aucune'}</small></div></div>`; }).join('');
   const h = cards || '<p class="note">Aucun produit lancé. Utilise « Choisir la production » dans une usine pour développer un produit.</p>';
   if (el('prodscreen').dataset.h !== h) { el('prodscreen').innerHTML = h; el('prodscreen').dataset.h = h; }
   on.forEach(pk => { const cp = el('prd-' + pk), mp = mk[PRODUCTS[pk].cls]; if (cp && mp) { const ps = S.prod[pk], rivU = mp.riv.reduce((a, r) => a + r.s, 0) * ((S.stats && S.stats.dem && S.stats.dem[PRODUCTS[pk].cls]) || 1), mine = ps.made || ps.sold || 0; drawPie(cp, [[mine, '#f2b84b'], [rivU, '#ff4fa3'], [Math.max(0, ((S.stats && S.stats.dem && S.stats.dem[PRODUCTS[pk].cls]) || 1) * 0.2), '#3b4262']]); }
@@ -3381,7 +3482,7 @@ function renderEmpire() {
   const kp = (l, v, c, s) => `<div><small>${l}</small><b class="${c || ''}">${v}</b>${s ? `<small>${s}</small>` : ''}</div>`;
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / mois', (F.net >= 0 ? '+' : '−') + mj(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : fx2(px) + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Habitants', fmt(st.pop || 0), '', fmt(st.playerJobs || 0) + ' emplois dans tes bâtiments')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
-  h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
+  h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Salaire réel', Math.round((S.rw || 1) * 100) + '', (S.rw || 1) >= 1 ? 'pos' : 'neg', 'indice 100 au départ : conditionne les achats de produits peu nécessaires (luxe)')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
   h += monthlyHTML();
   h += sectorHTML();
   h += energyHTML();
@@ -3766,7 +3867,7 @@ function launchProduct(pk) {
   if (ps.st !== 'locked') return false;
   if (pr.tier > tierNow()) { say(`${pr.name} se débloque au palier ${TIERS[pr.tier].n}.`, 'warn'); return false; }
   if (S.cash < cost) { say(`Il faut ${money(cost)} pour développer ${pr.name.toLowerCase()}.`, 'bad'); return false; }
-  S.cash -= cost; ps.st = 'rnd'; ps.rnd = pr.days; if (pr.cls === 'basic') ps.pack = 0; ps.brand = 0; ps.loy = 20; ps.rt = QTIER[ps.q].q; ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; ps.stock = 0;
+  S.cash -= cost; ps.st = 'rnd'; ps.rnd = pr.days; ps.tc = null; ps.obs = 1; if (pr.cls === 'basic') ps.pack = 0; ps.brand = 0; ps.loy = 20; ps.rt = QTIER[ps.q].q; ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; ps.stock = 0;
   const dd = pr.pharma ? Math.round(pr.days / (TM.pharma * (1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto')))) : pr.days; say(`Développement lancé : ${pr.name}, gamme ${QTIER[ps.q].n.toLowerCase()} (${pr.days} jours${pr.pharma && dd < pr.days ? ', accéléré à ~' + dd + ' jours' : ''}).`, 'info');
   refreshStats(); updateHUD(); return true;
 }
@@ -4978,7 +5079,7 @@ function prodView(c, k, it) {
   let acc = 0; const grad = sl.map(x => { const a0 = acc; acc += x.v * 360; return `${x.c} ${a0}deg ${acc}deg`; }).join(',');
   const legend = sl.filter(x => x.v > 0.005).map(x => `<span style="white-space:nowrap"><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${x.c};margin-right:3px"></i>${x.n} ${Math.round(x.v * 100)} %</span>`).join(' · ');
   // prix en rayon = prix de gros × marge de distribution × curseur du produit
-  const price = it.price * retailMk(cls) * pfOfK(c, k), ref = S.price[cls] * retailMk(cls) || price, w = scoreW(cls);
+  const price = it.price * retailMk(cls) * pfOfK(c, k), ref = S.price[cls] * retailMk(cls) || price, w = scoreW(cls, it.gen ? null : k);
   const imRate = Math.max(1.0, 1.04 - 0.01 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0));
   let cost = 0, costNote = '';
   if (it.gen) {
@@ -4986,7 +5087,7 @@ function prodView(c, k, it) {
     if (so) { cost = so.total; costNote = 'contrat fournisseur'; } else if (sm === 'local' || S.stock[cls] > 1) { cost = S.price[cls]; costNote = 'prix de gros (stock local)'; } else { cost = S.price[cls] * imRate; costNote = 'import (×' + imRate.toFixed(2).replace('.', ',') + ')'; }
   } else { const inp = productInputs(k); cost = Object.keys(inp).reduce((a, g) => a + inp[g] * (S.price[g] || GOODS[g].base), 0) / Math.max(1, PRODUCTS[k].out); costNote = 'intrants au prix du marché ÷ sortie'; }
   const sc = it.gen ? { price: clamp(50 * Math.pow(ref / Math.max(0.01, price), 1.2), 0, 100), quality: 40, brand: 0 } : productScore(k);
-  if (!it.gen) sc.price = clamp(50 * Math.pow(PRODUCTS[k].ref * QTIER[1].ref * cpi() * retailMk(cls) / Math.max(0.01, price), 1.2), 0, 100);
+  if (!it.gen) sc.price = clamp(50 * Math.pow(stdPrice(k) * retailMk(cls) / Math.max(0.01, price), 1.2), 0, 100);
   sc.overall = w.price * sc.price + w.quality * sc.quality + w.brand * sc.brand;
   const cityQ = { basic: 45, std: 55, lux: 70, estate: 60 }[cls] || 50;
   const rivB = (S.rivals || []).length ? 100 * (S.rivals.reduce((a, r) => a + (r.att[cls] || 0), 0) / S.rivals.length) * 3 : 0, cityB = Math.round(clamp(rivB, 0, 100));
@@ -4998,7 +5099,7 @@ function prodView(c, k, it) {
    <div style="flex:1;min-width:210px"><table class="fint"><tr><th>Ce produit</th><th>Toi</th><th>Moyenne ville</th></tr>${it.gen ? row('Marque', 'aucune', cityB) : row('Marque', brand, cityB, brand >= cityB ? 'pos' : 'neg')}${row('Qualité', q, cityQ, q >= cityQ ? 'pos' : 'neg')}${row('Prix en rayon', f(price) + ' $', f(ref) + ' $', price <= ref ? 'pos' : 'neg')}${row('Note globale', myOv, cityOv, myOv >= cityOv ? 'pos' : 'neg')}</table></div></div>
    <small style="display:block;margin-top:4px">${legend}</small>
    <button class="btn sec" data-act="mshare" style="min-height:28px;padding:3px 10px;font-size:11.5px;margin:4px 0">Voir les parts de marché détaillées (Concurrents) →</button>
-   <div class="finrow"><span>Poids d'achat de la catégorie</span><b>prix ${Math.round(w.price * 100)} % · qualité ${Math.round(w.quality * 100)} % · marque ${Math.round(w.brand * 100)} %</b></div>
+   ${it.gen ? '' : prodModelHTML(k)}<div class="finrow"><span>Poids d'achat ${it.gen ? 'de la catégorie' : 'du produit'}</span><b>prix ${Math.round(w.price * 100)} % · qualité ${Math.round(w.quality * 100)} % · marque ${Math.round(w.brand * 100)} %</b></div>
    ${it.gen ? '' : `<div class="finrow"><span>Adoption du produit · ${lifeStage(ps)}</span><b>${Math.round(adoptOf(ps) * 100)} %</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(adoptOf(ps) * 100)}%"></i></div>`}
    <div class="finrow" title="${costNote}"><span>Coût d'approvisionnement <small>(${costNote})</small></span><b>${f(cost)} $</b></div><div class="finrow"><span>Marge unitaire</span><b class="${mg >= 0 ? 'pos' : 'neg'}">${mg >= 0 ? '+' : '−'}${f(Math.abs(mg))} $ (${Math.round(100 * mg / Math.max(0.01, price))} %)</b></div><div class="finrow"><span>Ventes / jour · par mois</span><b>${f1(sold)} · ${fmt(Math.round((c.sm && c.sm[k]) || 0))}</b></div><div class="finrow"><span>Stock · offre / demande</span><b>${fmt(it.stock)} · ${it.stock > sold * 3 ? 'offre abondante' : it.stock < sold ? 'pénurie' : 'équilibré'}</b></div>
    <div class="lever" style="margin-top:8px"><h4>Prix de vente de ce produit <span class="pip" id="pkv">${Math.round(((c.pk && c.pk[k]) || 1) * 100)} %</span></h4><input type="range" data-pk="${k}" min="60" max="220" step="5" value="${Math.round(((c.pk && c.pk[k]) || 1) * 100)}" aria-label="Prix de vente"><small>100 % = prix de référence du magasin. Plus bas : plus de clients ; plus haut : plus de marge, moins de ventes — progressivement (habitudes ~2-3 mois), très peu pour un bien de base sans substitut, et effet Veblen pour le luxe.</small></div>
@@ -6434,7 +6535,7 @@ updateHUD();
 setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
-window.WSE = { productSVG, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
+window.WSE = { productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs };
 })();
 </script>
 </body>
