@@ -550,3 +550,111 @@ La dette de fin passe de 1 Md$ (course à l'effet de levier sur les tours) à 10
 
 **Limites** : le bot n'exploite pas encore les chaînes usines-produits intégrées (elles perdent de l'argent dans nos montages sans mines, les audits d'usines restent ceux de la passe 16) ; les résultats d'un même profil varient de ±5 % selon le moindre changement de règle (chaos des décisions), d'où des plages et non des dates exactes ; le plafond de dette 0,45 × valorisation est un réglage du bot, le plafond du jeu reste `creditLimit()`.
 
+
+## Passe 25 : arbre des produits étendu et composeur
+
+**Demande** : élargir l'arbre (de 35 à 70-80 produits finis, de 23 à 35-45 composants) et permettre, dans l'usine, d'**associer des composants** pour créer un produit.
+
+### 1. Arbre étendu : 80 produits finis, 40 composants
+
+Aucune matière première ni extracteur n'a été ajouté (13 matières, mêmes fermes et mines) : les nouveaux intermédiaires se tirent des matières existantes. Les produits de l'élevage passent par un **élevage abstrait nourri au grain** (lait et viandes = blé, cuir = blé et chimie de tannage) ; ce choix évite d'ajouter fermes, gisements, icônes de carte et verrous de scénario. Les 17 nouveaux composants (l'ordre de `RECIPES` est l'ordre de calibrage : chaque intrant est calibré avant son utilisateur) :
+
+| Composant | Niveau | Intrants | Cours de base |
+|---|---|---|---|
+| Papier et carton | petite | bois | 7,88 $ |
+| Lait | petite | blé | 10,08 $ |
+| Viandes | petite | blé | 16,39 $ |
+| Alcools et ferments | moyenne | canne à sucre + blé | 23,4 $ |
+| Céramique | petite | sable + calcaire + charbon | 9,09 $ |
+| Fermetures et quincaillerie | petite | acier + plastique | 7,21 $ |
+| Boîtiers et coques | petite | plastique + acier | 9,82 $ |
+| Mousse et rembourrage | petite | produits chimiques + plastique | 7,83 $ |
+| Peintures et vernis | petite | produits chimiques + calcaire | 9,3 $ |
+| Pièces en caoutchouc | petite | caoutchouc naturel + produits chimiques | 24,33 $ |
+| Cuir | moyenne | blé + produits chimiques | 30,38 $ |
+| Textiles techniques | moyenne | tissu + plastique | 20,38 $ |
+| Éclairage LED | moyenne | verre + câbles de cuivre + silicium | 15,65 $ |
+| Moteurs thermiques | moyenne | acier + câbles de cuivre + pétrole | 46,22 $ |
+| Châssis et carrosserie | moyenne | acier + peintures et vernis | 46,38 $ |
+| Capteurs et optiques | grande | verre + silicium + plastique | 86,11 $ |
+| Cellules photovoltaïques | grande | silicium + verre + câbles de cuivre | 138,5 $ |
+
+Les 45 nouveaux produits finis (au plus 3 intrants + emballage ; `pkg` = emballage fourni d'office pour les produits frais en pot ou en bouteille, ce qui donne « yaourt = lait + sucre + emballage »). **Les prix de référence ne sont pas saisis à la main** : `calProd` (calibrage de la passe 16) les résout à partir du coût réel des intrants, des coûts fixes du niveau d'usine et d'un EBITDA visé par classe (base 20 %, manufacturé 17 %, luxe 30 %, électronique et véhicule 20-22 %, whisky et haute couture 27 %, pharmacie 38 %). Un produit plus compliqué (plus d'intrants, intermédiaires plus chers) est donc plus cher. Mesures en usine isolée (`isoFactory`, intrants au prix de base, 40 jours) :
+
+| Produit | Famille | Classe | Usine | Intrants | Prix de réf. | MB | EBITDA |
+|---|---|---|---|---|---|---|---|
+| Yaourts | Alimentation | base | petite | lait + canne à sucre + emballage | 8,6 $ | 28 % | 19,2 % |
+| Fromages | Alimentation | base | petite | lait + essences et arômes + emballage | 12,2 $ | 25 % | 19,1 % |
+| Pâtes alimentaires | Alimentation | base | petite | farine | 4,3 $ | 36 % | 19,6 % |
+| Chocolat | Alimentation | base | petite | canne à sucre + lait + essences et arômes | 7,7 $ | 29 % | 19,3 % |
+| Plats cuisinés | Alimentation | base | moyenne | viandes + farine + emballage | 16,4 $ | 30 % | 19,1 % |
+| Sodas | Boissons | base | petite | canne à sucre + essences et arômes + emballage | 8,5 $ | 27 % | 19,1 % |
+| Bière | Boissons | base | petite | blé + canne à sucre + emballage | 8,9 $ | 27 % | 19,2 % |
+| Spiritueux | Boissons | manuf. | moyenne | alcools et ferments + verre + emballage | 28,8 $ | 22 % | 15,9 % |
+| Whisky de luxe | Boissons | luxe | grande | alcools et ferments + planches + verre + emballage | 98,7 $ | 58 % | 26,3 % |
+| Compléments alimentaires | Santé et beauté | base | moyenne | principes actifs + canne à sucre + plastique | 4,5 $ | 42 % | 19,7 % |
+| Antibiotiques | Santé et beauté | manuf. (pharma) | moyenne | principes actifs + produits chimiques + plastique + emballage | 27,1 $ | 73 % | 38,5 % |
+| Shampooings | Santé et beauté | base | petite | produits chimiques + essences et arômes + plastique | 6,3 $ | 31 % | 19,4 % |
+| Dentifrice | Santé et beauté | base | petite | produits chimiques + essences et arômes | 4,6 $ | 34 % | 19,6 % |
+| Maquillage | Santé et beauté | manuf. | moyenne | essences et arômes + produits chimiques + verre + emballage | 14,2 $ | 26 % | 16,1 % |
+| Couches et hygiène | Santé et beauté | base | petite | tissu + plastique + produits chimiques | 3,8 $ | 35 % | 19,6 % |
+| Vestes | Mode | manuf. | moyenne | tissu + cuir + fermetures et quincaillerie + emballage | 32,8 $ | 24 % | 15,9 % |
+| Chaussures en cuir | Mode | manuf. | moyenne | cuir + pièces en caoutchouc + emballage | 33,2 $ | 24 % | 15,9 % |
+| Robes | Mode | manuf. | moyenne | tissu + fermetures et quincaillerie + emballage | 25,4 $ | 26 % | 16,0 % |
+| Chaussettes et sous-vêtements | Mode | base | petite | tissu + pièces en caoutchouc | 4,6 $ | 31 % | 19,5 % |
+| Sacs en cuir | Mode | manuf. | moyenne | cuir + fermetures et quincaillerie + emballage | 31,7 $ | 24 % | 15,9 % |
+| Haute couture | Mode | luxe | grande | tissu + cuir + lingots d'or + emballage | 187,0 $ | 68 % | 26,5 % |
+| Appareils photo | Électronique | luxe | grande | capteurs et optiques + boîtiers et coques + batteries + emballage | 248,3 $ | 42 % | 21,1 % |
+| Montres connectées | Électronique | luxe | grande | écrans + cartes électroniques + batteries + emballage | 110,5 $ | 57 % | 21,1 % |
+| Casques audio | Électronique | manuf. | moyenne | cartes électroniques + boîtiers et coques + batteries + emballage | 23,6 $ | 25 % | 16,0 % |
+| Fours micro-ondes | Électroménager | manuf. | moyenne | acier + cartes électroniques + câbles de cuivre + emballage | 42,9 $ | 24 % | 16,0 % |
+| Aspirateurs | Électroménager | manuf. | moyenne | moteurs électriques + boîtiers et coques + câbles de cuivre + emballage | 31,8 $ | 24 % | 16,0 % |
+| Luminaires LED | Électronique | base | petite | éclairage led + boîtiers et coques | 7,6 $ | 29 % | 19,3 % |
+| Ordinateurs de bureau | Électronique | luxe | grande | cartes électroniques + écrans + boîtiers et coques + emballage | 186,4 $ | 48 % | 20,1 % |
+| Panneaux solaires | Électroménager | manuf. | grande | cellules photovoltaïques + acier + câbles de cuivre + emballage | 185,5 $ | 37 % | 15,8 % |
+| Canapés | Maison et meubles | manuf. | moyenne | mousse et rembourrage + tissu + planches + emballage | 40,3 $ | 24 % | 16,0 % |
+| Tables | Maison et meubles | base | petite | planches + fermetures et quincaillerie | 18,1 $ | 25 % | 19,1 % |
+| Armoires | Maison et meubles | manuf. | moyenne | planches + fermetures et quincaillerie + peintures et vernis + emballage | 46,3 $ | 23 % | 15,9 % |
+| Vaisselle en céramique | Maison et meubles | base | petite | céramique | 6,9 $ | 30 % | 19,4 % |
+| Livres et cahiers | Maison et meubles | base | petite | papier et carton + produits chimiques | 5,4 $ | 31 % | 19,5 % |
+| Vêtements de sport | Jouets et sport | manuf. | moyenne | textiles techniques + fermetures et quincaillerie + emballage | 21,7 $ | 26 % | 16,0 % |
+| Tentes et camping | Jouets et sport | manuf. | moyenne | textiles techniques + acier + emballage | 46,0 $ | 23 % | 15,9 % |
+| Vélos électriques | Jouets et sport | manuf. | moyenne | acier + moteurs électriques + batteries + emballage | 38,1 $ | 23 % | 15,9 % |
+| Poupées et peluches | Jouets et sport | base | petite | tissu + plastique | 7,2 $ | 30 % | 19,4 % |
+| Jouets électroniques | Jouets et sport | manuf. | moyenne | plastique + cartes électroniques + batteries + emballage | 16,1 $ | 27 % | 16,1 % |
+| Voitures | Auto et outils | luxe | grande | moteurs thermiques + châssis et carrosserie + pneus + emballage | 825,7 $ | 38 % | 19,0 % |
+| Scooters | Auto et outils | manuf. | moyenne | moteurs thermiques + châssis et carrosserie + pneus + emballage | 49,2 $ | 23 % | 15,9 % |
+| Lubrifiants et carburants | Auto et outils | base | petite | pétrole + produits chimiques + emballage | 11,9 $ | 24 % | 19,1 % |
+| Outillage à main | Auto et outils | manuf. | petite | acier + planches + emballage | 16,9 $ | 21 % | 15,9 % |
+| Outillage électroportatif | Auto et outils | manuf. | moyenne | moteurs électriques + batteries + boîtiers et coques + emballage | 25,5 $ | 26 % | 16,0 % |
+| Aliments pour animaux | Alimentation | base | petite | viandes + farine | 7,1 $ | 28 % | 19,2 % |
+
+EBITDA des 44 produits non pharmaceutiques : 15,8 % à 26,5 % (fourchette demandée 12-30 %). Antibiotiques (pharma) : marge brute 73 % (≥ 72 %), EBITDA 38,5 %. Les 35 produits d'origine gardent leurs EBITDA à ±0,1 point (12 témoins verrouillés par `t10_arbre`).
+
+Tables du modèle produit renseignées pour chacun : poids prix/qualité/marque (`PROD_W`), nécessité (`NECESS`), demande par habitant (`DEMAND_PC`), obsolescence (`OBSO`), technologies (`PROD_TECH`, `TECH_SHARE`), méga-classe de marque (`MEGA_OF` : alimentation et boissons, santé et beauté, mode, électronique, luxe, plus les nouvelles Électroménager, Maison et meubles, Sport et loisirs, Jouets, Auto et mobilité, Outils et bricolage), succession (`SUCC.desktop` : l'ordinateur de bureau cède 50 % de sa demande à l'ordinateur portable à partir du jour 1 080). Le poids de demande d'un produit dans sa classe (`typeW`) se calcule toujours sur les 35 produits d'origine (`LEGACY_P`) : ajouter des produits ne déplace pas la demande des anciens.
+
+**Familles d'affichage** (`FAM`, purement visuelles) : le catalogue d'usine et l'écran Produits regroupent les produits par famille (Alimentation, Boissons, Santé et beauté, Mode, Électronique, Électroménager, Maison et meubles, Jouets et sport, Auto et outils, Immobilier, Tes créations).
+
+**Vignettes** : 38 silhouettes SVG (`GLYPHS`) coloriées par produit (`GLY`), dans le repère 300×300 de `productSVG` et avec les trois gammes (premier prix, premium, haut de gamme : accent or et étoile). `productSVG` est mis en cache. Chaque produit a sa vignette ; le repli carton ne sert plus.
+
+### 2. Composeur de produits (catalogue d'usine, onglet « Composer »)
+
+Un **modèle** (16 : snack, boisson, jouet, meuble, vêtement, appareil, électronique grand public, beauté, outillage, équipement de sport, véhicule, luxe, maison et entretien, papeterie, animaux, parapharmacie) fixe la classe de vente, le niveau d'usine, le palier, le produit de référence pour la R&D et les poids de demande. Le joueur associe **1 à 3 composants** parmi les 53 matières et composants (ceux qu'il produit sont signalés, les autres s'achètent ou s'importent).
+
+- **Refus expliqués** : composant absent de la liste du modèle (« Produits chimiques ne convient pas pour une boisson : ce n'est ni comestible ni cosmétique… », « Minerai de fer est une matière brute : elle doit d'abord être transformée… »), absence d'ingrédient principal, 0 ou plus de 3 composants, doublon exact d'un produit déjà composé.
+- **Quantités** : dose du modèle × poids de l'emplacement (1 composant : 100 % ; 2 : 65/35 ; 3 : 50/30/20) × richesse (0,8 / 1 / 1,15 selon le nombre de composants) × (cours de référence / cours du bien)^0,5 : un bien cher se dose moins mais coûte plus.
+- **Qualité (0-100)** = Σ poids × noblesse du composant (28 + 15·ln(cours/5), 28 à 92) + **synergies** (chaque modèle a 5 à 8 paires qui rapportent +6 à +14 : « Cuir et mousse : fauteuil haut de gamme », « Écran piloté par une carte »…) + 3 pour trois composants − 4 pour un seul. Gamme obtenue d'emblée : < 42 premier prix, < 64 premium, sinon haut de gamme.
+- **Prix de référence** : même résolution `calProd` que le catalogue (`CALREF`), mais pour la gamme choisie (intrants et prix multipliés par les coefficients de gamme), donc l'EBITDA visé est tenu dans cette gamme : mesuré 15,9 % à 21,0 % sur 6 modèles de classes différentes (`t10_arbre`).
+- **R&D réduite proportionnelle à la nouveauté** : nouveauté = 1 − ressemblance maximale (indice de Jaccard sur les composants) avec les produits existants de la même classe ; R&D = R&D du produit de référence × (0,15 + 0,6 × nouveauté) × (0,9 + 0,1 × nombre de composants), durée de même ; une copie conforme d'un produit du catalogue ne coûte que 15 % de la R&D.
+- **Aperçu avant création** : qualité et gamme, prix de référence, coût d'intrants par unité, marge brute unitaire, marge par mois pour cette usine (`mj`), R&D et durée, nouveauté, synergies, quantités par cycle ; nom libre (nettoyé de tout HTML, 28 caractères, doublons numérotés) ou suggéré (« Vêtement tissu-cuir-fermetures »), 10 couleurs de vignette.
+- **« Créer et tout lancer »** enchaîne `cmpCreate` puis `easyLaunch` (R&D, affectation de l'usine, composants, sources automatiques) ; « Créer sans lancer » laisse le produit dans la liste. 12 produits composés au plus.
+
+Un produit composé est enregistré **comme un produit ordinaire** (`PRODUCTS`, `PKEYS`, tables de demande, vignette composée du glyphe du modèle et de la couleur choisie) : fiche produit, écran Produits, demande par classe, auto-production, double-clic (`quickProduce`) et tous les écrans le traitent sans cas particulier.
+
+**Sauvegarde** : v8 inchangée, un champ `cprod` s'ajoute (liste des définitions `{k, m, g, n, c, nov, day}`) ; le prix, les quantités et les tables sont recalculés au chargement par le même code, donc identiques. Une sauvegarde sans `cprod` se charge sans produit composé. `syncCustom` (appelé par la nouvelle partie et le chargement, avant `initProd`) vide puis recrée les produits composés. Déterminisme : aucune utilisation de `rnd()` ; les identifiants `cp1`, `cp2`… suivent l'ordre de création.
+
+### 3. Tests
+
+`tools/tests/t10_arbre.js` (31 contrôles, environ 70 s) : références et ordre des recettes, aucun cycle, 70-85 produits et 35-45 composants, 3 intrants au plus, vignette dédiée par produit, famille, tables du modèle ; EBITDA 12-30 % des 44 nouveaux produits non pharmaceutiques, pharmacie (MB ≥ 72 %), EBITDA inchangés de 12 produits d'origine ; composeur : 7 refus expliqués, synergies, 16 modèles viables, création, nom nettoyé, doublon, R&D réduite, lancement en un clic, EBITDA mesuré de 6 produits composés, vente en magasin, écran Produits, aller-retour de sauvegarde, ancienne sauvegarde sans `cprod`, déterminisme sur deux parties neuves, `quickProduce` sur les 82 produits (dont 3 composés). `isoFactory` accepte désormais un code de préparation (`preSrc`) pour mesurer un produit composé. Bilan complet : 124 PASS (93 existants + 31).
+
+**Limites** : lait, viandes et cuir viennent d'un élevage abstrait nourri au blé (pas de fermes d'élevage) ; la qualité d'un produit composé ne dépend que de ses composants et des synergies (pas de technologie propre à la création) ; la demande d'un produit composé repose sur la demande par habitant de son modèle ; `city.html` n'est pas reconstruit dans ces commits (`python3 tools/build.py`).
