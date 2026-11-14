@@ -257,3 +257,11 @@ Sources : USDA-ERS (pain/céréales ≈ −0,5 en moyenne, inélastique ; court 
 - Biens de base : −0,08 (court terme) → −0,3 (long terme) sans substitut ; si une alternative est en rayon, +0,25 → +0,8 de report.
 - Manufacturés : −0,4 → −1,0 (+ report 0,6 → 1,2). Luxe : effet Veblen (+0,3 de pente à court terme, +0,1 à long terme) jusqu'à +60 % de prix, puis chute.
 - Les habitudes s'ajustent en ~75 jours après chaque changement de prix (`trackPk`, `elF`).
+
+## Passe 8 : commerce moins rentable, usines génériques et luxe rééquilibrés
+
+- Commerce : marges de rayon `RETAIL_MK` ramenées à 1,72 / 1,78 / 2,15 (base / courant / luxe) et import magasin à ×1,12-1,20 : marge brute 30-39 %, EBITDA magasin 6-12 % (s1 à +6 % au lieu de −10 %, s1 et s2 agrandis, entretien de s1-s3 réduit).
+- Le prix de rayon n'agit plus qu'une fois : retiré de l'indice de fréquentation et de la capacité, prix relatif entre magasins dans `pw`, élasticité court/long terme (`elF`) sur le volume du magasin ; prix par produit plafonné à 150 % pour le basique ; bande Veblen du luxe réduite à +25 % avec érosion dans le temps.
+- Sensibilité au PIB de la demande : basique 0,5, courant 1, luxe 6.
+- Usines génériques : plancher de prix = coût réel des intrants + 8 %, ventes en magasin et exports comptés dans la demande, EBITDA cible relevé pour f1/f2 (≈ 13 %) ; la grande usine (f3) utilise peu de lingots et beaucoup de main-d'œuvre (marge brute ≈ 56 %), mines d'or plus productives.
+- Pharma : moitié moins de matière et frais généraux fixes (marge brute ≈ 79 %), salaires ×1,8 ; banque, tech, R&D et data center paient 1,3 à 2 fois plus ; CA tech et banque indexés sur l'inflation, intérêts bancaires plafonnés par la taille de la banque (plus sur toute la trésorerie), CA par employé tech ≈ 680 k€ et data center ≈ 760 k€.
