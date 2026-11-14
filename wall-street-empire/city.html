@@ -7459,9 +7459,10 @@ function mkPlanScene(c) {
   const d = PLAN_DIM[c.t], PW = d[0], PH = d[1], cs = 4.2, X0 = 2.8, Y0 = 1.6, BAY = 6.6;
   const GW = Math.ceil(X0 + PW * cs + BAY), GH = Math.ceil(Y0 + PH * cs + 1.4), wallH = 124;
   const tw = Math.min(56, Math.floor(2000 / (GW + GH + 3.5)) & ~1), oy = wallH + 18, WW = Math.ceil((GW + GH + 3.5) * tw / 2) + 28;
-  const BX = X0 + PW * cs + 0.4, sc = { kind: 'plan', time: 0, ph: 0, eff: 0, GW, GH, tw, ox: GH * tw / 2 + 14, oy, wallH, W: WW, H: Math.round(oy + (GW + GH) * tw / 4 + 34 + 56), PW, PH, cs, X0, Y0, BX, trucks: {}, ws: [], fx: [], hov: -1, hovO: '', T: TYPES[c.t], rnd: mkRnd(c.seed), bg: document.createElement('canvas'), recKey: (recOf(c) || EMPTY_REC).out, lvl: c.lvl || 0, qual: c.qual || 0, eff2: c.eff || 0, crewSig: '' };
+  const BX = X0 + PW * cs + 0.4, sc = { kind: 'plan', time: 0, ph: 0, eff: 0, GW, GH, tw, ox: GH * tw / 2 + 14, oy, wallH, W: WW, H: Math.round(oy + (GW + GH) * tw / 4 + 34 + 56), PW, PH, cs, X0, Y0, BX, trucks: {}, spr: {}, ws: [], fx: [], hov: -1, hovO: '', T: TYPES[c.t], rnd: mkRnd(c.seed), bg: document.createElement('canvas'), recKey: (recOf(c) || EMPTY_REC).out, lvl: c.lvl || 0, qual: c.qual || 0, eff2: c.eff || 0, crewSig: '' };
   sc.pod = [BX + (GW - BX - 0.4) / 2, 4.6]; sc.vit = [BX + 0.15, GW - 0.35, 14, wallH - 10];
   sc.bg.width = WW; sc.bg.height = sc.H; planBg(sc, sc.bg.getContext('2d'), c);
+  const hg = sc.halo = document.createElement('canvas'); hg.width = hg.height = 128; { const q = hg.getContext('2d'), gr = q.createRadialGradient(64, 64, 4, 64, 64, 64), nc = planNeon(c)[0]; gr.addColorStop(0, 'rgba(235,248,255,.55)'); gr.addColorStop(0.35, nc + '55'); gr.addColorStop(1, nc + '00'); q.fillStyle = gr; q.fillRect(0, 0, 128, 128); }
   return sc;
 }
 function planBg(sc, g, c) {
@@ -7502,6 +7503,12 @@ function planBg(sc, g, c) {
     sbox(g, sc, l[0], l[1], l[2], 0.4, wh - 4, '#f4f8ff', '#cfd8ee', '#9aa6c8', wh - 8);
   });
 }
+function planSprite(sc, key, fn) {   // partie statique d'une case, dessinée une fois dans un canevas puis recopiée à chaque image
+  let sp = sc.spr[key];
+  if (!sp) { const cv = document.createElement('canvas'); cv.width = Math.ceil(sc.cs * sc.tw + 24); cv.height = Math.ceil(sc.cs * sc.tw / 2 + 150); const s2 = { ox: sc.cs * sc.tw / 2 + 12, oy: 136, tw: sc.tw }; fn(cv.getContext('2d'), s2); sp = sc.spr[key] = { cv, ox: s2.ox, oy: s2.oy }; }
+  return sp;
+}
+function planBlit(g, sc, key, x, y, fn) { const sp = planSprite(sc, key, fn), p = isoP(sc, x, y, 0); g.drawImage(sp.cv, Math.round(p[0] - sp.ox), Math.round(p[1] - sp.oy)); }
 function planFx(sc, i, txt, col, n) {   // effet de pose / retrait sur une case : étincelles et texte flottant
   if (!sc || sc.kind !== 'plan') return; const q = i % sc.PW, r = (i / sc.PW) | 0, x = sc.X0 + q * sc.cs + sc.cs / 2, y = sc.Y0 + r * sc.cs + sc.cs / 2, rnd = sc.rnd;
   sc.fx.push({ x, y, t: 0, txt, col }); for (let j = 0; j < (n || 18); j++) sc.fx.push({ x: x + (rnd() - 0.5) * 2, y: y + (rnd() - 0.5) * 2, z: 10, vz: 30 + rnd() * 70, vx: (rnd() - 0.5) * 3, vy: (rnd() - 0.5) * 3, t: 0, col: j % 2 ? col : '#fff6b0', sp: 1 });
@@ -7573,7 +7580,7 @@ function drawVitrine(g, sc, c, rec, t) {   // panneau lumineux du produit, fixé
   quad(g, [f(-3, -3), f(W + 3, -3), f(W + 3, H + 3), f(-3, H + 3)], '#0b0f2c', neon);
   g.save(); g.translate(a[0], a[1]); g.transform(1, 0.5, 0, 1, 0, 0);
   const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#1d2a66'); gr.addColorStop(1, '#0a0e2a'); g.fillStyle = gr; rrect(g, 0, 0, W, H, 6); g.fill();
-  g.shadowColor = neon; g.shadowBlur = 8; g.strokeStyle = neon; g.lineWidth = 2; rrect(g, 1, 1, W - 2, H - 2, 6); g.stroke(); g.shadowBlur = 0;
+  g.strokeStyle = neon; g.lineWidth = 2; rrect(g, 1, 1, W - 2, H - 2, 6); g.stroke();
   const fit = (txt, fs, mw, wgt) => { g.font = (wgt || 800) + ' ' + fs + 'px sans-serif'; while (g.measureText(txt).width > mw && fs > 8) { fs--; g.font = (wgt || 800) + ' ' + fs + 'px sans-serif'; } };
   g.textAlign = 'left'; g.fillStyle = neon; fit('PRODUIT VEDETTE', 11, W - 12, 700); g.fillText('PRODUIT VEDETTE', 8, 14);
   if (!has) { g.fillStyle = '#e9edff'; fit('Aucun produit', 17, W - 14); g.fillText('Aucun produit', 8, 38); g.fillStyle = '#9fb0e0'; fit('Choisis-en un', 13, W - 14, 600); g.fillText('Choisis-en un', 8, 56); g.fillStyle = neon; rrect(g, 8, H - 28, W - 16, 20, 6); g.fill(); g.fillStyle = '#0b0f2c'; g.textAlign = 'center'; fit('CATALOGUE', 12, W - 26); g.fillText('CATALOGUE', W / 2, H - 13); }
@@ -7594,14 +7601,14 @@ function drawPlan(sc, c, g) {
   // podium du produit-vedette
   objs.push({ k: sc.pod[0] + sc.pod[1] + 1, f: () => {
     const px = sc.pod[0], py = sc.pod[1], pp = P(px, py, 0), rr = 2.1;
-    const gl = g.createRadialGradient(pp[0], pp[1], 4, pp[0], pp[1], rr * sc.tw * 0.8); gl.addColorStop(0, 'rgba(160,220,255,.4)'); gl.addColorStop(1, 'rgba(160,220,255,0)'); g.save(); g.translate(pp[0], pp[1]); g.scale(1, 0.5); g.translate(-pp[0], -pp[1]); g.fillStyle = gl; g.beginPath(); g.arc(pp[0], pp[1], rr * sc.tw * 0.8, 0, 7); g.fill(); g.restore();
+    { const rw = rr * sc.tw * 1.7; g.drawImage(sc.halo, pp[0] - rw / 2, pp[1] - rw / 4, rw, rw / 2); }
     cbox(g, sc, px - rr, py - rr, rr * 2, rr * 2, 6, '#252b52', 0);
     quad(g, [P(px - rr + 0.2, py - rr + 0.2, 6.1), P(px + rr - 0.2, py - rr + 0.2, 6.1), P(px + rr - 0.2, py + rr - 0.2, 6.1), P(px - rr + 0.2, py + rr - 0.2, 6.1)], '#161a3a', neon);
-    g.save(); g.strokeStyle = neon; g.lineWidth = 2.2; g.shadowColor = neon; g.shadowBlur = 10; g.setLineDash([10, 8]); g.lineDashOffset = -t * 26; g.beginPath(); g.ellipse(pp[0], pp[1] - 6, 1.55 * sc.tw * 0.707, 1.55 * sc.tw * 0.354, 0, 0, 7); g.stroke(); g.restore();
+    g.save(); g.strokeStyle = neon; g.lineWidth = 2.2; g.setLineDash([10, 8]); g.lineDashOffset = -t * 26; g.beginPath(); g.ellipse(pp[0], pp[1] - 6, 1.55 * sc.tw * 0.707, 1.55 * sc.tw * 0.354, 0, 0, 7); g.stroke(); g.restore();
     if (rec.out) {
       const bob = Math.sin(t * 1.6) * 4, sz = 118 * k, cp = P(px, py, 66 + bob), tp = P(px, py, 150);
       g.save(); const cone = g.createLinearGradient(0, tp[1], 0, pp[1]); cone.addColorStop(0, 'rgba(200,230,255,0)'); cone.addColorStop(1, 'rgba(200,230,255,.16)'); g.fillStyle = cone; g.beginPath(); g.moveTo(tp[0] - 8, tp[1]); g.lineTo(tp[0] + 8, tp[1]); g.lineTo(pp[0] + 1.7 * sc.tw * 0.7, pp[1] - 6); g.lineTo(pp[0] - 1.7 * sc.tw * 0.7, pp[1] - 6); g.fill(); g.restore();
-      g.save(); g.translate(cp[0], cp[1]); g.rotate(Math.sin(t * 0.9) * 0.06); g.scale(1 - 0.07 * Math.abs(Math.sin(t * 0.9)), 1); g.shadowColor = neon; g.shadowBlur = 16; drawProd(g, rec.out, 0, 0, sz); g.restore();
+      g.save(); g.translate(cp[0], cp[1]); g.rotate(Math.sin(t * 0.9) * 0.06); g.scale(1 - 0.07 * Math.abs(Math.sin(t * 0.9)), 1); g.drawImage(sc.halo, -sz * 0.85, -sz * 0.85, sz * 1.7, sz * 1.7); drawProd(g, rec.out, 0, 0, sz); g.restore();
       for (let j = 0; j < 5; j++) { const a = t * 1.1 + j * 1.3, m = (t * 18 + j * 17) % 60, sp = P(px + Math.cos(a) * 1.5, py + Math.sin(a) * 1.5, 14 + m); g.fillStyle = 'rgba(255,246,176,' + (0.7 - m / 90) + ')'; g.fillRect(sp[0], sp[1], 2.4, 2.4); }
     } else { g.fillStyle = 'rgba(255,255,255,.55)'; g.font = '800 ' + Math.round(30 * ls) + 'px sans-serif'; g.textAlign = 'center'; const cp = P(px, py, 40); g.fillText('?', cp[0], cp[1]); }
     const lp = P(px, py + rr - 0.1, 0), tx = rec.out ? gName(rec.out).toUpperCase() : 'AUCUN PRODUIT'; g.font = '800 ' + Math.round(10.5 * ls) + 'px sans-serif'; const w = g.measureText(tx).width + 14 * ls; g.fillStyle = 'rgba(11,15,44,.85)'; rrect(g, lp[0] - w / 2, lp[1] + 2, w, 15 * ls, 5); g.fill(); g.fillStyle = neon; g.textAlign = 'center'; g.fillText(tx, lp[0], lp[1] + 13 * ls);
@@ -7619,10 +7626,10 @@ function drawPlan(sc, c, g) {
     if (!u) return;
     if (u === 'buy') {
       objs.push({ k: cx + cy - 0.5, f: () => {
-        [[0.5, 0.6], [1.9, 0.6], [2.9, 0.6]].forEach((o, j) => { const px = x + o[0] + 0.1, py = y + o[1] + 0.1; palette(g, sc, px + 0.45, py + 0.45); const n = 2 + (j % 2) + (act ? 0 : 1); for (let z = 0; z < n; z++) fItem(g, sc, inShape(j + z), px + 0.3 + (z % 2) * 0.3, py + 0.45, 4 + Math.floor(z / 2) * 12, inCol(j + z)); });
-        cbox(g, sc, x + 0.3, y + 2.0, cs - 0.6, 0.45, 5, '#262b4c', 2);   // rouleau d'entrée vers la fabrication
+        planBlit(g, sc, 'by' + ins.join('.') + (act ? 1 : 0), x, y, (g2, s2) => {
+          [[0.5, 0.6], [1.9, 0.6], [2.9, 0.6]].forEach((o, j) => { const px = o[0] + 0.1, py = o[1] + 0.1; palette(g2, s2, px + 0.45, py + 0.45); const n = 2 + (j % 2) + (act ? 0 : 1); for (let z = 0; z < n; z++) fItem(g2, s2, inShape(j + z), px + 0.3 + (z % 2) * 0.3, py + 0.45, 4 + Math.floor(z / 2) * 12, inCol(j + z)); });
+          cbox(g2, s2, 0.3, 2.0, cs - 0.6, 0.45, 5, '#262b4c', 2); const q = (a2, b2, c2) => isoP(s2, a2, b2, c2); quad(g2, [q(cs - 0.35, 2.0, 5.2), q(cs - 0.05, 2.22, 5.2), q(cs - 0.35, 2.45, 5.2)], '#3fd8ff'); });   // rouleau d'entrée vers la fabrication
         if (act) for (let j = 0; j < 4; j++) { const xs = x + 0.5 + ((j * 0.95 + t * 1.2) % (cs - 1.2)); fItem(g, sc, 'crate', xs, y + 2.22, 5, inCol(j)); }
-        quad(g, [P(x + cs - 0.35, y + 2.0, 5.2), P(x + cs - 0.05, y + 2.22, 5.2), P(x + cs - 0.35, y + 2.45, 5.2)], '#3fd8ff');
       } });
       const tk = sc.trucks['b' + i]; if (tk) objs.push({ k: cx + cy + 1 - tk.d * 3, f: () => {
         const ty = y + 3.3, tx = x + 1.5 - tk.d * tk.R; g.globalAlpha = clamp(1.25 - tk.d * 1.2, 0.04, 1);
@@ -7633,25 +7640,28 @@ function drawPlan(sc, c, g) {
       } });
     } else if (u === 'stock') {
       objs.push({ k: cx + cy, f: () => {
-        const lvl = clamp(0.25 + 0.75 * Math.min(1, ins.length ? Math.min(...ins.map(gk => S.stock[gk] / 2500)) : (GOODS[rec.out] ? S.stock[rec.out] / 2500 : 0.3)), 0, 1);
-        [0.8, 2.4].forEach((oy2, ri) => { cbox(g, sc, x + 0.5, y + oy2, cs - 1.0, 0.18, 52, '#4a5382', 0); [0, 1].forEach(s => cbox(g, sc, x + 0.5 + s * (cs - 1.15), y + oy2, 0.15, 0.7, 54, '#6a7399', 0)); [14, 28, 42].forEach((z, zi) => { cbox(g, sc, x + 0.5, y + oy2, cs - 1.0, 0.7, z, '#6a7399', z - 1.5); for (let b = 0; b < 4; b++) if ((b + zi + ri) / 12 < lvl + 0.25) cbox(g, sc, x + 0.75 + b * 0.75, y + oy2 + 0.1, 0.6, 0.5, z + 8, b % 2 ? '#c99a5a' : '#b98a54', z); }); });
+        const lvl = clamp(0.25 + 0.75 * Math.min(1, ins.length ? Math.min(...ins.map(gk => S.stock[gk] / 2500)) : (GOODS[rec.out] ? S.stock[rec.out] / 2500 : 0.3)), 0, 1), lq = Math.round(lvl * 6) / 6;
+        planBlit(g, sc, 'sk' + lq, x, y, (g2, s2) => { [0.8, 2.4].forEach((oy2, ri) => { cbox(g2, s2, 0.5, oy2, cs - 1.0, 0.18, 52, '#4a5382', 0); [0, 1].forEach(s3 => cbox(g2, s2, 0.5 + s3 * (cs - 1.15), oy2, 0.15, 0.7, 54, '#6a7399', 0)); [14, 28, 42].forEach((z, zi) => { cbox(g2, s2, 0.5, oy2, cs - 1.0, 0.7, z, '#6a7399', z - 1.5); for (let b = 0; b < 4; b++) if ((b + zi + ri) / 12 < lq + 0.25) cbox(g2, s2, 0.75 + b * 0.75, oy2 + 0.1, 0.6, 0.5, z + 8, b % 2 ? '#c99a5a' : '#b98a54', z); }); }); });
       } });
     } else if (u === 'make') {
       objs.push({ k: cx + cy + 0.5, f: () => {
         const bx = x + 0.6, by = y + 0.5, w = cs - 1.2, hh = w - 0.4;
-        cbox(g, sc, bx, by, w, hh, 8, '#2c3258', 0);
+        if (fk !== 'furnace' && fk !== 'press' && fk !== 'saw') planBlit(g, sc, 'ma' + (GOODS[rec.out] ? GOODS[rec.out].color : '') + lv, x, y, (g2, s2) => { const bx2 = 0.6, by2 = 0.5; cbox(g2, s2, bx2, by2, w, hh, 8, '#2c3258', 0); cbox(g2, s2, bx2 + 0.25, by2 + 0.25, w - 0.5, hh - 0.5, 34, '#4a5382', 8); cbox(g2, s2, bx2 + 0.7, by2 + 0.7, w - 1.4, hh - 1.4, 50 + lv * 2, GOODS[rec.out] ? GOODS[rec.out].color : '#46d39a', 34); });
+        else cbox(g, sc, bx, by, w, hh, 8, '#2c3258', 0);
         if (fk === 'furnace') { cbox(g, sc, bx + 0.2, by + 0.2, w - 0.4, hh - 0.4, 46, '#c4664a', 8); const fl = act ? 0.75 + 0.25 * Math.sin(t * 14) : 0.2; quad(g, [P(bx + 0.7, by + hh - 0.2, 34), P(bx + w - 0.7, by + hh - 0.2, 34), P(bx + w - 0.7, by + hh - 0.2, 14), P(bx + 0.7, by + hh - 0.2, 14)], `rgba(255,150,50,${fl})`); cyl(g, sc, bx + w - 0.7, by + 0.7, 0.35, 46, 80, '#4a5382'); }
         else if (fk === 'press' || fk === 'saw') { cbox(g, sc, bx + 0.2, by + 0.2, w - 0.4, hh - 0.4, 22, '#6a7399', 8); const dz = act ? 0.5 + 0.5 * Math.sin(ph * 3) : 0.1; cbox(g, sc, bx + 0.7, by + 0.7, w - 1.4, hh - 1.4, 40 + dz * 16, '#c9cfe8', 30 + dz * 16); [[bx + 0.2, by + 0.2], [bx + w - 0.5, by + 0.2], [bx + 0.2, by + hh - 0.5], [bx + w - 0.5, by + hh - 0.5]].forEach(p => cbox(g, sc, p[0], p[1], 0.3, 0.3, 60, '#8f9acb', 22)); }
-        else { cbox(g, sc, bx + 0.25, by + 0.25, w - 0.5, hh - 0.5, 34, '#4a5382', 8); cbox(g, sc, bx + 0.7, by + 0.7, w - 1.4, hh - 1.4, 50 + lv * 2, GOODS[rec.out] ? GOODS[rec.out].color : '#46d39a', 34); const pz = P(bx + w - 0.4, by + hh - 0.1, 24); g.fillStyle = '#12163a'; g.fillRect(pz[0] - 9, pz[1] - 9, 18, 12); g.fillStyle = lamp; g.fillRect(pz[0] - 6, pz[1] - 6, 5, 5); onY(g, sc, bx + w / 2, by + hh, 30, () => { g.rotate(ph * 2); gear(g, 7, 10, '#e9edff', '#8f9acb'); }); }
-        for (let j = 0; j <= Math.min(3, lv); j++) { const lp2 = P(bx + 0.25 + j * 0.55, by + hh + 0.02, 9); g.fillStyle = neon; g.shadowColor = neon; g.shadowBlur = 6; g.fillRect(lp2[0] - 5, lp2[1] - 2, 10, 3); g.shadowBlur = 0; }   // un liseré néon par niveau d'atelier
+        else { const pz = P(bx + w - 0.4, by + hh - 0.1, 24); g.fillStyle = '#12163a'; g.fillRect(pz[0] - 9, pz[1] - 9, 18, 12); g.fillStyle = lamp; g.fillRect(pz[0] - 6, pz[1] - 6, 5, 5); onY(g, sc, bx + w / 2, by + hh, 30, () => { g.rotate(ph * 2); gear(g, 7, 10, '#e9edff', '#8f9acb'); }); }
+        for (let j = 0; j <= Math.min(3, lv); j++) { const lp2 = P(bx + 0.25 + j * 0.55, by + hh + 0.02, 9); g.fillStyle = neon; g.fillRect(lp2[0] - 5, lp2[1] - 2, 10, 3); }   // un liseré néon par niveau d'atelier
         const lp = P(bx + w - 0.3, by + hh - 0.3, 50); g.fillStyle = lamp; g.beginPath(); g.arc(lp[0], lp[1], 3.4 * k + 0.8, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,.6)'; g.stroke();
         if (act && rec.out) { const o = (t * 0.7) % 1, op = P(bx + w + 0.2 + o * 0.5, by + hh / 2, 12 + (1 - o) * 8); g.save(); g.globalAlpha = 1 - o; drawProd(g, rec.out, op[0], op[1], 22 * k + 6); g.restore(); }   // le produit sort de la machine
       } });
     } else if (u === 'sell') {
       objs.push({ k: cx + cy - 0.5, f: () => {
-        cbox(g, sc, x + 0.3, y + 0.3, cs - 0.6, cs - 0.6, 3, '#3a3f5e', 0);   // quai
-        for (let j = 0; j < 7; j++) quad(g, [P(x + 0.4 + j * 0.5, y + cs - 0.45, 3.2), P(x + 0.65 + j * 0.5, y + cs - 0.45, 3.2), P(x + 0.65 + j * 0.5, y + cs - 0.3, 3.2), P(x + 0.4 + j * 0.5, y + cs - 0.3, 3.2)], j % 2 ? '#f2b84b' : '#262b4c');
-        [[0.5, 0.7], [0.5, 2.1]].forEach((o, pi) => { palette(g, sc, x + o[0] + 0.45, y + o[1] + 0.45); const n = clamp(Math.round((c.out || 0) / Math.max(1, rec.qty * 6) * 5) + 2 - pi, 1, 6); for (let z = 0; z < n; z++) fItem(g, sc, 'carton', x + o[0] + 0.28 + (z % 2) * 0.34, y + o[1] + 0.45, 4 + Math.floor(z / 2) * 12, ocol, pimg); });
+        const n0 = clamp(Math.round((c.out || 0) / Math.max(1, rec.qty * 6) * 5) + 2, 1, 6), n1 = clamp(n0 - 1, 1, 6);
+        planBlit(g, sc, 'sl' + n0 + (pimg ? rec.out + S.prod[rec.out].q : '') + ocol, x, y, (g2, s2) => {
+          cbox(g2, s2, 0.3, 0.3, cs - 0.6, cs - 0.6, 3, '#3a3f5e', 0);   // quai
+          const q = (a2, b2, c2) => isoP(s2, a2, b2, c2); for (let j = 0; j < 7; j++) quad(g2, [q(0.4 + j * 0.5, cs - 0.45, 3.2), q(0.65 + j * 0.5, cs - 0.45, 3.2), q(0.65 + j * 0.5, cs - 0.3, 3.2), q(0.4 + j * 0.5, cs - 0.3, 3.2)], j % 2 ? '#f2b84b' : '#262b4c');
+          [[0.5, 0.7, n0], [0.5, 2.1, n1]].forEach(o => { palette(g2, s2, o[0] + 0.45, o[1] + 0.45); for (let z = 0; z < o[2]; z++) fItem(g2, s2, 'carton', o[0] + 0.28 + (z % 2) * 0.34, o[1] + 0.45, 4 + Math.floor(z / 2) * 12, ocol, pimg); }); });
       } });
       const tk = sc.trucks['s' + i];
       if (tk) objs.push({ k: cx + cy + 1.2 + tk.d * 2, f: () => {
@@ -9683,7 +9693,7 @@ setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
 const tileToScreen = (x, y) => { const c = iso(x + 0.5, y + 0.5), r = cvs.getBoundingClientRect(); return { x: r.left + vx + (c.x - cam.x) * z, y: r.top + vy + (c.y - cam.y) * z }; };
-window.WSE = { CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 })();
 </script>
 </body>
