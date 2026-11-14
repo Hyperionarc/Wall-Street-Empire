@@ -12,6 +12,7 @@ function vals(text, label, opt = {}) {
   }
   return out;
 }
+const toN = s => parseFloat(String(s).replace(/[\s\u202f\u00a0]/g, '').replace(',', '.').replace('−', '-'));
 const MONEY_TOL = 0.01;
 function agree(vs) { const ref = vs[0].v; return vs.every(x => Number.isFinite(x.v) && Math.abs(x.v - ref) <= Math.max(2, Math.abs(ref) * MONEY_TOL)); }
 const show = vs => vs.map(x => `${x.s}=${Number.isFinite(x.v) ? Math.round(x.v * 100) / 100 : 'absent'}`).join(' | ');
@@ -67,10 +68,14 @@ exports.run = async (t, L) => {
   }
   t.check('stocks de biens : écart <= 1 % entre état, Empire et Bourse', stockBad.length === 0, stockBad.slice(0, 4).join(' | '));
   t.check('prix des biens : écart <= 1 % entre état, Empire et Bourse', priceBad.length === 0, priceBad.slice(0, 4).join(' | '));
+  // 7b. Production quotidienne par bien (Empire, « Produit/j ») vs somme des extracteurs du joueur (pas d'offre PNJ comptée)
+  const ext = await pg.evaluate(() => { const W = window.WSE, S = W.S, N = W.N, o = {}; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.x + c.y * N === i && W.TYPES[c.t] && W.TYPES[c.t].ext) { const g = W.TYPES[c.t].ext; o[g] = (o[g] || 0) + (c.out || 0); } } return o; });
+  const prodBad = [];
+  for (const k of Object.keys(gl)) { if (!(k in ext)) continue; const mE = E.match(new RegExp(gl[k] + '\\t([\\d.,\\s\\u202f\\u00a0]+?)\\t')); const sh = mE ? toN(mE[1]) : NaN; if (!(Math.abs(sh - ext[k]) <= Math.max(1, ext[k] * 0.01))) prodBad.push(`${k}: Empire ${sh} / Σ extracteurs ${ext[k].toFixed(1)}`); }
+  t.check('Empire « Produit/j » = production des extracteurs du joueur (hors offre PNJ)', prodBad.length === 0, prodBad.slice(0, 4).join(' | '));
   // 8. Population
   rep('population', [{ s: 'état', v: C.pop }, { s: 'HUD', v: pn(C.hud.pop) }, ...vals(E, /^Habitants/i).slice(0, 1).map(v => ({ s: 'Empire', v })), ...(() => { const m = Mk.match(/([\d\s  ]+)\s*habitants ×/); return m ? [{ s: 'Bourse', v: parseFloat(m[1].replace(/[\s  ]/g, '')) }] : []; })()]);
   // 9. Fiche produit d'un magasin vs écran Produits (mêmes définitions : prix, moyenne, marque, qualité, note globale)
-  const toN = s => parseFloat(String(s).replace(/[\s  ]/g, '').replace(',', '.').replace('−', '-'));
   const fiche = await pg.evaluate(() => { const W = window.WSE, S = W.S, N = W.N; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 's2' && c.x + c.y * N === i && c.conn) { W.openBuilding(c.x, c.y); return document.getElementById('bview').innerText; } } return ''; });
   const fm = fiche.match(/\n([^\n]+?) · ([\d,]+) \$\nfiche produit([\s\S]*?)Voir les parts de marché/);
   if (!fm) t.check('fiche produit de magasin trouvée', false, 'bloc « fiche produit » absent');
