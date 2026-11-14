@@ -957,6 +957,7 @@ const TYPES = {
   s3:      { name: 'Hypermarché',   sub: 'Tout + luxe',     cost: 12000, color: '#ff4fa3', jobs: 35, upkeep: 10, w: 2, h: 2, tier: 2, ret: { cap: 300, sells: ['basic', 'std', 'lux'] } },
   port:    { name: 'Terminal portuaire', sub: 'Export à bon prix', cost: 9000, color: '#5fb0ff', jobs: 30, upkeep: 8, w: 2, h: 2 },
   off:     { name: 'Tour de location', sub: 'Bureaux à louer', cost: 24000000, color: '#8fd0ff', jobs: 10, upkeep: 28000, tier: 1 },
+  tv:      { name: 'Station média', sub: 'Télé et radio : publicité', cost: 18000000, color: '#ff9bd0', jobs: 30, upkeep: 6000, tier: 1 },
   sport:   { name: 'Équipement sportif', sub: 'Attractivité du quartier', cost: 3000000, color: '#7fe0a0', jobs: 3, upkeep: 2500, tier: 1 },
   npc:     { name: 'Immeuble',      sub: 'Ville existante', cost: 0,     color: '#8f9acb', jobs: 0,  upkeep: 0 }
 };
@@ -1338,7 +1339,7 @@ const ICONS = {
   up:   '<path d="M12 20V5M6 11l6-6 6 6"/><path d="M5 20h14"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const ICON_OF = { off: 'tech', sport: 'res', s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+const ICON_OF = { tv: 'bank', off: 'tech', sport: 'res', s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
@@ -1347,7 +1348,7 @@ const TOOL_META = {
   bull: { name: 'Démolir', sub: 'Gratuit', color: '#ff5a5f' }
 };
 const CATS = [
-  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'off', 'bank', 'sport', 'hq', 'rd', 'dc', 'buyout'] },
+  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'off', 'bank', 'sport', 'tv', 'hq', 'rd', 'dc', 'buyout'] },
   { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'road', 'link'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'btp'] },
@@ -1356,7 +1357,7 @@ const CATS = [
 ];
 // Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
 const FAMS = {
-  ville: [['Habitat', ['res', 'sport']], ['Bureaux', ['tech', 'off', 'bank']], ['Direction', ['hq', 'rd', 'dc']], ['Rachat', ['buyout']]],
+  ville: [['Habitat', ['res', 'sport']], ['Médias', ['tv']], ['Bureaux', ['tech', 'off', 'bank']], ['Direction', ['hq', 'rd', 'dc']], ['Rachat', ['buyout']]],
   agri: [['Fermes', ['fwheat', 'fsugar', 'fcotton', 'frubber']], ['Accès', ['road', 'link']]],
   extr: [['Énergie', ['well', 'mcoal', 'pipeline']], ['Métaux', ['miron', 'mcopper', 'mgold']], ['Bois', ['logging']], ['Accès', ['road', 'link']]],
   btp: [['Carrières', ['qgravel', 'qsand', 'qlime']], ['Chantiers', ['btp']]],
@@ -1453,7 +1454,7 @@ function mkCell(t, seed) {
   let floors = 1;
   if (t === 'res') floors = 1 + Math.floor(seed * 3.99) % 3;
   if (t === 'tech') floors = 5 + Math.floor(seed * 2.99);
-  if (t === 'off') floors = 6 + Math.floor(seed * 2.99); if (t === 'sport') floors = 1;
+  if (t === 'off') floors = 6 + Math.floor(seed * 2.99); if (t === 'sport') floors = 1; if (t === 'tv') floors = 2 + Math.floor(seed * 1.99);
   if (t === 'bank') floors = 3 + Math.floor(seed * 1.99);
   if (t === 'rd') floors = 4; if (t === 'dc') floors = 3;
   if (t === 'hq') floors = 7 + Math.floor(seed * 2.99);
@@ -1615,6 +1616,7 @@ function cellExtra(c) {
   if (c.inv) { const iv = {}; Object.keys(c.inv).forEach(g => { if (c.inv[g] > 0.5) iv[g] = Math.round(c.inv[g]); }); if (Object.keys(iv).length) o.inv = iv; }
   if (c.alertUntil > 0) o.al = c.alertUntil | 0;
   if (c.rent != null && Math.abs(c.rent - 1) > 1e-3) o.rn = +c.rent.toFixed(3);
+  if (c.mr != null && Math.abs(c.mr - 1) > 1e-3) o.mb = +c.mr.toFixed(3); if (c.adp != null && Math.abs(c.adp - 1) > 1e-3) o.ap = +c.adp.toFixed(3);
   if (c.lp) { o.lp = Math.round(c.lp); o.lpm = +(c.lpm || 1).toFixed(4); }
   if (c.pkd) { const pd = {}; Object.keys(c.pkd).forEach(k => { if (c.pk && c.pk[k]) pd[k] = Math.min(400, c.pkd[k].d | 0); }); if (Object.keys(pd).length) o.pd = pd; }
   return Object.keys(o).length ? o : 0;
@@ -1640,7 +1642,7 @@ function load() {
       if (!TYPES[r[0]]) return null;
       const c = mkCell(r[0], r[1]); c.lvl = clamp(r[2] | 0, 0, 4); if (r[3]) c.floors = r[3]; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
       if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3); if (r[19] && typeof r[19] === 'object') c.src = r[19];
-      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; } }
+      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.mb != null) c.mr = clamp(+e.mb, 0, 3); if (e.ap != null) c.adp = clamp(+e.ap || 1, 0.4, 2); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; } }
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
@@ -2608,6 +2610,7 @@ function step() {
       mwh *= loss; S._pSup += mwh; c.pRev = mwh * (S.power ? S.power.price : ELEC_BASE) * (casteIs('negociant') ? 1.3 : 1); revTech += c.pRev;
     }
     if (c.t === 'off') revTech += stepRent(c);
+    if (c.t === 'tv') { if (!S._mediaDay || S._mediaDay !== S.day) { S._mediaDay = S.day; stepMedia(buildings.filter(b => b.t === 'tv' && b.conn)); } revTech += c.pRev || 0; importCost += c._mbc || 0; }
     if (c.t === 'tech') { c.pRev = jobsOf(c) * 1650 * (0.3 + 0.7 * fill) * qualMult(c) * mult * cpi(); revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = (TYPES.bank.jobs * levelMult(c) * crewEff(c) * 1500 + Math.min(Math.max(0, S.cash - (S.loan || 0)), TYPES.bank.jobs * levelMult(c) * crewEff(c) * 4e6) * 0.0001) * qualMult(c) * cpi(); revBank += c.pRev; }   // intérêts sur un encours de prêts plafonné par la taille de la banque (≈ 4 M$ de crédits par employé), pas sur toute la trésorerie
     if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && !T.ext && !T.rec && !T.ret) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
@@ -2647,7 +2650,7 @@ function step() {
     const up = (T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))) + phOvh(c)) * cpi();
     // Séparation : production valorisée interne (mines, usines : non encaissée) / chiffre d'affaires encaissé ; intrants importés (décaissés) / prélevés sur stock local (transfert interne)
     c.pInt = (T.ext || T.rec) ? c.pRev : 0;
-    { const ip = T.ret ? (c._inImpR || 0) : c.t === 'wh' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
+    { const ip = T.ret ? (c._inImpR || 0) : c.t === 'wh' || c.t === 'tv' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
     REC.pInt += c.pInt; REC.pCash += c.pRev - c.pInt; REC.inImp += c.inImp; REC.inLoc += c.inLoc; REC.wag += c.wages; REC.upk += up; REC.tra += c.transport; REC.ad += c.adCost || 0;
     c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
     c.profit = c.pRev - c.cost;
@@ -2786,7 +2789,7 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && T.tier && tierNow() < T.tier);
 }
-const ZONE_NEED = { off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
+const ZONE_NEED = { tv: 1, off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
 ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
 const zoneOk = (key, z) => (key === 'pylon' || key === 'cable') ? (z === 0 || z === 2 || z === 4) : z === ZONE_NEED[key];
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Zone industrielle du port uniquement : usines et fonderie se construisent près du port.', 4: 'Les terminaux portuaires se construisent sur le quai.' };
@@ -4270,10 +4273,27 @@ function stepRent(c) {
   c.pRev = fl * RENT_BASE * A.attr * cpi() * c._occ * c._rEff * qualMult(c) * fillS; c.out = fl * c._occ; c.util = c._occ;
   return c.pRev;
 }
+/* ---------- Médias : audience, budget de contenu, prix de la publicité ---------- */
+const mediaNeed = () => 0.0065 * Math.pow(Math.max(1000, S.pop || 0), 1.05) * K_SIZE;   // budget de contenu par jour pour une qualité ≈ 63 % : une grande ville coûte plus cher (rendements décroissants)
+const RIV_Q = [0.52, 0.4];                          // chaînes concurrentes de la ville
+function mediaStations() { const a = []; eachBuilding(c => { if (c.t === 'tv' && c.conn) a.push(c); }); return a; }
+function mediaQ(c) { const mb = (c.mr == null ? 1 : c.mr) * mediaNeed(); return clamp(1 - Math.exp(-mb / mediaNeed()), 0.04, 0.98); }
+function stepMedia(list) {
+  let totAttr = RIV_Q.reduce((a, q) => a + Math.pow(q, 1.6), 0); list.forEach(c => { c._q = mediaQ(c); totAttr += Math.pow(c._q, 1.6); });
+  const reach = (S.pop || 0) * 0.55, shops = Math.min(1.4, 0.5 + 0.02 * (S.stats && S.stats.cn ? (S.stats.cn.s1 + S.stats.cn.s2 * 2 + S.stats.cn.s3 * 3) : 0)), corp = 0.55 + 0.12 * Math.min(4, (S.rivals || []).length);
+  list.forEach(c => {
+    const rating = Math.pow(c._q, 1.6) / totAttr, aud = reach * rating, adp = clamp(c.adp == null ? 1 : c.adp, 0.4, 2);
+    const fl = clamp(1.05 - 1.6 * (adp - 1), 0.05, 1), fc = clamp(1 - 0.9 * (adp - 1), 0.05, 1) * (rating >= 0.2 ? 1 : 0.55 + 2.25 * rating);   // clients locaux très sensibles au prix ; annonceurs nationaux exigent de l'audience
+    const rl = aud * 0.068 * K_SIZE * cpi() * shops * fl * adp, rc = aud * 0.083 * K_SIZE * cpi() * corp * fc * adp;
+    c._rating = rating; c._aud = aud; c._fl = fl; c._fc = fc; c._rl = rl; c._rc = rc;
+    const mb = ((c.mr == null ? 1 : c.mr) * mediaNeed()) * cpi(); c._mbc = mb;
+    c.pRev = rl + rc; c.out = aud; c.util = rating; c.inCost = mb;
+  });
+}
 // Terrain : le prix suit l'inflation, le trafic et les commerces voisins
 function landMult(x, y) { const tr = clamp(trf ? trf[idx(x, y)] : 0.3, 0, 1.2), st = siteIndex().stores; let n = 0; for (let i = 0; i < st.length; i++) if (Math.abs(st[i][0] - x) + Math.abs(st[i][1] - y) <= 7) n++; return cpi() * (0.92 + 0.5 * tr + 0.025 * Math.min(8, n)); }
 const landVal = c => c.lp ? c.lp * clamp(landMult(c.x, c.y) / (c.lpm || 1), 0.6, 5) : 0;
-const SVC_KIND = t => isPlant(t) ? 'power' : ({ off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
+const SVC_KIND = t => isPlant(t) ? 'power' : ({ tv: 'tv', off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
 const svcOf = c => { const T = TYPES[c.t]; return (T.ext || T.rec || T.ret) ? null : SVC_KIND(c.t); };
 const hasBld = t => { let n = 0; eachBuilding(b => { if (b.t === t && b.conn) n++; }); return n; };
 function svcInfo(c) {
@@ -4331,6 +4351,13 @@ function svcInfo(c) {
     R.util = clamp(c._occ != null ? c._occ : 0, 0, 1); R.utilLbl = 'taux d\'occupation';
     R.kpi = [['Loyers / mois', mj(pr), 'pos'], ['Occupation', pct(R.util)], ['Indice quartier', (ix > 0 ? '+' : '') + ix + ' %', ix < -5 ? 'pos' : ix > 5 ? 'neg' : ''], ['Distance au CBD', f1(A.dist) + ' cases']];
     R.bn = ok(`Occupation ${pct(R.util)} · loyers ${mj(pr)}/mois`, 'Loyer plus haut = plus de recettes par étage mais moins de locataires ; un quartier en pénurie d\'offre (indice négatif) supporte des loyers supérieurs. Parcs, commerces et équipements sportifs à 7 cases augmentent l\'attractivité.');
+  } else if (k === 'tv') {
+    const q = c._q != null ? c._q : mediaQ(c), need = mediaNeed(), mb = (c.mr == null ? 1 : c.mr) * need, adp = c.adp == null ? 1 : c.adp;
+    R.inH = `<div class="bn"><b>Budget de contenu : <span id="mbv">${Math.round(mb / need * 100)} %</span> du budget de référence (${mj(need)}/mois)</b><input type="range" data-mb="1" min="0" max="200" step="10" value="${Math.round(mb / need * 100)}" aria-label="Budget de contenu"><small>Qualité des programmes ${Math.round(q * 100)} % : elle monte avec le budget, avec des rendements décroissants. Dans une grande ville, le même niveau de qualité coûte plus cher.</small></div>`;
+    R.outH = `<div class="bn"><b>Prix de la publicité : <span id="adpv">${Math.round(adp * 100)} %</span> du tarif de référence</b><input type="range" data-adp="1" min="40" max="200" step="5" value="${Math.round(adp * 100)}" aria-label="Prix de la publicité"><small>Trop cher : peu d'annonceurs (surtout les commerces locaux). Trop bas : les spots ne couvrent plus le contenu.</small></div>` + nb('Annonceurs', `locaux ${mj(c._rl || 0)}/mois (${Math.round((c._fl || 0) * 100)} % des écrans vendus) · nationaux ${mj(c._rc || 0)}/mois (${Math.round((c._fc || 0) * 100)} %)`);
+    R.util = clamp(c._rating || 0, 0, 1); R.utilLbl = 'part d\'audience';
+    R.kpi = [['Recettes pub / mois', mj(c.pRev || 0), 'pos'], ['Audience (rating)', pct(c._rating || 0)], ['Spectateurs / jour', fmt(Math.round(c._aud || 0))], ['Contenu / mois', mj(c._mbc || 0), 'neg']];
+    R.bn = (c._rating || 0) < 0.12 ? ok('Audience trop faible', 'Les chaînes concurrentes captent le public : augmente le budget de contenu pour améliorer la qualité.', 'warn') : ok(`Audience ${pct(c._rating || 0)} · pub ${mj(c.pRev || 0)}/mois`, 'Recettes = publicité locale (commerces) + publicité nationale (marques), selon l\'audience, le prix demandé et la taille de la ville.');
   } else if (k === 'sport') {
     R.inH = nb('Rôle', 'équipement communautaire : il augmente l\'attractivité (et donc les loyers) des tours à moins de 7 cases');
     R.outH = nb('Effet', `+${Math.round((0.14 + 0.03 * (c.lvl || 0)) * 100)} points de commodités autour`);
@@ -4485,7 +4512,8 @@ function bAct(a) {
   refreshStats(); updateHUD(); renderBuilding(true);
 }
 el('bview').addEventListener('input', e => { if (e.target.dataset && e.target.dataset.dept && bsel) { const c0 = cell(bsel.x, bsel.y); if (!c0) return; const k = e.target.dataset.dept, d = deptOf(c0), v = +e.target.value / 100, others = DEPTS.map(x => x[0]).filter(x => x !== k), rest = 1 - v, sum = others.reduce((a, x) => a + d[x], 0); others.forEach(x => { d[x] = sum > 0.001 ? d[x] / sum * rest : rest / 3; }); d[k] = v; DEPTS.forEach(([x]) => { const o = el('dv-' + x); if (o) o.textContent = Math.round(d[x] * 100) + ' %'; const sl = document.querySelector(`#bview input[data-dept="${x}"]`); if (sl && x !== k) sl.value = Math.round(d[x] * 100); }); return; } if (e.target.dataset && e.target.dataset.pf && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) c0.pf = +e.target.value / 100; return; } const k = e.target.dataset && e.target.dataset.ad; if (!k || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; adOf(c)[k] = +e.target.value; const o = el('adv-' + k); if (o) o.textContent = mj(+e.target.value) + ' /mois'; });
-el('bview').addEventListener('input', e => { const rt = e.target.dataset && e.target.dataset.rent; if (rt && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) { c0.rent = +e.target.value / 100; const o = el('rentv'); if (o) o.textContent = e.target.value + ' %'; } return; }
+el('bview').addEventListener('input', e => { const mbI = e.target.dataset && (e.target.dataset.mb || e.target.dataset.adp); if (mbI && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) { if (e.target.dataset.mb) { c0.mr = +e.target.value / 100; const o = el('mbv'); if (o) o.textContent = e.target.value + ' %'; } else { c0.adp = +e.target.value / 100; const o = el('adpv'); if (o) o.textContent = e.target.value + ' %'; } } return; }
+  const rt = e.target.dataset && e.target.dataset.rent; if (rt && bsel) { const c0 = cell(bsel.x, bsel.y); if (c0) { c0.rent = +e.target.value / 100; const o = el('rentv'); if (o) o.textContent = e.target.value + ' %'; } return; }
   const pk = e.target.dataset && e.target.dataset.pk; if (!pk || !bsel) return; const c0 = cell(bsel.x, bsel.y); if (!c0) return; c0.pk = c0.pk || {}; c0.pk[pk] = +e.target.value / 100; const o = el('pkv'); if (o) o.textContent = e.target.value + ' %'; });
 el('bview').addEventListener('change', e => { if (e.target.dataset && (e.target.dataset.pk || e.target.dataset.ad || e.target.dataset.pf || e.target.dataset.dept)) { bvHtml = ''; updateHUD(); renderBuilding(true); } });
 el('bview').addEventListener('dblclick', e => { const b = e.target.closest('[data-act^="slot:"]'); if (!b || !bsel) return; const c = cell(bsel.x, bsel.y); if (!c) return; supB = { x: c.x, y: c.y }; spI = +b.dataset.act.slice(5); supMode = 'slot'; el('supview').hidden = false; renderSlotPick(); });
@@ -6177,7 +6205,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
       const fw = (a.w + a.h) * 66 * 1.06, sc = fw / (m.right - m.left), dw = m.w * sc, dh = m.h * sc * grow * (1 + 0.1 * (a.lvl || 0)), tx = p.x - (m.tipx - m.w / 2) * sc, by = p.y + 66 + 4;
       ctx.drawImage(m.img, tx - dw / 2, by - dh, dw, dh); a._top = by - dh;
     }
-  } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport') {
+  } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') {
     const k = Math.floor(a.seed * 997);
     const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' ? 'tech' + (k % 2) : a.t === 'sport' ? 'res' + (k % 9) : 'bank' + (k % 2);
     const floors = Math.max(1, Math.round(lvFloors(a) * (a.t === 'res' ? 1 : grow)));
@@ -6199,8 +6227,8 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
   ctx.globalAlpha = alpha;
   const T = TYPES[a.t];
   let topY = a._top == null ? p.y - 28 : a._top;
-  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport') {
-    if ((a.t === 'tech' || a.t === 'off') && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
+  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') {
+    if ((a.t === 'tech' || a.t === 'off' || a.t === 'tv') && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
       ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 10; ctx.fillStyle = '#ff5a5f';
       ctx.beginPath(); ctx.arc(p.x, topY + 26, 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
     }
@@ -6334,7 +6362,7 @@ function drawSatellite(now) {
   eachVisible(vr, (x, y) => {
     const rc = S.grid[idx(x, y)]; if (!rc || rc.t === 'road' || rc.t === 'part') return;
     const a = rc, T = TYPES[a.t]; if (!T) return;
-    const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
+    const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
     const H = fl * 15 + 6, w = a.w || 1, h = a.h || 1;
     const col = a.t === 'npc' ? [175 + (a.seed * 50 | 0) - 25, 185 + (a.seed * 40 | 0) - 20, 215] : (MM_COL[a.t] || [150, 150, 170]);
     const A = iso(x, y), B = iso(x + w, y), C = iso(x + w, y + h), D = iso(x, y + h);
