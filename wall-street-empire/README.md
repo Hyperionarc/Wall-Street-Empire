@@ -852,3 +852,42 @@ Un seul geste : on choisit un bâtiment urbain (magasin, immobilier, tour...) et
 - Tests : `tools/tests/t13_acquisition.js`.
 
 **Reste** : négociation multi-propriétaires séquentielle (une fenêtre par rival) ; pas de rachat sec d'un bien de rival sans construire (l'outil « Acheter un terrain bâti » renvoie vers la pose d'un commerce) ; joueurs humains réels (réseau) à brancher sur `demandeAchat`.
+
+## Passe 28 : scène d'usine en grand, halle « garage » en perspective, portes sur les murs, 12 emplacements, vue immersive, atelier vivant
+
+**Retours utilisateur traités** : « ce n'est pas assez grand », « on ne voit rien », « change l'angle de caméra », « exploite un mur et des portes SORTIE pour les ventes », « optimiser la chaîne plutôt à 12 cases », « vue plus immersive », « que les gens y passent du temps ».
+
+### Scène plus grande et nouvel angle
+- **Panneau Intérieur en grand format** (≥ 900 px de large) : 94 vw × 96 vh ; la scène occupe `calc(96vh - 150px)` (≈ 79 % de la hauteur de la fenêtre) et toute la largeur du panneau. Stats, outils et tuiles sont en surimpression compacte (stats 178 px, tuiles en bandeau d'une ligne de 44 px) ; sur mobile, ouvrir une usine passe directement en plein écran.
+- **Trois angles** (sélecteur Garage / Isométrique / Dessus, boutons d'orbite, touches Q / E, Maj + glisser) : *Garage* est une vraie projection en perspective (caméra basse, point de fuite vers le mur du fond, sol en trapèze, objets 3 à 5 fois plus grands qu'avant), *Isométrique* garde l'ancienne projection en plus grand, *Dessus* regarde presque à la verticale pour éditer le plan. Une seule projection par scène (`planProj`, `isoP` y fait appel) ; les objets restent dessinés par les mêmes routines isométriques, posées et mises à l'échelle selon la profondeur (`sc.anch`), tri par distance à la caméra, sprites de cases pré-dessinés à 2× la résolution. Orbite de −12° à +40° (angle par défaut 10°).
+- **Texte net** : étiquettes, alertes, pastilles d'ouvriers, « + » et cadenas sont dessinés sur un second canevas (`#blab`) à la résolution de l'écran, avec anti-collision (empilement / décalage, trait de rappel), police ≥ 13 px à l'écran, zones tactiles ≥ 44 px. **Une seule enseigne par unité**, attachée à la porte ou à la case (les anciens bandeaux ENTRÉE / FABRICATION / SORTIE flottants ont disparu).
+- **Caméra** : glisser pour se déplacer, molette ou pincer pour zoomer (1× à 3,6×), points de vue Ensemble / Achat / Fabrication / Vente / Produit. La halle remplit la vue (sol et murs prolongés, vignette) : plus de losange isolé dans un cadre vide.
+
+### 12 emplacements : sol 3×2 + 3 portes d'entrée + 3 portes de sortie
+- `PLAN_N = 12` : indices 0-5 sol (stock, machine, robot), 6-8 **portes d'ENTRÉE** (mur de gauche, achats), 9-11 **portes de SORTIE** (mur du fond, ventes). `slotOk` impose le type (pas d'achat au sol, pas de machine à une porte). Le plan par défaut est `stock, machine, achat (porte 1), vente (porte 1)` : capacité, effectif et entretien identiques, marges de référence inchangées (les tests de marges t02 / t06 / t08 restent verts).
+- **Verrous par niveau** (`planOpenN`) : petite usine 6 emplacements libres, moyenne 8, grandes 12 ; +2 par niveau d'usine ; un emplacement déjà occupé reste utilisable. Cadenas visibles sur les portes et cases verrouillées.
+- **Portes** : tablier relevé quand l'unité est posée, camion qui recule au quai visible par l'ouverture (rendu découpé dans l'ouverture), jauge de remplissage, palettes de matières (entrée) ou de cartons du produit (sortie) devant la porte, enseigne « ENTRÉE n » / « SORTIE n » avec le débit. Porte libre : « + » ; clic sur une porte : remplacer / déplacer / retirer.
+- **Migration transparente** (`planMigrate`) : un ancien plan 3×3 ou 3×2 est converti à la lecture (achats aux portes d'entrée dans l'ordre, ventes aux portes de sortie, le reste au sol dans l'ordre, robots suivis). La sauvegarde v8 garde la clé `pl` ; les anciennes longueurs (6 ou 9) sont acceptées au chargement. Limite : un ancien plan avec plus de 3 achats, 3 ventes ou 6 unités de sol perd l'excédent.
+
+### Vue immersive
+- Bouton **« Entrer dans l'usine »** (onglet Intérieur) ou **double-clic / double-tape sur l'usine dans la ville** (un clic simple ouvre la fiche après 0,3 s) : zoom de 0,6 s depuis la carte (échelle 3,6, fondu), scène à 100 vw × 100 vh. **Échap** ou « ‹ Sortir » : transition symétrique (retour à la ville si on est entré depuis la carte). Respecte `prefers-reduced-motion`.
+- Les panneaux (stats, outils, tuiles, caméra, produit en cours, barre d'actions) **se masquent après 3,2 s sans mouvement** et réapparaissent au mouvement de la souris ou au toucher ; ils restent affichés tant qu'un menu est ouvert ou survolé.
+- **Ambiance** : poussière, vapeur des machines, étincelles, fumée en cas de panne, halos additifs (rampes qui clignotent, néon des machines), éclairage plus contrasté. **Son WebAudio optionnel** (désactivé par défaut, bouton « Son : non / oui ») : bourdonnement lié à l'activité, bips d'alerte, passage des camions.
+
+### Atelier vivant (champs optionnels `c.fx`, créés à la première entrée en vue immersive)
+Tant qu'une usine n'a pas été visitée, rien ne change dans l'économie.
+- **Ouvriers cliquables** : pastille de compétence (0-100 : base 28-50 selon la case + formation) au-dessus de chaque ouvrier, fiche avec formation payante (+10, jusqu'à +50, coût 2 % du prix du bâtiment × (1 + niveau/10)). Effet sur le rendement borné à **+8 %** quand toute l'équipe est au maximum.
+- **Curseurs cadence / qualité / maintenance** (50 / 50 / 50 = neutre) : cadence haute ×1,25 de production mais jusqu'à +10 points de déchets, +30 % d'entretien et ×2,2 de risque de panne ; qualité haute −12 % de vitesse, +10 % de valeur de vente et −4 points de déchets ; maintenance ×0,4 à ×1,6 de risque, ±50 % d'entretien.
+- **Pannes** (`fxDaily`, `hash(jour, case)`) : probabilité de base 0,6 % par jour, machine à 45 % jusqu'à réparation (1 à 5 % du prix du bâtiment, d'un clic) ou remise en route automatique au bout de 5 jours. **Inspecteur** tous les 53 jours (décalé par case) : maintenance ≥ 40 = prime bornée, sinon amende bornée (≤ 1 % de la trésorerie) ; il traverse la scène avec un badge « INSPECTEUR ».
+- **Objectifs persistants** (7 : 100 unités, 1 000 unités sans arrêt, qualité 80, équipe formée, inspection réussie, 60 jours sans panne, 10 000 unités) : décorations cosmétiques (drapeau, guirlande, étoile, affiche, plantes, projecteurs, vitrine dorée, néon rose / or) et petite prime bornée (2 jours de recettes, 1 000 à 120 000 $), niveau d'atelier et rang. **Galerie** des produits fabriqués (`S.gal`, clé de sauvegarde `wse-city-v8_gal`).
+- **Gratification** : effets de pose, gain « + x $ » à chaque camion de sortie, « +1 » et pulsation du produit sur le podium.
+- Sauvegarde : `c.fx` dans l'objet optionnel de chaque cellule (`o.fx`), absent des anciennes sauvegardes.
+
+### Tests
+`t12_usine_immersive.js` (25 contrôles : 12 emplacements et migration, plein écran, transition, masquage des panneaux, double-clic sur la carte, angles, réglages, formation bornée, pannes déterministes, objectifs, sauvegarde, mobile, coût d'image). `t09` et `t11` adaptés au nouveau modèle (12 emplacements, portes, caméra).
+
+### Ce qui reste / limites
+- Coût d'une image de la scène en rendu logiciel : environ 0,5-0,9 ms une fois les sprites en cache ; il remonte pendant une orbite (la halle est redessinée par pas de 1°, au plus toutes les 160 ms).
+- Les camions et cartons des portes sont des volumes simples ; pas de convoyeur au sol entre machine et porte (les ouvriers portent les cartons).
+- En vue de dessus les sprites restent dessinés en oblique (lisibles mais pas orthogonaux).
+- Les décorations débloquées sont cosmétiques et non sélectionnables une par une ; pas de sélecteur de couleur de néon.
