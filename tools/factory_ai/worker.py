@@ -5,6 +5,7 @@
 
 Il surveille travail/commandes/*.json et n'exécute que des programmes du kit (sprites, scènes, installation et rendus Blender), avec des options vérifiées :
   {"type": "sprites", "lot": "phase1", "limite": 20, "seul": ["presse"], "forcer": false}
+  {"type": "photos", "lot": "essai"}   ou   {"type": "photos", "seul": ["bread", "car"], "forcer": true}
   {"type": "scenes", "phase": "brouillons", "scene": ["rd_garage_voiture"], "budget_min": 30}
   {"type": "scenes", "phase": "finale", "retenir": ["rd_garage_voiture:63"], "budget_min": 30}
 Toute autre demande est refusée. Ctrl-C l'arrête. Le journal de chaque lot est dans travail/commandes/fait/.
@@ -51,6 +52,17 @@ def commande(c):
             if not (isinstance(r, str) and RETENIR.match(r)):
                 raise ValueError('graine refusée')
             a += ['--retenir', r]
+        if c.get('forcer'):
+            a.append('--forcer')
+        return a
+    if c.get('type') == 'photos':   # photos des cartes du Guide du fabricant (assets/guide_hd/<clé>.jpg) ; lot « essai » = 10 produits, ou une liste de clés
+        a = [PY, os.path.join(ICI, 'batch_photos.py')]
+        if c.get('lot') == 'essai':
+            a += ['--lot', 'essai']
+        for n in noms(c.get('seul', [])):
+            a += ['--seul', n]
+        if not (c.get('lot') == 'essai' or c.get('seul')):
+            raise ValueError('photos : lot essai ou liste seul requis')
         if c.get('forcer'):
             a.append('--forcer')
         return a
