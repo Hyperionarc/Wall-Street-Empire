@@ -958,3 +958,7 @@ Avant : la notoriété d'un produit (`ps.brand`) suivait le budget publicitaire 
 - **Économie** : sans publicité le capital est nul et tous les facteurs valent 1, sauf le luxe sans marque (volume réduit, voulu). Marges des commerces et des usines inchangées.
 - **Tests** : `t18_marque_cumulative.js` (20 contrôles). API : `WSE.brand` (`sig`, `lev`, `volM`, `prem`, `shield`, `duel`, `half`, `target`, `trend`, `rivM`...).
 - **Limites** : les rivaux restent des attraits agrégés par classe (pas de prix par produit) : le duel « bradage » est mesuré par `WSE.brand.duel` avec les fonctions de la simulation, pas contre une IA qui fixe ses prix. La notoriété rapide (`ps.brand`) s'ajoute au capital : au maximum de publicité, l'écart total avec un produit sans marque est élevé (smartphone ≈ ×4, luxe > ×10).
+
+
+## Passe : coûts de formation et de R&D réalistes
+Les coûts étaient proportionnels au prix du bâtiment (formation d'un ouvrier = 2 % du prix, programme de service = 20 % du prix : 70 000 $ et 700 000 $ pour une usine de 16 employés qui paie 930 000 $ de salaires par an). Ils sont désormais calés sur la masse salariale (`payYear`) : pas de formation d'atelier ≈ 5 % du salaire annuel de l'effectif formé, programme de service = 4 % de la masse salariale par niveau (ordre de grandeur des budgets de formation réels). La R&D et les montées de gamme sont plafonnées à 25 % du marché annuel du produit (demande par habitant × population de référence × prix), 90 % pour les développements longs (pharmacie, blockbusters). Test : `tools/tests/t20_couts_realistes.js`.
