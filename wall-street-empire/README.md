@@ -615,7 +615,7 @@ Coût mesuré des scènes (Chromium sans GPU, 120 images) : 0,2 à 1,8 ms par im
 
 ### 1. Arbre étendu : 80 produits finis, 40 composants
 
-Aucune matière première ni extracteur n'a été ajouté (13 matières, mêmes fermes et mines) : les nouveaux intermédiaires se tirent des matières existantes. Les produits de l'élevage passent par un **élevage abstrait nourri au grain** (lait et viandes = blé, cuir = blé et chimie de tannage) ; ce choix évite d'ajouter fermes, gisements, icônes de carte et verrous de scénario. Les 17 nouveaux composants (l'ordre de `RECIPES` est l'ordre de calibrage : chaque intrant est calibré avant son utilisateur) :
+Aucune matière première ni extracteur n'a été ajouté (13 matières, mêmes fermes et mines) : les nouveaux intermédiaires se tirent des matières existantes. (Historique : les produits de l'élevage passaient alors par un élevage abstrait nourri au grain ; la passe 38 le remplace par de vraies fermes d'élevage.) Les 17 nouveaux composants (l'ordre de `RECIPES` est l'ordre de calibrage : chaque intrant est calibré avant son utilisateur) :
 
 | Composant | Niveau | Intrants | Cours de base |
 |---|---|---|---|
@@ -715,7 +715,7 @@ Un produit composé est enregistré **comme un produit ordinaire** (`PRODUCTS`, 
 
 `tools/tests/t10_arbre.js` (31 contrôles, environ 70 s) : références et ordre des recettes, aucun cycle, 70-85 produits et 35-45 composants, 3 intrants au plus, vignette dédiée par produit, famille, tables du modèle ; EBITDA 12-30 % des 44 nouveaux produits non pharmaceutiques, pharmacie (MB ≥ 72 %), EBITDA inchangés de 12 produits d'origine ; composeur : 7 refus expliqués, synergies, 16 modèles viables, création, nom nettoyé, doublon, R&D réduite, lancement en un clic, EBITDA mesuré de 6 produits composés, vente en magasin, écran Produits, aller-retour de sauvegarde, ancienne sauvegarde sans `cprod`, déterminisme sur deux parties neuves, `quickProduce` sur les 82 produits (dont 3 composés). `isoFactory` accepte désormais un code de préparation (`preSrc`) pour mesurer un produit composé. Bilan complet : 124 PASS (93 existants + 31).
 
-**Limites** : lait, viandes et cuir viennent d'un élevage abstrait nourri au blé (pas de fermes d'élevage) ; la qualité d'un produit composé ne dépend que de ses composants et des synergies (pas de technologie propre à la création) ; la demande d'un produit composé repose sur la demande par habitant de son modèle ; `city.html` n'est pas reconstruit dans ces commits (`python3 tools/build.py`).
+**Limites** : (corrigé en passe 38 : lait, viandes et cuir viennent maintenant d'élevages) ; la qualité d'un produit composé ne dépend que de ses composants et des synergies (pas de technologie propre à la création) ; la demande d'un produit composé repose sur la demande par habitant de son modèle ; `city.html` n'est pas reconstruit dans ces commits (`python3 tools/build.py`).
 
 
 ## Passe 27 : marché mûr, offres des autres, suggestions et tests
@@ -1149,7 +1149,7 @@ Produits : deux nouveaux, **Voitures en aluminium** (palier 3, prix de référen
 Chaque gisement existe (>= 1 site accessible), rareté et inégalités, teneur dans ses bornes, noms uniques, aucune chaîne orpheline, toute feuille a un extracteur ou une source coproduite, icônes et couleurs distinctes, catalogue par familles ; chaque mine produit avec un EBITDA dans sa fourchette et un retour <= 3,5 ans ; **coproduction** (ratio 60/40, chiffre d'affaires cohérent, soufre du gaz, terres rares seulement à partir du niveau 3, fiche « Produit aussi ») ; EBITDA des composants nouveaux ; `quickProduce` d'une voiture en aluminium et de casseroles inox jusqu'aux mines (une seule mine de nickel-chrome) ; marché ; engrais ; **deux anciennes sauvegardes réelles** (avant la passe 33 ; première version avec mines séparées, migrée) ; déterminisme. Cibles mises à jour : `t10` (composants 35 à 60, 82 produits), plans de `tools/chain_audit.js` (mines de silice, de sel, de gaz et de phosphate ; plans `cookware` et `ebike`), aide `EXT` de `tests/lib.js`.
 
 ### 5. Reporté (hors périmètre de cette passe)
-Étain, uranium (le nucléaire reste sans combustible modélisé), argent, titane ; lithium en roche dure (un seul gisement de lithium) ; élevage ; vrais sprites des gisements et mines (liste dans `tools/factory_ai/phase2/GISEMENTS.md`) ; puissances étrangères spécialisées par métal rare ; engrais achetable à un fournisseur ; prime de poids pour la voiture en aluminium (elle coûte plus cher à fabriquer, sans avantage de vente pour l'instant).
+Étain, uranium (le nucléaire reste sans combustible modélisé), argent, titane ; lithium en roche dure (un seul gisement de lithium) ; vrais sprites des gisements et mines (liste dans `tools/factory_ai/phase2/GISEMENTS.md`) ; puissances étrangères spécialisées par métal rare ; engrais achetable à un fournisseur ; prime de poids pour la voiture en aluminium (elle coûte plus cher à fabriquer, sans avantage de vente pour l'instant).
 ## Passe : intégration des sept branches (réglages croisés)
 Six régressions apparues seulement une fois les branches fusionnées, chacune mesurée avant / après :
 - **Petit commerce (`t02`, s2 : EBITDA 3,4 % → 6,6 % ; s3 : 4,7 % → 7,3 %)**. Trois dérives s'additionnaient : (1) l'indice de clientèle (`custIndex`, part « Humeur de la ville ») restait centré sur l'ancienne échelle d'humeur (≈ 80) alors que l'humeur composite vit autour de 55-65 : pivot 55 → 32 (attrait des magasins +4 %) ; (2) le supermarché était le plus exposé au « Round honnête » (impôt à rendements décroissants : humeur, population et demande de produits manufacturés en baisse, salaires en hausse de 6 % par le chômage plus bas) et au pivot de `wageMkt` relevé pour le chômage plancher (+3,75 % de salaires, conservé car les témoins d'usine de `t10` en dépendent) : son entretien passe de 300 à 240 $/j (6,8 % du CA, entre le petit marché à 6 % et l'hypermarché à 10 %) ; (3) la phase d'implantation des rivaux (+0,35 d'attrait chacun) valait pour 5 IA au lieu de 3 : `rivYoung()` = 0,35 × 3 / nombre d'IA (budget d'ensemble inchangé).
@@ -1158,7 +1158,64 @@ Six régressions apparues seulement une fois les branches fusionnées, chacune m
 - **Usine immersive (`t12`)** : le minuteur de repos des panneaux comptait le temps d'image plafonné à 50 ms ; quand la scène tourne sous 20 images/s il prenait du retard. Il compte maintenant le temps réel (`imm.rdt`).
 - **Ancienne sauvegarde (`t09`)** : pas de défaut de migration ; Chromium vide parfois le localStorage d'un contexte en mémoire entre deux pages (clés vides mesurées au rechargement). Le test réinjecte la sauvegarde écrite par le jeu si le stockage revient vide.
 ### 6. Reporté
-Étain, uranium (nucléaire sans combustible modélisé), argent, titane, plomb ; lithium en roche dure ; élevage ; vrais sprites ; puissances étrangères spécialisées par métal ; engrais achetable ; avantage de vente de la voiture en aluminium ; constructeur automatique de terres rares (il faut monter de niveau une mine de cuivre ou de lithium).
+Étain, uranium (nucléaire sans combustible modélisé), argent, titane, plomb ; lithium en roche dure ; vrais sprites ; puissances étrangères spécialisées par métal ; engrais achetable ; avantage de vente de la voiture en aluminium ; constructeur automatique de terres rares (il faut monter de niveau une mine de cuivre ou de lithium).
+
+## Passe 38 : élevages (bovins, poulets, porcs, moutons), vigne et vin
+
+Jusqu'ici le lait, les viandes et le cuir étaient des composants fabriqués à partir de blé : aucun élevage n'existait. Ils sont remplacés par de vrais **élevages** (Guide de l'agriculteur, comme Capitalism Lab) et la **vigne** remplace le composant abstrait « Alcools et ferments ». Source unique : `game.template.html` (test `t38_elevages.js`, liste de sprites à générer dans `tools/factory_ai/phase2/ELEVAGES.md`).
+
+### 1. Fermes d'élevage (catégorie Agriculture, famille « Élevages »)
+Posées en campagne comme les fermes de cultures (pas de gisement dessous, 25 % moins chères pour l'exploitant agricole, outils débloqués dès le scénario 2). Chaque bâtiment sort un bien principal et des **coproduits à ratio fixe** (mécanisme `T.co` des mines), tous **bruts** : aucune usine intermédiaire. Valeurs nominales par jour et par bâtiment avant échelle `K_SIZE` (`TYPES.*.live` : têtes, jours de croissance, blé par unité principale, risque de maladie par jour) :
+
+| Bâtiment | Principal | Coproduits | Têtes | Croissance | Aliment (blé) | Maladie |
+|---|---|---|---|---|---|---|
+| Élevage de bovins (`fcattle`) | lait cru 70 | bœuf 0,15 et cuir brut 0,04 par unité de lait | 80 | 45 j | 0,6 | 0,4 %/j |
+| Élevage de poulets (`fchicken`, 3x3) | œufs en vrac 80 | volaille 0,12 | 2 000 | 15 j | 0,6 | 0,6 %/j |
+| Élevage de porcs (`fpig`) | porc 50 | cuir brut 0,03 | 300 | 30 j | 1,2 | 0,5 %/j |
+| Élevage de moutons (`fsheep`) | laine brute 40 | agneau 0,35 | 400 | 30 j | 1,0 | 0,4 %/j |
+| Vignoble (`fvine`, culture comme le blé) | raisin 70 | - | - | - | engrais optionnel | - |
+
+Coûts et effectifs sont calibrés comme les fermes de cultures (capex = 2,5 ans d'EBITDA visé, entretien déduit après le coût de l'aliment) : de 7,2 M$ (bovins) à 8,9 M$ (porcs) contre 2,9 M$ pour une ferme de blé, 17 à 20 emplois.
+- **Troupeau** (`c.hd`, sauvegardé) : 20 % à la pose, pleine capacité après `grow` jours ; les premières ventes sont donc réduites.
+- **Aliment** (`liveStep`) : le blé est pris dans le stock, puis importé par le port au prix d'import (sauf si la source blé de la ferme est « Local »). Sans aliment la production tombe à **35 %** (`FEED_FLOOR`) ; la limite affichée est « blé ». La fiche du bâtiment (carte « Troupeau ») montre troupeau, alimentation, santé, pâturage et irrigation (même irrigation que les cultures : +10 % par niveau, sécheresse -35 % sans irrigation).
+- **Épizootie** : probabilité quotidienne `dis` par ferme (RNG déterministe, `S.rs`) : 10 jours à -40 % de production et -10 % de troupeau, message d'alerte. Mesuré : 0 à 5 épizooties par ferme sur 400 jours.
+- **Saisonnalité** (`SEASON`, calendrier de 12 mois de 30 jours, moyenne 1) : lait +/-12 % (pic de lactation en mai), œufs +/-8 %, laine +/-20 % (tonte), raisin +/-45 % (vendanges en septembre).
+- Visuels : prairie, étable-hangar et animaux dessinés en vectoriel dans la scène du bâtiment ; icônes et couleurs propres.
+
+### 2. Chaîne en aval
+Matières brutes (groupe « matières premières », offre locale `LOCAL_D`, élasticités `EL_RAW`) : raisin, lait cru, œufs en vrac, bœuf, porc, volaille, agneau, laine brute, cuir brut (`RAW_SRC` renvoie vers l'élevage ; les coproduits comptent comme source). Composants restants : **Viandes (abattoir)** = 2 bœuf + 1 porc (3 sorties), **Vin** = 5 raisin (4 sorties). Les recettes `milk`, `leather` et `spirit` (blé) disparaissent ; yaourts, fromages, chocolat, plats cuisinés, aliments pour animaux, vestes, chaussures et sacs en cuir gardent leurs recettes et leurs marges (calibrage inchangé, les prix de référence suivent les nouveaux intrants).
+
+Produits finis ajoutés (10), tous avec poids prix / qualité / marque, nécessité, demande par habitant, obsolescence, famille d'affichage et vignette :
+
+| Produit | Classe | Intrants | Nécessité | Poids P/Q/M | Demande/hab./an |
+|---|---|---|---|---|---|
+| Lait de consommation | basic | 3 lait cru | 90 | 50/30/20 | 2,0 |
+| Œufs | basic | 3 œufs en vrac | 85 | 50/30/20 | 1,6 |
+| Viande de bœuf | basic | 3 bœuf | 78 | 50/30/20 | 0,9 |
+| Poulet | basic | 3 volaille | 80 | 50/30/20 | 1,2 |
+| Viande de porc | basic | 3 porc | 78 | 50/30/20 | 1,0 |
+| Viande d'agneau | basic | 3 agneau | 70 | 45/35/20 | 0,35 |
+| Saucisson et charcuterie | basic | 2 porc + 0,2 sel | 50 | 35/30/35 | 0,5 |
+| Pulls en laine | std (usine moyenne) | 3,5 laine + 0,5 tissu | 40 | 30/30/40 | 0,25 |
+| Vin de table | basic | 2,5 vin + 1,5 verre | 28 | 25/20/55 | 0,6 |
+| Vin de grande réserve | lux (grande usine) | 5 vin + 2 verre + 1 planche | 3 | 8/32/60 | 0,02 |
+
+Autres changements : **Spiritueux** = vin distillé (5 vin + verre) ; **Whisky de luxe** = blé (malt) + planches (fût) + verre, sans `spirit` ; la bière reste du blé et du sucre. Le composeur de produits (`allow`/`core`, `EDIBLE`) cite le vin au lieu des alcools.
+
+### 3. Marché, IA et chaînes
+Offre locale PNJ et import par le port via `LOCAL_D`, `stepLocalMarket` et `EL_RAW` (lait et œufs 0,4, bœuf 0,8, porc et volaille 0,7). `quickProduce` / « Fabriquer », `producePlan` et `chainTree` descendent jusqu'à l'élevage **et** à la ferme de blé qui le nourrit (`chainLeaves` ajoute le blé, l'arbre ajoute un nœud « blé » sous chaque matière d'élevage). Mesuré : plan « Fabriquer » des yaourts 21 à 25 M$, des plats cuisinés (bovins + porcs + blé) et des vestes (bovins) 45 M$.
+
+### 4. Guides
+Guide de l'agriculteur : raisin jouable, élevages sans « en préparation » : fiche par animal (capacité, croissance, saisonnalité, maladie, produits bruts avec rendement et cours, aliment, débouchés). Guide du fabricant : les matières brutes d'élevage indiquent leur ferme (« Extraite par » / « Coproduit par »).
+
+### 5. Sauvegarde
+`wse-city-v8` reste v8 : une ancienne sauvegarde se charge, ses gisements et bâtiments sont inchangés ; les stocks, cours et affectations d'usine « Alcools et ferments » deviennent du vin ; une usine affectée au lait ou au cuir devient « sans produit ». Les champs de vigne ne sont ajoutés qu'aux nouvelles cartes (la vigne se pose sur n'importe quelle campagne). `hd` et `sk` (troupeau, maladie) sont sauvegardés dans l'extra de la cellule.
+
+### 6. Tests
+`t38_elevages.js` (86 contrôles) : données des 5 fermes, plus aucune recette lait / viande / cuir au blé, produits finis de première nécessité, chaque élevage produit ses matières, croissance du troupeau, alimentation insuffisante = 35-50 % de la production, `quickProduce` de bout en bout (yaourts, fromages, lait, plats cuisinés, œufs, poulet, saucisson, agneau, pull, vin, veste), plan chiffré et arbre cliquable, guide, ancienne sauvegarde, déterminisme. `t10` recalé : 92 produits finis (au lieu de 82) dans la plage 70-95. Suite complète : 931 PASS.
+
+### 7. Limites
+Les animaux ne sont pas individualisés (troupeau = pourcentage) ; pas de reproduction ni d'abattage choisi ; le cuir brut n'a pas d'étape de tannage ; les concurrents IA n'ouvrent pas d'élevage (leurs fermes restent des cultures) ; sprites isométriques d'élevage à générer (`ELEVAGES.md`).
 
 ## Passe 35 : petite ville de départ et croissance jusqu'à un million d'habitants
 
