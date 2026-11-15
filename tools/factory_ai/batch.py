@@ -145,8 +145,11 @@ def detoure_cle(im, tol=26):
 def detoure(im, simuler):
     if not simuler:
         try:
-            from rembg import remove
-            return remove(im).convert('RGBA')
+            from rembg import remove, new_session
+            global _SESSION                              # BiRefNet (licence MIT) ; le modèle par défaut de rembg, BRIA RMBG, est réservé à l'usage non commercial
+            if '_SESSION' not in globals():
+                _SESSION = new_session(CFG.get('detourage', 'birefnet-general'))
+            return remove(im, session=_SESSION).convert('RGBA')
         except Exception as e:                      # rembg absent ou en échec : repli
             print('   (rembg indisponible, repli sur la clé de fond :', str(e)[:80], ')')
     return detoure_cle(im)
