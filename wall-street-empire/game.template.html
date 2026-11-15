@@ -1720,14 +1720,14 @@ function initRivals() {
 }
 // Valeur d'un rival : trésorerie + actifs (≈ 1 an de ventes par point d'attrait : 27 M$ par point à K_SIZE = 5) ; 5 à 100 M$ selon la taille
 const rivalSum = r => RIV_CLS.reduce((a, k) => a + r.att[k], 0);
-const rivalAttr = cls => optV('price', OPT_PRICE) * (S.rivals || []).reduce((a, r) => a + r.att[cls] * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
+const rivalAttr = cls => optV('price', OPT_PRICE) * (S.rivals || []).reduce((a, r) => a + rivEff(r, cls) * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
 const rivalValue = r => Math.round((Math.max(0, r.cash) + RIV_ASSET * rivalSum(r)) * (casteIs('industriel') ? 0.85 : 1) / 5000) * 5000;
 function stepRivals(rivalPart) {
   if (S.day > 0 && S.day % 45 === 0 && (S.rivals || []).length < optV('n', OPT_NRIV)) { syncRivals(); say('Un nouveau concurrent entre sur le marché.', 'warn'); }
   const rs = S.rivals || [];
   rs.forEach(r => {
     let rev = 0;
-    RIV_CLS.forEach(cls => { const A = rivalAttr(cls); if (A > 0 && rivalPart[cls] > 0) rev += rivalPart[cls] * (r.att[cls] / A) * (S.price[cls] || 300); });
+    RIV_CLS.forEach(cls => { const A = rivalAttr(cls); if (A > 0 && rivalPart[cls] > 0) rev += rivalPart[cls] * Math.min(1, rivEff(r, cls) / A) * (S.price[cls] || 300); });
     rev += rivalRents()[r.id] || 0;   // loyers des immeubles détenus en ville
     r.rev = rev; r.pf = rev * 0.2 - rivalSum(r) * RIV_OPEX; r.cash += r.pf;
     if (S.day % 5 === 0 && r.cash > 3 * RIV_EXPAND) {
@@ -1780,10 +1780,50 @@ function scoreW(cls, pk) {
   const pw = pk && PROD_W[pk], b = pw ? { price: pw[0] / 100, quality: pw[1] / 100, brand: pw[2] / 100 } : SCORE_W[cls], sh = clamp((0.03 - (S.macro ? S.macro.gdp : 0.03)) * 3, -0.1, 0.1), w = { price: b.price + sh, quality: b.quality - 0.4 * sh, brand: b.brand - 0.6 * sh }, s = w.price + w.quality + w.brand;
   return { price: w.price / s, quality: w.quality / s, brand: w.brand / s };
 }
-function productScore(pk) {
-  const ps = S.prod[pk], pr = PRODUCTS[pk], w = scoreW(pr.cls, pk), avgP = stdPrice(pk);
+// ===== Passe : marque cumulative. Le capital de marque (ps.bc, champ optionnel) s'accumule avec la publicité et s'érode lentement ;
+// il agit par le LEVIER de marque du produit, tiré des poids existants : marque / (marque + prix). Pain ≈ 0,1 ; smartphone ≈ 0,7 ; médicament ≈ 0,9 ; luxe ≈ 1.
+const BC_HL = 120, BC_K = 0.6, BC_N = 1.6, BC_G = 1, BC_LUX0 = 0.25;   // demi-vie de base (jours), capital de demi-force (÷100), courbure (rendements croissants puis saturation), gain de volume maximal, seuil de marque du luxe
+const bcOf = ps => ps && ps.bc > 0 ? ps.bc : 0;
+const bcSig = bc => { const x = Math.pow(Math.max(0, bc) / 100, BC_N); return x / (x + Math.pow(BC_K, BC_N)); };   // force de marque 0-1 : courbe en S
+function brandLev(pk) { const w = scoreW(PRODUCTS[pk].cls, pk); return clamp((w.brand / (w.brand + w.price) - 0.3) / 0.5, 0.08, 1); }
+// Volume : jusqu'à ×(1 + levier) à marque saturée ; un produit de luxe sous le seuil de marque perd jusqu'à la moitié de ses acheteurs
+const luxDeg = pk => clamp((25 - necOf(pk)) / 20, 0, 1);   // degré de luxe 0-1 : produits dont on peut se passer (nécessité < 25) : montre, haute couture, whisky = 1 ; smartphone, voiture = 0
+function brandVolM(pk, ps) { const s = bcSig(bcOf(ps)), L = brandLev(pk); return (1 + BC_G * L * s) * (1 - 0.5 * L * luxDeg(pk) * clamp(1 - s / BC_LUX0, 0, 1)); }
+// Valeur perçue : prix (relatif au prix standard) que le marché accepte sans pénalité. Pain ≈ +10 %, smartphone ≈ +50 %, luxe jusqu'à ×3.
+function brandPrem(pk, ps) { const L = brandLev(pk); const x = luxDeg(pk); return 1 + ((0.03 + 0.62 * L) * (1 - x) + (1 + L) * x) * bcSig(bcOf(ps)); }
+// Bouclier de fidélité 0-1 : part de la sensibilité au prix effacée par la marque et la fidélité
+function brandShield(pk, ps) { return brandLev(pk) * bcSig(bcOf(ps)) * (0.5 + 0.5 * clamp((ps.loy || 0) / 100, 0, 1)); }
+const shEl = (v, sh) => v < 1 && sh > 0 ? Math.pow(v, 1 - 0.6 * sh) : v;   // une hausse de prix coûte moins de volume à une marque forte
+const bcHalf = ps => BC_HL * (1 + 0.5 * clamp((ps.loy || 0) / 100, 0, 1));   // des clients fidèles ralentissent l'érosion
+const bcMkt = () => (1 + cxF('cmo')) * (brandStrat() === 'corp' ? 1.15 : brandStrat() === 'unique' ? 0.9 : 1);   // direction marketing : publicité jusqu'à 2 fois plus efficace
+function bcTarget(pk, ps) { ps = ps || S.prod[pk]; return 100 * clamp(padPower(pk) / 1.5, 0, 1.75) * bcMkt() * (1 + 0.25 * bcSig(bcOf(ps))); }   // apport publicitaire (une marque connue se propage mieux)
+function bcStep(pk, ps) { if (ps.bc == null) ps.bc = 0.6 * (ps.brand || 0); ps.bc = clamp(ps.bc + bcTarget(pk, ps) * Math.LN2 / BC_HL - ps.bc * Math.LN2 / bcHalf(ps), 0, 600); }
+function bcTrend(pk, ps) { ps = ps || S.prod[pk]; const d = bcTarget(pk, ps) / BC_HL - bcOf(ps) / bcHalf(ps); return Math.abs(d) < 0.02 ? 0 : d > 0 ? 1 : -1; }
+function brandVolX(pk, ps) { ps = ps || S.prod[pk]; const z = Object.assign({}, ps, { bc: 0, brand: 0, loy: 0 }); return attractiveness(pk, ps) / Math.max(1e-9, attractiveness(pk, z)); }   // volume face au même produit sans marque
+function brandLineHTML(pk) {
+  const ps = S.prod[pk], t = bcTrend(pk), f = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+  return `<div class="qr"><span>Capital de marque</span><span><b>${Math.round(bcOf(ps))}</b> (×${f(brandVolX(pk))} de volume vs concurrent sans marque) · prime de prix acceptée +${Math.round((brandPrem(pk, ps) - 1) * 100)} % · demi-vie ${Math.round(bcHalf(ps))} j · <b class="${t > 0 ? 'pos' : t < 0 ? 'neg' : ''}">${t > 0 ? '▲ monte' : t < 0 ? '▼ s\'érode' : '■ stable'}</b></span></div>`;
+}
+// Duel de deux versions du même produit (a, b : champs d'état remplacés, ex. { bc, brand, loy, pf }) : attraits et parts à deux
+function brandDuel(pk, a, b) { const A = attractiveness(pk, Object.assign({}, S.prod[pk], a)), B = attractiveness(pk, Object.assign({}, S.prod[pk], b)); return { a: A, b: B, sa: A / (A + B), sb: B / (A + B) }; }
+// IA : chaque rival entretient un capital de marque selon son profil (r.bk, champ optionnel) ; à court d'argent il coupe la publicité et se fait distancer, face à une marque plus forte il surinvestit et rattrape
+const RIV_BG = { basic: 0.15, std: 0.5, lux: 1, estate: 0.1 }, RIV_PROF = { r1: 0.5, r2: 1, r3: 0.15 };
+const rivProf = r => RIV_PROF[r.id] != null ? RIV_PROF[r.id] : 0.2 + 0.7 * hash(String(r.id).length, String(r.id).charCodeAt(String(r.id).length - 1) || 0, 77);
+const rivBm = (r, cls) => r.bk == null ? 1 : (1 + RIV_BG[cls] * bcSig(r.bk)) / (1 + RIV_BG[cls] * bcSig(100 * rivProf(r)));
+const rivEff = (r, cls) => r.att[cls] * rivBm(r, cls);
+function stepRivBrand() {
+  let top = 0; PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps.st === 'on') top = Math.max(top, bcOf(ps)); });
+  (S.rivals || []).forEach(r => { const pf = rivProf(r); if (r.bk == null) r.bk = 100 * pf;
+    const eff = r.cash < 0 ? 0.3 : top > r.bk ? 1 + 0.5 * pf : 1;   // riposte publicitaire proportionnelle au profil
+    if (eff > 1) r.cash -= (eff - 1) * pf * rivalSum(r) * RIV_OPEX * 0.5;
+    r.bk = clamp(r.bk + (100 * pf * eff - r.bk) * Math.LN2 / BC_HL, 0, 300); });
+}
+function productScore(pk, ps0) {
+  const ps = ps0 || S.prod[pk], pr = PRODUCTS[pk], w = scoreW(pr.cls, pk), std = stdPrice(pk), myP = pr.ref * QTIER[ps.q].ref * ps.pf * cpi(), top = std * brandPrem(pk, ps);
+  // valeur perçue : entre le prix standard et le prix accepté (standard × prime de marque) le prix ne coûte rien ; au-delà, la fidélité amortit la pénalité
+  const avgP = myP <= std ? std : Math.min(myP, top), pe = myP > top ? 1.2 * (1 - 0.5 * brandShield(pk, ps)) : 1.2;
   // marque PROPRE du produit : notoriété (publicité du produit) et fidélité ; qualité = perception (gamme, presse, influenceurs)
-  const price = clamp(50 * Math.pow(avgP / prodPrice(pk), 1.2), 0, 100), quality = clamp(ps.rt == null ? QTIER[ps.q].q : ps.rt, 0, 100), brand = clamp(0.65 * ps.brand + 0.35 * (ps.loy || 0) + (brandStrat() === 'corp' && S._brandAvg ? 0.25 * clamp(S._brandAvg.aw || 0, 0, 100) / Math.pow(megaCount(), 0.8) : 0), 0, 100);
+  const price = clamp(50 * Math.pow(avgP / myP, pe), 0, 100), quality = clamp(ps.rt == null ? QTIER[ps.q].q : ps.rt, 0, 100), brand = clamp(0.65 * ps.brand + 0.35 * (ps.loy || 0) + (brandStrat() === 'corp' && S._brandAvg ? 0.25 * clamp(S._brandAvg.aw || 0, 0, 100) / Math.pow(megaCount(), 0.8) : 0), 0, 100);
   return { price, quality, brand, overall: w.price * price + w.quality * quality + w.brand * brand, w };
 }
 // Dynamique d'adoption (modèle de Bass) : innovateurs (p, tirés par la notoriété) et imitateurs (q, bouche-à-oreille tiré par la perception de qualité)
@@ -1799,10 +1839,10 @@ function stepAdoption() {
     if (ps.age > 360) ps.obs = Math.max(0.3, (ps.obs == null ? 1 : ps.obs) * (1 - (OBSO[pk] == null ? 0.02 : OBSO[pk]) / 360));
     ps.A = clamp(ps.A, 0.03, 1); });
 }
-function attractiveness(pk) {
-  const ps = S.prod[pk], pr = PRODUCTS[pk], happy = (S.stats && S.stats.happy != null ? S.stats.happy : 60);
+function attractiveness(pk, ps0) {
+  const ps = ps0 || S.prod[pk], pr = PRODUCTS[pk], happy = (S.stats && S.stats.happy != null ? S.stats.happy : 60);
   const wealth = 1 + (ps.q - 1) * (happy - 60) / 250;   // une population heureuse préfère le haut de gamme
-  return Math.pow(productScore(pk).overall / 50, 1.6) * 1.6 * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth * (0.2 + 0.8 * adoptOf(ps)) * typeW(pk) * (ps.obs == null ? 1 : ps.obs) * outMul(pk) * mkComp(pk);
+  return Math.pow(productScore(pk, ps).overall / 50, 1.6) * brandVolM(pk, ps) * 1.6 * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth * (0.2 + 0.8 * adoptOf(ps)) * typeW(pk) * (ps.obs == null ? 1 : ps.obs) * outMul(pk) * mkComp(pk);
 }
 // --- Passe 10 : logique du modèle produit
 // Pharmacie = catégorie à part (ni première nécessité ni luxe) : accès contrôlé (AMM, ordonnance), très peu sensible au prix jusqu'à un seuil, forte part de marque et de qualité (princeps face aux copies).
@@ -1855,6 +1895,7 @@ function prodModelHTML(pk) {
   return `<div class="gqual" style="margin-top:6px"><b>Modèle produit</b>
    <div class="qr"><span>Poids d'achat (prix / qualité / marque)</span><span>${Math.round(W.price * 100)} / ${Math.round(W.quality * 100)} / ${Math.round(W.brand * 100)}</span></div>
    ${isPh(pk) ? `<div class="qr"><span>Catégorie pharmacie</span><span>${pk === 'vitamins' ? 'Compléments : marque forte' : 'Marque 30 · qualité 60 · prix 10'} · peu sensible au prix (×2,5 : 70 % du volume, ×5 : 30 %, ×20 : 8 %) · remboursement ${Math.round(phRmb() * 100)} %</span></div>` : ''}
+   ${brandLineHTML(pk)}
    <div class="qr"><span>Indice de nécessité</span><span>${necOf(pk)} / 100 · élasticité ×${f(necMult(necOf(pk)))}</span></div>
    <div class="qr"><span>Demande moyenne</span><span>${f(DEMAND_PC[pk] || 0)} u/an/habitant ≈ ${fmt(Math.round(S.pop * (DEMAND_PC[pk] || 0) / 360))} u/jour</span></div>
    <div class="qr"><span>Salaire réel requis · actuel</span><span>${Math.round(reqRW(pk) * 100)} · ${Math.round(((S.rw || 1)) * 100)}${affordOf(pk) < 0.99 ? ' (acheteurs à ' + Math.round(affordOf(pk) * 100) + ' %)' : ''}</span></div>
@@ -2834,7 +2875,7 @@ const SHARES = 10000, RSH = 5000;
 const EXEC = { cfo: { n: 'Directeur financier (CFO)', get wage() { return execPay(65); }, d: 'Pilote les dividendes et les rachats d\'actions par paliers de 5 %, négocie un crédit moins cher (−25 % d\'intérêts) et un plafond d\'emprunt plus haut (+30 %).' }, ir: { n: 'Directeur des relations investisseurs', get wage() { return execPay(55); }, d: 'Débloque les événements boursiers (communiqués, journée investisseurs, plan de rachat) et calme la volatilité du cours.' } };
 // Marché des cadres dirigeants (C-levels) : candidats nommés avec expertise 0-100 dans 7 domaines, comme l'écran « Persons » de Capitalism Lab
 const XDOM = { ret: 'Commerce de détail', farm: 'Agriculture', man: 'Production industrielle', rd: 'Recherche & développement', raw: 'Matières premières', mkt: 'Marketing', trn: 'Formation' };
-const XROLE = { coo: { n: 'Directeur des opérations (COO)', dom: 'man', d: 'Production des usines jusqu\'à +15 %.' }, cmo: { n: 'Directeur marketing (CMO)', dom: 'mkt', d: 'Attractivité des magasins et efficacité publicitaire jusqu\'à +15 %.' }, cto: { n: 'Directeur technique (CTO)', dom: 'rd', d: 'Recherche plus rapide (jusqu\'à +40 %) et production +4 %.' }, cpo: { n: 'Directeur des achats (CPO)', dom: 'raw', d: 'Achats et importations jusqu\'à 12 % moins chers.' }, cro: { n: 'Directeur du commerce (CRO)', dom: 'ret', d: 'Ventes au détail jusqu\'à +12 %.' }, cao: { n: 'Directeur agricole (CAO)', dom: 'farm', d: 'Rendement des fermes jusqu\'à +15 %.' }, chro: { n: 'Directeur des ressources humaines (CHRO)', dom: 'trn', d: 'Masse salariale jusqu\'à −8 %.' } };
+const XROLE = { coo: { n: 'Directeur des opérations (COO)', dom: 'man', d: 'Production des usines jusqu\'à +15 %.' }, cmo: { n: 'Directeur marketing (CMO)', dom: 'mkt', d: 'Attractivité des magasins jusqu\'à +15 % ; la publicité construit le capital de marque jusqu\'à 2 fois plus vite.' }, cto: { n: 'Directeur technique (CTO)', dom: 'rd', d: 'Recherche plus rapide (jusqu\'à +40 %) et production +4 %.' }, cpo: { n: 'Directeur des achats (CPO)', dom: 'raw', d: 'Achats et importations jusqu\'à 12 % moins chers.' }, cro: { n: 'Directeur du commerce (CRO)', dom: 'ret', d: 'Ventes au détail jusqu\'à +12 %.' }, cao: { n: 'Directeur agricole (CAO)', dom: 'farm', d: 'Rendement des fermes jusqu\'à +15 %.' }, chro: { n: 'Directeur des ressources humaines (CHRO)', dom: 'trn', d: 'Masse salariale jusqu\'à −8 %.' } };
 const XFIRST = ['Steve', 'Isabella', 'José', 'Liana', 'Dylan', 'Peter', 'Marcus', 'Nora', 'Camille', 'Hugo', 'Yuki', 'Amara', 'Lucas', 'Elena', 'Omar', 'Sofia', 'Mathieu', 'Chloé', 'Ravi', 'Ingrid'];
 const XLAST = ['Gaben', 'Carter', 'Torres', 'Miranda', 'Green', 'Schmidt', 'Johnson', 'Caldwell', 'Moreau', 'Laurent', 'Tanaka', 'Okafor', 'Weber', 'Rossi', 'Haddad', 'Novak', 'Dubois', 'Lefèvre', 'Patel', 'Larsen'];
 function newCandidate(i) {
@@ -2975,7 +3016,7 @@ function padRt(pk) { const ad = padOf(S.prod[pk]); return AD_KEYS.reduce((a, k) 
 function padAdjust(pk, ak, dd) { const C = AD_CH[ak], ps = S.prod[pk]; if (!C || !ps || ps.st === 'locked') return; const ad = padOf(ps); ad[ak] = clamp((ad[ak] || 0) + dd * C.step * (dd > 0 && !(ad[ak] > 0) ? 2 : 1), 0, C.max); }
 function padHtml(pk) {
   const ps = S.prod[pk], ad = padOf(ps);
-  return `<div class="lever" style="margin-top:8px"><h4>Publicité de ce produit <span class="pip">${padSpend(ps) ? mj(padSpend(ps)) + '/mois' : 'aucune'}</span></h4><div class="finrow"><span>Notoriété · fidélité · perception qualité</span><b>${Math.round(ps.brand)} · ${Math.round(ps.loy || 0)} · ${Math.round(ps.rt == null ? QTIER[ps.q].q : ps.rt)}</b></div><div style="display:flex;gap:6px;flex-wrap:wrap">${AD_KEYS.map(ak => { const b = ad[ak] || 0, C = AD_CH[ak]; return `<span style="display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:8px;padding:3px 6px"><button class="btn sec" data-act="padset:${pk}:${ak}:-1" style="min-height:24px;padding:0 8px" aria-label="Moins de ${C.n}">−</button><span style="min-width:96px;text-align:center;font-size:11px" title="${C.d}"><b>${C.n}</b><br>${b ? mj(b) + '/mois' : 'coupé'}</span><button class="btn" data-act="padset:${pk}:${ak}:1" style="min-height:24px;padding:0 8px" aria-label="Plus de ${C.n}">+</button></span>`; }).join('')}</div><small>La publicité construit la marque de CE produit (télé, radio, internet : notoriété ; presse, influenceurs : perception de qualité et fidélité, risque de bad buzz).</small></div>`;
+  return `<div class="lever" style="margin-top:8px"><h4>Publicité de ce produit <span class="pip">${padSpend(ps) ? mj(padSpend(ps)) + '/mois' : 'aucune'}</span></h4><div class="finrow"><span>Notoriété · fidélité · perception qualité</span><b>${Math.round(ps.brand)} · ${Math.round(ps.loy || 0)} · ${Math.round(ps.rt == null ? QTIER[ps.q].q : ps.rt)}</b></div><div style="display:flex;gap:6px;flex-wrap:wrap">${AD_KEYS.map(ak => { const b = ad[ak] || 0, C = AD_CH[ak]; return `<span style="display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:8px;padding:3px 6px"><button class="btn sec" data-act="padset:${pk}:${ak}:-1" style="min-height:24px;padding:0 8px" aria-label="Moins de ${C.n}">−</button><span style="min-width:96px;text-align:center;font-size:11px" title="${C.d}"><b>${C.n}</b><br>${b ? mj(b) + '/mois' : 'coupé'}</span><button class="btn" data-act="padset:${pk}:${ak}:1" style="min-height:24px;padding:0 8px" aria-label="Plus de ${C.n}">+</button></span>`; }).join('')}</div><div class="gqual" style="margin:6px 0">${brandLineHTML(pk)}</div><small>La publicité s'accumule en capital de marque (effet cumulatif, érosion lente). Elle construit la marque de CE produit (télé, radio, internet : notoriété ; presse, influenceurs : perception de qualité et fidélité, risque de bad buzz).</small></div>`;
 }
 const adFactor = c => 1 + 0.9 * (c.aw || 0) / 100;
 const investOf = c => c.invest != null ? c.invest : TYPES[c.t].cost + upgradeSpent(c);
@@ -3450,13 +3491,14 @@ function step() {
       car.forEach(c => trackPk(c, key));
       const pfk = car.length ? car.reduce((a, c) => a + pfOfK(c, key), 0) / car.length : 1;
       const dAvg = car.length ? car.reduce((a, c) => a + c.pkd[key].d, 0) / car.length : 99, soleAll = car.length && car.every(c => ((c._na && c._na[cls]) || 1) <= 1);
-      let need = wi * clamp(elF(cls, pfk / Math.max(0.5, car.length ? car.reduce((a, c) => a + pfOf(c), 0) / car.length : 1), dAvg, soleAll, nec, !gen && isPh(it.k)), gen || !isPh(it.k) ? 0.3 : 0.02, 1.8), got = 0, stockLeft = it.stock, fromStock = 0;
+      const bsh = gen ? 0 : brandShield(it.k, S.prod[it.k]);
+      let need = wi * clamp(shEl(elF(cls, pfk / Math.max(0.5, car.length ? car.reduce((a, c) => a + pfOf(c), 0) / car.length : 1), dAvg, soleAll, nec, !gen && isPh(it.k)), bsh), gen || !isPh(it.k) ? 0.3 : 0.02, 1.8), got = 0, stockLeft = it.stock, fromStock = 0;
       for (let pass = 0; pass < 2 && need > 1e-6; pass++) {
         const ws = car.reduce((a, c) => a + ((c._lc[cls] || 0) > 0.01 ? c._cap * c.adF * c.pw : 0), 0); if (ws <= 0) break;
         const n0 = need;
         car.forEach(c => {
           if ((c._lc[cls] || 0) <= 0.01) return;
-          const share = n0 * c._cap * c.adF * c.pw / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * elF(cls, Math.max(0.4, pkOf(c, key)), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1, nec, !gen && isPh(it.k)) - (c.sales[key] || 0); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem));
+          const share = n0 * c._cap * c.adF * c.pw / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * shEl(elF(cls, Math.max(0.4, pkOf(c, key)), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1, nec, !gen && isPh(it.k)), bsh) - (c.sales[key] || 0); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem));
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * PNJ_MK / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
           stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key); c._cl += fs * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
@@ -3483,8 +3525,8 @@ function step() {
       c.limit = !on ? 'noshelf' : !avail ? 'stock' : 'demand';
     }
   });
-  S.mkt = {}; RIV_CLS.forEach(cls => { const D = Math.max(0.001, Dtot[cls]); S.mkt[cls] = { you: sold[cls] / D, riv: (S.rivals || []).map(r => ({ id: r.id, s: rivalPart[cls] * (rivalAttr(cls) > 0 ? r.att[cls] / rivalAttr(cls) : 0) / D })) }; });
-  stepRivals(rivalPart); stepForeign(); stepAdoption(); stepProdTech(); stepForces(); stepIndex(); mkStepAfter();
+  S.mkt = {}; RIV_CLS.forEach(cls => { const D = Math.max(0.001, Dtot[cls]); S.mkt[cls] = { you: sold[cls] / D, riv: (S.rivals || []).map(r => ({ id: r.id, s: rivalPart[cls] * (rivalAttr(cls) > 0 ? Math.min(1, rivEff(r, cls) / rivalAttr(cls)) : 0) / D })) }; });
+  stepRivals(rivalPart); stepRivBrand(); stepForeign(); stepAdoption(); stepProdTech(); stepForces(); stepIndex(); mkStepAfter();
   const soldTotal = sold.basic + sold.std + sold.lux;
   S.sold += soldTotal;
   S.houses = (S.houses || 0) + sold.estate; S.lots = S.lots || 0;
@@ -3607,12 +3649,12 @@ function step() {
     ps.made = ps.mDay; ps.mDay = 0;
     if (ps.st === 'on') {
       const ad = padOf(ps), bT = clamp(100 * clamp(padPower(pk) / 1.5, 0, 1) + (ps.sold > 0.1 ? 6 : 0), 0, 100);
-      ps.brand = clamp(ps.brand + (bT - ps.brand) * 0.07, 0, 100);
+      ps.brand = clamp(ps.brand + (bT - ps.brand) * 0.07, 0, 100); bcStep(pk, ps);
       const rtT = clamp(trueQ(pk) * 0.9 + 18 * clamp(padRt(pk) / 1.2, 0, 1), 0, 100), rt0 = ps.rt == null ? QTIER[ps.q].q : ps.rt;
       ps.rt = clamp(rt0 + (rtT - rt0) * (ad.press > 0 ? 0.045 : 0.03), 0, 100);
-      if ((ad.infl || 0) > 0 && rnd() < 0.0018 * Math.min(3, ad.infl / padScale(pk, 'infl'))) { ps.rt = Math.max(0, ps.rt - 12); ps.brand = Math.max(0, ps.brand - 3); say(`Bad buzz autour de ${PRODUCTS[pk].name} : un influenceur dérape, la perception de qualité chute.`, 'warn'); }
+      if ((ad.infl || 0) > 0 && rnd() < 0.0018 * Math.min(3, ad.infl / padScale(pk, 'infl'))) { ps.rt = Math.max(0, ps.rt - 12); ps.brand = Math.max(0, ps.brand - 3); ps.bc = bcOf(ps) * 0.95; say(`Bad buzz autour de ${PRODUCTS[pk].name} : un influenceur dérape, la perception de qualité chute.`, 'warn'); }
       const satP = ps.stock > ps.sold ? 100 : 40;
-      ps.loy = clamp((ps.loy || 0) + ((0.5 * ps.rt + 0.3 * satP + 0.2 * productScore(pk).price) * corpLoyF() - (ps.loy || 0)) * 0.02, 0, 100);
+      ps.loy = clamp((ps.loy || 0) + (clamp((0.5 * ps.rt + 0.3 * satP + 0.2 * productScore(pk).price) * corpLoyF() + 30 * bcSig(bcOf(ps)), 0, 100) - (ps.loy || 0)) * 0.02, 0, 100);   // la fidélité croît avec le capital de marque
       ps.ph.push(ps.share * 100); if (ps.ph.length > 40) ps.ph.shift();
       { const key = pk; let rr = 0; buildings.forEach(c => { const q = c.sales && c.sales[key]; if (q) rr += q * prodPrice(pk) * retailMk(PRODUCTS[pk].cls) * pfOfK(c, key); });
         ps.rr = rr; ps.qm = (ps.qm || 0) * (29 / 30) + (ps.sold || 0); ps.rm = (ps.rm || 0) * (29 / 30) + rr; ps._bq = (ps._bq || 0) + (ps.sold || 0); ps._br = (ps._br || 0) + rr;
@@ -4667,7 +4709,11 @@ function energyHTML() {
 }
 function brandHTML() {
   const b = brandOf(), st = brandStrat(), g = (l, v, tip) => `<div class="finrow" title="${tip}"><span>${l}</span><b>${Math.round(v)} / 100</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(v)}%"></i></div>`;
-  return `<h3>MARQUE</h3><div class="tcard"><small>${BRAND_STRAT[st][1]}</small><div class="seg2" style="margin:6px 0;flex-wrap:wrap">${Object.keys(BRAND_STRAT).map(k => `<button class="btn ${k === st ? '' : 'sec'}" data-brand="${k}" style="min-height:28px;padding:3px 8px;font-size:11px">${BRAND_STRAT[k][0]}</button>`).join('')}</div>${g('Notoriété de la marque', b.aw, 'Part de clients qui te connaissent (télé, radio, internet)')}${g('Fidélité à la marque', b.loy, 'Clients qui reviennent : qualité, personnel, prix doux')}${g('Perception de qualité', b.rt, 'Image du produit (presse, influenceurs, qualité réelle)')}<small>${b.n ? 'Moyenne pondérée sur ' + b.n + ' magasin(s). Règle les budgets de chaque canal dans l\'onglet Publicité du magasin.' : 'Aucun magasin en service.'}</small></div>`;
+  return `<h3>MARQUE</h3><div class="tcard"><small>${BRAND_STRAT[st][1]}</small><div class="seg2" style="margin:6px 0;flex-wrap:wrap">${Object.keys(BRAND_STRAT).map(k => `<button class="btn ${k === st ? '' : 'sec'}" data-brand="${k}" style="min-height:28px;padding:3px 8px;font-size:11px">${BRAND_STRAT[k][0]}</button>`).join('')}</div>${g('Notoriété de la marque', b.aw, 'Part de clients qui te connaissent (télé, radio, internet)')}${g('Fidélité à la marque', b.loy, 'Clients qui reviennent : qualité, personnel, prix doux')}${g('Perception de qualité', b.rt, 'Image du produit (presse, influenceurs, qualité réelle)')}<small>${b.n ? 'Moyenne pondérée sur ' + b.n + ' magasin(s). Règle les budgets de chaque canal dans l\'onglet Publicité du magasin.' : 'Aucun magasin en service.'}</small></div>${brandCapHTML()}`;
+}
+function brandCapHTML() {
+  const on = PKEYS.filter(pk => S.prod[pk].st === 'on').sort((a, b) => bcOf(S.prod[b]) - bcOf(S.prod[a])).slice(0, 8), rs = S.rivals || [];
+  return `<div class="tcard"><b>Capital de marque (cumulatif)</b><div class="finrow"><span>Direction marketing</span><b>publicité ×${(Math.round(bcMkt() * 10) / 10).toString().replace('.', ',')}</b></div>${on.length ? on.map(pk => `<div class="gqual" style="margin:4px 0"><b>${PRODUCTS[pk].name}</b>${brandLineHTML(pk)}</div>`).join('') : '<small>Aucun produit en vente.</small>'}${rs.length ? `<div class="finrow"><span>Marques concurrentes</span><b>${rs.map(r => r.name + ' ' + Math.round(r.bk == null ? 100 * rivProf(r) : r.bk)).join(' · ')}</b></div>` : ''}<small>La publicité s'accumule et s'érode lentement (demi-vie ${BC_HL} j, plus longue avec des clients fidèles). Effet faible sur la première nécessité, fort sur le luxe, la tech et la pharmacie.</small></div>`;
 }
 // Résultats mensuels : somme glissante sur 30 jours (ramenée à 30 jours tant que l'historique est plus court)
 function monthSums(a) { if (!a || !a.length) return null; const n = a.length, k = 30 / n; return { n, ca: a.reduce((s, x) => s + x[0], 0) * k, ebe: a.reduce((s, x) => s + x[1], 0) * k, net: a.reduce((s, x) => s + (x[2] || 0), 0) * k }; }
@@ -5342,7 +5388,7 @@ function changeTier(pk, i) {
   if (ps.st === 'rnd') { say('Gamme figée pendant le développement.', 'warn'); return false; }
   const cost = Math.round(pr.rnd * QTIER[i].rnd * 0.4);
   if (S.cash < cost) { say(`Il faut ${money(cost)} pour changer de gamme.`, 'bad'); return false; }
-  S.cash -= cost; ps.q = i; ps.pf = 1; ps.brand *= 0.8;
+  S.cash -= cost; ps.q = i; ps.pf = 1; ps.brand *= 0.8; ps.bc = bcOf(ps) * 0.9;
   say(`${pr.name} passe en gamme ${QTIER[i].n.toLowerCase()} (${money(cost)}).`, 'good');
   refreshStats(); return true;
 }
@@ -5505,7 +5551,7 @@ function assignProduct(k, max) {
   updateHUD(); return n;
 }
 function unassignProduct(k) { eachBuilding(c => { if (c.prod === k) c.prod = null; }); updateHUD(); }
-function stopProduct(pk) { unassignProduct(pk); const ps = S.prod[pk]; ps.lic = 0; ps.res = 0; ps.buy = null; ps.inb = []; ps.pilot = 0; ps.st = 'locked'; ps.stock = 0; ps.brand = 0; ps.loy = 0; ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; ps.ph = []; updateHUD(); }
+function stopProduct(pk) { unassignProduct(pk); const ps = S.prod[pk]; ps.lic = 0; ps.res = 0; ps.buy = null; ps.inb = []; ps.pilot = 0; ps.st = 'locked'; ps.stock = 0; ps.brand = 0; ps.bc = 0; ps.loy = 0; ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; ps.ph = []; updateHUD(); }
 
 // --- Cartographie de la chaîne ---
 function sourceInfo(g) {
@@ -11479,6 +11525,7 @@ requestAnimationFrame(frame);
 const tileToScreen = (x, y) => { const c = iso(x + 0.5, y + 0.5), r = cvs.getBoundingClientRect(); return { x: r.left + vx + (c.x - cam.x) * z, y: r.top + vy + (c.y - cam.y) * z }; };
 window.WSE = { acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
+Object.assign(window.WSE, { brand: { HL: BC_HL, sig: bcSig, of: bcOf, lev: brandLev, lux: luxDeg, volM: brandVolM, volX: brandVolX, prem: brandPrem, shield: brandShield, el: shEl, half: bcHalf, mkt: bcMkt, target: bcTarget, step: bcStep, trend: bcTrend, line: brandLineHTML, capHTML: brandCapHTML, duel: brandDuel, attr: attractiveness, score: productScore, rivM: rivBm, rivProf, stepRiv: stepRivBrand, padSet: padAdjust, strat: brandStrat } });
 Object.defineProperty(window.WSE, 'imm', { get() { return { on: immOn, tr: imm.tr, from: imm.from, idle: imm.idle, panel: immPanel, ang: planAng, yaw: planYaw, cam: { z: scam.z, x: scam.x, y: scam.y, bs: scam.bs }, W: imm.W, H: imm.H }; } });
 })();
 </script>
