@@ -25,6 +25,7 @@ async function setup(pg, o = {}) {
   await pg.evaluate(o => {
     const W = window.WSE, S = W.S;
     W.setSpeed(0); W.setCaste(o.caste || 'industriel'); S.noEv = true; S.cash = o.cash || 5e9; S.unlockAll = true;
+    if (o.noAid) W.zn.st().off = 1;   // marges nominales : sans subvention de zone (passe 34)
     ['caste', 'hint', 'endscr'].forEach(i => { const e = document.getElementById(i); if (e) e.hidden = true; });
   }, o);
 }
@@ -56,7 +57,7 @@ async function injectBot(pg) { await pg.evaluate(BOT_SRC); }
 
 // Banc de mesure : setupSrc construit (accès à W,S,N,put,onDep,inP,inC,B,log), chauffe, mesure sur `meas` jours, agrège par type de bâtiment.
 async function bench(setupSrc, warm, meas, opts = {}) {
-  const pg = await newPage(); await setup(pg, { caste: opts.caste, cash: opts.cash || 5e10 }); await inject(pg);
+  const pg = await newPage(); await setup(pg, { caste: opts.caste, cash: opts.cash || 5e10, noAid: true }); await inject(pg);
   const r = await pg.evaluate(({ setupSrc, warm, meas }) => {
     const W = window.WSE, S = W.S, N = W.N, T = window.T, { put, onDep, inP, inC } = T; const B = {}, log = [];
     new Function('W', 'S', 'N', 'put', 'onDep', 'inP', 'inC', 'B', 'log', setupSrc)(W, S, N, put, onDep, inP, inC, B, log);
@@ -75,7 +76,7 @@ async function bench(setupSrc, warm, meas, opts = {}) {
 
 // Économie isolée d'une usine : intrants au prix de base (stock local), prix figés, sortie vidée chaque jour, macro figée.
 async function isoFactory(key, preSrc) {   // preSrc : code optionnel (W, S) qui crée le produit à mesurer (produit composé) et renvoie sa clé
-  const pg = await newPage({ wait: 500 }); await setup(pg, { cash: 5e10 });
+  const pg = await newPage({ wait: 500 }); await setup(pg, { cash: 5e10, noAid: true });
   const r = await pg.evaluate(({ key, preSrc }) => {
     const W = window.WSE, S = W.S, N = W.N; if (preSrc) key = new Function('W', 'S', preSrc)(W, S); const m = S.macro; m.boom = 0; m.phase = Math.PI; m.gdp = 0.03; m.infl = 0.02; m.rate = 0.04;
     const put = (k, x0, x1, y0, y1) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (!W.footprintError(x, y, k) && W.place(x, y, k)) { try { W.autoConnect(x, y); } catch (e) {} return S.grid[y * N + x]; } };

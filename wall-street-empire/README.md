@@ -1159,3 +1159,27 @@ Six régressions apparues seulement une fois les branches fusionnées, chacune m
 - **Ancienne sauvegarde (`t09`)** : pas de défaut de migration ; Chromium vide parfois le localStorage d'un contexte en mémoire entre deux pages (clés vides mesurées au rechargement). Le test réinjecte la sauvegarde écrite par le jeu si le stockage revient vide.
 ### 6. Reporté
 Étain, uranium (nucléaire sans combustible modélisé), argent, titane, plomb ; lithium en roche dure ; élevage ; vrais sprites ; puissances étrangères spécialisées par métal ; engrais achetable ; avantage de vente de la voiture en aluminium ; constructeur automatique de terres rares (il faut monter de niveau une mine de cuivre ou de lithium).
+
+## Passe 34 : subventions de zone (port, zone industrielle) et recyclage des gravats
+
+**Demande** : (A) la zone portuaire est déserte, le port perd 4,8 k$/j et la zone industrielle reste un damier vide : la ville doit inciter et subventionner les entreprises, puis arrêter quand la zone est saturée. (B) les gisements de sable et de gravier s'épuisent : la R&D doit proposer du concassage, avec des démolitions qui alimentent un gisement auto-régénératif.
+
+### A. Subventions de zone (`ZN`, `znRate`, `znStep`)
+- **Zones** : *zone portuaire* (quai, terminaux) et *zone industrielle* (66-84 × 54-84 hors quai). **Occupation** = cases bâties par le joueur et par les rivaux / cases constructibles hors voies.
+- **Taux d'aide** : 40 % jusqu'à 30 % d'occupation, dégressif linéaire jusqu'à 70 %, **nul au-delà** ou si le port est encombré (débit >= 90 % de la capacité) ; **taxe d'encombrement** de 0 à +15 % de l'entretien entre 85 et 100 % d'occupation. Tout est déterministe (aucun tirage).
+- **Trois aides** : construction (taux x capex, déduite du prix à la pose, message « Subvention de zone »), taxe locale exonérée / loyer foncier réduit (zone portuaire : entretien -100 % au taux max ; zone industrielle : -35 %), aide à l'emploi (zone portuaire : salaires -80 % au taux max). Les aides récurrentes passent par `upkOf` et `c.wages` ; `c.zs` = part prise en charge par la ville (par jour).
+- **Budget municipal** (`S.zn.bud`) : recettes = 0,06 $ x population x inflation par jour + 35 % de l'impôt sur les sociétés payé ; départ = 150 jours de recettes. Les aides en sortent ; à sec, le taux est réduit au prorata puis suspendu (à -150 jours de recettes).
+- **Rivaux IA** : les industriels (zone industrielle, 6 cases par usine) et les négociants (zone portuaire, 4 cases par terminal) s'y implantent une action sur trois (`znRivalSettle`), paient 40 % de moins au taux max, et leurs cases comptent dans l'occupation (plafond 35 % de la zone).
+- **Annonces** : toast au premier jour puis à chaque changement d'étape (« Zone portuaire : subventions 40 % jusqu'à 30 % d'occupation... », « dégressives », « saturée : fin des subventions ») ; **bandeau** `#znban` quand l'outil sélectionné se construit dans la zone ; **surbrillance** verte (rouge si saturée) des cases libres de la zone ; bandeau « Subvention de zone » sur la fiche des bâtiments éligibles.
+- **Résultat mesuré** : port à vide -5,7 k$/j sans aide, -0,9 k$/j avec ; départ typique (port, entrepôt, mines de fer et de charbon) rentable (+37 k$/j).
+- **Sauvegarde** : `zn` (budget, implantations rivales, annonces, cumul) et `rub` dans `wse-city-v8`, champs facultatifs (anciennes sauvegardes : budget initial recalculé). `S.zn.off = 1` coupe les aides (les bancs de marges de `lib.js` le font : marges nominales).
+
+### B. Recyclage et concassage (`stepRecycle`, `rubAdd`, `recycleSite`)
+- **R&D** : « Recyclage et concassage » (ère 2, 3,4 M$, prérequis Explosifs de mine) débloque le **Centre de concassage** (catégorie BTP, famille Recyclage) ; « Concassage de précision » (ère 3, +10 % de rendement, `TM.recy`).
+- **Gravats** (stock global `S.rub.st`, flux lissé `S.rub.fl`) : chaque démolition (outil Démolir) ou rachat BTP (immeuble de la ville) en produit, proportionnellement à la taille (420 u par étage de logement, maison 260, autre bâtiment 700 u par case et par niveau) ; chaque chantier en laisse 60 u par case. API pour d'autres systèmes (promoteur, démolitions en masse) : `WSE.rub.add(n)` et `WSE.rub.of(cellule)`.
+- **Concassage** : capacité 2 250 u/jour par unité (plafonnée par l'effectif, le réseau routier et le stock de gravats) ; proportions fixes **gravier 50 %, sable 30 %, ciment recyclé 8 %** (x1,1 avec la 2e tech), versées au stock et donc à l'offre du marché local (`made`), valorisées au cours. Plus de gravats = plus de production ; sans flux, alerte « manque de gravats ». Coût inférieur à l'extraction (entretien 3,2 k$ contre 5,4 k$, capex 2,4 M$).
+- **Gisement épuisé** : alerte à l'épuisement puis rappel tous les 60 jours ; la fiche propose **Reconvertir en centre de concassage** (35 % du capex du centre, nécessite la tech ; le site devient une « zone de production continue ») ou **Démolir** avec 35 % de l'investissement remboursé (gravats récupérés).
+- **Tests** : `tools/tests/t33_subventions_recyclage.js` (aides max / dégressives / nulles, rivaux, port, budget, sauvegarde, tech, démolition, proportions, plafonnement, reconversion, déterminisme).
+
+### Limites
+- La zone portuaire à vide reste légèrement déficitaire (salaires couverts à 80 %) : volontaire, un port sans trafic ne doit pas être gratuit. Les démolitions de la spéculation immobilière (autre agent) devront appeler `WSE.rub.add`.
