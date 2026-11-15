@@ -207,13 +207,13 @@ exports.run = async (t, L) => {
 
   // ---------- 8. Sauvegarde rétrocompatible et déterminisme
   const K = await pg.evaluate(() => {
-    const W = window.WSE, S = W.S, P = W.pro, o = {}; P.PR().hype = 0.3; W.save(); const raw = JSON.parse(localStorage.getItem('wse-city-v8')); o.v = raw.v; o.keys = ['pro', 'pland', 'zn', 'zm'].map(k => raw[k] != null); o.zmN = raw.zm ? Object.keys(raw.zm).length : 0;
+    const W = window.WSE, S = W.S, P = W.pro, o = {}; P.PR().hype = 0.3; W.save(); const raw = JSON.parse(localStorage.getItem('wse-city-v8')); o.v = raw.v; o.keys = ['pro', 'pland', 'pzn', 'pzm'].map(k => raw[k] != null); o.zmN = raw.pzm ? Object.keys(raw.pzm).length : 0;
     // ancienne sauvegarde sans champs promoteur : relue sans erreur, la carte d'origine est reconstruite
-    ['pro', 'pland', 'zn', 'zm'].forEach(k => { delete raw[k]; }); localStorage.setItem('wse-city-v8', JSON.stringify(raw)); const S0 = W.load();
-    o.old = { ok: !!S0 && S0.day === S.day, pro: S0 && S0.pro, zn: S0 && S0.zn, pland: S0 && S0.pland, zext: W.ZEXT.reduce((a, v) => a + v, 0), cash: S0 && Math.round(S0.cash) === Math.round(S.cash) };
+    ['pro', 'pland', 'pzn', 'pzm'].forEach(k => { delete raw[k]; }); localStorage.setItem('wse-city-v8', JSON.stringify(raw)); const S0 = W.load();
+    o.old = { ok: !!S0 && S0.day === S.day, pro: S0 && S0.pro, zn: S0 && S0.pzn, pland: S0 && S0.pland, zext: W.ZEXT.reduce((a, v) => a + v, 0), cash: S0 && Math.round(S0.cash) === Math.round(S.cash) };
     return o;
   });
-  t.check('sauvegarde v8 : champs pro, pland, zn, zm écrits ; ancienne sauvegarde (sans eux) relue sans erreur, carte d\'origine rétablie', K.v === 8 && K.keys.every(Boolean) && K.zmN > 0 && K.old.ok && K.old.pro === null && K.old.zn === null && K.old.zext === 0 && K.old.cash, JSON.stringify(K));
+  t.check('sauvegarde v8 : champs pro, pland, pzn, pzm écrits ; ancienne sauvegarde (sans eux) relue sans erreur, carte d\'origine rétablie', K.v === 8 && K.keys.every(Boolean) && K.zmN > 0 && K.old.ok && K.old.pro === null && K.old.zn === null && K.old.zext === 0 && K.old.cash, JSON.stringify(K));
 
   // aller-retour complet : terrain créé, travaux, zonage, bien détenu
   const pg2 = await L.newPage({ wait: 500 }); await L.setup(pg2, { caste: 'promoteur', cash: 5e9 }); await L.inject(pg2);
@@ -223,16 +223,16 @@ exports.run = async (t, L) => {
     cells.slice(0, 3).forEach(q => P.zone(q[0], q[1], 'R'));
     const sp = cells[cells.length - 1]; W.place(sp[0], sp[1], 'res'); const b = S.grid[sp[1] * N + sp[0]];
     const rs = []; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'npc' && c.k === 'house' && W.acq.ownerOf(c) === 'npc') rs.push(c); } P.keep(rs[0].x, rs[0].y);
-    P.terra(60, 60); W.save(); return { zext: W.ZEXT.reduce((a, v) => a + v, 0), zn: Object.keys(S.zn || {}).length, hold: Object.keys(S.pro.hold).length, works: !!(b && b.works), terr: S.pro.terr.length, floors: b && b.floors, bday: b && b.bday, invest: b && b.invest, cash: Math.round(S.cash) };
+    P.terra(60, 60); W.save(); return { zext: W.ZEXT.reduce((a, v) => a + v, 0), zn: Object.keys(S.pzn || {}).length, hold: Object.keys(S.pro.hold).length, works: !!(b && b.works), terr: S.pro.terr.length, floors: b && b.floors, bday: b && b.bday, invest: b && b.invest, cash: Math.round(S.cash) };
   });
   await pg2.reload(); await pg2.waitForTimeout(700);
-  const R2 = await pg2.evaluate(() => { const W = window.WSE, S = W.S, N = W.N; let b = null; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'res') b = c; } return { zext: W.ZEXT.reduce((a, v) => a + v, 0), zn: Object.keys(S.zn || {}).length, hold: Object.keys(S.pro.hold).length, works: !!(b && b.works), terr: S.pro.terr.length, floors: b && b.floors, bday: b && b.bday, invest: b && b.invest, inCity: W.inCity(49, 30), roads: S.grid.filter(c => c && c.t === 'road').length }; });
+  const R2 = await pg2.evaluate(() => { const W = window.WSE, S = W.S, N = W.N; let b = null; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'res') b = c; } return { zext: W.ZEXT.reduce((a, v) => a + v, 0), zn: Object.keys(S.pzn || {}).length, hold: Object.keys(S.pro.hold).length, works: !!(b && b.works), terr: S.pro.terr.length, floors: b && b.floors, bday: b && b.bday, invest: b && b.invest, inCity: W.inCity(49, 30), roads: S.grid.filter(c => c && c.t === 'road').length }; });
   t.check('sauvegarde : terrains créés, zonage, biens détenus, chantiers de logements et de terrain, base et date d\'achat restaurés', R2.zext === R1.zext && R2.zn === R1.zn && R2.hold === R1.hold && R2.works === R1.works && R2.terr === R1.terr && R2.floors === R1.floors && R2.bday === R1.bday && R2.inCity, JSON.stringify([R1, R2]));
 
   // déterminisme : même scénario sur deux parties de même graine = même résultat
   const run = async () => { const p = await L.newPage({ wait: 400 }); await L.setup(p, { caste: 'promoteur', cash: 5e9 }); await L.inject(p);
     const r = await p.evaluate(() => { const W = window.WSE, S = W.S, N = W.N, P = W.pro, T = window.T; S.rs = 777; S.noEv = true; P.PR().brush = 2; P.terra(49, 30); for (let i = 0; i < 40; i++) T.stepN(1, true); for (let y = 28; y < 34; y++) for (let x = 49; x < 53; x++) if (W.ZEXT[y * N + x] && !S.grid[y * N + x]) P.zone(x, y, 'R');
-      for (let i = 0; i < 60; i++) T.stepN(1, true); return { cash: Math.round(S.cash), built: S.built.length, pop: Math.round(S.pop), hype: +S.pro.hype.toFixed(4), z: Object.keys(S.zn || {}).length }; });
+      for (let i = 0; i < 60; i++) T.stepN(1, true); return { cash: Math.round(S.cash), built: S.built.length, pop: Math.round(S.pop), hype: +S.pro.hype.toFixed(4), z: Object.keys(S.pzn || {}).length }; });
     await p.context().close(); return r; };
   const r1 = await run(), r2 = await run();
   t.check('déterminisme : deux parties de même graine donnent les mêmes terrains, bâtiments zonés et trésorerie', JSON.stringify(r1) === JSON.stringify(r2) && r1.built > 0, JSON.stringify([r1, r2]));
