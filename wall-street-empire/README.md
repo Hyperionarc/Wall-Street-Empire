@@ -1,6 +1,6 @@
 # Wall Street Empire — prototype jouable (V0.7)
 
-Carte isométrique de 96×96 cases (une case ≈ 150 m) : une grande ville de gratte-ciel, une campagne presque sans routes avec de rares gisements,
+Carte isométrique de 96×96 cases (une case ≈ 150 m) : une petite ville de 100 000 habitants qui grandit jusqu'au million (passe 35), une campagne presque sans routes avec de rares gisements,
 la mer à l'est, un port et sa zone industrielle, le tout jouable dans le navigateur (téléphone ou ordinateur).
 Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
 
@@ -8,7 +8,7 @@ Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
 
 | Zone | Rôle |
 |---|---|
-| **Ville** (centre-ouest) | Ville existante : environ 300 immeubles (bureaux et résidences), de 3 à 24 étages, avec deux tours-repères de plus de 30 étages. Environ 10 000 habitants. Grille d'avenues aérée (une tous les 6 cases, blocs de 5×5). Le promoteur y construit logements, commerces, Tour Tech et Banque |
+| **Ville** (centre-ouest) | Depuis la passe 35 : petite ville de départ (≈ 100 000 habitants, ≈ 370 bâtiments bas, 1 à 15 étages) qui s'étend et se densifie (voir « Passe 35 »). Les anciennes sauvegardes gardent la ville d'origine de 288 000 habitants (≈ 300 immeubles de 3 à 66 étages, deux tours-repères). Grille d'avenues aérée (une tous les 6 cases, blocs de 5×5). Le promoteur y construit logements, commerces, Tour Tech et Banque |
 | **Campagne** | Presque aucune route : une autoroute ville-port et quelques départementales. Les gisements y sont rares (11 amas d'origine, plus 33 sites de matières industrielles depuis la passe 33). Puits et mines se posent dessus |
 | **Zone du port** (est, à 6-9 km de la ville) | Pré-zone industrielle quadrillée : usines et fonderie d'or |
 | **Quai et mer** | Terminal portuaire (grues, conteneurs, navire à quai). Navires animés en mer |
@@ -1159,3 +1159,39 @@ Six régressions apparues seulement une fois les branches fusionnées, chacune m
 - **Ancienne sauvegarde (`t09`)** : pas de défaut de migration ; Chromium vide parfois le localStorage d'un contexte en mémoire entre deux pages (clés vides mesurées au rechargement). Le test réinjecte la sauvegarde écrite par le jeu si le stockage revient vide.
 ### 6. Reporté
 Étain, uranium (nucléaire sans combustible modélisé), argent, titane, plomb ; lithium en roche dure ; élevage ; vrais sprites ; puissances étrangères spécialisées par métal ; engrais achetable ; avantage de vente de la voiture en aluminium ; constructeur automatique de terres rares (il faut monter de niveau une mine de cuivre ou de lithium).
+
+## Passe 35 : petite ville de départ et croissance jusqu'à un million d'habitants
+
+La ville de départ était une image de fin de partie (288 000 habitants, tours de 20 à 66 étages) et se remplissait vers le jour 4 300. Elle est remplacée par une **petite ville** qui grandit comme dans SimCity (agent `agent/ville`, test `t34_ville_croissance.js`).
+
+### 1. Ville de départ (`genNpcTown`, `S.cityV = 2`)
+- ≈ **101 600 habitants**, capacité 119 500, ≈ 370 bâtiments PNJ : 157 maisons, 144 immeubles de logements (2 à 15 étages, moyenne 4,4), 43 immeubles de bureaux, 15 parcs, 11 équipements publics (stade, hôpital, mairie, écoles, police, pompiers…). Aucune tour-repère. Plus de la moitié des lots est libre.
+- Tissu lisible : le centre (autour de la case 30, 30) est dense et plus haut, des quartiers de maisons et de petits immeubles l'entourent, la périphérie est clairsemée. Même génération déterministe (fonction de hachage des cases, pas de hasard de partie).
+- **Bassin de consommation** (`BASSIN_NEW = 2,83`, `S.bassin`, `popE() = habitants × bassin`) : la petite ville draine une région (navetteurs, villages, visiteurs). La demande locale (`LOCAL_D`, biens de base, courants, luxe, logement), la population active (`workforce`), les emplois par étage de bureau (`S.jpf`), l'électricité, la demande de services (`svcSat`, banque), les médias et la demande immobilière (`reRefresh`) se calculent sur ce bassin : l'économie de départ est celle de l'ancienne ville (≈ 289 000 habitants équivalents), donc les cibles de marge, d'élasticité et de cohérence (`t02`, `t03`, `t06`) sont inchangées. À mesure que la ville grandit, la demande suit (×10 à 1 million d'habitants). Les écrans affichent toujours les habitants réels ; le texte « Pourquoi la demande… » montre le bassin (`habitants × unités pour 10 000 hab.` déjà multipliées).
+- **Anciennes sauvegardes** : sans le champ `cv`, `load()` régénère `genNpc` (ville de 288 000 habitants), `built`, `npcMods`, `npcGrow`, avec un bassin de 1 : rien ne change. Le nouveau format (`cv: 2`) enregistre le bassin (`bs`), les blocs ajoutés (`cext`), l'état de croissance (`cg`) et la liste complète des bâtiments PNJ (`cty` : x, y, type, étages, graine) car ils changent chaque jour.
+
+### 2. Modèle de croissance (`stepCity`, `cityGrow`)
+- **Attractivité** `A` (`cityAttract`) = emplois^0,8 (chômage) × humeur^0,8 × services (satisfaction des besoins, services publics) × fiscalité (`taxDrag`) × cycle macro (PIB) × promoteurs (BTP, immobilier, caste promoteur, IA promoteur : +4,5 % par point, 10 maximum) × poids économique du joueur (chiffre d'affaires quotidien par habitant du bassin, échelle logarithmique, +38 % au plus).
+- **Rythme** : tous les 2 jours, `étages ajoutés = r0 · A^2,6 · étages de logement · 2`, avec `r0 = 5,6e-5` par jour, un effet d'agglomération (`1 + 0,04 log2(pop / 100 000)`) et un plafond logistique à 1 million (`1 / (1 + (pop / 1 000 000)^4)`). La population suit la capacité (`pop ≈ capacité × 0,80-0,92`, comme avant).
+- **Densification par niveaux** : chaque lot a une hauteur visée `cityTarget` = `Fmax(pop) × valeur du sol^1,6` (bureaux : ^1,25), avec `Fmax = 10 × (pop / 100 000)^0,95` (4 à 110 étages) et une valeur du sol `exp(-(distance au centre / R)^1,4)` où `R = 10 × (pop / 100 000)^0,38` cases (la ville s'élargit). Niveaux affichés : maisons, petits immeubles (≤ 4 étages), immeubles (≤ 9), tours (≤ 24), grandes tours (≤ 49), supertours. Un chantier construit sur un lot libre (pondéré par la valeur du sol) ou surélève un immeuble (maison → 2-4 étages, puis +30 %), de préférence les bâtiments rachetés par une IA promoteur (poids ×3, annonce « rase et reconstruit plus haut »). Les bureaux suivent le rapport emplois / actifs du départ (`S.cg.jt`), emplois du joueur déduits. Un parc est ajouté tous les 14 étages.
+- **Extension de la zone** (`cityExtend(x, y)`, exposée aussi dans `WSE`) : quand il reste moins de 40 lots libres (ou moins de 14 %), le bloc voisin libre (6×6 cases, ni gisement ni bâtiment du joueur) le plus proche du centre devient zone urbaine : avenues créées, `ZONE = 1`, `S.cityExt` sauvegardé. `inCity(x, y)` lit désormais `ZONE` (équivalent à l'ancien rectangle pour les anciennes parties) ; `CITY` est la boîte englobante ; `CITY0` la ville d'origine. Blocs autorisés : colonnes 1 à 9, lignes 1 à 8 (x et y de 6 à 60 / 54). L'agent promoteur / zonage peut appeler `cityExtend` pour viabiliser des terrains.
+- Les anciens mécanismes (`stepNpcDensify`, `stepDevs`, migration des tours) ne tournent plus que pour les anciennes sauvegardes ; `addNpcTower` (immobilier du joueur, tours des IA) reste actif partout.
+
+### 3. Lisibilité
+- Bandeau **Population** : taille de la ville (Petite ville, Ville, Grande ville, Métropole, Mégalopole) et capacité ; infobulle : remplissage, terrain urbanisé, plus haut immeuble.
+- Écran **Empire**, bloc « LA VILLE » : population, prochain jalon, remplissage des logements, terrain urbanisé et lots libres, densité, plus haut immeuble, demande de logements et d'emplois, attractivité, étages bâtis, répartition par niveaux, courbe de population (`S.cg.h`, un point par mois) : l'histoire de la ville se lit en accéléré (vitesse ×3).
+- Annonces : jalons à 150 000, 250 000, 400 000, 600 000, 800 000 et 1 000 000 habitants, premier immeuble de 10, 25 et 50 étages, nouveau quartier viabilisé, IA promotrices qui reconstruisent plus haut.
+
+### 4. Valeurs mesurées (7 200 jours, `t34`)
+- Départ : 101 900 habitants, capacité 119 550, 370 bâtiments PNJ, plus haut immeuble 15 étages, 386 lots libres sur 756.
+- **Passif** (aucune construction) : **311 k** au jour 7 200 (un point par 600 jours : 119 132 143 156 170 186 204 222 242 265 286 311) ; 5 blocs ajoutés, plus haut immeuble 26 étages ; la satisfaction et l'humeur baissent peu à peu, ce qui freine la croissance.
+- **Actif, bot riche** (2 Md$ de départ, services en série) : 135 k, 174 k, 225 k, 286 k, 358 k, 447 k, 556 k, 671 k, 789 k, 907 k, 1 005 k, **1 096 k** ; supertours de 70 à 100 étages, 3 blocs ajoutés.
+- **Actif, bot « bon joueur » du Round** (`bot_round.js`, 10 M$) : **717 k** habitants au jour 7 164 (victoire à ce moment).
+- Coût : 6 à 12 ms par jour simulé en moyenne ; la croissance urbaine elle-même coûte 0,3 ms.
+- `t02` : l'EBITDA des extracteurs dépend de la suite aléatoire (5 à 10 points d'écart d'une graine à l'autre, mesuré sur l'ancienne version comme sur la nouvelle) ; `isoExtractor` prend désormais la médiane de 3 graines fixes ; la cible du sucre passe de 15-30 % à 8-30 % (retour ≤ 5,5 ans), le sucre médian mesurant 8-10 % avant comme après. `t28` : tolérance 1e-6 sur un résidu flottant (4,5e-13).
+
+### 5. Limites
+- Le plafond de croissance (million d'habitants) est un plafond logistique mou, pas une règle dure ; un joueur très riche peut dépasser un peu 1 million.
+- Le poids économique du joueur est mesuré par son chiffre d'affaires par habitant : un joueur de petite taille pèse peu sur la ville (≈ 450 000 à 600 000 habitants pour un « bon » joueur du Round), un joueur très riche l'accélère nettement.
+- Les blocs ajoutés évitent les forêts, champs et gisements ; si tous les blocs voisins sont occupés, la ville se densifie sans s'étendre. Le coût de rendu reste proportionnel aux bâtiments visibles, pas aux habitants.
+- Les cartes ne sont pas rééquilibrées : les cibles de rivaux (`t27`) dépendent de la demande et sont inchangées au départ.

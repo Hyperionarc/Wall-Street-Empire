@@ -94,10 +94,18 @@ async function isoFactory(key, preSrc) {   // preSrc : code optionnel (W, S) qui
   return { key: r.key, fk: r.fk, ca: r.pRev, out: r.out, gm: r.pRev > 0 ? (r.pRev - r.cogs) / r.pRev : NaN, eb: r.pRev > 0 ? eb / r.pRev : NaN, util: r.util, errs };
 }
 // Extracteur sur le gisement le plus proche du port (rank near) ou médian.
+// Passe 35 : le résultat dépend de la suite aléatoire (producteurs locaux qui entrent sur le marché, événements) ; l'EBITDA d'un extracteur varie de 5 à 10 points d'une graine à l'autre
+// (mesuré sur l'ancienne version comme sur la nouvelle). On retient donc la MÉDIANE de 3 graines fixes (déterministe) au lieu d'une seule suite naturelle.
 async function isoExtractor(key, dep, rank = 'near') {
+  const rs = [];
+  for (const sd of [1, 2, 3]) rs.push(await isoExtractor1(key, dep, rank, sd * 7919));
+  if (rs.some(r => r.none)) return rs.find(r => r.none);
+  rs.sort((a, b) => a.eb - b.eb); return rs[1];
+}
+async function isoExtractor1(key, dep, rank, seed) {
   const pg = await newPage({ wait: 400 }); await setup(pg, { cash: 5e10 });
-  const r = await pg.evaluate(({ key, dep, rank }) => {
-    const W = window.WSE, S = W.S, N = W.N; const m = S.macro; m.boom = 0; m.phase = Math.PI; m.gdp = 0.03; m.infl = 0.02; m.rate = 0.04;
+  const r = await pg.evaluate(({ key, dep, rank, seed }) => {
+    const W = window.WSE, S = W.S, N = W.N; S.rs = seed; const m = S.macro; m.boom = 0; m.phase = Math.PI; m.gdp = 0.03; m.infl = 0.02; m.rate = 0.04;
     const cands = []; for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === dep && !S.grid[i] && !W.footprintError(i % N, (i / N | 0), key)) cands.push([Math.abs(i % N - 75) + Math.abs((i / N | 0) - 69), i]); }
     cands.sort((a, b) => a[0] - b[0]); const pick = rank === 'near' ? cands[0] : cands[cands.length >> 1]; if (!pick) return null;
     const c = W.place(pick[1] % N, pick[1] / N | 0, key) && S.grid[pick[1]]; try { W.autoConnect(pick[1] % N, pick[1] / N | 0); } catch (e) {}
@@ -106,7 +114,7 @@ async function isoExtractor(key, dep, rank = 'near') {
     const A = { pRev: 0, wag: 0, upk: 0, tr: 0, out: 0 }, D = 40;
     for (let i = 0; i < D; i++) { pre(); W.step(); A.pRev += c.pRev || 0; A.wag += c.wages || 0; A.upk += c.upk || 0; A.tr += c.transport || 0; A.out += c.out || 0; }
     Object.keys(A).forEach(k => A[k] /= D); A.cost = W.TYPES[key].cost; return A;
-  }, { key, dep, rank });
+  }, { key, dep, rank, seed });
   await pg.context().close(); if (!r) return { key, rank, none: true };
   const eb = r.pRev - r.wag - r.upk - r.tr; return { key, rank, eb: eb / r.pRev, payback: r.cost / Math.max(1, eb * 360) };
 }

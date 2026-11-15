@@ -1203,7 +1203,7 @@ body.vopen #feed{z-index:9}
 
   <div id="hint">
     <b>BIENVENUE À NEW DOLLARTON</b>
-    <p>Une grande ville existe déjà et ses habitants ont besoin de biens. Tu es promoteur industriel : le port et sa zone industrielle sont à l'est (ville à 6-9 km), et la campagne n'a que de rares gisements.</p>
+    <p>Une petite ville d'environ 100 000 habitants existe déjà et ses habitants ont besoin de biens ; elle grandira avec toi, jusqu'à un million d'habitants. Tu es promoteur industriel : le port et sa zone industrielle sont à l'est (ville à 6-9 km), et la campagne n'a que de rares gisements.</p>
     <p>Construis des usines dans la zone du port, pose mines et puits sur les gisements (sans route ils tournent à 65 %, reliés au réseau par tes routes ils atteignent 100 %), puis vends en ville avec des commerces. « Produits » permet de lancer des produits finis.</p>
   </div>
   <div id="win" hidden>
@@ -1758,7 +1758,7 @@ function stepLocalMarket(made, want) {
   let v = 0;
   Object.keys(LOCAL_D).forEach(g => {
     if (!GOODS[g]) return;
-    const Dl = LOCAL_D[g] * (ROBOTS[g] ? 1 + 0.12 * Math.min(3, (S.rivals || []).length) : RIV_USE[g] ? 1 + 0.06 * Math.min(5, (S.rivals || []).length) : 1) * (S.pop / 10000) * gdpm * clamp(Math.pow(Math.max(0.2, (S.price[g] || GOODS[g].base) / (GOODS[g].base * cpi())), -elRaw(g)), 0.4, 1.8), n = npcs[g] || (npcs[g] = { cap: 0, days: 0 });
+    const Dl = LOCAL_D[g] * (ROBOTS[g] ? 1 + 0.12 * Math.min(3, (S.rivals || []).length) : RIV_USE[g] ? 1 + 0.06 * Math.min(5, (S.rivals || []).length) : 1) * (popE() / 10000) * gdpm * clamp(Math.pow(Math.max(0.2, (S.price[g] || GOODS[g].base) / (GOODS[g].base * cpi())), -elRaw(g)), 0.4, 1.8), n = npcs[g] || (npcs[g] = { cap: 0, days: 0 });
     if (n.cap > 0) { const c0 = n.cap; n.cap = Math.min(Dl * ROOM * (NPC_CAP + 0.03 * dif), n.cap * (1 + 0.004 * (1 + dif))); if (CROPS[g] && Math.floor(n.cap / (Dl * 0.2)) > Math.floor(c0 / (Dl * 0.2)) && rnd() < 0.6) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); }
     const hadSale = (S.locSold[g] || 0) > 5; n.days = hadSale ? n.days + 1 : Math.max(0, n.days - 1);
     if (!n.cap && n.days > 18 && rnd() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * ROOM * 0.15; if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
@@ -2312,7 +2312,7 @@ function prodModelHTML(pk) {
    ${isPh(pk) ? `<div class="qr"><span>Catégorie pharmacie</span><span>${pk === 'vitamins' ? 'Compléments : marque forte' : 'Marque 30 · qualité 60 · prix 10'} · peu sensible au prix (×2,5 : 70 % du volume, ×5 : 30 %, ×20 : 8 %) · remboursement ${Math.round(phRmb() * 100)} %</span></div>` : ''}
    ${brandLineHTML(pk)}
    <div class="qr"><span>Indice de nécessité</span><span>${necOf(pk)} / 100 · élasticité ×${f(necMult(necOf(pk)))}</span></div>
-   <div class="qr"><span>Demande moyenne</span><span>${f(DEMAND_PC[pk] || 0)} u/an/habitant ≈ ${fmt(Math.round(S.pop * (DEMAND_PC[pk] || 0) / 360))} u/jour</span></div>
+   <div class="qr"><span>Demande moyenne</span><span>${f(DEMAND_PC[pk] || 0)} u/an/habitant ≈ ${fmt(Math.round(popE() * (DEMAND_PC[pk] || 0) / 360))} u/jour</span></div>
    <div class="qr"><span>Salaire réel requis · actuel</span><span>${Math.round(reqRW(pk) * 100)} · ${Math.round(((S.rw || 1)) * 100)}${affordOf(pk) < 0.99 ? ' (acheteurs à ' + Math.round(affordOf(pk) * 100) + ' %)' : ''}</span></div>
    <div class="qr"><span>Prix standard (base + prime R&D)</span><span>${f(stdPrice(pk))} $ (dont prime R&D ${f(rdPrem(pk))} $, non indexée)</span></div>
    <div class="qr"><span>Qualité réelle ${Math.round(trueQ(pk))} %</span><span>intrants ${100 - iq.tech} % · technologie ${iq.tech} %</span></div>
@@ -2327,6 +2327,11 @@ function prodModelHTML(pk) {
 
 // ===== ÉCHELLE ÉCONOMIQUE (audit « Chief Architect ») : population ~340 k, volumes industriels ×25, capex ≈ 1 an de chiffre d'affaires à pleine charge
 const K_POP = 30, K_IND = 25, K_SIZE = 5, ROOM = 0.08, WAGE_K = 120;
+// Bassin de consommation (passe 35) : la petite ville de départ (≈ 100 000 habitants) draine une région (navetteurs, villages, visiteurs) : demande, emplois, électricité et services se calculent sur
+// habitants × BASSIN, donc l'économie de départ reste celle d'une ville de ≈ 290 000 habitants. Les anciennes sauvegardes (ville de 288 000 habitants) gardent un bassin de 1.
+const BASSIN_NEW = 2.8325;
+const bassin = () => (S && S.bassin) || 1;
+const popE = () => ((S && S.pop) || 0) * bassin();
 // Échelle commune de la fortune (paliers, missions de capitalisation, victoire, IPO) : les repères d'origine (Entrepreneur 1,25 M$ ... Oligarque 35 M$) sont multipliés par SCALE_M ; rivaux et grands groupes PNJ suivent (RIV_K, NPC_K)
 const SCALE_M = 4 * K_SIZE, RIV_K = 2 * K_SIZE, NPC_K = 100, MISSION_K = 100;
 const RIV_ASSET = 90000 * K_POP * RIV_K, RIV_OPEX = 220 * K_POP, RIV_EXPAND = RIV_ASSET * 0.01;
@@ -2582,19 +2587,53 @@ function mkCell(t, seed) {
 // Gisements : amas fixes près du départ, puis amas aléatoires répartis sur la carte
 // Géographie : ville (avenues aérées), campagne (routes rares), zone portuaire et mer à l'est.
 // Échelle : une case ≈ 150 m. La ville est à 6-9 km du port.
-const CITY = { x0: 12, y0: 12, x1: 48, y1: 48 };
+const CITY0 = { x0: 12, y0: 12, x1: 48, y1: 48 };   // ville d'origine ; CITY = boîte englobante de la ville actuelle (s'étend par blocs de 6 cases : cityExtend)
+const CITY = Object.assign({}, CITY0);
 const PORT = { x0: 66, y0: 54, x1: 84, y1: 84 };
 const GRID = 6;      // une avenue tous les 6 cases en ville et dans la zone du port
 const REACH = 3;     // une ruelle implicite dessert l'intérieur des blocs (distance max à une avenue)
-const inCity = (x, y) => x >= CITY.x0 && x <= CITY.x1 && y >= CITY.y0 && y <= CITY.y1;
+const inCityRect = (x, y) => x >= CITY0.x0 && x <= CITY0.x1 && y >= CITY0.y0 && y <= CITY0.y1;
+const inCity = (x, y) => x >= 0 && y >= 0 && x < N && y < N && ZONE[y * N + x] === 1;   // zone urbaine actuelle (la ville d'origine plus les blocs ajoutés par cityExtend)
 const inPort = (x, y) => x >= PORT.x0 && x <= PORT.x1 && y >= PORT.y0 && y <= PORT.y1;
 const coastX = y => (y >= PORT.y0 - 4 && y <= PORT.y1 + 4) ? 88 : 88 + Math.round(1.6 * Math.sin(y * 0.31) + (hash(y, 3, 3) - 0.5) * 1.2);
 const ZONE = new Uint8Array(N * N);   // 0 campagne, 1 ville, 2 zone portuaire, 3 mer, 4 quai
 function buildZones() {
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const cx = coastX(y);
-    ZONE[idx(x, y)] = x >= cx ? 3 : (x >= cx - 3 && y >= PORT.y0 && y <= PORT.y1) ? 4 : inCity(x, y) ? 1 : inPort(x, y) ? 2 : 0;
+    ZONE[idx(x, y)] = x >= cx ? 3 : (x >= cx - 3 && y >= PORT.y0 && y <= PORT.y1) ? 4 : inCityRect(x, y) ? 1 : inPort(x, y) ? 2 : 0;
   }
+}
+// Extension de la ville (passe 35) : la zone urbaine grandit par blocs de 6 cases (comme la grille d'avenues). Un bloc ajouté devient zone 1 (constructible, avenues, lots) ; S.cityExt garde la liste des blocs [bx, by] (sauvegardée).
+// cityExtend(x, y) : étend la ville au bloc qui contient la case (x, y), à condition qu'il touche la ville, soit de la campagne libre (ni gisement ni bâtiment du joueur) et reste dans la carte ; renvoie true si le bloc est ajouté.
+const CITY_MAXB = { bx0: 1, bx1: 9, by0: 1, by1: 8 };   // blocs extensibles : x 6 à 60, y 6 à 54 (le port, la mer et les bords de carte restent hors de portée)
+function cityReset() { Object.assign(CITY, CITY0); buildZones(); }
+function cityBlockApply(bx, by) {
+  for (let y = by * GRID; y <= by * GRID + GRID; y++) for (let x = bx * GRID; x <= bx * GRID + GRID; x++) if (inb(x, y) && ZONE[idx(x, y)] === 0) ZONE[idx(x, y)] = 1;
+  CITY.x0 = Math.min(CITY.x0, bx * GRID); CITY.y0 = Math.min(CITY.y0, by * GRID); CITY.x1 = Math.max(CITY.x1, bx * GRID + GRID); CITY.y1 = Math.max(CITY.y1, by * GRID + GRID);
+}
+function cityBlockState(bx, by) {   // 'ok' | 'urbain' | 'hors' | 'occupe' | 'isole'
+  if (bx < CITY_MAXB.bx0 || bx > CITY_MAXB.bx1 || by < CITY_MAXB.by0 || by > CITY_MAXB.by1) return 'hors';
+  let fresh = 0;
+  for (let y = by * GRID; y <= by * GRID + GRID; y++) for (let x = bx * GRID; x <= bx * GRID + GRID; x++) {
+    if (!inb(x, y)) return 'hors'; const z = ZONE[idx(x, y)];
+    if (z === 1) continue; if (z !== 0) return 'hors';
+    if (S && ((S.dep && S.dep[idx(x, y)]) || (S.grid && S.grid[idx(x, y)] && S.grid[idx(x, y)].t !== 'road'))) return 'occupe';
+    fresh++;
+  }
+  if (!fresh) return 'urbain';
+  let touch = false; const x0 = bx * GRID, y0 = by * GRID;
+  for (let k = 0; k <= GRID && !touch; k++) for (const q of [[x0 - 1, y0 + k], [x0 + GRID + 1, y0 + k], [x0 + k, y0 - 1], [x0 + k, y0 + GRID + 1]]) if (inCity(q[0], q[1])) { touch = true; break; }
+  return touch ? 'ok' : 'isole';
+}
+function cityExtend(x, y) {
+  if (!S || !S.grid) return false;
+  const bx = Math.floor(x / GRID), by = Math.floor(y / GRID);
+  if (cityBlockState(bx, by) !== 'ok') return false;
+  cityBlockApply(bx, by); (S.cityExt = S.cityExt || []).push([bx, by]);
+  for (let yy = by * GRID; yy <= by * GRID + GRID; yy++) for (let xx = bx * GRID; xx <= bx * GRID + GRID; xx++) { const id = idx(xx, yy); if (inb(xx, yy) && ZONE[id] === 1 && isRoadPos(xx, yy) && !S.grid[id]) S.grid[id] = { t: 'road', x: xx, y: yy }; }
+  if (typeof makeDecor === 'function' && typeof decor !== 'undefined') makeDecor();
+  trfDirty = true; if (siteC) siteC.dirty = true; if (S._re) S._re.dirty = true;
+  return true;
 }
 // routes de campagne : autoroute ville-port et quelques départementales (rares)
 const RURAL_ROADS = [[49, 48, 66, 48], [66, 48, 66, 53], [30, 0, 30, 11], [0, 30, 11, 30], [30, 49, 30, 95], [60, 20, 60, 47], [72, 28, 72, 53]];
@@ -2706,6 +2745,152 @@ function genNpc(grid) {
   }
   return { cap, offFloors };
 }
+/* ---------- Ville de départ et croissance urbaine (passe 35) ---------- */
+// Nouvelle partie : une petite ville d'environ 100 000 habitants (maisons, petits immeubles de 3 à 8 étages au centre, quelques bureaux, parcs, équipements publics) et beaucoup de terrain libre.
+// Elle grandit seule vers 250 000 à 400 000 habitants en 20 ans et, si le joueur crée emplois, logements et bonne humeur, jusqu'à 600 000 à 1 000 000 : modèle à la SimCity (attractivité -> rythme de construction,
+// densification par niveaux maison -> petit immeuble -> immeuble -> tour -> grande tour -> supertour selon la valeur du sol, extension de la zone urbaine par blocs). Les sauvegardes d'avant (S.cityV absent) gardent leur ancienne ville.
+const CITY_POP0 = 100000, CG_R0 = 5.6e-5, CG_P = 2.6, CG_CAP = 1.0e6;
+const cityR = pop => 10 * Math.pow(Math.max(20000, pop) / CITY_POP0, 0.38);          // rayon d'influence du centre (cases) : il grandit avec la ville
+const cityFmax = pop => clamp(10 * Math.pow(Math.max(20000, pop) / CITY_POP0, 0.95), 4, 110);   // hauteur maximale au centre (étages) : effet d'agglomération
+const cityLV = (x, y, R) => Math.exp(-Math.pow(Math.hypot(x - CBD.x, y - CBD.y) / R, 1.4));   // valeur du sol relative (1 au centre)
+function cityTarget(x, y, kind, R, Fm) {   // hauteur visée d'un lot (étages)
+  const lv = cityLV(x, y, R), j = 0.8 + 0.4 * hash(x, y, 77);
+  return Math.max(1, Math.round((kind === 'off' ? Fm * Math.pow(lv, 1.25) * 0.9 : Fm * Math.pow(lv, 1.6)) * j));
+}
+const cityLevel = f => f <= 1 ? 0 : f <= 4 ? 1 : f <= 9 ? 2 : f <= 24 ? 3 : f <= 49 ? 4 : 5;
+const CITY_LVN = ['maisons', 'petits immeubles', 'immeubles', 'tours', 'grandes tours', 'supertours'];
+const CITY_SIZES = [[0, 'Petite ville'], [150000, 'Ville'], [300000, 'Grande ville'], [500000, 'Métropole'], [1000000, 'Mégalopole']];
+const CITY_MS = [[150000, 'New Dollarton devient une ville : les premiers quartiers de grands immeubles apparaissent.'], [250000, 'Cap des 250 000 habitants : le centre monte, les promoteurs lorgnent les maisons.'],
+  [400000, 'New Dollarton devient une grande ville : tours de bureaux et nouveaux quartiers.'], [600000, 'New Dollarton devient une métropole : le centre est une forêt de tours.'],
+  [800000, 'Cap des 800 000 habitants : les supertours dominent le centre.'], [1000000, 'Un million d\'habitants : New Dollarton est une mégalopole.']];
+const citySizeName = pop => { let n = CITY_SIZES[0][1]; CITY_SIZES.forEach(a => { if (pop >= a[0]) n = a[1]; }); return n; };
+const isLot = (x, y) => x % GRID !== 0 && y % GRID !== 0 && !((x % GRID) - 1 >= 3 && (y % GRID) - 1 >= 3);   // lot constructible d'un bloc (les 4 cases du coin 2x2 restent libres : emplacement d'hypermarché)
+const npcCellOf = (x, y, k, floors, seed) => ({ t: 'npc', k, seed: seed == null ? hash(x, y, 44) : seed, floors, lvl: 0, w: 1, h: 1, x, y, born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false });
+function genNpcTown(grid) {   // petite ville : centre bas et dense, quartiers de maisons, périphérie clairsemée
+  let cap = 0, offFloors = 0; const R = cityR(CITY_POP0), Fm = cityFmax(CITY_POP0);
+  for (let by = 0; by < 6; by++) for (let bx = 0; bx < 6; bx++) {
+    const ox = CITY0.x0 + 1 + bx * GRID, oy = CITY0.y0 + 1 + by * GRID;
+    for (let j = 0; j < 5; j++) for (let i = 0; i < 5; i++) {
+      const x = ox + i, y = oy + j, id = idx(x, y); if (grid[id]) continue;
+      const key = x + ',' + y;
+      if (MONU[key]) { const c = npcCellOf(x, y, 'mon', 1); c.m = MONU[key]; grid[id] = c; continue; }
+      if (i >= 3 && j >= 3) continue;
+      const d = Math.hypot(x - CBD.x, y - CBD.y) + (hash(x, y, 47) - 0.5) * 2.4, pOcc = 0.97 * Math.exp(-Math.pow(d / 16.5, 2.3));
+      if (hash(x, y, 41) >= pOcc) continue;
+      const r1 = hash(x, y, 42), r3 = hash(x, y, 43);
+      if (d < 13 && hash(x, y, 49) < 0.07) { grid[id] = npcCellOf(x, y, 'park', 1); continue; }
+      const sh = d < 5 ? [0.35, 0.65, 0] : d < 9 ? [0.2, 0.62, 0.18] : d < 13 ? [0.1, 0.5, 0.4] : [0.04, 0.2, 0.76];   // bureaux, immeubles, maisons
+      let kind = r1 < sh[0] ? 'off' : r1 < sh[0] + sh[1] ? 'res' : 'house', floors = 1;
+      if (kind !== 'house') { floors = Math.max(2, Math.round(cityTarget(x, y, kind, R, Fm) * (1.04 + 0.42 * r3))); if (kind === 'res' && floors < 2) kind = 'house'; }
+      grid[id] = npcCellOf(x, y, kind, floors);
+      if (kind === 'res') cap += 5 * floors; else if (kind === 'house') cap += 5; else offFloors += floors;
+    }
+  }
+  return { cap, offFloors };
+}
+const ctyPack = () => { const a = []; S.grid.forEach(c => { if (c && c.t === 'npc') a.push(c.k === 'mon' ? [c.x, c.y, 'mon', 1, +c.seed.toFixed(4), c.m] : [c.x, c.y, c.k, c.floors, +c.seed.toFixed(4), c.lm ? 1 : 0]); }); return a; };
+function ctyLoad(grid, list) {
+  let cap = 0, offFloors = 0;
+  (Array.isArray(list) ? list : []).forEach(a => { if (!inb(a[0], a[1]) || grid[idx(a[0], a[1])]) return; const c = npcCellOf(a[0], a[1], a[2], a[3] | 0, +a[4]);
+    if (a[2] === 'mon') c.m = a[5]; else if (a[5] === 1) c.lm = true; grid[idx(a[0], a[1])] = c; if (a[2] === 'res') cap += 5 * c.floors; else if (a[2] === 'house') cap += 5; else if (a[2] === 'off') offFloors += c.floors; });
+  return { cap, offFloors };
+}
+// Observation de la ville (une passe sur la grille, mise en cache par jour) : parc, lots libres, niveaux de densité
+function cityHold(x, y) { if (S.cityV && S.cg) (S.cg.hold = S.cg.hold || {})[y * N + x] = S.day + 200; }   // lot libéré par le joueur : la ville n'y construit pas pendant 200 jours
+function cityScan() {
+  if (S._cs && S._cs.day === S.day && !S._cs.dirty) return S._cs;
+  const o = { day: S.day, houses: 0, res: 0, off: 0, parks: 0, mons: 0, resF: 0, offF: 0, lots: 0, free: 0, own: 0, lv: [0, 0, 0, 0, 0, 0], top: 0, freeL: [], dens: [], offL: [] };
+  const R = cityR(S.pop), Fm = cityFmax(S.pop), hold = S.cg && S.cg.hold;
+  for (let y = CITY.y0; y <= CITY.y1; y++) for (let x = CITY.x0; x <= CITY.x1; x++) {
+    const id = y * N + x; if (ZONE[id] !== 1 || !isLot(x, y)) continue;
+    const c = S.grid[id];
+    if (!c) { if (!S.dep[id]) { o.lots++; o.free++; if (!(hold && hold[id] > S.day)) o.freeL.push(id); } continue; }
+    o.lots++;
+    if (c.t !== 'npc') { o.own++; continue; }
+    if (c.k === 'mon') { o.mons++; continue; } if (c.k === 'park') { o.parks++; continue; }
+    if (c.k === 'house') { o.houses++; o.resF++; o.lv[0]++; } else if (c.k === 'res') { o.res++; o.resF += c.floors; o.lv[cityLevel(c.floors)]++; } else { o.off++; o.offF += c.floors; o.lv[cityLevel(c.floors)]++; }
+    if (c.floors > o.top) o.top = c.floors;
+    if (!c.lm) { const tf = cityTarget(c.x, c.y, c.k === 'off' ? 'off' : 'res', R, Fm); if (tf > c.floors) (c.k === 'off' ? o.offL : o.dens).push(id); }
+  }
+  S._cs = o; return o;
+}
+// Attractivité (0,5 à 1,6) : emplois, humeur, services, fiscalité, cycle macro ; promoteurs actifs = chantiers plus rapides
+function cityAttract() {
+  const st = S.stats || {}, M = S.macro || { gdp: 0.03 }, un = st.unemp != null ? st.unemp : 0.2, hp = st.happy != null ? st.happy : 60, sat = S._dw && S._dw.sat ? clamp(S._dw.sat.all, 0, 1.2) : 0.9;
+  const aJ = clamp(1.4 - 2.2 * un, 0.5, 1.4), aH = 0.7 + 0.6 * hp / 100, aS = 0.8 + 0.2 * sat + 0.012 * pubBonus(), aT = taxDrag(S.tax), aG = clamp(1 + 3 * (M.gdp - 0.03), 0.8, 1.25);
+  const cn = st.cn || {}, riv = (S.rivals || []).filter(r => r.caste === 'promoteur' && !r.dead).length, P = Math.min(10, (cn.btp || 0) + 2 * (cn.immo || 0) + (S.caste === 'promoteur' ? 3 : 0) + 1.5 * riv), aP = 1 + 0.045 * P;
+  const ipc = popE() > 0 ? (st.income || 0) / popE() : 0, aE = 1 + 0.38 * clamp(Math.log10(Math.max(ipc, 1e-4) / 0.05) / 2.2, 0, 1);   // poids économique de ton entreprise : chiffre d'affaires quotidien par habitant du bassin
+  return { v: Math.pow(aJ, 0.8) * Math.pow(aH, 0.8) * aS * aT * aG * aP * aE, aJ, aH, aS, aT, aG, aP, aE };
+}
+function crnd() { const G = S.cg; G.r = ((G.r == null ? 0x2f6e2b1 : G.r) + 0x6D2B79F5) | 0; let t = Math.imul(G.r ^ (G.r >>> 15), 1 | G.r); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }   // aléa propre à la ville : ne touche pas à la suite de rnd() du reste du jeu
+function cityPickWeighted(ids, wf) { let tot = 0; const w = ids.map(id => { const v = Math.max(0, wf(id)); tot += v; return v; }); if (!(tot > 0)) return -1; let r = crnd() * tot; for (let i = 0; i < ids.length; i++) { r -= w[i]; if (r <= 0) return ids[i]; } return ids[ids.length - 1]; }
+function cityFirst(key, txt) { const G = S.cg; if (G.f && G.f[key]) return; (G.f = G.f || {})[key] = S.day; say(txt, 'good'); }
+function cityBuild(kind, sc) {   // un chantier : construit sur un lot libre ou surélève un immeuble ; renvoie les étages ajoutés (0 si rien n'est possible)
+  const R = cityR(S.pop), Fm = cityFmax(S.pop), now = performance.now();
+  const list = kind === 'off' ? sc.offL : sc.dens, freeW = id => { const x = id % N, y = (id / N) | 0, lv = cityLV(x, y, R); return lv * lv * (lv > 0.12 ? 1 : 0.1); };
+  const pNew = sc.freeL.length ? (list.length ? clamp(0.12 + 0.4 * sc.free / Math.max(1, sc.lots), 0.1, 0.6) : 1) : 0;
+  if (crnd() < pNew) {
+    const id = cityPickWeighted(sc.freeL, freeW); if (id < 0 || S.grid[id]) return 0;
+    const x = id % N, y = (id / N) | 0, tf = cityTarget(x, y, kind, R, Fm); let k = kind, f = 1;
+    if (kind === 'off') f = clamp(Math.round(tf * 0.5), 2, Math.max(2, tf)); else if (tf >= 2) { k = 'res'; f = clamp(Math.round(tf * 0.5), 2, tf); } else k = 'house';
+    const c = npcCellOf(x, y, k, f); c.born = now; S.grid[id] = c; sc.freeL.splice(sc.freeL.indexOf(id), 1); sc.free--; return k === 'house' ? 1 : f;
+  }
+  if (!list.length) return 0;
+  const own = c => S.npcOwn && S.npcOwn[c.x + ',' + c.y], id = cityPickWeighted(list, i => { const c = S.grid[i], tf = cityTarget(c.x, c.y, kind === 'off' ? 'off' : 'res', R, Fm); return (tf - c.floors) / tf * (own(c) ? 3 : 1); });
+  if (id < 0) return 0;
+  const c = S.grid[id]; if (!c || c.t !== 'npc') return 0;
+  const tf = cityTarget(c.x, c.y, kind === 'off' ? 'off' : 'res', R, Fm), f0 = c.floors, k0 = c.k;
+  let f1; if (k0 === 'house') { f1 = Math.min(tf, 2 + Math.floor(crnd() * 3)); c.k = 'res'; } else f1 = Math.min(tf, f0 + Math.max(1, Math.round(f0 * 0.3) + Math.floor(crnd() * 2)));
+  if (f1 <= (k0 === 'house' ? 1 : f0)) { c.k = k0; return 0; }
+  c.floors = f1; c.born = now - 300; if (f1 >= tf) { const q = list.indexOf(id); if (q >= 0) list.splice(q, 1); }
+  const o = own(c), rv = o && rivalById(o);
+  if (rv && crnd() < 0.3) say(`${rv.name} rase et reconstruit plus haut : ${kindFr(c.k, 1)} de ${f1} étages en (${c.x + 1}, ${c.y + 1}).`, 'info');
+  if (f1 >= 10) cityFirst('t10', `Premier immeuble de ${f1} étages en (${c.x + 1}, ${c.y + 1}) : la ville prend de la hauteur.`);
+  if (f1 >= 25) cityFirst('t25', `Première grande tour de ${f1} étages : le centre devient un quartier d'affaires.`);
+  if (f1 >= 50) cityFirst('t50', `Première supertour de ${f1} étages : New Dollarton rivalise avec les grandes métropoles.`);
+  return Math.max(1, f1 - (k0 === 'house' ? 1 : f0));
+}
+function cityAddPark(sc) {
+  const R = cityR(S.pop), id = cityPickWeighted(sc.freeL, id => { const x = id % N, y = (id / N) | 0, d = Math.hypot(x - CBD.x, y - CBD.y); return d > 3 && d < R * 1.3 ? cityLV(x, y, R) : 0; });
+  if (id < 0) return false; const c = npcCellOf(id % N, (id / N) | 0, 'park', 1); c.born = performance.now(); S.grid[id] = c; sc.freeL.splice(sc.freeL.indexOf(id), 1); sc.free--; return true;
+}
+function cityGrow() {   // un pas de croissance (tous les 2 jours)
+  const G = S.cg; if (G.hold) Object.keys(G.hold).forEach(k => { if (G.hold[k] <= S.day) delete G.hold[k]; });
+  const sc = cityScan(), A = cityAttract(), st = S.stats || {};
+  S.city = Object.assign(S.city || {}, { attr: A.v });
+  const g = CG_R0 * Math.pow(A.v, CG_P) * (1 / (1 + Math.pow(S.pop / CG_CAP, 4))) * (1 + 0.04 * Math.log2(Math.max(1, S.pop / CITY_POP0)));
+  G.acc = Math.min(40, G.acc + g * 2 * sc.resF); let n = 0, tfl = 0;
+  while (G.acc >= 1 && n++ < 30) { const a = cityBuild('res', sc); if (!a) { G.acc = Math.min(G.acc, 3); break; } G.acc -= a; tfl += a; G.park += a; }
+  while (G.park >= 14) { G.park -= 14; cityAddPark(sc); }
+  // bureaux : la ville vise le rapport emplois / actifs du départ (les emplois du joueur comptent)
+  const jpf = Math.max(0.01, S.jpf || 1), wf = popE() * 0.55, defO = ((G.jt || 0.88) * wf - sc.offF * jpf - (st.playerJobs || 0)) / jpf;
+  for (let k = 0, d = defO; d > 1 && k < 12; k++) { const a = cityBuild('off', sc); if (!a) break; d -= a; tfl += a; }
+  if (tfl) { sc.dirty = true; trfDirty = true; if (S._re) S._re.dirty = true; if (typeof siteC !== 'undefined') siteC.dirty = true; }
+  // extension : peu de lots libres pour la taille de la ville -> un nouveau bloc est viabilisé près du centre
+  if (S.day - (G.ext || 0) >= 40 && (sc.free < 40 || sc.free < 0.14 * sc.lots)) {
+    let best = null, bd = 1e9;
+    for (let bx = CITY_MAXB.bx0; bx <= CITY_MAXB.bx1; bx++) for (let by = CITY_MAXB.by0; by <= CITY_MAXB.by1; by++) { const d = Math.hypot(bx * GRID + 3 - CBD.x, by * GRID + 3 - CBD.y); if (d < bd && cityBlockState(bx, by) === 'ok') { bd = d; best = [bx, by]; } }
+    if (best && cityExtend(best[0] * GRID + 3, best[1] * GRID + 3)) { G.ext = S.day; sc.dirty = true; say(`La ville s'étend : un nouveau quartier est viabilisé en (${best[0] * GRID + 1}, ${best[1] * GRID + 1}).`, 'good'); }
+  }
+}
+function cityMetrics() {   // indicateurs affichés (HUD, Empire) : mis à jour chaque jour
+  const sc = cityScan(), st = S.stats || {}, pop = S.pop, wf = popE() * 0.55, A = S.city && S.city.attr != null ? S.city.attr : cityAttract().v;
+  const cap = st.cap || 0, dd = cityDemand();
+  S.city = { attr: A, name: citySizeName(pop), pop, cap, occ: cap > 0 ? pop / cap : 0, lots: sc.lots, free: sc.free, builtShare: sc.lots > 0 ? 1 - sc.free / sc.lots : 0, dens: sc.lots > sc.free ? pop / (sc.lots - sc.free) : 0, resF: sc.resF, offF: sc.offF, top: sc.top, lv: sc.lv.slice(),
+    jobs: st.jobs || 0, workforce: wf, jobsRatio: wf > 0 ? (st.jobs || 0) / wf : 0, unemp: st.unemp != null ? st.unemp : 0, demHous: dd.h, demJobs: dd.j, ext: (S.cityExt || []).length };
+  return S.city;
+}
+function cityDemand() {   // demande de logement et d'emplois (-1 à 1) : lisible dans l'Empire
+  const st = S.stats || {}, wf = popE() * 0.55, jr = wf > 0 ? (st.jobs || 0) / wf : 0, A = S.city && S.city.attr != null ? S.city.attr : 1, jt = (S.cg && S.cg.jt) || 0.88;
+  return { h: clamp((jr - jt) * 3 + (A - 1) * 1.2, -1, 1), j: clamp((jt - jr) * 3, -1, 1) };
+}
+function stepCity() {
+  if (!S.cityV || !S.cg) return;
+  if (S.day % 2 === 0) cityGrow();
+  cityMetrics(); const G = S.cg;
+  if (S.day % 30 === 0) { (G.h = G.h || []).push(Math.round(S.pop)); if (G.h.length > 300) G.h.shift(); }
+  while (G.ms < CITY_MS.length && S.pop >= CITY_MS[G.ms][0]) { say(CITY_MS[G.ms][1], 'gold'); G.ms++; }
+}
 // routes reliées au réseau public (les rues et routes de la mairie sont les sources)
 function linkedMask() {
   const m = new Uint8Array(N * N), q = [];
@@ -2729,6 +2914,7 @@ function extLinked(c, lm) {
 }
 
 function newCity() {
+  cityReset();   // zone urbaine d'origine (une partie précédente a pu l'étendre)
   const grid = new Array(N * N).fill(null);
   const S0 = {
     cash: 40000, pop: 40, day: 0, grid, dep: genDeposits(), hist: [], boomUntil: -1, milestone: 99, lastWarn: -99,
@@ -2747,9 +2933,11 @@ function newCity() {
   };
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
-  const npc = genNpc(grid);
-  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap * K_POP / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.npcOwn = {}; S0.neg = {}; S0.reqs = []; S0.rid = 0; S0.npcGrow = {}; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.mode = { k: 'free' }; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
+  const npc = genNpcTown(grid);
+  S0.cityV = 2; S0.bassin = BASSIN_NEW; S0.cityExt = []; S0.cg = { acc: 0, park: 0, ms: 0, ext: 0, jt: 0.88, f: {} };
+  S0.jpf = 0.88 * 0.55 * 0.85 * npc.cap * K_POP * BASSIN_NEW / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.npcOwn = {}; S0.neg = {}; S0.reqs = []; S0.rid = 0; S0.npcGrow = {}; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.mode = { k: 'free' }; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
   S0.pop = Math.round(npc.cap * K_POP * 0.85);
+  S0.cg.ms = CITY_MS.filter(m => S0.pop >= m[0]).length;
   S0.cash = 600000 * K_SIZE;
   return S0;
 }
@@ -2780,7 +2968,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], g, dep }));
     localStorage.setItem(SAVE_KEY + '_gal', JSON.stringify(S.gal || {}));
   } catch (e) { /* stockage indisponible */ }
 }
@@ -2807,11 +2995,13 @@ function load() {
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
+    const cv2 = d.cv === 2;   // passe 35 : ville de départ « petite ville » + croissance ; sinon l'ancienne ville (288 000 habitants) est régénérée à l'identique
+    cityReset(); if (cv2 && Array.isArray(d.cext)) d.cext.forEach(b => { if (Array.isArray(b)) cityBlockApply(b[0] | 0, b[1] | 0); });
     genRoads(grid);
-    const npcInfo = genNpc(grid);
-    (Array.isArray(d.built) ? d.built : []).forEach(b => { const id = idx(b[0], b[1]); if (!grid[id]) grid[id] = { t: 'npc', k: b[2], seed: b[4], floors: b[3], lvl: 0, w: 1, h: 1, x: b[0], y: b[1], born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; });
-    (Array.isArray(d.npcMods) ? d.npcMods : []).forEach(m => { const c = grid[idx(m[0], m[1])]; if (!c || c.t !== 'npc') return; if (m[2] === 'x') grid[idx(m[0], m[1])] = null; else { c.k = m[2]; c.floors = m[3]; } });
-    if (d.npcGrow) Object.keys(d.npcGrow).forEach(k => { const [gx, gy] = k.split(',').map(Number), c = inb(gx, gy) && grid[idx(gx, gy)], v = d.npcGrow[k]; if (c && c.t === 'npc' && c.k === 'off' && Array.isArray(v)) { c.floors = Math.max(c.floors, v[0] | 0); c.f0 = v[1] | 0 || c.floors; } });
+    const npcInfo = cv2 ? ctyLoad(grid, d.cty) : genNpc(grid);
+    if (!cv2) (Array.isArray(d.built) ? d.built : []).forEach(b => { const id = idx(b[0], b[1]); if (!grid[id]) grid[id] = { t: 'npc', k: b[2], seed: b[4], floors: b[3], lvl: 0, w: 1, h: 1, x: b[0], y: b[1], born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; });
+    if (!cv2) (Array.isArray(d.npcMods) ? d.npcMods : []).forEach(m => { const c = grid[idx(m[0], m[1])]; if (!c || c.t !== 'npc') return; if (m[2] === 'x') grid[idx(m[0], m[1])] = null; else { c.k = m[2]; c.floors = m[3]; } });
+    if (d.npcGrow && !cv2) Object.keys(d.npcGrow).forEach(k => { const [gx, gy] = k.split(',').map(Number), c = inb(gx, gy) && grid[idx(gx, gy)], v = d.npcGrow[k]; if (c && c.t === 'npc' && c.k === 'off' && Array.isArray(v)) { c.floors = Math.max(c.floors, v[0] | 0); c.f0 = v[1] | 0 || c.floors; } });
     const dep = new Array(N * N).fill(null);
     (d.dep || []).forEach(a => { if (LEGACY_DEP[a[1]]) a[1] = LEGACY_DEP[a[1]]; if (DEPOSITS[a[1]]) { dep[a[0]] = { k: a[1], r: a[2] }; if (a[3] > 1) dep[a[0]].pm = +a[3]; if (a[4]) dep[a[0]].own = 1; } });
     if (!dep.some(q => q && CROPS[q.k])) genCropFields(dep);
@@ -2823,11 +3013,12 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
+    if (cv2) { S0.cityV = 2; S0.bassin = +d.bs > 0 ? +d.bs : BASSIN_NEW; S0.cityExt = Array.isArray(d.cext) ? d.cext : []; S0.cg = Object.assign({ acc: 0, park: 0, ms: 0, ext: 0, jt: 0.88, f: {} }, d.cg || {}); }
     try { const ga = JSON.parse(localStorage.getItem(SAVE_KEY + '_gal') || '{}'); S0.gal = ga && typeof ga === 'object' ? ga : {}; } catch (e) { S0.gal = {}; }   // passe 28 : galerie des produits fabriqués
     S0.capAdj = +d.capAdj || 0; S0.fix1 = d.fix1 == null ? (S0.cash < 0 ? 0 : 1) : 1;   // remise à niveau : seulement pour les très anciennes sauvegardes (sans le champ) à trésorerie négative if (d.rmb != null) S0.rmb = +d.rmb;
     S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.rv = d.rv && typeof d.rv === 'object' ? d.rv : null; S0.seats = Array.isArray(d.seats) ? d.seats : null; S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.coach = (d.cch && typeof d.cch === 'object') ? d.cch : null; S0.tierMax = d.tmx | 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcOwn = d.nown && typeof d.nown === 'object' ? d.nown : {}; S0.neg = d.neg && typeof d.neg === 'object' ? d.neg : {}; S0.reqs = Array.isArray(d.reqs) ? d.reqs : []; S0.rid = +d.rid || 0; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.moodEv = isFinite(d.mev) ? clamp(+d.mev, -40, 40) : 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
     S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
-    S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
+    S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP * (cv2 ? S0.bassin : 1) / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.firms = Array.isArray(d.firms) ? d.firms.filter(f => f && f.id > 0 && typeof f.name === 'string') : []; S0.grp = (d.grp && typeof d.grp === 'object') ? d.grp : null;   // passe 32 : filiales (absentes des anciennes sauvegardes)
     S0.cprod = cprod; S0.prod = initProd(); S0.mat = d.mat ? 1 : 0; S0.matPop = +d.matPop || 0; S0.trials = Array.isArray(d.trials) ? d.trials : []; S0.tid = +d.tid || 0; if (Array.isArray(d.mkv)) { S0.mkBuy = +d.mkv[0] || 0; S0.mkRoy = +d.mkv[1] || 0; S0.mkTrialCost = +d.mkv[2] || 0; }
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -2940,7 +3131,7 @@ const SVC_POP = { tech: 36000, dc: 48000, bank: 32000 };
 function svcSat(list) {
   const U = { tech: 0, dc: 0, bank: 0 }; list.forEach(c => { if ((c.t === 'tech' || c.t === 'dc' || c.t === 'bank') && c.conn) U[c.t] += levelMult(c); });
   const kinds = Object.keys(U).filter(k => U[k] > 0).length, comp = clamp(1 - 0.07 * Math.min(3, (S.rivals || []).length), 0.6, 1), out = {};
-  Object.keys(U).forEach(k => { const D = Math.max(1, (S.pop || 0) / SVC_POP[k]) * (1 + 0.12 * Math.max(0, kinds - (U[k] > 0 ? 1 : 0))) * comp; out[k] = { U: U[k], D, m: (U[k] > 0 ? Math.min(1, (1 - Math.exp(-U[k] / D)) / U[k] / (1 - Math.exp(-1 / D))) : 1) * (1 - rivSvc(k)) }; });   // rivSvc : part de la demande prise par l'IA banquier (banque) ou innovateur (tech, data centers)
+  Object.keys(U).forEach(k => { const D = Math.max(1, popE() / SVC_POP[k]) * (1 + 0.12 * Math.max(0, kinds - (U[k] > 0 ? 1 : 0))) * comp; out[k] = { U: U[k], D, m: (U[k] > 0 ? Math.min(1, (1 - Math.exp(-U[k] / D)) / U[k] / (1 - Math.exp(-1 / D))) : 1) * (1 - rivSvc(k)) }; });   // rivSvc : part de la demande prise par l'IA banquier (banque) ou innovateur (tech, data centers)
   return out;
 }
 const WAGE_RATE = 120;                        // ≈ 43 000 $/an par salarié                       // salaire de base par emploi et par jour
@@ -3014,7 +3205,7 @@ function casteSVG(k) {
 const BK_LVL = [{ n: 'Banque régionale', ratio: 0.2, loss: 0.0003 }, { n: 'Monopole', ratio: 0.1, loss: 0.0006 }, { n: 'Mania', ratio: 0.05, loss: 0.0012 }];
 const BK_REQ = [0, 12e6, 22e6];
 function bkInit() { S.bk = S.bk || { res: 100e6, lvl: 0, loans: 0, coll: 0, inc: 0 }; return S.bk; }
-const bkDemand = () => Math.round((S.pop || 0) * 3000 * (1 + 0.5 * (S.bk ? S.bk.lvl : 0)));
+const bkDemand = () => Math.round(popE() * 3000 * (1 + 0.5 * (S.bk ? S.bk.lvl : 0)));
 function bkCap() { const b = bkInit(), L = BK_LVL[b.lvl]; return Math.max(0, Math.min(b.res / L.ratio, bkDemand()) - b.loans); }
 function bkLend(n) { if (!casteIs('banquier')) return; const b = bkInit(), q = Math.min(n, bkCap()); if (q <= 0) { say('Plus de demande de crédit ou levier maximal atteint.', 'warn'); return; } b.loans += q; say(`Crédit de ${money(q)} accordé (sur collatéral). Il rapporte des intérêts chaque jour.`, 'info'); updateHUD(); }
 function bkRepay(n) { const b = bkInit(), q = Math.min(n, b.loans); b.loans -= q; updateHUD(); }
@@ -3212,7 +3403,7 @@ function gridEval(c, gm) {
 function stepPower() {
   S.wind = clamp((S.wind == null ? 0.6 : S.wind) + (rnd() - 0.5) * 0.25, 0.1, 1);
   if ((S.storm || 0) < S.day && rnd() < 0.004) { S.storm = S.day + 5; say('Tempête : les lignes aériennes sont coupées pendant 5 jours. Les câbles enterrés résistent.', 'warn'); }
-  const sup = S._pSup || 0, draw = S._pDraw || 0, pop = S.pop || 0;
+  const sup = S._pSup || 0, draw = S._pDraw || 0, pop = popE();
   const D = pop * 0.05 / K_POP + draw, B = 380 + 0.25 * (S.day || 0), tot = B + sup, r = D > 0 ? tot / D : 1;
   const price = ELEC_BASE * cpi() * shockPx('elec') * (r < 1 ? 1 + 1.6 * (1 - r) : clamp(1 / r, 0.45, 1));
   S.power = { sup, draw, D, B, r, price, mult: r >= 1 ? 1 : clamp(0.7 + 0.3 * r, 0.7, 1) };
@@ -4400,7 +4591,7 @@ function step() {
   if (!S.fix1 && S.cash < 0) { S.fix1 = 1; S.cash = 1e8; S.loan = 0; S._cashEnd = S.cash; S.capAdj = Math.max(0, 1e9 - (S.cash + ev.value)); say('Remise à niveau : trésorerie 100 M$, capitalisation 1 Md$.', 'gold'); }
   S.day++;
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = (S.patents || 0) * 70 * (casteIs('innovateur') ? 1.5 : 1);
-  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); stepDevs(); stepReqs(); stepNpcDensify(); stepPolicy(); stepSites(); mkStepBuy();
+  stepTalent(); stepMacro(); stepDifficulty(); TM = techMults(); if (!S.cityV) stepDevs(); stepReqs(); if (S.cityV) stepCity(); else stepNpcDensify(); stepPolicy(); stepSites(); mkStepBuy();
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
   if (S.day % 15 === 0 && S.day > 0 && !(S.pol && S.pol.noAlert)) { const pl = {}; eachBuilding(c => { if (c.conn && PLAN_DIM[c.t] && c.limit && c.limit.indexOf('pl_') === 0 && (c.days || 0) > 10) pl[c.limit] = (pl[c.limit] || 0) + 1; }); Object.keys(pl).slice(0, 2).forEach(k => say(`Plan d'usine : ${PL_LIM_TXT[k]} (${pl[k]} usine${pl[k] > 1 ? 's' : ''}). Ouvre l'onglet Intérieur : le goulot est en rouge dans la grille.`, 'warn')); }
   if (S.day % 30 === 0 && S.day > 0 && !(S.pol && S.pol.noAlert)) { let nv = 0, cv = 0; eachBuilding(c => { if (c.conn && FLEVEL[c.t] && c.limit === 'noprod' && (c.days || 0) > 20) { nv++; cv += ((c.upk || 0) + (c.wages || 0)) * 30; } }); if (nv) say(`${nv} usine${nv > 1 ? 's' : ''} sans produit coûte${nv > 1 ? 'nt' : ''} ≈ ${money(cv)} par mois (effectif et entretien réduits) : choisis un produit ou démolis-${nv > 1 ? 'les' : 'la'}.`, 'warn'); }
@@ -4409,7 +4600,7 @@ function step() {
   stepControl();
   if (S.research) { S.research.left -= 1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto'); if (S.research.left <= 0) { S.tech = S.tech || {}; S.tech[S.research.id] = S.day; say(`Recherche terminée : ${TECH_BY[S.research.id].n}. ${TECH_BY[S.research.id].d2}`, 'gold'); S.research = null; TM = techMults(); } }
   maybeEvent();
-  const workforce = S.pop * 0.55;
+  const workforce = popE() * 0.55;
   const employed = Math.min(workforce, jobs);
   const unTarget = unempTarget(jobs, workforce), uPrev = S.stats && S.stats.unemp;   // chômage : cible (vacances, cycle, qualifications) lissée sur ~15 jours, jamais sous 3 %
   const unemp = Math.max(0.03, uPrev == null || !(uPrev > 0) ? unTarget : uPrev + (unTarget - uPrev) * 0.1);
@@ -4495,8 +4686,8 @@ function step() {
   const gMul = { basic: clamp(1 + 0.5 * gD, 0.95, 1.05), std: clamp(1 + 1 * gD, 0.9, 1.1), lux: clamp(1 + 6 * gD, 0.7, 1.4), estate: clamp(1 + 1 * gD, 0.9, 1.1) * clamp(1 - 4 * rateGap(), 0.8, 1.12) };
   const rwS = (S.rw || 1) - 1;   // salaire réel : quand il monte, la demande se déplace du basique vers le courant puis le luxe
   gMul.basic *= clamp(1 - 0.15 * rwS, 0.85, 1.05); gMul.std *= clamp(1 + 0.25 * rwS, 0.85, 1.4); gMul.lux *= clamp(1 + 0.8 * rwS, 0.6, 1.6);
-  const dem = { basic: S.pop * DEM_PER_POP.basic * dMul * gMul.basic, std: S.pop * DEM_PER_POP.std * (0.82 + 0.18 * happyPrev / 100) * dMul * gMul.std, lux: S.pop * DEM_PER_POP.lux * dMul * gMul.lux, estate: S.pop * 0.00032 * (0.82 + 0.18 * happyPrev / 100) * dMul * gMul.estate };
-  S._dw = { dMul, gD, rwS, happy: happyPrev, gMul: Object.assign({}, gMul), dem: Object.assign({}, dem), pop: S.pop, cls: {} };
+  const dem = { basic: popE() * DEM_PER_POP.basic * dMul * gMul.basic, std: popE() * DEM_PER_POP.std * (0.82 + 0.18 * happyPrev / 100) * dMul * gMul.std, lux: popE() * DEM_PER_POP.lux * dMul * gMul.lux, estate: popE() * 0.00032 * (0.82 + 0.18 * happyPrev / 100) * dMul * gMul.estate };
+  S._dw = { dMul, gD, rwS, happy: happyPrev, gMul: Object.assign({}, gMul), dem: Object.assign({}, dem), pop: S.pop, bs: bassin(), cls: {} };
   let retUnits = 0;
   const nCls = {}; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) R.sells.forEach(k => { nCls[k] = (nCls[k] || 0) + 1; }); });
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._capNom = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; c._cap = c._capNom; retUnits += R.cap * u; const df = clamp((0.45 + 0.9 * (c.ci == null ? 0.5 : c.ci)) * 0.8, 0.1, 1); c._cap *= df; c._df = df;
@@ -4581,14 +4772,14 @@ function step() {
   S.houses = (S.houses || 0) + sold.estate; S.lots = S.lots || 0;
   while (Math.floor(S.houses / 8) > S.lots) { S.lots++; addNpcTower('res', 3); }
   // Migration : une ville prospère attire des habitants et se densifie (nouvelles tours résidentielles)
-  if (S.day > 0 && S.day % 10 === 0 && S.pop > 0.72 * cap && cap < 900000) { const pm = clamp(0.25 + 4 * (S.macro.gdp - 0.02) + (((S.stats && S.stats.happy) || 60) - 60) / 100, 0.05, 0.9); if (rnd() < pm) { addNpcTower('res', 6 + Math.floor(rnd() * 6)); if (rnd() < 0.85) addNpcTower('off', 8 + Math.floor(rnd() * 8)); } }
+  if (!S.cityV && S.day > 0 && S.day % 10 === 0 && S.pop > 0.72 * cap && cap < 900000) { const pm = clamp(0.25 + 4 * (S.macro.gdp - 0.02) + (((S.stats && S.stats.happy) || 60) - 60) / 100, 0.05, 0.9); if (rnd() < pm) { addNpcTower('res', 6 + Math.floor(rnd() * 6)); if (rnd() < 0.85) addNpcTower('off', 8 + Math.floor(rnd() * 8)); } }
   // 4. Surplus exporté au-delà du plafond de stock
   let revExp = stepLocalMarket(made, want);
   const portN = cn.port || 0, expRate = Math.min(0.95, (EXP_BASE + EXP_PORT * portN) * TM.export);   // passe 21 : l'export réalise 82 % du cours au 1er port (+4 points par port), moins la congestion du marché étranger
   { const wr = stepWarehouses(portN, expRate); importCost += wr.imp; revExp += wr.rev; }
   { const tp = 30000 * (1 + 2.5 * portN) * (1 + 0.25 * (cn.wh || 0)); let used = 0;   // débit portuaire total par jour
     S._xs = {}; GKEYS.forEach(g => { const thr = Math.max(7500, 0.5 * capFor(g)); let ex = Math.max(0, S.stock[g] - (FGD ? Math.max(thr, ledRes(g)) : thr)); if (!(ex > 0)) return;
-      const foreign = Math.max(4000, (LOCAL_D[g] || 100) * 4 * (S.pop / 10000) * 0.1), q = Math.min(ex, Math.max(0, tp - used), foreign * 1.5); if (q <= 0) return; used += q;
+      const foreign = Math.max(4000, (LOCAL_D[g] || 100) * 4 * (popE() / 10000) * 0.1), q = Math.min(ex, Math.max(0, tp - used), foreign * 1.5); if (q <= 0) return; used += q;
       S.stock[g] -= q; if (g === 'basic' || g === 'std' || g === 'lux') want[g] += q; S.xsum = S.xsum || {}; S.xsum[g] = (S.xsum[g] || 0) + q * S.price[g]; { const xv = xmF(g) * q * S.price[g] * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)) / (1 + EXP_CONG * q / foreign); revExp += xv; fSellExt(g, q, xv, 1); } S._xs[g] = q; S.expSold = S.expSold || {}; S.expSold[g] = q; });
     fTrimAll();
     S._portUse = used; S._portCap = tp; }
@@ -4884,7 +5075,7 @@ function acqPlan(x, y, key) {
   return { x, y, key, w: T.w || 1, h: T.h || 1, items, groups, acqNpc, build, total: acqNpc + build, housing, jobs, desc: descCells(cs), npcDesc: descCells(items.filter(i => i.owner === 'npc').map(i => i.c)) };
 }
 function acqDemolish(it) {
-  S.grid[idx(it.x, it.y)] = null; (S.npcMods = S.npcMods || []).push([it.x, it.y, 'x', 0]); if (S.npcOwn) delete S.npcOwn[it.x + ',' + it.y];
+  S.grid[idx(it.x, it.y)] = null; (S.npcMods = S.npcMods || []).push([it.x, it.y, 'x', 0]); cityHold(it.x, it.y); if (S.npcOwn) delete S.npcOwn[it.x + ',' + it.y];
   flyers.push({ x: it.x, y: it.y, text: 'Rasé', t: performance.now(), col: '#ffa34d' });
 }
 // Exécute l'acquisition + la construction (deals : prix négociés par propriétaire rival). Atomique : annulée si la pose échoue.
@@ -5062,7 +5253,7 @@ function place(x, y, key) {
     if (c && c.t === 'npc' && ownerOf(c) !== 'npc' && ownerOf(c) !== 'me') { say(`Ce bâtiment appartient à ${ownerName(ownerOf(c))} : pose un commerce dessus pour négocier son rachat.`, 'info'); return false; }
     if (!c || c.t !== 'npc') { say('Acquisition BTP : clique un immeuble ou une maison de la ville existante pour l\'acheter et libérer son terrain (tu pourras ensuite y construire). Moins cher pour la caste Promoteur BTP.', 'info'); return false; }
     const cost = buyoutCost(c); if (S.cash < cost) { say(`Il faut ${money(cost)} pour racheter cet immeuble.`, 'bad'); return false; }
-    S.cash -= cost; S.grid[idx(c.x, c.y)] = null; (S.npcMods = S.npcMods || []).push([c.x, c.y, 'x', 0]); if (S.npcOwn) delete S.npcOwn[c.x + ',' + c.y]; trfDirty = true; siteC.dirty = true;
+    S.cash -= cost; S.grid[idx(c.x, c.y)] = null; (S.npcMods = S.npcMods || []).push([c.x, c.y, 'x', 0]); cityHold(c.x, c.y); if (S.npcOwn) delete S.npcOwn[c.x + ',' + c.y]; trfDirty = true; siteC.dirty = true;
     flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cost), t: performance.now(), col: '#ff8a8e' });
     say(`Immeuble racheté et rasé (${money(cost)}) : le terrain est libre pour ton projet. ${c.k === 'res' ? 'Les habitants sont relogés ailleurs (population -' + 5 * c.floors + ' de capacité).' : c.k === 'house' ? '' : 'Les emplois disparaissent avec lui.'}`, 'gold');
     refreshStats(); updateHUD(); save(); return true;
@@ -5158,7 +5349,7 @@ function refreshStats() {
   if (_mk.sim) { _mk.sim = {}; _mk.sg = null; _mk.oth = {}; }   // les prévisions dépendent de tes bâtiments
   const ev = evaluate();
   const st = S.stats || {};
-  const workforce = S.pop * 0.55;
+  const workforce = popE() * 0.55;
   st.cap = ev.cap; st.jobs = ev.jobs; st.playerJobs = ev.playerJobs; st.workforce = workforce;
   st.employed = Math.min(workforce, ev.jobs);
   st.unemp = Math.max(0.03, st.unemp > 0 ? st.unemp : unempTarget(ev.jobs, workforce));   // valeur lissée du dernier jour simulé
@@ -5242,7 +5433,8 @@ function updateHUD() {
   el('vCap').textContent = isMob() ? cmpd(st.worth || S.cash) : money(st.worth || S.cash); el('vCap').title = money(st.worth || S.cash);
   { const px = S.float > 0 ? (st.raw || 0) * (S.prem || 1.1) / SHARES : 0; el('vPx').textContent = S.float > 0 ? `action ${fx2(px)} $` : 'non cotée'; el('vPx').className = 'gold'; }
   el('vPop').textContent = fmt(st.pop || 0);
-  el('vPopSub').textContent = 'capacité ' + fmt(st.cap || 0);
+  el('vPopSub').textContent = S.cityV && S.city ? S.city.name + ' · cap. ' + (isMob() ? cmpn(st.cap || 0) : fmt(st.cap || 0)) : 'capacité ' + fmt(st.cap || 0);
+  el('vPopSub').title = S.cityV && S.city ? cityTip() : '';
   el('vPopSub').className = 'gold';
   el('vJobs').textContent = isMob() ? `${cmpn(st.employed || 0)} / ${cmpn(st.jobs || 0)}` : `${fmt(st.employed || 0)} / ${fmt(st.jobs || 0)}`;
   el('vUnemp').textContent = 'chômage ' + ((st.unemp || 0) * 100).toFixed(1).replace('.', ',') + ' %';
@@ -5815,6 +6007,29 @@ function reHTML() {
   <div class="kpis" style="grid-template-columns:repeat(3,1fr)"><div><small>Tours de location</small><b>${nOff}</b></div><div><small>Loyers / mois</small><b class="pos">${mj(own)}</b></div><div><small>Valeur des terrains</small><b>${money(Math.round(land))}</b></div></div>
   <div class="finrow"><span>À investir : ${ks.slice(0, 3).map(nm).join(', ')}</span><b class="pos">${fm(R.idx[ks[0]])}</b></div><div class="finrow"><span>Saturés : ${ks.slice(-2).map(nm).join(', ')}</span><b class="neg">${fm(R.idx[ks[ks.length - 1]])}</b></div>`;
 }
+
+// Écran Empire : la ville (taille, remplissage, densité, demande de logements et d'emplois, niveaux de bâtiments, histoire)
+function cityTip() {
+  const c = S.city; if (!c) return '';
+  return `${c.name} · ${fmt(c.pop)} habitants · logements remplis à ${Math.round(c.occ * 100)} % · ${Math.round(c.builtShare * 100)} % du terrain urbanisé · immeuble le plus haut : ${c.top} étages`;
+}
+function cityHTML() {
+  const c = S.city; if (!c || !S.cityV) return '';
+  const kp = (l, v, cl, s) => `<div><small>${l}</small><b class="${cl || ''}">${v}</b>${s ? `<small>${s}</small>` : ''}</div>`, pc = v => Math.round(v * 100) + ' %';
+  const nx = CITY_MS.find(m => m[0] > S.pop), lvl = v => v > 0.5 ? 'forte' : v > 0.15 ? 'moyenne' : v < -0.15 ? 'faible (excédent)' : 'équilibrée', ex = (S.cityExt || []).length;
+  const dens = c.lv.map((n, i) => n ? `${n} ${CITY_LVN[i]}` : '').filter(Boolean).join(' · ');
+  return `<h3>LA VILLE · ${c.name.toUpperCase()}</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">`
+    + kp('Population', fmt(c.pop), 'gold', nx ? 'prochain jalon : ' + fmt(nx[0]) + ' habitants' : 'jalon final atteint')
+    + kp('Remplissage des logements', pc(c.occ), c.occ > 0.95 ? 'neg' : '', 'capacité ' + fmt(c.cap) + ' habitants')
+    + kp('Terrain urbanisé', pc(c.builtShare), '', fmt(c.free) + ' lots libres sur ' + fmt(c.lots) + (ex ? ' · ' + ex + ' bloc' + (ex > 1 ? 's' : '') + ' ajouté' + (ex > 1 ? 's' : '') : ''))
+    + kp('Densité', fmt(Math.round(c.dens)) + ' hab./lot', '', 'immeuble le plus haut : ' + c.top + ' étages')
+    + kp('Demande de logements', lvl(c.demHous), c.demHous > 0.15 ? 'pos' : '', 'emplois ' + fmt(Math.round(c.jobs)) + ' pour ' + fmt(Math.round(c.workforce)) + ' actifs')
+    + kp('Demande d\'emplois', lvl(c.demJobs), c.demJobs > 0.15 ? 'pos' : '', 'chômage ' + (c.unemp * 100).toFixed(1).replace('.', ',') + ' %')
+    + kp('Attractivité', c.attr.toFixed(2).replace('.', ','), c.attr >= 1.2 ? 'pos' : c.attr < 0.9 ? 'neg' : '', 'emplois, humeur, services, impôt, cycle')
+    + kp('Étages bâtis', fmt(c.resF) + ' logements · ' + fmt(c.offF) + ' bureaux', '', '')
+    + `</div><p class="note">${dens || 'Aucun immeuble'}. La ville se densifie quand la demande et la valeur du sol le justifient (maison, petit immeuble, immeuble, tour, grande tour, supertour) ; ses promoteurs rachètent et reconstruisent plus haut.</p>`
+    + (S.cg && S.cg.h && S.cg.h.length > 1 ? `<canvas id="citspark" width="640" height="110" style="width:100%;height:70px" aria-label="Population au fil des mois"></canvas>` : '');
+}
 function renderEmpire() {
   if (el('panel').hidden || el('empire').closest('section').hidden) return;
   const st = S.stats || {}, ev = evaluate(), raw = st.raw || 0, fl = S.float || 0, F = finM().F || {};
@@ -5824,6 +6039,7 @@ function renderEmpire() {
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / mois', (F.net >= 0 ? '+' : '−') + mj(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : fx2(px) + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Habitants', fmt(st.pop || 0), '', fmt(st.playerJobs || 0) + ' emplois dans tes bâtiments')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
   h += grpEmpireHTML();
+  h += cityHTML();
   h += reHTML();
   h += shockHTML();
   h += `<h3>CONJONCTURE</h3><div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('État de l\'économie', macroState(), M.gdp > 0.02 ? 'pos' : M.gdp > 0 ? '' : 'neg')}${kp('Croissance du PIB', (M.gdp * 100).toFixed(1).replace('.', ',') + ' %', M.gdp >= 0 ? 'pos' : 'neg')}${kp('Inflation', (M.infl * 100).toFixed(1).replace('.', ',') + ' %', M.infl > 0.045 ? 'neg' : '')}${kp('Taux d\'intérêt', (M.rate * 100).toFixed(1).replace('.', ',') + ' %', M.rate > 0.08 ? 'neg' : '', 'prêts : ' + ((M.rate + 0.02) * 100).toFixed(1).replace('.', ',') + ' %')}${kp('Indice des prix', (cpi() * 100).toFixed(1).replace('.', ',') + '', 'gold')}${kp('Salaire réel', Math.round((S.rw || 1) * 100) + '', (S.rw || 1) >= 1 ? 'pos' : 'neg', 'indice 100 au départ : conditionne les achats de produits peu nécessaires (luxe)')}${kp('Régulation du marché', ['Assistance', 'Normale', 'Vigilance', 'Durcie', 'Surchauffe'][(S.diff || 0) + 1], (S.diff || 0) > 1 ? 'neg' : (S.diff || 0) < 0 ? 'pos' : '', 's\'adapte à ta réussite')}${kp('Demande des ménages', (clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100 >= 0 ? '+' : '') + Math.round(clamp(1 + 4 * (M.gdp - 0.03), 0.8, 1.2) * 100 - 100) + ' %')}</div><canvas id="macspark" width="640" height="80" style="width:100%;height:60px"></canvas><p class="note">Un cycle de croissance fait monter l'inflation, puis les taux, puis ralentit l'économie. Les emprunts coûtent plus cher quand les taux montent ; les salaires, loyers et prix suivent l'inflation.</p>`;
@@ -5847,6 +6063,7 @@ function renderEmpire() {
   h += `<h3>TES BÂTIMENTS</h3>${bl.length ? bl.slice(0, 4).map(brow).join('') + (bl.length > 6 ? '<div class="cgrp">Les moins rentables</div>' + bl.slice(-3).reverse().map(brow).join('') : '') : '<p class="note">Tu n\'as encore aucun bâtiment actif.</p>'}`;
   if (el('empire').dataset.h !== h) { el('empire').innerHTML = h; el('empire').dataset.h = h; }
   if (el('empspark')) drawSeries(el('empspark'), S.hist, '#f2b84b');
+  if (el('citspark') && S.cg && S.cg.h && S.cg.h.length > 1) drawSeries(el('citspark'), S.cg.h, '#7fd1ff');
   if (el('macspark') && M.h && M.h.length > 1) drawSeries(el('macspark'), M.h, '#46d39a');
 }
 el('empire').addEventListener('click', e => { const bb = e.target.closest('[data-brand]'); if (bb) { S.brandStrat = bb.dataset.brand; say(`Stratégie de marque : ${BRAND_STRAT[S.brandStrat][0]}.`, 'info'); renderEmpire(); save(); return; }
@@ -5903,11 +6120,11 @@ const fq2 = v => v >= 100 ? fmt(v) : f1(v);
 const whyRow = (l, note, eff, txt) => `<div class="finrow"><span>${l}<small style="display:block;color:var(--mut);font-size:10.5px">${note || ''}</small></span><b class="${eff == null ? '' : effC(eff)}">${txt != null ? txt : pctS(eff)}</b></div>`;
 const verdictOf = m => m > 1.08 ? 'forte' : m < 0.92 ? 'faible' : 'normale';
 function demandWhyRaw(g) {
-  const G = GOODS[g], D0 = LOCAL_D[g] * (S.pop / 10000), gdpm = clamp(1 + 4 * ((S.macro ? S.macro.gdp : 0.03) - 0.03), 0.8, 1.5), rel = Math.max(0.2, S.price[g] / (G.base * cpi())), el1 = clamp(Math.pow(rel, -elRaw(g)), 0.4, 1.8);
+  const G = GOODS[g], D0 = LOCAL_D[g] * (popE() / 10000), gdpm = clamp(1 + 4 * ((S.macro ? S.macro.gdp : 0.03) - 0.03), 0.8, 1.5), rel = Math.max(0.2, S.price[g] / (G.base * cpi())), el1 = clamp(Math.pow(rel, -elRaw(g)), 0.4, 1.8);
   const n = (S.npcSup || {})[g] || { cap: 0 }, Dl = D0 * gdpm * el1, myCap = Math.max(1, ((S.flow && S.flow.own && S.flow.own[g]) || 0) + Math.max(0, S.stock[g] - 750) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1, sold = (S.locSold || {})[g] || 0, avail = Math.max(0, S.stock[g] - 750), served = Dl * ROOM * share;
   const m = gdpm * el1;
   return `<h4 style="margin:8px 0 4px">Pourquoi la demande ${dEl(G.name.toLowerCase())} est ${verdictOf(m)}</h4><small class="note">Besoin industriel de la ville (hors besoins des habitants). Demande = population × coefficient du bien × cycle macro × élasticité au prix.</small>`
-    + whyRow('Population', `${fmt(S.pop)} habitants × ${LOCAL_D[g]} u. pour 10 000 hab.`, null, fq2(D0 * ROOM * DM) + ' u/mois')
+    + whyRow('Population', `${fmt(S.pop)} habitants × ${fmt(Math.round(LOCAL_D[g] * bassin()))} u. pour 10 000 hab.`, null, fq2(D0 * ROOM * DM) + ' u/mois')
     + whyRow('Cycle macro (PIB)', `croissance ${((S.macro ? S.macro.gdp : 0.03) * 100).toFixed(1).replace('.', ',')} %`, gdpm - 1)
     + whyRow('Prix relatif', `prix ${rel.toFixed(2).replace('.', ',')} × la référence · élasticité ${elRaw(g)} : cher = on achète moins`, el1 - 1)
     + whyRow('Concurrence locale', n.cap > 0 ? `producteurs locaux ${fq2(n.cap * DM)} u/mois · ta part de la demande ${Math.round(share * 100)} %` : 'aucun producteur local installé (100 % de la demande te revient)', share - 1, n.cap > 0 ? pctS(share - 1) : '0 %')
@@ -5920,7 +6137,7 @@ function demandWhyCls(cls) {
   const hap = cls === 'std' || cls === 'estate' ? 0.82 + 0.18 * W.happy / 100 : 1, boost = 1 + 0.12 * Math.min(4, c.nProd), per = cls === 'estate' ? 0.00032 : DEM_PER_POP[cls], sat = W.sat ? W.sat[cls] : null;
   const m = W.dMul * gdpP * rwP * hap * boost * c.pfEl, role = CLS_ROLE[cls];
   return `<h4 style="margin:8px 0 4px">Pourquoi la demande ${cls === 'estate' ? 'de logement' : 'en ' + CLSN[cls].toLowerCase()} est ${verdictOf(m)} · <small style="color:var(--mut)">${role[0]}</small></h4><small class="note">${role[0]} : ${role[1]}.</small>`
-    + whyRow('Population', `${fmt(W.pop)} habitants × ${(per * 1000).toFixed(1).replace('.', ',')} u. pour 1 000 hab.`, null, fq2(W.pop * per * DM) + ' u/mois')
+    + whyRow('Population', `${fmt(W.pop)} habitants × ${(per * 1000 * (W.bs || 1)).toFixed(1).replace('.', ',')} u. pour 1 000 hab.`, null, fq2(W.pop * (W.bs || 1) * per * DM) + ' u/mois')
     + whyRow('Technologies, événements, difficulté', 'multiplicateur global de demande', W.dMul - 1)
     + whyRow('Cycle macro (PIB)', `croissance ${((W.gD + 0.03) * 100).toFixed(1).replace('.', ',')} % · sensibilité ${cls === 'lux' ? 'très forte' : cls === 'basic' ? 'faible' : 'moyenne'}`, gdpP - 1)
     + whyRow('Salaire réel', 'quand il monte, la demande passe du basique vers le courant puis le luxe', rwP - 1)
@@ -6864,7 +7081,7 @@ const SHOP_OF = { basic: 's1', std: 's2', lux: 's3', estate: 'immo' };
 function mkDemandDay(pk) {
   const C = mkCache(), cls = PRODUCTS[pk].cls;
   if (C.dem[cls] == null) { let sw = 0; PKEYS.forEach(k => { if (PRODUCTS[k].cls === cls) sw += typeW(k) * affordOf(k) * recF(k); }); C.dem[cls] = sw; }
-  const Dc = S.pop * (cls === 'estate' ? 0.00032 : DEM_PER_POP[cls] || 0.005);
+  const Dc = popE() * (cls === 'estate' ? 0.00032 : DEM_PER_POP[cls] || 0.005);
   return Dc * Math.min(0.6, 8 * typeW(pk) * affordOf(pk) * recF(pk) / Math.max(1e-6, C.dem[cls]));
 }
 // Part de la demande servie par les offreurs : dépend du produit et dérive avec la ville (plus d'habitants que lors du départ = plus de demande non servie)
@@ -6944,7 +7161,7 @@ function mkSim(pk, mode, oid) {
   let attr = 0, own = 0; S.prod[pk] = fake; try { attr = attractiveness(pk); } finally { S.prod[pk] = real; }
   if (!fresh) own = attractiveness(pk);
   const oth = othSum(cls) - own, share = attr / Math.max(1e-6, attr + oth);
-  const cw = S._dw && S._dw.cls && S._dw.cls[cls], Dc = cw ? cw.Dc : S.pop * (cls === 'estate' ? 0.00032 : DEM_PER_POP[cls] || 0.005);
+  const cw = S._dw && S._dw.cls && S._dw.cls[cls], Dc = cw ? cw.Dc : popE() * (cls === 'estate' ? 0.00032 : DEM_PER_POP[cls] || 0.005);
   const Vd = Dc * share * affordOf(pk) * recF(pk);
   // magasins et capacité d'approvisionnement
   const shops = mkShops(cls); let shopCap = 0; shops.forEach(c => { shopCap += TYPES[c.t].ret.cap * unitsOf(c) * 0.45; });
@@ -7496,7 +7713,7 @@ function auditCard(c) {
 /* ---------- Immobilier : indice offre/demande par quartier, CBD, commodités, terrain ---------- */
 const CBD = { x: 30, y: 30 }, RENT_BASE = 640 * K_SIZE,   // loyer de marché par étage et par jour : rendement locatif brut ≈ 10 %/an du capex (EBITDA ≈ 50 %), l'immobilier est un placement lent
    LAND_K = 12;
-const reKey = (x, y) => Math.floor((x - CITY.x0) / GRID) + ',' + Math.floor((y - CITY.y0) / GRID);
+const reKey = (x, y) => Math.floor(x / GRID) + ',' + Math.floor(y / GRID);
 function reRefresh() {
   if (S._re && S._re.day === S.day) return S._re;
   if (S._re && S._re.day > S.day - 5 && !S._re.dirty) return S._re;
@@ -7509,11 +7726,11 @@ function reRefresh() {
     else if (b.t === 'sport') am.push([b.x, b.y, 0.14 + 0.03 * (b.lvl || 0)]);
     else if (TYPES[b.t].ret && b.conn) am.push([b.x, b.y, 0.045]);
   });
-  const Dtot = Math.max(1, (S.pop || 0) * 0.4114 / Math.max(0.01, S.jpf || 1));
+  const Dtot = Math.max(1, popE() * 0.4114 / Math.max(0.01, S.jpf || 1));
   // lissage spatial (blocs voisins) : la demande de bureaux vient des habitants des alentours, l'offre est aussi captée par les blocs voisins
   const sm = (tab, bx, by) => { let a = tab[bx + ',' + by] || 0, r1 = 0, r2 = 0; for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const d = Math.max(Math.abs(i), Math.abs(j)); if (!d) continue; const v = tab[(bx + i) + ',' + (by + j)] || 0; if (d === 1) r1 += v / 8; else r2 += v / 16; } return 0.4 * a + 0.4 * r1 + 0.2 * r2; };
-  const BL = Math.ceil((CITY.x1 - CITY.x0 + 1) / GRID), supS = {}, demS = {}; let ws = 0;
-  for (let bx = 0; bx < BL; bx++) for (let by = 0; by < BL; by++) { const k = bx + ',' + by; supS[k] = sm(sup, bx, by); demS[k] = sm(res, bx, by); ws += demS[k]; }
+  const supS = {}, demS = {}; let ws = 0;
+  for (let bx = Math.floor(CITY.x0 / GRID); bx <= Math.floor(CITY.x1 / GRID); bx++) for (let by = Math.floor(CITY.y0 / GRID); by <= Math.floor(CITY.y1 / GRID); by++) { const k = bx + ',' + by; supS[k] = sm(sup, bx, by); demS[k] = sm(res, bx, by); ws += demS[k]; }
   const idx = {}; Object.keys(supS).forEach(k => { const d = Dtot * demS[k] / Math.max(1, ws); idx[k] = clamp((supS[k] - d) / Math.max(4, d), -0.7, 0.7); });
   S._re = { day: S.day, idx, am, sup, dirty: false, D: Dtot };
   return S._re;
@@ -7533,13 +7750,13 @@ function stepRent(c) {
   return c.pRev;
 }
 /* ---------- Médias : audience, budget de contenu, prix de la publicité ---------- */
-const mediaNeed = () => 0.0065 * Math.pow(Math.max(1000, S.pop || 0), 1.05) * K_SIZE;   // budget de contenu par jour pour une qualité ≈ 63 % : une grande ville coûte plus cher (rendements décroissants)
+const mediaNeed = () => 0.0065 * Math.pow(Math.max(1000, popE()), 1.05) * K_SIZE;   // budget de contenu par jour pour une qualité ≈ 63 % : une grande ville coûte plus cher (rendements décroissants)
 const RIV_Q = [0.52, 0.4];                          // chaînes concurrentes de la ville
 function mediaStations() { const a = []; eachBuilding(c => { if (c.t === 'tv' && c.conn) a.push(c); }); return a; }
 function mediaQ(c) { const mb = (c.mr == null ? 1 : c.mr) * mediaNeed(); return clamp(1 - Math.exp(-mb / mediaNeed()), 0.04, 0.98); }
 function stepMedia(list) {
   let totAttr = RIV_Q.reduce((a, q) => a + Math.pow(q, 1.6), 0); list.forEach(c => { c._q = mediaQ(c); totAttr += Math.pow(c._q, 1.6); });
-  const reach = (S.pop || 0) * 0.55, shops = Math.min(1.4, 0.5 + 0.02 * (S.stats && S.stats.cn ? (S.stats.cn.s1 + S.stats.cn.s2 * 2 + S.stats.cn.s3 * 3) : 0)), corp = 0.55 + 0.12 * Math.min(3, (S.rivals || []).length);   // calé sur les 3 enseignes d'origine : passer à 5 IA de caste ne gonfle pas la demande de services
+  const reach = popE() * 0.55, shops = Math.min(1.4, 0.5 + 0.02 * (S.stats && S.stats.cn ? (S.stats.cn.s1 + S.stats.cn.s2 * 2 + S.stats.cn.s3 * 3) : 0)), corp = 0.55 + 0.12 * Math.min(3, (S.rivals || []).length);   // calé sur les 3 enseignes d'origine : passer à 5 IA de caste ne gonfle pas la demande de services
   list.forEach(c => {
     const rating = Math.pow(c._q, 1.6) / totAttr, aud = reach * rating, adp = clamp(c.adp == null ? 1 : c.adp, 0.4, 2);
     const fl = clamp(1.05 - 1.6 * (adp - 1), 0.05, 1), fc = clamp(1 - 0.9 * (adp - 1), 0.05, 1) * (rating >= 0.2 ? 1 : 0.55 + 2.25 * rating);   // clients locaux très sensibles au prix ; annonceurs nationaux exigent de l'audience
@@ -13101,7 +13318,7 @@ function cineWatch() {   // appelé chaque jour : un produit fabriqué pour la p
 el('cine').addEventListener('click', e => { if (e.target.closest('.cinebar label,.cinebar input')) return; cineClose(); });
 el('cinechk').addEventListener('change', e => { cineSetOpt(!e.target.checked); try { renderGoals(); } catch (er) { } });
 window.addEventListener('keydown', e => { if (CINE.on && (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); e.stopImmediatePropagation(); cineClose(); } }, true);
-window.WSE = { CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cine: { show: (pk, why) => cineShow(pk, why || 'manuel', true), close: cineClose, get on() { return CINE.on; }, state: () => ({ on: CINE.on, pk: CINE.pk, hero: CINE.hero, frames: CINE.frames, t: CINE.last ? CINE.last.t : 0, q: CINE.q.slice(), shown: CINE.shown, opt: cineOpt(), manual: CINE.manual }), setOpt: cineSetOpt, opt: cineOpt, setHero: setProductHero, heroOf: pk => !!cineHeroOf(pk), watch: cineWatch, facts: cineFacts, setTest: v => { CINE.test = !!v; }, reset: () => { CINE.seen = {}; CINE.snap = null; CINE.q.length = 0; } } });
 Object.assign(window.WSE, { macro: { SHOCKS, EVENTS, shockStart, shockI, shockOn, shockAny, shockDemand, shockPx, creditSpread, rateGap, rateF, unempTarget, moodTarget, skillAvg, stepMacro, showEvent, creditLimit, loanRateNow, marketBounds, recF } });

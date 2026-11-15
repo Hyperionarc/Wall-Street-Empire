@@ -99,7 +99,7 @@ exports.run = async (t, L) => {
   t.check('trésorerie interne de la filiale alimentée par son résultat', Math.abs(r.acc.subCash) > 1, r.acc.subCash);
   t.check('vente interne INACTIVE : le marché local achète l\'acier', r.off.loc > 1 && !r.off.isale, r.off.loc);
   t.check('clients listés : groupe, rivaux IA et marché, avec volumes et usage', r.off.types.indexOf('grp') >= 0 && r.off.types.indexOf('riv') >= 0 && r.off.types.indexOf('mkt') >= 0 && r.off.riv >= 1 && r.off.vols && r.off.uses.some(u => /Moteurs/.test(u)), JSON.stringify(r.off));
-  t.check('vente interne ACTIVE : plus aucune vente au marché, aux concurrents ni à l\'export (15 jours)', r.on.loc === 0 && r.on.xs === 0 && r.on.isale, `${r.on.loc} / ${r.on.xs}`);
+  t.check('vente interne ACTIVE : plus aucune vente au marché, aux concurrents ni à l\'export (15 jours)', Math.abs(r.on.loc) < 1e-6 && Math.abs(r.on.xs) < 1e-6 && r.on.isale, `${r.on.loc} / ${r.on.xs}`);
   t.check('vente interne ACTIVE : seuls les bâtiments du groupe sont clients', r.on.types.length === 1 && r.on.types[0] === 'grp', JSON.stringify(r.on.types));
   t.check('vente interne ACTIVE : le surplus est stocké (stock réservé), l\'usine du groupe reste servie', r.on.res > 10 && r.on.engOut > 0.1 && r.on.sub.int > 0, JSON.stringify({ res: r.on.res, eng: r.on.engOut }));
   t.check('changer l\'option ne rompt pas les achats en cours (fournisseurs inchangés)', r.on.src === r.cashBefore.src, r.on.src);
