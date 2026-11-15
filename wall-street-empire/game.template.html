@@ -8442,7 +8442,7 @@ function planOverlay(g, sc, c, pl, ins, labels, M, ls, hs, VW, VH) {   // M : (x
   const inV = p => !imm || (p[0] > -40 && p[0] < VW + 40 && p[1] > -40 && p[1] < VH + 40);
   // 1. cases libres : « + » bien visible ; indication de l'outil actif
   sc.marks.forEach(m => { const p = M(m.x, m.y, m.z || 0); if (!inV(p)) return;
-    if (m.k === 'lock') { const rad = 15 * ls; g.fillStyle = 'rgba(11,15,44,.82)'; g.beginPath(); g.arc(p[0], p[1], rad, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#c9cfe8'; g.fillRect(p[0] - 6 * ls, p[1] - 2 * ls, 12 * ls, 9 * ls); g.strokeStyle = '#c9cfe8'; g.lineWidth = 2 * ls; g.beginPath(); g.arc(p[0], p[1] - 3 * ls, 4.5 * ls, Math.PI, 0); g.stroke(); placed.push(R(p[0], p[1], rad * 2, rad * 2)); }
+    if (m.k === 'lock') { const rad = 9 * ls; g.fillStyle = 'rgba(11,15,44,.72)'; g.beginPath(); g.arc(p[0], p[1], rad, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.2; g.stroke(); g.fillStyle = '#c9cfe8'; g.fillRect(p[0] - 3.6 * ls, p[1] - 1 * ls, 7.2 * ls, 5.4 * ls); g.strokeStyle = '#c9cfe8'; g.lineWidth = 1.4 * ls; g.beginPath(); g.arc(p[0], p[1] - 1.6 * ls, 2.7 * ls, Math.PI, 0); g.stroke(); placed.push(R(p[0], p[1], rad * 2, rad * 2)); }
     else if (m.k === 'plus') { const rad = (m.hov ? 19 : 16) * ls; g.fillStyle = 'rgba(255,255,255,.18)'; g.beginPath(); g.arc(p[0], p[1], rad, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2; g.stroke(); g.fillStyle = '#fff'; g.font = '700 ' + Math.round(26 * ls) + 'px sans-serif'; g.textAlign = 'center'; g.fillText('+', p[0], p[1] + 9 * ls); placed.push(R(p[0], p[1], rad * 2, rad * 2)); }
     else { g.font = '800 ' + Math.round(15 * ls) + 'px sans-serif'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = 'rgba(11,15,44,.9)'; g.strokeText(m.tt, p[0], p[1]); g.fillStyle = m.tc; g.fillText(m.tt, p[0], p[1]); } });
   // 2. pastilles d'intrants (palettes d'entrée), pastille du produit (palette de sortie) : fixes, cliquables
@@ -9087,7 +9087,7 @@ function drawPlanTop(sc, c, g) {
     if (u && tk && tk.d > 0.02) {
       const dep = (1 - tk.d) * 9, tx = ent ? dpos[0] - 1.2 : 27.45 + dep, ty = ent ? 21.45 + dep : dpos[1] - 1.2, nm = (ent ? 'y' : 'x') + tcol + cab;
       objs.push({ ax: ent ? tx + 1.2 : tx + 2.7, ay: ent ? ty + 2.7 : ty + 1.2, f: () => {
-        const nmn = 'camion_' + (tcol === '#f3f5f9' ? 'blanc' : tcol === '#d8403c' ? 'rouge' : 'bleu') + (tk.d > 0.95 ? '_ouvert' : ''); if (!facSpr(g, sc, nmn, ent ? dpos[0] : 27.5 + 3.4 + dep, ent ? 21.5 + 3.4 + dep : dpos[1], 0, 0.7, ent)) facBlit(g, sc, facSp(sc, 'tk' + nm, ent ? 2.6 : 5.6, ent ? 5.6 : 2.6, 48, (g2, l) => facDrawTruck(g2, l, ent ? 'y' : 'x', tcol, cab)), tx, ty);
+        const nmn = 'camion_' + (tcol === '#f3f5f9' ? 'blanc' : tcol === '#d8403c' ? 'rouge' : 'bleu') + '_face';   // arrière vers le quai, cabine vers l'extérieur (sprite HD du lot 2, miroir pour les quais d'achat) ; sans lui : camion vectoriel, correctement orienté (les gabarits du lot 1 ont la cabine côté quai) if (!facSpr(g, sc, nmn, ent ? dpos[0] : 27.5 + 3.4 + dep, ent ? 21.5 + 3.4 + dep : dpos[1], 0, 0.7, ent)) facBlit(g, sc, facSp(sc, 'tk' + nm, ent ? 2.6 : 5.6, ent ? 5.6 : 2.6, 48, (g2, l) => facDrawTruck(g2, l, ent ? 'y' : 'x', tcol, cab)), tx, ty);
         if (tk.d > 0.95) { const f = clamp(tk.fill, 0, 1), q = ent ? P(dpos[0], ty + 2.7, 50) : P(tx + 2.7, dpos[1], 50); g.fillStyle = 'rgba(8,10,34,.85)'; rrect(g, q[0] - 20, q[1] - 4, 40, 8, 4); g.fill(); g.fillStyle = ent ? '#3fd8ff' : '#ffb347'; rrect(g, q[0] - 19, q[1] - 3, Math.max(2, 38 * f), 6, 3); g.fill(); }
       } });
     }
@@ -9167,7 +9167,9 @@ function facDrawOffice(g, l, w, h) {   // local bureau vitré : sol, cloisons de
 function planTopCards(og, sc, c, I, M, ls, VW, VH) {
   const f = ls * (sc.mob ? 0.74 : 0.86), t = sc.time, pl = planOf(c), mob = sc.mob, rec = I.rec, fmtJ = d => !isFinite(d) || d > 99 ? 'aucune' : d < 1 ? '< 1 j' : Math.round(d) + ' j';
   const inV = p => p[0] > -60 && p[0] < VW + 60 && p[1] > -60 && p[1] < VH + 60; sc.cardRects = [];
-  const banner = (txt, p, col, sub) => { if (!inV(p)) return; og.font = '800 ' + Math.round(14 * f) + 'px sans-serif'; const w = og.measureText(txt).width + 22 * f, h = (sub ? 34 : 24) * f; og.fillStyle = 'rgba(14,18,40,.88)'; rrect(og, p[0] - w / 2, p[1] - h / 2, w, h, 8 * f); og.fill(); og.strokeStyle = col; og.lineWidth = 2; og.stroke(); og.fillStyle = '#fff'; og.textAlign = 'center'; og.fillText(txt, p[0], p[1] - (sub ? 3 : -5) * f); if (sub) { og.font = '700 ' + Math.round(10.5 * f) + 'px sans-serif'; og.fillStyle = col; og.fillText(sub, p[0], p[1] + 11 * f); } };
+  const bRects = [], bq = [], banner = (...a) => { bq.push(a); }, bannerDraw = (txt, p, col, sub) => { if (!inV(p)) return; og.font = '800 ' + Math.round(14 * f) + 'px sans-serif'; const w = og.measureText(txt).width + 22 * f, h = (sub ? 34 : 24) * f; p = [p[0], p[1]];
+    for (let k = 0; k < 6; k++) { const o = bRects.find(q => p[0] - w / 2 < q[2] + 4 && p[0] + w / 2 > q[0] - 4 && p[1] - h / 2 < q[3] + 4 && p[1] + h / 2 > q[1] - 4); if (!o) break; p[1] = o[3] + 6 + h / 2; }   // décale la bannière si elle chevauche une autre (STOCKAGE / FABRICATION)
+    bRects.push([p[0] - w / 2, p[1] - h / 2, p[0] + w / 2, p[1] + h / 2]); og.fillStyle = 'rgba(14,18,40,.88)'; rrect(og, p[0] - w / 2, p[1] - h / 2, w, h, 8 * f); og.fill(); og.strokeStyle = col; og.lineWidth = 2; og.stroke(); og.fillStyle = '#fff'; og.textAlign = 'center'; og.fillText(txt, p[0], p[1] - (sub ? 3 : -5) * f); if (sub) { og.font = '700 ' + Math.round(10.5 * f) + 'px sans-serif'; og.fillStyle = col; og.fillText(sub, p[0], p[1] + 11 * f); } };
   const stkI = pl.map((u, i) => u === 'stock' ? i : -1).filter(i => i >= 0), mkI = pl.map((u, i) => u === 'make' || u === 'robot' ? i : -1).filter(i => i >= 0), avg = a => a.length ? [a.reduce((s, i) => s + FG_SLOTS[i].c[0], 0) / a.length, a.reduce((s, i) => s + FG_SLOTS[i].c[1], 0) / a.length] : null;
   const card = (title, col, rows, ax, ay, az, ox, oy, w) => {   // rows : [libellé, valeur, 0..1, couleur]
     const a = M(ax, ay, az); if (!inV(a)) return; const cw = (w || 168) * f, rh = 30 * f, ch = 24 * f + rows.length * rh + 6 * f;
@@ -9210,6 +9212,7 @@ function planTopCards(og, sc, c, I, M, ls, VW, VH) {
   } else {
     card('RÉSERVE', '#b78cff', [['NIVEAU', Math.round(I.lvl * 100) + ' %', I.lvl, '#b78cff']], 23.2, 3.4, 40, -60, -56, 120);
   }
+  sc.cardRects.forEach(q => bRects.push(q.slice())); bq.forEach(a => bannerDraw(...a));   // bannières de zone dessinées en dernier : elles se décalent pour ne chevaucher ni les cartes de KPI ni les autres bannières
 }
 // ---- clic / survol de la vue Dessus : objet (rack, machine, robot, quai, camion) ou zone au sol
 function planTopAt(sc, px, py) {
