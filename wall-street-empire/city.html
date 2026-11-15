@@ -540,6 +540,13 @@ body.vopen #feed{z-index:9}
 .tank i{display:block;width:100%;opacity:.85}.tank span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-family:var(--font-m);font-weight:600;text-shadow:0 1px 2px #000}
 .evcard,#evcard{position:absolute;z-index:11;left:50%;top:calc(var(--hud-h) + 14px);transform:translateX(-50%);width:min(460px,calc(100% - 24px));padding:12px 14px;border-radius:12px;background:var(--panel);border:1px solid var(--orange);box-shadow:0 10px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:8px}
 #evcard[hidden]{display:none}
+#fabview{position:absolute;z-index:32;left:50%;top:calc(var(--hud-h) + 24px);transform:translateX(-50%);width:min(520px,calc(100% - 24px));max-height:calc(100% - var(--hud-h) - 48px);overflow-y:auto;padding:14px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--gold,#f2b84b);box-shadow:0 14px 40px rgba(0,0,0,.55)}
+#fabview[hidden]{display:none}
+#fabview h3{margin:0 0 6px;font-size:17px}
+#fabview .frow{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+#fabview .ftot{display:flex;justify-content:space-between;font-weight:800;font-size:15px;padding:8px 0}
+#fabview .fwarn{color:var(--orange);font-size:13px;margin:6px 0}
+#fabview .fbtns{display:flex;gap:8px;margin-top:8px}#fabview .fbtns .btn{flex:1;min-height:42px}
 #evcard b{font-family:var(--font-d);font-weight:800;font-size:20px;letter-spacing:.04em;color:var(--orange)}
 #evcard p{margin:0;font-size:13px;color:var(--fg)}
 #evcard .btn{text-align:left;min-height:40px}
@@ -1122,6 +1129,7 @@ body.vopen #feed{z-index:9}
   <div id="modesel" hidden></div>
   <div id="endscr" hidden></div>
   <div id="evcard" hidden role="alertdialog" aria-live="assertive"></div>
+  <div id="fabview" hidden role="alertdialog" aria-label="Confirmer la fabrication"></div>
 
   <div id="tarrow" hidden aria-hidden="true">▼</div>
   <div id="sitetip" hidden></div>
@@ -2668,7 +2676,10 @@ function tradeShares(id, qty, buy) {
   else { qty = Math.min(qty, h.n); if (qty <= 0) return false; let gain = 0; for (let i = 0; i < qty; i++) gain += px * (1 - 0.0007 * (i / 10)) - spread / 2; S.cash += gain; h.cost *= (h.n - qty) / h.n; h.n -= qty; r.mood = clamp((r.mood || 0) - qty / RSH * 0.4, -0.2, 0.35); say(`Vente de ${fmt(qty)} actions ${r.name} (${money(gain)}).`, 'info'); }
   if (h.n <= 0) delete S.port[id]; updateHUD(); return true;
 }
-const raiseAmt = raw => { const f = 0.1, pr = S.prem || 1.1; return f * raw * pr / (1 - f * pr); };
+// Émission d'actions : prix d'émission = valeur d'entreprise par action, au mieux au pair (jamais de prime) et avec 5 % de décote d'émission.
+// Les nouveaux actionnaires reçoivent la part f de l'entreprise APRÈS levée (trésorerie incluse) : la levée n'enrichit donc jamais le fondateur (elle le dilue de 5 % de décote).
+const ISSUE_DISC = 0.95, issuePr = () => ISSUE_DISC * Math.min(S.prem || 1, 1);
+const raiseAmt = (raw, f = 0.1) => { const pr = issuePr(); return f * raw * pr / (1 - f * pr); };
 function launchOpa(id) {
   const r = (S.rivals || []).find(x => x.id === id), h = (S.port || {})[id]; if (!r) return false;
   const stake = h ? h.n / RSH : 0, minS = casteIs('industriel') ? 0.1 : 0.2; if (stake < minS) { say(`Il faut détenir au moins ${Math.round(minS * 100)} % du capital pour lancer une OPA.`, 'warn'); return false; }
@@ -3586,6 +3597,7 @@ function step() {
   const preTax = revRetail + revExport + revTech + revBank - wagesTotal - upkeepI - transportTotal - advCost - interest - importCost;
   S.lossC = S.lossC || 0; let taxable = preTax; if (preTax < 0) { S.lossC = Math.min(S.lossC - preTax, 5e7); taxable = 0; } else { const used = Math.min(S.lossC, preTax); S.lossC -= used; taxable = preTax - used; }
   const corpTax = Math.max(0, taxable) * rate;
+  if (preTax > 1) S.taxEff = S.taxEff == null ? rate : S.taxEff * 0.92 + rate * 0.08;   // taux perçu les jours bénéficiaires (lissé) : sans bénéfice, pas de recettes, donc pas de nouveaux services
   const net = preTax - corpTax;
   S.cash += net;
   const div = (S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0; S.cash -= div; S._cashEnd = S.cash;
@@ -3640,8 +3652,8 @@ function step() {
   const sat = satB * 0.6 + satS * 0.25 + satL * 0.15;
   S._dw.sat = { basic: satB, std: satS, lux: satL, all: sat };
   const pol = nres ? polluted / nres : 0;
-  const happy = clamp(55 + sat * 25 - unemp * 50 - pol * 25 + (jobs > workforce ? 6 : 0) + pubBonus() + (boomOn() ? 8 : 0) - 2 * Math.max(0, S.diff || 0) + (rate - 0.25) * 60, 0, 100);
-  const target = cap * (0.35 + 0.65 * happy / 100);
+  const happy = clamp(55 + sat * 25 - unemp * 50 - pol * 25 + (jobs > workforce ? 6 : 0) + pubBonus() + (boomOn() ? 8 : 0) - 2 * Math.max(0, S.diff || 0) + taxSvc(), 0, 100);
+  const target = cap * (0.35 + 0.65 * happy / 100) * taxDrag(S.tax);
   S.pop += (target - S.pop) * 0.07 + (target > S.pop ? 0.3 : 0);
   if (S.pop > cap) S.pop = Math.max(cap, S.pop - 1);
   if (S.pop < 0) S.pop = 0;
@@ -4272,8 +4284,8 @@ function updateHUD() {
       <div class="taxrow"><span>Dividendes</span><input type="range" id="payout" min="0" max="60" step="5" value="${Math.round((S.payout || 0) * 100)}" aria-label="Part des bénéfices distribuée" ${cfo ? '' : 'disabled'}><b>${cfo ? Math.round((S.payout || 0) * 100) + ' %' : 'CFO requis'}</b></div>
       <p class="note">Les dividendes soutiennent le cours mais sortent de ta trésorerie, à hauteur du flottant. Réglage réservé au directeur financier.</p>
       <button class="btn sec" id="buyback" ${(cfo || S.float >= 0.5) && S.float >= 0.05 && S.cash >= 0.05 * raw * S.prem ? '' : 'disabled'}>Racheter 5 % du capital · ${money(0.05 * raw * (S.prem || 1.1))}${cfo || S.float >= 0.5 ? '' : ' (CFO requis)'}</button>
-      <button class="btn sec" id="raise" style="margin-top:6px" ${hq && S.float < 0.8 ? '' : 'disabled'}>Augmentation de capital · émettre 10 % : lève ${money(raiseAmt(raw))}, ta part passe de ${Math.round((1 - S.float) * 100)} % à ${Math.round((1 - S.float) * 90)} %</button>
-      <p class="note">Une levée dilue tous les actionnaires, toi compris, et pèse sur le cours. Au-delà de 50 % de flottant, un rival peut tenter une prise de contrôle hostile.${S.float >= 0.5 ? ' <b class="neg">Tu es sous la barre des 50 % : rachète des actions.</b>' : ''}</p>
+      <button class="btn sec" id="raise" style="margin-top:6px" ${hq && S.float < 0.8 ? '' : 'disabled'}>Augmentation de capital · émettre 10 % : lève ${money(raiseAmt(raw))}, ta part passe de ${Math.round((1 - S.float) * 100)} % à ${Math.round((1 - S.float) * 90)} %, ta valorisation personnelle ne monte pas</button>
+      <p class="note">Le Round se gagne sur ta valorisation de fondateur (valeur de l'entreprise × ta part) : une levée finance tes projets mais ne te rapproche jamais de la victoire. Elle dilue tous les actionnaires, toi compris, et pèse sur le cours. Au-delà de 50 % de flottant, un rival peut tenter une prise de contrôle hostile.${S.float >= 0.5 ? ' <b class="neg">Tu es sous la barre des 50 % : rachète des actions.</b>' : ''}</p>
       <h3 style="margin-top:12px">ÉVÉNEMENTS BOURSIERS</h3>${Object.keys(IR_EVENTS).map(k => { const E = IR_EVENTS[k], cd = Math.max(0, ((S.irCd || {})[k] || 0) - S.day); return `<div class="rv"><span><b>${E.n}</b><small>${E.d}</small></span><button class="btn sec" data-ir="${k}" ${ir && !cd && S.cash >= E.cost ? '' : 'disabled'}>${ir ? (cd ? cd + ' j' : money(E.cost)) : 'IR requis'}</button></div>`; }).join('')}`;
     if (!document.activeElement || document.activeElement.id !== 'payout') { if (el('bourse').dataset.h !== bh) { el('bourse').innerHTML = bh; el('bourse').dataset.h = bh; } }
     if (listed && el('spk')) drawSeries(el('spk'), S.sp || [], '#46d39a', true);
@@ -4292,7 +4304,7 @@ function updateHUD() {
       el('polNote3').textContent = 'Sans ajustement, tes prix de rayon et ton budget publicitaire perdent du terrain à chaque point d\'inflation (' + Math.round((cpi() - 1) * 1000) / 10 + ' % depuis le début). Les options automatiques réalignent tout tous les 30 jours.'; }
     el('tax').value = Math.round(S.tax * 100);
     el('taxV').textContent = Math.round(S.tax * 100) + ' %';
-    el('taxNote').textContent = S.tax > 0.3 ? 'Impôt élevé : la ville finance de meilleurs services (humeur +), mais tes bénéfices fondent.' : S.tax < 0.2 ? 'Impôt bas : tu gardes plus de bénéfices, mais les services publics et l\'humeur en pâtissent.' : 'Impôt équilibré.';
+    el('taxNote').textContent = S.tax > 0.3 ? 'Impôt élevé : les recettes financent des services publics (humeur + plafonnée, rendements décroissants), mais tes bénéfices fondent et l\'investissement comme l\'afflux d\'habitants reculent au-delà de 25 %.' : S.tax < 0.2 ? 'Impôt bas : tu gardes plus de bénéfices, mais les services publics, donc l\'humeur, en pâtissent.' : 'Impôt équilibré.';
     const h = S.hist;
     if (h.length) {
       const last = h[h.length - 1], prev = h.length > 1 ? h[h.length - 2] : last;
@@ -4310,8 +4322,8 @@ el('bourse').addEventListener('click', e => {
   const raw = (S.stats && S.stats.raw) || 0;
   if (e.target.id === 'openhq') { const h = hqOf(); if (h) openBuilding(h.x, h.y); return; }
   const irb = e.target.closest && e.target.closest('[data-ir]'); if (irb && !irb.disabled) { irEvent(irb.dataset.ir); return; }
-  if (e.target.id === 'ipo' && !(S.float > 0) && raw >= IPO_MIN && hqOf()) { const f = 0.3, prem = 1.1, post = raw / (1 - f * prem); S.cash += post - raw; S.float = f; S.prem = prem; S.sp = []; say(`Introduction en bourse réussie : ${money(post - raw)} levés pour 30 % du capital.`, 'gold'); refreshStats(); updateHUD(); save(); }
-  if (e.target.id === 'raise' && S.float > 0 && S.float < 0.8 && hqOf()) { const f = 0.1, amt = raiseAmt(raw), old = (1 - S.float) * 100; S.cash += amt; S.float = S.float * (1 - f) + f; S.prem = Math.max(0.6, (S.prem || 1.1) * 0.97); S.pb = (S.pb || 0) - 0.03; say(`Augmentation de capital : ${money(amt)} levés. Ta part passe de ${Math.round(old)} % à ${Math.round((1 - S.float) * 100)} %.`, 'info'); refreshStats(); updateHUD(); save(); }
+  if (e.target.id === 'ipo' && !(S.float > 0) && raw >= IPO_MIN && hqOf()) { const f = 0.3, amt = raiseAmt(raw, f); S.cash += amt; if (S.stats) S.stats.raw += amt; S.float = f; S.prem = 1.1; S.sp = []; say(`Introduction en bourse réussie : ${money(amt)} levés pour 30 % du capital (émission à ${Math.round(ISSUE_DISC * 100)} % de la valeur : ta fortune ne monte pas, ta trésorerie oui).`, 'gold'); refreshStats(); updateHUD(); save(); }
+  if (e.target.id === 'raise' && S.float > 0 && S.float < 0.8 && hqOf()) { const f = 0.1, amt = raiseAmt(raw), old = (1 - S.float) * 100; S.cash += amt; if (S.stats) S.stats.raw += amt; S.float = S.float * (1 - f) + f; S.prem = Math.max(0.6, (S.prem || 1.1) * 0.97); S.pb = (S.pb || 0) - 0.03; say(`Augmentation de capital : ${money(amt)} levés. Ta part passe de ${Math.round(old)} % à ${Math.round((1 - S.float) * 100)} %.`, 'info'); refreshStats(); updateHUD(); save(); }
   if (e.target.id === 'buyback' && S.float >= 0.05 && (execOn('cfo') || S.float >= 0.5)) { const c = 0.05 * raw * (S.prem || 1.1); if (S.cash >= c) { S.cash -= c; S.float = Math.max(0, S.float - 0.05); if (S.float < 0.001) { S.float = 0; S.sp = []; } say(`Rachat de 5 % du capital pour ${money(c)}.`, 'info'); refreshStats(); updateHUD(); save(); } }
 });
 el('bourse').addEventListener('input', e => { if (e.target.id === 'payout') { S.payout = +e.target.value / 100; e.target.nextElementSibling.textContent = e.target.value + ' %'; } });
@@ -4877,7 +4889,14 @@ const CONTRACT_TYPES = [
   { key: 'tower',     name: 'Tour de bureaux (20 étages)',      kind: 'off', floors: 20, tier: 2, need: { concrete: 360, steel: 150, osb: 30, plank: 30 },             reward: 22000, days: 80 }
 ];
 CONTRACT_TYPES.forEach(c => { Object.keys(c.need).forEach(g => { c.need[g] *= K_IND; }); c.reward *= K_IND * K_SIZE; });
-TECHS.forEach(T => { T.c = Math.round(T.c * 8 * K_SIZE); });   // ≈ 2 jours (ère I) à 6 jours (ère II) de CA d'un groupe Industriel (≈ 100 k$/j)
+// Coût de la recherche : 1 à 6 % de la capitalisation attendue quand la technologie devient pertinente (ère I ≈ 20 M$, II ≈ 120 M$, III ≈ 400 M$),
+// pondéré par le coût relatif d'origine (×0,7 à ×1,5 la base de l'ère) ; jamais moins de 0,3 % du capex du bâtiment qu'elle débloque.
+const TECH_ERA = { 1: { cap: 20e6, pct: 0.015, ref: 6500 }, 2: { cap: 120e6, pct: 0.025, ref: 16000 }, 3: { cap: 400e6, pct: 0.04, ref: 45000 } };
+TECHS.forEach(T => {
+  const E = TECH_ERA[T.era], w = clamp(T.c / E.ref, 0.7, 1.5);
+  const capex = Math.max(0, ...Object.keys(TYPES).filter(k => TYPES[k].tech === T.id).map(k => TYPES[k].cost || 0));
+  T.c = Math.round(Math.max(E.cap * E.pct * w, 0.003 * capex) / 5000) * 5000;
+});
 PKEYS.forEach(k => { PRODUCTS[k].rnd = Math.round(PRODUCTS[k].rnd * 1.5); });   // développement produit ≈ 1 à 15 jours de CA selon la gamme
 // R&D et amélioration de qualité : jamais plus qu'une fraction du marché annuel du produit (demande par habitant × population de référence × prix). Pharmacie : plafond plus haut (développements longs et brevetés).
 const RND_POP = 200000;
@@ -5640,12 +5659,63 @@ function easyLaunch(c, v) {
 }
 // Mode « enfant » : un double-clic sur un produit fini suffit. R&D si besoin, usine libre (ou nouvelle usine posée toute seule), fournisseurs et imports automatiques.
 function placeAuto(key) { if (!TYPES[key]) return null; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { if (!footprintError(x, y, key) && place(x, y, key)) return S.grid[idx(x, y)]; } return null; }
-function quickProduce(pk) {
+// Constructeur automatique d'une matière première : extracteur du gisement, ou fonderie pour les lingots (les autres intrants restent achetés).
+const rawBuilder = g => RAW_SRC[g] || (g === 'ingot' ? 'foundry' : null);
+function autoSpot(key) { if (!TYPES[key]) return null; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { if (!footprintError(x, y, key)) return [x, y]; } return null; }
+const siteCost = key => { const sp = autoSpot(key); if (!sp) return null; return Math.round(TYPES[key].cost * casteCost(key) * Math.max(1, cpi())) + landCostFor(sp[0], sp[1], key) + sitePremium(sp[0], sp[1], key); };
+const cheapestFac = lvl => Object.keys(FLEVEL).filter(k => FLEVEL[k] >= lvl && TYPES[k]).sort((a, b) => TYPES[a].cost - TYPES[b].cost)[0];
+// PLAN « Fabriquer » (lecture seule) : tout ce que quickProduce construira ou dépensera, avec le coût total annoncé et ce qui manque (rien n'est écrit dans l'état).
+function producePlan(pk, o) {
+  o = o || {}; const withRaw = o.raws !== false, pr = PRODUCTS[pk], ps = S.prod[pk];
+  const P = { pk, name: pr.name, rows: [], rnd: 0, fac: 0, comps: 0, raws: 0, wc: 0, total: 0, missing: [], buys: [], blockers: [], complete: true, nothing: false, withRaw };
+  const add = (kind, label, cost) => { P.rows.push({ kind, label, cost }); P[kind] = (P[kind] || 0) + cost; };
+  if (ps.st === 'locked') {
+    if (!mkOn() && pr.tier > tierNow()) P.blockers.push(`${pr.name} se débloque au palier ${TIERS[pr.tier].n}.`);
+    const c = pr.free ? 0 : Math.round(pr.rnd * QTIER[ps.q].rnd * (mkOn() ? LIC_K : 1));
+    add('rnd', mkOn() ? `Licence de ${pr.name.toLowerCase()}` : `R&D de ${pr.name.toLowerCase()} (${pr.days} jours avant la première vente)`, c);
+  }
+  let fac = null; eachBuilding(c => { if (!fac && FLEVEL[c.t] && c.conn && c.prod === pk) fac = c; });
+  const pool = {}; let freeOne = null;
+  eachBuilding(c => { if (FLEVEL[c.t] && c.conn && freeFact(c) && c.prod !== pk) { if (FLEVEL[c.t] >= pr.lvl && !freeOne) freeOne = c; } });
+  if (!fac && freeOne) { fac = freeOne; add('fac', `${TYPES[fac.t].name} libre réaffectée (déjà à toi)`, 0); }
+  if (!fac) {
+    const key = cheapestFac(pr.lvl), cost = key ? siteCost(key) : null;
+    if (!key || cost == null) { P.missing.push(`une ${LVL_NAME[pr.lvl] || 'usine'} : aucun terrain libre dans la zone industrielle`); P.complete = false; } else add('fac', `${TYPES[key].name} à construire`, cost);
+  }
+  eachBuilding(c => { if (FLEVEL[c.t] && c.conn && freeFact(c) && c !== fac) pool[FLEVEL[c.t]] = (pool[FLEVEL[c.t]] || 0) + 1; });
+  try {
+    const { need } = chainNeeds(pk);
+    RKEYS.forEach(g => { if (!need[g]) return; let miss = Math.ceil(need[g] - unitsOn(g) - 0.01); const lvl = RECIPES[g].lvl;
+      while (miss > 0) {
+        if (pool[lvl] > 0) { pool[lvl]--; add('comps', `${RECIPES[g].name} : une usine libre affectée`, 0); miss--; continue; }
+        const k2 = cheapestFac(lvl), c2 = k2 ? siteCost(k2) : null;
+        if (c2 == null) { P.missing.push(`${RECIPES[g].name} : aucune ${LVL_NAME[lvl] || 'usine'} possible (place ou terrain)`); P.complete = false; break; }
+        add('comps', `${TYPES[k2].name} pour ${RECIPES[g].name.toLowerCase()}`, c2); miss--;
+      } });
+  } catch (e) {}
+  const seen = {};
+  chainLeaves(pk).forEach(g => {
+    if (sourceInfo(g).n || seen[g]) return; seen[g] = 1; const bk = rawBuilder(g), nm = GOODS[g] ? GOODS[g].name.toLowerCase() : g;
+    if (!bk) { P.buys.push(nm); return; }
+    if (!withRaw) { P.missing.push(`matière première ${nm} : pas de ${TYPES[bk].name.toLowerCase()} (achetée au marché, plus cher)`); P.complete = false; return; }
+    const c = siteCost(bk); if (c == null) { P.missing.push(`matière première ${nm} : aucun gisement libre pour ${TYPES[bk].name.toLowerCase()}`); P.complete = false; return; }
+    add('raws', `${TYPES[bk].name} (${nm})`, c);
+  });
+  { const mc = makeCost(pk); P.wc = Math.round(mc.mat * pr.out * mc.cyc * 5); if (P.wc > 0) P.rows.push({ kind: 'wc', label: `Matières premières achetées : 5 jours de production à pleine capacité${P.buys.length ? ' (dont ' + P.buys.join(', ') + ', jamais produits chez toi)' : ''}`, cost: P.wc }); }
+  P.build = P.rnd + P.fac + P.comps + P.raws; P.total = P.build + P.wc; P.nothing = P.build === 0 && !P.rows.some(r => r.kind !== 'wc');
+  return P;
+}
+let _fabNoRaw = false;
+function quickProduce(pk, o) {
+  _fabNoRaw = !!(o && o.raws === false);
   const pr = PRODUCTS[pk]; if (!pr) return false;
+  { const P = producePlan(pk); if (P.blockers.length) { say(P.blockers[0], 'warn'); return false; }
+    if (S.cash < P.build) { say(`Il faut ${money(P.build)} pour monter la chaîne de ${pr.name.toLowerCase()} (il manque ${money(P.build - S.cash)}) : rien n'a été construit.`, 'bad'); return false; }
+    if (S.prod[pk].st === 'locked' && !launchProduct(pk)) return false; }   // R&D d'abord : on ne construit rien si elle échoue
   let fac = null;
   eachBuilding(c => { if (!fac && FLEVEL[c.t] && c.conn && c.prod === pk) fac = c; });
   if (!fac) eachBuilding(c => { if (!fac && FLEVEL[c.t] >= pr.lvl && c.conn && freeFact(c)) fac = c; });
-  const cheapest = lvl => Object.keys(FLEVEL).filter(k => FLEVEL[k] >= lvl && TYPES[k]).sort((a, b) => TYPES[a].cost - TYPES[b].cost)[0];
+  const cheapest = cheapestFac;
   if (!fac) {
     const key = cheapest(pr.lvl);
     if (!key) { say('Aucune usine ne peut fabriquer ce produit.', 'warn'); return false; }
@@ -5660,12 +5730,38 @@ function quickProduce(pk) {
     const { need } = chainNeeds(pk);
     RKEYS.forEach(g => { if (!need[g]) return; let miss = Math.ceil(need[g] - unitsOn(g) - 0.01), guard = 0;
       while (miss > 0 && guard++ < 6) { if (assignRecipe(g, 1, true)) { miss--; continue; } const f2 = placeAuto(cheapest(RECIPES[g].lvl)); if (!f2) break; f2.prod = g; built.push(TYPES[f2.t].name); miss--; } });
-    chainLeaves(pk).forEach(g => { if (RAW_SRC[g] && !sourceInfo(g).n) { const e = placeAuto(RAW_SRC[g]); if (e) built.push(TYPES[e.t].name); } });
+    chainLeaves(pk).forEach(g => { if (rawBuilder(g) && !sourceInfo(g).n && !(_fabNoRaw)) { const e = placeAuto(rawBuilder(g)); if (e) built.push(TYPES[e.t].name); } });
   } catch (e) {}
   if (built.length) say(`Chaîne montée automatiquement : ${[...new Set(built)].slice(0, 4).join(', ')}.`, 'info');
   if (!easyLaunch(fac, pk)) return false;
   centerOn(fac.x, fac.y); refreshStats(); updateHUD(); return true;
 }
+// Écran de confirmation de « Fabriquer » : coût total annoncé, liste de ce qui sera construit, chaîne complète ou ce qui manque, annulation possible.
+let fabPk = null, fabRaw = true;
+function fabRender() {
+  const box = el('fabview'); if (!box || !fabPk) return; const P = producePlan(fabPk, { raws: fabRaw }), pr = PRODUCTS[fabPk];
+  const rawPossible = chainLeaves(fabPk).some(g => rawBuilder(g) && !sourceInfo(g).n);
+  const short = S.cash < P.build;
+  box.innerHTML = `<h3>Fabriquer : ${pr.name}</h3>
+    <p class="note">Voici tout ce qui sera construit ou acheté. Rien n'est dépensé avant ta confirmation.</p>
+    ${P.rows.map(r => `<div class="frow"><span>${r.label}</span><b>${r.cost ? money(r.cost) : 'déjà à toi'}</b></div>`).join('') || '<div class="frow"><span>Tout est déjà en place</span><b>0 $</b></div>'}
+    <div class="ftot"><span>COÛT TOTAL annoncé</span><b class="gold">${money(P.total)}</b></div>
+    <p class="note">Dont ${money(P.build)} de construction${P.rnd ? ' et d\'R&D' : ''} dépensés tout de suite${P.wc ? ' et ' + money(P.wc) + ' de matières achetées au fil des jours' : ''}. Trésorerie : ${money(S.cash)}.</p>
+    ${rawPossible ? `<label class="note"><input type="checkbox" id="fabRaw" ${fabRaw ? 'checked' : ''}> Construire aussi les extracteurs de matières premières</label>` : ''}
+    ${P.complete ? '<p class="note pos">Chaîne complète : usine, composants et matières premières sont couverts.</p>' : `<p class="fwarn"><b>Chaîne incomplète.</b> Il manque : ${P.missing.join(' ; ')}.${!fabRaw ? ' Coche la case ci-dessus pour les ajouter à la commande.' : ''}</p>`}
+    ${P.blockers.length ? `<p class="fwarn">${P.blockers[0]}</p>` : ''}${short ? `<p class="fwarn">Trésorerie insuffisante : il manque ${money(P.build - S.cash)}.</p>` : ''}
+    <div class="fbtns"><button class="btn" data-fab="go" ${short || P.blockers.length ? 'disabled' : ''}>${P.complete ? 'Confirmer et construire' : 'Continuer quand même'}</button><button class="btn sec" data-fab="no">Annuler</button></div>`;
+  box.hidden = false;
+}
+function askProduce(pk) {
+  if (!PRODUCTS[pk]) return false;
+  const P = producePlan(pk); if (P.nothing) return quickProduce(pk);
+  fabPk = pk; fabRaw = true; fabRender(); return 'pending';
+}
+function fabCancel() { fabPk = null; const b = el('fabview'); if (b) b.hidden = true; }
+function fabConfirm() { const pk = fabPk; if (!pk) return false; fabPk = null; el('fabview').hidden = true; const ok = quickProduce(pk, { raws: fabRaw }); try { renderProducts(); } catch (e) {} return ok; }
+el('fabview').addEventListener('click', e => { const b = e.target.closest('[data-fab]'); if (b) { if (b.dataset.fab === 'go') fabConfirm(); else fabCancel(); } });
+el('fabview').addEventListener('change', e => { if (e.target.id === 'fabRaw') { fabRaw = e.target.checked; fabRender(); } });
 function autoChain(pk) {
   const { need } = chainNeeds(pk); let added = 0; const missing = [];
   RKEYS.forEach(g => {
@@ -5835,7 +5931,12 @@ function mkSuggest() {
     const score = Math.max(0, R.profit30) * (0.4 + 1.6 * un) * ease / (1 + 0.12 * nOff);
     const why = [];
     if (un >= 0.15) why.push(`Les habitants en veulent plus que ce qui est vendu : +${Math.round(un * 100)} % de demande non servie.`);
-    if (route === 'make' && ease >= 0.85) why.push('Tu as déjà tout pour le faire.');
+    if (route === 'make') {
+      const lack = mkLeaves(pk).filter(g => !sourceInfo(g).n).map(g => (GOODS[g] ? GOODS[g].name : g).toLowerCase());
+      if (!lack.length && !mkR.comp && mkR.freeFac && ease >= 0.85) why.push('Tu as déjà tout pour le faire.');
+      else if (lack.length) why.push(`Il te manque ${lack.slice(0, 3).join(', ')} (matière première${lack.length > 1 ? 's' : ''}) : « Fabriquer » te proposera de la monter, avec le coût total.`);
+      else if (!mkR.freeFac) why.push('Il faudra construire une usine : « Fabriquer » t\'annoncera le coût total avant de rien dépenser.');
+    }
     if (route === 'buy' && best) why.push(`Tu peux l'acheter à ${best.name} et le revendre tout de suite, sans usine.`);
     if (nOff && nOff <= 3) why.push(`Peu de concurrence : seulement ${nOff} sociétés le vendent.`);
     const mp = R.rp > 0 ? Math.round(100 * R.margin / R.rp) : 0; if (mp >= 25) why.push(`Chaque unité te laisse ${mp} % de marge.`);
@@ -6056,10 +6157,10 @@ function sgAct(a) {
   if (k === 'f') { sgF = a.slice(2); sgHtml = ''; }
   else if (k === 'close') { mkV = null; }
   else if (k === 'sel') { selProd = p1; mkV = null; setPview(true); renderProducts(); try { const pv = el('pview'), pd = el('pdetail'); pv.scrollTop = Math.max(0, pd.offsetTop - 70); } catch (e) {} }
-  else if (k === 'make') { mkMake(p1); }
+  else if (k === 'make') { askProduce(p1); }
   else if (k === 'makehere') { const c = catFac && cell(catFac.x, catFac.y); if (c && easyLaunch(c, p1)) { refreshStats(); closeCatalog(true); } else mkMake(p1); }
   else if (k === 'buy') mkBuy(p1, p2, p3 ? +p3 : (offQty || null));
-  else if (k === 'both') mkBoth(p1);
+  else if (k === 'both') { const b = mkBest(p1); if (producePlan(p1).nothing) mkBoth(p1); else { askProduce(p1); if (b) mkBuy(p1, b.id, null, true); } }
   else if (k === 'test') { mkOpen('test', p1); return sgDone(); }
   else if (k === 'offers') { mkOpen('offers', p1); return sgDone(); }
   else if (k === 'trial') { const t = trialStart(p1, p2, p3); if (t) mkV = null; }
@@ -6185,7 +6286,7 @@ el('plist').addEventListener('click', e => {
   if (ct && !ct.disabled) { const id = +ct.dataset.id; if (ct.dataset.ct === 'accept') acceptContract(id); else dropContract(id); renderProducts(); return; }
   const b = e.target.closest('[data-p]'); if (b) { selProd = b.dataset.p; renderProducts(); }
 });
-el('pview').addEventListener('dblclick', e => { const b = e.target.closest('[data-p]'); if (b && PRODUCTS[b.dataset.p]) { quickProduce(b.dataset.p); renderProducts(); } });
+el('pview').addEventListener('dblclick', e => { const b = e.target.closest('[data-p]'); if (b && PRODUCTS[b.dataset.p]) { askProduce(b.dataset.p); renderProducts(); } });
 el('pdetail').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
   const v = +b.dataset.v, ps = isProd(selProd) ? S.prod[selProd] : null;
@@ -11248,7 +11349,10 @@ const modeK = () => (S && S.mode && S.mode.k) || 'free';
 const dayMs = () => modeK() === 'free' ? DAY_MS : DAY_MS_RND;
 const isScn = () => /^s[1-5]$/.test(modeK());
 const isTimed = () => modeK() !== 'free';
-const valuation = () => { const st = (S && S.stats) || {}; return st.raw != null ? st.raw : (st.worth || (S && S.cash) || 0); };
+// Valeur d'entreprise (actifs nets + exploitation + trésorerie − dette) et valorisation du FONDATEUR = valeur d'entreprise × part détenue.
+// Le Round (victoire, paliers, classement) porte sur la valorisation du fondateur : lever du capital ne la fait jamais monter par elle-même.
+const enterpriseValue = () => { const st = (S && S.stats) || {}; return st.raw != null ? st.raw : (st.worth || (S && S.cash) || 0); };
+const valuation = () => enterpriseValue() * (1 - clamp((S && S.float) || 0, 0, 1));
 const fmtV = v => v >= 1e9 ? (v / 1e9).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' Md$' : mM(v);
 const cnOf = k => ((S.stats && S.stats.cn) || {})[k] || 0;
 const subCount = () => (S.rivals || []).filter(r => r.sub).length + (S.subs || []).length;
@@ -11290,7 +11394,7 @@ const TUTO_S2 = [
 ];
 const TUTO_S4 = [
   { t: 'Construis un siège social (menu Ville > Direction) : sans siège, pas d\'introduction en bourse.', ok: () => !!hqOf(), tool: 'hq', hl: () => tutoNavTool('hq') },
-  { t: 'Atteins 25 M$ de valorisation, puis Menu > Bourse > Introduction en bourse (tu cèdes 30 % du capital).', ok: () => S.float > 0, hl: () => (hqOf() && valuation() >= IPO_MIN) ? tutoNavPanel('market', '#ipo') : null },
+  { t: 'Atteins 25 M$ de valorisation, puis Menu > Bourse > Introduction en bourse (tu cèdes 30 % du capital ; la victoire compte ta part, pas la caisse levée).', ok: () => S.float > 0, hl: () => (hqOf() && valuation() >= IPO_MIN) ? tutoNavPanel('market', '#ipo') : null },
   { t: 'Ouvre le terminal financier (Menu > Bourse) et achète des actions d\'un rival : vise 20 % de son capital.', ok: () => Math.max(0, ...(S.rivals || []).map(r => stakeOf(r.id))) >= 0.1 || subCount() > 0, hl: () => el('tview').hidden ? tutoNavPanel('market', '#openTerm') : null },
   { t: 'Lance une OPA depuis le terminal : au-delà de 50 % du capital, le rival devient ta filiale.', ok: () => subCount() > 0, hl: () => null }
 ];
@@ -11346,6 +11450,13 @@ function expectedVal(day) {
   return W0 * Math.pow(T / W0, sh);
 }
 const REG_TAX = 0.05, REG_WAGE = 0.08, REG_DEBT = 0.15;   // par niveau de surchauffe : impôt +5 pts, salaires +8 %, plafond de dette −15 %
+// Impôt sur les sociétés : par lui-même il ne rend personne heureux. Seules les recettes réellement perçues (taux lissé S.taxEff mis à jour les jours bénéficiaires,
+// nul hors bénéfice) financent des services publics : bonus d'humeur plafonné à TAX_SVC_MAX points au total, à rendements décroissants (1 − e^(−0,7 x), x = taux effectif / 25 %),
+// nul au taux de référence de 25 % (réglage par défaut) ; moins de recettes = moins de services (jusqu'à −2,2 pts à 5 %), plus de recettes = +1,3 pt à 45 % (jamais plus de +3).
+// Au-delà de 25 %, l'impôt décourage l'investissement privé et l'installation d'habitants : cible de population réduite de 60 % de l'écart (−12 % à 45 %).
+const TAX_SVC_MAX = 6, TAX_REF = 0.25, TAX_SVC_K = 0.7;
+const taxSvc = () => { const f = x => 1 - Math.exp(-TAX_SVC_K * x); return TAX_SVC_MAX * (f((S.taxEff == null ? TAX_REF : S.taxEff) / TAX_REF) - f(1)); };
+const taxDrag = rate => 1 - 0.6 * Math.max(0, rate - 0.25);
 const regTax = () => REG_TAX * Math.max(0, (S && S.diff) || 0);
 function stepMode() {
   const m = S.mode; if (!m) return;
@@ -11531,7 +11642,7 @@ setTool('res');
 // le bureau du PDG s'ouvre via le bouton Menu
 requestAnimationFrame(frame);
 const tileToScreen = (x, y) => { const c = iso(x + 0.5, y + 0.5), r = cvs.getBoundingClientRect(); return { x: r.left + vx + (c.x - cam.x) * z, y: r.top + vy + (c.y - cam.y) * z }; };
-window.WSE = { acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { costs: { payYear, fxTrainCost, trainCost, RND_POP, DEMAND_PC }, brand: { HL: BC_HL, sig: bcSig, of: bcOf, lev: brandLev, lux: luxDeg, volM: brandVolM, volX: brandVolX, prem: brandPrem, shield: brandShield, el: shEl, half: bcHalf, mkt: bcMkt, target: bcTarget, step: bcStep, trend: bcTrend, line: brandLineHTML, capHTML: brandCapHTML, duel: brandDuel, attr: attractiveness, score: productScore, rivM: rivBm, rivProf, stepRiv: stepRivBrand, padSet: padAdjust, strat: brandStrat } });
 Object.defineProperty(window.WSE, 'imm', { get() { return { on: immOn, tr: imm.tr, from: imm.from, idle: imm.idle, panel: immPanel, ang: planAng, yaw: planYaw, cam: { z: scam.z, x: scam.x, y: scam.y, bs: scam.bs }, W: imm.W, H: imm.H }; } });

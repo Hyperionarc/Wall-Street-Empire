@@ -2,7 +2,8 @@
 exports.name = 'Arbre des produits et composeur';
 
 // EBITDA mesurés (isoFactory, macro figée) des produits d'origine avant la passe 25 : ils ne doivent pas bouger (tolérance 0,6 point)
-const BASE_EB = { bread: 19.7, jeans: 16.0, tv: 21.0, headache: 38.8, obesity: 37.8, watch: 29.5, perfume: 29.5, laptop: 18.8, fridge: 15.8, house_wood: 13.7, bike: 15.9, cream: 16.1 };
+// (obesity et perfume : -0,6 point depuis « Round honnête » : la surchauffe (impôt +15 pts) ne relève plus l'humeur de la ville)
+const BASE_EB = { bread: 19.7, jeans: 16.0, tv: 21.0, headache: 38.8, obesity: 37.2, watch: 29.5, perfume: 28.9, laptop: 18.8, fridge: 15.8, house_wood: 13.7, bike: 15.9, cream: 16.1 };
 
 exports.run = async (t, L) => {
   const pg = await L.newPage({ wait: 700 }); await L.setup(pg, { cash: 5e10 }); await L.inject(pg);
