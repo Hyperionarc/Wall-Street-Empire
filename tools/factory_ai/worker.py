@@ -3,7 +3,7 @@
 
     cd ~/Wall-Street-Empire/tools/factory_ai && .venv/bin/python worker.py
 
-Il surveille travail/commandes/*.json et n'exécute que deux programmes du kit, avec des options vérifiées :
+Il surveille travail/commandes/*.json et n'exécute que des programmes du kit (sprites, scènes, installation et rendus Blender), avec des options vérifiées :
   {"type": "sprites", "lot": "phase1", "limite": 20, "seul": ["presse"], "forcer": false}
   {"type": "scenes", "phase": "brouillons", "scene": ["rd_garage_voiture"], "budget_min": 30}
   {"type": "scenes", "phase": "finale", "retenir": ["rd_garage_voiture:63"], "budget_min": 30}
@@ -54,6 +54,17 @@ def commande(c):
         if c.get('forcer'):
             a.append('--forcer')
         return a
+    if c.get('type') == 'blender_installer':
+        return ['/bin/bash', os.path.join(ICI, 'blender', 'install_blender.sh')]
+    if c.get('type') == 'blender':
+        sc = noms(c.get('scene', ''))[0]
+        script = os.path.join(ICI, 'blender', sc + '.py')
+        if not os.path.isfile(script):
+            raise ValueError('scène Blender inconnue')
+        exe = os.path.expanduser('~/Applications/Blender.app/Contents/MacOS/Blender')
+        n = max(1, min(int(c.get('angles', 36)), 120))
+        return [[exe, '--background', '--python', script, '--', '--angles', str(n), '--taille', str(max(256, min(int(c.get('taille', 640)), 2048)))],
+                [PY, os.path.join(ICI, 'blender', 'planche.py'), sc]]
     raise ValueError('type refusé')
 
 
@@ -71,15 +82,19 @@ def main():
                 os.replace(f, os.path.join(FAIT, base + '.json'))
                 print(f'[{base}] refusé : {e}', flush=True)
                 continue
-            print(f'\n=== [{base}] {" ".join(argv[1:])} ===', flush=True)
+            suite = argv if argv and isinstance(argv[0], list) else [argv]
+            print(f'\n=== [{base}] {" ".join(suite[0][1:])} ===', flush=True)
             os.replace(f, os.path.join(FAIT, base + '.json'))
             t0 = time.time()
             with open(journal, 'w') as log:
-                p = subprocess.Popen(argv, cwd=ICI, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-                for ligne in p.stdout:
-                    sys.stdout.write(ligne); sys.stdout.flush()
-                    log.write(ligne); log.flush()
-                code = p.wait()
+                for etape in suite:
+                    p = subprocess.Popen(etape, cwd=ICI, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+                    for ligne in p.stdout:
+                        sys.stdout.write(ligne); sys.stdout.flush()
+                        log.write(ligne); log.flush()
+                    code = p.wait()
+                    if code:
+                        break
                 log.write(f'FIN code={code} duree={time.time() - t0:.0f}s\n')
             print(f'=== [{base}] terminé (code {code}, {time.time() - t0:.0f} s). En attente du lot suivant. ===', flush=True)
         time.sleep(3)
