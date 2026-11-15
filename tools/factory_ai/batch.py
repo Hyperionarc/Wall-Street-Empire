@@ -40,6 +40,16 @@ def mkdir_pour(p):
     os.makedirs(os.path.dirname(p), exist_ok=True)
 
 
+def sauve_png(img, p):
+    """PNG en palette (config png_couleurs) pour limiter le poids embarqué dans city.html."""
+    mkdir_pour(p)
+    n = CFG.get('png_couleurs', 0)
+    if n and img.mode == 'RGBA':
+        img = img.quantize(colors=n, method=Image.Quantize.FASTOCTREE)
+    img.save(p, optimize=True)
+    return os.path.getsize(p)
+
+
 def bbox_alpha(im, seuil=12):
     a = np.asarray(im.getchannel('A'))
     ys, xs = np.where(a > seuil)
@@ -206,8 +216,8 @@ def planches(ancres):
         for sous in ('', 'ombres'):
             S = Image.new('RGBA', (128 * len(poses), 200), (0, 0, 0, 0))
             for i, p in enumerate(poses):
-                S.paste(Image.open(os.path.join(OUT, sous, p + '.png')), (128 * i, 0))
-            S.save(os.path.join(OUT, sous, nom + '.png'))
+                S.paste(Image.open(os.path.join(OUT, sous, p + '.png')).convert('RGBA'), (128 * i, 0))
+            sauve_png(S, os.path.join(OUT, sous, nom + '.png'))
         a = ancres[poses[0] + '.png']
         ancres[nom + '.png'] = {'largeur': 128 * len(poses), 'hauteur': 200, 'ancre_x': a['ancre_x'], 'ancre_y': a['ancre_y'],
                                 'planche': f'{len(poses)} vignettes de 128x200 : marche, porte_carton, machine, debout', 'ancre': 'par vignette'}
@@ -312,10 +322,11 @@ def main():
             raison = controle(dec, im.width)
             if raison is None:
                 spr, omb, info = cadre(sp, dec, ancres_gab)
-                for img, sous in ((spr, ''), (omb, 'ombres')):
-                    p = os.path.join(OUT, sous, nom + '.png')
-                    mkdir_pour(p)
-                    img.save(p)
+                assert omb.size == spr.size
+                poids = sauve_png(spr, os.path.join(OUT, nom + '.png'))
+                sauve_png(omb, os.path.join(OUT, 'ombres', nom + '.png'))
+                if poids > 150_000:
+                    print(f'   ! {nom}.png pèse {poids // 1000} Ko (> 150 Ko) : à signaler dans JOURNAL.md')
                 ancres[nom + '.png'] = info
                 etat[nom] = {'statut': 'ok', 'seed': seed, 'essais': essai + 1, 'secondes': round(time.time() - t0, 1), 'simule': a.simuler}
                 faits.append(nom)
