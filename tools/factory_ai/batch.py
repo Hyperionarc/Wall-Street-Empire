@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw, ImageFilter
 ICI = os.path.dirname(os.path.abspath(__file__))
 RACINE = os.path.normpath(os.path.join(ICI, '..', '..'))
 GAB = os.path.join(RACINE, 'assets', 'factory')          # gabarits procéduraux (lot 1 d'origine)
+GABV = os.path.join(ICI, 'gabarits')                      # gabarits exportés du dessin vectoriel du jeu (export_gabarits.js)
 OUT = os.path.join(RACINE, 'assets', 'factory_hd')       # sortie
 TRAV = os.path.join(ICI, 'travail')                      # fichiers intermédiaires (non versionnés)
 STYLE = os.path.join(ICI, 'style')                       # références de style validées (versionnées)
@@ -26,6 +27,15 @@ CFG = json.load(open(os.path.join(ICI, 'config.json')))
 MAN = json.load(open(os.path.join(ICI, 'manifest.json')))
 ETAT_F = os.path.join(ICI, 'etat.json')
 FOND = (205, 205, 205)
+
+
+def gab_png(nom, sous=''):
+    """Chemin d'un gabarit : assets/factory (lot 1) puis tools/factory_ai/gabarits (export vectoriel)."""
+    for d in (GAB, GABV):
+        p = os.path.join(d, sous, nom + '.png')
+        if os.path.exists(p):
+            return p
+    return os.path.join(GAB, sous, nom + '.png')
 
 
 def charge(p, defaut):
@@ -62,7 +72,7 @@ def bbox_alpha(im, seuil=12):
 def prepare_entree(sp):
     """Pose le gabarit, agrandi, au centre d'un carré à fond uni."""
     T = CFG['taille']
-    g = Image.open(os.path.join(GAB, sp['gabarit'] + '.png')).convert('RGBA')
+    g = Image.open(gab_png(sp['gabarit'])).convert('RGBA')
     g = g.crop(bbox_alpha(g))
     k = (T * 0.8) / max(g.size)
     g = g.resize((max(1, round(g.width * k)), max(1, round(g.height * k))), Image.LANCZOS)
@@ -178,7 +188,7 @@ def ombre_auto(spr, ancre):
 def cadre(sp, decoupe, ancres_gab):
     obj = decoupe.crop(bbox_alpha(decoupe))
     if sp['gabarit']:
-        ref = Image.open(os.path.join(GAB, sp['gabarit'] + '.png')).convert('RGBA')
+        ref = Image.open(gab_png(sp['gabarit'])).convert('RGBA')
         bb = bbox_alpha(ref)
         k = (bb[2] - bb[0]) / obj.width
         obj = obj.resize((bb[2] - bb[0], max(1, round(obj.height * k))), Image.LANCZOS)
@@ -188,9 +198,11 @@ def cadre(sp, decoupe, ancres_gab):
         info = dict(ancres_gab.get(sp['gabarit'] + '.png', {}))
         info.update(largeur=spr.width, hauteur=spr.height, ancre_y=info.get('ancre_y', bb[3]) + haut)
         omb = Image.new('RGBA', spr.size, (0, 0, 0, 0))
-        po = os.path.join(GAB, 'ombres', sp['gabarit'] + '.png')
+        po = gab_png(sp['gabarit'], 'ombres')
         if os.path.exists(po):
             omb.alpha_composite(Image.open(po).convert('RGBA'), (0, haut))
+        else:                                                   # gabarit vectoriel : pas d'ombre dessinée, on la déduit de la silhouette
+            omb = ombre_auto(spr, (int(info.get('ancre_x', spr.width // 2)), int(info['ancre_y'])))
         return spr, omb, info
     L = sp['largeur']
     if sp.get('ajuster') == 'hauteur':
@@ -244,7 +256,7 @@ def apercu(noms, chemin, cols=5):
         x, y = (i % cols) * cw, (i // cols) * ch
         gab = par_nom[nom]['gabarit']
         if gab:
-            pose(os.path.join(GAB, gab + '.png'), x, y)
+            pose(gab_png(gab), x, y)
         pose(os.path.join(OUT, nom + '.png'), x + 280, y, os.path.join(OUT, 'ombres', nom + '.png'))
         d.text((x + 6, y + 4), nom, fill=(255, 255, 255))
         d.line([(x, y), (x, y + ch)], fill=(90, 115, 85))
@@ -263,7 +275,7 @@ def ollama_residents():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--lot', default=None, help='test, lot1, lot2 ou tout')
+    ap.add_argument('--lot', default=None, help='test, lot1, lot2, phase1 (lot1 + lot2), optionnel ou tout')
     ap.add_argument('--seul', action='append', help='nom exact d\'un sprite (répétable)')
     ap.add_argument('--limite', type=int, default=0)
     ap.add_argument('--forcer', action='store_true')
@@ -274,13 +286,15 @@ def main():
 
     etat = charge(ETAT_F, {})
     ancres = charge(os.path.join(OUT, 'ancres.json'), {})
-    ancres_gab = charge(os.path.join(GAB, 'ancres.json'), {})
+    ancres_gab = dict(charge(os.path.join(GABV, 'ancres.json'), {}), **charge(os.path.join(GAB, 'ancres.json'), {}))
     os.makedirs(OUT, exist_ok=True)
 
     if a.seul:
         cibles = [s for s in MAN['sprites'] if s['nom'] in a.seul]
     elif a.lot == 'test':
         cibles = [s for s in MAN['sprites'] if s['nom'] in MAN['test']]
+    elif a.lot == 'phase1':          # tout l'usine, dans l'ordre du manifeste, sans les sprites optionnels
+        cibles = [s for s in MAN['sprites'] if s['lot'] in ('lot1', 'lot2')]
     elif a.lot:
         cibles = [s for s in MAN['sprites'] if a.lot == 'tout' or s['lot'] == a.lot]
     else:
@@ -344,6 +358,10 @@ def main():
     for j in range(0, len(faits), n):
         horo = time.strftime('%Y%m%d_%H%M%S')
         apercu(faits[j:j + n], os.path.join(OUT, '_apercus', f'{a.lot or "seul"}_{horo}_{j // n + 1:02d}.png'))
+    if faits and not a.simuler:   # journal automatique : une ligne par exécution
+        sec = [etat[n]['secondes'] for n in faits if 'secondes' in etat[n]]
+        with open(os.path.join(ICI, 'JOURNAL.md'), 'a', encoding='utf-8') as jf:
+            jf.write(f"- {time.strftime('%Y-%m-%d %H:%M')} · lot {a.lot or 'seul'} · {len(faits)} produits · échecs : {', '.join(n for n, v in etat.items() if v['statut'] == 'echec') or 'aucun'} · {sum(sec) / max(1, len(sec)):.0f} s par image · poids max {max((os.path.getsize(os.path.join(OUT, n + '.png')) for n in faits), default=0) // 1000} Ko\n")
     ok = sum(1 for v in etat.values() if v['statut'] == 'ok')
     ko = [k for k, v in etat.items() if v['statut'] == 'echec']
     print(f'Terminé : {len(faits)} produits en {time.time() - t_lot:.0f} s. Total ok : {ok}/{len(MAN["sprites"])}. Échecs : {ko or "aucun"}')

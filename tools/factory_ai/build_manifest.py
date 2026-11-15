@@ -68,54 +68,82 @@ COIN = {'ne': 'joining the upper right edge and the lower right edge of the tile
         'sw': 'joining the lower left edge and the upper left edge of the tile, bending around the left corner',
         'nw': 'joining the upper left edge and the upper right edge of the tile, bending around the top corner'}
 R = 'grey industrial roller conveyor with side rails'
-gg('convoyeur_droit_sud_est', 'convoyeur_droit', f'straight section of {R}, one cardboard box on it')
-gg('convoyeur_vide_droit_sud_est', 'convoyeur_droit', f'straight section of {R}, completely empty, no box')
-n('convoyeur_droit_nord_est', f'straight section of {R}, one cardboard box on it, {AXE["nord_est"]}')
-n('convoyeur_vide_droit_nord_est', f'straight section of {R}, completely empty, {AXE["nord_est"]}')
-gg('convoyeur_coin_sw', 'convoyeur_coin', f'90 degree curved section of {R}, one cardboard box on it')
-gg('convoyeur_vide_coin_sw', 'convoyeur_coin', f'90 degree curved section of {R}, completely empty, no box')
+# Le jeu pose les pièces VIDES et anime lui-même les cartons par-dessus : les pièces chargées sont optionnelles (lot « optionnel »).
+gg('convoyeur_droit_sud_est', 'convoyeur_droit', f'straight section of {R}, one cardboard box on it', lot='optionnel')
+gg('convoyeur_vide_droit_sud_est', 'gab_conv_sud_est', f'straight section of {R}, completely empty, no box')
+gg('convoyeur_droit_nord_est', 'gab_conv_nord_est', f'straight section of {R}, one cardboard box on it', lot='optionnel')
+gg('convoyeur_vide_droit_nord_est', 'gab_conv_nord_est', f'straight section of {R}, completely empty, no box')
+gg('convoyeur_coin_sw', 'convoyeur_coin', f'90 degree curved section of {R}, one cardboard box on it', lot='optionnel')
+gg('convoyeur_vide_coin_sw', 'gab_conv_coin_sw', f'90 degree corner section of {R}, completely empty, no box')
 for o in ('ne', 'se', 'nw'):
-    n(f'convoyeur_coin_{o}', f'90 degree curved section of {R}, one cardboard box on it, {COIN[o]}')
-    n(f'convoyeur_vide_coin_{o}', f'90 degree curved section of {R}, completely empty, {COIN[o]}')
+    gg(f'convoyeur_coin_{o}', f'gab_conv_coin_{o}', f'90 degree corner section of {R}, one cardboard box on it', lot='optionnel')
+    gg(f'convoyeur_vide_coin_{o}', f'gab_conv_coin_{o}', f'90 degree corner section of {R}, completely empty, no box')
 # Machines
-n('four_industriel', 'industrial mould furnace with a heavy door, short chimney and orange glow inside')
-n('cuve_inox', 'stainless steel cylindrical tank with pipes and valves')
-n('reacteur_chimique', 'vertical chemical reactor vessel with ladder and walkway platform')
-n('machine_decoupe_laser', 'white and grey industrial laser cutting machine with control screen')
-n('machine_injection_plastique', 'white and grey plastic injection moulding machine with control screen')
+gg('four_industriel', 'gab_four', 'industrial mould furnace with a heavy door, short chimney and orange glow inside')
+gg('cuve_inox', 'gab_reacteur', 'stainless steel cylindrical tanks with pipes and valves')
+gg('reacteur_chimique', 'gab_reacteur', 'vertical chemical reactor vessels with ladder and walkway platform')
+gg('machine_decoupe_laser', 'gab_assemblage', 'white and grey industrial laser cutting machine with control screen')
+gg('machine_injection_plastique', 'gab_presse', 'white and grey plastic injection moulding machine with control screen')
+# machines par filière du jeu (facKind) : saw, kiln, mixer, spool, pack n'ont pas de dessin propre dans le jeu, le gabarit de la famille voisine fixe l'emprise
+gg('scie_industrielle', 'gab_presse', 'industrial sawmill machine with a large circular saw blade and a timber feed table')
+gg('four_rotatif_ciment', 'gab_four', 'cement kiln, short rotary kiln with a refractory door and a tall chimney')
+gg('malaxeur_industriel', 'gab_reacteur', 'industrial dough and concrete mixer, large stainless steel mixing drums with a hopper')
+gg('bobineuse_filature', 'gab_assemblage', 'industrial spinning and winding machine with many thread spools')
+gg('ligne_conditionnement', 'gab_assemblage', 'industrial packaging machine with a hopper and a conveyor outlet, wrapping products in cartons')
 n('robot_6_axes_bras_1', 'six-axis industrial robot arm, orange with turquoise joints, arm raised high')
 n('robot_6_axes_bras_2', 'six-axis industrial robot arm, orange with turquoise joints, arm half extended')
 n('robot_6_axes_bras_3', 'six-axis industrial robot arm, orange with turquoise joints, arm lowered gripping a cardboard box')
 # Camions : semi-remorque 12 m, échelle commune 64 px/m -> sprite large
 for c, en in (('blanc', 'white'), ('rouge', 'red'), ('bleu', 'blue')):
-    n(f'camion_{c}_face', f'articulated semi-trailer truck lying along the upper-left to lower-right diagonal, cab at the lower right end facing the viewer, {en} cab, long white trailer', largeur=1024, contenu=980)
-    n(f'camion_{c}_dos', f'articulated semi-trailer truck lying along the upper-left to lower-right diagonal, cab at the upper left end, rear at the lower right end facing the viewer, {en} cab, long white trailer, rear doors open showing cardboard boxes inside', largeur=1024, contenu=980)
-n('remorque_pleine', 'long white semi-trailer alone lying along the upper-left to lower-right diagonal, rear at the lower right end, rear doors open, full of pallets of cardboard boxes', largeur=1024, contenu=900)
-n('remorque_vide', 'long white semi-trailer alone lying along the upper-left to lower-right diagonal, rear at the lower right end, rear doors open, empty inside', largeur=1024, contenu=900)
+    gg(f'camion_{c}_face', 'gab_camion_face', f'articulated semi-trailer truck, {en} cab, long white trailer, rear doors closed')
+    n(f'camion_{c}_dos', f'articulated semi-trailer truck lying along the upper-left to lower-right diagonal, cab at the upper left end, rear at the lower right end facing the viewer, {en} cab, long white trailer, rear doors open showing cardboard boxes inside', largeur=1024, contenu=980, lot='optionnel')
+n('remorque_pleine', 'long white semi-trailer alone lying along the upper-left to lower-right diagonal, rear at the lower right end, rear doors open, full of pallets of cardboard boxes', largeur=1024, contenu=900, lot='optionnel')
+n('remorque_vide', 'long white semi-trailer alone lying along the upper-left to lower-right diagonal, rear at the lower right end, rear doors open, empty inside', largeur=1024, contenu=900, lot='optionnel')
 # Murs
 BORD = {'ne': 'standing along the upper right edge of the isometric tile, running from the top corner to the right corner',
         'nw': 'standing along the upper left edge of the isometric tile, running from the left corner to the top corner'}
 for o in ('ne', 'nw'):
-    n(f'mur_bas_{o}', f'low cut section of light grey factory wall, no door, {BORD[o]}')
-    n(f'mur_bas_ouverture_{o}', f'low cut section of light grey factory wall with an empty doorway opening, no door leaf, {BORD[o]}')
+    gg(f'mur_bas_{o}', f'gab_mur_{o}', 'low cut section of light grey factory wall, no door')
+    gg(f'mur_bas_ouverture_{o}', f'gab_mur_ouverture_{o}', 'low cut section of light grey factory wall with an empty doorway opening, no door leaf')
 SOMMET = {'n': 'top', 'e': 'right', 's': 'bottom', 'w': 'left'}
 for o in ('n', 'e', 's', 'w'):
-    n(f'coin_mur_{o}', f'low cut L-shaped corner piece of light grey factory wall, the corner sitting at the {SOMMET[o]} corner of the isometric tile')
+    gg(f'coin_mur_{o}', f'gab_coin_{o}', 'low cut L-shaped corner piece of light grey factory wall')
 # Matières premières (petits objets 128 px)
 P = dict(largeur=128)
-n('bobine_acier_couchee', 'shiny steel sheet coil lying on its side on a wooden cradle', **P)
-n('bobine_cuivre_couchee', 'shiny copper sheet coil lying on its side on a wooden cradle', **P)
-n('lingots_or', 'stack of gold ingots on a wooden pallet', **P)
-n('futs_petrole', 'wooden pallet with 4 blue steel oil drums', **P)
-n('sacs_farine', 'wooden pallet stacked with white flour sacks', **P)
-n('sacs_sucre', 'wooden pallet stacked with light brown sugar sacks', **P)
-n('bac_minerai_fer', 'steel bin filled with rust-red iron ore', **P)
-n('bac_minerai_cuivre', 'steel bin filled with green-blue copper ore', **P)
-n('bac_charbon', 'steel bin filled with black coal', **P)
-n('rouleaux_tissu', 'wooden pallet with colorful fabric rolls', **P)
-n('planches_bois', 'stack of timber planks strapped on a wooden pallet', **P)
-n('sacs_ciment', 'wooden pallet stacked with grey cement bags', **P)
-n('caisse_verre', 'wooden crate holding glass panes', **P)
+# La forme, l'emprise et l'échelle viennent du dessin du jeu (facDrawMat) : un gabarit par famille de forme.
+MAT = (  # nom, gabarit, sujet
+    ('bobine_acier_couchee', 'coil', 'four shiny steel sheet coils standing on a wooden pallet'),
+    ('bobine_cuivre_couchee', 'coil', 'four orange copper sheet coils standing on a wooden pallet'),
+    ('bobine_fil', 'coil', 'four spools of thin copper wire on a wooden pallet'),
+    ('rouleaux_tissu', 'coil', 'four large rolls of colorful fabric on a wooden pallet'),
+    ('rouleaux_caoutchouc', 'coil', 'four large rolls of black rubber sheet on a wooden pallet'),
+    ('lingots_or', 'ingot', 'stack of shiny gold ingots on a wooden pallet'),
+    ('lingots_cuivre', 'ingot', 'stack of copper ingots on a wooden pallet'),
+    ('lingots_acier', 'ingot', 'stack of grey steel ingots on a wooden pallet'),
+    ('barres_acier', 'bar', 'bundles of steel bars strapped on a wooden pallet'),
+    ('futs_petrole', 'barrel', 'wooden pallet with 4 dark blue steel oil drums'),
+    ('futs_plastique', 'barrel', 'wooden pallet with 4 white plastic granule drums'),
+    ('sacs_farine', 'sack', 'wooden pallet stacked with white flour sacks'),
+    ('sacs_sucre', 'sack', 'wooden pallet stacked with light brown sugar sacks'),
+    ('sacs_ciment', 'sack', 'wooden pallet stacked with grey cement bags'),
+    ('sacs_ble', 'sack', 'wooden pallet stacked with beige burlap sacks of wheat grain'),
+    ('sacs_coton', 'sack', 'wooden pallet stacked with white cotton bales'),
+    ('sacs_beton', 'sack', 'wooden pallet stacked with dark grey concrete mix bags'),
+    ('bac_minerai_fer', 'ore', 'steel bin filled with rust-red iron ore'),
+    ('bac_minerai_cuivre', 'ore', 'steel bin filled with green-blue copper ore'),
+    ('bac_charbon', 'ore', 'steel bin filled with black coal'),
+    ('bac_calcaire', 'ore', 'steel bin filled with pale limestone rocks'),
+    ('bac_sable', 'ore', 'steel bin filled with yellow sand'),
+    ('bac_gravier', 'ore', 'steel bin filled with grey gravel'),
+    ('planches_bois', 'plank', 'stack of timber planks strapped on a wooden pallet'),
+    ('panneaux_osb', 'sheet', 'stack of OSB wood panels on a wooden pallet'),
+    ('caisse_verre', 'sheet', 'wooden crates holding glass panes on a wooden pallet'),
+    ('pneus_empiles', 'ring', 'four stacks of black car tyres on a wooden pallet'),
+)
+for nom, forme, sujet in MAT:
+    gg(nom, f'gab_mat_{forme}', sujet)
+P = dict(largeur=128)
+gg('caisses_composants', 'palette_cartons', 'wooden pallet stacked with plain cardboard boxes of electronic components, no text')
 # Personnages : vignette 128x200, 1,75 m = 137 px de haut
 V = dict(largeur=128, hauteur=200, contenu=140, ajuster='hauteur')
 OUV = (('h1', 'man, light skin', 'orange', 'yellow'), ('f1', 'woman, dark skin', 'orange', 'white'),
@@ -128,7 +156,8 @@ for code, qui, gilet, casque in OUV:
     for p, en_p in (('marche', 'walking'), ('porte_carton', 'carrying a cardboard box'),
                     ('machine', 'operating a small control console'), ('debout', 'standing')):
         nom = f'poses/ouvrier_{code}_{p}'
-        n(nom, f'factory worker, {qui}, {casque} hard hat, {gilet} high-visibility vest, full body, facing the lower right of the image, {en_p}', **V)
+        gc = 'bleu' if gilet == 'blue' else 'orange'   # silhouette et cadrage du gabarit lot 1 de la même pose : échelle et ancre identiques pour tous les ouvriers
+        gg(nom, f'poses/ouvrier_gilet_{gc}_{p}', f'factory worker, {qui}, {casque} hard hat, {gilet} high-visibility vest, {en_p}')
         noms.append(nom)
     PLANCHES[f'ouvrier_{code}'] = noms
 for i, d in ((1, 'man in a blue shirt'), (2, 'woman in a red blouse'), (3, 'man in a green sweater')):
@@ -136,7 +165,7 @@ for i, d in ((1, 'man in a blue shirt'), (2, 'woman in a red blouse'), (3, 'man 
         n(f'poses/employe_bureau_{i}_{f}', f'office employee, {d}, seated on an office chair typing at a desk with a computer, {en_f}', **V)
 n('poses/ingenieur_tablette', 'engineer in a white lab coat holding a tablet, full body, standing', **V)
 # Divers
-n('chariot_elevateur_charge', 'yellow forklift truck carrying a pallet of cardboard boxes on its forks')
+gg('chariot_elevateur_charge', 'chariot_elevateur', 'yellow forklift truck carrying a pallet of cardboard boxes on its forks')
 n('transpalette', 'red hand pallet truck', **P)
 n('extincteur', 'red fire extinguisher on a floor stand', largeur=128, contenu=40)
 n('armoire_electrique', 'grey electrical cabinet with warning sign and indicator lights', largeur=128, contenu=80)
