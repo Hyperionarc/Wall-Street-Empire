@@ -3,3 +3,22 @@
 - 2026-11-15 16:01 · scènes · finale : usine_voiture:49 en 5 min
 - 2026-11-15 17:24 · scènes · brouillons : 8 images en 3 min
 - 2026-11-15 17:49 · lot seul · 3 produits · échecs : aucun · 133 s par image · poids max 9 Ko
+- 2026-11-15 19:44 · lot phase1 · 124 produits · échecs : lampe_plafond_suspendue · 54 s par image · poids max 32 Ko
+- 2026-11-15 19:52 · lot seul · 3 produits · échecs : lampe_plafond_suspendue · 54 s par image · poids max 30 Ko
+- 2026-11-15 20:02 · lot seul · 3 produits · échecs : lampe_plafond_suspendue · 50 s par image · poids max 30 Ko
+- 2026-11-15 20:08 · lot seul · 3 produits · échecs : lampe_plafond_suspendue · 49 s par image · poids max 21 Ko
+- 2026-11-15 20:20 · lot seul · 6 produits · échecs : lampe_plafond_suspendue · 52 s par image · poids max 36 Ko
+- 2026-11-15 20:30 · lot seul · 11 produits · échecs : lampe_plafond_suspendue · 52 s par image · poids max 32 Ko
+- 2026-11-15 20:57 · lot seul · 31 produits · échecs : lampe_plafond_suspendue · 52 s par image · poids max 38 Ko
+- 2026-11-15 22:14 · lot seul · 14 produits · échecs : lampe_plafond_suspendue · 54 s par image · poids max 32 Ko
+- 2026-11-15 22:20 · lot seul · 6 produits · échecs : lampe_plafond_suspendue · 54 s par image · poids max 111 Ko
+- 2026-11-15 22:22 · lot seul · 2 produits · échecs : lampe_plafond_suspendue · 50 s par image · poids max 29 Ko
+- 2026-11-15 22:25 · lot seul · 4 produits · échecs : lampe_plafond_suspendue · 52 s par image · poids max 34 Ko
+- 2026-11-15 22:51 · lot seul · 5 produits · échecs : lampe_plafond_suspendue · 35 s par image · poids max 24 Ko
+- 2026-11-15 22:55 · lot seul · 2 produits · échecs : lampe_plafond_suspendue · 31 s par image · poids max 19 Ko
+- 2026-11-15 23:11 · lot seul · 1 produits · échecs : lampe_plafond_suspendue · 30 s par image · poids max 26 Ko
+- 2026-11-15 23:14 · lot seul · 1 produits · échecs : lampe_plafond_suspendue · 29 s par image · poids max 18 Ko
+- 2026-11-15 23:16 · lot seul · 2 produits · échecs : lampe_plafond_suspendue · 31 s par image · poids max 27 Ko
+- 2026-11-15 23:35 · lot seul · 2 produits · échecs : lampe_plafond_suspendue · 54 s par image · poids max 21 Ko
+- 2026-11-15 23:37 · lot seul · 2 produits · échecs : lampe_plafond_suspendue · 52 s par image · poids max 47 Ko
+- 2026-11-15 23:47 · lot seul · 3 produits · échecs : lampe_plafond_suspendue · 51 s par image · poids max 52 Ko

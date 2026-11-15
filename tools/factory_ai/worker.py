@@ -54,6 +54,19 @@ def commande(c):
         if c.get('forcer'):
             a.append('--forcer')
         return a
+    if c.get('type') == 'phase2':
+        a = [PY, os.path.join(ICI, 'batch_phase2.py')]
+        if c.get('lot'):
+            a += ['--lot', noms(c['lot'])[0]]
+        for n in noms(c.get('seul', [])):
+            a += ['--seul', n]
+        if c.get('limite'):
+            a += ['--limite', str(int(c['limite']))]
+        if c.get('forcer'):
+            a.append('--forcer')
+        return a
+    if c.get('type') == 'pousser':
+        return ['/bin/bash', os.path.join(ICI, 'pousser.sh')]
     if c.get('type') == 'blender_installer':
         return ['/bin/bash', os.path.join(ICI, 'blender', 'install_blender.sh')]
     if c.get('type') == 'blender':
