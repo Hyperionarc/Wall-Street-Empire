@@ -10468,9 +10468,9 @@ function planOverlay(g, sc, c, pl, ins, labels, M, ls, hs, VW, VH) {   // M : (x
   if (lim === 'staff' || /^pl_s(buy|stock|sell)$/.test(sc.lim || '')) al.push({ id: 'staff', kind: 'staff', cell: zone(sc.lim === 'pl_sstock' ? 'stock' : sc.lim === 'pl_ssell' ? 'sell' : 'buy'), txt: 'Manque de personnel' });
   else if (sc.lim && sc.lim.indexOf('pl_') === 0 && sc.lim !== 'pl_sell0') al.push({ id: 'plan:' + sc.lim, kind: 'plan', lim: sc.lim, cell: zone(PL_BAD[sc.lim] || 'make'), txt: 'Goulot : ' + PL_LIM_TXT[sc.lim] });
   if (f && f.brk) al.push({ id: 'brk', kind: 'brk', cell: zone('make'), txt: 'Panne machine · réparer' });
-  sc.alList = al; const hits = sc.hits = [], placed = [], R = (x, y, w, h) => ({ x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 }), ov = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+  sc.alList = al; const hits = sc.hits = [], placed = (sc.top && sc.ovAvoid ? sc.ovAvoid.map(q => ({ x0: q[0], y0: q[1], x1: q[2], y1: q[3] })) : []), R = (x, y, w, h) => ({ x0: x - w / 2, y0: y - h / 2, x1: x + w / 2, y1: y + h / 2 }), ov = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
   const OFF = [[0, 0], [0, 1], [0, -1], [0, 2], [0, -2], [0.6, 0], [-0.6, 0], [0.6, 1], [-0.6, 1], [0.6, -1], [-0.6, -1], [0, 3], [0, -3], [1.2, 0], [-1.2, 0]];
-  const spot = (cx, cy, w, h, mov) => { for (const o of (mov ? OFF : OFF.slice(0, 1))) { const x = cx + o[0] * (w + 6), y = cy + o[1] * (h + 4), r = R(x, y, w, h); if (!placed.some(q => ov(q, r))) { placed.push(r); return [x, y, o[0] !== 0 || o[1] !== 0]; } } placed.push(R(cx, cy, w, h)); return [cx, cy, false]; };
+  const spot = (cx, cy, w, h, mov) => { for (const o of (mov ? OFF : OFF.slice(0, 1))) { const x = cx + o[0] * (w + 6), y = cy + o[1] * (h + 4), r = R(x, y, w, h); if (VW && (r.x0 < 2 || r.x1 > VW - 2 || r.y0 < 2 || r.y1 > VH - 2)) continue; if (!placed.some(q => ov(q, r))) { placed.push(r); return [x, y, o[0] !== 0 || o[1] !== 0]; } } placed.push(R(cx, cy, w, h)); return [cx, cy, false]; };
   const pill = (h, x, y, w, hh) => { const mw = Math.max(w, hs), mh = Math.max(hh, hs); h.x0 = x - mw / 2; h.x1 = x + mw / 2; h.y0 = y - mh / 2; h.y1 = y + mh / 2; hits.push(h); };
   const inV = p => !imm || (p[0] > -40 && p[0] < VW + 40 && p[1] > -40 && p[1] < VH + 40);
   // 1. cases libres : « + » bien visible ; indication de l'outil actif
@@ -10485,7 +10485,7 @@ function planOverlay(g, sc, c, pl, ins, labels, M, ls, hs, VW, VH) {   // M : (x
       g.fillStyle = hot ? 'rgba(255,255,255,.95)' : 'rgba(11,15,44,.88)'; rrect(g, p[0] - sz / 2, p[1] - sz / 2, sz, sz, 5 * ls); g.fill(); g.strokeStyle = hot ? '#ffd76a' : 'rgba(255,255,255,.55)'; g.lineWidth = hot ? 2.5 : 1.3; g.stroke(); drawProd(g, h.g, p[0], p[1], sz - 4 * ls); pill(h, p[0], p[1], sz, sz); placed.push(R(p[0], p[1], sz, sz)); }); });
   // 3. ouvriers : pastille de compétence au-dessus de la tête (cliquable : fiche, formation)
   sc.ws.forEach(w => { if (w.insp) { const p = M(w.x, w.y, 50); if (!inV(p)) return; g.font = '800 ' + Math.round(10.5 * ls) + 'px sans-serif'; const tw2 = g.measureText('INSPECTEUR').width + 12 * ls; g.fillStyle = 'rgba(190,230,80,.95)'; rrect(g, p[0] - tw2 / 2, p[1] - 9 * ls, tw2, 17 * ls, 6 * ls); g.fill(); g.fillStyle = '#10240a'; g.textAlign = 'center'; g.fillText('INSPECTEUR', p[0], p[1] + 4 * ls); placed.push(R(p[0], p[1], tw2, 17 * ls)); return; }
-    const p = M(w.x, w.y, 46), sk = fxSkill(c, w.i), r = 10.5 * ls, hot = sc.hovH === 'w' + w.i, sel = immPanel === 'w:' + w.i; if (!inV(p)) return;
+    const p = M(w.x, w.y, 46), sk = fxSkill(c, w.i), r = 10.5 * ls; p[1] += sc.top ? (w._dy || 0) : 0; const _u = 0, hot = sc.hovH === 'w' + w.i, sel = immPanel === 'w:' + w.i; if (!inV(p)) return;
     g.fillStyle = sk >= 60 ? '#2fae7a' : sk >= 45 ? '#d8a62f' : '#d9733a'; g.beginPath(); g.arc(p[0], p[1], r, 0, 7); g.fill(); g.lineWidth = sel || hot ? 3 : 1.6; g.strokeStyle = sel || hot ? '#fff' : 'rgba(8,10,30,.85)'; g.stroke();
     g.fillStyle = '#fff'; g.font = '800 ' + Math.round(11 * ls) + 'px sans-serif'; g.textAlign = 'center'; g.fillText('' + sk, p[0], p[1] + 4 * ls); pill({ id: 'w' + w.i, kind: 'worker', i: w.i }, p[0], p[1] + 8 * ls, r * 2, r * 2 + 16 * ls); placed.push(R(p[0], p[1], r * 2, r * 2)); });
   // 4. alertes : prioritaires, jamais recouvertes ; elles s'empilent sans se chevaucher et restent dans l'écran
@@ -11304,7 +11304,8 @@ function planTopCards(og, sc, c, I, M, ls, VW, VH) {
   } else {
     card('RÉSERVE', '#b78cff', [['NIVEAU', Math.round(I.lvl * 100) + ' %', I.lvl, '#b78cff']], 23.2, 3.4, 40, -60, -56, 120);
   }
-  sc.cardRects.forEach(q => bRects.push(q.slice())); bq.forEach(a => bannerDraw(...a));   // bannières de zone dessinées en dernier : elles se décalent pour ne chevaucher ni les cartes de KPI ni les autres bannières
+  sc.cardRects.forEach(q => bRects.push(q.slice())); { const rw = 13 * f, chips = []; (sc.ws || []).forEach(w => { const pw = M(w.x, w.y, 46); let dy = 0; const hit = (q, o) => q[0] < o[2] - 1 && q[2] > o[0] + 1 && q[1] < o[3] - 1 && q[3] > o[1] + 1; for (let k = 0; k < 8; k++) { dy = k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * rw * 1.7; const q = [pw[0] - rw, pw[1] - rw + dy, pw[0] + rw, pw[1] + rw + dy]; if (!chips.some(o => hit(q, o)) && !sc.cardRects.some(o => hit(q, o))) { chips.push(q); break; } if (k === 7) { dy = 0; chips.push(q); } } w._dy = dy; }); chips.forEach(q => bRects.push(q)); }   // pastilles de compétence des ouvriers : empilées vers le haut si deux ouvriers sont proches
+  bq.forEach(a => bannerDraw(...a)); sc.ovAvoid = bRects.map(q => q.slice());   // bannières de zone dessinées en dernier : elles se décalent pour ne chevaucher ni les cartes de KPI ni les autres bannières
 }
 // ---- clic / survol de la vue Dessus : objet (rack, machine, robot, quai, camion) ou zone au sol
 function planTopAt(sc, px, py) {

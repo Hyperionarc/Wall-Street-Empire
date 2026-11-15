@@ -60,10 +60,10 @@ exports.run = async (t, L) => {
     const r1 = window.PIX(px, py, 40), hit = (sc.hits || []).find(x => x.kind === 'in');
     return { has: !!h, seg: !!seg, onFeeder: !!seg && Math.abs(seg[0][0] - F.FG_SLOTS[6].c[0]) < 0.01, red: r1.red, hit: !!hit, lim: f.limit }; });
   t.check('alerte « intrant manquant » : posée sur le convoyeur de l\'intrant (tronçon de la ligne d\'achat) et zone rouge hachurée visible', al.has && al.seg && al.onFeeder && al.red > 150, `limite ${al.lim} · pixels rouges ${al.red}`);
-  const ph = await pg.evaluate(() => { const sc = window.WSE.scene, h = sc.hits.find(x => x.kind === 'in'), rc = document.getElementById('bsw').getBoundingClientRect(); return { x: rc.left + (h.x0 + h.x1) / 2, y: rc.top + (h.y0 + h.y1) / 2 }; });
+  const ph = await pg.evaluate(() => { const sc = window.WSE.scene, h = sc.hits.find(x => x.kind === 'in'), rc = document.getElementById('bsw').getBoundingClientRect(); const x = rc.left + (h.x0 + h.x1) / 2, y = rc.top + (h.y0 + h.y1) / 2, el = document.elementFromPoint(x, y); return { x, y, el: el ? (el.id || el.tagName + '.' + el.className) : null, h: [h.x0, h.y0, h.x1, h.y1].map(Math.round), n: sc.hits.length }; });
   await pg.mouse.move(ph.x, ph.y); await pg.waitForTimeout(150); await pg.mouse.click(ph.x, ph.y); await pg.waitForTimeout(350);
   const am = await pg.evaluate(() => [...document.querySelectorAll('#bpop [data-act]')].map(b => b.dataset.act));
-  t.check('l\'étiquette d\'alerte posée sur le convoyeur ouvre le menu d\'actions (sources automatiques, fournisseur, import)', am.includes('alr:auto') && am.some(x => /^opensup:/.test(x)) && am.some(x => /^alr:port:/.test(x)), am.join(' '));
+  t.check('l\'étiquette d\'alerte posée sur le convoyeur ouvre le menu d\'actions (sources automatiques, fournisseur, import)', am.includes('alr:auto') && am.some(x => /^opensup:/.test(x)) && am.some(x => /^alr:port:/.test(x)), am.join(' ') + ' | ' + JSON.stringify(ph));
   await pg.context().close();
 
   // 5. Vue éclatée / assemblée : bouton, murs hauts et toit en assemblée, plan toujours éditable
