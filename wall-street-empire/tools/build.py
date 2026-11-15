@@ -129,24 +129,48 @@ if os.path.exists(os.path.join(_hp, 'meta.json')):
         if os.path.exists(_f):
             _m = dict(_m); _m['src'] = 'data:image/png;base64,' + base64.b64encode(open(_f, 'rb').read()).decode(); hq[_k] = _m
 # Sprites facultatifs de l'usine (Passe 30) : assets/factory/<nom>.png (+ ombres/<nom>.png, ancres.json) -> data URI ; un PNG présent remplace le dessin vectoriel du même nom
-fac, facsh, facanch = {}, {}, {}
-_fp = os.path.join(ROOT, 'assets', 'factory')
+fac, facsh, facanch, facbase, facextra = {}, {}, {}, {}, []
 FAC_NAMES = ['arbre', 'bobine_acier', 'bobine_cuivre', 'buisson', 'bureau_vitre', 'camion_blanc', 'camion_rouge', 'camion_bleu', 'camion_blanc_ouvert', 'camion_rouge_ouvert', 'camion_bleu_ouvert', 'chariot_elevateur', 'convoyeur_coin', 'convoyeur_droit', 'herbe_tuile', 'machine_assemblage', 'mur_bas_droite', 'mur_bas_gauche', 'ouvrier_gilet_bleu', 'ouvrier_gilet_orange', 'palette_cartons', 'palette_vide', 'plaques_acier', 'presse', 'quai_chargement', 'rack_stockage', 'rack_vide', 'robot_6_axes', 'sol_beton_tuile']
+# Emplacements du lot 2 (tools/factory_ai/manifest.json) : noms reconnus par le chargeur des qu'un PNG existe dans assets/factory_hd/ ; aucun poids tant qu'il n'y en a pas
+_mf = os.path.join(ROOT, '..', 'tools', 'factory_ai', 'manifest.json')
+if os.path.exists(_mf):
+    _m = json.load(open(_mf))
+    for _s in _m.get('sprites', []):
+        if _s.get('lot') == 'lot2' and not _s['nom'].startswith('poses/') and _s['nom'] not in FAC_NAMES and _s['nom'] not in facextra:
+            facextra.append(_s['nom'])
+    for _pl in _m.get('planches', {}):
+        if _pl not in FAC_NAMES and _pl not in facextra:
+            facextra.append(_pl)
 def _uri(f):
     return 'data:image/png;base64,' + base64.b64encode(open(f, 'rb').read()).decode()
-if os.path.isdir(_fp):
-    _af = os.path.join(_fp, 'ancres.json')
+def _lire(d):   # dossier de sprites -> (png, ombres, ancres) ; assets/factory = gabarits, assets/factory_hd = rendus HD (prioritaires)
+    r = {'png': {}, 'sh': {}, 'anch': {}}
+    if not os.path.isdir(d):
+        return r
+    _af = os.path.join(d, 'ancres.json')
     _anch = json.load(open(_af)) if os.path.exists(_af) else {}
-    for _n in FAC_NAMES:
-        _f = os.path.join(_fp, _n + '.png')
+    for _n in FAC_NAMES + facextra:
+        _f = os.path.join(d, _n + '.png')
         if os.path.exists(_f):
-            fac[_n] = _uri(_f)
-            _s = os.path.join(_fp, 'ombres', _n + '.png')
+            r['png'][_n] = _f
+            _s = os.path.join(d, 'ombres', _n + '.png')
             if os.path.exists(_s):
-                facsh[_n] = _uri(_s)
+                r['sh'][_n] = _s
             if _n + '.png' in _anch:
-                facanch[_n + '.png'] = _anch[_n + '.png']
-print('sprites usine :', len(fac), 'sur', len(FAC_NAMES), '(repli vectoriel pour les autres)')
-out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
-open(os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
+                r['anch'][_n + '.png'] = _anch[_n + '.png']
+    return r
+_base, _hd = _lire(os.path.join(ROOT, 'assets', 'factory')), _lire(os.environ.get('WSE_HD_DIR') or os.path.join(ROOT, 'assets', 'factory_hd'))
+for _n in list(_base['png']) + [k for k in _hd['png'] if k not in _base['png']]:
+    if _n in _hd['png']:   # HD d'abord ; le gabarit reste embarque en repli (si le PNG HD ne charge pas)
+        fac[_n] = _uri(_hd['png'][_n]); facanch[_n + '.png'] = _hd['anch'].get(_n + '.png') or _base['anch'].get(_n + '.png')
+        if _n in _hd['sh']: facsh[_n] = _uri(_hd['sh'][_n])
+        if _n in _base['png']:
+            facbase[_n] = {'src': _uri(_base['png'][_n]), 'sh': _uri(_base['sh'][_n]) if _n in _base['sh'] else None, 'a': _base['anch'].get(_n + '.png')}
+    else:
+        fac[_n] = _uri(_base['png'][_n]); facanch[_n + '.png'] = _base['anch'].get(_n + '.png')
+        if _n in _base['sh']: facsh[_n] = _uri(_base['sh'][_n])
+facanch = {k: v for k, v in facanch.items() if v}
+print('sprites usine :', len(fac), 'sur', len(FAC_NAMES) + len(facextra), '(dont HD :', len(_hd['png']), ')', '(repli vectoriel pour les autres)')
+out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+open(os.environ.get('WSE_OUT') or os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')

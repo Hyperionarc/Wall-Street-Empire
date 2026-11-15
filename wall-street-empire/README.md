@@ -936,3 +936,8 @@ Limite connue : les camions fournis montrent leur arrière ouvert côté bas-dro
 
 ### Limites connues
 Les objets sans sprite (fours, cuves, lingots, fûts, sacs, bacs) restent vectoriels ; pas de coins de convoyeur ni de bobines couchées. Les anciens angles Isométrique et Garage sont inchangés.
+
+
+## Sprites HD de l'usine (assets/factory_hd)
+Ordre de chargement, par nom de sprite : `assets/factory_hd/<nom>.png` (rendu HD, avec `ombres/<nom>.png` et `ancres.json`) > `assets/factory/<nom>.png` (gabarit procédural) > dessin vectoriel.
+`tools/build.py` embarque le PNG HD et garde le gabarit en repli : si le PNG HD ne se décode pas, le jeu recharge le gabarit sans erreur. Les noms du lot 2 (`tools/factory_ai/manifest.json` : convoyeurs orientés, fours, cuves, matières, murs, camions de face/dos, poses de bureau...) sont déjà reconnus par le chargeur ; il suffit de déposer le PNG (aucun poids tant qu'il n'y en a pas). Le dessin des objets du lot 2 dans la scène reste à brancher quand les sprites existent. Test : `tools/tests/t15_sprites_hd.js` (variables `WSE_HD_DIR` et `WSE_OUT` de `build.py`).

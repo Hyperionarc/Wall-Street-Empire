@@ -8715,15 +8715,17 @@ function planTip(sc, c, i, over) {   // texte de l'info-bulle de la scène
    VENTE/EXPÉDITION = quais et camions) reliées par des convoyeurs animés ; local bureau vitré ; alertes posées sur le lieu du problème ; cartes de KPI ancrées sur les zones.
    Les 12 emplacements restent ceux du plan : cases 0-5 = plots du sol (stock / machine / robot), 6-8 = quais d'achat (mur sud-ouest), 9-11 = quais de vente (mur sud-est).
    Sprites facultatifs : assets/factory/<nom>.png (voir README) remplacent le dessin vectoriel correspondant. */
-const FAC_DATA = __FAC_JSON__, FAC_SH = __FACSH_JSON__, FAC_ANCH = __FACANCH_JSON__;   // sprites facultatifs (assets/factory/*.png), ombres (assets/factory/ombres/*.png), ancres (ancres.json) embarqués par build.py
-const FAC_NAMES = ['arbre', 'bobine_acier', 'bobine_cuivre', 'buisson', 'bureau_vitre', 'camion_blanc', 'camion_rouge', 'camion_bleu', 'camion_blanc_ouvert', 'camion_rouge_ouvert', 'camion_bleu_ouvert', 'chariot_elevateur', 'convoyeur_coin', 'convoyeur_droit', 'herbe_tuile', 'machine_assemblage', 'mur_bas_droite', 'mur_bas_gauche', 'ouvrier_gilet_bleu', 'ouvrier_gilet_orange', 'palette_cartons', 'palette_vide', 'plaques_acier', 'presse', 'quai_chargement', 'rack_stockage', 'rack_vide', 'robot_6_axes', 'sol_beton_tuile'];
+const FAC_DATA = __FAC_JSON__, FAC_SH = __FACSH_JSON__, FAC_ANCH = __FACANCH_JSON__, FAC_BASE = __FACBASE_JSON__, FAC_X = __FACX_JSON__;   // FAC_BASE : gabarit embarque en repli d'un sprite HD (assets/factory_hd) ; FAC_X : emplacements du lot 2   // sprites facultatifs (assets/factory/*.png), ombres (assets/factory/ombres/*.png), ancres (ancres.json) embarqués par build.py
+const FAC_NAMES = ['arbre', 'bobine_acier', 'bobine_cuivre', 'buisson', 'bureau_vitre', 'camion_blanc', 'camion_rouge', 'camion_bleu', 'camion_blanc_ouvert', 'camion_rouge_ouvert', 'camion_bleu_ouvert', 'chariot_elevateur', 'convoyeur_coin', 'convoyeur_droit', 'herbe_tuile', 'machine_assemblage', 'mur_bas_droite', 'mur_bas_gauche', 'ouvrier_gilet_bleu', 'ouvrier_gilet_orange', 'palette_cartons', 'palette_vide', 'plaques_acier', 'presse', 'quai_chargement', 'rack_stockage', 'rack_vide', 'robot_6_axes', 'sol_beton_tuile'].concat(FAC_X);
 const FAC_SPEC = {}; FAC_NAMES.forEach(n => { FAC_SPEC[n] = FAC_ANCH[n + '.png'] || null; });   // gabarit : largeur, hauteur, ancre_x, ancre_y (px), echelle_px_par_m (64 = échelle commune : 1 case = 2 m = tuile 256x128)
 const FAC_SHAPE = { steel: 'coil', copper: 'coil', gold: 'ingot', aluminium: 'coil' };   // métaux = bobines / lingots à l'écran
 const FAC_IMG = {};   // nom -> { im, sh, a, ok } ; un PNG présent remplace le dessin vectoriel, sinon repli vectoriel
 let facInvT = 0;
-function facLoad(name, src, cb) {
-  if (FAC_NAMES.indexOf(name) < 0 || !src) return false; const im = new Image(), e = FAC_IMG[name] = { im, sh: null, ok: false, a: FAC_ANCH[name + '.png'] || null };
-  im.onload = () => { e.ok = true; if (!e.a) e.a = { largeur: im.width, hauteur: im.height, ancre_x: im.width / 2, ancre_y: im.height * 0.85, echelle_px_par_m: 64 }; if (cb) cb(name); facInvalidate(); }; im.onerror = () => { e.ok = false; delete FAC_IMG[name]; };
+function facLoad(name, src, cb) {   // priorité : PNG HD (assets/factory_hd) > gabarit (assets/factory) > dessin vectoriel
+  if (FAC_NAMES.indexOf(name) < 0 || !src) return false; const im = new Image(), e = FAC_IMG[name] = { im, sh: null, ok: false, a: FAC_ANCH[name + '.png'] || null, hd: src === FAC_DATA[name] && !!FAC_BASE[name] };
+  const fin = () => { e.ok = true; if (!e.a) e.a = { largeur: im.width, hauteur: im.height, ancre_x: im.width / 2, ancre_y: im.height * 0.85, echelle_px_par_m: 64 }; if (cb) cb(name); facInvalidate(); };
+  im.onload = fin;
+  im.onerror = () => { const b = FAC_BASE[name]; if (e.hd && b && im.src !== b.src) { e.hd = false; e.a = b.a || null; e.sh = null; e.fb = true; im.onload = fin; im.src = b.src; if (b.sh) { const si = new Image(); si.onload = () => { e.sh = si; facInvalidate(); }; si.src = b.sh; } return; } e.ok = false; delete FAC_IMG[name]; };
   im.src = src; const sh = FAC_SH[name]; if (sh && src === FAC_DATA[name]) { const si = new Image(); si.onload = () => { e.sh = si; facInvalidate(); }; si.src = sh; }
   return true;
 }
