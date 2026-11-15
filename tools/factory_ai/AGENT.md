@@ -67,3 +67,15 @@ Fin de lot : `JOURNAL.md` contient date, lot, nombre produit, échecs, secondes 
 | `batch.py` | génération, détourage, cadrage sur l'ancre, ombre, planches, reprise |
 | `etat.json` | avancement (créé au premier lot) |
 | `style/` | 1 à 2 références de style validées |
+
+
+## Phase 1 : l'usine, banc d'essai complet (état au 15 nov.)
+
+Objectif : valider la vue Dessus de la méga-usine entièrement assemblée, pas des sprites isolés. Aucune image hors usine n'est générée avant le « oui » de Rémy.
+
+- **Manifeste** : 139 entrées. `phase1` = `lot1` (33, gabarits procéduraux) + `lot2` (95) ; `optionnel` (11) : camions de dos, remorques, convoyeurs chargés (le jeu pose des pièces vides et anime les cartons lui-même). Ne pas les produire sans demande.
+- **Gabarits** : tout sprite du lot 2 qui a un dessin dans le jeu part d'un gabarit exporté du vectoriel (`gabarits/gab_*.png`, ancre = centre de l'emprise au sol, 64 px par mètre dans la convention du jeu). Seuls restent libres : bras de robot, employés de bureau, ingénieur, petits accessoires. Si le jeu change un dessin : `python3 wall-street-empire/tools/build.py` puis `NODE_PATH=$(npm root -g) node tools/factory_ai/export_gabarits.js`, puis committer `gabarits/`.
+- **PRODUCTEUR (Mac)** : `./produire.sh` (pull, lot suivant de 20 images, commit, push). `./produire.sh phase1 20` fait la même chose ; relancer enchaîne le lot suivant (les sprites `ok` sont sautés). Le script affiche `RETOURS.md` : appliquer ce qui y est écrit avant de produire. Premier lancement : `./produire.sh test` (3 sprites) et s'arrêter pour validation du style.
+- **Contrôle de rendu** (chaque planche d'aperçu, avant de pousser) : même angle que le gabarit, objet entier et centré, pas de fond, pas de texte ni de logo, couleur de la marchandise reconnaissable (fer rouille, charbon noir, sable jaune...), style homogène avec les voisins. Refaire avec `--seul <nom> --forcer` (autre `seed`) ; trois échecs : lister dans `JOURNAL.md`.
+- **INTÉGRATEUR (cloud)** : assemble la vue (`WSE_HD_DIR=<dossier> python3 wall-street-empire/tools/build.py`), contrôle ordre d'affichage, ancres, échelles, boucle de convoyeurs, camions au quai, ombres ; consigne les écarts dans `RETOURS.md` et la liste des images à refaire.
+- Le jeu pose déjà les sprites HD de : machines par filière (`four_industriel`, `four_rotatif_ciment`, `reacteur_chimique`, `malaxeur_industriel`, `scie_industrielle`, `bobineuse_filature`, `ligne_conditionnement`), marchandises (une par bien), convoyeurs vides et coudes, camions `_face`. Murs, coins de mur, ouvriers HD, bras de robot, employés et accessoires seront branchés après la première planche validée.
