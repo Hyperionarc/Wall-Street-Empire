@@ -2,7 +2,7 @@
 # Pousse vers GitHub les sprites HD déjà produits (à lancer via le poste : {"type": "pousser"}).
 set -e
 cd "$(dirname "$0")/../.."
-git add .gitignore assets/factory_hd assets/scenes_hd tools/factory_ai/etat.json tools/factory_ai/JOURNAL.md 2>/dev/null || true
+git add .gitignore assets/factory_hd assets/scenes_hd assets/guide_hd tools/factory_ai/etat.json tools/factory_ai/JOURNAL.md 2>/dev/null || true
 if git diff --cached --quiet; then
   echo "Rien de nouveau à commiter."
 else
