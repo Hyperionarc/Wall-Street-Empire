@@ -79,3 +79,7 @@ Objectif : valider la vue Dessus de la méga-usine entièrement assemblée, pas 
 - **Contrôle de rendu** (chaque planche d'aperçu, avant de pousser) : même angle que le gabarit, objet entier et centré, pas de fond, pas de texte ni de logo, couleur de la marchandise reconnaissable (fer rouille, charbon noir, sable jaune...), style homogène avec les voisins. Refaire avec `--seul <nom> --forcer` (autre `seed`) ; trois échecs : lister dans `JOURNAL.md`.
 - **INTÉGRATEUR (cloud)** : assemble la vue (`WSE_HD_DIR=<dossier> python3 wall-street-empire/tools/build.py`), contrôle ordre d'affichage, ancres, échelles, boucle de convoyeurs, camions au quai, ombres ; consigne les écarts dans `RETOURS.md` et la liste des images à refaire.
 - Le jeu pose déjà les sprites HD de : machines par filière (`four_industriel`, `four_rotatif_ciment`, `reacteur_chimique`, `malaxeur_industriel`, `scie_industrielle`, `bobineuse_filature`, `ligne_conditionnement`), marchandises (une par bien), convoyeurs vides et coudes, camions `_face`. Murs, coins de mur, ouvriers HD, bras de robot, employés et accessoires seront branchés après la première planche validée.
+
+
+## Scènes haute définition (centre de R&D, écrans immersifs)
+Voir `SCENES.md` : `./produire_scenes.sh brouillons 45` puis choix de la graine sur la planche de contact, puis `./produire_scenes.sh finale <scène>:<graine>`. Jusqu'à une heure de calcul autorisée ; sortie `assets/scenes_hd/<scène>.jpg`.
