@@ -237,6 +237,7 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .tool.big{width:104px;padding:10px 6px}.tool.big svg{width:38px;height:38px}.tool.big span{font-size:12px}
 #supview{position:absolute;z-index:70;left:50%;top:calc(var(--hud-h) + 10px);transform:translateX(-50%);width:min(760px,calc(100% - 16px));max-height:calc(100% - var(--hud-h) - 24px);overflow:auto;border-radius:12px;background:linear-gradient(#0f6fb8,#0a4f8f);border:2px solid #7fd0ff;box-shadow:0 14px 50px rgba(0,0,0,.6);padding:10px;color:#e8f6ff}
 #supview[hidden]{display:none}
+.mdif{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 8px}.mdif label{background:rgba(5,40,80,.55);border:1px solid rgba(127,208,255,.35);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12.5px}.mdif input{margin-right:4px}
 #supview .sh{display:flex;gap:8px;align-items:center;justify-content:center;font-family:var(--font-d);letter-spacing:.14em;font-size:17px;margin-bottom:8px}
 #supview select{background:#0b3c6d;color:#e8f6ff;border:1px solid #7fd0ff;border-radius:6px;padding:4px 6px;font-size:12px}
 #supview .sf{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
@@ -11313,7 +11314,7 @@ const SCN = {
 const MODE_INFO = { free: { n: 'Libre', d: 'Bac à sable : aucune limite de temps ni d\'objectif imposé. Tout se débloque avec ta fortune.' }, round: { n: 'Round compétitif', d: 'Atteins 1 Md$ de valorisation avant la fin du temps (90 min). Classement public, rachat majoritaire des rivaux, vitesse commune ×1.' } };
 function modeDays() { const k = modeK(); return k === 'round' ? ROUND_DAYS : isScn() ? minToDays(SCN[k].min) : 0; }
 function modeTarget() { const k = modeK(); return k === 'round' ? ROUND_TARGET : isScn() ? SCN[k].tgt : 0; }
-function modeName() { const k = modeK(); return k === 'round' ? 'Round compétitif' : isScn() ? 'Scénario ' + k.slice(1) + ' · ' + SCN[k].n : 'Libre'; }
+function modeName() { const k = modeK(); return k === 'round' ? 'Round compétitif' + (S.mode && S.mode.easy ? ' (facile)' : '') : isScn() ? 'Scénario ' + k.slice(1) + ' · ' + SCN[k].n : 'Libre'; }
 // Classement public : tous voient la valorisation de tous (toi, rivaux, grands groupes)
 const npcVal = x => x[1] * (1 + x[2] * (S.day || 0) * (isTimed() ? 0.08 : 1));
 function ranking() {
@@ -11410,22 +11411,24 @@ function showModes() {
   const pr = progOf(), card = (k, n, d, extra, lock) => `<button class="mcard ${lock ? 'lk' : ''}" data-mode="${k}" ${lock ? 'disabled' : ''}><b>${n}</b><small>${d}</small><em>${extra}</em></button>`;
   const sc = [1, 2, 3, 4, 5].map(i => { const k = 's' + i, S0 = SCN[k], lock = i > 1 && !pr['s' + (i - 1)] && !location.search.includes('open'); return card(k, `${i}. ${S0.n}`, S0.d, lock ? `Verrouillé · termine d'abord le scénario ${i - 1} · ${S0.min} min` : `${S0.min} min · objectif ${fmtV(S0.tgt)}${pr[k] ? ' · terminé (' + fmt(pr[k]) + ' pts)' : ''}`, lock); }).join('');
   el('modesel').innerHTML = `<div class="mbox"><h2>NOUVELLE PARTIE</h2><p class="note">Choisis ton mode, puis ta caste. Les scénarios se débloquent l'un après l'autre ; le Round est la partie compétitive de 90 minutes (jusqu'à 8 joueurs plus tard).</p>
-    <h4>Round compétitif</h4><div class="mgrid">${card('round', 'Round · 1 Md$ en 90 min', MODE_INFO.round.d, 'classement, rachats majoritaires, écran de résultats', false)}</div>
+    <h4>Round compétitif</h4><div class="mdif" role="radiogroup" aria-label="Difficulté du Round"><label><input type="radio" name="dif" value="normal" ${roundEasy ? '' : 'checked'}> <b>Normal</b> · ${fmtV(ROUND_CASH.normal)} de départ pour chaque joueur</label><label><input type="radio" name="dif" value="easy" ${roundEasy ? 'checked' : ''}> <b>Facile</b> · ${fmtV(ROUND_CASH.easy)} de départ pour chaque joueur</label></div><div class="mgrid">${card('round', 'Round · 1 Md$ en 90 min', MODE_INFO.round.d, 'classement, rachats majoritaires, écran de résultats', false)}</div>
     <h4>Scénarios</h4><div class="mgrid">${sc}</div><label class="matopt"><input type="checkbox" id="matchk" ${matChoice ? 'checked' : ''}> <b>Marché mûr</b> pour les scénarios 3 à 5 et le Round : les produits sont déjà développés par les rivaux (licence ou achat au lieu de la R&amp;D). Le Libre est toujours en marché mûr ; les scénarios 1 et 2 gardent la R&amp;D complète.</label>
     <h4>Bac à sable</h4><div class="mgrid">${card('free', 'Libre', MODE_INFO.free.d, 'sans limite de temps', false)}</div>${S.mode && S.mode.pending ? '' : '<button class="btn sec" data-mode="">Annuler</button>'}</div>`;
   el('modesel').hidden = false;
 }
-el('modesel').addEventListener('change', e => { if (e.target.id === 'matchk') matChoice = e.target.checked; });
+el('modesel').addEventListener('change', e => { if (e.target.id === 'matchk') matChoice = e.target.checked; if (e.target.name === 'dif') { roundEasy = e.target.value === 'easy'; try { localStorage.setItem('wse-easy', roundEasy ? '1' : '0'); } catch (x) {} } });
 el('modesel').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (!b || b.disabled) return; const k = b.dataset.mode; if (!k) { el('modesel').hidden = true; return; } startMode(k); });
 function syncSpeedUI() { const s3 = el('spd3'); const lock = modeK() === 'round'; s3.disabled = lock; s3.title = lock ? 'Round : vitesse commune, pas d\'accélération' : 'Vitesse rapide ×3'; if (lock && speed === 3) setSpeed(1); }
 let matChoice = false;
+const ROUND_CASH = { normal: 10e6, easy: 100e6 };   // trésorerie de départ de TOUS les joueurs (humains et IA) en Round : 10 M$ en Normal, 100 M$ en Facile. Libre et scénarios gardent leur programmation propre.
+let roundEasy = false; try { roundEasy = localStorage.getItem('wse-easy') === '1'; } catch (e) {}
 function startMode(k) {
   const fresh = S.mode && S.mode.pending && k === 'free' && S.day === 0;
   el('modesel').hidden = true; el('endscr').hidden = true;
   if (!fresh) { newCity(); makeDecor(); cars = []; centerOn(START.x, START.y); }
   S.mode = { k, t0: 0, done: null, n: {}, f: {} };
   S.mat = (k === 'free' || (matChoice && (k === 'round' || k === 's3' || k === 's4' || k === 's5'))) ? 1 : 0; S.matPop = S.pop; S.trials = []; mkInv();   // marché mûr : par défaut en Libre, option pour les scénarios 3-5 et les rounds
-  if (k === 'round') { S.cash = 3e6; S.noEv = false; }
+  if (k === 'round') { S.cash = roundEasy ? ROUND_CASH.easy : ROUND_CASH.normal; S.noEv = false; S.mode.easy = roundEasy ? 1 : 0; (S.rivals || []).forEach(r => { r.cash = S.cash; }); }
   if (isScn()) { S.cash = SCN[k].cash; S.noEv = k === 's1'; }
   S.unlockAll = true; S.mode.w0 = S.cash;
   S.mode.await = 1; setSpeed(0); syncSpeedUI(); refreshStats(); S.hist = [Math.round(S.stats.worth)]; buildTools(); updateHUD(); save(); showCaste(false);   // le temps ne court qu'après le choix de la caste
