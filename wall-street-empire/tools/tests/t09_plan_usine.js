@@ -86,8 +86,11 @@ exports.run = async (t, L) => {
   const ctx = await (await L.browser()).newContext({ viewport: { width: 1280, height: 900 } });
   pg = await L.newPage({ ctx, wait: 500 }); await L.setup(pg, { cash: 5e10 }); await L.inject(pg); await pg.evaluate(SETUP);
   const sv1 = await pg.evaluate(() => { const { W, S, f } = window.B; W.planSet(f, ['robot', 'stock', 'make', 'make', '', '', 'buy', 'buy', '', 'sell', 'sell', '']); f.rb = { 0: { k: 'r6', w: 0.31 } }; W.planSet(f, W.planOf(f)); while (S.day % 5 !== 0 || S.day < 1) { window.B.pre(); W.step(); } window.B.pre(); W.step(); while (S.day % 5 !== 0) { window.B.pre(); W.step(); }
-    const raw = localStorage.getItem('wse-city-v8'); const sv = JSON.parse(raw); return { v: sv.v, raw: raw.length, plan: f.plan.join(','), w: f.rb[0].w, pos: [f.x, f.y], day: S.day }; });
+    const raw = localStorage.getItem('wse-city-v8'); const sv = JSON.parse(raw); return { v: sv.v, raw: raw.length, json: raw, plan: f.plan.join(','), w: f.rb[0].w, pos: [f.x, f.y], day: S.day }; });
   t.check('sauvegarde v8 conservée avec le plan (clé pl) et les robots (rb)', sv1.v === 8 && sv1.raw > 1000 && /robot/.test(sv1.plan), `v${sv1.v} · ${sv1.plan}`);
+  // Chromium (contexte en mémoire) perd parfois tout le localStorage quand la dernière page du contexte se ferme (mesuré : clés vides au chargement suivant, ~1 fois sur 6 sous charge) :
+  // la sauvegarde écrite par le jeu est donc réinjectée telle quelle si le stockage revient vide (le chargement et la migration testés restent ceux du jeu).
+  await ctx.addInitScript(json => { try { if (!localStorage.getItem('wse-city-v8')) localStorage.setItem('wse-city-v8', json); } catch (e) {} }, sv1.json);
   await pg.close(); pg = await ctx.newPage(); pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message)); await pg.goto(L.URL);
   const ld = await pg.evaluate(pos => { const W = window.WSE, S = W.S, c = S.grid[pos[1] * W.N + pos[0]]; return c && c.t === 'f2' ? { plan: c.plan && c.plan.join(','), rb: c.rb, mk: W.planEvalC(c).mk, n: W.planEvalC(c).n } : null; }, sv1.pos);
   t.check('rechargement : plan et robot (type, usure) restitués à l\'identique', !!ld && ld.plan === sv1.plan && ld.rb && ld.rb[0].k === 'r6' && Math.abs(ld.rb[0].w - sv1.w) < 0.01 && ld.n.make === 2, ld ? ld.plan : 'absent');

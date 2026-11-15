@@ -1873,6 +1873,7 @@ function seatOrder(k, o) { const r = (S.rivals || []).find(x => x.caste === k); 
 const seatsApi = { list: () => seatsSync().map(s => Object.assign({}, s, { company: companyOf(s.caste) })), claim: seatClaim, release: seatRelease, isFree: k => { const s = seatsSync().find(x => x.caste === k); return !!s && s.ctrl === 'ai'; }, company: companyOf, order: seatOrder };
 // ----- Prix et valeur -----
 const rivalSum = r => RIV_CLS.reduce((a, k) => a + r.att[k], 0);
+const rivYoung = () => 0.35 * 3 / Math.max(3, (S.rivals || []).length);   // phase d'implantation : le budget d'ouverture d'ensemble reste celui de 3 enseignes, quel que soit le nombre d'IA (sinon 5 IA prenaient 1,7× plus de rayons au joueur)
 const rivPxRel = (r, cls) => r.px && r.px[cls] > 0 ? r.px[cls] / (rivP(r).px[cls] || 1) : 1;   // écart au positionnement habituel du profil (1 = prix normal de l'enseigne)
 const rivPm = (r, cls) => { if (!r.px) return 1; const x = rivPxRel(r, cls) * (r.fl && r.fl.cls === cls ? 0.7 + 0.3 * (r.fl.d || 1) : 1); return Math.pow(clamp(x, 0.5, 1.8), -RIV_EL[cls]); };
 const rivalAttr = cls => optV('price', OPT_PRICE) * (S.rivals || []).reduce((a, r) => a + rivEff(r, cls) * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
@@ -1900,7 +1901,7 @@ function rivPrice(r) {
     const b = P.px[cls] || 1, you = mk[cls] ? mk[cls].you : 0, mine = mk[cls] ? ((mk[cls].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0; let t = 1;
     r.sm[cls] = r.sm[cls] == null ? mine : r.sm[cls] * 0.97 + mine * 0.03;
     if (r.att[cls] > 0.01 && r.sm[cls] > 0.005) t *= 1 - 0.15 * clamp((r.sm[cls] - mine) / r.sm[cls], -0.4, 0.6);
-    t *= cr < 0.04 && rivalSum(r) >= (r.a0 || 0) + 0.35 ? 1.06 : cr > 0.45 && S.day > 120 ? 0.97 : 1;
+    t *= cr < 0.04 && rivalSum(r) >= (r.a0 || 0) + rivYoung() ? 1.06 : cr > 0.45 && S.day > 120 ? 0.97 : 1;
     if (you > 0.05) t *= 1 + clamp((playerPx(cls) - 1) * P.fol, -0.12, 0.1) * Math.min(1, you / 0.25);
     if (st.k === 'war' && st.cls === cls) t *= 1 - st.d; else if (st.k === 'limit' && st.cls === cls) t *= 0.93;
     if (RV.cartel && RV.cartel.cls === cls) t *= RV.cartel.rid === r.id ? RV.cartel.m : 1 + (RV.cartel.m - 1) / 2;
@@ -1969,8 +1970,8 @@ function rivExpand(r) {
   const P = rivP(r), E = rivDiff(), mk = S.mkt || {};
   const w = RIV_CLS.map(k => (r.att[k] + 0.05) * (P.core.indexOf(k) >= 0 ? 2 : 1) * clamp(1.2 - 0.8 * (mk[k] ? mk[k].you : 0), 0.85, 1.2)); let tot = w.reduce((a, b) => a + b, 0), x = rnd() * tot, i = 0;
   while (x > w[i] && i < 3) { x -= w[i]; i++; }
-  const k = RIV_CLS[i], cost = RIV_EXPAND * (rivalSum(r) < (r.a0 || 0) + 0.35 ? 1 : 1 + 2.5 * r.att[k]);
-  const young = rivalSum(r) < (r.a0 || 0) + 0.35;   // implantation : le rival investit sa trésorerie de départ comme avant ; ensuite il garde 12 % de sa valeur en réserve et n'ouvre que s'il gagne sa vie
+  const k = RIV_CLS[i], cost = RIV_EXPAND * (rivalSum(r) < (r.a0 || 0) + rivYoung() ? 1 : 1 + 2.5 * r.att[k]);
+  const young = rivalSum(r) < (r.a0 || 0) + rivYoung();   // implantation : le rival investit sa trésorerie de départ comme avant ; ensuite il garde 12 % de sa valeur en réserve et n'ouvre que s'il gagne sa vie
   if (r.att[k] < 0.7 && rivalAttr(k) < RIV_CAP && (young ? r.cash > 3 * RIV_EXPAND : r.cash > Math.max(3 * RIV_EXPAND, 0.12 * rivalValue(r)) + cost && (r.pf || 0) * 360 > 0.03 * rivalValue(r))) { r.att[k] += 0.012 * optV('exp', OPT_EXP) * E.exp * forcesCoef('rivalry') * (1 + 0.5 * Math.max(0, S.diff || 0)); r.cash -= cost; r.xp = { cls: k, d: S.day, weak: (mk[k] ? mk[k].you : 0) < 0.15 ? 1 : 0 }; }
 }
 function rvAnswer(yes) { return rivRand(() => rvAnswer0(yes)); }
@@ -2262,7 +2263,7 @@ function prodModelHTML(pk) {
 const K_POP = 30, K_IND = 25, K_SIZE = 5, ROOM = 0.08, WAGE_K = 120;
 // Échelle commune de la fortune (paliers, missions de capitalisation, victoire, IPO) : les repères d'origine (Entrepreneur 1,25 M$ ... Oligarque 35 M$) sont multipliés par SCALE_M ; rivaux et grands groupes PNJ suivent (RIV_K, NPC_K)
 const SCALE_M = 4 * K_SIZE, RIV_K = 2 * K_SIZE, NPC_K = 100, MISSION_K = 100;
-const RIV_ASSET = 90000 * K_POP * RIV_K, RIV_OPEX = 420 * K_POP, RIV_EXPAND = RIV_ASSET * 0.01;
+const RIV_ASSET = 90000 * K_POP * RIV_K, RIV_OPEX = 220 * K_POP, RIV_EXPAND = RIV_ASSET * 0.01;
 const PNJ_MK = 1.05;   // les marchandises de rayon (base, manufacturé, luxe) viennent du marché local : grossistes et producteurs PNJ, au cours du marché + 5 % ; plus aucune usine du joueur ne fabrique de marchandise de rayon
 const TRANS = 0.01;   // coût de transport par unité et par case (fret ≈ 3-8 % de la valeur livrée)
 // Repères sectoriels (recherche web, exercices 2024-2025 ; détail et sources dans README.md) : marge brute, EBITDA, CA par employé et par an
@@ -2303,7 +2304,7 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   // Méga-usine (3×3) : mêmes recettes que la grande usine + électronique de masse ; capacité ×3 (et non ×8 : la demande par produit est limitée), 2,4× les effectifs, capex ×3,2. L'effectif suit l'activité (jobsOf).
   TYPES.f4 = Object.assign({}, TYPES.f3, { name: 'Méga-usine', sub: 'Électronique de masse, ×3', cost: TYPES.f3.cost * 3.2, upkeep: TYPES.f3.upkeep * 3, jobs: TYPES.f3.jobs * 2.4, jobs0: (TYPES.f3.jobs0 || TYPES.f3.jobs) * 2.4, w: 3, h: 3, tier: 3, capK: 3, color: '#ff7ad0', rec: { in: Object.assign({}, TYPES.f3.rec.in), out: Object.assign({}, TYPES.f3.rec.out) } });
   // Commerces : un supermarché ≈ 3,8 M$ de CA/an, 13 employés (≈ 290 k$ par employé, comme Walmart), 2-3 fois plus grand qu'avant
-  setC('s1', 110000, 50); setC('s2', 700000, 300); setC('s3', 4000000, 1000);   // retour sur capex 3-5 ans pour s1/s2 (EBITDA 9-12 %), s3 ≈ 3,5 ans
+  setC('s1', 110000, 50); setC('s2', 700000, 240); setC('s3', 4000000, 1000);   // retour sur capex 3-5 ans pour s1/s2 (EBITDA 9-12 %), s3 ≈ 3,5 ans ; entretien du supermarché 300 → 240 $/j après le « Round honnête » (le plus exposé à la baisse d'humeur et de population : EBITDA du banc 4,8 % → 6,5 %)
   TYPES.s1.ret.cap = 110; TYPES.s2.ret.cap = 400; TYPES.s3.ret.cap = 540; TYPES.s1.jobs = 1; TYPES.s2.jobs = 5; TYPES.s3.jobs = 16;
   ['res', 'wh', 'hq', 'btp', 'immo', 'port'].forEach(k => { TYPES[k].cost *= 30 * K_SIZE; TYPES[k].upkeep *= 30 * K_SIZE; });
   ['plant', 'solar', 'wind', 'nuclear'].forEach(k => { TYPES[k].cost *= K_SIZE; TYPES[k].upkeep *= K_SIZE; });
@@ -3147,8 +3148,9 @@ function skillAvg() {   // formation moyenne de l'appareil productif (0..1) : pr
 }
 function unempTarget(jobs, workforce) {
   const m = S.macro || { gdp: 0.03 }, nairu = m.nairu != null ? m.nairu : 0.045;
-  const sl = workforce > 0 ? 1 - jobs * (1 + 0.8 * (m.gdp - 0.03)) / workforce : 0;   // >0 : actifs sans poste ; <0 : postes vacants (la demande de travail suit le cycle : licenciements en récession)
-  const fr = clamp(nairu - 0.9 * (m.gdp - 0.03) - 0.05 * clamp(-sl, 0, 0.5), 0.03, 0.14);
+  const cz = 15 * creditSpread();   // crise du crédit : investissements gelés, embauches suspendues (jusqu'à −1,6 % de postes à intensité 1), sinon l'exode dû au coût du logement faisait presque baisser le chômage
+  const sl = workforce > 0 ? 1 - jobs * (1 + 0.8 * (m.gdp - 0.03)) * (1 - 0.03 * cz) / workforce : 0;   // >0 : actifs sans poste ; <0 : postes vacants (la demande de travail suit le cycle : licenciements en récession)
+  const fr = clamp(nairu - 0.9 * (m.gdp - 0.03) + 0.015 * cz - 0.05 * clamp(-sl, 0, 0.5), 0.03, 0.14);
   return clamp(Math.cbrt(fr * fr * fr + Math.pow(Math.max(0, sl), 3)), 0.03, 0.95);   // max lissé : le plus fort du chômage frictionnel/cyclique et du manque de postes
 }
 const shockHTML = () => { const id = shockAny(); if (!id) return ''; const s = S.macro.sh[id], left = s.t0 + s.d - S.day; return `<div class="shockbar"><b>${SHOCKS[id].n}</b> · ${left} j restants · ${id === 'energy' ? 'énergie ×' + (1 + (s.k - 1) * shockI(id)).toFixed(2).replace('.', ',') : id === 'pandemic' ? 'demande ' + Math.round(-100 * (shockDemand() - 1)) + ' % sous la normale' : 'taux +' + (creditSpread() * 100).toFixed(1).replace('.', ',') + ' pts, plafond de dette −' + Math.round(35 * shockI(id)) + ' %'}</div>`; };
@@ -3433,7 +3435,7 @@ function custIndex(c) {
     { n: 'Notoriété (publicité)', w: 19, v: clamp((c.aw || 0) / 100, 0, 1), tip: 'Télé, radio, internet' },
     { n: 'Qualité & personnel', w: 19, v: clamp(0.45 + 0.08 * (c.qual || 0), 0, 1) * 0.6 + 0.4 * clamp(fillOf(c), 0, 1), tip: 'Niveau de service et effectifs' },
     { n: 'Assortiment', w: 12, v: clamp(kn / sl, 0, 1), tip: 'Rayons remplis sur les emplacements disponibles' },
-    { n: 'Humeur de la ville', w: 12, v: clamp(0.4 + (happy - 55) / 90 + 0.1 * Math.min(3, pubNear(c.x, c.y)), 0, 1), tip: 'Ville heureuse = dépenses plus généreuses' }
+    { n: 'Humeur de la ville', w: 12, v: clamp(0.4 + (happy - 32) / 90 + 0.1 * Math.min(3, pubNear(c.x, c.y)), 0, 1), tip: 'Ville heureuse = dépenses plus généreuses' }   // pivot 32 (et non 55) : l'humeur composite du module macro vit autour de 55-65, l'ancienne autour de 80
   ];
   const idx = parts.reduce((a, q) => a + q.w * q.v, 0) / 100;
   return { idx, parts };
@@ -10575,7 +10577,7 @@ el('bview').addEventListener('change', e => { if (e.target.closest && e.target.c
 function planFrame(sc, c, dt) {   // une image de la scène de plan : couche de texte nette, masquage des panneaux au repos en vue immersive
   const og = el('blab').getContext('2d'); og.setTransform(imm.dpr, 0, 0, imm.dpr, 0, 0); og.clearRect(0, 0, imm.W, imm.H);
   sc.og = og; sc.M = (x, y, z) => { const p = isoP(sc, x, y, z); return camPoint(p[0], p[1]); }; sc.ols = immMobile() ? 1.15 : 1.25; sc.ovW = imm.W; sc.ovH = imm.H;
-  if (immOn) { imm.idle += dt; const bv = el('bview'), hold = !!alMenu || !!immPanel || !!planTool || planSel >= 0 || !!document.querySelector('#bstats:hover,#bpal:hover,#btiles:hover,#bcam:hover,#bvit:hover,#blinks:hover,#bimm:hover,#bpop:hover'); const idle = imm.idle > 3.2 && !hold; if (idle !== bv.classList.contains('idle')) bv.classList.toggle('idle', idle); }
+  if (immOn) { imm.idle += imm.rdt != null ? imm.rdt : dt; imm.rdt = null; const bv = el('bview'), hold = !!alMenu || !!immPanel || !!planTool || planSel >= 0 || !!document.querySelector('#bstats:hover,#bpal:hover,#btiles:hover,#bcam:hover,#bvit:hover,#blinks:hover,#bimm:hover,#bpop:hover'); const idle = imm.idle > 3.2 && !hold; if (idle !== bv.classList.contains('idle')) bv.classList.toggle('idle', idle); }
   sfxTick(sc);
 }
 function sceneReset(c, keepCam) {
@@ -10608,7 +10610,7 @@ function sceneLoop(ts) {
   scRaf = 0;
   if (el('bview').hidden || bTab !== 'int') return;
   if (ts - scLast < 31) { scRaf = requestAnimationFrame(sceneLoop); return; }   // 30 images/s max
-  const dt = Math.min(0.05, (ts - scLast) / 1000 || 0.016); scLast = ts;
+  const dt = Math.min(0.05, (ts - scLast) / 1000 || 0.016); imm.rdt = Math.min(0.5, (ts - scLast) / 1000 || 0.016); scLast = ts;   // rdt : temps réel écoulé (le repos des panneaux ne dépend pas de la cadence d'images)
   sceneFrame(dt);
   scRaf = requestAnimationFrame(sceneLoop);
 }
