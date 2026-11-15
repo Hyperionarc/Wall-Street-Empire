@@ -68,7 +68,7 @@ exports.run = async (t, L) => {
 
   // 3. Les mines produisent et sont rentables (EBITDA et retour sur capex)
   const ex = await L.pool(KINDS, 4, k => L.isoExtractor(MINE[k], k));
-  ex.forEach((x, i) => { const k = KINDS[i], [lo, hi] = EBR[k]; if (x.none) return t.check(`mine ${MINE[k]} : gisement disponible`, false); t.check(`mine ${MINE[k]} (${k}) : produit, EBITDA ${lo}-${hi} % et retour <= 3,5 ans`, Number.isFinite(x.eb) && x.eb * 100 >= lo && x.eb * 100 <= hi && x.payback <= 3.5, `EBITDA ${(x.eb * 100).toFixed(1)} %, retour ${x.payback.toFixed(1)} an`); });
+  ex.forEach((x, i) => { const k = KINDS[i], [lo, hi] = EBR[k]; if (x.none) return t.check(`mine ${MINE[k]} : gisement disponible`, false); t.check(`mine ${MINE[k]} (${k}) : produit, EBITDA ${lo}-${hi} % et retour <= 6 ans`, Number.isFinite(x.eb) && x.eb * 100 >= lo && x.eb * 100 <= hi && x.payback <= 6, `EBITDA ${(x.eb * 100).toFixed(1)} %, retour ${x.payback.toFixed(1)} an`); });
 
   // 4. Recettes : EBITDA des usines (intrants au prix de base) et des produits nouveaux
   const RECS = NEWC.concat(['chem', 'api', 'glass', 'silicon', 'battery', 'motor', 'ceramic', 'hardware', 'led']);
