@@ -540,6 +540,10 @@ body.vopen #feed{z-index:9}
 .tank i{display:block;width:100%;opacity:.85}.tank span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-family:var(--font-m);font-weight:600;text-shadow:0 1px 2px #000}
 .evcard,#evcard{position:absolute;z-index:11;left:50%;top:calc(var(--hud-h) + 14px);transform:translateX(-50%);width:min(460px,calc(100% - 24px));padding:12px 14px;border-radius:12px;background:var(--panel);border:1px solid var(--orange);box-shadow:0 10px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:8px}
 #evcard[hidden]{display:none}
+#recap{position:absolute;z-index:10;right:max(12px,env(safe-area-inset-right,0px));top:calc(var(--hud-h) + 14px);width:min(340px,calc(100% - 24px));padding:10px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--gold);box-shadow:0 10px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+#recap[hidden]{display:none}#recap b{font-family:var(--font-d);font-weight:800;font-size:16px;letter-spacing:.03em;color:var(--gold)}#recap p{margin:0;color:var(--fg)}#recap .btn{align-self:flex-end;min-height:30px;padding:3px 12px}
+.objbar .orank{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline;margin-top:4px;padding-top:3px;border-top:1px dashed var(--line);font-size:11.5px}.objbar .orank .olbl{color:var(--mut);text-transform:uppercase;letter-spacing:.06em;font-size:10.5px}.objbar .orank .me{color:var(--gold)}.objbar .orank b{font-family:var(--font-m,monospace);font-weight:600}.objbar .orank i{font-style:normal;color:var(--mut)}.objbar .orank i.up,.objbar .orank .up{color:var(--green)}.objbar .orank i.dn{color:var(--red)}.objbar .orank .gap{color:var(--mut)}
+.objbar .ocoach2{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;margin-top:4px;padding-top:3px;border-top:1px dashed var(--line)}.objbar .ocoach2 .oph{color:var(--gold);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em}.objbar .ocoach2 .otx{flex:1 1 240px;min-width:0}.objbar .ocoach2 .otx b{color:var(--cyan)}.objbar .ocoach2 .onum{color:var(--mut);font-size:11.5px}.objbar .osub{margin-top:2px;color:var(--orange);font-size:11.5px}.objbar .osub.neg{color:var(--red)}
 #evcard b{font-family:var(--font-d);font-weight:800;font-size:20px;letter-spacing:.04em;color:var(--orange)}
 #evcard p{margin:0;font-size:13px;color:var(--fg)}
 #evcard .btn{text-align:left;min-height:40px}
@@ -1122,6 +1126,7 @@ body.vopen #feed{z-index:9}
   <div id="modesel" hidden></div>
   <div id="endscr" hidden></div>
   <div id="evcard" hidden role="alertdialog" aria-live="assertive"></div>
+  <div id="recap" hidden role="status" aria-live="polite"></div>
 
   <div id="tarrow" hidden aria-hidden="true">▼</div>
   <div id="sitetip" hidden></div>
@@ -2123,6 +2128,9 @@ const money = n => fmt(n) + ' $';
 const fx2 = n => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });   // format fr unique pour les cours (virgule, espace fine)
 const DM = 30;                    // jours par mois : tous les montants affichés au joueur sont mensuels
 const mj = n => money(n * DM);
+const YEAR_D = 120;                // jours de jeu par an : 4 mois de 30 jours
+const dateParts = d => { d = Math.max(0, d | 0); return { y: Math.floor(d / YEAR_D) + 1, j: d % YEAR_D + 1, m: Math.floor((d % YEAR_D) / DM) + 1 }; };
+const dateTxt = d => { const p = dateParts(d); return 'Jour ' + p.j + ' · An ' + p.y; };   // libellé unique : jour de l'année (1-120) et numéro d'année
 const isMob = () => window.innerWidth < 600;
 const cmpd = n => { const a = Math.abs(n), sg = n < 0 ? '−' : ''; return a >= 1e9 ? sg + (a / 1e9).toFixed(2).replace('.', ',') + ' Md$' : a >= 1e6 ? sg + (a / 1e6).toFixed(a >= 1e8 ? 0 : 1).replace('.', ',') + ' M$' : a >= 1e4 ? sg + Math.round(a / 1e3) + ' k$' : sg + Math.round(a).toLocaleString('fr-FR') + ' $'; };   // notation compacte du HUD mobile
 const cmpn = n => Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + ' M' : Math.abs(n) >= 1e4 ? Math.round(n / 1e3) + ' k' : Math.round(n).toLocaleString('fr-FR');    // montant journalier simulé → montant mensuel affiché
@@ -2319,10 +2327,13 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], g, dep }));
     localStorage.setItem(SAVE_KEY + '_gal', JSON.stringify(S.gal || {}));
   } catch (e) { /* stockage indisponible */ }
 }
+let _svT = 0;
+function saveSoon() { if (_svT) return; _svT = setTimeout(() => { _svT = 0; try { if (S) save(); } catch (e) { /* sauvegarde facultative */ } }, 400); }   // construction ou achat : sauvegarde différée de 0,4 s
+setInterval(() => { try { if (S && S.mode && !S.mode.pending) save(); } catch (e) { /* stockage indisponible */ } }, 30000);   // et au moins toutes les 30 s réelles
 function load() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -2358,7 +2369,7 @@ function load() {
     S0.cm = d.cm || {};
     try { const ga = JSON.parse(localStorage.getItem(SAVE_KEY + '_gal') || '{}'); S0.gal = ga && typeof ga === 'object' ? ga : {}; } catch (e) { S0.gal = {}; }   // passe 28 : galerie des produits fabriqués
     S0.capAdj = +d.capAdj || 0; S0.fix1 = (+d.fix1 || 0) || (S0.cash < 0 ? 0 : 1); if (d.rmb != null) S0.rmb = +d.rmb;
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcOwn = d.nown && typeof d.nown === 'object' ? d.nown : {}; S0.neg = d.neg && typeof d.neg === 'object' ? d.neg : {}; S0.reqs = Array.isArray(d.reqs) ? d.reqs : []; S0.rid = +d.rid || 0; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.coach = (d.cch && typeof d.cch === 'object') ? d.cch : null; S0.tierMax = d.tmx | 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcOwn = d.nown && typeof d.nown === 'object' ? d.nown : {}; S0.neg = d.neg && typeof d.neg === 'object' ? d.neg : {}; S0.reqs = Array.isArray(d.reqs) ? d.reqs : []; S0.rid = +d.rid || 0; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
     S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.cprod = cprod; S0.prod = initProd(); S0.mat = d.mat ? 1 : 0; S0.matPop = +d.matPop || 0; S0.trials = Array.isArray(d.trials) ? d.trials : []; S0.tid = +d.tid || 0; if (Array.isArray(d.mkv)) { S0.mkBuy = +d.mkv[0] || 0; S0.mkRoy = +d.mkv[1] || 0; S0.mkTrialCost = +d.mkv[2] || 0; }
@@ -2561,7 +2572,7 @@ function stepBank() {
 function setCaste(k) {
   if (!CASTES[k]) return; const first = !S.caste;
   S.caste = k; if (first && S.day < 6) S.cash += CASTES[k].cash;
-  TM = techMults(); el('caste').hidden = true; say(`Tu joues : ${CASTES[k].n}.`, 'gold'); refreshStats(); updateHUD(); save(); if (first && S.mat && S.day < 6) { try { mkInv(); mkOpen('welcome', ''); } catch (e) {} }
+  TM = techMults(); el('caste').hidden = true; say(`Tu joues : ${CASTES[k].n}.`, 'gold'); refreshStats(); if (first) { setPanel(false); if (S.mode && S.mode.k) { frameCity(); coachReset(); } } updateHUD(); save(); if (first && S.mat && S.day < 6) { try { mkInv(); mkOpen('welcome', ''); } catch (e) {} }
 }
 const CASTE_BLD = { industriel: ['f1', 'f2', 'f3', 'f4', 'foundry', 'port', 'wh'], promoteur: ['res', 'btp', 'immo', 'buyout', 'hq', 'wh', 'off', 'sport'], banquier: ['bank', 'hq', 'tech'], negociant: ['pipeline', 'plant', 'port', 'wh', 'well'], agriculteur: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'wh'], innovateur: ['rd', 'dc', 'tech', 'hq'] };
 const CASTE_SPEC = { industriel: ['Usines et fonderies −12 % de coût', 'Production +5 %', 'OPA dès 10 % du capital (prime 20 %)', 'Rachat de rivaux −15 %'], promoteur: ['Constructions urbaines −15 %', 'Rachat d\'immeubles −30 %', 'Chantiers BTP payés +25 %', 'Les promoteurs IA te disputent les îlots'], banquier: ['Banque de 100 M$ de ressources propres', 'Levier ×5, ×10 puis ×20', 'Prêts sur collatéral, intérêts −40 %', 'Plafond d\'emprunt ×1,5'], negociant: ['Cartels et embargos −50 %', 'Exports +15 %, intrants −4 %', 'Pipelines −40 %, centrales −20 %', 'Électricité +30 %, pétrole +10 %'], agriculteur: ['Fermes −25 %', 'Cultures +15 %, sols +8 %', 'Irrigation −30 %', 'Sécheresses deux fois moins sévères'], innovateur: ['Recherche −30 % de durée, −20 % de coût', 'R&D et data centers −25 %', 'Brevets +50 %, loyer de calcul +50 %', 'Boost d\'IA jusqu\'à +12 % partout'] };
@@ -2624,13 +2635,24 @@ const SUBS = [
 ];
 const curAssets = () => Math.max(0, S.cash - (S.loan || 0)) + stockValue();
 function subVal(m) { return m === 'dom' ? (domRows().some(r => r.kind === 'cat' && r.lead) ? 1 : 0) : m === 'debt' ? (S.loan || 0) / Math.max(1, curAssets() + (S.loan || 0)) : objVal(m); }
+const subPen = () => Math.round(dayRev() * 4);   // pénalité de crise d'un sous-objectif manqué : 4 jours de recettes (annoncée avant l'échéance)
+function subGapTxt(b) {
+  const v = subVal(b.metric);
+  if (b.metric === 'dom') return 'tu n\'es leader d\'aucune catégorie';
+  if (b.metric === 'debt') return 'dette à ' + Math.round(v * 100) + ' % de tes actifs, cible ' + Math.round(b.target * 100) + ' %';
+  return objFmt(b.metric, v) + ' sur ' + objFmt(b.metric, b.target);
+}
 function stepSub() {
   const o = X11().obj = X11().obj || {};
   if (!o.sub) { if (S.day < 20 || S.day < (o.cd || 0)) return; const pool = SUBS.map(d => Object.assign({ id: d.id }, d.mk())).filter(x => x.need !== false), pick = pool[Math.floor(hash(S.day, (o.n || 0) * 7 + (o.fail || 0), 61) * pool.length)];
-    o.sub = { id: pick.id, t: pick.t, metric: pick.metric, target: pick.target, until: S.day + pick.days, kp: pick.id === 'dom' ? 2 : 1 }; say(`Sous-objectif : ${pick.t} (${pick.days} jours). Récompense : ${o.sub.kp} point${o.sub.kp > 1 ? 's' : ''} de connaissance ; échec : le cours et la trésorerie en pâtissent.`, 'info'); return; }
+    o.sub = { id: pick.id, t: pick.t, metric: pick.metric, target: pick.target, until: S.day + pick.days, kp: pick.id === 'dom' ? 2 : 1, pen: subPen(), w: 0 };
+    say(`Sous-objectif : ${pick.t} (${pick.days} jours). Récompense : ${o.sub.kp} point${o.sub.kp > 1 ? 's' : ''} de connaissance. Si manqué : pénalité d'environ ${money(o.sub.pen)} et −5 % sur le cours (rappels à 30, 10 et 3 jours de l'échéance).`, 'info'); return; }
   const b = o.sub, v = subVal(b.metric), ok = b.metric === 'debt' ? v <= b.target : v >= b.target;
+  b.pen = subPen();
   if (ok) { addKp(b.kp, 'sous-objectif atteint'); o.n = (o.n || 0) + 1; o.sub = null; o.cd = S.day + 15; }
-  else if (S.day >= b.until) { const pen = Math.round(dayRev() * 4); S.cash -= pen; S.pb = (S.pb || 0) - 0.05; say(`Sous-objectif manqué : ${b.t}. Pénalité : ${money(pen)} de frais de crise et −5 % sur le cours.`, 'bad'); o.sub = null; o.cd = S.day + 30; o.fail = (o.fail || 0) + 1; }
+  else if (S.day >= b.until) { const pen = b.pen; S.cash -= pen; S.pb = (S.pb || 0) - 0.05; say(`Sous-objectif manqué : ${b.t}. Pénalité annoncée : ${money(pen)} de frais de crise et −5 % sur le cours.`, 'bad'); o.sub = null; o.cd = S.day + 30; o.fail = (o.fail || 0) + 1; }
+  else { const left = b.until - S.day, TH = [3, 10, 30], i = TH.findIndex(th => left <= th);   // compte à rebours : un seul rappel par seuil franchi
+    if (i >= 0 && !((b.w | 0) & (1 << i))) { b.w = (b.w | 0) | ((1 << (TH.length)) - (1 << i)); say(`Attention, plus que ${left} jour${left > 1 ? 's' : ''} : ${b.t}. Où tu en es : ${subGapTxt(b)}. Si manqué : −${money(b.pen)} et −5 % sur le cours.`, 'warn'); } }
 }
 const NPC_TOP = [['Apex Holdings', 9.2e6, 0.0006], ['Nordic Steel', 6.1e6, 0.0004], ['Sakura Industries', 4.4e6, 0.0007], ['Atlas Commodities', 3.1e6, 0.0005], ['Meridian Capital', 2.2e6, 0.0006], ['Zenith Retail', 1.4e6, 0.0004], ['Orion Motors', 0.9e6, 0.0005]].map(x => [x[0], x[1] * NPC_K, x[2]]);   // grands groupes PNJ : 90 M$ à 920 M$ au départ
 function marketShareAvg() { const mk = S.mkt || {}; return RIV_CLS.reduce((a, c) => a + (mk[c] ? mk[c].you : 0), 0) / 4; }
@@ -3715,6 +3737,7 @@ function step() {
   };
   if (S.day % 30 === 0) xmUpdate();
   stepMode();
+  try { stepCoach(); } catch (e) { /* conseiller facultatif */ }
   checkMissions();
   if (S.day % 5 === 0) save();
   updateHUD();
@@ -4028,6 +4051,7 @@ function place(x, y, key) {
   if (toolLocked(key)) { say(`${T.name} se débloque ${modeLocked(key) ? 'au scénario ' + unlockScn(key) : 'au palier ' + TIERS[T.tier].n}.`, 'warn'); return false; }
   const err = key === 'road' ? roadError(x, y) : footprintError(x, y, key);
   if (err && key !== 'road') { const ap = acqPlan(x, y, key); if (ap) { acqOpen(ap); return false; } }
+  if (err && key === 'hq') { say(err + ' ' + hqSiteMsg(hqSite(true)), 'warn'); return false; }
   if (err) {
     const quiet = key === 'road' && (err === 'Case occupée.' || performance.now() - lastRoadMsg < 2000);
     if (!quiet) { say(err, 'warn'); if (key === 'road') lastRoadMsg = performance.now(); }
@@ -4045,7 +4069,7 @@ function place(x, y, key) {
   if (T.ext) { if (!extLinked(b, linkedMask())) say('Hors réseau : rendement de ' + Math.round(UNLINKED_EFF * 100) + ' %. Relie-la à la ville avec l\'outil Relier pour atteindre 100 %.', 'info'); }
   else if (key !== 'road' && !footConn(b)) say('Ce bâtiment ne touche aucune rue : il ne produira rien. Choisis une case au bord d\'un bloc.', 'warn');
   if (FLEVEL[key]) say(`${T.name} construite : elle est vide. Clique-la (outil Main) et choisis un produit à fabriquer : l'approvisionnement se règle ensuite tout seul.`, 'info');
-  refreshStats(); checkMissions(); updateHUD();
+  refreshStats(); checkMissions(); updateHUD(); _csM.t = 0; saveSoon();
   return true;
 }
 // plus court chemin (Dijkstra avec pénalité de virage) d'une installation d'extraction jusqu'au réseau relié à la ville
@@ -4191,11 +4215,11 @@ function updateHUD() {
   el('vHappy').textContent = Math.round(st.happy == null ? 60 : st.happy) + ' %';
   el('vTax').textContent = 'impôt ' + Math.round(S.tax * 100) + ' %';
   el('vTax').className = 'gold';
-  el('vDate').textContent = `Jour ${S.day % 30 + 1}`;
-  el('vSeason').textContent = `Été · An ${Math.floor(S.day / 120) + 1}`;
+  el('vDate').textContent = dateTxt(S.day);
+  el('vSeason').textContent = `mois ${dateParts(S.day).m}/4 · jour ${fmt(S.day)}`;
   el('vSeason').className = 'gold';
 
-  const tr = tierOf(st.worth || 0);
+  const tr = Math.max(tierOf(st.worth || 0), S.tierMax | 0); S.tierMax = tr;   // le titre gagné ne se perd pas (rechargement, introduction en bourse)
   el('tierLine').textContent = 'New Dollarton · ' + TIERS[tr].n;
   el('tierName').textContent = TIERS[tr].n;
   const nx = TIERS[tr + 1];
@@ -4244,7 +4268,7 @@ function updateHUD() {
     rh += (S.rivals || []).map(r => { const v = rivalValue(r); return `<div class="rcard"><div class="rtop"><i style="background:${r.col}"></i><b>${r.name}</b><small>${Math.round(avg(r.id) * 100)} % du marché</small></div><div class="rshr">${shares(r.id)}</div><div class="rbot"><small>Trésorerie ${money(r.cash)} · ${mj(r.rev || 0)} de ventes/mois</small><button class="btn sec" data-buy="${r.id}" ${S.cash >= v ? '' : 'disabled'}>Racheter ${money(v)}</button></div></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
     if (el('rivals').innerHTML !== rh) el('rivals').innerHTML = rh;
     { const cf = CASTES[casteOf()]; el('ptitleSub').innerHTML = cf ? `<span class="cbadge" style="--cc:${cf.col}">${CASTE_IMG[casteOf()] ? `<img alt="" src="${CASTE_IMG[casteOf()]}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;object-position:50% 15%;border:2px solid ${cf.col}">` : '<i></i>'}${cf.n}</span>` : 'New Dollarton'; if (cf) el('tierLine').textContent = 'New Dollarton · ' + cf.n; }
-  { const F2 = finM().F || {}, w2 = (S.stats && S.stats.worth) || 0; el('psCash').textContent = money(S.cash); el('psCash').className = S.cash >= 0 ? 'pos' : 'neg'; el('psWorth').textContent = money(w2); el('psNet').textContent = (F2.net >= 0 ? '+' : '−') + mj(Math.abs(F2.net || 0)); el('psNet').className = (F2.net || 0) >= 0 ? 'pos' : 'neg'; el('psDate').textContent = `Jour ${S.day % 30 + 1} · An ${Math.floor(S.day / 120) + 1}`;
+  { const F2 = finM().F || {}, w2 = (S.stats && S.stats.worth) || 0; el('psCash').textContent = money(S.cash); el('psCash').className = S.cash >= 0 ? 'pos' : 'neg'; el('psWorth').textContent = money(w2); el('psNet').textContent = (F2.net >= 0 ? '+' : '−') + mj(Math.abs(F2.net || 0)); el('psNet').className = (F2.net || 0) >= 0 ? 'pos' : 'neg'; el('psDate').textContent = dateTxt(S.day);
     const tp = advisorTips(), adv = '<b>Conseiller</b>' + tp.map(x => `<p>${x}</p>`).join(''); if (el('advisor').dataset.h !== adv) { el('advisor').innerHTML = adv; el('advisor').dataset.h = adv; } const ab = '<b>Conseiller</b>' + tp.map(x => `<span>${x}</span>`).join(''); if (el('advbar').dataset.h !== ab) { el('advbar').innerHTML = ab; el('advbar').dataset.h = ab; } }
   syncEvToggle(); if (typeof syncUnlock === "function") syncUnlock(); renderGoals(); renderEmpire(); renderTechs(); renderProdScreen(); renderGuide(); renderChainSum(); renderChain(); renderTerm();
     const rawP = (S.stats && S.stats.raw) || 0, lrows = [];
@@ -4590,7 +4614,7 @@ function subHTML() {
   const o = X11().obj || {}, b = o.sub;
   if (!b) return `<p class="note">Aucun sous-objectif en cours${S.day < 20 ? ' (le premier arrive après 20 jours)' : ' : le prochain arrive bientôt'}. Réussis : ${o.n || 0} · manqués : ${o.fail || 0}.</p>`;
   const v = subVal(b.metric), left = Math.max(0, b.until - S.day), pr = b.metric === 'debt' ? clamp(1 - (v - b.target) / Math.max(0.01, 1 - b.target), 0, 1) : clamp(v / b.target, 0, 1);
-  return `<div class="tcard"><b>${b.t}</b><small>Récompense : ${b.kp} point${b.kp > 1 ? 's' : ''} de connaissance (à investir dans l'expertise des dirigeants) · pénalité si manqué · ${left} jours restants</small><div class="bar"><i style="width:${Math.round(pr * 100)}%"></i></div></div><p class="note">Réussis : ${o.n || 0} · manqués : ${o.fail || 0}.</p>`;
+  return `<div class="tcard"><b>${b.t}</b><small>Récompense : ${b.kp} point${b.kp > 1 ? 's' : ''} de connaissance (à investir dans l'expertise des dirigeants) · pénalité si manqué : −${money(b.pen != null ? b.pen : subPen())} et −5 % sur le cours · <b class="${left <= 10 ? 'neg' : ''}">${left} jours restants (≈ ${Math.max(1, Math.round(left * dayMs() / 60000))} min)</b> · où tu en es : ${subGapTxt(b)}</small><div class="bar"><i style="width:${Math.round(pr * 100)}%"></i></div></div><p class="note">Réussis : ${o.n || 0} · manqués : ${o.fail || 0}.</p>`;
 }
 function domHTML() {
   const rw = domRows(); return '<p class="note">Domination : être le plus gros acteur d\'une catégorie ou d\'un secteur, sans qu\'il faille la majorité. 20 % suffisent si personne ne te dépasse.</p>' + rw.map(r => `<div class="finrow" style="${r.lead ? 'color:var(--gold);font-weight:700' : ''}"><span>${r.kind === 'sect' ? '▣ ' : ''}${r.name}${r.lead ? ' · dominant' : ''}</span><b>${Math.round(r.you * 100)} % <small style="font-weight:400;color:var(--mut)">(meilleur rival ${Math.round(r.top * 100)} %${r.topN ? ' · ' + r.topN : ''})</small></b></div>`).join('');
@@ -4652,7 +4676,8 @@ function renderTechs() {
   if (el('techs').dataset.h !== h) { el('techs').innerHTML = h; el('techs').dataset.h = h; }
 }
 el('techs').addEventListener('click', e => { const b = e.target.closest('[data-tech]'); if (b && !b.disabled) { startResearch(b.dataset.tech); renderTechs(); } });
-el('evcard').addEventListener('click', e => { const b = e.target.closest('[data-ev]'); if (!b) return; const ev = EVENTS.find(x => x.id === S.event); if (!ev) return; ev.ch[+b.dataset.ev].f(); S.event = null; el('evcard').hidden = true; TM = techMults(); updateHUD(); });
+el('recap').addEventListener('click', e => { if (e.target.closest('[data-rc]')) el('recap').hidden = true; });
+el('evcard').addEventListener('click', e => { const b = e.target.closest('[data-ev]'); if (!b) return; const ev = EVENTS.find(x => x.id === S.event); if (!ev) return; const _ch = ev.ch[+b.dataset.ev], _b4 = { cash: S.cash, mods: (S.mods || []).slice() }; _ch.f(); try { recapEvent(ev, _ch, _b4); } catch (x) { /* récap facultatif */ } S.event = null; el('evcard').hidden = true; TM = techMults(); updateHUD(); });
 function stockValue() { let v = 0; GKEYS.forEach(g => { v += (S.stock[g] || 0) * S.price[g]; }); PKEYS.forEach(pk => { v += (S.prod[pk].stock || 0) * (S.prod[pk].st === 'on' ? prodPrice(pk) : 0); }); return v; }
 // Cinq forces de Porter sur ton secteur (0 = faible, 100 = forte)
 function stepForces() {
@@ -6602,7 +6627,7 @@ function renderBuilding(force) {
   })();
   const kpiHtml = `<div class="kpis bk">${kpis}</div>${srcLine}`;
   const htmlInt = `
-  ${FLEVEL[c.t] ? prodHeader(c) + planCard(c) : ''}${T.ret ? auditCard(c) + shelfCard(c) : ''}
+  ${FLEVEL[c.t] ? prodHeader(c) + planCard(c) : ''}${T.ret ? auditCard(c) + roiCard(c) + shelfCard(c) : ''}
   <div class="bnbanner ${bn.sev}"><b>${bn.t}</b><span>${bn.d}</span><div class="acts">${acts}</div></div>
   ${line}
   <p class="cdet">Par mois — coûts : intrants ${mj(c.inCost || 0)} · salaires ${mj(c.wages || 0)} · ${(T.ext || T.rec || isPlant(c.t)) ? 'coûts d\'exploitation' : 'entretien'} ${mj(T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))) * (PLAN_DIM[c.t] ? planUpk(c) : 1))} · transport ${mj(c.transport || 0)} (${c.haul || 0} cases)<br>EBE ${mj(profit)} − amortissement ${mj(c.dep || 0)} − impôt ${mj(c.taxB || 0)} = résultat net ${mj(profit - (c.dep || 0) - (c.taxB || 0))}/mois</p>
@@ -9942,7 +9967,7 @@ function adTab(c) {
       <div class="finrow"><span>Budget</span><b id="adv-${k}">${mj(b)} /mois</b></div><div class="finrow"><span>Effet sur la notoriété</span><b>${eff} %</b></div></div>`; };
   const ratio = (c.pRev || 0) > 0 ? Math.round(tot / c.pRev * 100) : null;
   const warn = c.limit === 'capacity' ? '<div class="bnbanner warn"><b>Magasin saturé</b><span>La capacité est pleine : plus de publicité n\'ajoutera pas de ventes. Agrandis-le d\'abord.</span></div>' : c.limit === 'stock' ? '<div class="bnbanner bad"><b>Rupture de stock</b><span>Les clients viennent mais les rayons sont vides : règle l\'approvisionnement avant de payer de la pub.</span></div>' : '';
-  return warn + ciHTML(c) + `<p class="fnote">Chaque canal diffuse une campagne pour ce magasin. La notoriété monte progressivement avec le budget, puis retombe doucement si tu coupes. Plus elle est haute, plus les clients préfèrent ton enseigne aux marques rivales et plus ils sont nombreux.</p>
+  return warn + ciHTML(c) + adRoiHTML(c) + `<p class="fnote">Chaque canal diffuse une campagne pour ce magasin. La notoriété monte progressivement avec le budget, puis retombe doucement si tu coupes. Plus elle est haute, plus les clients préfèrent ton enseigne aux marques rivales et plus ils sont nombreux.</p>
     <div class="kpis"><div><small>Budget total</small><b class="neg">${mj(tot)} /mois</b></div><div><small>Notoriété</small><b>${Math.round(aw)} %</b></div><div><small>Cible</small><b>${Math.round(tgt)} %</b></div><div><small>Affluence</small><b class="pos">+${up} %</b></div><div><small>Ventes / jour</small><b>${f1(c.out)}</b></div><div><small>Pub / recettes</small><b>${ratio == null ? '–' : ratio + ' %'}</b></div></div>
     <div class="bar" style="margin:6px 0 10px"><i style="width:${Math.round(aw)}%"></i></div>
     <div class="levers">${AD_KEYS.map(card).join('')}</div>`;
@@ -10100,23 +10125,15 @@ function setPanel(open) {
 }
 el('pn').onclick = () => setPanel(el('panel').hidden);
 el('chipCap').onclick = () => { setPanel(true); setPtab('empire'); };
-function tutoStep() {
-  if (S.tutoDone || isScn()) return null;   // en scénario, le tutoriel guidé de la barre d'objectif remplace celui-ci
-  let ext = 0, fac = 0, shop = 0, prodOnN = 0, mine = 0; eachBuilding(c => { if (TYPES[c.t].ext) ext++; if (FLEVEL[c.t]) { fac++; if (recOf(c)) prodOnN++; } if (TYPES[c.t].ret) shop++; });
-  PKEYS.forEach(pk => { if (S.prod[pk].st !== 'locked') prodOnN++; });
-  const st = [[ext, 'Étape 1/5 : pose une exploitation (menu Extraction ou Agriculture) sur un gisement ou une terre : c\'est ta matière première.'], [fac, 'Étape 2/5 : construis une usine dans la zone du port (menu Industrie), puis clique-la avec l\'outil Main.'], [prodOnN, 'Étape 3/5 : dans l\'usine, « Choisir la production » : lance un produit (R&D) ou fabrique un composant.'], [shop, 'Étape 4/5 : ouvre un commerce en ville (menu Commerce) pour vendre ta production aux habitants.'], [S.day >= 20 && (S.fin && S.fin.net > 0) ? 1 : 0, 'Étape 5/5 : fais tourner l\'entreprise jusqu\'à un résultat positif (Menu > Finances). Regarde le Conseiller pour les goulots.']];
-  for (let i = 0; i < st.length; i++) if (!st[i][0]) return st[i][1];
-  S.tutoDone = 1; say('Tutoriel terminé : ton empire tourne. À toi de l\'étendre !', 'gold'); return null;
-}
 function advisorTips() {
-  const tips = [], st = S.stats || {}, cs = chainStats ? chainStats() : null; const tu = tutoStep(); if (tu) tips.push(tu);
+  const tips = [], st = S.stats || {}, cs = chainStats ? chainStats() : null; { const cv = coachView(); const x = cv && (cv.cur || cv.nxt); if (x) tips.push(coachMsg(x)); else if (cv && cv.stuck) tips.push('Plus de jalon rentable : optimise tes prix et ta publicité, ou lance un produit.'); }
   { const nm = MISSIONS.find(m => S.done.indexOf(m.id) < 0); if (nm) tips.push('Prochaine mission : ' + nm.t + (nm.r ? ' (+' + fmt(nm.r) + ' $)' : '') + '.'); }
   if (S.cash < 0) tips.push('Trésorerie négative : emprunte (Finances) ou réduis tes coûts.');
   if (cs && cs.bad.length) tips.push(`${cs.bad.length} goulot(s) dans ta chaîne : ouvre l'onglet Chaîne.`);
   let stores = 0, fact = 0; eachBuilding(c => { if (TYPES[c.t].ret) stores++; if (FLEVEL[c.t]) fact++; });
   { let empty = 0; eachBuilding(c => { if (FLEVEL[c.t] && !recOf(c) && !(c.prod && PRODUCTS[c.prod] && S.prod[c.prod].st === 'rnd')) empty++; }); if (empty) tips.push(`${empty} usine(s) vide(s) : ouvre-les et choisis un produit à fabriquer.`); }
-  if (!stores && fact) tips.push('Tu produis mais ne vends pas : construis un commerce (menu Commerce).');
-  if (!fact && !stores) tips.push('Commence par un camp, une mine ou un petit marché pour lancer ton empire.');
+  { const sm = bestShop(Math.max(0, S.cash)); if (!stores && fact && (!sm || sm.years <= ROI_MAX)) tips.push('Tu produis mais ne vends pas : construis un commerce (menu Commerce).'); }
+  if (!fact && !stores) tips.push('Commence par un petit marché en ville pour lancer ton empire.');
   if ((st.unemp || 0) > 0.2) tips.push('Chômage élevé : ouvre des usines ou des commerces.');
   if (!S.research && S.cash > 20000 && Object.keys(S.tech || {}).length < TECHS.length) tips.push('Aucune recherche en cours : améliore ton empire (Recherche).');
   if ((S.kp || 0) > 0) tips.push(`${S.kp} point(s) de connaissance à dépenser (Objectifs).`);
@@ -10187,9 +10204,8 @@ function resize() {
   const pw = 0;
   vx = (W - pw) / 2; vy = (topH + (H - botH)) / 2 + 20;
   if (!fitted) {
-    const availW = W - 24, availH = (H - topH - botH) - 16;
-    z = clamp(Math.min(availW / (15 * TW + 60), availH / (15 * TH + 260)), 0.16, 1.1);
-    centerOn(START.x, START.y);
+    fitView(topH, botH, 18);
+    const f0 = S && S.grid ? cityFocus() : START; centerOn(f0.x, f0.y);   // premier écran : la ville (ou ton empire), pas le port vide
   }
 }
 function zoomBy(f, px, py) {
@@ -11425,13 +11441,13 @@ let roundEasy = false; try { roundEasy = localStorage.getItem('wse-easy') === '1
 function startMode(k) {
   const fresh = S.mode && S.mode.pending && k === 'free' && S.day === 0;
   el('modesel').hidden = true; el('endscr').hidden = true;
-  if (!fresh) { newCity(); makeDecor(); cars = []; centerOn(START.x, START.y); }
+  if (!fresh) { newCity(); makeDecor(); cars = []; }
   S.mode = { k, t0: 0, done: null, n: {}, f: {} };
   S.mat = (k === 'free' || (matChoice && (k === 'round' || k === 's3' || k === 's4' || k === 's5'))) ? 1 : 0; S.matPop = S.pop; S.trials = []; mkInv();   // marché mûr : par défaut en Libre, option pour les scénarios 3-5 et les rounds
   if (k === 'round') { S.cash = roundEasy ? ROUND_CASH.easy : ROUND_CASH.normal; S.noEv = false; S.mode.easy = roundEasy ? 1 : 0; (S.rivals || []).forEach(r => { r.cash = S.cash; }); }
   if (isScn()) { S.cash = SCN[k].cash; S.noEv = k === 's1'; }
   S.unlockAll = true; S.mode.w0 = S.cash;
-  S.mode.await = 1; setSpeed(0); syncSpeedUI(); refreshStats(); S.hist = [Math.round(S.stats.worth)]; buildTools(); updateHUD(); save(); showCaste(false);   // le temps ne court qu'après le choix de la caste
+  S.mode.await = 1; setSpeed(0); syncSpeedUI(); refreshStats(); S.hist = [Math.round(S.stats.worth)]; buildTools(); setPanel(false); frameCity(); coachReset(); updateHUD(); save(); showCaste(false);   // le temps ne court qu'après le choix de la caste
   say(k === 'free' ? 'Mode Libre.' : modeName() + ' : ' + (k === 'round' ? MODE_INFO.round.d : SCN[k].d), 'gold');
 }
 // Barre d'objectif du HUD : jalon suivant, progression, rang, temps
@@ -11486,14 +11502,15 @@ el('objbar').addEventListener('click', e => {
   if (a === 'skip') { tutoF().tdone = 1; applyHl(null); }
   else if (a === 'ok') { tutoF().t5 = 1; }
   else if (a === 'tip') { coachOpen = !coachOpen; }
+  else if (a === 'hqsite') { const h = hqSite(true); say(hqSiteMsg(h), 'info'); if (h.x != null) { fitted = true; centerOn(h.x + 1, h.y + 1); } setTool('hq'); if (h.kind === 'acq') acqOpen(h.plan); }
   updObj();
 });
 function updObj() {
   const box = el('objbar'); if (!box || !S || !S.mode) return;
   const cm = curMilestone(), pct = cm.g > 0 ? clamp(cm.v / cm.g, 0, 1) : 1, rk = rankPlayers(), cu = catchUp(), tu = tutoCur(), ck = coachOpen ? stuckInfo() : null;
   const D = modeDays(), left = D ? Math.max(0, D - S.day) : 0;
-  const tm = D ? `<span class="otm ${left < D * 0.1 ? 'neg' : ''}" title="Temps restant à vitesse normale">⏱ ${Math.max(0, Math.round(daysToMin(left)))} min</span>` : '';
-  const h = `<div class="orow"><span class="omode">${modeName()}</span><span class="ogoal"><b>${cm.t}</b> · ${cm.f(cm.v)} / ${cm.f(cm.g)}</span>${tm}<span class="ork" title="Classement par valorisation parmi les joueurs (monde : ${rankWorld()[0]} / ${rankWorld()[1]})">Rang ${rk[0]}/${rk[1]}</span>${cu.on ? `<span class="ocu" title="Rattrapage public : tu es à ${Math.round(cu.ratio * 100)} % du leader">Rattrapage −${Math.round(cu.disc * 100)} % crédits</span>` : ''}<button class="obtn" data-ob="tip" title="Que faire maintenant ? Conseil selon ta situation">Conseil</button>${(S.diff || 0) > 0 ? `<span class="ohot" title="Régulation : impôt +${Math.round(regTax() * 100)} pts, salaires +${Math.round(REG_WAGE * S.diff * 100)} %">Surchauffe ${S.diff}</span>` : ''}</div><div class="obar"><i style="width:${Math.round(pct * 100)}%"></i></div>${tu ? `<div class="otut"><span><b>Tutoriel ${tu.i + 1}/${tu.n}</b> · ${tu.s.t}</span>${tu.s.btn ? `<button class="obtn" data-ob="ok">${tu.s.btn}</button>` : ''}<button class="obtn" data-ob="skip" title="Masquer le tutoriel">Passer</button></div>` : ''}${coachOpen && ck ? `<div class="ocoach"><span><b>Conseil</b> · ${ck.t}</span><button class="obtn" data-ob="tip">Fermer</button></div>` : ''}`;
+  const tm = D ? `<span class="otm ${left < D * 0.1 ? 'neg' : ''}" title="Temps restant à vitesse normale (1 an = ${YEAR_D} jours de jeu). Fin du round au jour ${fmt(D)}">⏱ ${Math.max(0, Math.round(daysToMin(left)))} min · ${dateTxt(S.day)} (jour ${fmt(S.day)} / ${fmt(D)})</span>` : '';
+  const h = `<div class="orow"><span class="omode">${modeName()}</span><span class="ogoal"><b>${cm.t}</b> · ${cm.f(cm.v)} / ${cm.f(cm.g)}</span>${tm}<span class="ork" title="Classement par valorisation parmi les joueurs (monde : ${rankWorld()[0]} / ${rankWorld()[1]})">Rang ${rk[0]}/${rk[1]}</span>${cu.on ? `<span class="ocu" title="Rattrapage public : tu es à ${Math.round(cu.ratio * 100)} % du leader">Rattrapage −${Math.round(cu.disc * 100)} % crédits</span>` : ''}<button class="obtn" data-ob="tip" title="Que faire maintenant ? Conseil selon ta situation">Conseil</button>${(S.diff || 0) > 0 ? `<span class="ohot" title="Régulation : impôt +${Math.round(regTax() * 100)} pts, salaires +${Math.round(REG_WAGE * S.diff * 100)} %">Surchauffe ${S.diff}</span>` : ''}</div><div class="obar"><i style="width:${Math.round(pct * 100)}%"></i></div>${rankHTML()}${tu ? '' : coachRowHTML()}${tu ? `<div class="otut"><span><b>Tutoriel ${tu.i + 1}/${tu.n}</b> · ${tu.s.t}</span>${tu.s.btn ? `<button class="obtn" data-ob="ok">${tu.s.btn}</button>` : ''}<button class="obtn" data-ob="skip" title="Masquer le tutoriel">Passer</button></div>` : ''}${coachOpen && ck ? `<div class="ocoach"><span><b>Conseil</b> · ${ck.t}</span></div>${planHTML()}` : ''}`;
   if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
   { const k2 = coachOpen && ck && ck.hl ? ck.hl() : null, t2 = tu && tu.s.hl ? tu.s.hl() : null; applyHl(t2 || k2 || null); }
 }
@@ -11508,6 +11525,247 @@ function antiHTML() {
     <div class="tcard"><b>Dette graduée</b><small>Plafond ${money(lim)} (le plus bas de : actifs courants, 3 ans d'EBE ${money(Math.round(DEBT_X * Math.max(0, annEbe())))}). Prime de levier +${(levPts() * 100).toFixed(1).replace('.', ',')} pt, taux ${(loanRateNow() * 100).toFixed(1).replace('.', ',')} %.</small></div>
     <div class="tcard"><b>Surchauffe</b><small>Courbe attendue ${fmtV(expectedVal(S.day))} ; niveau ${S.diff || 0} : impôt +${Math.round(regTax() * 100)} pts, salaires +${Math.round(REG_WAGE * Math.max(0, S.diff || 0) * 100)} %, plafond de dette −${Math.round(REG_DEBT * Math.max(0, S.diff || 0) * 100)} %. Visible pour tous les joueurs.</small></div>
     <div class="tcard"><b>Marchés d'export stables (${xm.length}/${XM_MAX})</b><small>${xm.length ? xm.map(g => GOODS[g] ? GOODS[g].name : g).join(', ') : 'Choisis par ton volume exporté'} : au cours du marché. Les autres exports se vendent à ${Math.round(XM_SPOT * 100)} % du cours (spot).</small></div>`;
+}
+
+/* ---------- Passe 29 : parcours guidé (premier écran, conseiller à jalons chiffrés, rendements décroissants, classement, récaps) ---------- */
+const ROI_MAX = 8;   // années : au-delà, un bâtiment n'est plus recommandé
+const COACH_PH = ['Commerce', 'Première usine', 'Chaîne et marque', 'Capital et expansion'];
+const dMin = d => d * dayMs() / 60000;                  // jours de jeu -> minutes réelles (vitesse normale)
+const coachEvery = () => Math.round(300000 / dayMs());   // un nouveau jalon environ toutes les 5 minutes de jeu
+const buildCost = k => Math.round(TYPES[k].cost * casteCost(k) * Math.max(1, cpi()));
+const f1c = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+const roiTxt = y => !isFinite(y) ? 'jamais amorti' : y < 1 ? 'retour < 1 an' : y > 99 ? 'retour > 99 ans' : 'retour ' + (y < 10 ? f1c(y) : Math.round(y)) + ' ans';
+const pctD = v => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v * 1000) / 10).toString().replace('.', ',') + ' %';
+
+// ---- Premier écran : caméra sur la ville (ou sur ton empire), jamais sur le port vide
+function cityFocus() {
+  const mine = [], city = [];   // tes bâtiments d'abord, sinon les immeubles de la ville
+  eachBuilding(c => { if (c.t !== 'npc') mine.push(c); else if (inCity(c.x, c.y)) city.push(c); });
+  const L = mine.length ? mine : city;
+  if (!L.length) return { x: (CITY.x0 + CITY.x1) >> 1, y: (CITY.y0 + CITY.y1) >> 1, built: false };
+  const cx = L.reduce((a, c) => a + c.x, 0) / L.length, cy = L.reduce((a, c) => a + c.y, 0) / L.length;   // on se recentre sur le bâtiment le plus proche du barycentre
+  let best = L[0], bd = 1e9; L.forEach(c => { const d = Math.abs(c.x - cx) + Math.abs(c.y - cy); if (d < bd) { bd = d; best = c; } });
+  return { x: best.x, y: best.y, built: true };
+}
+function fitView(topH, botH, tiles) {
+  const availW = W - 24, availH = (H - topH - botH) - 16, t = tiles || 16;
+  z = clamp(Math.min(availW / (t * TW), availH / (t * TH + 120)), 0.16, 1.1);
+}
+function frameCity() {
+  if (!W) return null; const f = cityFocus(), hud = $('#hud').getBoundingClientRect(), bar = $('#bar').getBoundingClientRect();
+  fitView(hud.bottom, H - bar.top, 18); centerOn(f.x, f.y); fitted = true; return f;
+}
+function camTile() { const sx = cam.x, sy = cam.y + 10; return { x: (sx / (TW / 2) + sy / (TH / 2)) / 2 - 0.5, y: (sy / (TH / 2) - sx / (TW / 2)) / 2 - 0.5 }; }
+function builtNear(x, y, r) { let n = 0; eachBuilding(c => { if (Math.abs(c.x - x) <= r && Math.abs(c.y - y) <= r) n++; }); return n; }
+
+// ---- Rendements décroissants : retour marginal du prochain commerce, mesuré sur tes magasins
+function shopStats(key) {
+  let n = 0, rev = 0, cogs = 0, fix = 0, ut = 0, un = 0, land = 0;
+  eachBuilding(c => { if (c.t !== key || !c.conn || (c.days || 0) < 8) return; n++; rev += c.pRev || 0; cogs += (c.inCost || 0) + (c.transport || 0); fix += (c.wages || 0) + (c.upk || 0) + (c.adCost || 0); land += c.lp || 0; if (c._cap > 0) { ut += clamp((c._sold || 0) / c._cap, 0, 1); un++; } });
+  return n ? { n, rev: rev / n, cogs: cogs / n, fix: fix / n, util: un ? ut / un : 1, land: land / n } : null;
+}
+// gain quotidien du prochain magasin du type : si tes magasins ne remplissent pas leur capacité (demande saturée), un de plus ne fait que se partager les mêmes clients
+function shopMarginal(key) {
+  const ss = shopStats(key), cost = buildCost(key) + Math.round(ss ? ss.land : 0);
+  if (!ss) { const g = cost / (4 * 360); return { key, cost, gainD: g, years: 4, n: 0, util: null, h: 1, basis: 'estimation de départ (retour visé : 4 ans)' }; }
+  const h = clamp((ss.util - 0.55) / 0.4, 0.05, 1), g = h * (ss.rev - ss.cogs) - ss.fix;
+  return { key, cost, gainD: g, years: g > 0 ? cost / (g * 360) : Infinity, n: ss.n, util: ss.util, h, basis: 'mesuré sur tes ' + ss.n + ' magasin' + (ss.n > 1 ? 's' : '') + ' (remplissage ' + Math.round(ss.util * 100) + ' %)' };
+}
+function bestShop(cash) {
+  const L = ['s1', 's2', 's3'].filter(k => TYPES[k] && !toolLocked(k)).map(shopMarginal); if (!L.length) return null;
+  const ok = L.filter(m => m.cost <= cash), pool = ok.length ? ok : L;
+  return pool.slice().sort((a, b) => (a.years - b.years) || (a.cost - b.cost))[0];
+}
+function roiCard(c) {
+  const T = TYPES[c.t]; if (!T || !T.ret || c.t === 'immo') return '';
+  const m = shopMarginal(c.t), lv = m.years <= 5 ? 'ok' : m.years <= ROI_MAX ? 'warn' : 'bad';
+  const own = (c.profit || 0) > 0 ? ` Ce magasin-ci : ${roiTxt(investOf(c) / (c.profit * 360))}.` : '';
+  return `<div class="bnbanner ${lv}"><b>Rendements décroissants</b><span>Le prochain ${T.name.toLowerCase()} rapporterait ~${fmt(m.gainD)} $ par jour (${mj(m.gainD)} par mois) pour ${money(m.cost)} : ${roiTxt(m.years)}. ${m.years > ROI_MAX ? 'Au-delà de ' + ROI_MAX + ' ans le conseiller ne recommande plus d\'en ouvrir : agrandis, change de gamme ou investis ailleurs.' : 'Tant que le retour reste sous ' + ROI_MAX + ' ans, ouvrir un magasin de plus reste rentable.'}${own} <i>Estimation ${m.basis}.</i></span></div>`;
+}
+
+// ---- Publicité : retour par support et dosage optimal (estimation : l'affluence gagnée vaut 0,6 × la puissance de campagne, cf. adFactor)
+function adAdvice(c) {
+  const ad = adOf(c), sc = adScaleOf(c), pRev = c.pRev || 0, f = c.adF || adFactor(c), base = pRev / Math.max(1, f);
+  const gm = pRev > 0 ? clamp((pRev - (c.inCost || 0) - (c.transport || 0)) / pRev, 0.05, 0.9) : 0.3, capF = c.limit === 'capacity' ? 0 : 1;
+  const rows = AD_KEYS.map(k => { const C = AD_CH[k], s = C.scale * sc, b = ad[k] || 0, A = base * gm * 0.6 * C.gain * capF, gain = A * (1 - Math.exp(-b / s)), opt = A > s ? Math.min(C.max, s * Math.log(A / s)) : 0, gOpt = A * (1 - Math.exp(-opt / s));
+    return { k, n: C.n, b, gain, net: gain - b, roi: b > 0 ? gain / b - 1 : null, opt, optNet: gOpt - opt }; });
+  const net = rows.reduce((a, r) => a + r.net, 0), optNet = rows.reduce((a, r) => a + r.optNet, 0);
+  return { rows, net, optNet, spend: rows.reduce((a, r) => a + r.b, 0), waste: rows.reduce((a, r) => a + (r.b > 0 && r.net < 0 ? -r.net : 0), 0), capLimited: !capF };
+}
+function adRoiHTML(c) {
+  const a = adAdvice(c), act = a.rows.filter(r => r.b > 0), roiT = r => r.roi == null ? '–' : (r.roi >= 0 ? '+' : '−') + Math.abs(Math.round(r.roi * 100)) + ' %';
+  const line = r => `<tr><td>${r.n}</td><td>${r.b > 0 ? mj(r.b) + ' /mois' : '–'}</td><td>${r.b > 0 ? '~' + mj(r.gain) + ' /mois' : '–'}</td><td class="${r.b > 0 && r.net < 0 ? 'neg' : r.b > 0 ? 'pos' : ''}">${roiT(r)}</td><td>${r.opt > 0 ? mj(r.opt) + ' /mois' : 'rien'}</td></tr>`;
+  const verdict = a.capLimited ? 'Magasin saturé : aucune publicité ne peut rapporter tant que la capacité est pleine.' : act.length ? (a.net >= 0 ? `Ta publicité rapporte environ ${mj(a.net)} par mois de plus qu\'elle ne coûte.` : `Ta publicité te fait perdre environ ${mj(-a.net)} par mois.`) : 'Aucune publicité en cours.';
+  return `<div class="bnbanner ${a.net < 0 && act.length ? 'bad' : 'ok'}"><b>Retour sur investissement par support</b><span>${verdict} Dosage optimal estimé : ${a.rows.filter(r => r.opt > 0).map(r => r.n + ' ' + mj(r.opt) + ' par mois').join(', ') || 'aucune publicité'}${a.optNet > Math.max(0, a.net) ? ' (gain net ≈ ' + mj(a.optNet) + ' par mois)' : ''}.</span>
+    <table class="fint" style="margin-top:6px"><tr><th>Support</th><th>Budget</th><th>Gain brut</th><th>Retour net</th><th>Dosage optimal</th></tr>${a.rows.map(line).join('')}</table><span><i>Estimation : le retour est le gain de marge de l'affluence supplémentaire moins le budget.</i></span></div>`;
+}
+function adWasteTotal() {
+  let w = 0, names = {}; eachBuilding(c => { if (!TYPES[c.t].ret || !(adSpend(c) > 0) || !c.conn) return; const a = adAdvice(c); a.rows.forEach(r => { if (r.b > 0 && r.net < 0) { w += -r.net; names[r.n] = (names[r.n] || 0) - r.net; } }); });
+  return { perDay: w, perMonth: w * DM, names: Object.keys(names).sort((a, b) => names[b] - names[a]) };
+}
+
+// ---- Terrain du siège : lot 2x2 libre, sinon rachat d'un lot bâti (acqPlan / acqExec), sinon pistes
+let _hqC = { t: 0, v: null };
+function hqSite(force, opts) {
+  opts = opts || {}; if (hqOf()) return { kind: 'have' }; if (!TYPES.hq || toolLocked('hq')) return { kind: 'locked' };
+  const now = performance.now(); if (!force && !opts.noFree && _hqC.v && now - _hqC.t < 4000) return _hqC.v;
+  const f = cityFocus(); let free = null, bd = 1e9, acqB = null, ab = 1e18;
+  for (let y = CITY.y0; y <= CITY.y1; y++) for (let x = CITY.x0; x <= CITY.x1; x++) {
+    const c = S.grid[idx(x, y)];
+    if (!opts.noFree && !c && !footprintError(x, y, 'hq')) { const d = Math.abs(x - f.x) + Math.abs(y - f.y); if (d < bd) { bd = d; free = [x, y]; } }
+    else if (c && c.t === 'npc') { const ap = acqPlan(x, y, 'hq'); if (ap) { const pen = Object.keys(ap.groups).length ? 1.5 : 1, sc = ap.total * pen; if (sc < ab) { ab = sc; acqB = ap; } } }
+  }
+  const v = free ? { kind: 'free', x: free[0], y: free[1] } : acqB ? { kind: 'acq', plan: acqB, x: acqB.x, y: acqB.y } : { kind: 'none' };
+  if (!opts.noFree) _hqC = { t: now, v }; return v;
+}
+function hqSiteMsg(h) {
+  if (h.kind === 'free') return `Un terrain libre de 2×2 cases existe en (${h.x + 1}, ${h.y + 1}) : pose le siège social là.`;
+  if (h.kind === 'acq') { const p = h.plan; return `Plus aucun lot libre de 2×2 cases en ville. Le moins cher à réserver : ${p.desc} en (${p.x + 1}, ${p.y + 1}), à racheter puis raser : ${money(p.acqNpc)} de rachat + ${money(p.build)} de construction = ${money(p.total)}. Clique « Voir le lot » : la fenêtre d'acquisition s'ouvre.`; }
+  if (h.kind === 'none') return 'Aucun lot ne convient : rase un de tes propres bâtiments (outil Démolir) pour libérer 2×2 cases, ou rachète un immeuble à un rival (Menu > Concurrents).';
+  if (h.kind === 'locked') return 'Le siège social se débloque à un palier supérieur.';
+  return '';
+}
+
+// ---- Conseiller à jalons : état réel -> jalon chiffré (coût, gain par mois, durée), 4 phases
+let _csM = { t: 0, v: null };
+function coachSt(fresh) {
+  const now = performance.now(); if (!fresh && _csM.v && now - _csM.t < 800) return _csM.v;
+  const o = { cash: S.cash, shops: 0, ext: 0, fac: 0, facOn: 0, prodOn: 0, prodRnd: 0, hq: !!hqOf(), listed: S.float > 0, loan: S.loan || 0, val: valuation(), net30: ((S.fin && S.fin.net) || 0) * DM, ca30: 0, share: marketShareAvg(), subs: subCount() };
+  eachBuilding(c => { const T = TYPES[c.t]; if (T.ret && c.t !== 'immo') o.shops++; if (T.ext) o.ext++; if (FLEVEL[c.t]) { o.fac++; if (recOf(c)) o.facOn++; } });
+  PKEYS.forEach(pk => { const s = S.prod[pk].st; if (s === 'on') o.prodOn++; else if (s === 'rnd') o.prodRnd++; });
+  { const a = S.m30 || []; o.ca30 = a.length ? a.reduce((t, r) => t + r[0], 0) * DM / a.length : 0; }
+  o.shop = bestShop(Math.max(0, o.cash));
+  o.sug = null; try { const sg = mkSuggest().find(x => x.profit > 0 && isFinite(x.profit)); if (sg) { const R = sg.route === 'buy' && sg.buy ? sg.buy : sg.make; o.sug = { pk: sg.pk, name: PRODUCTS[sg.pk].name, profit: sg.profit, cost: Math.round(R.capex.total), route: sg.route }; } } catch (e) { o.sug = null; }
+  { const w = adWasteTotal(); o.adWaste30 = w.perMonth; o.adNames = w.names; }
+  o.rate = loanRateNow();
+  const rv = (S.rivals || []).filter(r => !r.sub).sort((a, b) => rivalValue(a) - rivalValue(b))[0];
+  o.rival = rv ? { id: rv.id, name: rv.name, cost: Math.round(rivalPx(rv) * RSH * 0.5 * 1.1), gain: 0.6 * Math.max(0, rv.pf || 0) * 0.5 * DM } : null;
+  o.nx = TIERS.find(t => t.at > o.val) || null;
+  _csM = { t: now, v: o }; return o;
+}
+function mkCand(o, e, t, d, cost, gainM, extra) {
+  const deficit = Math.max(0, cost - o.cash), mo = deficit > 0 ? (o.net30 > 0 ? deficit / o.net30 : 99) : 0, min = Math.min(99, Math.max(1, Math.ceil(1 + dMin(mo * DM))));
+  return Object.assign({ id: e.id, ph: e.ph, t, d, cost, gain: gainM, min, years: gainM > 0 ? cost / (gainM * 12) : Infinity, afford: o.cash >= cost, strategic: !!e.strategic }, extra || {});
+}
+const CASTE_HINT = { industriel: 'Ton avantage : usines et fonderies −12 %.', promoteur: 'Ton avantage : constructions urbaines −15 %.', banquier: 'Ton avantage : crédit moins cher, levier élevé.', negociant: 'Ton avantage : exports +15 %, intrants −4 %.', agriculteur: 'Ton avantage : fermes −25 %, cultures +15 %.', innovateur: 'Ton avantage : R&D 30 % plus rapide et moins chère.' };
+const COACH = [
+  { id: 'shop1', ph: 0, done: o => o.shops >= 1, make(o) { const m = o.shop; if (!m) return null; return mkCand(o, this, 'Ouvre ton premier commerce en ville', 'Menu Commerce > Magasins > Petit marché, puis une case libre au bord d\'une rue. C\'est ta source de revenus : tout le reste en dépend. ' + (CASTE_HINT[casteOf()] || ''), m.cost, m.gainD * DM, { years: m.years, key: m.key }); } },
+  { id: 'shop3', ph: 0, done: o => o.shops >= 3, make(o) { const m = o.shop; if (!m || m.years > ROI_MAX) return null; return mkCand(o, this, `Ouvre un commerce de plus (${o.shops + 1} sur 3)`, `Le prochain ${TYPES[m.key].name.toLowerCase()} rapporterait ~${fmt(m.gainD)} $/j (${roiTxt(m.years)}).`, m.cost, m.gainD * DM, { years: m.years, key: m.key }); } },
+  { id: 'fac', ph: 1, done: o => o.fac >= 1, make(o) { if (toolLocked('f1')) return null; const c = buildCost('f1'), g = o.sug ? o.sug.profit : c / 36; if (c / (g * 12) > ROI_MAX) return null; return mkCand(o, this, 'Construis ta première usine', 'Menu Industrie > Usines, dans la zone du port à l\'est. Elle fabriquera tes produits au lieu de les acheter.', c, g); } },
+  { id: 'prod1', ph: 1, done: o => o.prodOn + o.prodRnd >= 1, make(o) { const s = o.sug; if (!s || s.cost / (s.profit * 12) > ROI_MAX) return null; return mkCand(o, this, `Lance ton premier produit : ${s.name}`, 'Bouton Produits > « Recommandé pour toi » : ' + (s.route === 'buy' ? 'achète-le à un fournisseur et revends-le.' : 'fabrique-le dans ton usine.'), s.cost, s.profit); } },
+  { id: 'adfix', ph: 2, done: o => o.adWaste30 < Math.max(300 * K_SIZE, 0.02 * o.ca30), make(o) { return mkCand(o, this, 'Coupe la publicité qui perd de l\'argent', `${o.adNames.slice(0, 2).join(' et ')} coûtent plus qu'elles ne rapportent. Ouvre un magasin > onglet Publicité : le dosage optimal est indiqué.`, 0, o.adWaste30); } },
+  { id: 'prod2', ph: 2, done: o => o.prodOn + o.prodRnd >= 3, make(o) { const s = o.sug; if (!s || s.cost / (s.profit * 12) > ROI_MAX) return null; return mkCand(o, this, `Élargis ta gamme (${o.prodOn + o.prodRnd + 1} produits sur 3) : ${s.name}`, 'Plus de produits en rayon = plus de parts de marché (aujourd\'hui ' + Math.round(o.share * 100) + ' %). Bouton Produits > « Recommandé pour toi ».', s.cost, s.profit); } },
+  { id: 'debt', ph: 3, done: o => o.loan <= 0, strategic: true, make(o) { if (!(o.loan > 0) || !(o.cash > 1.4 * o.loan || o.loan > 0.6 * Math.max(1, o.val))) return null; return mkCand(o, this, `Rembourse ta dette (${money(o.loan)} à ${f1c(o.rate * 100)} %)`, 'Menu > Finances > Rembourser : chaque dollar remboursé économise les intérêts et libère ton plafond de crédit.', o.loan, o.loan * o.rate / 12); } },
+  { id: 'hq', ph: 3, done: o => o.hq, strategic: true, make(o) { if (toolLocked('hq')) return null; const h = hqSite(false), g = 0.3 * o.val * 0.01; return mkCand(o, this, 'Construis ton siège social', hqSiteMsg(h) + ' Le siège ouvre la bourse (lever des capitaux), les dirigeants et la finance d\'entreprise.', buildCost('hq') + (h.kind === 'acq' ? Math.round(h.plan.acqNpc) : 0), g, { site: h.kind }); } },
+  { id: 'ipo', ph: 3, done: o => o.listed, strategic: true, make(o) { if (!o.hq || o.val < IPO_MIN) return null; const raise = o.val * 0.3 * 1.1; return mkCand(o, this, 'Introduis ta société en bourse', `Menu > Bourse > Introduction : tu cèdes 30 % du capital et encaisses ≈ ${mM(raise)} pour financer ta croissance.`, 0, raise * 0.01); } },
+  { id: 'rival', ph: 3, done: o => o.subs >= 1, make(o) { const r = o.rival; if (!r || !o.hq || r.gain <= 0 || r.cost / (r.gain * 12) > ROI_MAX) return null; return mkCand(o, this, `Prends le contrôle de ${r.name}`, 'Menu > Bourse > terminal : achète plus de 50 % du capital ; la filiale te verse des dividendes.', r.cost, r.gain); } }
+];
+function coachPick(o) {
+  const skipped = [];
+  for (const e of COACH) {
+    if (e.done(o)) continue;
+    const c = e.make(o); if (!c) { skipped.push(e.id); continue; }
+    if (!e.strategic && c.years > ROI_MAX) { skipped.push(e.id); continue; }
+    c.skipped = skipped; return c;
+  }
+  return null;
+}
+// Plan pour le palier suivant : trois façons chiffrées de combler l'écart
+function tierPlan(o) {
+  o = o || coachSt(); const nx = o.nx; if (!nx) return null; const gap = Math.max(0, nx.at - o.val), ways = [], moMin = mo => Math.max(1, Math.round(dMin(mo * DM)));
+  if (o.net30 > 0) { const mo = gap / o.net30; ways.push(`Laisser tourner : à ${money(o.net30)} par mois, il faut ${f1c(mo)} mois de jeu (≈ ${moMin(mo)} min).`); }
+  else ways.push(`Redresser d'abord : ton résultat est de ${money(o.net30)} par mois. Corrige les magasins ou la publicité déficitaires avant de viser le palier.`);
+  const c = coachPick(o);
+  if (c && c.gain > 0) { const tot = Math.max(1, o.net30 + c.gain), mo = gap / tot; ways.push(`Investir : « ${c.t} » (${money(c.cost)}, +${money(c.gain)} par mois) ramène le palier à ≈ ${f1c(mo)} mois (${moMin(mo)} min).`); }
+  else ways.push('Investir : aucun bâtiment rentable (retour sous ' + ROI_MAX + ' ans) pour l\'instant : lance un nouveau produit ou une usine (Produits > Recommandé pour toi).');
+  const room = Math.max(0, creditLimit() - o.loan);
+  if (!o.hq) ways.push('Capital : construis le siège social, puis introduis la société en bourse (30 % du capital cédé) dès ' + mM(IPO_MIN) + ' de valorisation.');
+  else if (!o.listed && o.val >= IPO_MIN) ways.push(`Capital : introduis la société en bourse : ≈ ${mM(o.val * 0.3 * 1.1)} encaissés pour investir.`);
+  else if (o.rival && o.rival.gain > 0) ways.push(`Capital : prends le contrôle de ${o.rival.name} (≈ ${money(o.rival.cost)}, +${money(o.rival.gain)} par mois de dividendes).`);
+  else ways.push(`Capital : emprunte jusqu'à ${money(room)} (taux ${f1c(o.rate * 100)} %) uniquement pour un investissement au retour sous ${ROI_MAX} ans.`);
+  return { next: nx, gap, ways: ways.slice(0, 3), text: `Il te faut ${fmtV(gap)} de plus pour le palier ${nx.n} : voici ${Math.min(3, ways.length)} façons.` };
+}
+function coachMsg(c) { return `Phase ${c.ph + 1}/4 · ${COACH_PH[c.ph]} : ${c.t} (coût ${money(c.cost)}, gain ≈ +${money(c.gain)}/mois, ≈ ${c.min} min).`; }
+// Une proposition toutes les ≈ 5 minutes de jeu ; retrait immédiat d'un jalon devenu non rentable
+function stepCoach(force) {
+  if (!S || !S.mode || S.mode.pending) return;
+  const c = S.coach || (S.coach = { done: {}, prop: -1e9 }); if (!force && S.day % 5 !== 0) return;
+  const o = coachSt(true);
+  if (c.id) {
+    const e = COACH.find(x => x.id === c.id), cd = e && !e.done(o) ? e.make(o) : null;
+    if (!e || e.done(o)) { c.done[c.id] = S.day; say('Jalon atteint : ' + (c.t || c.id) + '.', 'gold'); c.id = null; }
+    else if (!cd || (!e.strategic && cd.years > ROI_MAX)) { say(`Jalon retiré : « ${c.t} » n'est plus rentable${o.shop && c.id.indexOf('shop') === 0 ? ` (le prochain commerce rapporterait ~${fmt(o.shop.gainD)} $/j : ${roiTxt(o.shop.years)})` : ''}.`, 'info'); c.id = null; }
+    else c.t = cd.t;
+  }
+  if (!c.id) { const nx = coachPick(o); c.nxt = nx ? nx.id : null; if (nx && (S.day - c.prop >= coachEvery() || force === 2)) { c.id = nx.id; c.t = nx.t; c.prop = S.day; say('Nouveau jalon. ' + coachMsg(nx), 'gold'); } }
+  // classement : instantané tous les 10 jours (flèches de tendance), CA de référence (récaps)
+  if (!c.rk || S.day - c.rk.d >= 10) { const v = {}; ranking().forEach(r => { if (r.kind !== 'groupe') v[r.id || r.n] = r.v; }); c.rk = { d: S.day, v, p: c.rk ? c.rk.v : null }; }
+  c.caH = c.caH || []; if (!c.caH.length || S.day - c.caH[c.caH.length - 1][0] >= 10) { c.caH.push([S.day, Math.round(o.ca30)]); if (c.caH.length > 8) c.caH.shift(); }
+  // publicité déficitaire : avertissement (au plus tous les 60 jours)
+  if (o.adWaste30 > Math.max(500 * K_SIZE, 0.03 * o.ca30) && S.day - (c.adW || -99) >= 60) { c.adW = S.day; say(`Publicité déficitaire : ${o.adNames.slice(0, 2).join(' et ')} te coûtent ≈ ${money(o.adWaste30)} de plus par mois qu'elles ne rapportent. Voir l'onglet Publicité d'un magasin.`, 'warn'); }
+  stepRecaps(o);
+}
+function coachReset() { S.coach = { done: {}, prop: -1e9 }; stepCoach(2); }
+function coachView() {
+  if (!S || !S.mode || S.mode.pending || !S.coach) return null;
+  const o = coachSt(), c = S.coach; let cur = null, nxt = null;
+  if (c.id) { const e = COACH.find(x => x.id === c.id); cur = e && !e.done(o) ? e.make(o) : null; }
+  if (!cur) nxt = coachPick(o);
+  const left = Math.max(0, c.prop + coachEvery() - S.day);
+  return { o, cur, nxt, inMin: Math.max(1, Math.round(dMin(left))), plan: tierPlan(o), ph: (cur || nxt || { ph: 3 }).ph, stuck: !cur && !nxt };
+}
+
+// ---- Classement des rivaux dans le HUD
+function rankRows() {
+  const rk = S.coach && S.coach.rk, rows = ranking().filter(r => r.kind !== 'groupe'), lead = rows.length ? rows[0].v : 0;
+  return rows.map((r, i) => { const k = r.id || r.n, ref = rk ? ((rk.p && rk.p[k] != null) ? rk.p[k] : rk.v[k]) : null, tr = ref == null || ref <= 0 ? 0 : r.v > ref * 1.01 ? 1 : r.v < ref * 0.99 ? -1 : 0; return { rank: i + 1, n: r.me ? 'Toi' : r.n, v: r.v, me: !!r.me, tr, gap: r.v - lead, col: r.col }; });
+}
+function rankHTML() {
+  const rows = rankRows(); if (rows.length < 2) return '';
+  const me = rows.find(r => r.me), arrow = t => t > 0 ? '<i class="up">▲</i>' : t < 0 ? '<i class="dn">▼</i>' : '<i>▬</i>';
+  const top = rows.slice(0, isMob() ? 2 : 4), shown = me && top.indexOf(me) < 0 ? top.concat([me]) : top;
+  return `<div class="orank" title="Classement en direct par valorisation (tendance sur 10 jours)"><span class="olbl">Classement</span>${shown.map(r => `<span class="${r.me ? 'me' : ''}">${r.rank}. ${r.n} <b>${fmtV(r.v)}</b> ${arrow(r.tr)}</span>`).join('')}${me && me.rank > 1 ? `<span class="gap">écart avec le leader : −${fmtV(-me.gap)}</span>` : '<span class="gap up">tu es en tête</span>'}</div>`;
+}
+
+// ---- Récapitulatifs après un événement macro, un événement de jeu ou un rachat
+function recap(title, lines, kind) {
+  const box = el('recap'); if (!box) return;
+  say(title + ' ' + lines[0], kind || 'info');
+  box.innerHTML = `<b>${title}</b>${lines.map(l => `<p>${l}</p>`).join('')}<button class="btn sec" data-rc="1">OK</button>`; box.hidden = false;
+  S.lastRecap = { t: title, l: lines, day: S.day };
+  clearTimeout(recap._t); recap._t = setTimeout(() => { box.hidden = true; }, 30000);
+}
+const caVs = () => { const h = (S.coach && S.coach.caH) || [], cur = coachSt().ca30; let ref = null; h.forEach(x => { if (x[0] <= S.day - 25) ref = x[1]; }); if (ref == null && h.length) ref = h[0][1]; return ref > 0 && cur > 0 ? cur / ref - 1 : null; };
+const MACRO_DO = { 'Récession': 'garde au moins 2 mois de charges en trésorerie, évite d\'emprunter, coupe la publicité déficitaire et ne lance rien dont le retour dépasse 5 ans.', 'Ralentissement': 'freine les ouvertures de magasins, surveille tes stocks et ton taux de remplissage.', 'Expansion': 'investis dans les jalons rentables et rembourse la dette avant le prochain retournement.', 'Boom': 'agrandis les magasins saturés et profite de la demande, mais rembourse la dette avant le retournement.', 'Supercycle de croissance': 'investis à fond dans les projets au retour sous 5 ans, la demande est forte.' };
+function stepRecaps(o) {
+  const c = S.coach; if (S.day < 15) { c.ms = macroState(); c.gdp0 = S.macro.gdp; c.nr = (S.rivals || []).filter(r => !r.sub).length; c.ns = o.subs; return; }
+  const ms = macroState(), g = S.macro.gdp;
+  if (c.ms && ms !== c.ms && S.day - (c.mrD || -99) >= 30) { c.mrD = S.day; const d = caVs(); recap(`${ms} : ${pctD(g)} de PIB`, [`La conjoncture passe de « ${c.ms} » à « ${ms} » (PIB ${pctD(c.gdp0 == null ? g : c.gdp0)} → ${pctD(g)}, taux ${f1c(S.macro.rate * 100)} %).`, d == null ? 'Ton chiffre d\'affaires n\'a pas encore assez d\'historique pour être comparé.' : `Ton CA mensuel : ${pctD(d)} sur 30 jours (${money(o.ca30)}/mois).`, 'Que faire : ' + (MACRO_DO[ms] || 'surveille ton résultat mensuel.')], g < 0 ? 'bad' : 'info'); c.gdp0 = g; }
+  if (c.ms !== ms) { c.ms = ms; c.gdp0 = g; }
+  const nr = (S.rivals || []).filter(r => !r.sub).length;
+  if (c.nr != null && (nr < c.nr || o.subs > (c.ns || 0))) { const rk = rankPlayers(); recap(o.subs > (c.ns || 0) ? 'Rachat : un rival devient ta filiale' : 'Rachat : un rival disparaît', [`Il reste ${nr} rival${nr > 1 ? 'aux' : ''} indépendant${nr > 1 ? 's' : ''} ; tu es ${rk[0]}e sur ${rk[1]} (valorisation ${fmtV(o.val)}).`, `Ta trésorerie : ${money(o.cash)}${o.net30 ? ', résultat ' + money(o.net30) + ' par mois' : ''}.`, 'Que faire : intègre sa clientèle (rayons, prix) et remets la dette sous contrôle avant le prochain rachat.'], 'gold'); }
+  c.nr = nr; c.ns = o.subs;
+}
+const MOD_N = { demand: 'demande', wage: 'salaires', prod: 'production', buy: 'importations' };
+function recapEvent(ev, ch, before) {
+  const lab = (typeof ch.l === 'function' ? ch.l() : ch.l).replace(/\s*\(.*$/, ''), added = (S.mods || []).filter(m => before.mods.indexOf(m) < 0), dc = S.cash - before.cash, o = coachSt(true);
+  const eff = added.map(m => `${MOD_N[m.k] || m.k} ${pctD(m.v - 1)} pendant ${Math.max(1, m.until - S.day)} j`);
+  const dm = added.find(m => m.k === 'demand'), ca = dm ? ` Ton CA mensuel ≈ ${pctD(dm.v - 1)} (${money(o.ca30 * (dm.v - 1))} par mois) pendant ${Math.max(1, dm.until - S.day)} jours.` : '';
+  const todo = { strike: 'prévois la baisse de production dans tes engagements et surveille les marges.', crash: 'retarde les achats non urgents et garde de la trésorerie.', cargo: 'vérifie ton stockage avant d\'acheter en gros.', fire: 'contrôle tes entrepôts et ta production.', boom: 'vérifie que tes rayons sont pleins pour servir la demande.', breakthrough: 'regarde la recherche suivante dans Menu > Recherche.', rival: 'surveille tes parts de marché dans Concurrents.' }[ev.id] || 'surveille ton résultat mensuel.';
+  recap(`${ev.t} : ${lab}`, [(eff.length ? 'Effet : ' + eff.join(', ') + '.' : 'Pas d\'effet durable.') + (Math.abs(dc) >= 1 ? ` Trésorerie ${dc >= 0 ? '+' : '−'}${money(Math.abs(dc))}.` : '') + ca, 'Que faire : ' + todo], 'info');
+}
+function coachRowHTML() {
+  const v = coachView(); if (!v) return '';
+  const sub = ((X11().obj || {}).sub), cur = v.cur, x = cur || v.nxt;
+  let h = '';
+  if (x) h += `<div class="ocoach2"><span class="oph">Phase ${x.ph + 1}/4 · ${COACH_PH[x.ph]}</span><span class="otx"><b>${cur ? 'Objectif' : 'Prochain jalon (dans ≈ ' + v.inMin + ' min)'} :</b> ${x.t}</span><span class="onum">coût ${money(x.cost)} · gain ≈ +${money(x.gain)}/mois · ≈ ${x.min} min${x.years > 0 && isFinite(x.years) ? ' · ' + roiTxt(x.years) : ''}</span>${cur && cur.id === 'hq' ? '<button class="obtn" data-ob="hqsite">Voir le terrain</button>' : ''}</div>`;
+  else h += `<div class="ocoach2"><span class="otx"><b>Plus de jalon rentable</b> : tout nouvel investissement dépasserait ${ROI_MAX} ans de retour. ${v.o.shop && v.o.shop.years > ROI_MAX ? `Le prochain commerce rapporterait ~${fmt(v.o.shop.gainD)} $/j (${roiTxt(v.o.shop.years)}). ` : ''}Optimise tes prix, ta publicité ou lance un produit.</span></div>`;
+  if (sub) { const left = Math.max(0, sub.until - S.day), pen = sub.pen != null ? sub.pen : subPen(); h += `<div class="osub ${left <= 10 ? 'neg' : ''}">Sous-objectif : ${sub.t} · ${left} j restants (≈ ${Math.max(1, Math.round(dMin(left)))} min) · pénalité si manqué : −${money(pen)}</div>`; }
+  return h;
+}
+function planHTML() {
+  const p = tierPlan(); if (!p) return '';
+  return `<div class="ocoach"><span><b>${p.text}</b><br>${p.ways.map((w, i) => (i + 1) + '. ' + w).join('<br>')}</span><button class="obtn" data-ob="tip">Fermer</button></div>`;
 }
 
 /* ---------- Démarrage ---------- */
@@ -11534,6 +11792,7 @@ const tileToScreen = (x, y) => { const c = iso(x + 0.5, y + 0.5), r = cvs.getBou
 window.WSE = { acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { costs: { payYear, fxTrainCost, trainCost, RND_POP, DEMAND_PC }, brand: { HL: BC_HL, sig: bcSig, of: bcOf, lev: brandLev, lux: luxDeg, volM: brandVolM, volX: brandVolX, prem: brandPrem, shield: brandShield, el: shEl, half: bcHalf, mkt: bcMkt, target: bcTarget, step: bcStep, trend: bcTrend, line: brandLineHTML, capHTML: brandCapHTML, duel: brandDuel, attr: attractiveness, score: productScore, rivM: rivBm, rivProf, stepRiv: stepRivBrand, padSet: padAdjust, strat: brandStrat } });
+Object.assign(window.WSE, { coach: { st: coachSt, pick: coachPick, view: coachView, plan: tierPlan, reg: COACH, step: stepCoach, reset: coachReset, shopMarginal, bestShop, shopStats, adAdvice, adRoiHTML, adWasteTotal, roiCard, hqSite, hqSiteMsg, frame: frameCity, focus: cityFocus, camTile, builtNear, rankRows, rankHTML, recap, recapEvent, subPen, subGapTxt, stepSub, dateTxt, dateParts, ROI_MAX, every: coachEvery, setPanel, tierPlan, get S() { return S.coach; } } });
 Object.defineProperty(window.WSE, 'imm', { get() { return { on: immOn, tr: imm.tr, from: imm.from, idle: imm.idle, panel: immPanel, ang: planAng, yaw: planYaw, cam: { z: scam.z, x: scam.x, y: scam.y, bs: scam.bs }, W: imm.W, H: imm.H }; } });
 })();
 </script>
