@@ -259,7 +259,7 @@ window.BOT = (function () {
     if (s.day % 8 === 0) missions();
     if (P.industry) industry();
     if (P.idle > 0 && ((s.day * 2654435761) >>> 0) % 1000 < P.idle * 1000) return { did: 0, spent: 0 };
-    if (s.stats.unemp < 0.02 && s.cash > 1.5e6 && (cnt.res || 0) < P.resCap) { for (let i = 0; i < 3; i++) { const r = tryBuild('res'); if (r) { spent += r; did++; } } }
+    if (s.stats.unemp < 0.045 && s.cash > 1.5e6 && (cnt.res || 0) < P.resCap) { for (let i = 0; i < 3; i++) { const r = tryBuild('res'); if (r) { spent += r; did++; } } }
     for (let n = 0; n < P.maxPerTick; n++) {
       if (P.industry && IND.save != null && s.day - IND.save < 40) break;   // épargne pour une chaîne
       const b = pick(); if (!b) break;
