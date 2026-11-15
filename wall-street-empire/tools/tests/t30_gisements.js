@@ -3,12 +3,14 @@
 const fs = require('fs'), path = require('path');
 exports.name = 'Gisements industriels (passe 33)';
 
-const MINE = { nickel: 'mnickel', chrome: 'mchrome', bauxite: 'mbauxite', lithium: 'mlithium', silica: 'qsilica', salt: 'qsalt', sulfur: 'msulfur', phosphate: 'mphos', gas: 'gwell', rare: 'mrare', zinc: 'mzinc', clay: 'qclay', potash: 'mpotash', graphite: 'mgraphite' };
+const CO = ['chrome', 'rare', 'sulfur'];   // coproduits : pas de gisement ni de mine propres
+const MINE = { nickel: 'mnicr', bauxite: 'mbauxite', lithium: 'mlithium', silica: 'qsilica', salt: 'qsalt', phosphate: 'mphos', gas: 'gwell', zinc: 'mzinc', clay: 'qclay', potash: 'mpotash', graphite: 'mgraphite' };
 const KINDS = Object.keys(MINE);
 const NEWC = ['stainless', 'galva', 'brass', 'alumina', 'aluminium', 'magnet', 'fert', 'brick', 'porcelain', 'chassisal'];
 // EBITDA visé d'un extracteur posé sur le gisement le plus proche du port (macro figée) : métaux 38-62 %, minéraux et chimie 17-45 %, gaz 15-30 %
-const EBR = { nickel: [38, 62], chrome: [38, 62], bauxite: [38, 62], lithium: [38, 62], rare: [38, 62], zinc: [38, 62], graphite: [38, 62], silica: [17, 45], salt: [17, 45], clay: [17, 45], sulfur: [17, 45], phosphate: [17, 45], potash: [17, 45], gas: [15, 30] };
+const EBR = { nickel: [38, 62], bauxite: [38, 62], lithium: [38, 62], zinc: [38, 62], graphite: [38, 62], silica: [17, 45], salt: [17, 45], clay: [17, 45], phosphate: [17, 45], potash: [17, 45], gas: [15, 32] };
 
+const EXTRA = { car_alu: ['sulfur'], cookware: ['chrome'] };
 exports.run = async (t, L) => {
   const pg = await L.newPage({ wait: 700 }); await L.setup(pg, { cash: 5e10 }); await L.inject(pg);
 
@@ -29,12 +31,12 @@ exports.run = async (t, L) => {
     const dup = (obj, f) => { const s = new Set(), d = []; Object.keys(obj).forEach(k => { const n = f(obj[k]); if (s.has(n)) d.push(n); s.add(n); }); return d; };
     o.names = dup(W.GOODS, g => g.name).concat(dup(W.TYPES, g => g.name), dup(W.PRODUCTS, g => g.name), dup(W.RECIPES, g => g.name));
     const used = g => Object.keys(W.RECIPES).some(r => W.RECIPES[r].in[g]) || Object.keys(W.PRODUCTS).some(p => W.PRODUCTS[p].in[g]);
-    Object.keys(MINE).concat(NEWC).forEach(g => { if (!used(g) && g !== 'fert') o.orphan.push(g); });   // l'engrais est consommé par l'option Engrais des fermes (testée plus bas)
+    Object.keys(MINE).concat(NEWC, ['chrome', 'rare', 'sulfur']).forEach(g => { if (!used(g) && g !== 'fert') o.orphan.push(g); });   // l'engrais est consommé par l'option Engrais des fermes (testée plus bas)
     NEWC.forEach(g => { if (!W.RECIPES[g] || !W.GOODS[g]) o.orphan.push(g + ' sans recette'); });
     // toute feuille d'une recette ou d'un produit est une matière brute avec une mine, ou le lingot (fonderie)
     const leaves = (g, set) => { const R = W.RECIPES[g]; if (!R) { set.add(g); return; } Object.keys(R.in).forEach(i => leaves(i, set)); };
     const all = new Set(); Object.keys(W.RECIPES).forEach(r => leaves(r, all)); Object.keys(W.PRODUCTS).forEach(p => Object.keys(W.PRODUCTS[p].in).forEach(g => leaves(g, all)));
-    all.forEach(g => { if (g !== 'ingot' && !W.RAW_SRC[g]) o.leaf.push(g); });
+    all.forEach(g => { if (g !== 'ingot' && !W.RAW_SRC[g] && !W.CO_SRC[g]) o.leaf.push(g); });
     // catalogue : toutes les mines sont dans la famille Extraction, et les familles sont celles demandées
     const fam = W.FAMS.extr, listed = new Set(fam.flatMap(f => f[1]));
     Object.values(MINE).forEach(m => { if (!listed.has(m) || !W.CATS.find(c => c.id === 'extr').tools.includes(m)) o.fams.push(m); });
@@ -45,12 +47,12 @@ exports.run = async (t, L) => {
   KINDS.forEach(k => t.info(`${k.padEnd(9)} ${String(D.kinds[k].n).padStart(3)} cases · plus proche à ${String(D.kinds[k].near).padStart(3)} cases du port · teneur ${D.kinds[k].gmin}-${D.kinds[k].gmax} · réserve ${D.kinds[k].res}/case`));
   t.check(`${KINDS.length} gisements : chacun a au moins 1 site sur la carte`, KINDS.every(k => D.kinds[k].n >= 1), KINDS.filter(k => D.kinds[k].n < 1).join(', '));
   t.check('chaque gisement a au moins 1 site accessible (constructible, à 75 cases du port au plus)', KINDS.every(k => D.kinds[k].acc >= 1), KINDS.filter(k => D.kinds[k].acc < 1).join(', '));
-  t.check('rareté : lithium, terres rares et graphite ont moins de 12 cases ; silice, sel et argile plus de 30', ['lithium', 'rare', 'graphite'].every(k => D.kinds[k].n <= 12) && ['silica', 'salt', 'clay'].every(k => D.kinds[k].n >= 30), KINDS.map(k => k + ':' + D.kinds[k].n).join(' '));
+  t.check('rareté : lithium et graphite ont moins de 12 cases ; silice, sel et argile plus de 30', ['lithium', 'graphite'].every(k => D.kinds[k].n <= 12) && ['silica', 'salt', 'clay'].every(k => D.kinds[k].n >= 30), KINDS.map(k => k + ':' + D.kinds[k].n).join(' '));
   t.check('inégalité géographique : au moins 4 gisements à plus de 35 cases du port, au moins 3 à moins de 40', KINDS.filter(k => D.kinds[k].near > 35).length >= 4 && KINDS.filter(k => D.kinds[k].near < 40).length >= 3, KINDS.map(k => k + ':' + D.kinds[k].near).join(' '));
   t.check('teneur du minerai : varie selon la région (0,85 à 1,15), jamais hors bornes, sauf le gaz', KINDS.every(k => D.kinds[k].gmin >= 0.85 && D.kinds[k].gmax <= 1.15) && KINDS.some(k => D.kinds[k].gmax - D.kinds[k].gmin > 0.1), '');
   t.check('chaque gisement : matière brute, mine reliée par RAW_SRC, offre locale (LOCAL_D) et élasticité (EL_RAW)', D.bad.length === 0 && D.tables.length === 0, D.bad.concat(D.tables).join(', '));
   t.check('chaque mine a une icône vectorielle, une couleur et un dessin propres (aucun doublon)', D.icons.length === 0 && new Set(D.colors).size === D.colors.length && new Set(D.iconStr).size === D.iconStr.length, D.icons.join(', '));
-  t.check('catalogue des mines : familles Énergie, Métaux, Minéraux industriels, Chimie de base ; les 14 mines y figurent', D.fams.length === 0 && ['Énergie', 'Métaux', 'Minéraux industriels', 'Chimie de base'].every(f => D.famNames.includes(f)), D.fams.join(', ') + ' | ' + D.famNames.join(', '));
+  t.check('catalogue des mines : familles Énergie, Métaux, Minéraux industriels, Chimie de base ; les mines y figurent', D.fams.length === 0 && ['Énergie', 'Métaux', 'Minéraux industriels', 'Chimie de base'].every(f => D.famNames.includes(f)), D.fams.join(', ') + ' | ' + D.famNames.join(', '));
   t.check('aucun nom en double (marchandises, bâtiments, produits, composants)', D.names.length === 0, D.names.join(', '));
   t.check('aucune chaîne orpheline : chaque matière et chaque composant nouveau est consommé, chaque recette a ses intrants', D.orphan.length === 0, D.orphan.join(', '));
   t.check('toute chaîne remonte à une mine, un puits ou une ferme (aucune feuille sans extracteur)', D.leaf.length === 0, D.leaf.join(', '));
@@ -77,11 +79,11 @@ exports.run = async (t, L) => {
   t.check('usines isolées : 0 pageerror', rr.every(a => a.errs.length === 0), rr.flatMap(a => a.errs).slice(0, 2).join(';'));
 
   // 5. « Fabriquer » : plan chiffré complet jusqu'à la mine, construction, arbre de chaîne, production
-  for (const [pk, need] of [['car_alu', ['mbauxite', 'gwell', 'qsalt', 'msulfur']], ['cookware', ['mnickel', 'mchrome']]]) {
+  for (const [pk, need, extraG] of [['car_alu', ['mbauxite', 'gwell', 'qsalt'], ['sulfur']], ['cookware', ['mnicr'], ['chrome']]]) {
     const p2 = await L.newPage({ wait: 600 }); await L.setup(p2, { cash: 5e10 }); await L.inject(p2);
     const r = await p2.evaluate(({ pk, need }) => {
       const W = window.WSE, S = W.S, T = window.T, o = {};
-      const P = W.producePlan(pk); o.plan = { complete: P.complete, total: P.total, raws: P.raws, missing: P.missing, rows: P.rows.map(x => x.label), minesIn: need.every(m => P.rows.some(x => x.label.indexOf(W.TYPES[m].name) === 0)) };
+      const P = W.producePlan(pk); o.plan = { complete: P.complete, total: P.total, raws: P.raws, missing: P.missing, rows: P.rows.map(x => x.label), minesIn: need.every(m => P.rows.filter(x => x.label.indexOf(W.TYPES[m].name) === 0).length === 1) };   // une seule ligne par mine : la mine de nickel-chrome fournit les deux matières
       const tr = W.chainTree(pk); o.tree = tr ? tr.list.filter(n => !n.root).map(n => n.k + ':' + n.st) : []; o.nMiss0 = tr ? tr.nMiss : -1;
       const cash0 = S.cash; o.ok = W.quickProduce(pk, { raws: true }); o.spent = cash0 - S.cash;
       const leaves = W.chainLeaves(pk); o.noSrc = leaves.filter(g => !W.sourceInfo(g).n && g !== 'ingot'); o.leaves = leaves;
@@ -91,20 +93,44 @@ exports.run = async (t, L) => {
       o.bad = T.scan(); return o;
     }, { pk, need });
     t.check(`« Fabriquer » ${pk} : plan chiffré complet (usine, composants, matières premières jusqu'aux mines)`, r.plan.complete && r.plan.total > 0 && r.plan.raws > 0 && r.plan.minesIn && r.plan.rows.length >= 6, `${r.plan.rows.length} lignes, ${Math.round(r.plan.total / 1e6)} M$, manque : ${r.plan.missing.join(' ; ')}`);
-    t.check(`arbre de chaîne ${pk} : les matières nouvelles y figurent (${need.map(m => m).join(', ')} -> maillons à construire avant, en place après)`, need.every(m => { const g = Object.keys(MINE).find(k => MINE[k] === m); return r.tree.some(s => s.indexOf(g + ':') === 0); }) && r.nMiss1 === 0, `avant ${r.nMiss0} maillons manquants, après ${r.nMiss1} ; ${r.tree.slice(0, 12).join(' ')}`);
-    t.check(`quickProduce ${pk} : va jusqu'aux mines (${need.join(', ')}) et toutes les feuilles ont une source`, r.ok && r.noSrc.length === 0 && r.mines.every(s => +s.split(':')[1] >= 1), `construit : ${r.mines.join(' ')} · sans source : ${r.noSrc.join(',')} · dépensé ${Math.round(r.spent / 1e6)} M$`);
+    t.check(`arbre de chaîne ${pk} : les matières nouvelles y figurent (${need.map(m => m).join(', ')} -> maillons à construire avant, en place après)`, need.every(m => { const g = Object.keys(MINE).find(k => MINE[k] === m); return r.tree.some(s => s.indexOf(g + ':') === 0); }) && EXTRA[pk].every(g => r.tree.some(s => s.indexOf(g + ':') === 0)) && r.nMiss1 === 0, `avant ${r.nMiss0} maillons manquants, après ${r.nMiss1} ; ${r.tree.slice(0, 12).join(' ')}`);
+    t.check(`quickProduce ${pk} : va jusqu'aux mines (${need.join(', ')}) et toutes les feuilles ont une source`, r.ok && r.noSrc.length === 0 && r.mines.every(s => +s.split(':')[1] === 1), `construit : ${r.mines.join(' ')} · sans source : ${r.noSrc.join(',')} · dépensé ${Math.round(r.spent / 1e6)} M$`);
     t.check(`${pk} : la chaîne produit des unités en 90 jours, sans valeur absurde`, r.made > 0 && r.bad.length === 0, `fabriqué ${Math.round(r.made)} · limites ${[...new Set(r.lim)].join(',')} · ${r.bad.slice(0, 2).join(';')}`);
     t.check(`${pk} : 0 pageerror`, p2.errs.length === 0, p2.errs.slice(0, 2).join(';'));
     await p2.context().close();
   }
 
+  // 5 bis. Coproduits : une mine, plusieurs biens (nickel-chrome 60/40 ; soufre du gaz ; terres rares des grosses mines de cuivre et de lithium)
+  { const p6 = await L.newPage({ wait: 600 }); await L.setup(p6, { cash: 5e10 }); await L.inject(p6);
+    const r = await p6.evaluate(() => {
+      const W = window.WSE, S = W.S, T = window.T, o = {}; T.inP('port');
+      const mk = (key, dep, lvl) => { const c = T.onDep(key, dep); if (c) c.lvl = lvl || 0; return c; };
+      const ni = mk('mnicr', 'nickel'), cu0 = mk('mcopper', 'copper', 0), li0 = mk('mlithium', 'lithium', 0), gw = mk('gwell', 'gas');
+      o.placed = [ni, cu0, li0, gw].every(Boolean);
+      for (let i = 0; i < 12; i++) { T.frz(); W.step(); }
+      o.ni = { out: ni.out, cr: (ni._cq || {}).chrome || 0, rev: ni.pRev };
+      o.ratio = o.ni.cr / Math.max(1e-9, ni.out); o.revOk = Math.abs(ni.pRev - (ni.out * S.price.nickel + o.ni.cr * S.price.chrome)) < 0.02 * ni.pRev + 1;
+      o.stock = [S.stock.chrome, S.stock.nickel]; o.gw = { out: gw.out, sulfur: (gw._cq || {}).sulfur || 0 };
+      o.small = { cu: Object.keys(cu0._cq || {}).length, li: Object.keys(li0._cq || {}).length, rare0: W.sourceInfo('rare').n };
+      cu0.lvl = 2; li0.lvl = 2; for (let i = 0; i < 6; i++) { T.frz(); W.step(); }
+      o.big = { cu: (cu0._cq || {}).rare / cu0.out, li: (li0._cq || {}).rare / li0.out, rare1: W.sourceInfo('rare').n, stock: S.stock.rare };
+      W.openBuilding(ni.x, ni.y); o.fiche = document.getElementById('bview').innerText; W.openBuilding(cu0.x, cu0.y); o.ficheCu = document.getElementById('bview').innerText;
+      const tr = W.chainTree('motor'); o.mk = tr ? tr.list.filter(n => n.k === 'rare').map(n => n.st).join(',') : '';
+      o.bad = T.scan(); return o; });
+    t.check('coproduction : la mine de nickel-chrome sort 60 % de nickel et 40 % de chrome (ratio 0,667), les deux stockés et vendus', r.placed && Math.abs(r.ratio - 0.667) < 0.01 && r.revOk && r.stock[0] > 0 && r.stock[1] > 0, `ratio chrome/nickel ${r.ratio.toFixed(3)}, CA cohérent ${r.revOk}, stocks ${r.stock.map(Math.round)}`);
+    t.check('coproduction : le puits de gaz sort aussi du soufre (10 % du gaz)', r.gw.out > 0 && Math.abs(r.gw.sulfur / r.gw.out - 0.1) < 0.005, `${r.gw.sulfur.toFixed(1)} / ${r.gw.out.toFixed(1)}`);
+    t.check('terres rares : aucune pour une petite mine de cuivre ou de lithium (niveau 1), 3 % et 10 % à partir du niveau 3', r.small.cu === 0 && r.small.li === 0 && r.small.rare0 === 0 && Math.abs(r.big.cu - 0.03) < 0.002 && Math.abs(r.big.li - 0.1) < 0.005 && r.big.rare1 === 2 && r.big.stock > 0, JSON.stringify(r.small) + ' ' + JSON.stringify(r.big));
+    t.check('fiche de mine : « Produit aussi : Chrome » (nickel-chrome) et « Produit aussi : Terres rares » (cuivre)', /Produit aussi : Chrome/.test(r.fiche) && /Produit aussi : Terres rares/.test(r.ficheCu), r.fiche.slice(0, 60).replace(/\n/g, ' '));
+    t.check('terres rares : l\'arbre de chaîne des moteurs les voit (source en place : grosse mine), sans NaN', r.mk.length > 0 && r.bad.length === 0, r.mk + ' ' + r.bad.slice(0, 2).join(';'));
+    t.check('coproduits : 0 pageerror', p6.errs.length === 0, p6.errs.slice(0, 2).join(';')); await p6.context().close(); }
+
   // 6. Marché : offre locale et PNJ, prix cohérents, demande des rivaux
   { const p3 = await L.newPage({ wait: 600 }); await L.setup(p3, { cash: 5e10 }); await L.inject(p3);
-    const r = await p3.evaluate(({ KINDS, NEWC }) => {
+    const r = await p3.evaluate(({ KINDS, NEWC, CO }) => {
       const W = window.WSE, S = W.S, T = window.T; T.stepN(120, true); const o = { px: [], npc: [], d0: 0, d1: 0 };
-      KINDS.concat(NEWC).forEach(g => { const rel = S.price[g] / (W.GOODS[g].base * (S.cpi || 1)); if (!(rel > 0.5 && rel < 2.2)) o.px.push(g + ' x' + rel.toFixed(2)); const n = S.npcSup && S.npcSup[g]; if (!n) o.npc.push(g); });
+      KINDS.concat(NEWC, CO).forEach(g => { const rel = S.price[g] / (W.GOODS[g].base * (S.cpi || 1)); if (!(rel > 0.5 && rel < 2.2)) o.px.push(g + ' x' + rel.toFixed(2)); const n = S.npcSup && S.npcSup[g]; if (!n) o.npc.push(g); });
       o.demandUse = ['lithium', 'rare', 'nickel', 'aluminium'].every(g => W.RIV_USE[g]); o.riv = ['steel', 'copper'].every(g => !W.RIV_USE[g]);
-      return o; }, { KINDS, NEWC });
+      return o; }, { KINDS, NEWC, CO });
     t.check('marché : après 120 jours, tous les cours restent dans 0,5-2,2 × la base', r.px.length === 0, r.px.join(', '));
     t.check('marché : un producteur local (PNJ) suit chaque matière nouvelle', r.npc.length === 0, r.npc.join(', '));
     t.check('demande des rivaux : lithium, terres rares, nickel et aluminium la majorent, pas l\'acier ni le cuivre', r.demandUse && r.riv, '');
@@ -136,14 +162,31 @@ exports.run = async (t, L) => {
       return o; }, { oldDep, MINE });
     t.check('ancienne sauvegarde : chargée au même jour avec ses bâtiments', r.day === old.day && r.nb >= 10, `jour ${r.day}/${old.day}, ${r.nb} bâtiments`);
     t.check('ancienne sauvegarde : les anciens gisements sont strictement inchangés', r.moved === 0, `${r.moved} cases modifiées`);
-    t.check('ancienne sauvegarde : les 14 nouveaux gisements sont ajoutés, jamais sous un bâtiment existant', KINDS.every(k => r.cnt[k] >= 1) && r.onBld === 0, KINDS.map(k => k + ':' + r.cnt[k]).join(' ') + ' sous bâtiment ' + r.onBld);
+    t.check('ancienne sauvegarde : les nouveaux gisements sont ajoutés, jamais sous un bâtiment existant', KINDS.every(k => r.cnt[k] >= 1) && r.onBld === 0, KINDS.map(k => k + ':' + r.cnt[k]).join(' ') + ' sous bâtiment ' + r.onBld);
     t.check('ancienne sauvegarde : 30 jours de simulation, cours des nouvelles matières définis, sans NaN', r.adv === 30 && r.bad.length === 0 && r.px.every(v => v > 0), `${r.adv} j · ${r.bad.slice(0, 2).join(';')} · ${r.px.map(v => v && v.toFixed(1)).join('/')}`);
     t.check('ancienne sauvegarde : réenregistrée avec les nouveaux gisements, 0 pageerror', r.sameNew > 20 && p5.errs.length === 0, `${r.sameNew} cases nouvelles · ${p5.errs.slice(0, 2).join(';')}`);
     await ctx.close(); }
 
+  // 8 bis. Sauvegarde de la première version de la passe 33 (gisements et mines nickel, chrome, terres rares et soufre séparés) : migrée vers la mine de nickel-chrome, le cuivre et le gaz
+  { const save = fs.readFileSync(path.join(__dirname, 'fixtures', 'save_v8_passe33_v1.json'), 'utf8');
+    const b = await L.browser(), ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx.addInitScript(s => { try { if (!sessionStorage.getItem('wse_fx')) { localStorage.setItem('wse-city-v8', s); sessionStorage.setItem('wse_fx', '1'); } } catch (e) { } }, save);
+    const p7 = await L.newPage({ ctx, wait: 1200 }); await L.inject(p7);
+    const r = await p7.evaluate(() => {
+      const W = window.WSE, S = W.S, N = W.N, T = window.T, o = { dep: {}, bl: {} };
+      S.dep.forEach(d => { if (d) o.dep[d.k] = (o.dep[d.k] || 0) + 1; }); T.bldgs().forEach(c => { o.bl[c.t] = (o.bl[c.t] || 0) + 1; });
+      o.day = S.day; o.stk = [S.stock.chrome, S.stock.rare, S.stock.sulfur]; o.badT = T.bldgs().filter(c => !W.TYPES[c.t]).length;
+      const onDep = []; T.bldgs().forEach(c => { if (W.TYPES[c.t].ext) { const d = S.dep[c.y * N + c.x]; onDep.push(!!d && d.k === W.TYPES[c.t].ext); } }); o.onDep = onDep;
+      T.stepN(30, true); o.adv = S.day - o.day; o.out = T.bldgs().filter(c => W.TYPES[c.t].ext).map(c => c.t + ':' + Math.round(c.out)).join(' '); o.bad = T.scan(); o.after = [S.stock.chrome, S.stock.sulfur];
+      return o; });
+    t.check('migration v1 : plus aucun gisement chrome, terres rares ni soufre ; leurs cases deviennent nickel-chrome, cuivre et gaz', !r.dep.chrome && !r.dep.rare && !r.dep.sulfur && r.dep.nickel > 5, JSON.stringify(r.dep).slice(0, 200));
+    t.check('migration v1 : les mines mnickel et mchrome deviennent des mines de nickel-chrome, mrare une mine de cuivre, msulfur un puits de gaz', r.bl.mnicr === 2 && r.bl.mcopper === 2 && r.bl.gwell === 1 && !r.bl.mnickel && !r.bl.mchrome && !r.bl.mrare && !r.bl.msulfur && r.badT === 0, JSON.stringify(r.bl));
+    t.check('migration v1 : chaque mine reste posée sur un gisement de sa matière, stocks conservés, 30 jours de production sans NaN', r.onDep.length >= 6 && r.onDep.every(Boolean) && r.stk.every(v => v > 0) && r.adv === 30 && r.bad.length === 0 && /mnicr:[1-9]/.test(r.out), `${r.onDep.join(',')} · stocks ${r.stk.map(Math.round)} · ${r.out} · ${r.bad.slice(0, 2).join(';')}`);
+    t.check('migration v1 : 0 pageerror', p7.errs.length === 0, p7.errs.slice(0, 2).join(';')); await ctx.close(); }
+
   // 9. Déterminisme de la simulation avec les nouvelles chaînes : deux parties identiques donnent la même économie
   { const run = async () => { const p = await L.newPage({ wait: 500 }); await L.setup(p, { cash: 5e10 }); await L.inject(p);
-      const s = await p.evaluate(() => { const W = window.WSE, S = W.S, T = window.T; S.noEv = true; T.inP('port'); ['mlithium', 'mnickel', 'mbauxite', 'qsalt', 'msulfur'].forEach(m => { const g = W.TYPES[m].ext; T.onDep(m, g); }); T.stepN(60, true); return JSON.stringify([S.stock.lithium, S.stock.nickel, S.stock.bauxite, S.stock.salt, S.stock.sulfur, Math.round(S.cash), S.price.lithium, S.price.salt]); });
+      const s = await p.evaluate(() => { const W = window.WSE, S = W.S, T = window.T; S.noEv = true; T.inP('port'); ['mlithium', 'mnicr', 'mbauxite', 'qsalt', 'gwell'].forEach(m => { const g = W.TYPES[m].ext; T.onDep(m, g); }); T.stepN(60, true); return JSON.stringify([S.stock.lithium, S.stock.nickel, S.stock.chrome, S.stock.bauxite, S.stock.salt, S.stock.sulfur, Math.round(S.cash), S.price.lithium, S.price.salt]); });
       await p.context().close(); return s; };
     const a = await run(), b = await run();
     t.check('déterminisme : deux parties identiques (5 mines, 60 jours) donnent les mêmes stocks, cours et trésorerie', a === b && a.indexOf('null') < 0, a === b ? a.slice(0, 80) : a.slice(0, 60) + ' <> ' + b.slice(0, 60)); }

@@ -18,12 +18,12 @@ const PLANS = {
   bad_jeans:   { prod: 'jeans',  nAssign: 1, ext: [], fac: { f2: 1 }, stores: { s2: 2, s3: 1 } },
   bad_bike:    { prod: 'bike',   nAssign: 1, ext: [['miron', 'iron', 1]], fac: { f2: 1 }, stores: { s2: 2, s3: 1 } },
   bad_nostore: { prod: 'utensils', nAssign: 1, ext: [['miron', 'iron', 1], ['mcoal', 'coal', 1], ['well', 'oil', 1]], fac: { f1: 3 }, stores: { s2: 1 } },
-  perfume:  { prod: 'perfume',  nAssign: 1, ext: [['well', 'oil', 1], ['mcoal', 'coal', 1], ['fsugar', 'sugar', 1], ['qsand', 'sand', 1], ['qsilica', 'silica', 1], ['qsalt', 'salt', 1], ['msulfur', 'sulfur', 1], ['logging', 'wood', 1]], fac: { f1: 5, f2: 1, f3: 1 }, stores: { s3: 2 } },
-  skincare: { prod: 'skincare', nAssign: 1, ext: [['well', 'oil', 1], ['mcoal', 'coal', 1], ['fsugar', 'sugar', 1], ['qsand', 'sand', 1], ['qsilica', 'silica', 1], ['qsalt', 'salt', 1], ['msulfur', 'sulfur', 1], ['logging', 'wood', 1], ['mgold', 'gold', 1]], fac: { f1: 5, f2: 1, f3: 1 }, stores: { s3: 2 }, foundry: 1 },
+  perfume:  { prod: 'perfume',  nAssign: 1, ext: [['well', 'oil', 1], ['mcoal', 'coal', 1], ['fsugar', 'sugar', 1], ['qsand', 'sand', 1], ['qsilica', 'silica', 1], ['qsalt', 'salt', 1], ['gwell', 'gas', 1], ['logging', 'wood', 1]], fac: { f1: 5, f2: 1, f3: 1 }, stores: { s3: 2 } },
+  skincare: { prod: 'skincare', nAssign: 1, ext: [['well', 'oil', 1], ['mcoal', 'coal', 1], ['fsugar', 'sugar', 1], ['qsand', 'sand', 1], ['qsilica', 'silica', 1], ['qsalt', 'salt', 1], ['gwell', 'gas', 1], ['logging', 'wood', 1], ['mgold', 'gold', 1]], fac: { f1: 5, f2: 1, f3: 1 }, stores: { s3: 2 }, foundry: 1 },
   // passe 33 : chaînes lourdes (inox, aluminium) jusqu'aux nouvelles mines
-  cookware: { prod: 'cookware', nAssign: 1, ext: [['miron', 'iron', 1], ['mcoal', 'coal', 1], ['mnickel', 'nickel', 1], ['mchrome', 'chrome', 1], ['well', 'oil', 1], ['logging', 'wood', 1]], fac: { f1: 3, f2: 1 }, stores: { s1: 4, s2: 2 } },
-  ebike:    { prod: 'ebike',    nAssign: 1, ext: [['mbauxite', 'bauxite', 1], ['gwell', 'gas', 1], ['qsalt', 'salt', 1], ['msulfur', 'sulfur', 1], ['mcoal', 'coal', 1], ['miron', 'iron', 1], ['mcopper', 'copper', 1], ['mlithium', 'lithium', 1], ['mgraphite', 'graphite', 1], ['well', 'oil', 1], ['logging', 'wood', 1]], fac: { f1: 3, f2: 5 }, stores: { s2: 2, s3: 1 } },
-  headache: { prod: 'headache', nAssign: 1, ext: [['well', 'oil', 1], ['qsalt', 'salt', 1], ['msulfur', 'sulfur', 1], ['mphos', 'phosphate', 1], ['fsugar', 'sugar', 1]], fac: { f1: 1, f2: 1 }, stores: { s1: 3, s2: 2 } }
+  cookware: { prod: 'cookware', nAssign: 1, ext: [['miron', 'iron', 1], ['mcoal', 'coal', 1], ['mnicr', 'nickel', 1], ['well', 'oil', 1], ['logging', 'wood', 1]], fac: { f1: 3, f2: 1 }, stores: { s1: 4, s2: 2 } },
+  ebike:    { prod: 'ebike',    nAssign: 1, ext: [['mbauxite', 'bauxite', 1], ['gwell', 'gas', 1], ['qsalt', 'salt', 1], ['gwell', 'gas', 1], ['mcoal', 'coal', 1], ['miron', 'iron', 1], ['mcopper', 'copper', 1], ['mlithium', 'lithium', 1], ['mgraphite', 'graphite', 1], ['well', 'oil', 1], ['logging', 'wood', 1]], fac: { f1: 3, f2: 5 }, stores: { s2: 2, s3: 1 } },
+  headache: { prod: 'headache', nAssign: 1, ext: [['well', 'oil', 1], ['qsalt', 'salt', 1], ['gwell', 'gas', 1], ['mphos', 'phosphate', 1], ['fsugar', 'sugar', 1]], fac: { f1: 1, f2: 1 }, stores: { s1: 3, s2: 2 } }
 };
 
 // base = true : même ville (port + magasins) sans extracteurs, usines ni produit, pour isoler l'apport de la chaîne
