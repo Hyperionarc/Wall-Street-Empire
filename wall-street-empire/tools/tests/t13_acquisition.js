@@ -42,12 +42,12 @@ exports.run = async (t, L) => {
   t.check('trésorerie insuffisante : bouton désactivé, manque affiché (500 $)', B.disabled && /il te manque 500 \$/.test(B.txt), B.txt.slice(-120));
   t.check('trésorerie insuffisante : exécution refusée, aucun débit, bâtiment intact', B.why === 'cash' && B.short === 500 && B.cash && B.still, JSON.stringify([B.why, B.short]));
 
-  // 3. Remise Promoteur de 30 %
+  // 3. Remise Promoteur de 8 % sur le prix de marché (passe 34)
   const P = await pg.evaluate(() => {
     const W = window.WSE, S = W.S, N = W.N; let c = null; for (let i = 0; i < N * N && !c; i++) { const q = S.grid[i]; if (q && q.t === 'npc' && q.k === 'res' && q.floors >= 3 && W.acq.ownerOf(q) === 'npc' && !W.footprintError(q.x, q.y, 's2', true)) c = q; }
     W.setCaste('negociant'); const a = W.acq.plan(c.x, c.y, 's2').acqNpc; W.setCaste('promoteur'); const b = W.acq.plan(c.x, c.y, 's2').acqNpc; W.setCaste('industriel'); S.cash = 5e7; return { a, b };
   });
-  t.check('caste Promoteur : rachat à -30 %', Math.abs(P.b / P.a - 0.7) < 0.01, `${P.b} / ${P.a}`);
+  t.check('caste Promoteur : rachat à -8 % du prix de marché', Math.abs(P.b / P.a - 0.92) < 0.01, `${P.b} / ${P.a}`);
 
   // 4. Emprise multiple : hypermarché 2x2 sur plusieurs bâtiments
   const M = await pg.evaluate(() => {
