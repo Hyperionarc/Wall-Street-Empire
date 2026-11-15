@@ -159,7 +159,9 @@ def _lire(d):   # dossier de sprites -> (png, ombres, ancres) ; assets/factory =
             if _n + '.png' in _anch:
                 r['anch'][_n + '.png'] = _anch[_n + '.png']
     return r
-_base, _hd = _lire(os.path.join(ROOT, 'assets', 'factory')), _lire(os.environ.get('WSE_HD_DIR') or os.path.join(ROOT, 'assets', 'factory_hd'))
+_hd_dirs = [os.environ.get('WSE_HD_DIR')] if os.environ.get('WSE_HD_DIR') else [os.path.join(ROOT, 'assets', 'factory_hd'), os.path.join(ROOT, '..', 'assets', 'factory_hd')]   # le poste de production (Mac) écrit à la racine du dépôt (assets/factory_hd) ; copie locale facultative dans wall-street-empire/assets/factory_hd
+_hd_dir = next((d for d in _hd_dirs if d and os.path.isdir(d) and os.path.exists(os.path.join(d, 'ancres.json'))), _hd_dirs[0])
+_base, _hd = _lire(os.path.join(ROOT, 'assets', 'factory')), _lire(_hd_dir)
 for _n in list(_base['png']) + [k for k in _hd['png'] if k not in _base['png']]:
     if _n in _hd['png']:   # HD d'abord ; le gabarit reste embarque en repli (si le PNG HD ne charge pas)
         fac[_n] = _uri(_hd['png'][_n]); facanch[_n + '.png'] = _hd['anch'].get(_n + '.png') or _base['anch'].get(_n + '.png')

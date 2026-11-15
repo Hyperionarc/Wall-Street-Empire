@@ -1,0 +1,5 @@
+- 2026-11-15 15:26 · lot test · 3 produits · échecs : aucun · 1298 s par image · poids max 9 Ko
+- 2026-11-15 15:52 · scènes · brouillons : 8 images en 3 min
+- 2026-11-15 16:01 · scènes · finale : usine_voiture:49 en 5 min
+- 2026-11-15 17:24 · scènes · brouillons : 8 images en 3 min
+- 2026-11-15 17:49 · lot seul · 3 produits · échecs : aucun · 133 s par image · poids max 9 Ko
