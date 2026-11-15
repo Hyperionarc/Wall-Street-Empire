@@ -182,7 +182,17 @@ if os.path.isdir(_phd):
             _m = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}[_e.lower()]
             prodhd[_b] = 'data:' + _m + ';base64,' + base64.b64encode(open(os.path.join(_phd, _f), 'rb').read()).decode()
 print('visuels HD produits :', len(prodhd))
+# Photos du Guide du fabricant : assets/guide_hd/<clé de bien ou de produit>.jpg (carte carrée) ; aucun poids tant que le dossier est vide, repli sur la vignette vectorielle
+guidehd = {}
+for _gd in (os.path.join(ROOT, 'assets', 'guide_hd'), os.path.join(ROOT, '..', 'assets', 'guide_hd')):
+    if os.path.isdir(_gd):
+        for _f in sorted(os.listdir(_gd)):
+            _b, _e = os.path.splitext(_f)
+            if _e.lower() in ('.jpg', '.jpeg', '.png', '.webp') and _b not in guidehd:
+                _m = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}[_e.lower()]
+                guidehd[_b] = 'data:' + _m + ';base64,' + base64.b64encode(open(os.path.join(_gd, _f), 'rb').read()).decode()
+print('photos du guide :', len(guidehd))
 print('sprites usine :', len(fac), 'sur', len(FAC_NAMES) + len(facextra), '(dont HD :', len(_hd['png']), ')', '(repli vectoriel pour les autres)')
-out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__GUIDEHD_JSON__', json.dumps(guidehd)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
 open(os.environ.get('WSE_OUT') or os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')
