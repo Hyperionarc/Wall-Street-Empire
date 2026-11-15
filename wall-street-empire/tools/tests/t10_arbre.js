@@ -31,7 +31,7 @@ exports.run = async (t, L) => {
     o.fams = W.FAM_ORDER.filter(f => Object.keys(W.PRODUCTS).some(k => W.famOf(k) === f)).length;
     return o;
   });
-  t.check(`arbre : ${D.nProd} produits finis (70 à 85) dont ${D.nNew} nouveaux`, D.nProd >= 70 && D.nProd <= 85, `classes ${JSON.stringify(D.classes)}`);
+  t.check(`arbre : ${D.nProd} produits finis (70 à 95) dont ${D.nNew} nouveaux`, D.nProd >= 70 && D.nProd <= 95, `classes ${JSON.stringify(D.classes)}`);
   t.check(`arbre : ${D.nComp} composants (35 à 60, dont 10 de la passe 33)`, D.nComp >= 35 && D.nComp <= 60, '');
   t.check('recettes et produits : tous les intrants existent, niveaux d\'usine 1-3 (4 pour les produits de masse)', D.badIn.length === 0 && D.badLvl.length === 0, D.badIn.concat(D.badLvl).slice(0, 4).join(', '));
   t.check('recettes : chaque intrant est fabriqué avant son utilisation (ordre de calibrage) et aucun cycle', D.order.length === 0 && D.cyc.length === 0, D.order.concat(D.cyc).slice(0, 3).join(' | '));
@@ -111,7 +111,7 @@ exports.run = async (t, L) => {
   const after = await pg.evaluate(() => { const W = window.WSE, S = W.S; return JSON.stringify({ d: S.cprod, p: W.PRODUCTS.cp1, st: S.prod.cp1 && S.prod.cp1.st }); });
   t.check('sauvegarde : le produit composé (définition, tables, état) survit au rechargement à l\'identique', before === after && /cp1/.test(after), before === after ? '' : before.slice(0, 80) + ' -> ' + after.slice(0, 80));
   const o2 = await pg.evaluate(() => { const W = window.WSE; const raw = JSON.parse(localStorage.getItem('wse-city-v8')); const v = raw.v, had = Array.isArray(raw.cprod) && raw.cprod.length; delete raw.cprod; localStorage.setItem('wse-city-v8', JSON.stringify(raw)); let S0 = null, err = ''; try { S0 = W.load(); } catch (e) { err = e.message; } return { v, had, err, ok: !!S0, has: !!W.PRODUCTS.cp1, n: S0 ? (S0.cprod || []).length : -1, nk: Object.keys(W.PRODUCTS).length, st: S0 ? Object.keys(S0.prod).length : -1, cash: S0 && S0.cash > 0 }; });
-  t.check(`sauvegarde v${o2.v} sans champ « cprod » (ancienne sauvegarde) : chargée sans erreur, aucun produit composé, ${o2.nk} produits (80 + 2 de la passe 33)`, o2.had > 0 && o2.ok && !o2.err && !o2.has && o2.n === 0 && o2.st === o2.nk && o2.nk === 82, JSON.stringify(o2));
+  t.check(`sauvegarde v${o2.v} sans champ « cprod » (ancienne sauvegarde) : chargée sans erreur, aucun produit composé, ${o2.nk} produits (80 + 2 de la passe 33 + 10 de la passe 38)`, o2.had > 0 && o2.ok && !o2.err && !o2.has && o2.n === 0 && o2.st === o2.nk && o2.nk === 92, JSON.stringify(o2));
   t.check('rechargements : 0 pageerror', pg.errs.length === 0, pg.errs.slice(0, 2).join(' ; '));
   await pg.context().close();
 
