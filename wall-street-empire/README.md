@@ -9,7 +9,7 @@ Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
 | Zone | Rôle |
 |---|---|
 | **Ville** (centre-ouest) | Ville existante : environ 300 immeubles (bureaux et résidences), de 3 à 24 étages, avec deux tours-repères de plus de 30 étages. Environ 10 000 habitants. Grille d'avenues aérée (une tous les 6 cases, blocs de 5×5). Le promoteur y construit logements, commerces, Tour Tech et Banque |
-| **Campagne** | Presque aucune route : une autoroute ville-port et quelques départementales. Les gisements y sont rares (11 amas). Puits et mines se posent dessus |
+| **Campagne** | Presque aucune route : une autoroute ville-port et quelques départementales. Les gisements y sont rares (11 amas d'origine, plus 41 sites de matières industrielles depuis la passe 33). Puits et mines se posent dessus |
 | **Zone du port** (est, à 6-9 km de la ville) | Pré-zone industrielle quadrillée : usines et fonderie d'or |
 | **Quai et mer** | Terminal portuaire (grues, conteneurs, navire à quai). Navires animés en mer |
 
@@ -1079,3 +1079,61 @@ Trois réglages protègent les calibrages existants. Les rivaux tirent dans un f
 
 ## Passe : chômage plancher, humeur fluctuante, cycle irrégulier et chocs
 Voir « Macroéconomie » ci-dessus. Test `tools/tests/t25_macro_humeur.js` : chômage ≥ 3 % sur 3 000 jours et 3 graines, humeur d'écart-type > 6 et corrélée au PIB, cycle irrégulier, chaque choc via sa carte d'événement (toast, bandeau, PIB, humeur, chômage), transmission du taux, ancienne sauvegarde. Sauvegarde `wse-city-v8` inchangée : `S.macro` (déjà enregistré) porte les nouveaux champs (`v1, amp, ar, bEnd, nairu, uL, sk, sh, shLast`), `mev` = coups d'humeur ; une ancienne sauvegarde sans ces champs est complétée au chargement. Le robot de test (`tools/bot_lib.js`) construit des logements sous 4,5 % de chômage (et non plus 2 %).
+
+## Passe 33 : gisements industriels (métaux, chimie, minéraux, gaz) et chaînes lourdes
+
+**Demande** : des gisements trop pauvres (pétrole, fer, charbon, cuivre, or, bois, gravier, sable, calcaire) pour une économie industrielle riche, à la Capitalism Lab. Le jeu compte désormais **14 gisements de plus**, leurs mines, et les chaînes qui en dérivent (inox, aluminium, batteries, aimants, chimie, engrais, briques, porcelaine). Tout est dans `game.template.html` ; le test est `tools/tests/t30_gisements.js`.
+
+### 1. Gisements, mines et carte
+| Gisement (clé) | Mine ou carrière (catalogue Extraction) | Cours de base | Cadence (u/j) | Capex | EBITDA visé | Palier | Sites sur la carte |
+|---|---|---|---|---|---|---|---|
+| Nickel (`nickel`) | Mine de nickel (`mnickel`) | 28 $ | 250 | 2,25 M$ | 48 % | 2 | 14 cases, à 60 cases du port, 3 veines (dont une en bas de la carte) |
+| Chrome (`chrome`) | Mine de chrome (`mchrome`) | 20 $ | 300 | 1,95 M$ | 48 % | 2 | 12 cases, à 71 cases du port : rare et lointain |
+| Bauxite (`bauxite`) | Mine de bauxite (`mbauxite`) | 8 $ | 1 200 | 3,1 M$ | 42 % | 1 | 18 cases, à 30 cases du port (abondante) |
+| Lithium (`lithium`) | Mine de lithium (`mlithium`) | 40 $ | 150 | 1,95 M$ | 50 % | 2 | 7 cases seulement : une veine riche à l'ouest, une petite au sud |
+| Zinc (`zinc`) | Mine de zinc (`mzinc`) | 17 $ | 400 | 2,2 M$ | 45 % | 1 | 15 cases, dont un filon à 23 cases du port |
+| Terres rares (`rare`) | Mine de terres rares (`mrare`) | 70 $ | 50 | 1,15 M$ | 52 % | 2 | 9 cases, 3 coins de la carte, à 69 cases du port |
+| Graphite (`graphite`) | Mine de graphite (`mgraphite`) | 24 $ | 250 | 1,95 M$ | 44 % | 1 | 11 cases, à 40 cases du port |
+| Gaz naturel (`gas`) | Puits de gaz (`gwell`, comme un puits de pétrole : pipeline, sans teneur) | 11 $ | 1 200 | 2,4 M$ | 20 % | 1 | 12 cases, associé aux gisements de pétrole, à 31 cases du port |
+| Silice pure (`silica`) | Carrière de silice (`qsilica`) | 6 $ | 1 600 | 2,4 M$ | 28 % | 0 | 55 cases (grands massifs), à 33 cases du port |
+| Argile et kaolin (`clay`) | Carrière d'argile (`qclay`) | 5 $ | 1 800 | 2,2 M$ | 27 % | 0 | 40 cases, à 46 cases du port |
+| Sel gemme (`salt`) | Mine de sel gemme (`qsalt`) | 5 $ | 1 800 | 2,25 M$ | 28 % | 0 | 48 cases, à 26 cases du port |
+| Soufre (`sulfur`) | Mine de soufre (`msulfur`) | 7 $ | 900 | 1,8 M$ | 32 % | 0 | 10 cases : un filon près du pétrole, un riche en haut à gauche |
+| Phosphate (`phosphate`) | Mine de phosphate (`mphos`) | 10 $ | 1 000 | 3,15 M$ | 35 % | 1 | 17 cases, à 46 cases du port |
+| Potasse (`potash`) | Mine de potasse (`mpotash`) | 12 $ | 700 | 2,65 M$ | 35 % | 1 | 11 cases, à 55 cases du port |
+
+- **Rareté et inégalités.** Les matières abondantes (silice, sel, argile, bauxite) sont des disques de 2 à 3 cases de rayon, assez proches du port ; les métaux stratégiques (lithium, terres rares, chrome, nickel) sont des filons de 3 à 7 cases, souvent à l'autre bout de la carte. La **réserve par case** (`res`) est celle du type multipliée par la **richesse du site** (0,7 à 1,5) ; un site neuf découvert plus tard garde les règles existantes (prime d'acquisition ×1,6 par découverte).
+- **Teneur du minerai** (qualité de site, `gradeOf`, 0,85 à 1,15, sans stockage) : propre à chaque région de 6 × 6 cases, elle multiplie la production de la mine (donc l'EBITDA). Affichée dans le message d'un clic sur le gisement et dans la fiche de la mine. Le gaz, comme le pétrole, n'en a pas. Les anciens gisements restent à 1.
+- **Cartes et sauvegardes.** Les nouveaux sites sont posés **après** les anciens (forêts, carrières, champs) : une nouvelle carte garde ses cases d'origine strictement identiques (vérifié case par case contre la version précédente). Une sauvegarde antérieure à la passe 33 reçoit les sites manquants au chargement, uniquement sur des cases libres (ni bâtiment, ni gisement, ni route). Aucun champ de sauvegarde n'est ajouté pour les gisements ; l'option Engrais d'une ferme est écrite dans `cellExtra` (`fe`), optionnelle.
+- **Dessin.** Chaque mine a son **icône vectorielle** (une par mine, `ICONS`) et sa couleur. En carte : tunnel de mine pour les métaux, carrière pour silice/argile/sel, chevalet de pompage pour le gaz ; les gisements au sol prennent la couleur de la matière, le gaz fait des bulles ; minicarte et légende à jour. Les sprites PNG à produire sont listés dans `tools/factory_ai/phase2/GISEMENTS.md`.
+
+### 2. Matières et recettes (calibrées par `calP` : EBITDA des usines 10-18 %, quel que soit le prix des intrants)
+| Composant | Usine | Recette (par cycle) | Prix de base | Sert à |
+|---|---|---|---|---|
+| Acier inoxydable | moyenne | acier + chrome + nickel | 25,6 $ | réfrigérateur, lave-linge, micro-ondes, petit électroménager, casseroles et couverts inox |
+| Acier galvanisé | petite | acier + zinc | 16,5 $ | châssis des voitures |
+| Laiton | petite | cuivre + zinc | 20,5 $ | quincaillerie |
+| Alumine | moyenne | bauxite + produits chimiques + gaz | 25,2 $ | aluminium |
+| Aluminium | moyenne | alumine + charbon (énergie) | 42,5 $ | châssis en aluminium, vélos électriques, ordinateurs portables |
+| Châssis en aluminium | moyenne | aluminium + peinture | 92,7 $ | voiture en aluminium |
+| Aimants permanents | moyenne | terres rares + acier | 27,6 $ | moteurs électriques, smartphones |
+| Engrais | petite | phosphate + potasse + gaz | 14,8 $ | option Engrais des fermes |
+| Briques | petite | argile + gaz | 7,1 $ | maison en béton |
+| Porcelaine | moyenne | argile + silice + gaz | 18 $ | vaisselle |
+
+Recettes existantes branchées sur les nouvelles matières : **produits chimiques** (pétrole + sel + soufre : plus de charbon), **principes actifs** (+ phosphate : toute la pharmacie remonte jusqu'au sel, au soufre et au phosphate), **verre** (sable + silice + charbon), **silicium** (silice + charbon, plus de sable), **batteries** (fil de cuivre + plastique + lithium + graphite), **moteurs** (+ aimants), **céramique** (argile + calcaire + charbon), **quincaillerie** (acier + laiton + plastique), **LED** (+ terres rares), **châssis acier** (acier galvanisé + acier + peinture). Les prix des composants et des produits sont recalés automatiquement : les marges cibles ne bougent pas (usines 10-18 %, pharma en marge brute >= 72 %, commerces 5-14 %).
+
+Produits : deux nouveaux, **Voitures en aluminium** (châssis aluminium, palier 3, prix de référence ≈ 1 225 $ contre ≈ 880 $ pour la voiture en acier) et **Casseroles et couverts inox** (palier 2). Produits existants qui changent d'intrants : réfrigérateur, lave-linge, micro-ondes, petit électroménager (inox), vélos électriques et ordinateurs portables (aluminium), smartphone (aimants), maison en béton (briques), vaisselle (porcelaine). Le **composeur** accepte les nouveaux composants (véhicule, appareil, outillage, meuble, électronique, luxe, produits ménagers).
+
+**Engrais** : sur une ferme, le bouton « Engrais » consomme 6 % du volume récolté en engrais pris dans ton stock et donne **+20 %** de récolte (effet partiel si le stock est trop court). L'engrais se fabrique (usine d'engrais), il ne s'achète pas encore aux fournisseurs.
+
+### 3. Marché, IA et chaînes automatiques
+- **Offre et demande locales** : `LOCAL_D` pour chacune des 24 matières et composants nouveaux ; producteurs PNJ (`LOCAL_CO` : « Taiga Nickel », « Atacama Brine », « Guinea Alumina », « Caspian Gas »…), import par le port au prix mondial + fret, élasticités `EL_RAW` (gaz 0,5 comme le pétrole, lithium 1,2, terres rares 1,3). **Rivaux** : la demande de lithium, terres rares, nickel, chrome, aluminium, inox, aimants, graphite, silice et gaz augmente de 6 % par rival (jusqu'à 5 rivaux : `RIV_USE`). Choc énergétique : le gaz suit le pétrole et le charbon.
+- **`autoSource`, `quickProduce`, `producePlan`, `chainTree`** passent par `RAW_SRC` et `RECIPES` : ils gèrent les nouvelles chaînes sans cas particulier. Le plan « Fabriquer » d'une voiture en aluminium chiffre 34 lignes (dont les mines de bauxite, de gaz, de sel et de soufre) pour environ 92 M$ ; celui des casseroles inox ajoute les mines de nickel et de chrome. **Correctif** : un produit encore en R&D (petite usine) se faisait voler son usine par ses propres composants (`freeFact` voyait l'usine « libre ») ; `quickProduce` la réserve désormais (`_hold`) le temps de monter la chaîne.
+- **Lisibilité** : le catalogue Extraction est regroupé en familles **Énergie** (puits de pétrole, puits de gaz, mine de charbon, pipeline), **Métaux**, **Minéraux industriels** (silice, argile), **Chimie de base** (sel, soufre, phosphate, potasse), Bois, Accès. Le clic sur un gisement et la fiche de la mine donnent la réserve, la teneur et les débouchés (« sert à : batteries · produits : smartphone, tablette, ordinateur portable… »). Le **guide du fabricant** affiche la même ligne « Sert à » pour chaque matière brute et le mode SORTIES liste les recettes qui l'utilisent. Scénarios : les carrières et mines de base s'ouvrent au scénario 2, les métaux rares (nickel, chrome, lithium, terres rares, graphite) au scénario 3.
+
+### 4. Tests (`t30_gisements.js`)
+Chaque gisement existe (>= 1 site, >= 1 site accessible), rareté et inégalités géographiques, teneur dans ses bornes, noms uniques, aucune chaîne orpheline, toute feuille de recette a un extracteur, icônes et couleurs distinctes, catalogue par familles ; chaque mine produit avec un EBITDA dans sa fourchette et un retour sur capex <= 3,5 ans ; EBITDA des 10 composants nouveaux et des recettes modifiées ; `quickProduce` d'une voiture en aluminium et de casseroles inox va jusqu'aux mines (plan chiffré, arbre de chaîne, 90 jours de production) ; marché (cours bornés, producteur PNJ par matière, demande des rivaux) ; engrais ; ancienne sauvegarde réelle (`tools/tests/fixtures/save_v8_avant_passe33.json`, produite par la version précédente) : chargée, anciens gisements inchangés, nouveaux ajoutés, 30 jours sans NaN ; déterminisme de la carte et de l'économie. Mises à jour de cibles légitimes : `t10` (composants : 35 à 60 au lieu de 35 à 45), plans de `tools/chain_audit.js` (montre, bijou, parfum, soin, mal de tête : mines de silice, de sel, de soufre et de phosphate ajoutées ; nouveaux plans `cookware` et `ebike`), aide `EXT` de `tests/lib.js`.
+
+### 5. Reporté (hors périmètre de cette passe)
+Étain, uranium (le nucléaire reste sans combustible modélisé), argent, titane ; lithium en roche dure (un seul gisement de lithium) ; élevage ; vrais sprites des gisements et mines (liste dans `tools/factory_ai/phase2/GISEMENTS.md`) ; puissances étrangères spécialisées par métal rare ; engrais achetable à un fournisseur ; prime de poids pour la voiture en aluminium (elle coûte plus cher à fabriquer, sans avantage de vente pour l'instant).
