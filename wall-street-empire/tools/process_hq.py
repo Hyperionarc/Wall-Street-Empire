@@ -7,7 +7,7 @@ from collections import deque
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def stylize(im, lift=1.25, sat=1.7):
     """Éclaircit et sature l'illustration (encre sombre) pour l'accorder à la palette claire de la ville."""
-    x = im.convert('RGB').filter(ImageFilter.MedianFilter(3)); arr = np.array(x).astype(float) / 255
+    x = im.convert('RGB'); arr = np.array(x).astype(float) / 255
     arr = (0.10 + 0.90 * arr) ** (1 / lift)
     x = Image.fromarray((arr * 255).astype('uint8')); x = ImageEnhance.Color(x).enhance(sat)
     return ImageEnhance.Contrast(x).enhance(0.95)
@@ -46,14 +46,14 @@ def process(src, dst, width=480):
             if 0 <= ny < H and 0 <= nx < W and light[ny, nx] and not bg[ny, nx]: bg[ny, nx] = True; q.append((ny, nx))
     alpha = Image.fromarray(((~bg) * 255).astype('uint8'))
     alpha = alpha.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(0.8))   # érosion 1 px + adoucissement
-    out = flatten(im).convert('RGBA'); out.putalpha(alpha)
+    out = stylize(im, lift=1.45, sat=1.5).convert('RGBA'); out.putalpha(alpha)   # pastel SANS aplats : le détail (fenêtres, corniches) reste net
     bbox = out.getchannel('A').point(lambda v: 255 if v > 24 else 0).getbbox(); out = out.crop(bbox)
     s = width / out.width; out = out.resize((width, round(out.height * s)), Image.LANCZOS)
     al = np.array(out.getchannel('A')); ys, xs = np.where(al > 128)
     low = ys.max(); row = np.where(al[max(0, low - 6):low + 1] > 128)[1]
     out = shade(out, row.mean())
     meta = {'w': out.width, 'h': out.height, 'tipx': int(row.mean()), 'tipy': int(low), 'left': int(xs.min()), 'right': int(xs.max())}
-    out.quantize(colors=200, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(dst, optimize=True); return meta
+    out.save(dst, optimize=True); return meta   # RGBA plein (pas de quantification : elle bruitait les dégradés et l'alpha)
 if __name__ == '__main__':
     name = sys.argv[1] if len(sys.argv) > 1 else 'mid'
     m = process(os.path.join(ROOT, 'assets/src/hq', f'hq_{name}_src.jpg'), os.path.join(ROOT, 'assets/hq', f'hq_{name}.png'))
