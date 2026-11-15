@@ -18,6 +18,11 @@ def g(nom, sujet, lot='lot1'):
     M.append({'nom': nom, 'lot': lot, 'gabarit': nom, 'sujet': sujet})
 
 
+def gg(nom, gabarit, sujet, lot='lot2'):
+    """Sprite du lot 2 qui réutilise un gabarit existant (même orientation) : cadrage et ancre exacts."""
+    M.append({'nom': nom, 'lot': lot, 'gabarit': gabarit, 'sujet': sujet})
+
+
 def n(nom, sujet, largeur=256, contenu=None, ajuster='largeur', echelle=64.0, hauteur=None, lot='lot2'):
     """Sprite sans gabarit. contenu = taille en px de l'objet (largeur ou hauteur selon `ajuster`)."""
     M.append({'nom': nom, 'lot': lot, 'gabarit': None, 'sujet': sujet, 'largeur': largeur,
@@ -55,13 +60,23 @@ g('mur_bas_droite', 'low cut section of light grey factory wall with a blue door
 # herbe_tuile et sol_beton_tuile restent procéduraux (raccord exact entre tuiles).
 
 # ------------------------------------------------------------------ lot 2 (nouveaux, rendu libre)
-# Convoyeurs : tuile 2 m = 256 px
-for o in ('nord_est', 'sud_est'):
-    n(f'convoyeur_droit_{o}', f'straight section of grey industrial roller conveyor with side rails, one cardboard box on it, running towards the {o.replace("_", "-")} of the isometric grid')
-    n(f'convoyeur_vide_droit_{o}', f'straight section of grey industrial roller conveyor with side rails, empty, running towards the {o.replace("_", "-")} of the isometric grid')
-for o in ('ne', 'nw', 'se', 'sw'):
-    n(f'convoyeur_coin_{o}', f'90 degree corner of grey industrial roller conveyor with side rails, one cardboard box on it, corner oriented {o.upper()}')
-    n(f'convoyeur_vide_coin_{o}', f'90 degree corner of grey industrial roller conveyor with side rails, empty, corner oriented {o.upper()}')
+# Convoyeurs : tuile 2 m = 256 px. Orientations : voir ORIENTATIONS.md (directions d'écran).
+AXE = {'nord_est': 'running diagonally from the lower left to the upper right of the image',
+       'sud_est': 'running diagonally from the upper left to the lower right of the image'}
+COIN = {'ne': 'joining the upper right edge and the lower right edge of the tile, bending around the right corner',
+        'se': 'joining the lower right edge and the lower left edge of the tile, bending around the bottom corner',
+        'sw': 'joining the lower left edge and the upper left edge of the tile, bending around the left corner',
+        'nw': 'joining the upper left edge and the upper right edge of the tile, bending around the top corner'}
+R = 'grey industrial roller conveyor with side rails'
+gg('convoyeur_droit_sud_est', 'convoyeur_droit', f'straight section of {R}, one cardboard box on it')
+gg('convoyeur_vide_droit_sud_est', 'convoyeur_droit', f'straight section of {R}, completely empty, no box')
+n('convoyeur_droit_nord_est', f'straight section of {R}, one cardboard box on it, {AXE["nord_est"]}')
+n('convoyeur_vide_droit_nord_est', f'straight section of {R}, completely empty, {AXE["nord_est"]}')
+gg('convoyeur_coin_sw', 'convoyeur_coin', f'90 degree curved section of {R}, one cardboard box on it')
+gg('convoyeur_vide_coin_sw', 'convoyeur_coin', f'90 degree curved section of {R}, completely empty, no box')
+for o in ('ne', 'se', 'nw'):
+    n(f'convoyeur_coin_{o}', f'90 degree curved section of {R}, one cardboard box on it, {COIN[o]}')
+    n(f'convoyeur_vide_coin_{o}', f'90 degree curved section of {R}, completely empty, {COIN[o]}')
 # Machines
 n('four_industriel', 'industrial mould furnace with a heavy door, short chimney and orange glow inside')
 n('cuve_inox', 'stainless steel cylindrical tank with pipes and valves')
@@ -73,16 +88,19 @@ n('robot_6_axes_bras_2', 'six-axis industrial robot arm, orange with turquoise j
 n('robot_6_axes_bras_3', 'six-axis industrial robot arm, orange with turquoise joints, arm lowered gripping a cardboard box')
 # Camions : semi-remorque 12 m, échelle commune 64 px/m -> sprite large
 for c, en in (('blanc', 'white'), ('rouge', 'red'), ('bleu', 'blue')):
-    n(f'camion_{c}_face', f'articulated semi-trailer truck seen from the front, cab facing bottom right, {en} cab, long white trailer', largeur=1024, contenu=980)
-    n(f'camion_{c}_dos', f'articulated semi-trailer truck seen from the rear, {en} cab, long white trailer, rear doors open showing cardboard boxes inside', largeur=1024, contenu=980)
-n('remorque_pleine', 'long white semi-trailer alone, rear doors open, full of pallets of cardboard boxes', largeur=1024, contenu=900)
-n('remorque_vide', 'long white semi-trailer alone, rear doors open, empty inside', largeur=1024, contenu=900)
+    n(f'camion_{c}_face', f'articulated semi-trailer truck lying along the upper-left to lower-right diagonal, cab at the lower right end facing the viewer, {en} cab, long white trailer', largeur=1024, contenu=980)
+    n(f'camion_{c}_dos', f'articulated semi-trailer truck lying along the upper-left to lower-right diagonal, cab at the upper left end, rear at the lower right end facing the viewer, {en} cab, long white trailer, rear doors open showing cardboard boxes inside', largeur=1024, contenu=980)
+n('remorque_pleine', 'long white semi-trailer alone lying along the upper-left to lower-right diagonal, rear at the lower right end, rear doors open, full of pallets of cardboard boxes', largeur=1024, contenu=900)
+n('remorque_vide', 'long white semi-trailer alone lying along the upper-left to lower-right diagonal, rear at the lower right end, rear doors open, empty inside', largeur=1024, contenu=900)
 # Murs
+BORD = {'ne': 'standing along the upper right edge of the isometric tile, running from the top corner to the right corner',
+        'nw': 'standing along the upper left edge of the isometric tile, running from the left corner to the top corner'}
 for o in ('ne', 'nw'):
-    n(f'mur_bas_{o}', f'low cut section of light grey factory wall, no door, running along the {o.upper()} edge of an isometric tile')
-    n(f'mur_bas_ouverture_{o}', f'low cut section of light grey factory wall with an empty doorway opening, no door, along the {o.upper()} edge of an isometric tile')
+    n(f'mur_bas_{o}', f'low cut section of light grey factory wall, no door, {BORD[o]}')
+    n(f'mur_bas_ouverture_{o}', f'low cut section of light grey factory wall with an empty doorway opening, no door leaf, {BORD[o]}')
+SOMMET = {'n': 'top', 'e': 'right', 's': 'bottom', 'w': 'left'}
 for o in ('n', 'e', 's', 'w'):
-    n(f'coin_mur_{o}', f'low cut corner piece of light grey factory wall, corner pointing {o.upper()}')
+    n(f'coin_mur_{o}', f'low cut L-shaped corner piece of light grey factory wall, the corner sitting at the {SOMMET[o]} corner of the isometric tile')
 # Matières premières (petits objets 128 px)
 P = dict(largeur=128)
 n('bobine_acier_couchee', 'shiny steel sheet coil lying on its side on a wooden cradle', **P)
@@ -103,13 +121,14 @@ V = dict(largeur=128, hauteur=200, contenu=140, ajuster='hauteur')
 OUV = (('h1', 'man, light skin', 'orange', 'yellow'), ('f1', 'woman, dark skin', 'orange', 'white'),
        ('h2', 'man, dark skin', 'blue', 'white'), ('f2', 'woman, light skin', 'blue', 'yellow'),
        ('h3', 'man, olive skin', 'green', 'yellow'), ('f3', 'woman, east asian', 'green', 'white'))
-PLANCHES = {}
+PLANCHES = {f'ouvrier_gilet_{c}': [f'poses/ouvrier_gilet_{c}_{p}' for p in ('marche', 'porte_carton', 'machine', 'debout')]
+            for c in ('orange', 'bleu')}
 for code, qui, gilet, casque in OUV:
     noms = []
     for p, en_p in (('marche', 'walking'), ('porte_carton', 'carrying a cardboard box'),
                     ('machine', 'operating a small control console'), ('debout', 'standing')):
         nom = f'poses/ouvrier_{code}_{p}'
-        n(nom, f'factory worker, {qui}, {casque} hard hat, {gilet} high-visibility vest, full body, {en_p}', **V)
+        n(nom, f'factory worker, {qui}, {casque} hard hat, {gilet} high-visibility vest, full body, facing the lower right of the image, {en_p}', **V)
         noms.append(nom)
     PLANCHES[f'ouvrier_{code}'] = noms
 for i, d in ((1, 'man in a blue shirt'), (2, 'woman in a red blouse'), (3, 'man in a green sweater')):

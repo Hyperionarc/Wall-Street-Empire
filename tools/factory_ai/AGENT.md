@@ -40,7 +40,7 @@ Fais `git pull` avant chaque lot et lis `RETOURS.md` s'il existe : il contient l
    Committe et pousse après chaque planche d'aperçu (20 sprites).
 5. Pour chaque lot, relis les planches toi-même. Refais (`--seul <nom> --forcer`, en changeant `seed`
    ou le sujet) tout sprite qui : change d'angle, sort du cadre, garde du fond, porte du texte ou un logo,
-   ou jure avec ses voisins. Trois essais ratés : laisse-le, liste-le dans `JOURNAL.md`.
+   jure avec ses voisins, ou est orienté autrement que ne le dit `ORIENTATIONS.md`. Trois essais ratés : laisse-le, liste-le dans `JOURNAL.md`.
 6. Les variantes de couleur ne se génèrent pas : elles se déclinent par code à partir d'un sprite validé.
 
 Fin de lot : `JOURNAL.md` contient date, lot, nombre produit, échecs, secondes par image, changements faits.
@@ -62,7 +62,8 @@ Fin de lot : `JOURNAL.md` contient date, lot, nombre produit, échecs, secondes 
 |---|---|
 | `install.sh` | installe mflux, rembg, Pillow dans `.venv/` |
 | `build_manifest.py` → `manifest.json` | liste des sprites : nom, sujet, gabarit, taille, lot |
-| `config.json` | modèle, taille, steps, texte du style |
+| `config.json` | modèle, taille, steps, texte du style, palette PNG |
+| `ORIENTATIONS.md` | sens exact de chaque suffixe (nord_est, coin_ne, face, dos…) |
 | `batch.py` | génération, détourage, cadrage sur l'ancre, ombre, planches, reprise |
 | `etat.json` | avancement (créé au premier lot) |
 | `style/` | 1 à 2 références de style validées |
