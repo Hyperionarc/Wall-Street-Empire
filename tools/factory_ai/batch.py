@@ -99,7 +99,7 @@ def prompt_pour(sp):
 # ---------------------------------------------------------------- génération
 def mflux(sp, seed, brut):
     exe = os.path.join(ICI, '.venv', 'bin')
-    refs = ([prepare_entree(sp)] if sp['gabarit'] else []) + refs_style()
+    refs = [prepare_entree(sp)] if sp['gabarit'] else refs_style()   # la référence de style ne sert qu'aux sprites sans gabarit
     base = ['--model', CFG['modele'], '--prompt', prompt_pour(sp), '--steps', str(CFG['steps']),
             '--seed', str(seed), '--output', brut]
     opt = ['--width', str(CFG['taille']), '--height', str(CFG['taille']), '-q', str(CFG['quantize'])]
