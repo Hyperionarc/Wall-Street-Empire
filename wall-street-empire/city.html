@@ -763,6 +763,9 @@ body.vopen #feed{z-index:9}
 .rtop{display:flex;align-items:center;gap:8px}.rtop i{width:10px;height:10px;border-radius:3px}.rtop small{margin-left:auto;color:var(--mut)}
 .rshr{display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0;font-size:11.5px;color:var(--mut)}.rshr b{color:var(--fg);font-family:var(--font-m)}
 .rbot{display:flex;align-items:center;justify-content:space-between;gap:8px}.rbot small{font-size:10.5px;color:var(--mut)}
+.rcaste{font-size:10.5px;margin-left:2px}.rstrat{font-size:11.5px;color:var(--mut);margin:2px 0 6px}.rstrat b{color:var(--fg);font-weight:600}.rvlog{font-size:11.5px;color:var(--mut)}.rvlog div{padding:3px 0;border-bottom:1px solid var(--line)}.rvlog b{color:var(--fg)}
+#rvban{position:fixed;left:50%;transform:translateX(-50%);bottom:150px;z-index:29;width:max-content;max-width:min(92vw,720px);display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:8px;background:var(--panel-hi);border:1px solid var(--line);font-size:12px;color:var(--fg);box-shadow:0 4px 14px rgba(0,0,0,.35)}#rvban[hidden]{display:none}@media (max-width:899px){#rvban{left:8px;right:8px;transform:none;width:auto;max-width:none;flex-wrap:wrap;bottom:170px}}#rvban .btn{min-height:26px;padding:2px 10px;font-size:11px}
+.seatst{display:block;font-style:normal;font-size:10.5px;color:var(--mut);margin-top:4px}
 .lrow{display:grid;grid-template-columns:1fr 64px 60px;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:12px}
 .lrow b{font-family:var(--font-m)}.lrow small{display:block;color:var(--mut);font-size:10.5px}.lrow canvas{width:60px;height:26px}
 .mk{margin:6px 0}.mk small{font-size:11px;color:var(--mut)}
@@ -1092,7 +1095,7 @@ body.vopen #feed{z-index:9}
     <div id="goods"></div>
     </section>
     <section data-sec="rivals" hidden>
-    <h3>CONCURRENTS</h3>
+    <h3>RIVAUX · UNE IA PAR CASTE</h3>
     <div id="rivals"></div>
     </section>
     <section data-sec="fin" hidden>
@@ -1192,6 +1195,7 @@ body.vopen #feed{z-index:9}
   <div id="acq" hidden role="dialog" aria-live="polite"></div>
   <div id="neg" hidden role="dialog" aria-live="polite"></div>
   <div id="feed" aria-live="polite"></div>
+  <div id="rvban" hidden></div>
 
   <div id="hint">
     <b>BIENVENUE À NEW DOLLARTON</b>
@@ -1684,7 +1688,7 @@ function stepLocalMarket(made, want) {
   let v = 0;
   Object.keys(LOCAL_D).forEach(g => {
     if (!GOODS[g]) return;
-    const Dl = LOCAL_D[g] * (ROBOTS[g] ? 1 + 0.12 * (S.rivals || []).length : 1) * (S.pop / 10000) * gdpm * clamp(Math.pow(Math.max(0.2, (S.price[g] || GOODS[g].base) / (GOODS[g].base * cpi())), -elRaw(g)), 0.4, 1.8), n = npcs[g] || (npcs[g] = { cap: 0, days: 0 });
+    const Dl = LOCAL_D[g] * (ROBOTS[g] ? 1 + 0.12 * Math.min(3, (S.rivals || []).length) : 1) * (S.pop / 10000) * gdpm * clamp(Math.pow(Math.max(0.2, (S.price[g] || GOODS[g].base) / (GOODS[g].base * cpi())), -elRaw(g)), 0.4, 1.8), n = npcs[g] || (npcs[g] = { cap: 0, days: 0 });
     if (n.cap > 0) { const c0 = n.cap; n.cap = Math.min(Dl * ROOM * (NPC_CAP + 0.03 * dif), n.cap * (1 + 0.004 * (1 + dif))); if (CROPS[g] && Math.floor(n.cap / (Dl * 0.2)) > Math.floor(c0 / (Dl * 0.2)) && rnd() < 0.6) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); }
     const hadSale = (S.locSold[g] || 0) > 5; n.days = hadSale ? n.days + 1 : Math.max(0, n.days - 1);
     if (!n.cap && n.days > 18 && rnd() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * ROOM * 0.15; if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
@@ -1696,23 +1700,12 @@ function stepLocalMarket(made, want) {
   return v;
 }
 // Options de partie (inspirées de l'écran « Competitors » de Capitalism Lab) : niveaux 0..4 = Très bas, Bas, Modéré, Élevé, Très élevé
-const OPT_DEF = { n: 2, cap: 2, exp: 2, price: 2, local: 2, foreign: 2 };
+const OPT_DEF = { n: 3, cap: 2, exp: 2, price: 2, local: 2, foreign: 2 };
 const OPT_LBL = { n: 'Nombre de concurrents', cap: 'Capital de départ des concurrents', exp: 'Agressivité d\'expansion des IA', price: 'Agressivité tarifaire des IA', local: 'Compétence des producteurs locaux', foreign: 'Activité des puissances étrangères' };
 const OPT_LV = ['Très bas', 'Bas', 'Modéré', 'Élevé', 'Très élevé'];
 const optV = (k, tab) => tab[((S && S.opt && S.opt[k] !== undefined) ? S.opt[k] : OPT_DEF[k])];
 const OPT_NRIV = [0, 2, 3, 5, 8], OPT_EXP = [0.3, 0.6, 1, 1.6, 2.4], OPT_PRICE = [0.8, 0.9, 1, 1.15, 1.3], OPT_LOC = [0, 0.5, 1, 1.6, 2.4], OPT_CAP = [0.3, 0.6, 1, 2, 4];
 const RIV_EXTRA = [['Walmark', '#9be05a'], ['Prime Retail', '#ffd23f'], ['EuroShop', '#b78cff'], ['CityMart', '#ff6b6b'], ['Pacific Stores', '#4fd1c5']];
-function syncRivals() {
-  const want = optV('n', OPT_NRIV); S.rivals = S.rivals || [];
-  while (S.rivals.length > want) { const r = S.rivals.pop(); if (r && S.port) delete S.port[r.id]; }
-  const pool = initRivals().map(r => [r.name, r.col]).concat(RIV_EXTRA);   // nom/couleur jamais dupliqués parmi les rivaux en place
-  while (S.rivals.length < want) {
-    const used = new Set(S.rivals.map(r => r.name)), usedC = new Set(S.rivals.map(r => r.col)), a = () => 0.04 + 0.2 * rnd();
-    const pick = pool.find(x => !used.has(x[0]) && !usedC.has(x[1])) || pool.find(x => !used.has(x[0])) || [pool[S.rivals.length % pool.length][0] + ' ' + (S.rivals.length + 1), '#9aa7b8'];
-    let id = 'r' + (S.rivals.length + 1) + 'x' + S.day, n = 0; while (S.rivals.some(r => r.id === id)) id = 'r' + (S.rivals.length + 1) + 'x' + S.day + '_' + (++n);
-    S.rivals.push({ id, name: pick[0], col: pick[1], cash: 50000 * K_POP * RIV_K * optV('cap', OPT_CAP), att: { basic: a(), std: a(), lux: a() * 0.6, estate: a() * 0.6 } });
-  }
-}
 function optHTML() {
   return '<h3>PARAMÈTRES DE LA PARTIE</h3><div class="tcard"><small>Réglables à tout moment. Plus les IA sont fortes, plus le marché est disputé.</small>' + Object.keys(OPT_LBL).map(k => `<div style="margin-top:8px"><small>${OPT_LBL[k]}</small><div class="seg2" style="flex-wrap:wrap">${OPT_LV.map((l, i) => `<button class="btn ${((S.opt && S.opt[k] !== undefined) ? S.opt[k] : OPT_DEF[k]) === i ? '' : 'sec'}" data-opt="${k}:${i}" style="min-height:28px;padding:3px 8px;font-size:11px">${l}</button>`).join('')}</div></div>`).join('') + `<div style="margin-top:8px"><small>Présentation cinéma des nouveaux produits</small><div class="seg2" style="flex-wrap:wrap">${[[1, 'Afficher'], [0, 'Ne plus afficher']].map(o => `<button class="btn ${(cineOpt() ? 1 : 0) === o[0] ? '' : 'sec'}" data-cine="${o[0]}" style="min-height:28px;padding:3px 8px;font-size:11px">${o[1]}</button>`).join('')}</div></div></div>`;
 }
@@ -1776,41 +1769,327 @@ function supOffer0(g, id, haul) {
   return { unit: base * s.pf, freight: fr, total: base * s.pf + fr, name: s.name, q: s.q, dist: s.dist };
 }
 const RIV_CLS = ['basic', 'std', 'lux', 'estate'];
-function initRivals() {
-  return [
-    { id: 'r1', name: 'Mega Mart', col: '#ff8a3d', cash: 60000 * K_POP * RIV_K, att: { basic: 0.22, std: 0.12, lux: 0, estate: 0.1 } },
-    { id: 'r2', name: 'Luxor & Fils', col: '#ff4fa3', cash: 90000 * K_POP * RIV_K, att: { basic: 0.02, std: 0.12, lux: 0.3, estate: 0.2 } },
-    { id: 'r3', name: 'DiscountCo', col: '#3fd8ff', cash: 40000 * K_POP * RIV_K, att: { basic: 0.26, std: 0.26, lux: 0.2, estate: 0.2 } }
-  ];
+/* ---------- Passe « rivaux vivants » : une IA par caste, des prix, des stratégies, des sièges ----------
+   Chaque caste est un siège toujours occupé (S.seats) : par le joueur, par une IA (S.rivals, champ caste) ou, plus tard, par un autre humain (r.ctrl = 'human').
+   Champs optionnels d'un rival : caste, px (prix relatif par classe), fl (produit phare), st (stratégie), mq (qualité de gestion), as (actifs hors magasins), re (immobilier), nb (bâtiments posés), v0 (valeur de départ), ctrl, pid.
+   État commun S.rv (optionnel) : guerre en cours, cartel, offre en attente, actifs d'un failli à vendre, journal. Tout tirage passe par rnd() ou hash() : même graine, même histoire. */
+const RIV_ORDER = ['agriculteur', 'banquier', 'negociant', 'industriel', 'promoteur', 'innovateur'];
+// px : positionnement de prix par classe (1 = prix du marché) ; m : marge au prix de référence ; aggr : goût de la guerre des prix ; ma : appétit de rachat ; coll : goût de l'entente ; fol : suivi des prix du joueur ; core : classes de cœur
+const RIV_CASTE = {
+  agriculteur: { id: 'r1', name: 'Mega Mart', tag: 'coopératives et grande distribution', col: '#ff8a3d', att: { basic: 0.26, std: 0.07, lux: 0, estate: 0.05 }, px: { basic: 0.96, std: 1, lux: 1, estate: 1 }, m: 0.25, aggr: 0.5, ma: 0.3, coll: 0.4, fol: 0.45, core: ['basic'] },
+  banquier: { id: 'r2', name: 'Luxor & Fils', tag: 'banque privée et luxe', col: '#ff4fa3', att: { basic: 0, std: 0.08, lux: 0.28, estate: 0.12 }, px: { basic: 1.08, std: 1.1, lux: 1.18, estate: 1.06 }, m: 0.24, aggr: 0.35, ma: 0.9, coll: 0.6, fol: 0.25, core: ['lux', 'estate'] },
+  negociant: { id: 'r3', name: 'DiscountCo', tag: 'négoce et prix cassés', col: '#3fd8ff', att: { basic: 0.22, std: 0.12, lux: 0.03, estate: 0 }, px: { basic: 0.86, std: 0.88, lux: 0.94, estate: 1 }, m: 0.2, aggr: 1, ma: 0.2, coll: 1, fol: 0.6, core: ['basic', 'std'] },
+  industriel: { id: 'r4', name: 'Vulcan Industries', tag: 'usines, rachats et OPA', col: '#7f96ff', att: { basic: 0.07, std: 0.22, lux: 0.04, estate: 0.04 }, px: { basic: 1, std: 0.98, lux: 1, estate: 1 }, m: 0.21, aggr: 0.8, ma: 1, coll: 0.3, fol: 0.4, core: ['std'] },
+  promoteur: { id: 'r5', name: 'Atlas Promotion', tag: 'quartiers et rente foncière', col: '#ff6b6b', att: { basic: 0.02, std: 0.06, lux: 0.06, estate: 0.33 }, px: { basic: 1, std: 1, lux: 1.04, estate: 1.02 }, m: 0.34, aggr: 0.45, ma: 0.7, coll: 0.4, fol: 0.3, core: ['estate'] },
+  innovateur: { id: 'r6', name: 'Novatek Labs', tag: 'R&D, brevets et data centers', col: '#b78cff', att: { basic: 0, std: 0.18, lux: 0.14, estate: 0 }, px: { basic: 1, std: 1.08, lux: 1.1, estate: 1 }, m: 0.21, aggr: 0.6, ma: 0.4, coll: 0.2, fol: 0.3, core: ['std', 'lux'] }
+};
+const RIV_GEN = [   // rivaux sans caste (anciennes sauvegardes, concurrents au-delà de 5) : discounter, milieu de gamme, haut de gamme
+  { px: { basic: 0.88, std: 0.9, lux: 0.95, estate: 1 }, m: 0.17, aggr: 0.9, ma: 0.3, coll: 0.7, fol: 0.55, core: ['basic'] },
+  { px: { basic: 1, std: 1, lux: 1, estate: 1 }, m: 0.2, aggr: 0.6, ma: 0.5, coll: 0.4, fol: 0.4, core: ['std'] },
+  { px: { basic: 1.06, std: 1.1, lux: 1.15, estate: 1.05 }, m: 0.24, aggr: 0.4, ma: 0.6, coll: 0.5, fol: 0.25, core: ['lux'] }];
+const RIV_LEG = { r1: { basic: 0.22, std: 0.12, lux: 0, estate: 0.1 }, r2: { basic: 0.02, std: 0.12, lux: 0.3, estate: 0.2 }, r3: { basic: 0.26, std: 0.26, lux: 0.2, estate: 0.2 } };   // scénarios : les 3 rivaux d'origine gardent leur poids
+const RIV_EL = { basic: 2.4, std: 1.8, lux: 0.8, estate: 1.4 };   // élasticité des parts au prix relatif d'un rival
+const RIV_YIELD = 0.08 / 360, RIV_WAR_CD = 180, RIV_CAP = 1.3;    // rendement des actifs hors magasins ; trêve après une guerre (jours) ; plafond de l'attrait cumulé des rivaux par classe
+const CLS_FR = { basic: 'les produits de base', std: 'les produits manufacturés', lux: 'le luxe', estate: 'l\'immobilier' }, CLS_S = { basic: 'Base', std: 'Manuf.', lux: 'Luxe', estate: 'Immo' };
+const rivP = r => RIV_CASTE[r.caste] || RIV_GEN[r.id === 'r3' ? 0 : r.id === 'r1' ? 1 : r.id === 'r2' ? 2 : Math.floor(hash(String(r.id).length, String(r.id).charCodeAt(String(r.id).length - 1) || 0, 79) * 3)];
+// Réglages par difficulté (Round facile : rivaux moins rentables, moins agressifs, guerres plus courtes et moins profondes)
+const rivDiff = () => (S && S.mode && S.mode.easy) ? { m: 0.85, aggr: 0.6, warTh: 0.4, depth: 0.75, dur: 0.7, ma: 0.5, fineP: 0.05, exp: 0.8 } : { m: 1, aggr: 1, warTh: 0.3, depth: 1, dur: 1, ma: 1, fineP: 0.07, exp: 1 };
+const rvS = () => S.rv || (S.rv = { ys: {}, log: [] });
+// Les rivaux tirent dans leur propre flux aléatoire (graine S.rv.rs, dérivée de celle de la partie) : leurs décisions ne décalent pas les tirages du reste de la simulation
+function rivRand(fn) { const RV = rvS(), keep = S.rs; S.rs = RV.rs == null ? (((keep == null ? _RS0 : keep) ^ 0x5bd1e995) | 0) : RV.rs; try { return fn(); } finally { RV.rs = S.rs; S.rs = keep; } }
+const rivWant = () => (S && S.mode && /^s[1-5]$/.test(S.mode.k || '')) ? Math.min(3, optV('n', OPT_NRIV)) : optV('n', OPT_NRIV);
+function rivStartCash() { return (S.mode && S.mode.k === 'round') ? (S.mode.w0 || (S.mode.easy ? 100e6 : 10e6)) * (S.day > 30 ? 0.6 : 1) : 60000 * K_POP * RIV_K * optV('cap', OPT_CAP); }
+function mkRival(k) {
+  const P = RIV_CASTE[k], scn = rivWant() <= 3 && RIV_LEG[P.id]; let id = P.id, n = 0; while ((S.rivals || []).some(r => r.id === id)) id = P.id + 'x' + S.day + (n++ ? '_' + n : '');
+  const r = { id, caste: k, name: P.name, col: P.col, cash: rivStartCash(), att: Object.assign({}, scn || P.att), px: Object.assign({}, P.px), mq: +(0.82 + 0.3 * hash(((S.rs == null ? 7 : S.rs) >>> 4) & 1023, RIV_ORDER.indexOf(k), 87)).toFixed(3), st: { k: 'follow' }, as: 0, re: 0, nb: 0 };
+  const pool = Object.keys(PRODUCTS).filter(pk => P.core.indexOf(PRODUCTS[pk].cls) >= 0 && !/^c\d/.test(pk)).sort(); if (pool.length) { const pk = pool[Math.floor(hash(id.length, k.length, 83) * pool.length)]; r.fl = { k: pk, cls: PRODUCTS[pk].cls, d: 1 }; }
+  return r;
 }
-// Valeur d'un rival : trésorerie + actifs (≈ 1 an de ventes par point d'attrait : 27 M$ par point à K_SIZE = 5) ; 5 à 100 M$ selon la taille
+function initRivals() { const out = []; RIV_ORDER.forEach(k => { if (k !== casteOf() && out.length < rivWant()) out.push(mkRival(k)); }); return out; }
+// Ancien rival sans caste (sauvegarde antérieure) : il reçoit la caste de son enseigne si elle est libre, et les champs optionnels manquants
+function rivNorm(r) {
+  if (r.caste === undefined) { const k = { r1: 'agriculteur', r2: 'banquier', r3: 'negociant' }[r.id]; r.caste = (k && k !== casteOf() && !(S.rivals || []).some(x => x !== r && x.caste === k)) ? k : null; }
+  if (!r.px) r.px = Object.assign({}, rivP(r).px); if (!r.st) r.st = { k: 'follow' }; if (r.mq == null) r.mq = 1; if (r.as == null) r.as = 0; if (r.re == null) r.re = 0;
+  return r;
+}
+function syncRivals() {
+  const want = rivWant(); S.rivals = S.rivals || [];
+  while (S.rivals.length > want) { const r = S.rivals.pop(); if (r && S.port) delete S.port[r.id]; }
+  S.rivals.forEach(rivNorm);
+  RIV_ORDER.forEach(k => { if (S.rivals.length < want && k !== casteOf() && !S.rivals.some(r => r.caste === k)) S.rivals.push(mkRival(k)); });   // une caste n'est tenue que par un seul acteur
+  while (S.rivals.length < want) {   // au-delà des castes : concurrents sans caste
+    const used = new Set(S.rivals.map(r => r.name)), usedC = new Set(S.rivals.map(r => r.col)), a = () => 0.04 + 0.2 * rnd();
+    const pick = RIV_EXTRA.find(x => !used.has(x[0]) && !usedC.has(x[1])) || RIV_EXTRA.find(x => !used.has(x[0])) || [RIV_EXTRA[S.rivals.length % RIV_EXTRA.length][0] + ' ' + (S.rivals.length + 1), '#9aa7b8'];
+    let id = 'r' + (S.rivals.length + 1) + 'x' + S.day, n = 0; while (S.rivals.some(r => r.id === id)) id = 'r' + (S.rivals.length + 1) + 'x' + S.day + '_' + (++n);
+    S.rivals.push(rivNorm({ id, caste: null, name: pick[0], col: pick[1], cash: rivStartCash(), att: { basic: a(), std: a(), lux: a() * 0.6, estate: a() * 0.6 } }));
+  }
+  seatsSync();
+}
+// ----- Sièges : une entrée par caste, { caste, ctrl: 'ai' | 'human', pid, since } -----
+function seatsSync() {
+  const old = S.seats || [], me = casteOf();
+  S.seats = RIV_ORDER.map(k => { const o = old.find(s => s.caste === k), r = (S.rivals || []).find(x => x.caste === k), hum = k === me || !!(r && r.ctrl === 'human'), ctrl = hum ? 'human' : 'ai', pid = k === me ? (S.pid || 'me') : hum ? (r.pid || 'h:?') : null;
+    return { caste: k, ctrl, pid, since: o && o.ctrl === ctrl && o.pid === pid && o.since != null ? o.since : (S.day || 0) }; });
+  return S.seats;
+}
+// Indice de prix du joueur dans une classe (1 = prix standard) : prix de rayon des magasins × prix de ses produits
+function playerPx(cls) {
+  const c = S._rpi && S._rpi.d === S.day ? S._rpi : (S._rpi = { d: S.day, v: {} }); if (c.v[cls] != null) return c.v[cls];
+  const dw = S._dw && S._dw.cls && S._dw.cls[cls]; let p = dw && dw.nShops ? dw.pfAvg : 1, a = 0, b = 0;
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps.st === 'on' && PRODUCTS[pk].cls === cls) { const w = 0.01 + (ps.share || 0); a += w * prodPrice(pk) / Math.max(1e-9, stdPrice(pk)); b += w; } });
+  if (b > 0) p *= 0.5 + 0.5 * a / b;
+  return (c.v[cls] = clamp(p, 0.5, 2));
+}
+// Entreprise d'un siège : le même objet pour le joueur et pour une IA (frontière du futur multijoueur ; lecture seule)
+function companyOf(k) {
+  const mk = S.mkt || {};
+  if (k === casteOf()) { const F = S.fin || {}, sh = {}, px = {}; let n = 0; RIV_CLS.forEach(c => { sh[c] = mk[c] ? mk[c].you : 0; px[c] = playerPx(c); }); eachBuilding(() => { n++; });
+    return { caste: k, id: 'me', name: 'Ton empire', col: '#f2b84b', ctrl: 'human', pid: S.pid || 'me', cash: S.cash, debt: S.loan || 0, value: valuation(), rev: (F.revRetail || 0) + (F.revExport || 0) + (F.revTech || 0) + (F.revBank || 0), pf: F.net || 0, shares: sh, px, brand: (S._brandAvg || {}).aw || 0, bld: n, strat: null }; }
+  const r = (S.rivals || []).find(x => x.caste === k); if (!r) return null;
+  const sh = {}; RIV_CLS.forEach(c => { sh[c] = mk[c] ? ((mk[c].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0; });
+  return { caste: k, id: r.id, name: r.name, col: r.col, ctrl: r.ctrl === 'human' ? 'human' : 'ai', pid: r.pid || null, cash: r.cash, debt: 0, value: rivalValue(r), rev: r.rev || 0, pf: r.pf || 0, shares: sh, px: Object.assign({}, r.px), brand: r.bk || 0, bld: r.nb || 0, strat: r.st || null };
+}
+function seatClaim(k, pid) {
+  if (!RIV_CASTE[k]) return { ok: false, why: 'Caste inconnue.' };
+  pid = pid || 'me'; const s = seatsSync().find(x => x.caste === k), mine = pid === 'me' || pid === S.pid;
+  if (s.ctrl === 'human') return { ok: s.pid === pid || (mine && k === casteOf()), why: 'Ce siège est déjà tenu par ' + (k === casteOf() ? 'toi' : String(s.pid).replace(/^h:/, '')) + '.' };
+  if (mine) { setCaste(k); return { ok: casteOf() === k, seat: seatsSync().find(x => x.caste === k) }; }
+  const r = (S.rivals || []).find(x => x.caste === k); if (!r) return { ok: false, why: 'Ce siège est vacant (société en faillite) : une nouvelle IA le reprendra.' };
+  if (r.st && r.st.k === 'war') rivEndStrat(r, 'la direction change');
+  r.ctrl = 'human'; r.pid = pid; r.st = { k: 'human' }; say(`${String(pid).replace(/^h:/, '')} prend la tête de ${r.name} (${CASTES[k].n}) : l'IA lui cède le siège.`, 'gold');
+  return { ok: true, seat: seatsSync().find(x => x.caste === k), company: companyOf(k) };
+}
+function seatRelease(k) {
+  const r = (S.rivals || []).find(x => x.caste === k); if (!r || r.ctrl !== 'human') return { ok: false, why: k === casteOf() ? 'Change de caste (Menu > Partie) pour céder ton siège.' : 'Ce siège est déjà tenu par une IA.' };
+  delete r.ctrl; delete r.pid; r.st = { k: 'follow' }; say(`${r.name} (${CASTES[k].n}) repasse sous la direction de l'IA.`, 'info');
+  return { ok: true, seat: seatsSync().find(x => x.caste === k) };
+}
+// Ordre d'un humain tenant le siège d'une IA (prix relatif par classe) : seule action exposée avant le multijoueur
+function seatOrder(k, o) { const r = (S.rivals || []).find(x => x.caste === k); if (!r || r.ctrl !== 'human' || !o) return false; if (o.px) RIV_CLS.forEach(c => { if (o.px[c] > 0) r.px[c] = clamp(+o.px[c], 0.6, 1.6); }); return true; }
+const seatsApi = { list: () => seatsSync().map(s => Object.assign({}, s, { company: companyOf(s.caste) })), claim: seatClaim, release: seatRelease, isFree: k => { const s = seatsSync().find(x => x.caste === k); return !!s && s.ctrl === 'ai'; }, company: companyOf, order: seatOrder };
+// ----- Prix et valeur -----
 const rivalSum = r => RIV_CLS.reduce((a, k) => a + r.att[k], 0);
+const rivPxRel = (r, cls) => r.px && r.px[cls] > 0 ? r.px[cls] / (rivP(r).px[cls] || 1) : 1;   // écart au positionnement habituel du profil (1 = prix normal de l'enseigne)
+const rivPm = (r, cls) => { if (!r.px) return 1; const x = rivPxRel(r, cls) * (r.fl && r.fl.cls === cls ? 0.7 + 0.3 * (r.fl.d || 1) : 1); return Math.pow(clamp(x, 0.5, 1.8), -RIV_EL[cls]); };
 const rivalAttr = cls => optV('price', OPT_PRICE) * (S.rivals || []).reduce((a, r) => a + rivEff(r, cls) * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
-const rivalValue = r => Math.round((Math.max(0, r.cash) + RIV_ASSET * rivalSum(r)) * (casteIs('industriel') ? 0.85 : 1) / 5000) * 5000;
+// Valeur d'un rival : trésorerie + magasins (≈ 27 M$ par point d'attrait à K_SIZE = 5) + actifs hors magasins (usines, brevets, participations, fermes) + immobilier
+const rivalValue = r => Math.round((Math.max(0, r.cash) + RIV_ASSET * rivalSum(r) + (r.as || 0) + (r.re || 0)) * (casteIs('industriel') ? 0.85 : 1) / 5000) * 5000;
+const rvLog = (r, t) => { const L = rvS().log || (rvS().log = []); L.push({ d: S.day, id: r ? r.id : '', n: r ? r.name : '', t }); if (L.length > 14) L.shift(); };
+const rvCartelK = cls => (S && S.rv && S.rv.cartel && S.rv.cartel.cls === cls) ? 1.08 : 1;   // entente acceptée : tes prix de rayon montent de 8 % dans la classe
+// Services disputés : la banque de l'IA banquier et les data centers de l'IA innovateur prennent jusqu'à 12 % des recettes de services du joueur à mesure que leurs actifs grandissent
+const rivSvc = k => { const r = (S.rivals || []).find(x => x.caste === (k === 'bank' ? 'banquier' : 'innovateur')); return r ? 0.12 * Math.min(1, (r.as || 0) / (1.5 * Math.max(1e6, r.v0 || 2e7))) : 0; };
+const rvSqueeze = () => (S && S.rv && S.rv.sq && S.rv.sq.until >= S.day) ? S.rv.sq.pts : 0;
+function rivEndStrat(r, why) {
+  const st = r.st || {}, RV = rvS();
+  if (st.k === 'war') { if (RV.war && RV.war.rid === r.id) RV.war = null; RV.warCd = S.day + RIV_WAR_CD; RV.warsEnded = (RV.warsEnded || 0) + 1; say(`${r.name} met fin à sa guerre des prix sur ${CLS_FR[st.cls]} (${why}).`, 'good'); rvLog(r, 'fin de la guerre des prix (' + why + ')'); }
+  r.st = { k: 'follow' };
+}
+function rivWar(r, cls) {
+  const P = rivP(r), E = rivDiff(), RV = rvS(), d = +clamp((0.1 + 0.15 * (0.4 * Math.min(1, P.aggr) + 0.6 * rnd())) * E.depth, 0.1, 0.25).toFixed(3), n = Math.round((40 + 50 * rnd()) * E.dur);
+  r.st = { k: 'war', cls, d, t0: S.day, until: S.day + n }; RV.war = { rid: r.id, cls, d, until: S.day + n }; r.wcd = S.day + n + 2 * RIV_WAR_CD; RV.wars = (RV.wars || 0) + 1;
+  say(`Guerre des prix : ${r.name} casse ses prix de ${Math.round(d * 100)} % sur ${CLS_FR[cls]} jusqu'au jour ${S.day + n}. Tes parts sont visées.`, 'bad'); rvLog(r, `guerre des prix (−${Math.round(d * 100)} %) sur ${CLS_FR[cls]} jusqu'au jour ${S.day + n}`);
+}
+// Prix du jour : positionnement du profil × (part en recul → baisse) × (trésorerie) × (suivi du joueur) × (stratégie) ; baisses rapides, hausses lentes
+function rivPrice(r) {
+  const P = rivP(r), mk = S.mkt || {}, st = r.st || {}, RV = rvS(), val = Math.max(1, rivalValue(r)), cr = r.cash / val; r.sm = r.sm || {};
+  RIV_CLS.forEach(cls => {
+    const b = P.px[cls] || 1, you = mk[cls] ? mk[cls].you : 0, mine = mk[cls] ? ((mk[cls].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0; let t = 1;
+    r.sm[cls] = r.sm[cls] == null ? mine : r.sm[cls] * 0.97 + mine * 0.03;
+    if (r.att[cls] > 0.01 && r.sm[cls] > 0.005) t *= 1 - 0.15 * clamp((r.sm[cls] - mine) / r.sm[cls], -0.4, 0.6);
+    t *= cr < 0.04 && rivalSum(r) >= (r.a0 || 0) + 0.35 ? 1.06 : cr > 0.45 && S.day > 120 ? 0.97 : 1;
+    if (you > 0.05) t *= 1 + clamp((playerPx(cls) - 1) * P.fol, -0.12, 0.1) * Math.min(1, you / 0.25);
+    if (st.k === 'war' && st.cls === cls) t *= 1 - st.d; else if (st.k === 'limit' && st.cls === cls) t *= 0.93;
+    if (RV.cartel && RV.cartel.cls === cls) t *= RV.cartel.rid === r.id ? RV.cartel.m : 1 + (RV.cartel.m - 1) / 2;
+    const tgt = clamp(b * t, b * 0.7, b * 1.3); r.px[cls] = +(r.px[cls] + clamp(tgt - r.px[cls], -0.03 * b, 0.015 * b)).toFixed(4);
+  });
+  if (r.fl) { const ft = st.k === 'war' && st.cls === r.fl.cls ? 0.9 : cr < 0.04 ? 1.05 : 1; r.fl.d = +(r.fl.d + clamp(ft - r.fl.d, -0.03, 0.015)).toFixed(4); }   // produit phare : produit d'appel en guerre des prix
+}
+// Tour posée en ville par un rival (visible : marqueur à sa couleur)
+function rivTower(r, kind, floors) { const n0 = S.built.length; if ((r.nb || 0) >= 8 || !addNpcTower(kind, floors)) return false; const b = S.built[n0]; if (!b) return false; S.npcOwn = S.npcOwn || {}; S.npcOwn[b[0] + ',' + b[1]] = r.id; r.nb = (r.nb || 0) + 1; return true; }
+// Action de caste (tous les 60 jours) : chaque IA investit selon les avantages réels de sa caste
+function rivCasteAct(r) {
+  const val = rivalValue(r), bud = Math.round(Math.min(0.2 * r.cash, 0.06 * val) / 1000) * 1000; if (bud < 1.5 * RIV_EXPAND || r.cash < 3 * RIV_EXPAND) return;
+  const RV = rvS(), room = cls => r.att[cls] < 0.7 && rivalAttr(cls) < RIV_CAP, tell = (t, kind) => { say(`${r.name} ${t}`, kind || 'info'); rvLog(r, t); }; r.acts = (r.acts || 0) + 1;
+  if (r.caste === 'agriculteur') { const cs = Object.keys(CROPS), g = cs[Math.floor(rnd() * cs.length)], ok = (r.nb || 0) < 8 && placeNpcFarm(g, r.name); if (ok) r.nb = (r.nb || 0) + 1; if (room('basic')) r.att.basic += 0.01; r.cash -= bud; r.as += bud; tell(ok ? `met en culture de nouvelles terres (${GOODS[g].name.toLowerCase()}) et pèse sur les prix alimentaires.` : 'modernise ses coopératives agricoles.'); }
+  else if (r.caste === 'promoteur') {
+    let c = null; if (r.acts % 2) for (let t = 0; t < 40 && !c; t++) { const x = CITY.x0 + 1 + Math.floor(rnd() * (CITY.x1 - CITY.x0 - 1)), y = CITY.y0 + 1 + Math.floor(rnd() * (CITY.y1 - CITY.y0 - 1)), q = S.grid[idx(x, y)]; if (q && q.t === 'npc' && q.k !== 'mon' && q.k !== 'park' && !q.lm && ownerOf(q) === 'npc' && acqValue(q) <= bud) c = q; }
+    if (c) { const v = acqValue(c); S.npcOwn = S.npcOwn || {}; S.npcOwn[c.x + ',' + c.y] = r.id; r.cash -= v; r.re += v; tell(`rachète ${c.k === 'house' ? 'une maison' : 'un ' + kindFr(c.k, 1)} en ville (${money(v)}) et encaisse ses loyers.`); }
+    else { const ok = rivTower(r, 'res', 4 + Math.floor(rnd() * 6)); if (room('estate')) r.att.estate += 0.012; r.cash -= bud; r.re += bud; tell(ok ? 'livre un nouvel immeuble de logements : la ville grandit, sa rente aussi.' : 'viabilise de nouveaux terrains.'); }
+  }
+  else if (r.caste === 'industriel') { const ok = rivTower(r, 'off', 3 + Math.floor(rnd() * 4)); if (room('std')) r.att.std += 0.012; r.cash -= bud; r.as += bud; tell(ok ? 'ouvre une nouvelle usine et ses bureaux en ville.' : 'agrandit ses lignes de production.'); }
+  else if (r.caste === 'banquier') {
+    const lev = (S.loan || 0) / Math.max(1, valuation() + (S.loan || 0));
+    if (lev > 0.35 && !(RV.sq && RV.sq.until >= S.day) && rnd() < 0.5 * rivDiff().aggr) { RV.sq = { rid: r.id, until: S.day + 60, pts: 0.015 }; tell('resserre le crédit : ton taux d\'emprunt monte de 1,5 point pendant 60 jours. Désendette-toi pour desserrer l\'étau.', 'warn'); }
+    else { const o = (S.rivals || []).filter(x => x !== r && !x.sub).sort((a, b) => a.cash - b.cash)[0]; r.cash -= bud; r.as += bud; tell(o ? `prend une participation au capital de ${o.name} (${money(bud)}).` : 'étoffe son portefeuille de participations.'); if (o) o.cash += bud * 0.5; }
+  }
+  else if (r.caste === 'negociant') { const raws = GKEYS.filter(g => GOODS[g].grp === 'raw'), g = raws[Math.floor(rnd() * raws.length)]; if (room('basic')) r.att.basic += 0.008; r.cash -= bud; r.as += bud; tell(`signe un contrat de négoce à long terme (${GOODS[g].name.toLowerCase()}) : ses rayons sont approvisionnés moins cher que les tiens.`); }   // pas d'effet sur les cours : une hausse de 12 % d'une matière ruinait le joueur industriel (mesuré)
+  else if (r.caste === 'innovateur') { const dc = r.acts % 2 === 0 && rivTower(r, 'off', 6 + Math.floor(rnd() * 4)); r.bk = clamp((r.bk || 0) + 10, 0, 300); if (room('std')) r.att.std += 0.006; if (room('lux')) r.att.lux += 0.003; r.cash -= bud; r.as += bud; tell(dc ? 'ouvre un data center en ville et vend sa puissance de calcul.' : 'dépose de nouveaux brevets : ses produits tech gagnent en attrait, ses licences rapportent.'); }
+  else { r.cash -= bud; r.as += bud; }
+}
+// Meilleure cible d'une offre de rachat : le bâtiment du joueur le plus rentable que le rival peut payer comptant
+function rivBuyTarget(r) {
+  let best = null; eachBuilding(c => { const T = TYPES[c.t]; if (!T || !T.cost || c.t === 'hq' || c.t === 'road' || !(c.profit > 0)) return; const price = Math.round((T.cost * (1 + 0.6 * (c.lvl || 0)) * Math.max(1, cpi()) * 1.3 + 60 * c.profit) / 1000) * 1000; if (price < 0.5 * r.cash && (!best || c.profit > best.c.profit)) best = { c, price }; });
+  return best;
+}
+function hostileTakeover(who) {
+  const o = X11(); S.exec = { cfo: 0, ir: 0 }; S.cx = {}; S.prem = Math.max(0.6, (S.prem || 1.1) * 0.85); S.pb = (S.pb || 0) - 0.1; o.takeovers = (o.takeovers || 0) + 1; TM = techMults();
+  say(`Prise de contrôle hostile : ${who} a acquis la majorité du capital. La direction est remplacée (cadres, CFO et IR partent) et le cours chute de 15 %. Rachète des actions pour reprendre la main.`, 'bad');
+}
+// OPA hostile d'un rival sur ta société cotée : elle réussit d'autant mieux que ton flottant est large
+function rivalOpa(r) {
+  const RV = rvS(), E = rivDiff(), val = rivalValue(r), p = clamp(((S.float || 0) - 0.2) * 1.5, 0.05, 0.8) * (E.ma < 1 ? 0.7 : 1); RV.maCd = S.day + 180; RV.opas = (RV.opas || 0) + 1;
+  if (rnd() < p) { const st = Math.min(0.5 * Math.max(0, r.cash), 0.15 * val); r.cash -= st; r.as += st; RV.opaWon = (RV.opaWon || 0) + 1; rvLog(r, 'OPA hostile réussie sur ta société'); hostileTakeover(r.name); return true; }
+  r.cash -= Math.min(Math.max(0, r.cash) * 0.2, 0.03 * val); say(`OPA hostile de ${r.name} repoussée : tes actionnaires restent fidèles. Réduis ton flottant (${Math.round((S.float || 0) * 100)} %) pour te protéger.`, 'warn'); rvLog(r, 'OPA hostile sur ta société, repoussée'); return false;
+}
+function rivDecide(r) {
+  const P = rivP(r), E = rivDiff(), RV = rvS(), mk = S.mkt || {}, you = c => mk[c] ? mk[c].you : 0, mine = c => mk[c] ? ((mk[c].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0, val = rivalValue(r);
+  if (r.st.k !== 'follow') return;
+  // (a) guerre des prix contre le joueur dominant
+  const dom = RIV_CLS.filter(c => you(c) >= E.warTh && r.att[c] >= 0.05).sort((a, b) => you(b) - you(a))[0];
+  if (dom && !RV.war && S.day >= (RV.warCd || 0) && S.day >= (r.wcd || 0) && r.cash > 0.12 * val && rnd() < 0.35 * P.aggr * E.aggr) return rivWar(r, dom);
+  // prix limite : le joueur monte en parts dans une classe où le rival est installé
+  const up = RIV_CLS.filter(c => you(c) - ((RV.ys || {})[c] || 0) > 0.025 && you(c) > 0.08 && you(c) < E.warTh && r.att[c] >= 0.05)[0];
+  if (up && rnd() < 0.5 * E.aggr) { r.st = { k: 'limit', cls: up, until: S.day + 30 }; say(`${r.name} baisse ses prix de 7 % sur ${CLS_FR[up]} pour te barrer la route (prix limite).`, 'warn'); rvLog(r, 'prix limite sur ' + CLS_FR[up]); return; }
+  // (e) proposition d'entente
+  const cc = RIV_CLS.filter(c => c !== 'estate' && you(c) >= 0.18 && mine(c) >= 0.05).sort((a, b) => you(b) - you(a))[0];
+  if (cc && !RV.offer && !RV.cartel && !RV.war && S.day >= (RV.carCd || 0) && rnd() < 0.25 * P.coll) { RV.offer = { kind: 'cartel', rid: r.id, cls: cc, until: S.day + 20 }; RV.offers = (RV.offers || 0) + 1; say(`${r.name} te propose une entente sur les prix (${CLS_FR[cc]}) : réponds dans le bandeau ou dans Menu > Concurrents.`, 'gold'); rvLog(r, 'propose une entente sur ' + CLS_FR[cc]); return; }
+  // (b) rachat hostile : OPA sur ta société cotée, sinon offre sur ton bâtiment le plus rentable
+  if (S.day >= (RV.maCd || 0) && S.day > 60 && rnd() < 0.2 * P.ma * E.ma) {
+    if ((S.float || 0) >= 0.25 && r.cash > 0.15 * Math.max(1, valuation())) { rivalOpa(r); return; }
+    const tg = !RV.offer && rivBuyTarget(r);
+    if (tg) { RV.offer = { kind: 'buy', rid: r.id, x: tg.c.x, y: tg.c.y, t: tg.c.t, price: tg.price, until: S.day + 20 }; RV.bids = (RV.bids || 0) + 1; RV.maCd = S.day + 120; say(`${r.name} veut racheter ton ${TYPES[tg.c.t].name.toLowerCase()} pour ${money(tg.price)} : réponds dans le bandeau ou dans Menu > Concurrents.`, 'gold'); rvLog(r, `offre de rachat sur ton ${TYPES[tg.c.t].name.toLowerCase()} (${money(tg.price)})`); return; }
+  }
+}
+// (c) expansion ciblée : le rival ouvre des points de vente là où il est chez lui et où le joueur est faible
+function rivExpand(r) {
+  const P = rivP(r), E = rivDiff(), mk = S.mkt || {};
+  const w = RIV_CLS.map(k => (r.att[k] + 0.05) * (P.core.indexOf(k) >= 0 ? 2 : 1) * clamp(1.2 - 0.8 * (mk[k] ? mk[k].you : 0), 0.85, 1.2)); let tot = w.reduce((a, b) => a + b, 0), x = rnd() * tot, i = 0;
+  while (x > w[i] && i < 3) { x -= w[i]; i++; }
+  const k = RIV_CLS[i], cost = RIV_EXPAND * (rivalSum(r) < (r.a0 || 0) + 0.35 ? 1 : 1 + 2.5 * r.att[k]);
+  const young = rivalSum(r) < (r.a0 || 0) + 0.35;   // implantation : le rival investit sa trésorerie de départ comme avant ; ensuite il garde 12 % de sa valeur en réserve et n'ouvre que s'il gagne sa vie
+  if (r.att[k] < 0.7 && rivalAttr(k) < RIV_CAP && (young ? r.cash > 3 * RIV_EXPAND : r.cash > Math.max(3 * RIV_EXPAND, 0.12 * rivalValue(r)) + cost && (r.pf || 0) * 360 > 0.03 * rivalValue(r))) { r.att[k] += 0.012 * optV('exp', OPT_EXP) * E.exp * forcesCoef('rivalry') * (1 + 0.5 * Math.max(0, S.diff || 0)); r.cash -= cost; r.xp = { cls: k, d: S.day, weak: (mk[k] ? mk[k].you : 0) < 0.15 ? 1 : 0 }; }
+}
+function rvAnswer(yes) { return rivRand(() => rvAnswer0(yes)); }
+function rvAnswer0(yes) {
+  const RV = rvS(), o = RV.offer; if (!o) return false; const r = rivalById(o.rid); RV.offer = null;
+  if (!r) return false;
+  if (o.kind === 'cartel') {
+    if (yes) { RV.cartel = { rid: r.id, cls: o.cls, m: 1.12, t0: S.day, until: S.day + 90 }; RV.cartels = (RV.cartels || 0) + 1; say(`Entente conclue avec ${r.name} sur ${CLS_FR[o.cls]} : prix de rayon +8 % pendant 90 jours. L'autorité de la concurrence peut sanctionner.`, 'gold'); rvLog(r, 'entente conclue sur ' + CLS_FR[o.cls]); }
+    else { RV.carCd = S.day + 150; S.rel = S.rel || {}; S.rel[r.id] = Math.max(0, (S.rel[r.id] || 0) - 5); say(`Tu refuses l'entente proposée par ${r.name}.`, 'info'); rvLog(r, 'entente refusée'); if (!RV.war && r.st.k === 'follow' && r.ctrl !== 'human' && rnd() < clamp(0.45 + 0.4 * rivP(r).aggr, 0, 0.9)) rivWar(r, o.cls); }
+  } else if (o.kind === 'buy') {
+    const c = S.grid[idx(o.x, o.y)];
+    if (yes && c && c.t === o.t && c.x === o.x && c.y === o.y) {
+      for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) S.grid[idx(c.x + ox, c.y + oy)] = null;
+      if (inCity(c.x, c.y) && !S.dep[idx(c.x, c.y)]) { const seed = hash(c.x, c.y, 91), fl = 3 + Math.floor(seed * 5); S.grid[idx(c.x, c.y)] = { t: 'npc', k: 'off', seed, floors: fl, lvl: 0, w: 1, h: 1, x: c.x, y: c.y, born: performance.now(), alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; S.built.push([c.x, c.y, 'off', fl, +seed.toFixed(4)]); S.npcOwn = S.npcOwn || {}; S.npcOwn[c.x + ',' + c.y] = r.id; }
+      S.cash += o.price; r.cash -= o.price; r.as += o.price * 0.7; const cl = TYPES[o.t].ret ? TYPES[o.t].ret.sells[0] : 'std'; r.att[cl] = Math.min(0.7, r.att[cl] + 0.01); RV.sold = (RV.sold || 0) + 1;
+      say(`Tu vends ton ${TYPES[o.t].name.toLowerCase()} à ${r.name} pour ${money(o.price)}.`, 'gold'); rvLog(r, `rachète ton ${TYPES[o.t].name.toLowerCase()} (${money(o.price)})`); trfDirty = true; siteC.dirty = true; refreshStats();
+    } else { S.rel = S.rel || {}; S.rel[r.id] = Math.max(0, (S.rel[r.id] || 0) - 3); say(`Tu refuses l'offre de ${r.name}.`, 'info'); rvLog(r, 'offre de rachat refusée'); }
+  }
+  updateHUD(); renderRvBan(); return true;
+}
+// (d) faillite : les actifs du failli sont à vendre 30 jours ; si le joueur ne les prend pas, le rival le plus riche les rachète
+function rivBankrupt(r) {
+  const RV = rvS(), assets = RIV_ASSET * rivalSum(r) + (r.as || 0) + (r.re || 0), price = Math.max(50000, Math.round(0.45 * assets / 5000) * 5000);
+  if (RV.sale) rvSaleEnd();
+  RV.sale = { id: r.id, name: r.name, col: r.col, caste: r.caste || null, att: Object.assign({}, r.att), rev: r.rev || 0, price, until: S.day + 30 }; RV.fails = (RV.fails || 0) + 1;
+  if (RV.war && RV.war.rid === r.id) RV.war = null; if (RV.offer && RV.offer.rid === r.id) RV.offer = null; if (RV.cartel && RV.cartel.rid === r.id) RV.cartel = null;
+  say(`${r.name} fait faillite : ses clients se tournent vers toi et ses rivaux. Ses actifs sont à vendre ${money(price)} pendant 30 jours (Menu > Concurrents).`, 'gold'); rvLog(r, 'faillite : actifs à vendre ' + money(price));
+  if (S.port && S.port[r.id]) { say(`Tes actions ${r.name} deviennent sans valeur.`, 'warn'); delete S.port[r.id]; }
+}
+function rvBuySale() {
+  const RV = rvS(), s = RV.sale; if (!s) return false; if (S.cash < s.price) { say(`Il faut ${money(s.price)} pour racheter les actifs de ${s.name}.`, 'bad'); return false; }
+  S.cash -= s.price; S.subs = S.subs || []; S.subs.push({ name: s.name, inc: Math.max(40, (s.rev || 0) * 0.12) });
+  Object.keys(S.npcOwn || {}).forEach(k => { if (S.npcOwn[k] === s.id) S.npcOwn[k] = 'me'; });
+  RV.sale = null; RV.bought = (RV.bought || 0) + 1; say(`Tu rachètes les actifs de ${s.name} pour ${money(s.price)} : ses magasins deviennent ta filiale et te versent un revenu.`, 'gold'); rvLog(null, `tu rachètes les actifs de ${s.name}`); updateHUD(); return true;
+}
+function rvSaleEnd() {
+  const RV = rvS(), s = RV.sale; if (!s) return; RV.sale = null;
+  const b = (S.rivals || []).filter(x => !x.sub && x.ctrl !== 'human' && x.id !== s.id && x.cash >= s.price).sort((a, c) => c.cash - a.cash)[0];
+  if (b) { b.cash -= s.price; RIV_CLS.forEach(k => { b.att[k] = Math.min(0.7, b.att[k] + 0.6 * (s.att[k] || 0)); }); Object.keys(S.npcOwn || {}).forEach(k => { if (S.npcOwn[k] === s.id) S.npcOwn[k] = b.id; }); say(`${b.name} rachète les actifs de ${s.name} (${money(s.price)}) et récupère sa clientèle.`, 'warn'); rvLog(b, `rachète les actifs de ${s.name}`); }
+  else { say(`Les actifs de ${s.name} sont liquidés sans repreneur.`, 'info'); }
+}
 function stepRivals(rivalPart) {
-  if (S.day > 0 && S.day % 45 === 0 && (S.rivals || []).length < optV('n', OPT_NRIV)) { syncRivals(); say('Un nouveau concurrent entre sur le marché.', 'warn'); }
-  const rs = S.rivals || [];
-  rs.forEach(r => {
-    let rev = 0;
-    RIV_CLS.forEach(cls => { const A = rivalAttr(cls); if (A > 0 && rivalPart[cls] > 0) rev += rivalPart[cls] * Math.min(1, rivEff(r, cls) / A) * (S.price[cls] || 300); });
-    rev += rivalRents()[r.id] || 0;   // loyers des immeubles détenus en ville
-    r.rev = rev; r.pf = rev * 0.2 - rivalSum(r) * RIV_OPEX; r.cash += r.pf;
-    if (S.day % 5 === 0 && r.cash > 3 * RIV_EXPAND) {
-      const w = RIV_CLS.map(k => r.att[k] + 0.05); let tot = w.reduce((a, b) => a + b, 0), x = rnd() * tot, i = 0;
-      while (x > w[i] && i < 3) { x -= w[i]; i++; }
-      const k = RIV_CLS[i]; if (r.att[k] < 0.7) { r.att[k] += 0.012 * optV('exp', OPT_EXP) * forcesCoef('rivalry') * (1 + 0.5 * Math.max(0, S.diff || 0)); r.cash -= RIV_EXPAND; }
+  if (S.day > 0 && S.day % 45 === 0 && (S.rivals || []).length < rivWant()) { const n0 = S.rivals.length; syncRivals(); if (S.rivals.length > n0) { const nw = S.rivals[S.rivals.length - 1]; say(nw.caste ? `${nw.name} (${CASTES[nw.caste].n}) entre sur le marché.` : 'Un nouveau concurrent entre sur le marché.', 'warn'); } }
+  for (let j = 0; j < 3; j++) { if (S.day % 5 === 0) rnd(); rnd(); }   // tirages du flux commun identiques à ceux des 3 enseignes d'origine (calibrages et parties existantes inchangés)
+  rivRand(() => stepRivalsAI(rivalPart)); renderRvBan();
+}
+function stepRivalsAI(rivalPart) {
+  const rs = S.rivals || [], RV = rvS(), E = rivDiff(), A = {}, mk = S.mkt || {}, rents = rivalRents(), opt = optV('price', OPT_PRICE);
+  RIV_CLS.forEach(cls => { A[cls] = rivalAttr(cls); });
+  rs.forEach((r, i) => {
+    rivNorm(r); const P = rivP(r); let rev = 0, gross = 0;
+    RIV_CLS.forEach(cls => { if (!(A[cls] > 0 && rivalPart[cls] > 0)) return; const pr = rivPxRel(r, cls), v = rivalPart[cls] * Math.min(1, opt * rivEff(r, cls) * ((r.emb || 0) >= S.day ? 0.5 : 1) / A[cls]) * (S.price[cls] || 300); rev += v * pr; gross += v * (pr - 1 + clamp(P.m * (r.mq || 1) * E.m, 0.05, 0.4)); });
+    const rent = rents[r.id] || 0, inc = ((r.as || 0) + (r.re || 0)) * RIV_YIELD * (r.mq || 1) / (1 + ((r.as || 0) + (r.re || 0)) / (3 * Math.max(1e6, r.v0 || 2e7)));   // rendements décroissants : un empire d'actifs rapporte de moins en moins par dollar   // loyers des immeubles détenus en ville ; revenus des actifs hors magasins
+    r.rev = rev + rent + inc; r.pf = gross + 0.6 * rent + inc - rivalSum(r) * RIV_OPEX; r.cash += r.pf;
+    if (r.v0 == null) r.v0 = rivalValue(r); if (r.a0 == null) r.a0 = rivalSum(r);
+    if (r.ctrl !== 'human') {
+      const st = r.st;
+      if (st.until != null && S.day >= st.until) rivEndStrat(r, 'elle a assez duré'); else if (st.k === 'war' && r.cash < 0.04 * rivalValue(r)) rivEndStrat(r, 'trésorerie épuisée');
+      if (!r.sub && (S.day + i * 3) % 10 === 0) rivDecide(r);
+      if (!r.sub && r.caste && S.day > 20 && (S.day + i * 11) % 60 === 0) rivCasteAct(r);
+      rivPrice(r);
+      if (S.day % 5 === 0 && r.cash > 3 * RIV_EXPAND && (rs.length <= 3 || (S.day / 5 + i) % rs.length < 3)) rivExpand(r);   // cadence d'ensemble de 3 enseignes, quel que soit le nombre d'IA
+      if (S.day % 30 === 0 && (r.pf || 0) < 0 && r.cash < 0.1 * rivalValue(r) && rivalSum(r) > 0.15) { const b4 = rivalSum(r); RIV_CLS.forEach(k => { r.att[k] *= 0.97; }); r.cash += (b4 - rivalSum(r)) * RIV_ASSET * 0.6; r.xp = null; rvLog(r, 'ferme ses magasins déficitaires'); }   // restructuration
     }
-    if (r.cash < 0) { const b4 = rivalSum(r); RIV_CLS.forEach(k => { r.att[k] *= 0.95; }); r.cash += (b4 - rivalSum(r)) * RIV_ASSET * 0.6; }   // vente forcée d'actifs : la trésorerie ne reste jamais négative durablement
+    if (r.cash < 0) {   // vente forcée : d'abord les actifs hors magasins, puis les magasins ; la trésorerie ne reste jamais négative durablement
+      if ((r.as || 0) > 0) { const s = Math.min(r.as, -r.cash / 0.7 + 1); r.as -= s; r.cash += s * 0.7; }
+      if (r.cash < 0) { const b4 = rivalSum(r); RIV_CLS.forEach(k => { r.att[k] *= 0.95; }); r.cash += (b4 - rivalSum(r)) * RIV_ASSET * 0.6; r.red = (r.red || 0) + 1; }
+    }
     r.mood = clamp((r.mood || 0) * 0.95 + (rnd() - 0.5) * 0.04, -0.2, 0.2);
     r.sp = r.sp || []; r.sp.push(rivalValue(r) / RSH * (1 + r.mood)); if (r.sp.length > 60) r.sp.shift();
   });
+  RIV_CLS.forEach(c => { const y = mk[c] ? mk[c].you : 0; RV.ys = RV.ys || {}; RV.ys[c] = RV.ys[c] == null ? y : RV.ys[c] * 0.98 + y * 0.02; });
   S.subDiv = 0;
   rs.forEach(r => {   // rachat majoritaire (> 50 %) : le rival devient une filiale gérée par l'IA, qui verse des dividendes au prorata de ta part
     const st = stakeOf(r.id);
-    if (!r.sub && st > 0.5) { r.sub = 1; say(`Contrôle de ${r.name} (${Math.round(st * 100)} % du capital) : le rival est éliminé et devient ta filiale, gérée par l'IA. Elle te verse des dividendes au prorata de ta part.`, 'gold'); }
+    if (!r.sub && st > 0.5) { r.sub = 1; if (r.st && r.st.k === 'war') rivEndStrat(r, 'tu en prends le contrôle'); say(`Contrôle de ${r.name} (${Math.round(st * 100)} % du capital) : le rival est éliminé et devient ta filiale, gérée par l'IA. Elle te verse des dividendes au prorata de ta part.`, 'gold'); }
     if (r.sub) { const pay = 0.6 * Math.max(0, r.pf || 0), mine = pay * st; r.cash -= pay; S.cash += mine; S.subDiv += mine; }
   });
-  S.rivals = rs.filter(r => { if (r.cash < 0 && rivalSum(r) < 0.1) { say(`${r.name} fait faillite : ses clients se tournent vers toi et ses rivaux.`, 'good'); if (S.port && S.port[r.id]) { say(`Tes actions ${r.name} deviennent sans valeur.`, 'warn'); delete S.port[r.id]; } return false; } return true; });
+  // entente en cours : amende aléatoire de l'autorité de la concurrence
+  if (RV.cartel) { const c = RV.cartel, r = rivalById(c.rid);
+    if (!r || S.day >= c.until) { RV.cartel = null; RV.carCd = S.day + 120; say('L\'entente sur les prix prend fin : les prix reviennent à la normale.', 'info'); }
+    else if ((S.day - c.t0) % 10 === 0 && S.day > c.t0 && rnd() < E.fineP) { const fine = Math.max(250000, Math.round(0.05 * Math.max(0, valuation()) / 1000) * 1000); S.cash -= fine; r.cash -= 0.05 * rivalValue(r); RV.fines = (RV.fines || 0) + fine; RV.cartel = null; RV.carCd = S.day + 240; say(`Autorité de la concurrence : entente illicite avec ${r.name} sur ${CLS_FR[c.cls]}. Amende de ${money(fine)}, l'entente est dissoute.`, 'bad'); rvLog(r, 'entente sanctionnée : amende de ' + money(fine)); } }
+  if (RV.offer && S.day >= RV.offer.until) { const o = RV.offer, r = rivalById(o.rid); RV.offer = null; if (r && o.kind === 'cartel') { RV.carCd = S.day + 150; say(`${r.name} retire sa proposition d'entente, restée sans réponse.`, 'info'); if (!RV.war && r.st.k === 'follow' && r.ctrl !== 'human' && rnd() < 0.25) rivWar(r, o.cls); } else if (r) say(`${r.name} retire son offre de rachat.`, 'info'); }
+  if (RV.sale && S.day >= RV.sale.until) rvSaleEnd();
+  if (RV.war && !rivalById(RV.war.rid)) RV.war = null;
+  S.rivals = rs.filter(r => { if (r.cash < 0 && (rivalSum(r) < 0.1 || (r.red || 0) >= 10)) { rivBankrupt(r); return false; } if (r.cash >= 0 && r.red) r.red = Math.max(0, r.red - 0.02); return true; });
+  if (S.rivals.length !== rs.length) seatsSync();
+}
+// Stratégie en cours, en clair (panneau Rivaux, bandeau)
+function rivStratTxt(r) {
+  const st = r.st || {}, RV = S.rv || {};
+  if (r.ctrl === 'human') return 'dirigée par ' + String(r.pid || 'un joueur').replace(/^h:/, '');
+  if (r.sub) return 'ta filiale, gérée par l\'IA';
+  if (st.k === 'war') return `guerre des prix contre toi sur ${CLS_FR[st.cls]} (−${Math.round(st.d * 100)} %) jusqu'au jour ${st.until}`;
+  if (st.k === 'limit') return `prix limite sur ${CLS_FR[st.cls]} jusqu'au jour ${st.until}`;
+  if (RV.cartel && RV.cartel.rid === r.id) return `entente avec toi sur ${CLS_FR[RV.cartel.cls]} jusqu'au jour ${RV.cartel.until}`;
+  if (RV.offer && RV.offer.rid === r.id) return RV.offer.kind === 'cartel' ? 'te propose une entente sur les prix' : 'veut racheter un de tes bâtiments';
+  if (RV.sq && RV.sq.rid === r.id && RV.sq.until >= S.day) return `resserre ton crédit jusqu'au jour ${RV.sq.until}`;
+  if (r.cash < 0.05 * rivalValue(r)) return 'en difficulté : remonte ses prix et vend des actifs';
+  if (r.xp && S.day - r.xp.d < 40) return `s'étend dans ${CLS_FR[r.xp.cls]}${r.xp.weak ? ', où tu es peu présent' : ''}`;
+  return 'suit le marché et ajuste ses prix';
+}
+function renderRvBan() {
+  const b = el('rvban'); if (!b) return; const RV = (S && S.rv) || {}, o = RV.offer, r = o && rivalById(o.rid); let h = '';
+  if (o && r) h = `<span><b style="color:${r.col}">${r.name}</b> ${o.kind === 'cartel' ? `propose une entente sur ${CLS_FR[o.cls]} : prix +8 % pendant 90 jours, au risque d'une amende.` : `offre ${money(o.price)} pour ton ${TYPES[o.t].name.toLowerCase()}.`} <small>(jusqu'au jour ${o.until})</small></span><button class="btn" data-rv="yes">Accepter</button><button class="btn sec" data-rv="no">Refuser</button>`;
+  else if (RV.war && rivalById(RV.war.rid)) { const w = rivalById(RV.war.rid); h = `<span>Guerre des prix : <b style="color:${w.col}">${w.name}</b> casse ses prix de ${Math.round(RV.war.d * 100)} % sur ${CLS_FR[RV.war.cls]} jusqu'au jour ${RV.war.until}.</span>`; }
+  else if (RV.cartel) h = `<span>Entente en cours sur ${CLS_FR[RV.cartel.cls]} jusqu'au jour ${RV.cartel.until} : prix de rayon +8 %, risque d'amende.</span>`;
+  if (b.dataset.h !== h) { b.dataset.h = h; b.innerHTML = h; b.hidden = !h; }
+}
+// Statut d'un siège pour l'écran des castes
+function seatTxt(k) { const s = seatsSync().find(x => x.caste === k), r = (S.rivals || []).find(x => x.caste === k); if (k === casteOf()) return { t: 'Ton siège', human: false }; if (s && s.ctrl === 'human') return { t: 'Joueur : ' + String(s.pid).replace(/^h:/, ''), human: true }; return { t: 'IA' + (r ? ' (' + r.name + ')' : '') + ' — disponible', human: false }; }
+// Panneau Rivaux : offre en attente, actifs d'un failli, une carte par IA (caste, parts, prix relatif, stratégie, valorisation, trésorerie), sièges, journal
+function rivPanelHTML(avg, shares) {
+  const RV = S.rv || {}, f2 = v => (+v).toFixed(2).replace('.', ','), o = RV.offer, ro = o && rivalById(o.rid), s = RV.sale; let h = '';
+  if (o && ro) h += `<div class="rcard" style="border-left:3px solid ${ro.col}"><div class="rstrat"><b>${ro.name}</b> ${o.kind === 'cartel' ? `te propose une entente sur ${CLS_FR[o.cls]} : tes prix de rayon et les siens montent (+8 % pour toi) pendant 90 jours. L'autorité de la concurrence peut infliger une amende (5 % de ta valorisation). Refuser peut déclencher une guerre des prix.` : `offre ${money(o.price)} pour ton ${TYPES[o.t].name.toLowerCase()} (case ${o.x}, ${o.y}).`}</div><div class="rbot"><small>Réponse attendue avant le jour ${o.until}</small><span><button class="btn" data-rv="yes">Accepter</button> <button class="btn sec" data-rv="no">Refuser</button></span></div></div>`;
+  if (s) h += `<div class="rcard" style="border-left:3px solid ${s.col}"><div class="rtop"><i style="background:${s.col}"></i><b>${s.name} · en faillite</b><small>jusqu'au jour ${s.until}</small></div><div class="rbot"><small>Ses magasins et ses immeubles deviennent ta filiale (revenu d'environ ${mj(Math.max(40, (s.rev || 0) * 0.12))}). Sans repreneur, un rival les rachètera.</small><button class="btn" data-rv="sale" ${S.cash >= s.price ? '' : 'disabled'}>Racheter les actifs ${money(s.price)}</button></div></div>`;
+  h += (S.rivals || []).map(r => { const v = rivalValue(r), C = r.caste && CASTES[r.caste], g = r.v0 > 0 ? v / r.v0 : 1, P = RIV_CASTE[r.caste];
+    const px = RIV_CLS.filter(c => r.att[c] > 0.01).map(c => `<span>${CLS_S[c]} <b>×${f2(r.px ? r.px[c] : 1)}</b></span>`).join('');
+    const fl = r.fl && r.px && PRODUCTS[r.fl.k] ? `<span>Produit phare : ${gName(r.fl.k)} <b>${money(Math.round(stdPrice(r.fl.k) * retailMk(r.fl.cls) * r.px[r.fl.cls] * (r.fl.d || 1)))}</b></span>` : '';
+    return `<div class="rcard" data-riv="${r.id}"><div class="rtop"><i style="background:${r.col}"></i><b>${r.name}</b>${C ? `<span class="rcaste" style="color:${C.col}">${C.n}${P ? ' · ' + P.tag : ''}</span>` : ''}<small>${Math.round(avg(r.id) * 100)} % du marché</small></div><div class="rshr">${shares(r.id)}</div><div class="rshr"><span>Prix relatif (1 = marché)</span>${px}${fl}</div><div class="rstrat">Stratégie : <b>${rivStratTxt(r)}</b></div><div class="rbot"><small>Valorisation <b>${money(v)}</b> (×${g.toFixed(1).replace('.', ',')} depuis le départ) · trésorerie ${money(r.cash)} · ${mj(r.rev || 0)} de ventes/mois</small><button class="btn sec" data-buy="${r.id}" ${S.cash >= v && r.ctrl !== 'human' ? '' : 'disabled'}>Racheter ${money(v)}</button></div></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
+  h += `<div class="rshr"><span>Sièges :</span>${seatsSync().map(x => `<span>${CASTES[x.caste].n} <b>${x.caste === casteOf() ? 'toi' : x.ctrl === 'human' ? String(x.pid).replace(/^h:/, '') : (S.rivals || []).some(r => r.caste === x.caste) ? 'IA' : 'vacant'}</b></span>`).join('')}</div>`;
+  if (RV.log && RV.log.length) h += `<h3>JOURNAL DES RIVAUX</h3><div class="rvlog">${RV.log.slice().reverse().slice(0, 8).map(l => `<div><small>Jour ${l.d}</small> ${l.n ? '<b>' + l.n + '</b> ' : ''}${l.t}</div>`).join('')}</div>`;
+  return h;
 }
 const recipeOf = k => RECIPES[k] || PRODUCTS[k];
 const newProdState = q => ({ st: 'locked', q: q == null ? 1 : q, pack: 1, rnd: 0, pf: 1, tc: null, obs: 1, brand: 0, loy: 0, rt: 0, lic: 0, res: 0, buy: null, inb: [], pilot: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] });
@@ -1872,10 +2151,10 @@ function brandLineHTML(pk) {
 // Duel de deux versions du même produit (a, b : champs d'état remplacés, ex. { bc, brand, loy, pf }) : attraits et parts à deux
 function brandDuel(pk, a, b) { const A = attractiveness(pk, Object.assign({}, S.prod[pk], a)), B = attractiveness(pk, Object.assign({}, S.prod[pk], b)); return { a: A, b: B, sa: A / (A + B), sb: B / (A + B) }; }
 // IA : chaque rival entretient un capital de marque selon son profil (r.bk, champ optionnel) ; à court d'argent il coupe la publicité et se fait distancer, face à une marque plus forte il surinvestit et rattrape
-const RIV_BG = { basic: 0.15, std: 0.5, lux: 1, estate: 0.1 }, RIV_PROF = { r1: 0.5, r2: 1, r3: 0.15 };
+const RIV_BG = { basic: 0.15, std: 0.5, lux: 1, estate: 0.1 }, RIV_PROF = { r1: 0.5, r2: 1, r3: 0.15, r4: 0.45, r5: 0.3, r6: 0.8 };
 const rivProf = r => RIV_PROF[r.id] != null ? RIV_PROF[r.id] : 0.2 + 0.7 * hash(String(r.id).length, String(r.id).charCodeAt(String(r.id).length - 1) || 0, 77);
 const rivBm = (r, cls) => r.bk == null ? 1 : (1 + RIV_BG[cls] * bcSig(r.bk)) / (1 + RIV_BG[cls] * bcSig(100 * rivProf(r)));
-const rivEff = (r, cls) => r.att[cls] * rivBm(r, cls);
+const rivEff = (r, cls) => r.att[cls] * rivBm(r, cls) * rivPm(r, cls);   // attrait × marque × prix relatif
 function stepRivBrand() {
   let top = 0; PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps.st === 'on') top = Math.max(top, bcOf(ps)); });
   (S.rivals || []).forEach(r => { const pf = rivProf(r); if (r.bk == null) r.bk = 100 * pf;
@@ -2006,7 +2285,7 @@ const SECTOR_REF = {
   port:     { ebitda: '22-27 %', rpe: 'DP World ≈ 174 k$ par employé' }
 };
 let CALREF = null;
-const RETAIL_MK = { basic: 1.58, std: 1.62, lux: 2.0, estate: 1 }, retailMk = cls => RETAIL_MK[cls] || 1.4;   // prix de rayon = prix de gros × marge (distribution : marge brute 28-45 %, luxe plus haut ; Walmart ≈ 24 %, Costco ≈ 12 %, luxe ≈ 60 %)
+const RETAIL_MK = { basic: 1.58, std: 1.62, lux: 2.0, estate: 1 }, retailMk = cls => (RETAIL_MK[cls] || 1.4) * rvCartelK(cls);   // prix de rayon = prix de gros × marge (distribution : marge brute 28-45 %, luxe plus haut ; Walmart ≈ 24 %, Costco ≈ 12 %, luxe ≈ 60 %)
 const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salaires sectoriels : banque, tech et pharma paient ≈ 2× la moyenne
 (function applyScale() {
   const R2 = o => { Object.keys(o).forEach(g => { o[g] *= K_IND; }); };
@@ -2387,7 +2666,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, patents: S.patents || 0, caste: S.caste || '', bk: S.bk || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, irCd: S.irCd || {}, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], g, dep }));
     localStorage.setItem(SAVE_KEY + '_gal', JSON.stringify(S.gal || {}));
   } catch (e) { /* stockage indisponible */ }
 }
@@ -2430,7 +2709,7 @@ function load() {
     S0.cm = d.cm || {};
     try { const ga = JSON.parse(localStorage.getItem(SAVE_KEY + '_gal') || '{}'); S0.gal = ga && typeof ga === 'object' ? ga : {}; } catch (e) { S0.gal = {}; }   // passe 28 : galerie des produits fabriqués
     S0.capAdj = +d.capAdj || 0; S0.fix1 = (+d.fix1 || 0) || (S0.cash < 0 ? 0 : 1); if (d.rmb != null) S0.rmb = +d.rmb;
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.coach = (d.cch && typeof d.cch === 'object') ? d.cch : null; S0.tierMax = d.tmx | 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcOwn = d.nown && typeof d.nown === 'object' ? d.nown : {}; S0.neg = d.neg && typeof d.neg === 'object' ? d.neg : {}; S0.reqs = Array.isArray(d.reqs) ? d.reqs : []; S0.rid = +d.rid || 0; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.rv = d.rv && typeof d.rv === 'object' ? d.rv : null; S0.seats = Array.isArray(d.seats) ? d.seats : null; S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.coach = (d.cch && typeof d.cch === 'object') ? d.cch : null; S0.tierMax = d.tmx | 0; S0.bk = d.bk || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcOwn = d.nown && typeof d.nown === 'object' ? d.nown : {}; S0.neg = d.neg && typeof d.neg === 'object' ? d.neg : {}; S0.reqs = Array.isArray(d.reqs) ? d.reqs : []; S0.rid = +d.rid || 0; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.irCd = d.irCd || {}; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
     S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.firms = Array.isArray(d.firms) ? d.firms.filter(f => f && f.id > 0 && typeof f.name === 'string') : []; S0.grp = (d.grp && typeof d.grp === 'object') ? d.grp : null;   // passe 32 : filiales (absentes des anciennes sauvegardes)
@@ -2544,8 +2823,8 @@ const wageMkt = () => clamp(1 + 1.5 * (0.10 - ((S && S.stats && S.stats.unemp) |
 const SVC_POP = { tech: 36000, dc: 48000, bank: 32000 };
 function svcSat(list) {
   const U = { tech: 0, dc: 0, bank: 0 }; list.forEach(c => { if ((c.t === 'tech' || c.t === 'dc' || c.t === 'bank') && c.conn) U[c.t] += levelMult(c); });
-  const kinds = Object.keys(U).filter(k => U[k] > 0).length, comp = clamp(1 - 0.07 * (S.rivals || []).length, 0.6, 1), out = {};
-  Object.keys(U).forEach(k => { const D = Math.max(1, (S.pop || 0) / SVC_POP[k]) * (1 + 0.12 * Math.max(0, kinds - (U[k] > 0 ? 1 : 0))) * comp; out[k] = { U: U[k], D, m: U[k] > 0 ? Math.min(1, (1 - Math.exp(-U[k] / D)) / U[k] / (1 - Math.exp(-1 / D))) : 1 }; });
+  const kinds = Object.keys(U).filter(k => U[k] > 0).length, comp = clamp(1 - 0.07 * Math.min(3, (S.rivals || []).length), 0.6, 1), out = {};
+  Object.keys(U).forEach(k => { const D = Math.max(1, (S.pop || 0) / SVC_POP[k]) * (1 + 0.12 * Math.max(0, kinds - (U[k] > 0 ? 1 : 0))) * comp; out[k] = { U: U[k], D, m: (U[k] > 0 ? Math.min(1, (1 - Math.exp(-U[k] / D)) / U[k] / (1 - Math.exp(-1 / D))) : 1) * (1 - rivSvc(k)) }; });   // rivSvc : part de la demande prise par l'IA banquier (banque) ou innovateur (tech, data centers)
   return out;
 }
 const WAGE_RATE = 120;                        // ≈ 43 000 $/an par salarié                       // salaire de base par emploi et par jour
@@ -2632,8 +2911,12 @@ function stepBank() {
   return inc * 0.2;
 }
 function setCaste(k) {
-  if (!CASTES[k]) return; const first = !S.caste;
-  S.caste = k; if (first && S.day < 6) S.cash += CASTES[k].cash;
+  if (!CASTES[k]) return; const first = !S.caste, old = S.caste, r = old !== k ? (S.rivals || []).find(x => x.caste === k) : null;
+  if (r && r.ctrl === 'human') { say(`Le siège ${CASTES[k].n} est tenu par ${String(r.pid || 'un autre joueur').replace(/^h:/, '')}.`, 'warn'); return; }
+  // Sièges : prendre une caste, c'est prendre le siège de son IA. Au départ l'IA s'efface ; en cours de partie elle garde son entreprise et reprend la caste que tu quittes.
+  if (r && first) { S.rivals = S.rivals.filter(x => x !== r); if (S.port) delete S.port[r.id]; }
+  else if (r) { const P0 = RIV_CASTE[k], P1 = RIV_CASTE[old]; if (r.px) RIV_CLS.forEach(c => { r.px[c] = +(r.px[c] * P1.px[c] / P0.px[c]).toFixed(4); }); r.caste = old; r.name = P1.name; r.col = P1.col; say(`L'IA qui tenait ce siège garde son entreprise et reprend ton ancienne caste sous l'enseigne ${P1.name}.`, 'info'); }
+  S.caste = k; syncRivals(); if (first && S.day < 6) S.cash += CASTES[k].cash;
   TM = techMults(); el('caste').hidden = true; say(`Tu joues : ${CASTES[k].n}.`, 'gold'); refreshStats(); if (first) { setPanel(false); if (S.mode && S.mode.k) { frameCity(); coachReset(); } } updateHUD(); save(); if (first && S.mat && S.day < 6) { try { mkInv(); mkOpen('welcome', ''); } catch (e) {} }
 }
 const CASTE_BLD = { industriel: ['f1', 'f2', 'f3', 'f4', 'foundry', 'port', 'wh'], promoteur: ['res', 'btp', 'immo', 'buyout', 'hq', 'wh', 'off', 'sport'], banquier: ['bank', 'hq', 'tech'], negociant: ['pipeline', 'plant', 'port', 'wh', 'well'], agriculteur: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'f1', 'wh'], innovateur: ['rd', 'dc', 'tech', 'hq'] };
@@ -2642,7 +2925,7 @@ function showCasteDetail(k) {
   const C = CASTES[k], img = CASTE_IMG[k] ? `<img alt="${C.n}" src="${CASTE_IMG[k]}">` : casteSVG(k), mine = TECHS.filter(x => x.caste === k), common = TECHS.filter(x => !x.caste);
   const tc = x => `<div class="ctech ${x.caste ? 'own' : ''}"><b>${x.n}</b><small>${ERA_N[x.era].split('·')[0].trim()} · ${money(Math.round(x.c * (k === 'innovateur' ? 0.8 : 1)))} · ${Math.max(2, Math.round(x.d * (k === 'innovateur' ? 0.7 : 1)))} j</small><small>${x.d2}</small></div>`;
   const bl = (CASTE_BLD[k] || []).map(b => { const T = TYPES[b] || TOOL_META[b]; return `<div class="cbld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:${T.color}">${ICONS[ICON_OF[b] || b] || ''}</svg><b>${T.name}</b><small>${TYPES[b] ? money(Math.round(TYPES[b].cost * (CASTES[k].cost[b] || 1))) : T.sub}</small></div>`; }).join('');
-  el('caste').innerHTML = `<div class="cbox cdet" style="--cc:${C.col}"><div class="chead2"><button class="btn sec" data-cback="1">← Les 6 castes</button><button class="btn" data-caste="${k}" style="border-color:${C.col};color:${C.col}">${S.caste === k ? 'Ma caste actuelle' : 'Jouer ' + C.n}</button></div>
+  el('caste').innerHTML = `<div class="cbox cdet" style="--cc:${C.col}"><div class="chead2"><button class="btn sec" data-cback="1">← Les 6 castes</button><button class="btn" data-caste="${k}" style="border-color:${C.col};color:${C.col}">${S.caste === k ? 'Ma caste actuelle' : seatTxt(k).human ? 'Siège tenu par un joueur' : 'Prendre cette caste'}</button><small class="seatst" style="margin:0 0 0 8px">${seatTxt(k).t}</small></div>
     <div class="cdgrid"><div class="cdimg">${img}</div><div class="cdtxt"><h2 style="color:${C.col}">${C.n.toUpperCase()}</h2><em>${C.tag}</em><p>${C.d}</p><h4>Avantages de la caste</h4><ul>${CASTE_SPEC[k].map(x => `<li>${x}</li>`).join('')}</ul><h4>Bâtiments et outils clés</h4><div class="cblds">${bl}</div></div></div>
     <h4 class="lh">Arbre technologique de la caste</h4><div class="ctechs">${mine.map(tc).join('')}</div>
     <h4 class="lh">Technologies communes à toutes les castes</h4><div class="ctechs">${common.map(tc).join('')}</div></div>`;
@@ -2650,7 +2933,7 @@ function showCasteDetail(k) {
 }
 function showCaste(force) {
   if (!force && S.caste) return;
-  el('caste').innerHTML = `<div class="cbox"><h2>CHOISIS TA CASTE</h2><p class="note">Qui es-tu sur l'île de New Dollarton ? Clique une caste pour voir sa fiche détaillée : avantages, bâtiments, arbre technologique. Tu pourras en changer plus tard dans Menu > Partie.</p><div class="cgrid">${Object.keys(CASTES).map(k => { const C = CASTES[k]; return `<button class="ccard" data-cview="${k}" style="--cc:${C.col}"><span class="cpic">${casteSVG(k)}</span><b>${C.n}</b><em>${C.tag}</em><small>${C.d}</small></button>`; }).join('')}</div>${S.caste ? '<button class="btn sec" data-caste="" style="margin-top:10px">Garder ma caste actuelle</button>' : ''}</div>`;
+  el('caste').innerHTML = `<div class="cbox"><h2>CHOISIS TA CASTE</h2><p class="note">Qui es-tu sur l'île de New Dollarton ? Clique une caste pour voir sa fiche détaillée : avantages, bâtiments, arbre technologique. Tu pourras en changer plus tard dans Menu > Partie.</p><div class="cgrid">${Object.keys(CASTES).map(k => { const C = CASTES[k]; return `<button class="ccard" data-cview="${k}" style="--cc:${C.col}"><span class="cpic">${casteSVG(k)}</span><b>${C.n}</b><em>${C.tag}</em><small>${C.d}</small><i class="seatst" data-seat="${k}">${seatTxt(k).t}</i></button>`; }).join('')}</div>${S.caste ? '<button class="btn sec" data-caste="" style="margin-top:10px">Garder ma caste actuelle</button>' : ''}</div>`;
   el('caste').hidden = false;
 }
 // PDG : points de connaissance et compétences (comme Capitalism Lab)
@@ -3033,8 +3316,7 @@ function adjustInfl(which) {
 function stepControl() {
   const o = X11(); if (!(S.float >= 0.5)) { o.warn = 0; return; }
   if (!o.warn) { o.warn = 1; say(`Les actionnaires extérieurs détiennent ${Math.round(S.float * 100)} % de ton capital : un rival peut lancer une prise de contrôle hostile. Rachète des actions pour repasser sous 50 %.`, 'warn'); }
-  if (S.day % 30 === 0 && (S.rivals || []).length && rnd() < clamp((S.float - 0.45) * 1.1, 0, 0.55)) { S.exec = { cfo: 0, ir: 0 }; S.cx = {}; S.prem = Math.max(0.6, (S.prem || 1.1) * 0.85); S.pb = (S.pb || 0) - 0.1; o.takeovers = (o.takeovers || 0) + 1; TM = techMults();
-    say('Prise de contrôle hostile : un rival a acquis la majorité du capital. La direction est remplacée (cadres, CFO et IR partent) et le cours chute de 15 %. Rachète des actions pour reprendre la main.', 'bad'); }
+  if (S.day % 30 === 0 && (S.rivals || []).length && rnd() < clamp((S.float - 0.45) * 1.1, 0, 0.55)) hostileTakeover('un rival');
 }
 function stepPolicy() {
   const p = S.pol || (S.pol = {}); if (p.cp == null) p.cp = cpi(); if (p.ca == null) p.ca = cpi();
@@ -4351,7 +4633,7 @@ function placeBuilding(x, y, key) {
 const buyoutCost = c => Math.round((c.k === 'house' ? 900 : c.floors * 380 * (0.6 + landValue(c.x, c.y))) * (casteIs('promoteur') ? 0.7 : 1) / 10) * 10;
 /* ---------- Passe 29 : pose sur du bâti existant, propriété et négociation ---------- */
 // Propriétaire d'un bâtiment : 'npc' (ville), 'me', identifiant de rival ('r1'...) ou de joueur humain ('h:nom', multijoueur à venir). Champ optionnel, défaut 'npc' (ville) ou 'me' (bâtiments du joueur).
-const RIV_OWN_IDS = ['r1', 'r2', 'r3'];
+const RIV_OWN_IDS = ['r1', 'r2', 'r3'], RIV_OWN_ALL = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
 const isHumanId = id => String(id || '').indexOf('h:') === 0;
 const rivalById = id => (S.rivals || []).find(r => r.id === id) || null;
 function ownerOf(c) {
@@ -4360,6 +4642,7 @@ function ownerOf(c) {
   const o = S.npcOwn && S.npcOwn[c.x + ',' + c.y];
   if (o) return (o === 'npc' || o === 'me' || isHumanId(o) || rivalById(o)) ? o : 'npc';
   if (c.k === 'mon' || c.k === 'park' || c.lm || c.floors > 12 || hash(c.x, c.y, 61) >= 0.1) return 'npc';
+  const id6 = hash(c.x, c.y, 63) < 0.45 ? RIV_OWN_ALL[3 + Math.floor(hash(c.x, c.y, 64) * 3)] : null; if (id6 && rivalById(id6)) return id6;   // 45 % du parc aux 3 nouvelles castes ; sinon, et dans les anciennes sauvegardes, les 3 enseignes d'origine
   const id = RIV_OWN_IDS[Math.floor(hash(c.x, c.y, 62) * 3)];
   return rivalById(id) ? id : 'npc';
 }
@@ -4808,7 +5091,7 @@ function updateHUD() {
     }
     const shares = id => RIV_CLS.map(cls => { const m = mk[cls]; const v = m ? (id === 'you' ? m.you : (m.riv.find(r => r.id === id) || { s: 0 }).s) : 0; return `<span>${CN[cls]} <b>${Math.round(v * 100)} %</b></span>`; }).join('');
     rh += `<div class="rcard"><div class="rtop"><i style="background:#f2b84b"></i><b>Ta société</b><small>${Math.round(avg('you') * 100)} % du marché</small></div><div class="rshr">${shares('you')}</div></div>`;
-    rh += (S.rivals || []).map(r => { const v = rivalValue(r); return `<div class="rcard"><div class="rtop"><i style="background:${r.col}"></i><b>${r.name}</b><small>${Math.round(avg(r.id) * 100)} % du marché</small></div><div class="rshr">${shares(r.id)}</div><div class="rbot"><small>Trésorerie ${money(r.cash)} · ${mj(r.rev || 0)} de ventes/mois</small><button class="btn sec" data-buy="${r.id}" ${S.cash >= v ? '' : 'disabled'}>Racheter ${money(v)}</button></div></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
+    rh += rivPanelHTML(avg, shares);
     if (el('rivals').innerHTML !== rh) el('rivals').innerHTML = rh;
     { const cf = CASTES[casteOf()]; el('ptitleSub').innerHTML = cf ? `<span class="cbadge" style="--cc:${cf.col}">${CASTE_IMG[casteOf()] ? `<img alt="" src="${CASTE_IMG[casteOf()]}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;object-position:50% 15%;border:2px solid ${cf.col}">` : '<i></i>'}${cf.n}</span>` : 'New Dollarton'; if (cf) el('tierLine').textContent = 'New Dollarton · ' + cf.n; }
   { const F2 = finM().F || {}, w2 = (S.stats && S.stats.worth) || 0; el('psCash').textContent = money(S.cash); el('psCash').className = S.cash >= 0 ? 'pos' : 'neg'; el('psWorth').textContent = money(w2); el('psNet').textContent = (F2.net >= 0 ? '+' : '−') + mj(Math.abs(F2.net || 0)); el('psNet').className = (F2.net || 0) >= 0 ? 'pos' : 'neg'; el('psDate').textContent = dateTxt(S.day);
@@ -4872,7 +5155,8 @@ function updateHUD() {
     drawSeries(el('spark'), h, '#f2b84b');
   }
 }
-el('rivals').addEventListener('click', e => { const b = e.target.closest('[data-buy]'); if (!b || b.disabled) return; const r = (S.rivals || []).find(x => x.id === b.dataset.buy); if (!r) return; const v = rivalValue(r); if (S.cash < v) return; S.cash -= v; S.rivals = S.rivals.filter(x => x !== r); say(`Rachat de ${r.name} pour ${money(v)} : sa clientèle est à prendre.`, 'gold'); updateHUD(); save(); });
+el('rvban').addEventListener('click', e => { const b = e.target.closest('[data-rv]'); if (b) { rvAnswer(b.dataset.rv === 'yes'); save(); } });
+el('rivals').addEventListener('click', e => { const q = e.target.closest('[data-rv]'); if (q && !q.disabled) { if (q.dataset.rv === 'sale') rvBuySale(); else rvAnswer(q.dataset.rv === 'yes'); save(); return; } const b = e.target.closest('[data-buy]'); if (!b || b.disabled) return; const r = (S.rivals || []).find(x => x.id === b.dataset.buy); if (!r) return; const v = rivalValue(r); if (S.cash < v) return; S.cash -= v; S.rivals = S.rivals.filter(x => x !== r); say(`Rachat de ${r.name} pour ${money(v)} : sa clientèle est à prendre.`, 'gold'); updateHUD(); save(); });
 el('bourse').addEventListener('click', e => {
   const raw = (S.stats && S.stats.raw) || 0;
   if (e.target.id === 'openhq') { const h = hqOf(); if (h) openBuilding(h.x, h.y); return; }
@@ -7030,7 +7314,7 @@ function mediaStations() { const a = []; eachBuilding(c => { if (c.t === 'tv' &&
 function mediaQ(c) { const mb = (c.mr == null ? 1 : c.mr) * mediaNeed(); return clamp(1 - Math.exp(-mb / mediaNeed()), 0.04, 0.98); }
 function stepMedia(list) {
   let totAttr = RIV_Q.reduce((a, q) => a + Math.pow(q, 1.6), 0); list.forEach(c => { c._q = mediaQ(c); totAttr += Math.pow(c._q, 1.6); });
-  const reach = (S.pop || 0) * 0.55, shops = Math.min(1.4, 0.5 + 0.02 * (S.stats && S.stats.cn ? (S.stats.cn.s1 + S.stats.cn.s2 * 2 + S.stats.cn.s3 * 3) : 0)), corp = 0.55 + 0.12 * Math.min(4, (S.rivals || []).length);
+  const reach = (S.pop || 0) * 0.55, shops = Math.min(1.4, 0.5 + 0.02 * (S.stats && S.stats.cn ? (S.stats.cn.s1 + S.stats.cn.s2 * 2 + S.stats.cn.s3 * 3) : 0)), corp = 0.55 + 0.12 * Math.min(3, (S.rivals || []).length);   // calé sur les 3 enseignes d'origine : passer à 5 IA de caste ne gonfle pas la demande de services
   list.forEach(c => {
     const rating = Math.pow(c._q, 1.6) / totAttr, aud = reach * rating, adp = clamp(c.adp == null ? 1 : c.adp, 0.4, 2);
     const fl = clamp(1.05 - 1.6 * (adp - 1), 0.05, 1), fc = clamp(1 - 0.9 * (adp - 1), 0.05, 1) * (rating >= 0.2 ? 1 : 0.55 + 2.25 * rating);   // clients locaux très sensibles au prix ; annonceurs nationaux exigent de l'audience
@@ -10838,7 +11122,7 @@ const syncUnlock = () => { el('mUnlock').textContent = 'Tout débloquer : ' + (S
 el('mUnlock').onclick = () => { S.unlockAll = !S.unlockAll; syncUnlock(); buildTools(); say(S.unlockAll ? 'Bac à sable : tous les bâtiments, produits et recherches sont débloqués.' : 'Progression normale rétablie.', 'info'); save(); };
 el('mCash').onclick = () => { S.cash += 1e6; say('+1 000 000 $ ajoutés à ta trésorerie (mode bac à sable).', 'gold'); updateHUD(); save(); };
 el('mCaste').onclick = () => { setPanel(false); showCaste(true); };
-el('caste').addEventListener('click', e => { const v = e.target.closest('[data-cview]'); if (v) { showCasteDetail(v.dataset.cview); return; } if (e.target.closest('[data-cback]')) { showCaste(true); return; } const b = e.target.closest('[data-caste]'); if (!b) return; if (b.dataset.caste) setCaste(b.dataset.caste); else el('caste').hidden = true; if (S.mode && S.mode.await && S.caste) { delete S.mode.await; setSpeed(1); syncSpeedUI(); } });
+el('caste').addEventListener('click', e => { const v = e.target.closest('[data-cview]'); if (v) { showCasteDetail(v.dataset.cview); return; } if (e.target.closest('[data-cback]')) { showCaste(true); return; } const b = e.target.closest('[data-caste]'); if (!b) return; if (b.dataset.caste) { const q = seatClaim(b.dataset.caste, 'me'); if (!q.ok) { say(q.why || 'Siège indisponible.', 'warn'); return; } el('caste').hidden = true; } else el('caste').hidden = true; if (S.mode && S.mode.await && S.caste) { delete S.mode.await; setSpeed(1); syncSpeedUI(); } });
 function syncEvToggle() { document.querySelectorAll('#evtoggle [data-ev2]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.ev2 === '0') === !!S.noEv ? 'true' : 'false')); }
 el('evtoggle').addEventListener('click', e => { const b = e.target.closest('[data-ev2]'); if (!b) return; S.noEv = b.dataset.ev2 === '0'; if (S.noEv) { S.event = null; el('evcard').hidden = true; } syncEvToggle(); save(); });
 el('mNew').onclick = () => { el('rst').click(); };
@@ -12033,7 +12317,7 @@ const rankWorld = () => { const r = ranking(); return [r.findIndex(x => x.me) + 
 const leaderVal = () => Math.max(valuation(), ...(S.rivals || []).filter(r => !r.sub).map(r => rivalValue(r)));
 function catchUp() { const v = valuation(), L = leaderVal(), ratio = L > 0 ? v / L : 1; return { on: ratio < 0.7 && (S.rivals || []).length > 0, ratio, disc: ratio < 0.7 ? 0.35 : 0, leader: ratio >= 1 }; }
 function levPts() { const raw = Math.max(1, valuation()), l = (S.loan || 0) / (raw + (S.loan || 0)); return 0.06 * clamp(l / 0.5, 0, 1); }
-function loanRateNow() { return (((S.macro && S.macro.rate) || 0.04) + 0.02 + levPts()) * (execOn('cfo') ? 0.75 : 1) * TM.interest * (1 - catchUp().disc); }
+function loanRateNow() { return (((S.macro && S.macro.rate) || 0.04) + 0.02 + levPts() + rvSqueeze()) * (execOn('cfo') ? 0.75 : 1) * TM.interest * (1 - catchUp().disc); }
 const DEBT_X = 3;   // dette maximale : 3 ans d'EBE (en plus du plafond sur actifs)
 function annEbe() { const a = S.m30 || []; if (!a.length) return 0; return a.reduce((t, r) => t + r[1], 0) * 360 / a.length; }
 function debtCapEbe() { return Math.max(0.2 * Math.max(0, (S.stats && S.stats.worth) || 0), DEBT_X * Math.max(0, annEbe())); }
@@ -12138,6 +12422,7 @@ function startMode(k) {
   el('modesel').hidden = true; el('endscr').hidden = true;
   if (!fresh) { newCity(); makeDecor(); cars = []; }
   S.mode = { k, t0: 0, done: null, n: {}, f: {} };
+  S.rivals = []; S.rv = null; S.seats = null; S.rivals = initRivals(); seatsSync();   // une IA par caste (3 enseignes d'origine en scénario)
   S.mat = (k === 'free' || (matChoice && (k === 'round' || k === 's3' || k === 's4' || k === 's5'))) ? 1 : 0; S.matPop = S.pop; S.trials = []; mkInv();   // marché mûr : par défaut en Libre, option pour les scénarios 3-5 et les rounds
   if (k === 'round') { S.cash = roundEasy ? ROUND_CASH.easy : ROUND_CASH.normal; S.noEv = false; S.mode.easy = roundEasy ? 1 : 0; (S.rivals || []).forEach(r => { r.cash = S.cash; }); }
   if (isScn()) { S.cash = SCN[k].cash; S.noEv = k === 's1'; }
@@ -12583,7 +12868,7 @@ function cineWatch() {   // appelé chaque jour : un produit fabriqué pour la p
 el('cine').addEventListener('click', e => { if (e.target.closest('.cinebar label,.cinebar input')) return; cineClose(); });
 el('cinechk').addEventListener('change', e => { cineSetOpt(!e.target.checked); try { renderGoals(); } catch (er) { } });
 window.addEventListener('keydown', e => { if (CINE.on && (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); e.stopImmediatePropagation(); cineClose(); } }, true);
-window.WSE = { acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, CITY, PORT, inCity, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cine: { show: (pk, why) => cineShow(pk, why || 'manuel', true), close: cineClose, get on() { return CINE.on; }, state: () => ({ on: CINE.on, pk: CINE.pk, hero: CINE.hero, frames: CINE.frames, t: CINE.last ? CINE.last.t : 0, q: CINE.q.slice(), shown: CINE.shown, opt: cineOpt(), manual: CINE.manual }), setOpt: cineSetOpt, opt: cineOpt, setHero: setProductHero, heroOf: pk => !!cineHeroOf(pk), watch: cineWatch, facts: cineFacts, setTest: v => { CINE.test = !!v; }, reset: () => { CINE.seen = {}; CINE.snap = null; CINE.q.length = 0; } } });
 Object.assign(window.WSE, { costs: { payYear, fxTrainCost, trainCost, RND_POP, DEMAND_PC }, brand: { HL: BC_HL, sig: bcSig, of: bcOf, lev: brandLev, lux: luxDeg, volM: brandVolM, volX: brandVolX, prem: brandPrem, shield: brandShield, el: shEl, half: bcHalf, mkt: bcMkt, target: bcTarget, step: bcStep, trend: bcTrend, line: brandLineHTML, capHTML: brandCapHTML, duel: brandDuel, attr: attractiveness, score: productScore, rivM: rivBm, rivProf, stepRiv: stepRivBrand, padSet: padAdjust, strat: brandStrat } });
