@@ -170,7 +170,17 @@ for _n in list(_base['png']) + [k for k in _hd['png'] if k not in _base['png']]:
         fac[_n] = _uri(_base['png'][_n]); facanch[_n + '.png'] = _base['anch'].get(_n + '.png')
         if _n in _base['sh']: facsh[_n] = _uri(_base['sh'][_n])
 facanch = {k: v for k, v in facanch.items() if v}
+# Visuels HD des produits (révélation cinéma) : assets/products_hd/<clé produit>.jpg ; aucun poids tant que le dossier est vide, repli sur la vignette SVG
+prodhd = {}
+_phd = os.path.join(ROOT, 'assets', 'products_hd')
+if os.path.isdir(_phd):
+    for _f in sorted(os.listdir(_phd)):
+        _b, _e = os.path.splitext(_f)
+        if _e.lower() in ('.jpg', '.jpeg', '.png', '.webp'):
+            _m = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}[_e.lower()]
+            prodhd[_b] = 'data:' + _m + ';base64,' + base64.b64encode(open(os.path.join(_phd, _f), 'rb').read()).decode()
+print('visuels HD produits :', len(prodhd))
 print('sprites usine :', len(fac), 'sur', len(FAC_NAMES) + len(facextra), '(dont HD :', len(_hd['png']), ')', '(repli vectoriel pour les autres)')
-out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
 open(os.environ.get('WSE_OUT') or os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')
