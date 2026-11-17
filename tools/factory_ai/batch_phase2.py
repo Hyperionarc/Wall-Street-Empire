@@ -22,7 +22,7 @@ CFG = json.load(open(os.path.join(ICI, 'config.json')))
 EXE = os.path.join(ICI, '.venv', 'bin')
 LOTS = {'lot0': 'Lot 0', 'a_sol': 'A · sol', 'a_port': 'A · port', 'b_extraction': 'B · extraction', 'b_commerces': 'B · commerces',
         'b_decor': 'B · décor', 'c_services': 'C · services', 'c_champs': 'C · champs', 'c_vignettes': 'C · vignettes',
-        'g_affleurements': 'Gisements · affleurements', 'g_mines': 'Gisements · mines', 'g_tas': 'Gisements · tas', 'guide': 'Photos du Guide'}
+        'g_affleurements': 'Gisements · affleurements', 'g_mines': 'Gisements · mines', 'g_tas': 'Gisements · tas', 'guide': 'Photos du Guide', 'd_refonte': 'D · refonte'}
 
 
 def dims(t):
