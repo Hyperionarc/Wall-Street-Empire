@@ -561,6 +561,13 @@ body.vopen #feed{z-index:9}
 .lever.wide{grid-column:1 / -1}
 .lever small{color:var(--mut);font-size:11px}
 .lever .pip{float:right;color:var(--gold);letter-spacing:.1em;text-transform:none}
+.bko{display:flex;gap:12px;align-items:stretch;background:linear-gradient(180deg,#1b1410,#2a1d14 60%,#3a2918);border:1px solid #5a4126;border-radius:12px;padding:12px;margin-bottom:10px;position:relative;overflow:hidden}
+.bko:before{content:"";position:absolute;right:10px;top:8px;width:110px;height:70px;border-radius:6px;background:linear-gradient(160deg,#2b4a73,#7fb5e8 55%,#f2d9a0);opacity:.55}
+.bko .who{flex:0 0 112px;text-align:center}.bko .who .ph{width:112px;height:128px;border-radius:10px;overflow:hidden;border:2px solid #c9972f;background:#0b1030}.bko .who .ph img{width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+.bko .who b{display:block;margin-top:5px;color:#f2d9a0;font-family:var(--font-b);font-size:14px}.bko .who small{color:#b9a27a;font-size:11px}
+.bko .say{position:relative;flex:1;background:#fff8e6;color:#2a1d14;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.45;align-self:center}
+.bko .say:before{content:"";position:absolute;left:-8px;top:24px;border:8px solid transparent;border-right-color:#fff8e6;border-left:0}
+.bko .say b{color:#8a5a00}
 .seg2{display:flex;gap:6px}.seg2 .btn{flex:1;padding:4px 6px;font-size:12px}
 .seg2 .btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}
 .rlist{display:flex;flex-wrap:wrap;gap:6px}
@@ -1058,6 +1065,7 @@ body.vopen #feed{z-index:9}
       <div class="ng">Mon entreprise</div>
       <button data-ptab="empire" aria-pressed="true" title="Tableau de bord, bilan, conjoncture"><i>◈</i>Empire</button>
       <button data-ptab="fin" aria-pressed="false" title="Compte de résultat, emprunts, impôts"><i>▦</i>Finances</button>
+      <button data-ptab="fund" aria-pressed="false" title="Lever de la dette ou de l'equity"><i>◐</i>Financement</button>
       <button data-ptab="prods" aria-pressed="false" title="Prix, qualité, notoriété et parts de marché"><i>▤</i>Produits</button>
       <button data-ptab="chain" aria-pressed="false" title="Flux et goulots de la chaîne"><i>⛓</i>Chaîne</button>
       <button data-ptab="ops" aria-pressed="false" title="Promoteur : chantiers, plus-values, parc locatif, zonage"><i>▣</i>Opérations</button>
@@ -1102,11 +1110,14 @@ body.vopen #feed{z-index:9}
     <h3>SOCIÉTÉS COTÉES</h3>
     <div class="seg2" style="margin-bottom:6px;align-items:center"><small class="note" style="margin:0">Trier par</small><select id="lsort" style="background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 8px"><option value="cap">Capitalisation</option><option value="px">Cours</option><option value="chg">Variation</option></select></div>
     <div id="listed"></div>
-    <h3>MA SOCIÉTÉ EN BOURSE</h3>
-    <div id="bourse"></div>
     <h3>COURS DES MATIÈRES PREMIÈRES ET MARCHANDISES</h3>
     <div id="mkdet"></div>
     <div id="goods"></div>
+    </section>
+    <section data-sec="fund" hidden>
+    <div class="seg2" id="fundTabs" style="margin-bottom:8px"><button class="btn" data-fund="eq">Equity raising</button><button class="btn sec" data-fund="debt">Debt raising</button></div>
+    <div id="fundEq"><div id="bourse"></div></div>
+    <div id="fundDebt" hidden></div>
     </section>
     <section data-sec="rivals" hidden>
     <h3>RIVAUX · UNE IA PAR CASTE</h3>
@@ -3617,10 +3628,10 @@ function vcNext(f) {
 function vcRaise(f) {
   const v = vcNext(f); if (!v.ok) return false;
   const u = hash(S.day, v.n, 77) + (execOn('ir') ? 0.15 : 0) + (execOn('cfo') ? 0.1 : 0) + mktSent();   // pitch : sursouscrit, normal ou tiède (le marché y joue)
-  const out = u > 0.85 ? { k: 1.25, t: 'Tour sursouscrit : les fonds se disputent ta société !' } : u > 0.25 ? { k: 1, t: 'Pitch réussi : les investisseurs signent.' } : { k: 0.8, t: 'Pitch tiède : tu acceptes une valorisation plus basse.' };
+  const out = u > 0.85 ? { k: 1.25, t: 'Tour oversubscribed : FOMO chez les VC, ils se battent pour entrer au capital !' } : u > 0.25 ? { k: 1, t: 'Pitch réussi : term sheet signée.' } : { k: 0.8, t: 'Pitch tiède : down round, tu acceptes une valorisation rognée.' };
   const m = Math.max(0.5, v.vm.m * out.k), amt = v.f * v.raw * m / (1 - v.f * m);
   S.cash += amt; if (S.stats) S.stats.raw += amt; S.vc = { n: v.n + 1, sold: vcSold() + v.f * (1 - vcSold()), last: S.day };
-  say(`${v.name} : ${out.t} ${money(amt)} levés pour ${(v.f * 100).toFixed(1).replace('.0', '')} % du capital (valorisation ×${m.toFixed(2)} la valeur comptable).`, 'gold');
+  say(`${v.name} : ${out.t} ${money(amt)} levés (closing) pour ${(v.f * 100).toFixed(1).replace('.0', '')} % du capital (valorisation ×${m.toFixed(2)} la valeur comptable).`, 'gold');
   refreshStats(); updateHUD(); save(); return true;
 }
 // ---- Tours de table : les sociétés rivales lèvent des fonds et te proposent de souscrire à une décote (plus souvent en marché haussier). Un banquier n'y engage que sa part tradable de fonds propres (jamais son CET1 de base).
@@ -5859,8 +5870,9 @@ function updateHUD() {
     let bh;
     const hq = hqOf(), cfo = execOn('cfo'), ir = execOn('ir');
     const dir = `<div class="fcard" style="margin:8px 0"><h4>Direction du groupe</h4><div class="finrow"><span>Siège social</span><b class="${hq ? 'pos' : 'neg'}">${hq ? 'en service' : 'à construire (menu Ville)'}</b></div><div class="finrow"><span>${EXEC.cfo.n}</span><b class="${cfo ? 'pos' : ''}">${cfo ? 'en poste' : 'absent'}</b></div><div class="finrow"><span>${EXEC.ir.n}</span><b class="${ir ? 'pos' : ''}">${ir ? 'en poste' : 'absent'}</b></div>${hq ? '<button class="btn sec" id="openhq" style="margin-top:6px">Ouvrir le siège</button>' : ''}</div>`;
-    const vf = clamp((window._vcF == null ? 0.1 : window._vcF), 0, 0.49), vn = vcNext(vf), vcCard = `<div class="fcard" style="margin:8px 0"><h4>Lever des fonds privés · ${vn.name}</h4><p class="note" style="margin:0 0 6px">Choisis la part du capital que tu vends à des investisseurs privés (jusqu'à ${Math.round(VC_MAXSOLD * 100)} % au total, tu gardes le contrôle). Le prix suit le marché : il monte en boom, baisse en crise, et la décote grandit avec le volume.</p><div class="taxrow"><span>Part vendue</span><input type="range" id="vcpct" min="1" max="${Math.max(1, Math.floor(vn.maxF * 100))}" step="1" value="${Math.round(Math.min(vf, vn.maxF) * 100)}" aria-label="Part du capital vendue" ${vn.maxF >= 0.01 ? '' : 'disabled'}><b>${Math.round(vn.f * 100)} %</b></div><p class="note" style="margin:6px 0">Tu lèves <b class="gold">${money(vn.amt)}</b> (valorisation ×${vn.m.toFixed(2)} la valeur comptable)${vn.gap ? ` · prochain tour dans ${vn.gap} j` : ''}.</p>${vn.vm.parts.map(q => `<div class="finrow"><span>${q[0]}</span><b class="${q[1] >= 0 ? 'pos' : 'neg'}">${q[1] >= 0 ? '+' : '−'}${Math.abs(q[1]).toFixed(2)}</b></div>`).join('')}<button class="btn" id="vcgo" ${vn.ok ? '' : 'disabled'} style="margin-top:6px">Lever ${money(vn.amt)}</button>${vcSold() ? `<p class="note">Investisseurs privés : ${Math.round(vcSold() * 100)} % du capital.</p>` : ''}<p class="note">Un CFO et un directeur des relations investisseurs (dans ton siège social) améliorent le prix et la chance d'un tour sursouscrit.</p></div>`;
+    const vf = clamp((window._vcF == null ? 0.1 : window._vcF), 0, 0.49), vn = vcNext(vf), me = (1 - vcSold()) * (1 - (S.float || 0)), vcCard = `<div class="fcard" style="margin:8px 0"><h4>Equity raising · ${vn.name}</h4><p class="note" style="margin:0 0 6px">Prépare ton <b>pitch deck</b> et choisis la part de la société que tu cèdes à tes <b>investisseurs</b> (jusqu'à ${Math.round(VC_MAXSOLD * 100)} % : tu gardes le contrôle). Le marché fixe la valorisation : <b>bull run</b> = FOMO chez les VC, <b>bear market</b> = down round. Plus tu cèdes d'un coup, plus la <b>dilution</b> te coûte cher.</p><div class="taxrow"><span>Equity cédée</span><input type="range" id="vcpct" min="1" max="${Math.max(1, Math.floor(vn.maxF * 100))}" step="1" value="${Math.round(Math.min(vf, vn.maxF) * 100)}" aria-label="Part du capital cédée" ${vn.maxF >= 0.01 ? '' : 'disabled'}><b>${Math.round(vn.f * 100)} %</b></div><div class="finrow"><span>Pre-money valuation</span><b>${money(vn.raw)}</b></div><div class="finrow"><span>Multiple de valorisation (term sheet)</span><b class="gold">×${vn.m.toFixed(2)}</b></div><div class="finrow"><span>Post-money valuation</span><b>${money(vn.raw + vn.amt)}</b></div><div class="finrow"><span>Cash levé (Series money)</span><b class="gold">${money(vn.amt)}</b></div><div class="finrow"><span>Cap table après le tour</span><b>toi ${Math.round(me * (1 - vn.f) * 100)} % · investisseurs ${Math.round((1 - me * (1 - vn.f)) * 100)} %</b></div>${vn.gap ? `<p class="note">Prochain tour possible dans ${vn.gap} j (le temps de refaire un <b>roadshow</b>).</p>` : ''}<h4 style="margin:8px 0 4px">Ce qui fait monter ta valorisation</h4>${vn.vm.parts.map(q => `<div class="finrow"><span>${q[0]}</span><b class="${q[1] >= 0 ? 'pos' : 'neg'}">${q[1] >= 0 ? '+' : '−'}${Math.abs(q[1]).toFixed(2)}</b></div>`).join('')}<button class="btn" id="vcgo" ${vn.ok ? '' : 'disabled'} style="margin-top:8px">Pitcher les investisseurs · lever ${money(vn.amt)}</button>${vcSold() ? `<p class="note">Cap table : investisseurs privés ${Math.round(vcSold() * 100)} %.</p>` : ''}<p class="note">Un CFO et un directeur des relations investisseurs (dans ton siège social) rendent le pitch plus convaincant : meilleur multiple et plus de chances d'un tour <b>oversubscribed</b>.</p></div>`;
     const invCard = (S.inv || []).length ? `<div class="fcard" style="margin:8px 0"><h4>Invitations à investir</h4>${S.inv.map((q, i) => { const r = (S.rivals || []).find(x => x.id === q.id), c = q.qty * q.px; return r ? `<div class="rv"><span><b>${r.name}</b><small>${fmt(q.qty)} actions à ${fx2(q.px)} $ (cours ${fx2(rivalPx(r))} $) · reste ${Math.max(0, q.until - S.day)} j</small></span><button class="btn sec" data-inv="${i}" ${S.cash >= c ? '' : 'disabled'}>Souscrire · ${money(c)}</button></div>` : ''; }).join('')}</div>` : '';
+    renderDebt();
     if (!listed) bh = invCard + vcCard + `<p class="note">Introduis ta société en bourse pour lever des capitaux : tu cèdes 30 % du capital. Il faut un siège social et ${money(IPO_MIN)} de capitalisation.</p><button class="btn" id="ipo" ${raw >= IPO_MIN && hq ? '' : 'disabled'}>Introduction en bourse · 30 %${raw >= IPO_MIN && hq ? '' : ' (' + (hq ? '' : 'siège social + ') + money(IPO_MIN) + ' requis)'}</button>${dir}`;
     else bh = invCard + vcCard + `<div class="finrow"><span>Cours de l'action</span><b class="${(S.sp || []).length > 1 && S.sp[S.sp.length - 1] >= S.sp[S.sp.length - 2] ? 'pos' : 'neg'}">${fx2(price)} $</b></div><div class="finrow"><span>Capitalisation boursière</span><b>${money(raw * (S.prem || 1.1))}</b></div><div class="finrow"><span>Flottant (actionnaires extérieurs)</span><b>${Math.round(S.float * 100)} %</b></div><div class="finrow"><span>Prime de marché</span><b>${Math.round((S.prem - 1) * 100)} %</b></div><canvas id="spk" width="320" height="50" style="width:100%;height:46px"></canvas>${dir}
       <div class="taxrow"><span>Dividendes</span><input type="range" id="payout" min="0" max="60" step="5" value="${Math.round((S.payout || 0) * 100)}" aria-label="Part des bénéfices distribuée" ${cfo ? '' : 'disabled'}><b>${cfo ? Math.round((S.payout || 0) * 100) + ' %' : 'CFO requis'}</b></div>
@@ -12318,6 +12330,49 @@ function advisorTips() {
   if (!tips.length) tips.push('Tout va bien. Continue d\'étendre ta chaîne et ton réseau de magasins.');
   return tips.slice(0, 3);
 }
+// ---- Debt raising : le bureau du banquier. Il regarde les fonds propres, le free cash flow et le cycle, puis fixe un plafond et un taux.
+window._debtF = window._debtF == null ? 0.5 : window._debtF; window._fundTab = window._fundTab || 'eq';
+function debtDraw(amt) {
+  const lim = creditLimit(), room = Math.max(0, lim - (S.loan || 0)); amt = Math.min(Math.floor(amt / 1000) * 1000, Math.floor(room / 1000) * 1000); if (!(amt > 0)) return false;
+  S.loan = (S.loan || 0) + amt; S.cash += amt; say(`Prêt signé avec ton banquier : ${money(amt)} à ${(100 * loanRateNow()).toFixed(1).replace('.', ',')} % par an (aucun remboursement obligatoire).`, 'gold'); updateHUD(); save(); return true;
+}
+function debtRepay(frac) {
+  const r = Math.min(S.loan || 0, Math.floor(Math.max(0, S.cash)), Math.ceil((S.loan || 0) * frac / 1000) * 1000); if (!(r > 0)) return false;
+  S.loan -= r; S.cash -= r; say(`Remboursement anticipé : ${money(r)} (moins d'intérêts à payer).`, 'good'); updateHUD(); save(); return true;
+}
+function renderDebt() {
+  const box = el('fundDebt'); if (!box || box.hidden) return;
+  const lim = creditLimit(), loan = S.loan || 0, room = Math.max(0, lim - loan), f = clamp(window._debtF, 0, 1), amt = Math.floor(room * f / 1000) * 1000, rate = loanRateNow();
+  const M = S.macro || { rate: 0.04 }, ebe = annEbe(), worth = Math.max(0, (S.stats && S.stats.worth) || 0), cc = credCycle(), ms = mktSent();
+  const mood = cc >= 1.08 ? 'Les banques sont généreuses en ce moment : le cycle est porteur.' : cc <= 0.9 ? 'Les banques serrent la vis : le cycle est difficile.' : 'Le crédit est dans sa moyenne.';
+  const talk = room > 0 ? `« Sur la base de tes <b>fonds propres</b> (${money(worth)}) et de ton <b>free cash flow</b> annuel (${money(Math.max(0, ebe))}), je peux te prêter jusqu'à <b>${money(lim)}</b> au total, soit <b>${money(room)}</b> de plus que ta dette actuelle. Taux : <b>${(rate * 100).toFixed(1).replace('.', ',')} %</b>. ${mood} »` : `« Tu es à ton plafond de <b>${money(lim)}</b>. Renforce tes fonds propres ou ton free cash flow, ou rembourse, et on en reparle. ${mood} »`;
+  const lv = levPts(), pp = promoPts(), rv = rvSqueeze(), cs = creditSpread(), cfo = execOn('cfo');
+  const row = (n, v, c) => `<div class="finrow"><span>${n}</span><b class="${c || ''}">${v}</b></div>`, pc = x => (x * 100).toFixed(2).replace('.', ',') + ' %';
+  const h = `<div class="bko"><div class="who"><div class="ph">${CASTE_IMG.banquier ? `<img alt="Lazare" src="${CASTE_IMG.banquier}">` : ''}</div><b>Lazare</b><small>Banquier d'affaires</small></div><div class="say">${talk}</div></div>
+  ${casteIs('banquier') ? '<p class="note">Tu es banquier : ta banque se refinance elle-même (levier ×10 sur ses fonds propres). Ce bureau reste ouvert pour une dette d\'entreprise classique.</p>' : ''}
+  <div class="fcard"><h4>Debt raising · ma proposition de prêt</h4><div class="taxrow"><span>Montant</span><input type="range" id="debtamt" min="0" max="100" step="5" value="${Math.round(f * 100)}" aria-label="Part du plafond empruntée" ${room > 0 ? '' : 'disabled'}><b>${money(amt)}</b></div>
+  <div class="seg2" style="margin:6px 0"><button class="btn sec" data-debt="p25" ${room > 0 ? '' : 'disabled'}>25 %</button><button class="btn sec" data-debt="p50" ${room > 0 ? '' : 'disabled'}>50 %</button><button class="btn sec" data-debt="p100" ${room > 0 ? '' : 'disabled'}>Maximum</button></div>
+  ${row('Coût annuel des intérêts', money(amt * rate) + ' / an', 'neg')}${row('Dette après signature', money(loan + amt))}
+  <button class="btn" data-debt="draw" ${amt > 0 ? '' : 'disabled'} style="margin-top:6px">Signer le prêt · ${money(amt)}</button>
+  <div class="seg2" style="margin-top:6px"><button class="btn sec" data-debt="r25" ${loan > 0 && S.cash > 0 ? '' : 'disabled'}>Rembourser 25 %</button><button class="btn sec" data-debt="r100" ${loan > 0 && S.cash > 0 ? '' : 'disabled'}>Tout rembourser (${money(Math.min(loan, Math.max(0, S.cash)))})</button></div></div>
+  <div class="fcard" style="margin-top:8px"><h4>Ce que la banque regarde</h4>${row('Fonds propres (valeur de ton groupe)', money(worth))}${row('Free cash flow annualisé', money(ebe), ebe >= 0 ? 'pos' : 'neg')}${row('Dette actuelle', money(loan), loan > 0 ? 'neg' : '')}${row('Plafond de dette accordé', money(lim), 'gold')}${row('Disponible', money(room), room > 0 ? 'pos' : 'neg')}${row('Cycle du crédit', (cc >= 1 ? '+' : '−') + Math.abs(Math.round((cc - 1) * 100)) + ' % sur le plafond', cc >= 1 ? 'pos' : 'neg')}</div>
+  <div class="fcard" style="margin-top:8px"><h4>Comment le taux est fixé</h4>${row('Taux directeur de la banque centrale', pc(M.rate || 0.04))}${row('Marge de la banque + prime de risque du moment', pc(0.02 + riskPrem()))}${lv ? row('Prime de levier (dette élevée)', pc(lv)) : ''}${pp ? row('Prime de promoteur (LTV)', pc(pp)) : ''}${cs ? row('Crise du crédit', pc(cs), 'neg') : ''}${cfo ? row('Ton CFO négocie', '−25 %', 'pos') : ''}${row('Taux appliqué', pc(rate), 'gold')}<p class="note">Le taux directeur suit l'inflation ; la prime de risque monte en récession et baisse en boom. Un directeur financier (CFO) obtient un taux plus bas et un plafond plus haut.</p></div>`;
+  if (box.dataset.h !== h) { if (!document.activeElement || document.activeElement.id !== 'debtamt') { box.innerHTML = h; box.dataset.h = h; } }
+}
+function setFundTab(t) {
+  window._fundTab = t; el('fundEq').hidden = t !== 'eq'; el('fundDebt').hidden = t !== 'debt';
+  document.querySelectorAll('#fundTabs [data-fund]').forEach(b => b.classList.toggle('sec', b.dataset.fund !== t));
+  if (t === 'debt') renderDebt();
+}
+el('fundTabs').addEventListener('click', e => { const b = e.target.closest('[data-fund]'); if (b) setFundTab(b.dataset.fund); });
+el('fundDebt').addEventListener('input', e => { if (e.target.id === 'debtamt') { window._debtF = +e.target.value / 100; const lim = creditLimit(), room = Math.max(0, lim - (S.loan || 0)); e.target.nextElementSibling.textContent = money(Math.floor(room * window._debtF / 1000) * 1000); } });
+el('fundDebt').addEventListener('click', e => {
+  const b = e.target.closest('[data-debt]'); if (!b) return; const k = b.dataset.debt;
+  if (k === 'p25' || k === 'p50' || k === 'p100') { window._debtF = k === 'p25' ? 0.25 : k === 'p50' ? 0.5 : 1; el('fundDebt').dataset.h = ''; renderDebt(); }
+  else if (k === 'draw') debtDraw(Math.floor(Math.max(0, creditLimit() - (S.loan || 0)) * window._debtF / 1000) * 1000);
+  else if (k === 'r25') debtRepay(0.25); else if (k === 'r100') debtRepay(1);
+  el('fundDebt').dataset.h = ''; renderDebt();
+});
 function setPtab(n) {
   document.querySelectorAll('#panel [data-ptab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ptab === n ? 'true' : 'false'));
   document.querySelectorAll('#panel [data-sec]').forEach(s => { s.hidden = s.dataset.sec !== n; });
