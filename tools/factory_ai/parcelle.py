@@ -27,6 +27,44 @@ def main():
     bat = Image.open(os.path.join(D, 'bat_' + nom + '.png')).convert('RGBA')
     bb = bat.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox()
     bat = bat.crop(bb)
+    if os.environ.get('BAT_FLIP') == '1':
+        bat = bat.transpose(Image.FLIP_LEFT_RIGHT)
+    # redressement affine : les verticales restent verticales, les deux axes du sol passent à ±0,5 (losange 2:1)
+    _a = np.asarray(bat.getchannel('A')) > 40
+    _cols = np.nonzero(_a.any(axis=0))[0]
+    _yb = np.array([np.nonzero(_a[:, c])[0].max() for c in _cols], float)
+    if os.environ.get('BAT_COIN') == '1':
+        _i = int(np.argmax(_yb)); _lowx = _cols[_i]
+        _lo = [c for c in _cols if _yb[c - _cols[0]] >= _yb.max() - 3]
+        _lowx = int(np.median(_lo))
+        def _fit(c0, c1):
+            m_ = (_cols >= c0) & (_cols <= c1)
+            return float(np.polyfit(_cols[m_].astype(float), _yb[m_], 1)[0]) if m_.sum() > 6 else None
+        _L = _lowx - _cols[0]; _R = _cols[-1] - _lowx
+        _su = _fit(_cols[0] + 0.12 * _L, _lowx - 0.12 * _L)            # arête longue (descend vers la droite)
+        _sr = _fit(_lowx + 0.12 * _R, _cols[-1] - 0.12 * _R)           # arête courte (remonte vers la droite)
+        _su = abs(_su) if _su is not None else 0.5
+        _sv = abs(_sr) if _sr is not None else 0.5
+        _al_ = max(0.6, min(1.6, _su + _sv)); _be = 0.5 * _al_ - _su
+        _w0, _h0 = bat.size; _oy = max(0.0, -_be * _w0)
+        _nw = int(np.ceil(_al_ * _w0)); _nh = int(np.ceil(_h0 + abs(_be) * _w0)) + 2
+        bat = bat.transform((_nw, _nh), Image.AFFINE, (1 / _al_, 0, 0, -_be / _al_, 1, -_oy), Image.BICUBIC)
+        _bb = bat.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox(); bat = bat.crop(_bb)
+        print('affine : pente longue %.2f courte %.2f -> alpha %.2f beta %.2f' % (_su, _sv, _al_, _be))
+    else:
+        _n = len(_cols); _l = slice(int(_n * 0.08), int(_n * 0.40)); _r = slice(int(_n * 0.60), int(_n * 0.92))
+        def _pente(sl):
+            xx, yy = _cols[sl].astype(float), _yb[sl]
+            return abs(np.polyfit(xx, yy, 1)[0]) if len(xx) > 4 else 0.5
+        _m = max(0.2, (_pente(_l) + _pente(_r)) / 2)
+        _f = min(1.0, max(0.6, 0.5 / _m)) if os.environ.get('BAT_RAIDIR', '1') == '1' else 1.0
+        if _f < 0.995:
+            bat = bat.resize((bat.width, max(1, round(bat.height * _f))), Image.LANCZOS)
+        print('pente base', round(_m, 2), 'redressement y x', round(_f, 2))
+    _a2 = np.asarray(bat.getchannel('A')) > 40
+    _yb2 = np.array([np.nonzero(_a2[:, c])[0].max() if _a2[:, c].any() else -1 for c in range(_a2.shape[1])])
+    _lx = float(np.median(np.nonzero(_yb2 >= _yb2.max() - 2)[0]))
+    COIN = os.environ.get('BAT_COIN') == '1'
 
     Wd, Hd = cases * CASE_W, cases * CASE_W // 2          # losange exact 2:1
     T = 14                                                # épaisseur de la dalle
@@ -35,6 +73,13 @@ def main():
     fw = ((u1 - u0) + (v1 - v0)) * Wd / 2
     kf = float(sys.argv[9]) if len(sys.argv) > 9 else 0.86
     k = fw * kf / bat.width
+    if COIN:
+        NB = int(os.environ.get('BAT_N', '1'))
+        k = (u1 - u0) * (Wd / 2) * kf / max(1.0, _lx) / NB            # NB bâtiments bout à bout couvrent tout le bord nord→est
+        if os.environ.get('BAT_AUTOV') == '1':                          # la profondeur de la bande = celle du bâtiment
+            v1 = v0 + ((bat.width - _lx) * k) / (Wd / 2) + 0.012
+            print('bande v1 auto', round(v1, 3))
+    _Cx, _Dx = Wd / 2 + (u1 - v1) * Wd / 2, Wd / 2 + (u0 - v1) * Wd / 2
     bat = bat.resize((max(1, round(bat.width * k)), max(1, round(bat.height * k))), Image.LANCZOS)
     haut = bat.height + 20                                # marge au-dessus du losange pour le bâtiment
     W = Wd
@@ -71,10 +116,10 @@ def main():
         poly(d, [L, B, dn(B), dn(L)], (112, 84, 56, 255)); poly(d, [B, R, dn(R), dn(B)], (90, 66, 44, 255))
         poly(d, [P(0, 0), P(1, 0), P(1, 1), P(0, 1)], (92, 150, 70, 255))
         rr = random.Random(graine + 3)
-        for _ in range(70):                                    # grandes plaques jaune-vert / vert profond
+        for _ in range(90):                                    # grandes plaques jaune-vert / vert profond
             uu, vv = rr.uniform(0.10, 0.90), rr.uniform(0.10, 0.90)
             x, y = P(uu, vv)
-            g = rr.choice([(124, 172, 72), (150, 178, 70), (84, 142, 60), (108, 164, 66), (168, 182, 80)])
+            g = rr.choice([(108, 160, 74), (96, 152, 68), (118, 166, 76), (104, 156, 70)])
             r_ = rr.uniform(12, 22) * SS
             d.ellipse([x - r_, y - r_ / 2, x + r_, y + r_ / 2], fill=g + (255,))
         for _ in range(900):                                   # texture d'herbe
@@ -211,8 +256,23 @@ def main():
     fx = cx + ((u0 + u1) / 2 - (v0 + v1) / 2) * Wd / 2
     fy = yt + (u1 + v1) * Hd / 2 - 4
     bx, by = round(fx - bat.width / 2), round(fy - bat.height)
+    if COIN: bx = round(_Cx - _lx * k)
     img_b = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    img_b.alpha_composite(bat.resize((bat.width * SS, bat.height * SS), Image.LANCZOS), (bx * SS, by * SS))
+    _batS = bat.resize((bat.width * SS, bat.height * SS), Image.LANCZOS)
+    for _j in range((NB if COIN else 1) - 1, -1, -1):                  # le plus au fond d'abord
+        _dx = round(_j * _lx * k * SS); img_b.alpha_composite(_batS, (bx * SS - _dx, by * SS - _dx // 2)) if COIN else img_b.alpha_composite(_batS, (bx * SS, by * SS))
+    # --- contrôle d'emprise : le bâtiment doit rester dans sa bande (u0..u1 x v0..v1) extrudée vers le haut
+    _A, _B, _C, _D = [tuple(c / SS for c in P(u_, v_)) for (u_, v_) in [(u0, v0), (u1, v0), (u1, v1), (u0, v1)]]
+    _al = np.asarray(img_b.getchannel('A').resize((W, H), Image.BILINEAR)) > 40
+    _ys, _xs = np.nonzero(_al)
+    def _interp(xv, p, q):
+        return p[1] + (q[1] - p[1]) * (xv - p[0]) / (q[0] - p[0] + 1e-9)
+    _low = np.where(_xs <= _C[0], _interp(_xs, _D, _C), _interp(_xs, _C, _B))
+    _up = np.where(_xs <= _A[0], _interp(_xs, _D, _A), _interp(_xs, _A, _B))
+    _hb = max(0.0, bat.height - 0.5 * bat.width)                       # hauteur réelle du bâtiment au-dessus de son empreinte
+    _bad = (_xs < _D[0] - 1) | (_xs > _B[0] + 1) | (_ys > _low + 2) | (_ys < _up - _hb - 2)
+    print('EMPRISE depassement %.2f%%' % (100.0 * _bad.sum() / max(1, len(_xs))))
+    print('detail gauche %d droite %d bas %d haut %d  hb %.0f' % (((_xs < _D[0] - 1)).sum(), ((_xs > _B[0] + 1)).sum(), ((_ys > _low + 2)).sum(), ((_ys < _up - _hb - 2)).sum(), _hb), 'D', _D, 'C', _C, 'B', _B, 'A', _A, 'bat', bat.size, 'bx', bx, 'lx', round(_lx * k))
 
     # voitures (cubes iso), triées par profondeur
     pal = [(236, 236, 236), (30, 32, 38), (140, 144, 152), (190, 40, 40), (40, 80, 170), (220, 190, 50),
@@ -273,16 +333,16 @@ def main():
             ap = os.path.join(ICI, '..', '..', 'assets', 'phase2_hd', an[0] + '.png')
             if os.path.exists(ap):
                 sp = Image.open(ap).convert('RGBA'); sp = sp.crop(sp.getchannel('A').getbbox())
-                hh = 40 if kind != 'poulets' else 24
+                hh = {'bovins': 34, 'moutons': 22, 'porcs': 22, 'poulets': 15}[kind]
                 sp = sp.resize((max(1, round(sp.width * hh / sp.height)), hh), Image.LANCZOS)
                 pos = []
-                nb_ = {'bovins': 9, 'moutons': 13, 'poulets': 15, 'porcs': 10}[kind]
-                centres = [(rr.uniform(0.2, 0.8), rr.uniform(v1 + 0.15, 0.85)) for _ in range(3)]
+                nb_ = {'bovins': 55, 'moutons': 220, 'poulets': 260, 'porcs': 170}[kind]
+                centres = [(rr.uniform(0.2, 0.8), rr.uniform(v1 + 0.15, 0.85)) for _ in range(6)]
                 for _ in range(nb_):
-                    for _try in range(60):
+                    for _try in range(120):
                         c_ = rr.choice(centres)
-                        uu, vv = rr.gauss(c_[0], 0.14), rr.gauss(c_[1], 0.12)
-                        if 0.10 < uu < 0.90 and v1 + 0.08 < vv < 0.90 and all(abs(uu - a) + abs(vv - b) > 0.10 for a, b, _f in pos):
+                        uu, vv = rr.gauss(c_[0], 0.18), rr.gauss(c_[1], 0.16)
+                        if 0.10 < uu < 0.90 and v1 + 0.08 < vv < 0.90 and all(abs(uu - a) + abs(vv - b) > {'bovins': 0.075, 'moutons': 0.035, 'porcs': 0.045, 'poulets': 0.028}[kind] for a, b, _f in pos):
                             pos.append((uu, vv, rr.random() < 0.5)); break
                 pos.sort(key=lambda p: p[0] + p[1])
                 for (uu, vv, fl) in pos:
