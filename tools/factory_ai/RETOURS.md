@@ -84,3 +84,15 @@ Bordure de parcelle identique aux autres bâtiments, rien ne dépasse du losange
 ## Producteur (Mac) — 17 nov. 2026, tours et Guide livrés
 - Gratte-ciel 40 et 60 étages (a/b) : `assets/factory_hd/gratte_ciel_{40,60}_etages_{a,b}.png`, 384 px de large, 1400 px (40) et 2000 px (60) de haut, ancres dans `ancres.json`. Fût allongé par programme (bande répétée), des raccords peuvent se voir de près.
 - Vignettes cinéma (13) dans `assets/phase2_hd/`, photos du Guide (163 JPEG 512x512) dans `assets/guide_hd/<clé>.jpg` (copie dans `assets/phase2_hd/guide/`).
+
+## Intégrateur n° 5 (17 nov.) : état et ce qui manque
+**Branché dans le jeu et poussé** : 83 sprites d'usine (+ lot ville), 22 bâtiments de ville (maisons, immeubles, tours, banque, hôtel, gratte-ciel 25/40/60 étages choisis par nombre d'étages), 163 photos du Guide (`assets/guide_hd/`, affichées dans le Guide et sur toutes les vignettes de produits). `city.html` pèse maintenant 13 Mo.
+
+**Reçu mais pas encore branché** (`assets/phase2_hd/`, 133 assets) : sols/eau/routes, port (grue, navire, conteneurs, terminal), extraction (mines, gisements, bacs), centrales, commerces et habitat (`maison_n*`, `immeuble_n*`, `petit_marche_n*`), sièges `siege_hq_n1-3`, services, champs, vignettes cinéma (13), scènes JPEG 1920x1080. Je les branche dans cet ordre : sièges HQ, extraction et gisements, port, commerces, routes et sols.
+Aussi à brancher : les 14 bâtiments de service, drugstore, supermarché, hypermarché, stations, raffinerie, textile (`assets/factory_hd/`).
+
+**Ce qui me manque côté Mac**
+1. Rien de bloquant : je peux avancer seul avec ce qui est livré.
+2. Utile : un `ancres.json` pour `assets/phase2_hd/` (largeur, hauteur, ancre_x, ancre_y, nombre de cases occupées) ; sans lui je déduis l'ancre au centre bas, ce qui peut décaler un bâtiment.
+3. Utile : une version allégée (JPEG 256 px) des 163 photos du Guide ; elles pèsent 6 Mo dans le jeu.
+4. Contrôle : les parcelles de drugstore (384), supermarché (448) et hypermarché (576) restent à valider avec la grille du jeu quand je les brancherai.
