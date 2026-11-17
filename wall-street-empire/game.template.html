@@ -2721,7 +2721,7 @@ const ZSUB = {
 };
 const ZN_KEYS = ['port', 'indus'];
 const ZN_MAX = 0.40, ZN_FULL = 0.30, ZN_END = 0.70, ZN_LEVY = 0.85, ZN_BUD_DAYS = 150;
-const ZN_NOAID = { road: 1, pylon: 1, cable: 1, pipeline: 1, npc: 1 };
+const ZN_NOAID = { road: 1, pylon: 1, cable: 1, pipeline: 1, npc: 1, res: 1, tech: 1, bank: 1, hq: 1, off: 1, sport: 1, tv: 1, immo: 1 };   // la subvention de zone (port, zone industrielle) ne vise que l'industrie et la logistique : jamais commerces, logements ni bureaux
 const BTP_DEP = { gravel: 1, sand: 1, limestone: 1 }, RECY_FROM = { qgravel: 1, qsand: 1, qlime: 1 }, REC_Y = { gravel: 0.5, sand: 0.3, cement: 0.08 };
 let _znCells = {}, _znC = null;
 const znS = () => S.zn || (S.zn = { bud: null, riv: { port: 0, indus: 0 }, ann: {}, cum: 0, d: 0 });
@@ -5599,7 +5599,7 @@ function place(x, y, key) {
     if (!quiet) { say(err, 'warn'); if (key === 'road') lastRoadMsg = performance.now(); }
     return false;
   }
-  const land = landCostFor(x, y, key), prem = sitePremium(x, y, key), rfee = key === 'road' && ZONE[idx(x, y)] !== 0 ? proRoadFee() : 0, build0 = Math.round(T.cost * casteCost(key) * Math.max(1, cpi())), zAid = (key === 'road' || T.ext || ZN_NOAID[key]) ? 0 : znBuildAid(x, y, build0), tot = build0 - zAid + land + prem + rfee;
+  const land = landCostFor(x, y, key), prem = sitePremium(x, y, key), rfee = key === 'road' && ZONE[idx(x, y)] !== 0 ? proRoadFee() : 0, build0 = Math.round(T.cost * casteCost(key) * Math.max(1, cpi())), zAid = (key === 'road' || T.ext || T.ret || ZN_NOAID[key]) ? 0 : znBuildAid(x, y, build0), tot = build0 - zAid + land + prem + rfee;
   if (S.cash < tot) { say(`Trésorerie insuffisante pour ${T.name.toLowerCase()} : ${money(T.cost)} de construction + ${money(land)} de terrain${prem > 0 ? ' + ' + money(prem) + ' de prime du site' : ''}.`, 'bad'); return false; }
   S.cash -= tot; trfDirty = true; siteC.dirty = true;
   if (zAid > 0) { const z = znS(); z.bud = (z.bud == null ? 150 * znInc() : z.bud) - zAid; z.cum = (z.cum || 0) + zAid; say(`Subvention de zone : la ville prend en charge ${money(zAid)} de la construction (${Math.round(100 * zAid / Math.max(1, build0))} %).`, 'gold'); }
