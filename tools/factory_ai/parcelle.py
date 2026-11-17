@@ -111,12 +111,13 @@ def main():
         d.line([P(*a), P(*b)], fill=(236, 236, 230, 255), width=3 * SS)
 
     ferme = mode.startswith('ferme')
+    EXCL = [tuple(float(z) for z in t.split(':')) for t in os.environ.get('EXCL', '').split(';') if t]
     kind = mode.split(':')[1] if ':' in mode else ''
     if ferme:
         poly(d, [L, B, dn(B), dn(L)], (112, 84, 56, 255)); poly(d, [B, R, dn(R), dn(B)], (90, 66, 44, 255))
         poly(d, [P(0, 0), P(1, 0), P(1, 1), P(0, 1)], (92, 150, 70, 255))
         rr = random.Random(graine + 3)
-        for _ in range(90):                                    # grandes plaques jaune-vert / vert profond
+        for _ in range(0):                                     # plaques supprimées (rendu trop cartoon) jaune-vert / vert profond
             uu, vv = rr.uniform(0.10, 0.90), rr.uniform(0.10, 0.90)
             x, y = P(uu, vv)
             g = rr.choice([(108, 160, 74), (96, 152, 68), (118, 166, 76), (104, 156, 70)])
@@ -219,6 +220,23 @@ def main():
                 for _ in range(10):
                     uu, vv = rr.uniform(ua_ + 0.1, ub_ - 0.1), rr.uniform(va_ + 0.05, vb_ - 0.05)
                     x, y = P(uu, vv); d.ellipse([x - 22 * SS, y - 8 * SS, x + 22 * SS, y + 8 * SS], fill=(92, 66, 44, 255))
+            for it in [t for t in os.environ.get('MARE', '').split(';') if t]:      # mare : "u:v:ru:rv"
+                mu, mv, mru, mrv = [float(z) for z in it.split(':')]
+                for fac, col in [(1.30, (84, 60, 40)), (1.0, (72, 106, 114)), (0.70, (92, 128, 138)), (0.38, (118, 152, 160))]:
+                    pts_ = [P(mu + mru * fac * math.cos(a_) * (1 + 0.10 * math.sin(3 * a_)), mv + mrv * fac * math.sin(a_) * (1 + 0.10 * math.cos(2 * a_))) for a_ in [i * 2 * math.pi / 40 for i in range(40)]]
+                    poly(d, pts_, col + (255,))
+                hx, hy = P(mu - mru * 0.25, mv - mrv * 0.25)
+                d.ellipse([hx - 10 * SS, hy - 3 * SS, hx + 10 * SS, hy + 2 * SS], fill=(206, 226, 232, 255))
+            for it in [t for t in os.environ.get('HAIE', '').split(';') if t]:      # haie : "u1:v1:u2:v2"
+                hu1, hv1, hu2, hv2 = [float(z) for z in it.split(':')]
+                nh = int(max(abs(hu2 - hu1), abs(hv2 - hv1)) / 0.014)
+                for i_ in range(nh + 1):
+                    t_ = i_ / max(1, nh); hx, hy = P(hu1 + (hu2 - hu1) * t_, hv1 + (hv2 - hv1) * t_)
+                    d.ellipse([hx - 5 * SS, hy - 2 * SS, hx + 16 * SS, hy + 4 * SS], fill=(40, 70, 34, 255))
+                    for _k in range(3):
+                        cx_, cy_ = hx + rr.uniform(-4, 4) * SS, hy - rr.uniform(5, 14) * SS
+                        rad = rr.uniform(6, 9) * SS
+                        d.ellipse([cx_ - rad, cy_ - rad * 0.9, cx_ + rad, cy_ + rad * 0.9], fill=rr.choice([(46, 102, 44), (62, 124, 52), (78, 142, 60), (38, 86, 40)]) + (255,))
 
     # zone de stationnement : v de v1+marge à 1-m
     va, vb = v1 + 0.05, 1 - m - 0.025
@@ -336,12 +354,13 @@ def main():
                 hh = {'bovins': 34, 'moutons': 22, 'porcs': 22, 'poulets': 15}[kind]
                 sp = sp.resize((max(1, round(sp.width * hh / sp.height)), hh), Image.LANCZOS)
                 pos = []
-                nb_ = {'bovins': 55, 'moutons': 220, 'poulets': 260, 'porcs': 170}[kind]
+                nb_ = max(8, round({'bovins': 3.0, 'moutons': 12, 'poulets': 14, 'porcs': 9}[kind] * cases * cases))
                 centres = [(rr.uniform(0.2, 0.8), rr.uniform(v1 + 0.15, 0.85)) for _ in range(6)]
                 for _ in range(nb_):
                     for _try in range(120):
                         c_ = rr.choice(centres)
                         uu, vv = rr.gauss(c_[0], 0.18), rr.gauss(c_[1], 0.16)
+                        if any(((uu - eu) ** 2 + (vv - ev) ** 2) < er ** 2 for (eu, ev, er) in EXCL): continue
                         if 0.10 < uu < 0.90 and v1 + 0.08 < vv < 0.90 and all(abs(uu - a) + abs(vv - b) > {'bovins': 0.075, 'moutons': 0.035, 'porcs': 0.045, 'poulets': 0.028}[kind] for a, b, _f in pos):
                             pos.append((uu, vv, rr.random() < 0.5)); break
                 pos.sort(key=lambda p: p[0] + p[1])
@@ -370,7 +389,9 @@ def main():
             q = it.split(':')
             deco.append((float(q[1]) + float(q[2]), q))
         for _, q in sorted(deco, key=lambda t: t[0]):
-            sp = Image.open(os.path.join(P2, q[0] + '.png')).convert('RGBA'); sp = sp.crop(sp.getchannel('A').getbbox())
+            _pp = os.path.join(P2, q[0] + '.png')
+            if not os.path.exists(_pp): _pp = os.path.join(D, q[0] + '.png')
+            sp = Image.open(_pp).convert('RGBA'); sp = sp.crop(sp.getchannel('A').getbbox())
             if len(q) > 4 and q[4] == 'm': sp = sp.transpose(Image.FLIP_LEFT_RIGHT)
             hh_ = float(q[3]); sp = sp.resize((max(1, round(sp.width * hh_ / sp.height)), round(hh_)), Image.LANCZOS)
             x, y = P(float(q[1]), float(q[2])); x, y = x / SS, y / SS
