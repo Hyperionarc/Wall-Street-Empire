@@ -3584,7 +3584,9 @@ const FIN_ACTIONS = { cartel: { cost: 6000 * SCALE_M, days: 20 }, embargo: { cos
 const finCost = k => Math.round(FIN_ACTIONS[k].cost * (casteIs('negociant') ? 0.5 : 1));
 function tradeShares(id, qty, buy) {
   const r = (S.rivals || []).find(x => x.id === id); if (!r || !(qty > 0)) return false; S.port = S.port || {}; const h = S.port[id] || (S.port[id] = { n: 0, cost: 0 });
-  const px = rivalPx(r), spread = Math.max(0.01, px * 0.004);
+  // l'ordre déplace le cours (humeur du titre) : il s'exécute au cours moyen du déplacement, si bien qu'un achat suivi d'une vente ne rapporte jamais plus que le spread (plus d'argent gratuit)
+  const m0 = r.mood || 0, dm = clamp(m0 + (buy ? 1 : -1) * Math.min(qty, buy ? RSH - ((S.port[id] || {}).n || 0) : ((S.port[id] || {}).n || 0)) / RSH * 0.4, -0.2, 0.35) - m0;
+  const px = rivalValue(r) / RSH * (1 + m0 + dm / 2), spread = Math.max(0.01, px * 0.004);
   if (buy) { qty = Math.min(qty, RSH - h.n); if (qty <= 0) return false; let cost = 0; for (let i = 0; i < qty; i++) { cost += px * (1 + 0.0007 * (i / 10)) + spread / 2; } if (S.cash < cost) { say('Trésorerie insuffisante pour cet ordre.', 'bad'); return false; }
     if (casteIs('banquier')) { const lim = 0.2 * bkInit().res; if (portValue() + cost > lim) { say(`Règle prudentielle : ta banque ne peut trader que 20 % de ses ressources propres (${money(lim)}).`, 'warn'); return false; } } S.cash -= cost; h.n += qty; h.cost += cost; r.mood = clamp((r.mood || 0) + qty / RSH * 0.4, -0.2, 0.35); say(`Achat de ${fmt(qty)} actions ${r.name} (${money(cost)}).`, 'info'); }
   else { qty = Math.min(qty, h.n); if (qty <= 0) return false; let gain = 0; for (let i = 0; i < qty; i++) gain += px * (1 - 0.0007 * (i / 10)) - spread / 2; S.cash += gain; h.cost *= (h.n - qty) / h.n; h.n -= qty; r.mood = clamp((r.mood || 0) - qty / RSH * 0.4, -0.2, 0.35); say(`Vente de ${fmt(qty)} actions ${r.name} (${money(gain)}).`, 'info'); }
@@ -13831,7 +13833,7 @@ function tierPlan(o) {
   if (o.net30 > 0) { const mo = gap / o.net30; ways.push(`Laisser tourner : à ${money(o.net30)} par mois, il faut ${f1c(mo)} mois de jeu (≈ ${moMin(mo)} min).`); }
   else ways.push(`Redresser d'abord : ton résultat est de ${money(o.net30)} par mois. Corrige les magasins ou la publicité déficitaires avant de viser le palier.`);
   const c = coachPick(o);
-  if (c && c.gain > 0) { const tot = Math.max(1, o.net30 + c.gain), mo = gap / tot; ways.push(`Investir : « ${c.t} » (${money(c.cost)}, +${money(c.gain)} par mois) ramène le palier à ≈ ${f1c(mo)} mois (${moMin(mo)} min).`); }
+  if (c && c.gain > 0) { const tot = Math.max(1, o.net30 + c.gain), mo = gap / tot; ways.push(`Investir : « ${c.t} » (${money(c.cost)}, +${money(c.gain)} par mois) ${mo > 36 ? 'est un bon départ, mais ne suffit pas seul pour ce palier : cumule plusieurs investissements.' : `ramène le palier à ≈ ${f1c(mo)} mois (${moMin(mo)} min).`}`); }
   else ways.push('Investir : aucun bâtiment rentable (retour sous ' + ROI_MAX + ' ans) pour l\'instant : lance un nouveau produit ou une usine (Produits > Recommandé pour toi).');
   const room = Math.max(0, creditLimit() - o.loan);
   if (!o.hq) ways.push('Capital : construis le siège social, puis introduis la société en bourse (30 % du capital cédé) dès ' + mM(IPO_MIN) + ' de valorisation.');
