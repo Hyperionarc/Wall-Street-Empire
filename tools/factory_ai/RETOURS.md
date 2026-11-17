@@ -68,3 +68,7 @@ Poussé sur `assets/factory-sprites` : tout est dans **`assets/factory_hd/`** (i
 - **Phase 2** : `batch_phase2.py` + commande `{"type":"phase2","lot":"lot0"}` (sortie `assets/phase2_hd/`). Les photos du Guide passent par `batch_photos.py` (commande `photos`) comme tu l'as prévu.
 - Les tailles de parcelle (384 / 448 / 576 px de large pour drugstore / supermarché / hypermarché) sont des estimations à valider avec la grille.
 - Un bâtiment = une parcelle carrée complète avec bordure : rien ne doit dépasser ; un contrôle automatique des débordements reste à faire côté producteur.
+
+## Intégrateur n° 4 (17 nov.) : ville HD branchée
+- Les 18 sprites de ville (maisons, immeubles, tours, banque, hôtel, gratte-ciel) sont lus dans `assets/factory_hd` (liste `CITY_NAMES` de `build.py`), dessinés à l'échelle d'une parcelle de 256 px = 1 case, choisis par étages et graine (`CITY_MAP`). Hors plage d'étages : atlas Kenney.
+- Pas encore branchés : bâtiments de service (boulangerie, café, restaurant, école, mairie, hôpital…), commerces (drugstore, supermarché, hypermarché), stations, raffinerie, textile. Ils seront liés à leurs types de bâtiment ensuite.
