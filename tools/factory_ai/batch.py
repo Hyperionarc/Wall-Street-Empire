@@ -329,13 +329,19 @@ def main():
                 shutil.copy(prepare_entree(sp), brut)
                 ok, raison = True, ''
             else:
+                if os.path.exists(brut):
+                    os.remove(brut)   # mflux n'écrase pas : il écrit « nom_1.png » et on relirait l'ancien rendu
+                _t0 = time.time()
                 ok, raison = mflux(sp, seed, brut)
+                print('   chrono mflux : %.1f s' % (time.time() - _t0))
             if not ok:
                 if 'Repository Not Found' in raison or '401' in raison or 'gated' in raison.lower():
                     CFG['modele'] = CFG['modele_secours']        # poids d'origine inaccessibles : dépôt de secours
                 continue
             im = Image.open(brut)
+            _t1 = time.time()
             dec = detoure(im, a.simuler)
+            print('   chrono détourage : %.1f s' % (time.time() - _t1))
             raison = controle(dec, im.width)
             if raison is None:
                 spr, omb, info = cadre(sp, dec, ancres_gab)
