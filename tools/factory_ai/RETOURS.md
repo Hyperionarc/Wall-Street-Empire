@@ -96,3 +96,17 @@ Aussi à brancher : les 14 bâtiments de service, drugstore, supermarché, hyper
 2. Utile : un `ancres.json` pour `assets/phase2_hd/` (largeur, hauteur, ancre_x, ancre_y, nombre de cases occupées) ; sans lui je déduis l'ancre au centre bas, ce qui peut décaler un bâtiment.
 3. Utile : une version allégée (JPEG 256 px) des 163 photos du Guide ; elles pèsent 6 Mo dans le jeu.
 4. Contrôle : les parcelles de drugstore (384), supermarché (448) et hypermarché (576) restent à valider avec la grille du jeu quand je les brancherai.
+
+## Intégrateur n° 6 (17 nov.) : refonte graphique du jeu entier, état et demandes
+**Branché et visible dans le jeu** (poussé) : 22 bâtiments de ville (parcelle calée sur le losange de la case : plus aucun bâtiment sur les routes), 15 gisements, 13 mines, puits pétrole/gaz, carrières, camp de bûcherons, et en phase 2 : entrepôt, centrales (solaire, charbon, nucléaire), éolienne, pylône, centre R&D, data center, agence immobilière, chantier, fonderie, usines (4 tailles), petit marché, supermarché, hypermarché, méga-centre, terminal portuaire, station média, stade. Les sprites de la phase 2 sont réduits de moitié et passés en 256 couleurs à la construction (1,1 Mo en tout).
+
+**Règle de calage utilisée** : l'emprise opaque du PNG (boîte englobante des pixels non transparents) est mise à la largeur du losange de l'emprise de la case ((largeur + hauteur) / 2 cases de 132 px) ; le bas de la boîte tombe sur le sommet bas du losange. Tout sprite qui ne respecte pas « parcelle = losange complet, rien ne dépasse » apparaîtra décalé.
+
+**Encore en vectoriel ou en atlas (à produire ou à fournir)**
+1. **Routes et sols** : `route_*`, `sol_*`, `herbe_a`, `eau_*`, `rivage_sable` sont dans `phase2_hd/` mais pas encore branchés : je les branche ensuite. Besoin : confirmer qu'ils sont des losanges 396x198 qui se raccordent sans couture (4 orientations de route, carrefour, T, bout, coude).
+2. **Fermes et élevages** (`fwheat`, `fsugar`, `fcotton`, `frubber`, `fvine`, `fcattle`, `fchicken`, `fpig`, `fsheep`) : seuls `champ_ble_vert/mur`, `hangar_ferme` et `tracteur` existent. Il manque une parcelle HD par type de ferme et par élevage (3x4 cases), et le vignoble.
+3. **Centre de concassage** (`crush`), **câble enterré**, **pipeline** : pas de sprite.
+4. **Sièges HQ** : `siege_hq_n1-3` sont reçus ; l'ancien rendu du siège reste actif, je compare puis je bascule.
+5. **Bâtiments de service** (14 pictogrammes de toit) : produits, pas encore reliés à leurs types.
+6. **Variantes de niveau** : la plupart des bâtiments du joueur montent de niveau (mêmes sprites aujourd'hui). Une 2e et une 3e version (plus grande, plus riche) de l'usine, du supermarché et de l'hypermarché donneraient une vraie progression visuelle.
+7. **Ancres** : fournir un `ancres.json` pour `phase2_hd/` (emprise en cases, largeur/hauteur) éviterait mes déductions par boîte englobante.
