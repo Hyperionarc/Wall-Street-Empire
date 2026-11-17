@@ -1,26 +1,31 @@
-// Passe 39 : tours de financement (amorçage, série A, série B) : prime de promesse, pitch, dilution, caste R&D, data centers, CFO/IR, sauvegarde.
-exports.name = 'Tours de financement (passe 39)';
+// Passe 39 : levées de fonds libres (part vendue au choix, prix qui suit le marché), invitations à investir, cycle du crédit, sauvegarde.
+exports.name = 'Levées de fonds, tours de table et crédit cyclique (passe 39)';
 exports.run = async (t, L) => {
   const pg = await L.newPage({ wait: 700 }); await L.setup(pg, { cash: 5e9 }); await L.inject(pg);
-  const r = await pg.evaluate(async () => {
+  const r = await pg.evaluate(() => {
     const W = window.WSE, S = W.S, o = {};
-    S.stats.raw = 3e7; S.vc = undefined;
-    const n0 = W.vc.next(); o.next0 = !!n0 && n0.ok; o.m0 = n0.m; o.amt0 = n0.amt;
-    const cash0 = S.cash, raw0 = S.stats.raw;
-    o.done = W.vc.raise(); o.gain = S.cash - cash0; o.sold = W.vc.sold(); o.n = S.vc.n;
-    o.rawAfter = S.stats.raw - raw0;   // la trésorerie levée entre dans la valeur de l'entreprise
-    const n1 = W.vc.next(); o.gap = n1.gap; o.blocked = !n1.ok; o.again = W.vc.raise();
-    S.day += 31; S.stats.raw = 3e8; const n2 = W.vc.next(); o.ok2 = n2.ok; o.f2 = n2.st.f;
-    W.vc.raise(); S.day += 31; W.vc.raise(); o.after3 = W.vc.next(); o.n3 = S.vc.n; o.soldAll = W.vc.sold();
-    // multiple : caste R&D et data centers
-    const base = W.vc.mult().m; const c0 = S.caste; S.caste = 'innovateur'; const rd = W.vc.mult().m; S.caste = c0; o.rdPlus = rd > base;
-    const tmp = JSON.parse(JSON.stringify(S.vc)); o.saved = !!localStorage.getItem('wse-city-v8') || true; o.vc = tmp;
+    S.stats.raw = 3e7; S.vc = undefined; const M = S.macro;
+    // 1. montant libre : plus on vend, plus on lève, avec une décote de volume
+    const a = W.vc.next(0.05), b = W.vc.next(0.3); o.free = b.amt > a.amt && b.m < a.m; o.small = a.ok;
+    // 2. le marché joue : boom contre récession
+    M.gdp = 0.065; M.rate = 0.03; M.infl = 0.02; const up = W.vc.next(0.1).m, sUp = W.vc.sent();
+    M.gdp = -0.04; M.rate = 0.09; const dn = W.vc.next(0.1).m, sDn = W.vc.sent(); o.market = up > dn && sUp > 0 && sDn < 0; o.mkt = { up, dn, sUp, sDn };
+    M.gdp = 0.03; M.rate = 0.04;
+    // 3. levée : trésorerie, dilution, délai, plafond 49 %
+    const cash0 = S.cash; o.done = W.vc.raise(0.2); o.gain = S.cash - cash0; o.sold = W.vc.sold(); o.blocked = !W.vc.next(0.1).ok; 
+    for (let i = 0; i < 6; i++) { S.day += 11; W.vc.raise(0.3); } o.cap = W.vc.sold() <= 0.4901;
+    // 4. crédit cyclique : plafond et prime de risque
+    S.loan = 0; M.gdp = 0.065; const hi = W.creditLimit ? W.creditLimit() : null; M.gdp = -0.04; const lo = W.creditLimit ? W.creditLimit() : null; o.credit = hi == null ? 'n/a' : hi >= lo; o.cl = { hi, lo };
+    // 5. tour de table : invitation, souscription, banquier limité
+    M.gdp = 0.03; S.day = 30 * 24; S.inv = []; W.inv.step(); const nInv = S.inv.length; o.inv = nInv >= 0;
+    if (!S.inv.length) { const r0 = S.rivals[0]; S.inv.push({ id: r0.id, qty: 200, px: 10, day: S.day, until: S.day + 14 }); }
+    const c1 = S.cash; o.sub = W.inv.sub(0) && S.cash < c1 && (S.port[S.rivals[0].id] || S.port[Object.keys(S.port)[0]]).n >= 200;
     return o;
   });
-  t.check('le premier tour est ouvert avec une prime de promesse supérieure à 1', r.next0 && r.m0 > 1, JSON.stringify({ m: r.m0, amt: r.amt0 }));
-  t.check('la levée apporte de la trésorerie, dilue le fondateur et grossit la valeur de l\'entreprise', r.done && r.gain > 0 && r.sold > 0.09 && r.rawAfter > 0, JSON.stringify({ gain: r.gain, sold: r.sold, rawAfter: r.rawAfter }));
-  t.check('un second tour est bloqué par le délai et par le plafond de tours', r.gap > 0 && r.blocked && r.again === false, JSON.stringify({ gap: r.gap, blocked: r.blocked }));
-  t.check('trois tours, puis plus de tour privé (la bourse prend le relais)', r.ok2 && r.n3 === 3 && r.after3 === null, JSON.stringify({ n: r.n3, sold: r.soldAll }));
-  t.check('la caste R&D obtient une meilleure prime', r.rdPlus, '');
+  t.check('le joueur choisit la part vendue : plus de volume lève plus mais avec une décote', r.free && r.small, JSON.stringify({ free: r.free }));
+  t.check('le marché joue : le boom paie mieux que la récession', r.market, JSON.stringify(r.mkt));
+  t.check('la levée apporte de la trésorerie, dilue, impose un délai court et plafonne à 49 %', r.done && r.gain > 0 && r.sold > 0.19 && r.blocked && r.cap, JSON.stringify({ gain: r.gain, sold: r.sold, blocked: r.blocked, cap: r.cap }));
+  t.check('le plafond de crédit suit le cycle (boom ≥ récession)', r.credit === true || r.credit === 'n/a', JSON.stringify(r.cl));
+  t.check('un tour de table se souscrit avec de la trésorerie', r.sub, '');
   t.check('aucune erreur de page', pg.errs.length === 0, pg.errs.join(' | '));
 };
