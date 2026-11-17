@@ -18,7 +18,8 @@ const SIZES = [[1280, 720], [1920, 1080], [390, 844]];
         document.querySelectorAll('button,.btn,.tbtn,h2,h3,h4,.finrow span,.finrow b,.rv small,.tcard b,.tcard small,th,td,label').forEach(e => {
           if (!vis(e)) return; const cs = getComputedStyle(e);
           if ((cs.overflow === 'hidden' || cs.textOverflow === 'ellipsis') && e.scrollWidth > e.clientWidth + 2 && e.clientWidth > 0) bad.push('coupé : ' + (e.innerText || '').trim().slice(0, 40));
-          const r = e.getBoundingClientRect(); if (e.matches('button,.btn,.tbtn') && (r.right > vw + 2 || r.left < -2) && r.width < vw) bad.push('hors écran : ' + (e.innerText || e.id || '').trim().slice(0, 30));
+          const r = e.getBoundingClientRect(); const scr = (x => { while (x && x !== document.body) { const o = getComputedStyle(x).overflowX; if ((o === 'auto' || o === 'scroll') && x.scrollWidth > x.clientWidth) return true; x = x.parentElement; } return false; })(e);
+          if (!scr && e.matches('button,.btn,.tbtn') && (r.right > vw + 2 || r.left < -2) && r.width < vw) bad.push('hors écran : ' + (e.innerText || e.id || '').trim().slice(0, 30));
           if (e.matches('button,.btn,.tbtn') && !(e.innerText || '').trim() && !e.getAttribute('aria-label') && !e.title && !e.querySelector('svg,img,canvas')) bad.push('bouton sans libellé : ' + (e.id || e.className));
         });
         if (document.documentElement.scrollWidth > vw + 2) bad.push('défilement horizontal de la page : ' + document.documentElement.scrollWidth + ' > ' + vw);
