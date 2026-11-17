@@ -12934,7 +12934,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
   } else if (a.t === 'npc') {
     const k = Math.floor(a.seed * 997), name = a.k === 'res' ? 'res' + (k % 9) : ['tech0', 'tech1', 'bank0'][k % 3], s = SP[name];
     const by = p.y - 27, hs = citySpr(a);
-    if (hs) { const A = hs.a, k2 = TW / 256 * 1; ctx.drawImage(hs.im, p.x - A.ancre_x * k2, p.y + TH / 2 - A.ancre_y * k2, hs.im.width * k2, hs.im.height * k2); a._top = p.y + TH / 2 - A.ancre_y * k2; roofTop(a, p, o.now); }
+    if (hs) { const q = cityBox(hs, p); ctx.drawImage(hs.im, q.x, q.y, q.w, q.h); a._top = q.y; roofTop(a, p, o.now); }
     else if (s) for (let i = 0; i < a.floors; i++) {
       const sc = a.lm ? 1 - i * 0.0095 : 1;
       ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] * sc / 2, by + s[3] * (1 - sc) - i * FH, s[2] * sc, s[3] * sc);
@@ -12960,7 +12960,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
     const bx = p.x - 50, by = p.y - 27;
     if (a.works && a.works.k === 'new') ctx.globalAlpha *= 0.45;
     const hs = a.t === 'hq' || a.t === 'sport' || a.t === 'tv' ? null : citySpr(a, a.t === 'res' ? 'res' : a.t === 'bank' ? 'bank' : 'tech', floors);   // sprite HD de la ville pour les immeubles du joueur
-    if (hs) { const A = hs.a, k2 = TW / 256, ty = p.y + TH / 2 - A.ancre_y * k2; ctx.drawImage(hs.im, p.x - A.ancre_x * k2, ty + (1 - grow) * 30, hs.im.width * k2, hs.im.height * k2 * grow); a._top = ty; }
+    if (hs) { const q = cityBox(hs, p); ctx.drawImage(hs.im, q.x, q.y + (1 - grow) * 30, q.w, q.h * grow); a._top = q.y; }
     else { for (let i = 0; i < floors; i++) blit(name, bx, by - i * FH); a._top = by - (floors - 1) * FH; }
     roofTop(a, p, o.now);
     if (a.works) drawWorksOver(a, p, bx, by, floors, o.now);
@@ -14002,6 +14002,10 @@ const tileToScreen = (x, y) => { const c = iso(x + 0.5, y + 0.5), r = cvs.getBou
 const CITYHD = __CITYHD_JSON__, CITYANCH = __CITYANCH_JSON__, CITY_IMG = {};   // bâtiments de la ville en HD (assets/city_hd) ; repli : atlas Kenney
 const CITY_MAP = { res: [['maison_moderne_cubique', 1, 2], ['pavillon_banlieue', 1, 2], ['maison_de_ville_briques', 2, 3], ['brownstone_new_yorkais', 3, 4], ['immeuble_londonien_briques', 3, 5], ['immeuble_art_deco', 4, 6], ['immeuble_haussmannien', 4, 6], ['immeuble_residentiel_moderne', 5, 8], ['immeuble_residentiel_6_etages_a', 6, 11], ['immeuble_residentiel_6_etages_b', 6, 11], ['immeuble_residentiel_moderne', 9, 19], ['tour_bureaux_12_etages_b', 12, 19], ['gratte_ciel_25_etages_b', 20, 30], ['gratte_ciel_25_etages_a', 20, 30], ['gratte_ciel_40_etages_a', 31, 50], ['gratte_ciel_40_etages_b', 31, 50], ['gratte_ciel_60_etages_a', 51, 99], ['gratte_ciel_60_etages_b', 51, 99]], tech: [['immeuble_bureaux_vitre', 3, 11], ['tour_de_verre', 5, 19], ['tour_bureaux_12_etages_a', 8, 19], ['tour_bureaux_12_etages_b', 8, 19], ['gratte_ciel_25_etages_a', 20, 30], ['gratte_ciel_25_etages_b', 20, 30], ['gratte_ciel_40_etages_a', 31, 50], ['gratte_ciel_40_etages_b', 31, 50], ['gratte_ciel_60_etages_a', 51, 99], ['gratte_ciel_60_etages_b', 51, 99]], bank: [['banque_neoclassique', 2, 8], ['hotel_de_luxe', 4, 10]] };   // [sprite, étages min, étages max] ; hors plage, atlas empilé ; parcelle de 256 px de losange = 1 case ; au-delà de 25 étages le sprite grandit un peu
 Object.keys(CITYHD).forEach(n => { const im = new Image(), e = CITY_IMG[n] = { im, ok: false, a: CITYANCH[n] || null }; im.onload = () => { e.ok = true; if (!e.a) e.a = { largeur: im.width, hauteur: im.height, ancre_x: im.width / 2, ancre_y: im.height, emprise_px: im.width }; }; im.src = CITYHD[n]; });
+function cityBox(hs, p) {   // cadre d'un sprite de ville : le losange de la parcelle (emprise opaque) est calé sur celui de la case, pour qu'aucun bâtiment ne mord sur la route
+  const A = hs.a, bb = A.bb || [0, 0, hs.im.width, hs.im.height], k = TW / (bb[2] - bb[0]);
+  return { x: p.x - (bb[0] + bb[2]) / 2 * k, y: p.y + TH - bb[3] * k, w: hs.im.width * k, h: hs.im.height * k };
+}
 function citySpr(a, grp, fl) {   // sprite HD pour un immeuble (choix déterministe par graine), ou null ; grp : res / tech / bank
   const L = CITY_MAP[grp || (a.k === 'res' ? 'res' : ['tech', 'tech', 'bank'][Math.floor(a.seed * 997) % 3])]; if (!L) return null; if (fl == null) fl = a.floors; a = { seed: a.seed, floors: fl };
   const c = L.filter(r => r[2] && a.floors >= r[1] && a.floors <= r[2] && CITY_IMG[r[0]] && CITY_IMG[r[0]].ok); if (!c.length) return null; return CITY_IMG[c[Math.floor(a.seed * 7919) % c.length][0]];

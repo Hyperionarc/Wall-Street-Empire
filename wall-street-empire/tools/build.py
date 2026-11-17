@@ -214,6 +214,11 @@ for _n in CITY_NAMES:   # les bâtiments produits par le Mac sont dans assets/fa
         cityhd[_n] = 'data:image/png;base64,' + base64.b64encode(open(_f, 'rb').read()).decode()
         _aa = json.load(open(os.path.join(_hd_dir, 'ancres.json'))).get(_n + '.png')
         if _aa and _n not in cityanch: cityanch[_n] = _aa
+        try:   # emprise réelle (pixels opaques) : la parcelle du sprite est calée sur le losange de la case, pas sur l'ancre approximative
+            from PIL import Image as _I
+            _im = _I.open(_f).convert('RGBA'); _bb = _im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox()
+            if _bb: cityanch[_n] = dict(cityanch.get(_n) or {}, bb=list(_bb))
+        except Exception: pass
 print('batiments HD de la ville :', len(cityhd))
 print('sprites usine :', len(fac), 'sur', len(FAC_NAMES) + len(facextra), '(dont HD :', len(_hd['png']), ')', '(repli vectoriel pour les autres)')
 out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__GUIDEHD_JSON__', json.dumps(guidehd)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__CITYHD_JSON__', json.dumps(cityhd)).replace('__CITYANCH_JSON__', json.dumps(cityanch)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
