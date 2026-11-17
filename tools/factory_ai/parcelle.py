@@ -6,6 +6,7 @@ Usage : python3 parcelle.py <nom> <cases> <v0> <v1> [graine]
   cases : côté de la parcelle en cases (losange de cases*256 x cases*128, rapport exactement 2:1)
   v0 v1 : bande occupée par le bâtiment, en fraction du côté (0 = coin haut)
 """
+import math
 import sys, os, json, random, math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -70,6 +71,12 @@ def main():
         poly(d, [L, B, dn(B), dn(L)], (112, 84, 56, 255)); poly(d, [B, R, dn(R), dn(B)], (90, 66, 44, 255))
         poly(d, [P(0, 0), P(1, 0), P(1, 1), P(0, 1)], (92, 150, 70, 255))
         rr = random.Random(graine + 3)
+        for _ in range(70):                                    # grandes plaques jaune-vert / vert profond
+            uu, vv = rr.uniform(0.10, 0.90), rr.uniform(0.10, 0.90)
+            x, y = P(uu, vv)
+            g = rr.choice([(124, 172, 72), (150, 178, 70), (84, 142, 60), (108, 164, 66), (168, 182, 80)])
+            r_ = rr.uniform(12, 22) * SS
+            d.ellipse([x - r_, y - r_ / 2, x + r_, y + r_ / 2], fill=g + (255,))
         for _ in range(900):                                   # texture d'herbe
             uu, vv = rr.random(), rr.random()
             x, y = P(uu, vv)
@@ -86,24 +93,71 @@ def main():
                 if kind == 'ble':
                     d.line([P(ua_ + 0.01, vv), P(ub_ - 0.01, vv)], fill=(224, 186, 70, 255), width=7 * SS)
                     d.line([P(ua_ + 0.01, vv - 0.004), P(ub_ - 0.01, vv - 0.004)], fill=(240, 208, 104, 255), width=2 * SS)
-                elif kind == 'sucre':
-                    d.line([P(ua_ + 0.01, vv), P(ub_ - 0.01, vv)], fill=(84, 150, 58, 255), width=8 * SS)
-                    d.line([P(ua_ + 0.01, vv - 0.004), P(ub_ - 0.01, vv - 0.004)], fill=(120, 184, 84, 255), width=2 * SS)
-                elif kind == 'coton':
-                    d.line([P(ua_ + 0.01, vv), P(ub_ - 0.01, vv)], fill=(76, 140, 62, 255), width=7 * SS)
-                    for j in range(26):
-                        uu = ua_ + 0.02 + j * (ub_ - ua_ - 0.04) / 25
-                        x, y = P(uu, vv - 0.003, 4)
-                        d.ellipse([x - 3 * SS, y - 3 * SS, x + 3 * SS, y + 2 * SS], fill=(248, 248, 244, 255))
+                elif kind in ('sucre', 'coton'):
+                    # sillon : crête claire + creux sombre
+                    d.line([P(ua_ + 0.01, vv + 0.012), P(ub_ - 0.01, vv + 0.012)], fill=(92, 62, 36, 255), width=4 * SS)
+                    d.line([P(ua_ + 0.01, vv - 0.006), P(ub_ - 0.01, vv - 0.006)], fill=(150, 108, 66, 255), width=3 * SS)
+                    for j in range(21):
+                        uu = ua_ + 0.03 + j * (ub_ - ua_ - 0.06) / 20 + rr.uniform(-0.004, 0.004)
+                        x, y = P(uu, vv)
+                        d.ellipse([x - 2 * SS, y - 1 * SS, x + 13 * SS, y + 4 * SS], fill=(40, 30, 20, 150))      # ombre portée
+                        if kind == 'sucre':
+                            for k in range(7):
+                                ang = k * 0.9 + rr.uniform(-0.2, 0.2)
+                                lx, ly = x + math.cos(ang) * 7 * SS, y - 6 * SS + math.sin(ang) * 3.5 * SS
+                                g = rr.choice([(58, 130, 46), (76, 154, 56), (96, 176, 66)])
+                                d.ellipse([lx - 4.5 * SS, ly - 4 * SS, lx + 4.5 * SS, ly + 3 * SS], fill=g + (255,))
+                            d.ellipse([x - 3 * SS, y - 9 * SS, x + 3 * SS, y - 4 * SS], fill=(122, 190, 78, 255))
+                        else:
+                            for k in range(6):
+                                ang = k * 1.05 + rr.uniform(-0.2, 0.2)
+                                lx, ly = x + math.cos(ang) * 6 * SS, y - 7 * SS + math.sin(ang) * 3 * SS
+                                d.ellipse([lx - 4 * SS, ly - 3.5 * SS, lx + 4 * SS, ly + 3 * SS], fill=rr.choice([(52, 118, 48), (70, 140, 58)]) + (255,))
+                            for k in range(2):
+                                bx, by = x + rr.uniform(-5, 5) * SS, y - rr.uniform(7, 12) * SS
+                                d.ellipse([bx - 2.2 * SS, by - 2.2 * SS, bx + 2.2 * SS, by + 1.9 * SS], fill=(252, 252, 246, 255))
+                                d.ellipse([bx - 1.4 * SS, by - 1.6 * SS, bx + 0.6 * SS, by + 0.2 * SS], fill=(255, 255, 255, 255))
                 elif kind == 'vigne':
-                    d.line([P(ua_ + 0.01, vv), P(ub_ - 0.01, vv)], fill=(70, 128, 56, 255), width=9 * SS)
-                    for j in range(0, 27, 2):
-                        uu = ua_ + 0.02 + j * (ub_ - ua_ - 0.04) / 26
-                        x, y = P(uu, vv, 0)
-                        d.line([(x, y), (x, y - 12 * SS)], fill=(96, 70, 48, 255), width=2 * SS)
-                        d.ellipse([x - 2 * SS, y - 4 * SS, x + 3 * SS, y + SS], fill=(108, 60, 120, 255))
+                    d.line([P(ua_ + 0.01, vv + 0.014), P(ub_ - 0.01, vv + 0.014)], fill=(100, 138, 62, 255), width=5 * SS)   # enherbement entre rangs
+                    d.line([P(ua_ + 0.01, vv - 0.006), P(ub_ - 0.01, vv - 0.006)], fill=(80, 54, 34, 255), width=2 * SS)
+                    for j in range(22):
+                        uu = ua_ + 0.03 + j * (ub_ - ua_ - 0.06) / 21 + rr.uniform(-0.003, 0.003)
+                        x, y = P(uu, vv)
+                        d.ellipse([x - 3 * SS, y - 1 * SS, x + 12 * SS, y + 3.5 * SS], fill=(36, 40, 22, 140))
+                        d.line([(x, y), (x, y - 16 * SS)], fill=(96, 68, 44, 255), width=2 * SS)
+                        for k in range(7):
+                            lx, ly = x + rr.uniform(-6.5, 6.5) * SS, y - rr.uniform(6, 17) * SS
+                            d.ellipse([lx - 4.2 * SS, ly - 3.4 * SS, lx + 4.2 * SS, ly + 3.2 * SS], fill=rr.choice([(52, 120, 46), (70, 142, 54), (92, 164, 60), (120, 170, 60)]) + (255,))
+                        for k in range(2):
+                            gx, gy = x + rr.uniform(-4, 4) * SS, y - rr.uniform(3, 8) * SS
+                            for m_ in range(4):
+                                ox_ = rr.uniform(-1.5, 1.5) * SS
+                                d.ellipse([gx + ox_ - 1.7 * SS, gy + m_ * 1.6 * SS - 1.7 * SS, gx + ox_ + 1.7 * SS, gy + m_ * 1.6 * SS + 1.7 * SS], fill=rr.choice([(92, 44, 112), (110, 54, 130), (70, 34, 96)]) + (255,))
                 elif kind == 'caoutchouc':
                     pass
+            if kind == 'ble':
+                poly(d, [P(ua_, va_), P(ub_, va_), P(ub_, vb_), P(ua_, vb_)], (120, 84, 38, 255))
+                tiges = []
+                for _ in range(26000):
+                    uu, vv = rr.uniform(ua_ + 0.035, ub_ - 0.03), rr.uniform(va_ + 0.045, vb_ - 0.03)
+                    if abs(vv - (va_ + (vb_ - va_) * (0.62 + 0.10 * math.sin(uu * 7)))) < 0.018:
+                        continue                            # sentier tondu dans le champ
+                    tiges.append((vv, uu))
+                tiges.sort()
+                for vv, uu in tiges:
+                    w = math.sin(uu * 9.0 + vv * 5.0) + 0.6 * math.sin(uu * 21.0 - vv * 13.0) + 0.3 * math.sin(uu * 47.0 + vv * 31.0)
+                    haut = rr.uniform(15, 21) * SS
+                    x, y = P(uu, vv)
+                    lx = (w * 4.5 + rr.uniform(-1.2, 1.2)) * SS
+                    cr = max(0.0, min(1.0, 0.5 + 0.36 * w))
+                    ombre = 0.80 + 0.20 * min(1.0, (vv - va_) / (vb_ - va_) + 0.2)
+                    c1 = tuple(int((a + (b - a) * cr) * ombre) for a, b in zip((150, 106, 40), (232, 188, 88)))
+                    c2 = tuple(int((a + (b - a) * cr) * ombre) for a, b in zip((206, 156, 58), (255, 226, 130)))
+                    d.line([(x, y), (x + lx * 0.5, y - haut * 0.55), (x + lx, y - haut)], fill=c1 + (255,), width=max(1, int(1.6 * SS)))
+                    ex, ey = x + lx, y - haut
+                    d.line([(ex, ey), (ex + lx * 0.18 + 1.5 * SS, ey - 7 * SS)], fill=c2 + (255,), width=max(1, int(3.2 * SS)))
+                    if rr.random() < 0.012:
+                        d.ellipse([x - 2 * SS, y - 12 * SS, x + 2 * SS, y - 8 * SS], fill=(200, 34, 24, 255))
             if kind == 'caoutchouc':
                 for i in range(nrow):
                     vv = va_ + (i + 0.5) * (vb_ - va_) / nrow
@@ -222,18 +276,23 @@ def main():
                 hh = 40 if kind != 'poulets' else 24
                 sp = sp.resize((max(1, round(sp.width * hh / sp.height)), hh), Image.LANCZOS)
                 pos = []
-                for _ in range(an[1] * cases):
-                    for _try in range(30):
-                        uu, vv = rr.uniform(0.10, 0.90), rr.uniform(v1 + 0.08, 0.90)
-                        if all(abs(uu - a) + abs(vv - b) > 0.12 for a, b in pos):
-                            pos.append((uu, vv)); break
+                nb_ = {'bovins': 9, 'moutons': 13, 'poulets': 15, 'porcs': 10}[kind]
+                centres = [(rr.uniform(0.2, 0.8), rr.uniform(v1 + 0.15, 0.85)) for _ in range(3)]
+                for _ in range(nb_):
+                    for _try in range(60):
+                        c_ = rr.choice(centres)
+                        uu, vv = rr.gauss(c_[0], 0.14), rr.gauss(c_[1], 0.12)
+                        if 0.10 < uu < 0.90 and v1 + 0.08 < vv < 0.90 and all(abs(uu - a) + abs(vv - b) > 0.10 for a, b, _f in pos):
+                            pos.append((uu, vv, rr.random() < 0.5)); break
                 pos.sort(key=lambda p: p[0] + p[1])
-                for (uu, vv) in pos:
+                for (uu, vv, fl) in pos:
                     x, y = P(uu, vv); x, y = x / SS, y / SS
+                    sp2 = sp.transpose(Image.FLIP_LEFT_RIGHT) if fl else sp
+                    f_ = rr.uniform(0.92, 1.1); sp2 = sp2.resize((round(sp2.width * f_), round(sp2.height * f_)), Image.LANCZOS)
                     sh = Image.new('RGBA', img.size, (0, 0, 0, 0))
-                    ImageDraw.Draw(sh).ellipse([(x - sp.width * 0.4) * SS, (y - 3) * SS, (x + sp.width * 0.4) * SS, (y + 4) * SS], fill=(30, 40, 20, 90))
+                    ImageDraw.Draw(sh).ellipse([(x - sp2.width * 0.4) * SS, (y - 3) * SS, (x + sp2.width * 0.4) * SS, (y + 4) * SS], fill=(30, 40, 20, 110))
                     img_c.alpha_composite(sh)
-                    img_c.alpha_composite(sp.resize((sp.width * SS, sp.height * SS), Image.LANCZOS), (round((x - sp.width / 2) * SS), round((y - sp.height + 4) * SS)))
+                    img_c.alpha_composite(sp2.resize((sp2.width * SS, sp2.height * SS), Image.LANCZOS), (round((x - sp2.width / 2) * SS), round((y - sp2.height + 4) * SS)))
         def clot(a, b, z):
             dc.line([P(*a, z), P(*b, z)], fill=(190, 150, 100, 255) if kind != 'poulets' else (170, 170, 170, 255), width=2 * SS)
         for (a, b) in [((0.04, 0.96), (0.96, 0.96)), ((0.96, 0.04), (0.96, 0.96))]:
@@ -242,6 +301,23 @@ def main():
                 t = i / n_p; q = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
                 x, y = P(*q, 0); dc.line([(x, y), (x, y - 20 * SS)], fill=(120, 88, 56, 255), width=3 * SS)
             clot(a, b, 10); clot(a, b, 18)
+
+    # décor posé à la main : "nom:u:v:hauteur_px[:miroir],..." (objets de assets/phase2_hd)
+    if len(sys.argv) > 10 and sys.argv[10] not in ('', '-'):
+        P2 = os.path.join(ICI, '..', '..', 'assets', 'phase2_hd')
+        deco = []
+        for it in sys.argv[10].split(','):
+            q = it.split(':')
+            deco.append((float(q[1]) + float(q[2]), q))
+        for _, q in sorted(deco, key=lambda t: t[0]):
+            sp = Image.open(os.path.join(P2, q[0] + '.png')).convert('RGBA'); sp = sp.crop(sp.getchannel('A').getbbox())
+            if len(q) > 4 and q[4] == 'm': sp = sp.transpose(Image.FLIP_LEFT_RIGHT)
+            hh_ = float(q[3]); sp = sp.resize((max(1, round(sp.width * hh_ / sp.height)), round(hh_)), Image.LANCZOS)
+            x, y = P(float(q[1]), float(q[2])); x, y = x / SS, y / SS
+            sh = Image.new('RGBA', img.size, (0, 0, 0, 0))
+            ImageDraw.Draw(sh).ellipse([(x - sp.width * 0.42) * SS, (y - 3) * SS, (x + sp.width * 0.42) * SS, (y + 5) * SS], fill=(30, 36, 18, 110))
+            img_c.alpha_composite(sh)
+            img_c.alpha_composite(sp.resize((sp.width * SS, sp.height * SS), Image.LANCZOS), (round((x - sp.width / 2) * SS), round((y - sp.height + 4) * SS)))
 
     out = img.copy()
     out.alpha_composite(img_b)
