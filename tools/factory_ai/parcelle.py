@@ -227,6 +227,12 @@ def main():
                     poly(d, pts_, col + (255,))
                 hx, hy = P(mu - mru * 0.25, mv - mrv * 0.25)
                 d.ellipse([hx - 10 * SS, hy - 3 * SS, hx + 10 * SS, hy + 2 * SS], fill=(206, 226, 232, 255))
+            for it in [t for t in os.environ.get('CHEMIN', '').split(';') if t]:      # chemin d'acces : "u1:v1:u2:v2:largeur_px"
+                cu1, cv1, cu2, cv2, cw = [float(z) for z in it.split(':')]
+                pa, pb = P(cu1, cv1), P(cu2, cv2)
+                d.line([pa, pb], fill=(120, 92, 60, 255), width=int((cw + 5) * SS))
+                d.line([pa, pb], fill=(176, 146, 104, 255), width=int(cw * SS))
+                d.line([pa, pb], fill=(190, 162, 120, 255), width=int(cw * 0.45 * SS))
             for it in [t for t in os.environ.get('HAIE', '').split(';') if t]:      # haie : "u1:v1:u2:v2"
                 hu1, hv1, hu2, hv2 = [float(z) for z in it.split(':')]
                 nh = int(max(abs(hu2 - hu1), abs(hv2 - hv1)) / 0.014)
@@ -354,12 +360,12 @@ def main():
                 hh = {'bovins': 34, 'moutons': 22, 'porcs': 22, 'poulets': 15}[kind]
                 sp = sp.resize((max(1, round(sp.width * hh / sp.height)), hh), Image.LANCZOS)
                 pos = []
-                nb_ = max(8, round({'bovins': 3.0, 'moutons': 12, 'poulets': 14, 'porcs': 9}[kind] * cases * cases))
-                centres = [(rr.uniform(0.2, 0.8), rr.uniform(v1 + 0.15, 0.85)) for _ in range(6)]
+                nb_ = max(8, round({'bovins': 3.6, 'moutons': 15, 'poulets': 18, 'porcs': 11}[kind] * cases * cases))
+                centres = [(rr.uniform(0.2, 0.8), rr.uniform(v1 + 0.15, 0.85)) for _ in range(10)]
                 for _ in range(nb_):
                     for _try in range(120):
                         c_ = rr.choice(centres)
-                        uu, vv = rr.gauss(c_[0], 0.18), rr.gauss(c_[1], 0.16)
+                        uu, vv = rr.gauss(c_[0], 0.22), rr.gauss(c_[1], 0.20)
                         if any(((uu - eu) ** 2 + (vv - ev) ** 2) < er ** 2 for (eu, ev, er) in EXCL): continue
                         if 0.10 < uu < 0.90 and v1 + 0.08 < vv < 0.90 and all(abs(uu - a) + abs(vv - b) > {'bovins': 0.075, 'moutons': 0.035, 'porcs': 0.045, 'poulets': 0.028}[kind] for a, b, _f in pos):
                             pos.append((uu, vv, rr.random() < 0.5)); break
