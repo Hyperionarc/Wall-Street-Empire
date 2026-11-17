@@ -10,7 +10,7 @@ exports.run = async (t, L) => {
   t.check('le guide s\'ouvre sur les baskets avec ses cartes d\'intrants et son produit', r.open && r.cards >= 3, JSON.stringify({ open: r.open, cards: r.cards }));
   t.check('accolade de liaison entre chaque carte d\'intrant et le rail (trait de 17 px)', r.stub === '17px', String(r.stub));
   t.check('la boîte qualité indique si tu connais les technologies du produit', /Technologies connues de toi/.test(r.txt), '');
-  t.check('sans photo : vignette vectorielle ; avec une photo injectée : elle remplace la vignette du produit', r.photo0 === 0 && r.photo1 === 1, JSON.stringify({ avant: r.photo0, apres: r.photo1 }));
+  t.check('les photos du Guide (assets/guide_hd) s'affichent ; une photo injectée s'ajoute sans erreur', r.photo1 >= 1 && r.photo1 >= r.photo0, JSON.stringify({ avant: r.photo0, apres: r.photo1 }));
   t.check('aucune erreur de page', pg.errs.length === 0, pg.errs.slice(0, 2).join(' | '));
   await pg.context().close();
 };

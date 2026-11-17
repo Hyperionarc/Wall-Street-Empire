@@ -190,7 +190,12 @@ for _gd in (os.path.join(ROOT, 'assets', 'guide_hd'), os.path.join(ROOT, '..', '
             _b, _e = os.path.splitext(_f)
             if _e.lower() in ('.jpg', '.jpeg', '.png', '.webp') and _b not in guidehd:
                 _m = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}[_e.lower()]
-                guidehd[_b] = 'data:' + _m + ';base64,' + base64.b64encode(open(os.path.join(_gd, _f), 'rb').read()).decode()
+                _raw = open(os.path.join(_gd, _f), 'rb').read()
+                try:   # vignettes du Guide : 288 px JPEG q78 suffisent (cartes ~120 px, fiche ~260 px) ; divise le poids par ~3
+                    import io; from PIL import Image as _I
+                    _im = _I.open(io.BytesIO(_raw)).convert('RGB'); _im.thumbnail((288, 288)); _bf = io.BytesIO(); _im.save(_bf, 'JPEG', quality=78, optimize=True); _raw = _bf.getvalue(); _m = 'image/jpeg'
+                except Exception: pass
+                guidehd[_b] = 'data:' + _m + ';base64,' + base64.b64encode(_raw).decode()
 print('photos du guide :', len(guidehd))
 # Bâtiments de la ville en HD : assets/city_hd/<nom>.png (+ ancres.json : largeur, hauteur, ancre_x, ancre_y, emprise_px) ; vide = atlas Kenney
 CITY_NAMES = ['maison_moderne_cubique', 'maison_de_ville_briques', 'pavillon_banlieue', 'brownstone_new_yorkais', 'immeuble_londonien_briques', 'immeuble_haussmannien', 'immeuble_art_deco', 'immeuble_residentiel_6_etages_a', 'immeuble_residentiel_6_etages_b', 'immeuble_residentiel_moderne', 'tour_de_verre', 'immeuble_bureaux_vitre', 'tour_bureaux_12_etages_a', 'tour_bureaux_12_etages_b', 'banque_neoclassique', 'hotel_de_luxe', 'gratte_ciel_25_etages_a', 'gratte_ciel_25_etages_b', 'gratte_ciel_40_etages_a', 'gratte_ciel_40_etages_b', 'gratte_ciel_60_etages_a', 'gratte_ciel_60_etages_b']
