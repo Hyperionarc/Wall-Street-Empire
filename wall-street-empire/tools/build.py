@@ -220,7 +220,22 @@ for _n in CITY_NAMES:   # les bâtiments produits par le Mac sont dans assets/fa
             if _bb: cityanch[_n] = dict(cityanch.get(_n) or {}, bb=list(_bb))
         except Exception: pass
 print('batiments HD de la ville :', len(cityhd))
+# Gisements et extracteurs HD (phase 2) : assets/phase2_hd/<nom>.png ; réduits de moitié et passés en palette 256 couleurs pour limiter le poids ; l'ancre est le sommet bas de la parcelle (bas de l'image), la largeur d'origine donne l'emprise (396 px par case)
+P2_NAMES = ['gisement_argile', 'gisement_bauxite', 'gisement_charbon', 'gisement_cuivre', 'gisement_fer', 'gisement_gaz', 'gisement_graphite', 'gisement_lithium', 'gisement_nickel_chrome', 'gisement_petrole', 'gisement_phosphate', 'gisement_potasse', 'gisement_sel', 'gisement_silice', 'gisement_zinc',
+            'mine_bauxite', 'mine_charbon', 'mine_cuivre', 'mine_cuivre_niveau3', 'mine_fer', 'mine_graphite', 'mine_lithium', 'mine_nickel_chrome', 'mine_or', 'mine_phosphate', 'mine_potasse', 'mine_sel', 'mine_zinc', 'puits_gaz', 'puits_petrole', 'carriere', 'carriere_argile', 'carriere_silice', 'camp_bucherons']
+p2hd = {}; p2dim = {}
+for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'phase2_hd')):
+    for _n in P2_NAMES:
+        _f = os.path.join(_d, _n + '.png')
+        if _n in p2hd or not os.path.exists(_f): continue
+        try:
+            import io; from PIL import Image as _I
+            _im = _I.open(_f).convert('RGBA'); p2dim[_n] = [_im.width, _im.height] + list(_im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox() or (0, 0, _im.width, _im.height))
+            _sm = _im.resize((max(1, _im.width // 2), max(1, _im.height // 2)), _I.LANCZOS).quantize(colors=256, method=_I.FASTOCTREE, dither=_I.NONE)
+            _bf = io.BytesIO(); _sm.save(_bf, 'PNG', optimize=True); p2hd[_n] = 'data:image/png;base64,' + base64.b64encode(_bf.getvalue()).decode()
+        except Exception as _e: print('phase2 ignoré', _n, _e)
+print('sprites phase 2 :', len(p2hd), ' poids', sum(len(v) for v in p2hd.values()) // 1024, 'Ko')
 print('sprites usine :', len(fac), 'sur', len(FAC_NAMES) + len(facextra), '(dont HD :', len(_hd['png']), ')', '(repli vectoriel pour les autres)')
-out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__GUIDEHD_JSON__', json.dumps(guidehd)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__CITYHD_JSON__', json.dumps(cityhd)).replace('__CITYANCH_JSON__', json.dumps(cityanch)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__GUIDEHD_JSON__', json.dumps(guidehd)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__CITYHD_JSON__', json.dumps(cityhd)).replace('__P2HD_JSON__', json.dumps(p2hd)).replace('__P2DIM_JSON__', json.dumps(p2dim)).replace('__CITYANCH_JSON__', json.dumps(cityanch)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
 open(os.environ.get('WSE_OUT') or os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')
