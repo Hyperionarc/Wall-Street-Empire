@@ -197,6 +197,17 @@ for _gd in (os.path.join(ROOT, 'assets', 'guide_hd'), os.path.join(ROOT, '..', '
                 except Exception: pass
                 guidehd[_b] = 'data:' + _m + ';base64,' + base64.b64encode(_raw).decode()
 print('photos du guide :', len(guidehd))
+
+def _diamond(_im):
+    """Losange de la parcelle : (xg, xd, ym) = extrémités gauche/droite de la rangée la plus large (sommets gauche et droit de la dalle), ym = hauteur de cette rangée ; le centre de la case est le centre de cette rangée."""
+    a = _im.getchannel('A').point(lambda v: 255 if v > 40 else 0); w, h = a.size; px = a.load(); best = (0, 0, 0, 0)
+    ext = []
+    for y in range(h):
+        xs = [x for x in range(0, w, 2) if px[x, y]]
+        ext.append((min(xs), max(xs)) if xs else None)
+    mw = max((e[1] - e[0]) for e in ext if e); ys = [y for y, e in enumerate(ext) if e and (e[1] - e[0]) >= mw - 3]
+    ym = sum(ys) / len(ys); xl = min(ext[y][0] for y in ys); xr = max(ext[y][1] for y in ys)
+    return [xl, xr, round(ym, 1)]
 # Bâtiments de la ville en HD : assets/city_hd/<nom>.png (+ ancres.json : largeur, hauteur, ancre_x, ancre_y, emprise_px) ; vide = atlas Kenney
 CITY_NAMES = ['maison_moderne_cubique', 'maison_de_ville_briques', 'pavillon_banlieue', 'brownstone_new_yorkais', 'immeuble_londonien_briques', 'immeuble_haussmannien', 'immeuble_art_deco', 'immeuble_residentiel_6_etages_a', 'immeuble_residentiel_6_etages_b', 'immeuble_residentiel_moderne', 'tour_de_verre', 'immeuble_bureaux_vitre', 'tour_bureaux_12_etages_a', 'tour_bureaux_12_etages_b', 'banque_neoclassique', 'hotel_de_luxe', 'gratte_ciel_25_etages_a', 'gratte_ciel_25_etages_b', 'gratte_ciel_40_etages_a', 'gratte_ciel_40_etages_b', 'gratte_ciel_60_etages_a', 'gratte_ciel_60_etages_b']
 cityhd = {}; cityanch = {}
@@ -217,7 +228,7 @@ for _n in CITY_NAMES:   # les bâtiments produits par le Mac sont dans assets/fa
         try:   # emprise réelle (pixels opaques) : la parcelle du sprite est calée sur le losange de la case, pas sur l'ancre approximative
             from PIL import Image as _I
             _im = _I.open(_f).convert('RGBA'); _bb = _im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox()
-            if _bb: cityanch[_n] = dict(cityanch.get(_n) or {}, bb=list(_bb))
+            if _bb: cityanch[_n] = dict(cityanch.get(_n) or {}, bb=list(_bb), dm=_diamond(_im))
         except Exception: pass
 print('batiments HD de la ville :', len(cityhd))
 # Gisements et extracteurs HD (phase 2) : assets/phase2_hd/<nom>.png ; réduits de moitié et passés en palette 256 couleurs pour limiter le poids ; l'ancre est le sommet bas de la parcelle (bas de l'image), la largeur d'origine donne l'emprise (396 px par case)
@@ -231,7 +242,7 @@ for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', '
         if _n in p2hd or not os.path.exists(_f): continue
         try:
             import io; from PIL import Image as _I
-            _im = _I.open(_f).convert('RGBA'); p2dim[_n] = [_im.width, _im.height] + list(_im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox() or (0, 0, _im.width, _im.height))
+            _im = _I.open(_f).convert('RGBA'); p2dim[_n] = [_im.width, _im.height] + list(_im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox() or (0, 0, _im.width, _im.height)) + _diamond(_im)
             _sm = _im.resize((max(1, _im.width // 2), max(1, _im.height // 2)), _I.LANCZOS).quantize(colors=256, method=_I.FASTOCTREE, dither=_I.NONE)
             _bf = io.BytesIO(); _sm.save(_bf, 'PNG', optimize=True); p2hd[_n] = 'data:image/png;base64,' + base64.b64encode(_bf.getvalue()).decode()
         except Exception as _e: print('phase2 ignoré', _n, _e)

@@ -110,3 +110,11 @@ Aussi à brancher : les 14 bâtiments de service, drugstore, supermarché, hyper
 5. **Bâtiments de service** (14 pictogrammes de toit) : produits, pas encore reliés à leurs types.
 6. **Variantes de niveau** : la plupart des bâtiments du joueur montent de niveau (mêmes sprites aujourd'hui). Une 2e et une 3e version (plus grande, plus riche) de l'usine, du supermarché et de l'hypermarché donneraient une vraie progression visuelle.
 7. **Ancres** : fournir un `ancres.json` pour `phase2_hd/` (emprise en cases, largeur/hauteur) éviterait mes déductions par boîte englobante.
+
+## Demande de l'intégrateur au producteur (17 nov.) : gisements qui se voient de loin
+Le joueur veut des gisements **lisibles à distance, façon Age of Empires**. J'ai ajouté des effets animés par programme (halo, étoiles qui scintillent, reflet qui balaie pour l'or ; lueur rouge et éclats pour le fer ; geysers de pétrole), mais le sprite doit porter l'essentiel :
+- **`gisement_or` (manquant)** : filon d'or éclatant, pépites jaune vif et gros cristaux d'or, saturation forte, reflets blancs ; même parcelle losange 396x300 que les autres gisements.
+- **`gisement_fer`** : rouge-rouille plus vif avec arêtes métalliques claires brillantes (le rendu actuel est mat).
+- **`gisement_petrole`** : une vraie flaque noire luisante avec un **geyser** (jet de pétrole qui jaillit, éclaboussures) dessiné dans le sprite ; le jeu ajoute des gouttes animées par-dessus.
+- Pour les trois : contraste fort avec l'herbe vert clair du jeu, pas de fond sableux terne autour de la parcelle.
+- Ne rien changer à la règle de calage (parcelle = losange complet, dalle centrée) : le jeu centre maintenant la dalle sur le centre de la case (rangée la plus large du PNG), et réduit les sprites carrés à `min(largeur, hauteur)` cases pour les emprises rectangulaires, pour qu'aucun bâtiment ne mord sur la route.
