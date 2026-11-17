@@ -12972,7 +12972,9 @@ function drawTileOf(a, x, y, ox, oy, o) {
   const p = iso(x, y);
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
-  if (PROC_IND[a.t]) {
+  if (P2_TYPE[a.t] && p2Ready(a.t)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
+    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const ty = p2Draw(P2_TYPE[a.t], p, (a.w + a.h) / 2); a._top = ty == null ? p.y - 40 : ty; }
+  } else if (PROC_IND[a.t]) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
   } else if (a.t === 'npc' && a.k === 'mon') {
     drawMonument(a, o.now);
@@ -13035,7 +13037,9 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
   ctx.globalAlpha = alpha;
   const T = TYPES[a.t];
   let topY = a._top == null ? p.y - 28 : a._top;
-  if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') {
+  if (P2_TYPE[a.t] && p2Ready(a.t)) {
+    topY = a._top == null ? topY : a._top;   // sprite HD : pas de cheminée ni d'enseigne vectorielle
+  } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') {
     if ((a.t === 'tech' || a.t === 'off' || a.t === 'tv') && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
       ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 10; ctx.fillStyle = '#ff5a5f';
       ctx.beginPath(); ctx.arc(p.x, topY + 26, 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
@@ -14070,6 +14074,8 @@ function citySpr(a, grp, fl) {   // sprite HD pour un immeuble (choix détermini
 }
 const P2HD = __P2HD_JSON__, P2DIM = __P2DIM_JSON__, P2_IMG = {};   // sprites de la phase 2 (gisements, mines, puits, carrières) ; dim = [largeur, hauteur, x0, y0, x1, y1] de l'image d'origine, la parcelle est calée sur le losange de la case
 const P2_DEP = { oil: 'gisement_petrole', iron: 'gisement_fer', coal: 'gisement_charbon', gas: 'gisement_gaz', copper: 'gisement_cuivre', nickel: 'gisement_nickel_chrome', chrome: 'gisement_nickel_chrome', bauxite: 'gisement_bauxite', lithium: 'gisement_lithium', zinc: 'gisement_zinc', graphite: 'gisement_graphite', phosphate: 'gisement_phosphate', potash: 'gisement_potasse', salt: 'gisement_sel', silica: 'gisement_silice', clay: 'gisement_argile' };
+const P2_TYPE = { wh: 'entrepot', solar: 'centrale_solaire', wind: 'eolienne', plant: 'centrale_charbon', nuclear: 'centrale_nucleaire', pylon: 'pylone_electrique', rd: 'centre_rd', dc: 'data_center', btp: 'chantier_moyen', immo: 'agence_immo', foundry: 'fonderie', f1: 'usine_petite_f1', f2: 'usine_moyenne_f2', f3: 'usine_grande_f3', f4: 'usine_f4_mega', s1: 'petit_marche_n1', s2: 'supermarche', s3: 'hypermarche', s4: 'mega_centre_commercial', port: 'terminal_portuaire', tv: 'station_tv', sport: 'stade_sport' };
+const p2Ready = t => { const n = P2_TYPE[t] || P2_EXT[t]; return !!(n && P2_IMG[n] && P2_IMG[n].ok); };
 const P2_EXT = { well: 'puits_petrole', gwell: 'puits_gaz', miron: 'mine_fer', mcoal: 'mine_charbon', mcopper: 'mine_cuivre', mgold: 'mine_or', mnicr: 'mine_nickel_chrome', mbauxite: 'mine_bauxite', mlithium: 'mine_lithium', mzinc: 'mine_zinc', mgraphite: 'mine_graphite', qsilica: 'carriere_silice', qclay: 'carriere_argile', qsalt: 'mine_sel', mphos: 'mine_phosphate', mpotash: 'mine_potasse', qgravel: 'carriere', qsand: 'carriere', qlime: 'carriere', logging: 'camp_bucherons' };
 Object.keys(P2HD).forEach(n => { const im = new Image(), e = P2_IMG[n] = { im, ok: false }; im.onload = () => { e.ok = true; }; im.src = P2HD[n]; });
 function p2Draw(name, p, cells) {   // dessine le sprite sur la case (p = sommet haut de la case) ; renvoie le haut du sprite, ou null s'il n'est pas chargé

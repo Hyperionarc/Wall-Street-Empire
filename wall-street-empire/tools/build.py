@@ -222,9 +222,10 @@ for _n in CITY_NAMES:   # les bâtiments produits par le Mac sont dans assets/fa
 print('batiments HD de la ville :', len(cityhd))
 # Gisements et extracteurs HD (phase 2) : assets/phase2_hd/<nom>.png ; réduits de moitié et passés en palette 256 couleurs pour limiter le poids ; l'ancre est le sommet bas de la parcelle (bas de l'image), la largeur d'origine donne l'emprise (396 px par case)
 P2_NAMES = ['gisement_argile', 'gisement_bauxite', 'gisement_charbon', 'gisement_cuivre', 'gisement_fer', 'gisement_gaz', 'gisement_graphite', 'gisement_lithium', 'gisement_nickel_chrome', 'gisement_petrole', 'gisement_phosphate', 'gisement_potasse', 'gisement_sel', 'gisement_silice', 'gisement_zinc',
-            'mine_bauxite', 'mine_charbon', 'mine_cuivre', 'mine_cuivre_niveau3', 'mine_fer', 'mine_graphite', 'mine_lithium', 'mine_nickel_chrome', 'mine_or', 'mine_phosphate', 'mine_potasse', 'mine_sel', 'mine_zinc', 'puits_gaz', 'puits_petrole', 'carriere', 'carriere_argile', 'carriere_silice', 'camp_bucherons']
+            'mine_bauxite', 'mine_charbon', 'mine_cuivre', 'mine_cuivre_niveau3', 'mine_fer', 'mine_graphite', 'mine_lithium', 'mine_nickel_chrome', 'mine_or', 'mine_phosphate', 'mine_potasse', 'mine_sel', 'mine_zinc', 'puits_gaz', 'puits_petrole', 'carriere', 'carriere_argile', 'carriere_silice', 'camp_bucherons',
+            'entrepot', 'centrale_solaire', 'eolienne', 'centrale_charbon', 'centrale_nucleaire', 'pylone_electrique', 'centre_rd', 'data_center', 'chantier_moyen', 'agence_immo', 'fonderie', 'usine_petite_f1', 'usine_moyenne_f2', 'usine_grande_f3', 'usine_f4_mega', 'petit_marche_n1', 'petit_marche_n2', 'mega_centre_commercial', 'terminal_portuaire', 'station_tv', 'stade_sport', 'supermarche', 'hypermarche']
 p2hd = {}; p2dim = {}
-for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'phase2_hd')):
+for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'factory_hd')):
     for _n in P2_NAMES:
         _f = os.path.join(_d, _n + '.png')
         if _n in p2hd or not os.path.exists(_f): continue
