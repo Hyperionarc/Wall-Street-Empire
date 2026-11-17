@@ -122,3 +122,13 @@ Le joueur veut des gisements **lisibles à distance, façon Age of Empires**. J'
 ## Demande de l'intégrateur au producteur (17 nov.) : un seul angle de caméra pour tous les sprites
 Le joueur constate que **le supermarché et l'hypermarché sont vus de plus haut (losange très à plat, toit et parking dominants)** alors que les autres bâtiments (maisons, immeubles, boulangerie, gisements, mines) sont vus sous l'angle isométrique standard du jeu. Mesure sur les PNG (rapport demi-hauteur / demi-largeur de la dalle, épaisseur comprise) : maisons et immeubles 0,63 à 0,69 ; gisements et mines 0,61 à 0,62 ; drugstore 0,66 ; **supermarché 0,73 ; hypermarché 0,72**.
 À refaire, **avec exactement la même caméra que `maison_moderne_cubique` (référence)** : projection 2:1 (le dessus de la parcelle est un losange deux fois plus large que haut), élévation d'environ 30 degrés, même éclairage venant de la gauche. À régénérer : `supermarche`, `hypermarche`, `mega_centre_commercial`, et à contrôler : `usine_*`, `centre_rd`, `data_center`, `terminal_portuaire`, `centrale_*`. Une règle simple de contrôle automatique côté producteur : le rapport (hauteur du losange du dessus) / (largeur) doit valoir 0,50 à 0,54 ; sinon rebut.
+
+## Demande de l'intégrateur au producteur (17 nov.) : routes et sols complets
+Les tuiles `route_*` de la phase 2 sont très belles mais incomplètes pour poser un réseau : le jeu a besoin de **toutes les orientations** (un seul sprite par orientation, pas de miroir). À fournir en losange 396x198, bords exactement sur les bords du losange, raccord sans couture entre voisins :
+- droites : `route_droite_ne`, `route_droite_nw` (reçues) ;
+- carrefour en croix : `route_croix` (reçu) ;
+- **T : 4 orientations** (branche manquante au nord-est, nord-ouest, sud-est, sud-ouest) : `route_t_ne`, `route_t_nw`, `route_t_se`, `route_t_sw` (un seul `route_t` reçu) ;
+- **coudes : 4 orientations** (virage nord-est/nord-ouest, nord-est/sud-est, sud-est/sud-ouest, sud-ouest/nord-ouest) ;
+- **bouts : 4 orientations** ;
+- **sols** : `herbe_a` en 3 variantes (`herbe_a`, `herbe_b`, `herbe_c`) pour casser la répétition, plus `herbe_bord_*` si une transition herbe/route existe.
+Le jeu bascule dès que l'ensemble est là (il choisit le sprite d'après les voisins) ; d'ici là les routes restent vectorielles pour ne pas mélanger deux styles dans un même carrefour.
