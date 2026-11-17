@@ -132,3 +132,12 @@ Les tuiles `route_*` de la phase 2 sont très belles mais incomplètes pour pose
 - **bouts : 4 orientations** ;
 - **sols** : `herbe_a` en 3 variantes (`herbe_a`, `herbe_b`, `herbe_c`) pour casser la répétition, plus `herbe_bord_*` si une transition herbe/route existe.
 Le jeu bascule dès que l'ensemble est là (il choisit le sprite d'après les voisins) ; d'ici là les routes restent vectorielles pour ne pas mélanger deux styles dans un même carrefour.
+
+## Inspection de l'intégrateur n° 7 (17 nov.) : ce qui est encore à l'ancien style
+Constaté à l'écran, du zoom le plus large au plus serré :
+1. **Forêts** : amas de cubes verts (voxels) et arbres isolés en cubes sur pied : style Kenney, sans rapport avec le rendu HD. À produire : `foret_dense_a/b/c` (tuile losange 396x198 avec un groupe d'arbres feuillus détourés, 3 variantes), `foret_sapins_a/b` (conifères), `arbre_isole_a/b/c/d` (arbre seul, ombre portée), `buisson_a/b`, `rochers_a/b`.
+2. **Sol** : prairie plate de couleur unie, sans texture (voir la demande `herbe_a/b/c` plus haut) ; **routes** vectorielles grises (voir la demande des orientations).
+3. **Scierie** : n'existe que comme machine à l'intérieur d'une usine (`saw`) ; à l'extérieur c'est une petite usine générique. À produire : `scierie_exterieure` (hangar, scie à ruban, piles de planches et de grumes, parcelle 1x1).
+4. **Camp de bûcherons** : sprite HD branché, mais trop petit sous les arbres voxels ; il retrouvera sa place avec la nouvelle forêt.
+5. **Objets divers vectoriels** : tour de télécommunication, parcs, monuments, stades, voitures et bateaux : à lister avec le producteur ; `voiture_ville_a/b`, `navire_cargo`, `parc_urbain`, `stade_sport` existent en phase 2 mais ne sont pas encore branchés.
+6. **Niveau de détail au zoom maximal** : les bâtiments HD sont nets ; les sprites de la phase 2 sont embarqués à demi-résolution (198 px par case) et restent corrects au zoom maximal sauf le camp de bûcherons et les mines vus de très près (légèrement flous). Si le producteur préfère, je peux repasser en pleine résolution pour une liste ciblée (+3 Mo).
