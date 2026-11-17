@@ -192,7 +192,18 @@ for _gd in (os.path.join(ROOT, 'assets', 'guide_hd'), os.path.join(ROOT, '..', '
                 _m = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}[_e.lower()]
                 guidehd[_b] = 'data:' + _m + ';base64,' + base64.b64encode(open(os.path.join(_gd, _f), 'rb').read()).decode()
 print('photos du guide :', len(guidehd))
+# Bâtiments de la ville en HD : assets/city_hd/<nom>.png (+ ancres.json : largeur, hauteur, ancre_x, ancre_y, emprise_px) ; vide = atlas Kenney
+cityhd = {}; cityanch = {}
+for _cd in (os.path.join(ROOT, 'assets', 'city_hd'), os.path.join(ROOT, '..', 'assets', 'city_hd')):
+    if os.path.isdir(_cd):
+        _aj = os.path.join(_cd, 'ancres.json')
+        if os.path.exists(_aj):
+            for _k, _v in json.load(open(_aj)).items(): cityanch.setdefault(_k.replace('.png', ''), _v)
+        for _f in sorted(os.listdir(_cd)):
+            _b, _e = os.path.splitext(_f)
+            if _e.lower() == '.png' and _b not in cityhd: cityhd[_b] = 'data:image/png;base64,' + base64.b64encode(open(os.path.join(_cd, _f), 'rb').read()).decode()
+print('batiments HD de la ville :', len(cityhd))
 print('sprites usine :', len(fac), 'sur', len(FAC_NAMES) + len(facextra), '(dont HD :', len(_hd['png']), ')', '(repli vectoriel pour les autres)')
-out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__GUIDEHD_JSON__', json.dumps(guidehd)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__GUIDEHD_JSON__', json.dumps(guidehd)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__CITYHD_JSON__', json.dumps(cityhd)).replace('__CITYANCH_JSON__', json.dumps(cityanch)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
 open(os.environ.get('WSE_OUT') or os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')
