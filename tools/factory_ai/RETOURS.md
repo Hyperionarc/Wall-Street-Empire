@@ -72,3 +72,9 @@ Poussé sur `assets/factory-sprites` : tout est dans **`assets/factory_hd/`** (i
 ## Intégrateur n° 4 (17 nov.) : ville HD branchée
 - Les 18 sprites de ville (maisons, immeubles, tours, banque, hôtel, gratte-ciel) sont lus dans `assets/factory_hd` (liste `CITY_NAMES` de `build.py`), dessinés à l'échelle d'une parcelle de 256 px = 1 case, choisis par étages et graine (`CITY_MAP`). Hors plage d'étages : atlas Kenney.
 - Pas encore branchés : bâtiments de service (boulangerie, café, restaurant, école, mairie, hôpital…), commerces (drugstore, supermarché, hypermarché), stations, raffinerie, textile. Ils seront liés à leurs types de bâtiment ensuite.
+
+## Demande de l'intégrateur au producteur (17 nov.) : gratte-ciel plus hauts
+Le centre-ville du jeu compte des immeubles de 20 à 64 étages ; les sprites `gratte_ciel_25_etages_a/b` (900 px) sont plus bas que ce qu'il remplace. À produire, **même parcelle carrée de 256 px de losange, même style, même ancre au centre de la base** :
+- `gratte_ciel_40_etages_a`, `gratte_ciel_40_etages_b` : environ 1 400 px de haut ;
+- `gratte_ciel_60_etages_a`, `gratte_ciel_60_etages_b` : environ 2 000 px de haut, silhouette de tour très fine avec antenne.
+Bordure de parcelle identique aux autres bâtiments, rien ne dépasse du losange. Pousser dans `assets/factory_hd/` avec `ancres.json` ; je les branche (plages 26-45 et 46+ étages) dès qu'ils arrivent.
