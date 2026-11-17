@@ -7,7 +7,7 @@ Quatre sortes d'assets, déduites du groupe et de la taille :
   objet  : tout le reste                          -> détourage BiRefNet, recadré, mis à la taille demandée (contain, bas-centre)
 Sortie : assets/phase2_hd/<nom>.png|jpg ; aperçu : assets/phase2_hd/_apercus/<lot>.png ; état : travail/etat_phase2.json
 Usage : .venv/bin/python batch_phase2.py --lot lot0 [--seul nom] [--limite N] [--forcer]
-Lots : lot0, A_sol, A_port, B_extraction, B_commerces, B_decor, C_services, C_champs, C_vignettes, G_affleurements, G_mines, G_tas, guide
+Lots : lot0, a_sol, a_port, b_extraction, b_commerces, b_decor, c_services, c_champs, c_vignettes, g_affleurements, g_mines, g_tas, guide
 """
 import argparse, json, os, re, sys, time, subprocess
 import numpy as np
@@ -20,9 +20,9 @@ TRAV = os.path.join(ICI, 'travail', 'phase2')
 ETAT = os.path.join(ICI, 'travail', 'etat_phase2.json')
 CFG = json.load(open(os.path.join(ICI, 'config.json')))
 EXE = os.path.join(ICI, '.venv', 'bin')
-LOTS = {'lot0': 'Lot 0', 'A_sol': 'A · sol', 'A_port': 'A · port', 'B_extraction': 'B · extraction', 'B_commerces': 'B · commerces',
-        'B_decor': 'B · décor', 'C_services': 'C · services', 'C_champs': 'C · champs', 'C_vignettes': 'C · vignettes',
-        'G_affleurements': 'Gisements · affleurements', 'G_mines': 'Gisements · mines', 'G_tas': 'Gisements · tas', 'guide': 'Photos du Guide'}
+LOTS = {'lot0': 'Lot 0', 'a_sol': 'A · sol', 'a_port': 'A · port', 'b_extraction': 'B · extraction', 'b_commerces': 'B · commerces',
+        'b_decor': 'B · décor', 'c_services': 'C · services', 'c_champs': 'C · champs', 'c_vignettes': 'C · vignettes',
+        'g_affleurements': 'Gisements · affleurements', 'g_mines': 'Gisements · mines', 'g_tas': 'Gisements · tas', 'guide': 'Photos du Guide'}
 
 
 def dims(t):

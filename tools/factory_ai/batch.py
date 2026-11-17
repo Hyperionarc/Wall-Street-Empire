@@ -102,7 +102,7 @@ def mflux(sp, seed, brut):
     refs = [prepare_entree(sp)] if sp['gabarit'] else refs_style()   # la référence de style ne sert qu'aux sprites sans gabarit
     base = ['--model', CFG['modele'], '--prompt', prompt_pour(sp), '--steps', str(CFG['steps']),
             '--seed', str(seed), '--output', brut]
-    opt = ['--width', str(CFG['taille']), '--height', str(CFG['taille']), '-q', str(CFG['quantize'])]
+    opt = ['--width', str(sp.get('gen_w', CFG['taille'])), '--height', str(sp.get('gen_h', CFG['taille'])), '-q', str(CFG['quantize'])]
     if refs:
         cmd = [os.path.join(exe, 'mflux-generate-flux2-edit')] + base + ['--image-paths'] + refs
     else:
@@ -166,7 +166,8 @@ def controle(decoupe, T):
         return f'objet trop petit ({part:.1%})'
     if part > 0.85:
         return f'fond non retiré ({part:.1%})'
-    if bb[0] <= 1 or bb[1] <= 1 or bb[2] >= T - 1 or bb[3] >= T - 1:
+    Wd, Hd = decoupe.size
+    if bb[0] <= 1 or bb[1] <= 1 or bb[2] >= Wd - 1 or bb[3] >= Hd - 1:
         return 'objet coupé par le bord'
     return None
 
@@ -187,6 +188,34 @@ def ombre_auto(spr, ancre):
     z = np.zeros((h, w), 'uint8')
     return Image.fromarray(np.dstack([z, z, z, (np.asarray(toile) * 0.42).astype('uint8')]), 'RGBA')
 
+
+
+def allonger(obj, cible):
+    """Allonge le fût d'une tour : répète une tranche d'étages (alignée sur la période des étages) jusqu'à la hauteur cible."""
+    h0 = obj.height
+    if cible <= h0 + 4:
+        return obj
+    a = np.asarray(obj).astype(float)
+    al = a[..., 3] > 128
+    ys0, ys1 = int(h0 * 0.32), int(h0 * 0.52)
+    cols = np.nonzero(al[ys0:ys1].all(axis=0))[0]
+    cx = int(np.median(cols)) if len(cols) else obj.width // 2
+    lo, hi = max(0, cx - 12), min(obj.width, cx + 12)
+    prof = a[ys0:ys1, lo:hi, :3].mean(axis=(1, 2)); prof = prof - prof.mean()
+    best, per = -1, 0
+    for lag in range(8, min(90, len(prof) // 2)):
+        c = float(np.dot(prof[:-lag], prof[lag:]) / (np.linalg.norm(prof[:-lag]) * np.linalg.norm(prof[lag:]) + 1e-9))
+        if c > best:
+            best, per = c, lag
+    if per == 0:
+        per = 40
+    k = max(1, round(160 / per)); band = per * k
+    ya = ys0; yb = ya + band
+    extra = cible - h0
+    reps = [a[ya + (i % band)] for i in range(extra)]
+    out = np.concatenate([a[:yb], np.array(reps), a[yb:]], axis=0)
+    print(f'   allonger : période {per}px (corr {best:.2f}), +{extra}px', flush=True)
+    return Image.fromarray(out.astype('uint8'), 'RGBA')
 
 def cadre(sp, decoupe, ancres_gab):
     obj = decoupe.crop(bbox_alpha(decoupe))
@@ -213,6 +242,8 @@ def cadre(sp, decoupe, ancres_gab):
     else:
         k = sp['contenu_px'] / obj.width
     obj = obj.resize((max(1, round(obj.width * k)), max(1, round(obj.height * k))), Image.LANCZOS)
+    if sp.get('hauteur_objet'):
+        obj = allonger(obj, sp['hauteur_objet'])
     H = sp.get('hauteur') or obj.height + 3 + max(14, round(obj.height * 0.2))
     bas = (H - 24) if sp.get('hauteur') else obj.height + 3
     spr = Image.new('RGBA', (L, H), (0, 0, 0, 0))

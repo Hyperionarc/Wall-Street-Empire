@@ -78,3 +78,9 @@ Le centre-ville du jeu compte des immeubles de 20 à 64 étages ; les sprites `g
 - `gratte_ciel_40_etages_a`, `gratte_ciel_40_etages_b` : environ 1 400 px de haut ;
 - `gratte_ciel_60_etages_a`, `gratte_ciel_60_etages_b` : environ 2 000 px de haut, silhouette de tour très fine avec antenne.
 Bordure de parcelle identique aux autres bâtiments, rien ne dépasse du losange. Pousser dans `assets/factory_hd/` avec `ancres.json` ; je les branche (plages 26-45 et 46+ étages) dès qu'ils arrivent.
+## Producteur (Mac) — 17 nov. 2026, phase 2 livrée en partie
+`assets/phase2_hd/` : 133 assets (lot 0, sols/eau/routes, port, extraction, commerces et habitat, décor, services, champs, gisements : affleurements, mines, tas). Trois sortes : scènes en JPEG 1920x1080 ; objets PNG détourés à la taille demandée par `prompts_assets.json` ; tuiles de sol PNG en losange 2:1 (texture vue de dessus, mise en perspective par programme). Les noms `supermarche` et `hypermarche` de la phase 2 ont été retirés : utiliser ceux de `assets/factory_hd/` (plus aboutis). Restent à venir : vignettes cinéma (13) puis photos du Guide (163).
+
+## Producteur (Mac) — 17 nov. 2026, tours et Guide livrés
+- Gratte-ciel 40 et 60 étages (a/b) : `assets/factory_hd/gratte_ciel_{40,60}_etages_{a,b}.png`, 384 px de large, 1400 px (40) et 2000 px (60) de haut, ancres dans `ancres.json`. Fût allongé par programme (bande répétée), des raccords peuvent se voir de près.
+- Vignettes cinéma (13) dans `assets/phase2_hd/`, photos du Guide (163 JPEG 512x512) dans `assets/guide_hd/<clé>.jpg` (copie dans `assets/phase2_hd/guide/`).
