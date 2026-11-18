@@ -29,5 +29,8 @@ Objectif : rejoindre SimCity (la ville vivante) et Capitalism Lab (la profondeur
 9. [ ] **Maïs et colza** : cultures et produits (huile, carburant) si le temps le permet.
 10. [ ] Chaque lot : mise à jour du README, rapport court dans `docs/JOURNAL_NUIT.md`.
 
+## Mise à jour 19 nov., 01 h : tout intégrer pour pouvoir tester
+Demande de Rémy : « tu prends toute la nuit pour tout mettre ce qu'on a fait ensemble, qu'on puisse le tester ; si c'est à améliorer, tu l'envoies tout de suite dans RETOURS.md à Cowork ». Agents en cours : mall architectural, marges par pouvoir de marché, e-commerce, brevets/R&D avec accélération, valeur du terrain par zones (heatmaps), sol/routes/eau, ville vivante (services, véhicules, port, fermes), maïs et colza. À chaque fusion : build, tests ciblés, suite complète seule, commit/push, capture, puis `inventaire.py`. Abandonnés sur demande : pollution/vent, circulation, éditeur de scénarios, défi de classe, multijoueur pour l'instant.
+
 ## Réveils
 Un réveil par heure (message envoyé par `send_later`) reprend ce fichier, avance le premier lot non coché, pousse, puis réarme le suivant jusqu'au matin.
