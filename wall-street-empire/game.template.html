@@ -12661,7 +12661,7 @@ el('rst').onclick = () => {
 
 /* ---------- Canvas / caméra ---------- */
 const cvs = $('#view');
-const ctx = cvs.getContext('2d');
+let ctx = cvs.getContext('2d');   // passe 46 : réassigné le temps de rendre le cache hors écran du mall (mbCache)
 let W = 0, H = 0, dpr = 1, vx = 0, vy = 0, z = 0.3;
 const cam = { x: 0, y: 0 };
 let fitted = false;
@@ -13233,17 +13233,250 @@ function drawMall(a, x, y, p, now) {   // passe 44 : parvis pavé sur les 4 case
   ctx.fillStyle = '#ffb347'; ctx.fillText('MALL CENTRAL', sx, sy - 8); ctx.restore();
   a._top = sy - 34;
 }
-/* ---------- Passe 45 : rendu du grand Mall central (10×10 cases), façon grand centre commercial asiatique (MBK Center) ----------
-   Tout en primitives iso, sans image nouvelle : bâtiment massif de 9 niveaux (6×6 cases), bandes de fenêtres, écrans LED animés, enseignes-drapeaux lumineuses,
-   marquises colorées, grandes entrées couvertes, deux passerelles aériennes vers des pavillons, tour de parking à rampes accolée, enseigne « MALL CENTRAL » sur le toit ;
-   au pied, un marché de rue dense (étals, parasols, scooters, tuk-tuk, arbres en bacs, banderoles, passants animés). Agencement déterministe (hash) ; tout reste dans l'emprise.
-   Dessiné une seule fois, depuis la case avant (x0 + 9, y0 + 9), dans l'ordre de profondeur interne (arrière, bâtiment, avant). */
-const MB_NEON = ['#ff3d8b', '#ffcc33', '#33e1ff', '#7dff6a', '#ff7a2b', '#b46bff', '#ff4d4d', '#2bffc8'];
-const MB_AWN = ['#e8394d', '#f4c430', '#2f9be0', '#3fbf6a', '#ff7a2b', '#c04bd8'];
-const MB = { B: { u0: 1, v0: 1, u1: 7, v1: 7 }, Z0: 52, ZL: 34, NL: 8, T: { u0: 7.25, v0: 0.35, u1: 9.65, v1: 3.05 }, TL: 6, TZ: 26,
+/* ---------- Passe 45 / 46 : rendu du grand Mall central (10×10 cases) ----------
+   Passe 46 (retour du producteur : « plus d'écran arc-en-ciel, un vrai bâtiment moderne ») : le bâtiment principal devient une architecture curviligne,
+   esprit Guggenheim / grand mall de Dubaï : socle ondulé en superellipse (bandeaux de titane nacré, rubans de verre bleu-gris éclairés de l'intérieur),
+   tambour central en spirale qui s'évase en montant (rampe continue façon Guggenheim, terrasses plantées), verrière ondulée sur l'atrium (transparence
+   sur l'intérieur chaud), couronne de verre fumé portant l'enseigne « MALL CENTRAL » en lettres fines espacées qui épousent la courbe, coupole vitrée
+   à nervures et oculus doré, entrées sous auvents courbes, bassin au pied de la façade, passerelles-tubes vers les stations et passerelle courbe vers
+   la tour de parking. Palette sobre (titane, verre, accents dorés, éclairage chaud), lumière venant de la gauche, ombres portées douces.
+   Tout en primitives canvas (dégradés, courbes, ellipses), sans image nouvelle. La partie statique est rendue dans un canvas hors écran (mbCache),
+   reconstruit seulement si l'échelle (zoom × dpr) ou l'emprise change ; restent animés : passants, liserés lumineux, reflet sur le verre, jets du bassin,
+   lueur de l'enseigne. Au pied, le marché de rue de la passe 45 (étals, parasols, scooters, tuk-tuk, arbres, banderoles, passants) et la tour de parking
+   à rampes sont conservés. Agencement déterministe (hash) ; tout reste dans l'emprise ; dessiné une seule fois depuis la case avant (x0 + 9, y0 + 9). */
+const MB_NEON = ['#ff3d8b', '#ffcc33', '#33e1ff', '#7dff6a', '#ff7a2b', '#b46bff', '#ff4d4d', '#2bffc8'];   // marchandises du marché de rue
+const MB_AWN = ['#e8394d', '#f4c430', '#2f9be0', '#3fbf6a', '#ff7a2b', '#c04bd8'];   // toiles des étals
+const MB_WALK = ['#3d5a80', '#e9e6df', '#b5483a', '#2b2d33', '#c99a3f', '#6c8ead', '#7d6152', '#4f7a5a', '#d8c7b0'];   // vêtements des passants (sobres)
+const MB = { B: { u0: 1, v0: 1, u1: 7, v1: 7 }, T: { u0: 7.25, v0: 0.35, u1: 9.65, v1: 3.05 }, TL: 6, TZ: 26,
   P1: { u0: 1.75, v0: 8.55, u1: 3.25, v1: 9.7 }, P2: { u0: 8.55, v0: 4.95, u1: 9.7, v1: 6.4 }, SB1: { u0: 2.25, v0: 7, u1: 2.75, v1: 8.55 }, SB2: { u0: 7, v0: 5.45, u1: 8.55, v1: 5.95 },
   ES: { u0: 3.8, u1: 5.4 }, EE: { v0: 3.45, v1: 4.85 } };
-MB.H = MB.Z0 + MB.NL * MB.ZL;   // hauteur du toit (px monde)
+// géométrie du bâtiment principal : socle (superellipse de centre PC, rayon PR, exposant PN), tambour en spirale (centre D, rayon R0 → R1 entre ZP et ZC),
+// couronne de l'enseigne (rayon RK, de ZC à ZK), coupole (hauteur DH) ; rampe : pas PITCH, hauteur du ruban RH
+const MBX = { PC: [4, 4], PR: 3.0, PN: 2.6, D: [3.72, 3.62], ZP: 116, ZC: 318, ZK: 384, R0: 1.52, R1: 2.36, RK: 2.62, LN: [-0.34, 0.3], DH: 62, PITCH: 54, RH: 24, TH0: 0.15 };
+MB.H = MBX.ZK;   // hauteur de la couronne (px monde) : cadrage de la vue de départ (frameCity)
+const MB_LI = [-0.4472, 0.8944];   // lumière venant de la gauche de l'écran (direction dans le plan u, v), comme les faces des immeubles de la ville
+const MB_TI = [236, 234, 228], MB_GL = [92, 114, 134], MB_SH = [246, 220, 172], MB_GD = '#d8b46a';   // titane nacré, verre bleu-gris, vitrines chaudes, or
+function mbLit(n) { const d = n[0] * MB_LI[0] + n[1] * MB_LI[1]; return 0.66 + 0.34 * Math.max(0, d) - 0.05 * Math.max(0, -d); }
+function mbRgb(c, k, a) { return `rgba(${Math.min(255, c[0] * k) | 0},${Math.min(255, c[1] * k) | 0},${Math.min(255, c[2] * k) | 0},${a == null ? 1 : a})`; }
+function mbRing(cu, cv, ru, rv, n, wob, ph, K) {   // contour fermé (superellipse, légèrement ondulée) : points { u, v, n: normale sortante, t }
+  const P = []; K = K || 96; const e = 2 / n;
+  for (let i = 0; i < K; i++) { const t = i / K * 2 * Math.PI - Math.PI / 4, c = Math.cos(t), s = Math.sin(t), w = 1 + (wob || 0) * Math.sin(2 * t + (ph || 0));
+    P.push({ u: cu + ru * w * Math.sign(c) * Math.pow(Math.abs(c), e), v: cv + rv * w * Math.sign(s) * Math.pow(Math.abs(s), e), t }); }
+  return mbNorm(P, cu, cv);
+}
+function mbNorm(P, cu, cv) {   // normales sortantes (différences finies, orientées depuis le centre)
+  const K = P.length; for (let i = 0; i < K; i++) { const a = P[(i + K - 1) % K], b = P[(i + 1) % K]; let nu = b.v - a.v, nv = -(b.u - a.u); const l = Math.hypot(nu, nv) || 1; nu /= l; nv /= l;
+    if (nu * (P[i].u - cu) + nv * (P[i].v - cv) < 0) { nu = -nu; nv = -nv; } P[i].n = [nu, nv]; }
+  return P;
+}
+function mbHalf(cu, cv, ru, rv, ax) {   // demi-ellipse en porte-à-faux (auvent), bombée vers +v (ax = 'v') ou vers +u (ax = 'u'), bord droit contre la façade
+  const P = [], K = 40; for (let i = 0; i <= K; i++) { const t = i / K * Math.PI, c = Math.cos(t), s = Math.sin(t); P.push(ax === 'v' ? { u: cu + ru * c, v: cv + rv * s } : { u: cu + ru * s, v: cv - rv * c }); }
+  for (let i = 1; i < 8; i++) { const f = i / 8; P.push(ax === 'v' ? { u: cu - ru + 2 * ru * f, v: cv } : { u: cu, v: cv - rv + 2 * rv * f }); }
+  return mbNorm(P, ax === 'v' ? cu : cu - 0.01, ax === 'v' ? cv - 0.01 : cv);
+}
+function mbRun(P) {   // indices de la partie visible d'un contour (normale tournée vers l'observateur), bornée par les deux points de silhouette
+  const K = P.length, vis = P.map(p => p.n[0] + p.n[1] > 0); let s = -1;
+  for (let i = 0; i < K; i++) if (vis[i] && !vis[(i + K - 1) % K]) { s = i; break; }
+  if (s < 0) return [];
+  const r = [(s + K - 1) % K]; for (let k = 0; k < K && vis[(s + k) % K]; k++) r.push((s + k) % K); r.push((s + r.length - 1) % K); return r;
+}
+function mbPoly(pts) { ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); }
+function mbLine(pts, col, w) { if (pts.length < 2) return; ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.stroke(); }
+function mbSide(Q, Pt, Pb, zt, zb, col, o) {   // face latérale visible d'un volume courbe (contours haut / bas de même indexation), dégradé d'éclairage le long de la courbe
+  o = o || {}; const R = mbRun(Pt); if (R.length < 2) return null;
+  const top = R.map(i => Q(Pt[i].u, Pt[i].v, zt)), bot = R.map(i => Q(Pb[i].u, Pb[i].v, zb));
+  const x0 = top[0][0], x1 = top[top.length - 1][0], span = (x1 - x0) || 1, g = ctx.createLinearGradient(x0, 0, x1, 0); let last = 0;
+  R.forEach((i, k) => { const off = Math.min(1, Math.max(last, (top[k][0] - x0) / span)); last = off; const l = mbLit(Pt[i].n); g.addColorStop(off, mbRgb(col, o.flat ? o.flat + (l - 0.66) * 0.4 : l)); });
+  const poly = top.concat(bot.slice().reverse()); ctx.fillStyle = g; mbPoly(poly); ctx.fill();
+  if (o.vg) { let y0 = 1e9, y1 = -1e9; poly.forEach(q => { y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }); const vg = ctx.createLinearGradient(0, y0, 0, y1); o.vg.forEach(s => vg.addColorStop(s[0], s[1])); ctx.fillStyle = vg; mbPoly(poly); ctx.fill(); }
+  if (o.mul) { ctx.strokeStyle = o.mul; ctx.lineWidth = o.mw || 1; ctx.beginPath(); for (let k = 1; k < R.length - 1; k += o.ms || 3) { ctx.moveTo(top[k][0], top[k][1]); ctx.lineTo(bot[k][0], bot[k][1]); } ctx.stroke(); }
+  return { top, bot, R, poly };
+}
+function mbTopF(Q, P, z, fill) { ctx.fillStyle = fill; mbPoly(P.map(p => Q(p.u, p.v, z))); ctx.fill(); }
+function mbEdgeR(phi) {   // distance du centre du tambour au bord du socle dans la direction phi (bissection sur la superellipse)
+  const M = MBX, c = Math.cos(phi), s = Math.sin(phi), F = r => Math.pow(Math.abs(M.D[0] + r * c - M.PC[0]) / M.PR, M.PN) + Math.pow(Math.abs(M.D[1] + r * s - M.PC[1]) / M.PR, M.PN);
+  let a = 0, b = 5; for (let k = 0; k < 30; k++) { const m = (a + b) / 2; if (F(m) < 1) a = m; else b = m; } return a;
+}
+const mbDc = z => { const f = Math.max(0, Math.min(1, (z - MBX.ZP) / (MBX.ZC - MBX.ZP))), e = f * f * (3 - 2 * f) * 0.6 + f * 0.4; return [MBX.D[0] + MBX.LN[0] * e, MBX.D[1] + MBX.LN[1] * e]; };   // axe du tambour (légère inclinaison en courbe)
+const mbRz = z => MBX.R0 + (MBX.R1 - MBX.R0) * Math.max(0, Math.min(1, (z - MBX.ZP) / (MBX.ZC - MBX.ZP)));   // rayon du tambour à la hauteur z (évasement)
+const mbZt = th => MBX.ZP + MBX.RH * 0.35 + MBX.PITCH * (th - MBX.TH0) / (2 * Math.PI);   // haut du ruban de la rampe en spirale à l'angle th
+const MB_TH1 = MBX.TH0 + 2 * Math.PI * (MBX.ZC - MBX.ZP - MBX.RH * 0.35) / MBX.PITCH;
+let _mbG = null;
+function mbGeo() {   // géométrie statique (en cases relatives à l'emprise), calculée une fois
+  if (_mbG) return _mbG;
+  const M = MBX, G = {};
+  // socle : six bandeaux (vitrines, dalle, verre, dalle, verre, acrotère) à ondulations décalées
+  G.pod = [[0, 34, 'shop', 0.12, 0, 0], [34, 45, 'slab', -0.02, 0.016, 0.4], [45, 72, 'glass', 0.1, 0.01, 1.2], [72, 84, 'slab', -0.06, 0.024, 1.9], [84, 104, 'glass', 0.06, 0.012, 2.6], [104, M.ZP, 'slab', 0, 0.018, 3.3]]
+    .map(b => ({ z0: b[0], z1: b[1], k: b[2], P: mbRing(M.PC[0], M.PC[1], M.PR - b[3], M.PR - b[3], M.PN, b[4], b[5], 120) }));
+  G.roof = mbRing(M.PC[0], M.PC[1], M.PR - 0.05, M.PR - 0.05, M.PN, 0.018, 3.3, 120);
+  // verrière ondulée de l'atrium : couronne entre le tambour et l'acrotère, nappe z(s, phi) ondulée
+  const NA = 56, NS = 6, cel = [];
+  for (let i = 0; i < NA; i++) for (let j = 0; j < NS; j++) {
+    const pt = (a, s) => { const ph = a / NA * 2 * Math.PI, r0 = M.R0 + 0.04, r1 = mbEdgeR(ph) - 0.2, r = r0 + (r1 - r0) * s, w = Math.sin(Math.PI * Math.min(1, s * 1.08)) * (0.5 + 0.5 * Math.sin(3 * ph + 0.6));
+      return [M.D[0] + r * Math.cos(ph), M.D[1] + r * Math.sin(ph), M.ZP + 4 + 40 * Math.max(0, w) + 6 * (1 - s)]; };
+    const c = [pt(i, j / NS), pt(i + 1, j / NS), pt(i + 1, (j + 1) / NS), pt(i, (j + 1) / NS)], ph = (i + 0.5) / NA * 2 * Math.PI;
+    const du = [c[1][0] - c[0][0] + c[2][0] - c[3][0], c[1][1] - c[0][1] + c[2][1] - c[3][1], c[1][2] - c[0][2] + c[2][2] - c[3][2]], dv = [c[3][0] - c[0][0] + c[2][0] - c[1][0], c[3][1] - c[0][1] + c[2][1] - c[1][1], c[3][2] - c[0][2] + c[2][2] - c[1][2]];
+    const S = 93.3, a = [du[0] * S, du[1] * S, du[2] / 0.866], b = [dv[0] * S, dv[1] * S, dv[2] / 0.866]; let n = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; if (n[2] < 0) n = n.map(x => -x); const l = Math.hypot(n[0], n[1], n[2]) || 1;
+    cel.push({ c, n: n.map(x => x / l), key: (c[0][0] + c[0][1] + c[2][0] + c[2][1]) / 2, back: Math.cos(ph) + Math.sin(ph) < 0, i, j });
+  }
+  cel.sort((p, q) => p.key - q.key); G.can = cel; G.canIn = [];
+  for (let i = 0; i <= NA; i++) { const ph = i / NA * 2 * Math.PI, r = mbEdgeR(ph) - 0.2; G.canIn.push([M.D[0] + r * Math.cos(ph), M.D[1] + r * Math.sin(ph)]); }
+  // rampe en spirale : échantillons de l'angle TH0 à TH1, regroupés en tronçons visibles (face tournée vers l'observateur)
+  const runs = []; let cur = null;
+  for (let th = M.TH0; th <= MB_TH1 + 1e-6; th += Math.PI / 40) { const vis = Math.cos(th) + Math.sin(th) > -0.06; if (vis) { if (!cur) runs.push(cur = []); cur.push(th); } else cur = null; }
+  G.runs = runs;
+  const DT = mbDc(M.ZC); G.crown = mbRing(DT[0], DT[1], M.RK, M.RK, 2, 0, 0, 96); G.crownIn = mbRing(DT[0], DT[1], M.RK - 0.16, M.RK - 0.16, 2, 0, 0, 96);
+  G.core0 = mbRing(M.D[0], M.D[1], M.R0 - 0.12, M.R0 - 0.12, 2, 0, 0, 96); G.core1 = mbRing(DT[0], DT[1], M.R1 - 0.12, M.R1 - 0.12, 2, 0, 0, 96);
+  // bassin courbe entre les deux entrées (coin avant), le long du socle
+  G.pool = []; G.poolIn = [];
+  for (let k = 0; k <= 24; k++) { const t = 0.16 + k / 24 * (1.42 - 0.16); const c = Math.cos(t), s = Math.sin(t), e = 2 / M.PN, pu = M.PC[0] + M.PR * Math.sign(c) * Math.pow(Math.abs(c), e), pv = M.PC[1] + M.PR * Math.sign(s) * Math.pow(Math.abs(s), e);
+    const nu = Math.pow(Math.abs(c), 2 - e), nv = Math.pow(Math.abs(s), 2 - e), l = Math.hypot(nu, nv); G.pool.push([pu + nu / l * 0.16, pv + nv / l * 0.16, pu, pv, nu / l, nv / l]); }
+  G.pool = G.pool.filter(p => p[2] > MB.ES.u1 + 0.18 && p[3] > MB.EE.v1 + 0.18);
+  return (_mbG = G);
+}
+function mbDomePt(ph, ps) { const M = MBX, r = (M.RK - 0.2) * Math.cos(ps), D = mbDc(M.ZC); return [D[0] + r * Math.cos(ph), D[1] + r * Math.sin(ph), M.ZK + M.DH * Math.sin(ps)]; }
+function mbDome(Q, lite) {   // coupole vitrée : panneaux visibles (normale vers l'observateur), nervures nacrées, oculus doré
+  const M = MBX, NA = lite ? 16 : 32, NP = lite ? 3 : 6, A = (M.RK - 0.2) * 93.3, C = M.DH / 0.866, V = [0.612, 0.612, 0.5], L = [MB_LI[0] * 0.77, MB_LI[1] * 0.77, 0.64];
+  for (let j = 0; j < NP; j++) for (let i = 0; i < NA; i++) {
+    const p0 = i / NA * 2 * Math.PI, p1 = (i + 1) / NA * 2 * Math.PI, s0 = j / NP * Math.PI / 2 * 0.92, s1 = (j + 1) / NP * Math.PI / 2 * 0.92, pm = (p0 + p1) / 2, sm = (s0 + s1) / 2;
+    let n = [Math.cos(sm) * Math.cos(pm) / A, Math.cos(sm) * Math.sin(pm) / A, Math.sin(sm) / C]; const l = Math.hypot(n[0], n[1], n[2]); n = n.map(x => x / l);
+    if (n[0] * V[0] + n[1] * V[1] + n[2] * V[2] < -0.02) continue;
+    const pts = [mbDomePt(p0, s0), mbDomePt(p1, s0), mbDomePt(p1, s1), mbDomePt(p0, s1)].map(p => Q(p[0], p[1], p[2])), d = Math.max(0, n[0] * L[0] + n[1] * L[1] + n[2] * L[2]);
+    const k = 0.66 + 0.46 * d, warm = j === 0 ? 0.55 : j === 1 ? 0.22 : 0, sky = sm / (Math.PI / 2);
+    const hl = Math.pow(Math.max(0, n[0] * MB_LI[0] + n[1] * MB_LI[1]), 3) * 40 * (1 - sky);
+    ctx.fillStyle = `rgb(${Math.min(255, (112 + 120 * warm) * k + 84 * sky + hl) | 0},${Math.min(255, (136 + 70 * warm) * k + 86 * sky + hl) | 0},${Math.min(255, (160 - 10 * warm) * k + 84 * sky + hl) | 0})`;
+    mbPoly(pts); ctx.fill(); if (!lite) { ctx.strokeStyle = 'rgba(244,242,236,.55)'; ctx.lineWidth = 0.9; ctx.stroke(); }
+  }
+  const o = mbDomePt(0, Math.PI / 2 * 0.92), r = (M.RK - 0.2) * Math.cos(Math.PI / 2 * 0.92), c = Q(mbDc(M.ZC)[0], mbDc(M.ZC)[1], o[2]), rx = r * 93.3, ry = r * 46.7;
+  ctx.fillStyle = '#f1ede4'; ctx.beginPath(); ctx.ellipse(c[0], c[1], rx + 2, ry + 1.5, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#c9a25a'; ctx.beginPath(); ctx.ellipse(c[0], c[1], rx, ry, 0, 0, 7); ctx.fill();
+  if (!lite) { const gq = ctx.createLinearGradient(c[0] - rx, 0, c[0] + rx, 0); gq.addColorStop(0, '#f3e4bf'); gq.addColorStop(0.5, '#d8b46a'); gq.addColorStop(1, '#a8813f'); ctx.fillStyle = gq; ctx.fillRect(c[0] - rx * 0.5, c[1] - 14, rx, 14); }   // lanterne dorée
+  ctx.fillStyle = '#f6ecd2'; ctx.beginPath(); ctx.ellipse(c[0], c[1] - 14, rx * 0.5, ry * 0.5, 0, 0, 7); ctx.fill();
+}
+function mbBody(Q, lite) {   // bâtiment principal (partie statique) : socle, toit, verrière (arrière), tambour en spirale, couronne, coupole, verrière (avant)
+  const M = MBX, G = mbGeo();
+  // ombre portée douce du socle (lumière venant de la gauche : vers la droite de l'écran)
+  if (!lite) { ctx.save(); ctx.filter = 'blur(10px)'; ctx.fillStyle = 'rgba(38,40,58,.30)'; mbPoly(G.roof.map(p => Q(p.u + 0.5, p.v - 0.22, 0))); ctx.fill(); ctx.restore(); }
+  // socle ondulé
+  G.pod.forEach((b, bi) => {
+    if (b.k === 'shop') { const s = mbSide(Q, b.P, b.P, b.z1, b.z0, MB_SH, { flat: 0.95, vg: [[0, 'rgba(70,52,30,.55)'], [0.22, 'rgba(255,240,210,0)'], [1, 'rgba(255,250,235,.25)']], mul: lite ? null : 'rgba(80,66,48,.55)', ms: 3, mw: 1.2 }); }
+    else if (b.k === 'glass') { mbSide(Q, b.P, b.P, b.z1, b.z0, MB_GL, { vg: [[0, 'rgba(206,222,236,.42)'], [0.55, 'rgba(160,184,204,.10)'], [1, 'rgba(255,206,140,.34)']], mul: lite ? null : 'rgba(28,38,50,.32)', ms: 2 });
+      if (!lite) { const R = mbRun(b.P); mbLine(R.map(i => Q(b.P[i].u, b.P[i].v, b.z1 - 4)), 'rgba(255,226,170,.85)', 1.6); } }
+    else { mbSide(Q, b.P, b.P, b.z1, b.z0, MB_TI); if (!lite) { const R = mbRun(b.P); mbLine(R.map(i => Q(b.P[i].u, b.P[i].v, b.z1 - 0.5)), 'rgba(255,255,252,.9)', 1.2); mbLine(R.map(i => Q(b.P[i].u, b.P[i].v, b.z0 + 1.5)), 'rgba(196,160,92,.65)', 1); } }
+    mbTopF(Q, b.P, b.z1, b.k === 'slab' ? mbRgb(MB_TI, 1.04) : 'rgba(200,196,186,1)');
+  });
+  // toit du socle : dalle claire, ombre douce du tambour, jardin périphérique
+  mbTopF(Q, G.roof, M.ZP, '#e3e0d8');
+  if (!lite) {
+    ctx.save(); mbPoly(G.roof.map(p => Q(p.u, p.v, M.ZP))); ctx.clip(); ctx.filter = 'blur(8px)'; ctx.fillStyle = 'rgba(40,44,64,.22)'; const sc = Q(M.D[0] + 1.05, M.D[1] - 0.5, M.ZP); ctx.beginPath(); ctx.ellipse(sc[0], sc[1], M.R1 * 93.3, M.R1 * 46.7, 0, 0, 7); ctx.fill(); ctx.restore();
+    // intérieur chaud de l'atrium vu à travers la verrière
+    const ring = G.canIn.map(p => Q(p[0], p[1], M.ZP + 2)), c0 = Q(M.D[0], M.D[1], M.ZP), gi = ctx.createRadialGradient(c0[0], c0[1], M.R0 * 80, c0[0], c0[1], M.PR * 110);
+    gi.addColorStop(0, '#c99a5e'); gi.addColorStop(0.45, '#f2d6a2'); gi.addColorStop(1, '#fbecd0'); ctx.fillStyle = gi; mbPoly(ring); ctx.fill();
+    for (let k = 1; k <= 3; k++) { const pts = []; for (let i = 0; i <= 56; i++) { const ph = i / 56 * 2 * Math.PI, r = M.R0 + (mbEdgeR(ph) - 0.2 - M.R0) * k / 4; pts.push(Q(M.D[0] + r * Math.cos(ph), M.D[1] + r * Math.sin(ph), M.ZP + 2)); } mbLine(pts, 'rgba(255,250,240,.55)', 1.4); }   // galeries (passerelles intérieures)
+  }
+  const canopy = back => G.can.forEach(c => { if (c.back !== back) return; const d = Math.max(0, c.n[0] * MB_LI[0] * 0.77 + c.n[1] * MB_LI[1] * 0.77 + c.n[2] * 0.64), pts = c.c.map(p => Q(p[0], p[1], p[2]));
+    ctx.fillStyle = `rgba(${122 + 90 * d | 0},${150 + 76 * d | 0},${176 + 60 * d | 0},${lite ? 0.95 : 0.5})`; mbPoly(pts); ctx.fill();
+    if (!lite) { ctx.strokeStyle = 'rgba(246,244,238,.5)'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(pts[1][0], pts[1][1]); if (c.i % 2 === 0) { ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(pts[3][0], pts[3][1]); } ctx.stroke(); } });
+  canopy(true);
+  // tambour : noyau vitré évasé, puis rampe en spirale (ruban de titane) et ses terrasses plantées
+  mbSide(Q, G.core1, G.core0, M.ZC + 2, M.ZP, MB_GL, { vg: [[0, 'rgba(214,228,240,.45)'], [0.5, 'rgba(255,214,150,.22)'], [1, 'rgba(255,200,130,.42)']], mul: lite ? null : 'rgba(30,40,54,.3)', ms: 2 });
+  if (!lite) for (let z = M.ZP + 20; z < M.ZC; z += 25) { const dc = mbDc(z), P = mbRing(dc[0], dc[1], mbRz(z) - 0.12, mbRz(z) - 0.12, 2, 0, 0, 72), R = mbRun(P); mbLine(R.map(i => Q(P[i].u, P[i].v, z)), 'rgba(255,224,165,.75)', 1.4); }
+  G.runs.forEach((run, ri) => {
+    const pt = (th, z, dr) => { const r = mbRz(z) + (dr || 0), dc = mbDc(z); return Q(dc[0] + r * Math.cos(th), dc[1] + r * Math.sin(th), z); };
+    const top = run.map(th => pt(th, mbZt(th))), bot = run.map(th => pt(th, Math.max(M.ZP, mbZt(th) - M.RH))), x0 = top[0][0], x1 = top[top.length - 1][0], span = (x1 - x0) || 1;
+    const g = ctx.createLinearGradient(x0, 0, x1, 0); let last = 0; run.forEach((th, k) => { const off = Math.min(1, Math.max(last, (top[k][0] - x0) / span)); last = off; g.addColorStop(off, mbRgb(MB_TI, mbLit([Math.cos(th), Math.sin(th)]))); });
+    ctx.fillStyle = g; mbPoly(top.concat(bot.slice().reverse())); ctx.fill();
+    const ins = run.map(th => pt(th, mbZt(th), -0.15)); ctx.fillStyle = mbRgb(MB_TI, 1.05); mbPoly(top.concat(ins.slice().reverse())); ctx.fill();   // dessus du ruban (terrasse)
+    if (!lite) { mbLine(top, 'rgba(255,255,252,.95)', 1.2); mbLine(bot, 'rgba(150,124,80,.5)', 1);
+      ctx.lineCap = 'round'; for (let k = 0; k < run.length - 3; k += 4) { if (hash(k, ri, 461) < 0.4) continue; const seg = run.slice(k, k + 3).map(th => pt(th, mbZt(th) + 2.2, -0.075));
+        mbLine(seg, '#4a7442', 2.8); mbLine(seg.map(q => [q[0], q[1] - 1]), 'rgba(150,196,112,.5)', 1.1); } ctx.lineCap = 'butt'; }
+  });
+  if (!lite) {   // ruban de cuivre brossé : il s'enroule autour du tambour, de la verrière (à droite) jusqu'à la couronne (à gauche)
+    const a0 = -0.72, a1 = 2.3, zr = th => M.ZP + 34 + (M.ZC - M.ZP - 38) * Math.pow((th - a0) / (a1 - a0), 1.1), hw = 3.6, up = [], dn = [];
+    for (let th = a0; th <= a1 + 1e-6; th += 0.04) { const zz = zr(th), r = mbRz(zz + 8) + 0.05, dc = mbDc(zz), u = dc[0] + r * Math.cos(th), v = dc[1] + r * Math.sin(th); up.push(Q(u, v, zz + hw)); dn.push(Q(u, v, zz - hw)); }
+    const gx = ctx.createLinearGradient(up[0][0], 0, up[up.length - 1][0], 0); gx.addColorStop(0, '#8a5a34'); gx.addColorStop(0.45, '#c88f5c'); gx.addColorStop(0.8, '#e8c08e'); gx.addColorStop(1, '#b07a4c');
+    ctx.fillStyle = gx; mbPoly(up.concat(dn.slice().reverse())); ctx.fill(); mbLine(up, 'rgba(255,236,204,.85)', 1.2); mbLine(dn, 'rgba(90,56,30,.6)', 1);
+  }
+  // couronne de verre fumé (support de l'enseigne), liserés dorés
+  mbSide(Q, G.crown, G.crown, M.ZK, M.ZC, [52, 60, 70], { vg: [[0, 'rgba(150,170,190,.30)'], [0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.18)']] });
+  if (!lite) { const R = mbRun(G.crown); [M.ZC + 4, M.ZK - 4].forEach(z => mbLine(R.map(i => Q(G.crown[i].u, G.crown[i].v, z)), MB_GD, 2)); mbLine(R.map(i => Q(G.crown[i].u, G.crown[i].v, M.ZK - 0.5)), 'rgba(255,255,250,.9)', 1.4); }
+  mbTopF(Q, G.crown, M.ZK, '#ebe7de'); mbTopF(Q, G.crownIn, M.ZK, '#d7d2c6');
+  mbDome(Q, lite);
+  canopy(false);
+  if (!lite) {   // jardin sur l'acrotère du socle (avant) : haies et petits arbres en bacs
+    const R = mbRun(G.roof), hq = i => { const p = G.roof[i]; return Q(p.u - p.n[0] * 0.1, p.v - p.n[1] * 0.1, M.ZP + 3); }; ctx.lineCap = 'round';
+    for (let k = 1; k < R.length - 5; k += 6) { const seg = R.slice(k, k + 5).map(hq); mbLine(seg, '#4a7442', 4); mbLine(seg.map(q => [q[0], q[1] - 1.5]), 'rgba(150,196,112,.5)', 1.4); }
+    R.forEach((i, k) => { if (k % 12 !== 4) return; const q = hq(i); ctx.fillStyle = '#3f6a3a'; ctx.beginPath(); ctx.arc(q[0], q[1] - 7, 5.5, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(170,210,130,.55)'; ctx.beginPath(); ctx.arc(q[0] - 1.8, q[1] - 8.8, 2.2, 0, 7); ctx.fill(); });
+    ctx.lineCap = 'butt';
+  }
+}
+function mbUplights(Q) {   // projecteurs chauds encastrés au pied du socle : lueur rasante sur les vitrines (partie statique)
+  const G = mbGeo(), P = G.pod[0].P, R = mbRun(P); ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  R.forEach((i, k) => { if (k % 5 !== 2) return; const p = P[i], q = Q(p.u + p.n[0] * 0.02, p.v + p.n[1] * 0.02, 10), g = ctx.createRadialGradient(q[0], q[1], 0, q[0], q[1], 26);
+    g.addColorStop(0, 'rgba(255,200,120,.32)'); g.addColorStop(1, 'rgba(255,200,120,0)'); ctx.fillStyle = g; ctx.fillRect(q[0] - 26, q[1] - 26, 52, 52); });
+  ctx.restore();
+}
+function mbEntrances(Q) {   // deux grandes entrées : hall vitré chaud, ailerons de titane, auvent courbe en porte-à-faux
+  const M = MBX, G = mbGeo(), P = G.pod[0].P, P2 = G.pod[2].P;
+  [[p => p.v > 6 && p.u > MB.ES.u0 && p.u < MB.ES.u1, [4.6, 6.95], 0.72, 0.42, 'v'], [p => p.u > 6 && p.v > MB.EE.v0 && p.v < MB.EE.v1, [6.95, 4.15], 0.42, 0.72, 'u']].forEach(e => {
+    const R = mbRun(P).filter(i => e[0](P[i])); if (R.length < 2) return;
+    const top = R.map(i => Q(P2[i].u, P2[i].v, 84)), bot = R.map(i => Q(P[i].u, P[i].v, 0)), g = ctx.createLinearGradient(0, top[0][1], 0, bot[0][1]);
+    g.addColorStop(0, '#8fa5b8'); g.addColorStop(0.35, '#e9cf9c'); g.addColorStop(1, '#fbe6bd'); ctx.fillStyle = g; mbPoly(top.concat(bot.slice().reverse())); ctx.fill();
+    ctx.strokeStyle = 'rgba(70,64,56,.55)'; ctx.lineWidth = 1.2; ctx.beginPath(); for (let k = 0; k < R.length; k++) { ctx.moveTo(top[k][0], top[k][1]); ctx.lineTo(bot[k][0], bot[k][1]); } ctx.stroke();
+    [R[0], R[R.length - 1]].forEach(i => { const p = P[i], a = Q(p.u + p.n[0] * 0.12, p.v + p.n[1] * 0.12, 0), b = Q(p.u + p.n[0] * 0.12, p.v + p.n[1] * 0.12, M.ZP), c = Q(p.u, p.v, M.ZP), d = Q(p.u, p.v, 0);
+      ctx.fillStyle = mbRgb(MB_TI, 0.92); mbPoly([a, b, c, d]); ctx.fill(); });
+    const C = mbHalf(e[1][0], e[1][1], e[2], e[3], e[4]);
+    mbSide(Q, C, C, 54, 50, MB_TI); mbTopF(Q, C, 54, 'rgba(214,226,234,.92)'); const RC = mbRun(C); mbLine(RC.map(i => Q(C[i].u, C[i].v, 54)), 'rgba(255,255,252,.95)', 1.2); mbLine(RC.map(i => Q(C[i].u, C[i].v, 50.5)), MB_GD, 1.6);
+    [[0.35], [0.65]].forEach(f => { const i = RC[Math.round((RC.length - 1) * f[0])], p = C[i], a = Q(p.u - p.n[0] * 0.12, p.v - p.n[1] * 0.12, 0), b = Q(p.u - p.n[0] * 0.12, p.v - p.n[1] * 0.12, 50); mbLine([a, b], '#cfcfcf', 2.2); });
+  });
+}
+function mbGround(Q, lite) {   // sol de l'emprise : dalle de pierre claire, joints, parvis de granit, bassin courbe (partie statique)
+  const M = MB, flat = (u0, v0, u1, v1, z, col) => pQuad([Q(u0, v0, z), Q(u1, v0, z), Q(u1, v1, z), Q(u0, v1, z)], col);
+  flat(0, 0, 10, 10, 0, '#b8b2a6'); flat(0.06, 0.06, 9.94, 9.94, 1, '#d9d4ca'); if (lite) return;
+  for (let k = 1; k < 10; k++) { flat(k - 0.015, 0.06, k + 0.015, 9.94, 1.2, 'rgba(120,112,100,.16)'); flat(0.06, k - 0.015, 9.94, k + 0.015, 1.2, 'rgba(120,112,100,.16)'); }
+  for (let v = 7; v < 9.9; v += 0.5) flat(M.ES.u0, v, M.ES.u1, v + 0.5, 1.4, Math.round(v * 2) % 2 ? '#ebe7de' : '#e2ddd2');   // parvis (sud) : granit clair en bandes
+  for (let u = 7; u < 9.9; u += 0.5) flat(u, M.EE.v0, u + 0.5, M.EE.v1, 1.4, Math.round(u * 2) % 2 ? '#e6e1d6' : '#ddd7cb');   // parvis (est)
+  flat(M.ES.u0, 7, M.ES.u0 + 0.05, 9.9, 1.6, 'rgba(196,160,92,.5)'); flat(M.ES.u1 - 0.05, 7, M.ES.u1, 9.9, 1.6, 'rgba(196,160,92,.5)'); flat(7, M.EE.v0, 9.9, M.EE.v0 + 0.05, 1.6, 'rgba(196,160,92,.5)'); flat(7, M.EE.v1 - 0.05, 9.9, M.EE.v1, 1.6, 'rgba(196,160,92,.5)');
+  const G = mbGeo(), pl = G.pool; if (pl.length > 2) {   // bassin : margelle de pierre blanche, eau sombre qui reflète le ciel
+    const out = pl.map(p => Q(p[0] + p[4] * 0.36, p[1] + p[5] * 0.36, 1.5)), inn = pl.map(p => Q(p[0], p[1], 1.5));
+    ctx.fillStyle = '#f1eee7'; mbPoly(inn.concat(out.slice().reverse())); ctx.fill();
+    const out2 = pl.map(p => Q(p[0] + p[4] * 0.3, p[1] + p[5] * 0.3, 2)), in2 = pl.map(p => Q(p[0] + p[4] * 0.05, p[1] + p[5] * 0.05, 2)), wy0 = Math.min(...in2.map(q => q[1])), wy1 = Math.max(...out2.map(q => q[1]));
+    const gw = ctx.createLinearGradient(0, wy0, 0, wy1); gw.addColorStop(0, '#2c4a5e'); gw.addColorStop(0.5, '#3f6f86'); gw.addColorStop(1, '#6f9db2'); ctx.fillStyle = gw; mbPoly(in2.concat(out2.slice().reverse())); ctx.fill();
+    for (let k = 1; k < pl.length - 1; k += 3) { const a = Q(pl[k][0] + pl[k][4] * 0.37, pl[k][1] + pl[k][5] * 0.37, 2); ctx.fillStyle = '#4d7f48'; ctx.beginPath(); ctx.ellipse(a[0], a[1] + 4, 6, 3.2, 0, 0, 7); ctx.fill(); }
+  }
+}
+function mbParkBridge(Q) {   // passerelle vitrée courbe entre le socle et la tour de parking (niveau 3), devant la face gauche de la tour
+  const p0 = [6.86, 3.62], p1 = [7.62, 3.72], p2 = [7.95, 3.0], N = 16, z0 = 66, z1 = 90, pts = [];
+  for (let k = 0; k <= N; k++) { const t = k / N, u = (1 - t) * (1 - t) * p0[0] + 2 * t * (1 - t) * p1[0] + t * t * p2[0], v = (1 - t) * (1 - t) * p0[1] + 2 * t * (1 - t) * p1[1] + t * t * p2[1]; pts.push([u, v]); }
+  mbTube(Q, pts, 0.17, z0, z1);
+}
+function mbTube(Q, pts, hw, z0, z1) {   // passerelle-tube vitrée le long d'un tracé (plan) : face visible en verre, toit nacré, bandeau lumineux, sous-face claire
+  const K = pts.length, nrm = pts.map((p, k) => { const a = pts[Math.max(0, k - 1)], b = pts[Math.min(K - 1, k + 1)], du = b[0] - a[0], dv = b[1] - a[1], l = Math.hypot(du, dv) || 1; return [dv / l, -du / l]; });
+  const off = (k, sg) => [pts[k][0] + nrm[k][0] * hw * sg, pts[k][1] + nrm[k][1] * hw * sg], seg = [];
+  for (let k = 0; k < K - 1; k++) seg.push(k); seg.sort((p, q) => (pts[p][0] + pts[p][1]) - (pts[q][0] + pts[q][1]));
+  seg.forEach(k => { const n = [(nrm[k][0] + nrm[k + 1][0]) / 2, (nrm[k][1] + nrm[k + 1][1]) / 2], sg = n[0] + n[1] >= 0 ? 1 : -1, A = off(k, sg), B = off(k + 1, sg), A2 = off(k, -sg), B2 = off(k + 1, -sg), lt = mbLit([n[0] * sg, n[1] * sg]);
+    pQuad([Q(A[0], A[1], z1), Q(B[0], B[1], z1), Q(B[0], B[1], z0), Q(A[0], A[1], z0)], mbRgb(MB_GL, lt + 0.14));
+    pQuad([Q(A[0], A[1], z1 - 5), Q(B[0], B[1], z1 - 5), Q(B[0], B[1], z1 - 8), Q(A[0], A[1], z1 - 8)], 'rgba(255,224,165,.8)');
+    pQuad([Q(A[0], A[1], z0 + 3), Q(B[0], B[1], z0 + 3), Q(B[0], B[1], z0), Q(A[0], A[1], z0)], mbRgb(MB_TI, lt));
+    pQuad([Q(A[0], A[1], z1 + 2), Q(B[0], B[1], z1 + 2), Q(B[0], B[1], z1), Q(A[0], A[1], z1)], mbRgb(MB_TI, lt + 0.08)); });
+  const L = pts.map((p, k) => Q(...off(k, 1), z1 + 2)), R = pts.map((p, k) => Q(...off(k, -1), z1 + 2)); ctx.fillStyle = mbRgb(MB_TI, 1.03); mbPoly(L.concat(R.slice().reverse())); ctx.fill();
+  mbLine(L, 'rgba(255,255,252,.9)', 1); mbLine(R, 'rgba(255,255,252,.9)', 1);
+}
+const _mbC = {};
+function mbCache(X0, Y0, lite) {   // rendu statique du mall (sol, arbres de l'arrière, bâtiment, entrées, passerelle du parking) dans un canvas hors écran
+  const sc0 = Math.max(0.05, z * dpr), s = Math.min(2.6, Math.pow(2, Math.ceil(Math.log2(sc0) * 4) / 4)), tr = !!(P2_IMG.arbre_ville && P2_IMG.arbre_ville.ok), key = [X0, Y0, s, tr, lite ? 1 : 0].join();
+  const fo = !!(document.fonts && document.fonts.check && document.fonts.check('500 46px "IBM Plex Sans"')), old = _mbC[lite ? 1 : 0]; if (old && old.key === key + fo) return old;
+  const a = iso(X0, Y0 + 10), b = iso(X0 + 10, Y0), c = iso(X0, Y0), d = iso(X0 + 10, Y0 + 10), wx = a.x - 24, wy = c.y - 300, ww = b.x - a.x + 48, wh = d.y + 16 - wy;
+  const cv = (old && old.cv) || document.createElement('canvas'); cv.width = Math.ceil(ww * s); cv.height = Math.ceil(wh * s);
+  const g = cv.getContext('2d'), main = ctx; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); g.setTransform(s, 0, 0, s, -wx * s, -wy * s); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  ctx = g;
+  try { const Q = (u, v, zz) => PP(X0 + u, Y0 + v, zz), L = mbLayout(), prism = (o, z0, z1, col) => pPrism(X0 + o.u0, Y0 + o.v0, o.u1 - o.u0, o.v1 - o.v0, z0, z1, col);
+    const flat = (u0, v0, u1, v1, zz, col) => pQuad([Q(u0, v0, zz), Q(u1, v0, zz), Q(u1, v1, zz), Q(u0, v1, zz)], col);
+    mbGround(Q, lite);
+    if (!lite) L.it.filter(o => o.back).sort((p, q) => p.key - q.key).forEach(o => mbItem(o, Q, prism, null, null, flat, pQuad, 0, () => true));
+    mbBody(Q, lite); if (!lite) { mbUplights(Q); mbEntrances(Q); mbSign(Q, s); }
+  } finally { ctx = main; }
+  _mbC.n = (_mbC.n || 0) + 1; return (_mbC[lite ? 1 : 0] = { key: key + fo, cv, wx, wy, ww, wh });
+}
 let _mbL = null;
 function mbLayout() {   // agencement statique du marché de rue (déterministe)
   if (_mbL) return _mbL;
@@ -13256,115 +13489,89 @@ function mbLayout() {   // agencement statique du marché de rue (déterministe)
   for (let j = 0; j < 4; j++) for (let u = 0.25; u < 7.0; u += 0.6) put(u, 7.35 + j * 0.6, j === 3, 302);   // bande sud (devant la face gauche)
   for (let u = 0.3; u < 9.8; u += 0.9) it.push({ k: 'tree', u, v: 0.2, w: 0.44, h: 0.44, s: hash(u * 10 | 0, 2, 303), back: 1 });   // arrière : arbres en bacs le long de l'anneau
   for (let v = 1.1; v < 7.0; v += 0.9) it.push({ k: 'tree', u: 0.2, v, w: 0.44, h: 0.44, s: hash(v * 10 | 0, 3, 303), back: 1 });
-  it.push(Object.assign({ k: 'tower' }, M.T), Object.assign({ k: 'pav', s: 0.2, f: 'L' }, M.P1), Object.assign({ k: 'pav', s: 0.7, f: 'R' }, M.P2), Object.assign({ k: 'bridge', f: 'L' }, M.SB1), Object.assign({ k: 'bridge', f: 'R' }, M.SB2));
+  it.push(Object.assign({ k: 'tower' }, M.T), Object.assign({ k: 'pav', s: 0.2, f: 'L' }, M.P1), Object.assign({ k: 'pav', s: 0.7, f: 'R' }, M.P2), Object.assign({ k: 'bridge', f: 'L' }, M.SB1), Object.assign({ k: 'bridge', f: 'R' }, M.SB2), { k: 'pbridge', u0: 6.86, v0: 3.0, u1: 7.95, v1: 3.72 });
   it.forEach(o => { if (o.u1 == null) { o.u0 = o.u; o.v0 = o.v; o.u1 = o.u + o.w; o.v1 = o.v + o.h; } o.key = (o.u0 + o.u1 + o.v0 + o.v1) / 2; });
   const walk = [];   // passants : allers-retours sur les parvis et dans les allées
-  for (let i = 0; i < 26; i++) walk.push({ ax: 'v', c: M.ES.u0 + 0.1 + hash(i, 1, 311) * (M.ES.u1 - M.ES.u0 - 0.2), a: 7.1, b: 9.9 });
-  for (let i = 0; i < 22; i++) walk.push({ ax: 'u', c: M.EE.v0 + 0.1 + hash(i, 2, 311) * (M.EE.v1 - M.EE.v0 - 0.2), a: 7.1, b: 9.9 });
+  for (let i = 0; i < 26; i++) walk.push({ ax: 'v', c: M.ES.u0 + 0.1 + hash(i, 1, 311) * (M.ES.u1 - M.ES.u0 - 0.2), a: 7.25, b: 9.9 });
+  for (let i = 0; i < 22; i++) walk.push({ ax: 'u', c: M.EE.v0 + 0.1 + hash(i, 2, 311) * (M.EE.v1 - M.EE.v0 - 0.2), a: 7.25, b: 9.9 });
   for (let i = 0; i < 24; i++) { const j = i % 3; walk.push({ ax: 'u', c: 7.86 + j * 0.6, a: 0.25, b: M.ES.u0 - 0.1 }); }
   for (let i = 0; i < 18; i++) { const j = i % 3; walk.push({ ax: 'v', c: 7.86 + j * 0.6, a: 6.5, b: 9.9 }); }
-  walk.forEach((w, i) => { w.ph = hash(i, 7, 312); w.sp = 9000 + hash(i, 8, 312) * 9000; w.col = MB_NEON[Math.floor(hash(i, 9, 312) * MB_NEON.length)]; });
+  walk.forEach((w, i) => { w.ph = hash(i, 7, 312); w.sp = 9000 + hash(i, 8, 312) * 9000; w.col = MB_WALK[Math.floor(hash(i, 9, 312) * MB_WALK.length)]; });
   return (_mbL = { it, walk });
 }
 function drawMallBig(a, x, y, now) {
   const P = mallPos(); if (!P) return; a._top = iso(x, y).y - 40; if (x !== P.x + P.w - 1 || y !== P.y + P.w - 1) return;
-  const X0 = P.x, Y0 = P.y, M = MB, L = mbLayout(), Q = (u, v, z) => PP(X0 + u, Y0 + v, z);
-  const quad = (pts, col) => pQuad(pts, col), flat = (u0, v0, u1, v1, z, col) => quad([Q(u0, v0, z), Q(u1, v0, z), Q(u1, v1, z), Q(u0, v1, z)], col);
+  const X0 = P.x, Y0 = P.y, M = MB, X = MBX, L = mbLayout(), Q = (u, v, zz) => PP(X0 + u, Y0 + v, zz);
+  const quad = (pts, col) => pQuad(pts, col), flat = (u0, v0, u1, v1, zz, col) => quad([Q(u0, v0, zz), Q(u1, v0, zz), Q(u1, v1, zz), Q(u0, v1, zz)], col);
   const fL = (v, ua, ub, za, zb, col) => quad([Q(ua, v, zb), Q(ub, v, zb), Q(ub, v, za), Q(ua, v, za)], col);   // face avant gauche (plan v = cste)
   const fR = (u, va, vb, za, zb, col) => quad([Q(u, va, zb), Q(u, vb, zb), Q(u, vb, za), Q(u, va, za)], col);   // face avant droite (plan u = cste)
   const prism = (o, z0, z1, col) => pPrism(X0 + o.u0, Y0 + o.v0, o.u1 - o.u0, o.v1 - o.v0, z0, z1, col);
-  const T = now / 1000, blink = (s, f) => Math.sin(T * (f || 2.2) + s * 40) > -0.55;   // néons : clignotement déterministe (hash + horloge)
-  // --- sol : halo lumineux, dalle du marché, parvis
-  ctx.save(); ctx.globalCompositeOperation = 'lighter'; const c0 = Q(5, 5, 0), g = ctx.createRadialGradient(c0[0], c0[1], 40, c0[0], c0[1], 820);
-  g.addColorStop(0, 'rgba(255,160,60,.30)'); g.addColorStop(0.55, 'rgba(255,80,160,.12)'); g.addColorStop(1, 'rgba(255,80,160,0)'); ctx.fillStyle = g;
-  ctx.beginPath(); [Q(-0.9, -0.9, 0), Q(10.9, -0.9, 0), Q(10.9, 10.9, 0), Q(-0.9, 10.9, 0)].forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); ctx.restore();
-  flat(0, 0, 10, 10, 0, '#b9ad97'); flat(0.06, 0.06, 9.94, 9.94, 1, '#d6c9ae');
-  for (let k = 1; k < 10; k++) { quad([Q(k - 0.02, 0.06, 1.2), Q(k + 0.02, 0.06, 1.2), Q(k + 0.02, 9.94, 1.2), Q(k - 0.02, 9.94, 1.2)], 'rgba(120,100,80,.18)'); quad([Q(0.06, k - 0.02, 1.2), Q(9.94, k - 0.02, 1.2), Q(9.94, k + 0.02, 1.2), Q(0.06, k + 0.02, 1.2)], 'rgba(120,100,80,.18)'); }
-  for (let v = 7; v < 9.9; v += 0.5) for (let u = M.ES.u0; u < M.ES.u1 - 0.01; u += 0.4) flat(u, v, u + 0.4, v + 0.5, 1.4, (Math.round(u * 2.5) + Math.round(v * 2)) % 2 ? '#efe4cc' : '#c8574a');   // parvis dallé (sud)
-  for (let u = 7; u < 9.9; u += 0.5) for (let v = M.EE.v0; v < M.EE.v1 - 0.01; v += 0.35) flat(u, v, u + 0.5, v + 0.35, 1.4, (Math.round(v / 0.35) + Math.round(u * 2)) % 2 ? '#efe4cc' : '#c8574a');   // parvis dallé (est)
-  // --- éléments : arrière, bâtiment principal, avant (ordre de profondeur)
-  const front = [], back = []; L.it.forEach(o => (o.back ? back : front).push(o));
+  const T = now / 1000, blink = (s, f) => Math.sin(T * (f || 2.2) + s * 40) > -0.55;   // ampoules du marché : clignotement déterministe (hash + horloge)
+  // --- halo chaud discret autour du mall
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; const c0 = Q(4.5, 4.5, 0), g = ctx.createRadialGradient(c0[0], c0[1], 60, c0[0], c0[1], 760);
+  g.addColorStop(0, 'rgba(255,196,120,.16)'); g.addColorStop(1, 'rgba(255,196,120,0)'); ctx.fillStyle = g; mbPoly([Q(-0.9, -0.9, 0), Q(10.9, -0.9, 0), Q(10.9, 10.9, 0), Q(-0.9, 10.9, 0)]); ctx.fill(); ctx.restore();
+  // --- partie statique (cache hors écran) : sol, arbres de l'arrière, bâtiment principal, entrées, passerelle du parking
+  const C = mbCache(X0, Y0, false); ctx.drawImage(C.cv, C.wx, C.wy, C.ww, C.wh);
+  mbLive(Q, now);
+  // --- éléments de l'avant (marché, tour de parking, stations, passerelles, passants), dans l'ordre de profondeur
+  const front = []; L.it.forEach(o => { if (!o.back) front.push(o); });
   L.walk.forEach(w => { const t = ((now / w.sp + w.ph) % 2), f = t < 1 ? t : 2 - t, p = w.a + (w.b - w.a) * f, u = w.ax === 'u' ? p : w.c, v = w.ax === 'u' ? w.c : p; front.push({ k: 'walk', u, v, key: u + v, w0: w, st: (now / 180 + w.ph * 10) | 0 }); });
-  front.sort((p, q) => p.key - q.key); back.sort((p, q) => p.key - q.key);
-  const draw = o => mbItem(o, Q, prism, fL, fR, flat, quad, now, blink);
-  back.forEach(draw);
-  mbBlock(Q, prism, fL, fR, flat, quad, now, blink);
-  front.forEach(draw);
-  // banderoles de fanions au-dessus des allées
-  for (let j = 0; j < 3; j++) { const v = 7.86 + j * 0.6; [[0.3, M.SB1.u0 - 0.2], [M.SB1.u1 + 0.2, M.ES.u0 - 0.2], [M.ES.u1 + 0.2, 6.9]].forEach(sg => mbBunting(Q(sg[0], v, 36), Q(sg[1], v, 36), j * 7 + sg[0] * 3)); }
+  front.sort((p, q) => p.key - q.key);
+  front.forEach(o => mbItem(o, Q, prism, fL, fR, flat, quad, now, blink));
+  // banderoles de fanions au-dessus des allées du marché
+  for (let j = 0; j < 3; j++) { const v = 7.86 + j * 0.6; [[0.3, M.SB1.u0 - 0.2], [M.SB1.u1 + 0.2, M.ES.u0 - 0.2]].forEach(sg => mbBunting(Q(sg[0], v, 36), Q(sg[1], v, 36), j * 7 + sg[0] * 3)); }
   for (let j = 0; j < 3; j++) { const u = 7.86 + j * 0.6; mbBunting(Q(u, 6.5, 36), Q(u, 9.8, 36), 40 + j); }
-  a._top = mbRoofSign(Q, now);   // enseigne géante sur le toit
+  a._top = Q(mbDc(X.ZC)[0], mbDc(X.ZC)[1], X.ZK + X.DH + 14)[1];
+}
+function mbLive(Q, now) {   // animations légères sur le bâtiment : liserés lumineux qui courent le long de la spirale, reflet du ciel sur le verre, jets du bassin
+  const M = MBX, G = mbGeo(), T = now / 1000;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  for (let k = 0; k < 3; k++) { const thp = M.TH0 + ((T * 0.045 + k / 3) % 1) * (MB_TH1 - M.TH0);
+    G.runs.forEach(run => { if (thp < run[0] - 0.5 || thp > run[run.length - 1] + 0.5) return; const pts = [];
+      for (let th = Math.max(run[0], thp - 0.5); th <= Math.min(run[run.length - 1], thp + 0.5); th += 0.05) { const r = mbRz(mbZt(th)), dc = mbDc(mbZt(th)); pts.push(Q(dc[0] + r * Math.cos(th), dc[1] + r * Math.sin(th), mbZt(th) - 0.5)); }
+      if (pts.length > 1) { mbLine(pts, 'rgba(255,214,140,.28)', 5); mbLine(pts, 'rgba(255,240,205,.75)', 1.6); } }); }
+  // liserés des dalles du socle : respiration lente
+  const br = 0.22 + 0.12 * Math.sin(T * 0.8); [G.pod[1], G.pod[3]].forEach(b => { const R = mbRun(b.P); mbLine(R.map(i => Q(b.P[i].u, b.P[i].v, b.z0 + 1.5)), `rgba(255,214,140,${br.toFixed(3)})`, 2.4); });
+  ctx.restore();
+  // reflet du ciel qui glisse lentement sur le tambour vitré
+  const DT = mbDc(M.ZC), top = mbRing(DT[0], DT[1], M.RK, M.RK, 2, 0, 0, 48), R = mbRun(top), poly = R.map(i => Q(top[i].u, top[i].v, M.ZK)).concat(R.slice().reverse().map(i => Q(M.D[0] + (top[i].u - DT[0]) * M.R0 / M.RK, M.D[1] + (top[i].v - DT[1]) * M.R0 / M.RK, M.ZP)));
+  const xs = poly.map(q => q[0]), xa = Math.min(...xs), xb = Math.max(...xs), ya = Math.min(...poly.map(q => q[1])), ph = (T * 0.05) % 1, sx = xa - 200 + (xb - xa + 400) * ph;
+  ctx.save(); mbPoly(poly); ctx.clip(); const gs = ctx.createLinearGradient(sx - 90, ya, sx + 90, ya + 160); gs.addColorStop(0, 'rgba(255,255,255,0)'); gs.addColorStop(0.5, 'rgba(255,255,255,.13)'); gs.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gs; ctx.fillRect(xa - 10, ya - 10, xb - xa + 20, 600); ctx.restore();
+  // bassin : reflets mouvants et petits jets d'eau
+  const pl = G.pool; for (let k = 2; k < pl.length - 1; k += 4) { const p = pl[k], q = Q(p[0] + p[4] * 0.17, p[1] + p[5] * 0.17, 2), h = 14 + 5 * Math.sin(T * 3 + k);
+    const gj = ctx.createLinearGradient(0, q[1] - h, 0, q[1]); gj.addColorStop(0, 'rgba(240,248,252,0)'); gj.addColorStop(0.3, 'rgba(240,248,252,.85)'); gj.addColorStop(1, 'rgba(240,248,252,.35)');
+    ctx.strokeStyle = gj; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(q[0], q[1] - h); ctx.stroke();
+    ctx.fillStyle = `rgba(220,236,244,${(0.25 + 0.2 * Math.sin(T * 2 + k)).toFixed(2)})`; ctx.beginPath(); ctx.ellipse(q[0], q[1] + 1, 8 + 2 * Math.sin(T * 2.5 + k), 3, 0, 0, 7); ctx.fill(); }
+}
+function mbSign(Q, bs) {   // enseigne « MALL CENTRAL » : lettres fines et espacées qui épousent la courbe de la couronne (lueur blanc chaud) ; bs : échelle du flou
+  const M = MBX, DT = mbDc(M.ZC), c = Q(DT[0], DT[1], (M.ZC + M.ZK) / 2), Rx = M.RK * 93.34, Ry = M.RK * 46.67, txt = 'MALL CENTRAL', fs = 52, tk = fs * 0.14;
+  ctx.save(); ctx.font = `500 ${fs}px "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const wd = [...txt].map(ch => ctx.measureText(ch).width + tk), tot = wd.reduce((a, b) => a + b, 0) - tk; let s = -tot / 2;
+  for (let pass = 0; pass < 2; pass++) { s = -tot / 2;
+    for (let i = 0; i < txt.length; i++) { const m = s + (wd[i] - tk) / 2; s += wd[i]; if (txt[i] === ' ') continue; const al = m / Rx, ca = Math.cos(al), sa = Math.sin(al);
+      ctx.save(); ctx.transform(ca, -0.5 * sa, 0, 1, c[0] + Rx * sa, c[1] + Ry * ca);
+      if (pass === 0) { ctx.shadowColor = 'rgba(255,200,120,.85)'; ctx.shadowBlur = 14 * bs; ctx.fillStyle = 'rgba(255,226,170,.9)'; }
+      else { ctx.shadowBlur = 0; ctx.fillStyle = '#fff8ea'; }
+      ctx.fillText(txt[i], 0, 1); ctx.restore(); }
+  }
+  ctx.restore();
+}
+function mbSat(X0, Y0) {   // vue satellite : silhouette simplifiée (socle, tambour, couronne, coupole) et tour de parking
+  const Q = (u, v, zz) => PP(X0 + u, Y0 + v, zz);
+  const C = mbCache(X0, Y0, true); ctx.drawImage(C.cv, C.wx, C.wy, C.ww, C.wh);
+  pPrism(X0 + MB.T.u0, Y0 + MB.T.v0, MB.T.u1 - MB.T.u0, MB.T.v1 - MB.T.v0, 0, MB.TL * MB.TZ, '#bfc4d0');
 }
 function mbBunting(p0, p1, sd) {
   ctx.strokeStyle = 'rgba(40,30,30,.7)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.quadraticCurveTo((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + 12, p1[0], p1[1]); ctx.stroke();
   const n = Math.max(3, Math.round(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / 16));
   for (let i = 0; i < n; i++) { const t = (i + 0.5) / n, x = p0[0] + (p1[0] - p0[0]) * t, y = p0[1] + (p1[1] - p0[1]) * t + 12 * 2 * t * (1 - t); ctx.fillStyle = MB_AWN[(i + Math.floor(sd)) % MB_AWN.length]; ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 8); ctx.closePath(); ctx.fill(); }
 }
-function mbClip(pts, fn) { ctx.save(); ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.clip(); fn(); ctx.restore(); }
-function mbScreen(Q, face, a0, a1, z0, z1, now, sd) {   // écran LED animé sur une face (programme choisi par l'horloge et la graine)
-  const M = MB, P = face === 'L' ? (s, z) => Q(s, M.B.v1, z) : (s, z) => Q(M.B.u1, s, z), pts = [P(a0, z1), P(a1, z1), P(a1, z0), P(a0, z0)];
-  pQuad([P(a0 - 0.06, z1 + 6), P(a1 + 0.06, z1 + 6), P(a1 + 0.06, z0 - 6), P(a0 - 0.06, z0 - 6)], '#111522');
-  const prog = (Math.floor(now / 4200 + sd * 7)) % 4, T = now / 1000;
-  mbClip(pts, () => {
-    const o = face === 'L' ? P(a0, z1) : P(a1, z1), wd = Math.abs(a1 - a0) * 66, ht = z1 - z0;
-    ctx.save(); ctx.translate(o[0], o[1]); ctx.transform(1, face === 'L' ? 0.5 : -0.5, 0, 1, 0, 0);   // repère de la face : x le long de la façade, y vers le bas
-    if (prog === 0) { for (let i = 0; i < 8; i++) { ctx.fillStyle = `hsl(${Math.round(T * 60 + i * 45 + sd * 360) % 360},90%,55%)`; ctx.fillRect(i * wd / 8, 0, wd / 8 + 1, ht); } }
-    else if (prog === 1) { const gr = ctx.createLinearGradient(0, 0, wd, ht); gr.addColorStop(0, '#ff2e7e'); gr.addColorStop(1, '#ffb020'); ctx.fillStyle = gr; ctx.fillRect(0, 0, wd, ht); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `900 ${Math.round(Math.min(ht * 0.34, wd * 0.28))}px sans-serif`; ctx.fillText('SALE', wd / 2, ht * 0.36); ctx.font = `900 ${Math.round(Math.min(ht * 0.28, wd * 0.22))}px sans-serif`; ctx.fillText('−50 %', wd / 2, ht * 0.72); }
-    else if (prog === 2) { ctx.fillStyle = '#081830'; ctx.fillRect(0, 0, wd, ht); const nx = 10, ny = 6; for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) if (hash(i, j, Math.floor(T * 3) + Math.round(sd * 100)) > 0.45) { ctx.fillStyle = MB_NEON[(i + j) % MB_NEON.length]; ctx.fillRect(i * wd / nx + 1, j * ht / ny + 1, wd / nx - 2, ht / ny - 2); } }
-    else { ctx.fillStyle = '#1b0f3a'; ctx.fillRect(0, 0, wd, ht); ctx.fillStyle = '#33e1ff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `900 ${Math.round(Math.min(ht * 0.3, wd * 0.25))}px sans-serif`; ctx.fillText('MALL', wd / 2, ht * 0.34); ctx.fillStyle = '#ffcc33'; ctx.font = `800 ${Math.round(Math.min(ht * 0.16, wd * 0.09))}px sans-serif`; ctx.fillText('7 j/7 · 10 h - 22 h', wd / 2, ht * 0.7);
-      const sx = (T * 120) % (wd + 60) - 30; ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(sx, 0, 18, ht); }
-    ctx.restore();
-  });
-}
-function mbBlade(q, txt, col, on) {   // enseigne-drapeau verticale (perpendiculaire à la façade, lettres empilées)
-  const n = txt.length, hgt = n * 22 + 12, x = q[0], y = q[1];
-  ctx.fillStyle = '#141826'; ctx.fillRect(x - 13, y - hgt, 26, hgt);
-  if (on) { ctx.shadowColor = col; ctx.shadowBlur = 14; } ctx.strokeStyle = on ? col : shade(col, 0.5); ctx.lineWidth = 2.5; ctx.strokeRect(x - 13, y - hgt, 26, hgt);
-  ctx.fillStyle = on ? col : shade(col, 0.55); ctx.font = '900 19px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  for (let i = 0; i < n; i++) ctx.fillText(txt[i], x, y - hgt + 17 + i * 22); ctx.shadowBlur = 0;
-}
-function mbBlock(Q, prism, fL, fR, flat, quad, now, blink) {   // bâtiment principal : 9 niveaux, façade en bandes, écrans, enseignes, marquises, entrées
-  const M = MB, B = M.B, H = M.H, T = now / 1000;
-  prism(B, 0, H, '#e7dfd0');
-  // niveaux : dalles claires et bandes de fenêtres (éclairées le soir, hash)
-  for (let l = 0; l < M.NL; l++) { const z = M.Z0 + l * M.ZL;
-    fL(B.v1, B.u0, B.u1, z - 2, z + 2, '#f8f3ea'); fR(B.u1, B.v0, B.v1, z - 2, z + 2, '#d9d2c4');
-    for (let s = B.u0 + 0.08; s < B.u1 - 0.1; s += 0.36) fL(B.v1, s, s + 0.3, z + 8, z + 26, hash(Math.round(s * 10), l, 321) < 0.7 ? '#ffe2a0' : '#2c3a66');
-    for (let s = B.v0 + 0.08; s < B.v1 - 0.1; s += 0.36) fR(B.u1, s, s + 0.3, z + 8, z + 26, hash(Math.round(s * 10), l, 322) < 0.7 ? '#e6c27e' : '#24305a'); }
-  // couronne LED du toit (chenillard)
-  fL(B.v1, B.u0, B.u1, H - 12, H, '#1a1d30'); fR(B.u1, B.v0, B.v1, H - 12, H, '#14172a');
-  for (let i = 0; i < 30; i++) { const s = B.u0 + (i + 0.5) * (B.u1 - B.u0) / 30, on = ((i + Math.floor(T * 8)) % 6) < 3, q = Q(s, B.v1, H - 6); ctx.fillStyle = on ? MB_NEON[i % 4] : '#3a3050'; ctx.fillRect(q[0] - 3, q[1] - 3, 6, 6); }
-  for (let i = 0; i < 30; i++) { const s = B.v0 + (i + 0.5) * (B.v1 - B.v0) / 30, on = ((i + Math.floor(T * 8)) % 6) < 3, q = Q(B.u1, s, H - 6); ctx.fillStyle = on ? MB_NEON[(i + 2) % 4] : '#3a3050'; ctx.fillRect(q[0] - 3, q[1] - 3, 6, 6); }
-  // toit : parapet, groupes de climatisation, édicules
-  flat(B.u0 + 0.12, B.v0 + 0.12, B.u1 - 0.12, B.v1 - 0.12, H + 0.5, '#aeb2bf');
-  [[1.6, 1.5, 0.9, 0.7, 26], [5.0, 1.6, 1.1, 0.8, 20], [1.7, 4.9, 0.8, 0.8, 16], [3.2, 2.0, 0.5, 0.5, 34]].forEach(r => prism({ u0: r[0], v0: r[1], u1: r[0] + r[2], v1: r[1] + r[3] }, H, H + r[4], '#c6cad6'));
-  // grands écrans LED
-  mbScreen(Q, 'L', 1.35, 3.55, M.Z0 + 2 * M.ZL + 4, M.Z0 + 6 * M.ZL - 4, now, 0.13);
-  mbScreen(Q, 'L', 5.35, 6.75, M.Z0 + 1 * M.ZL + 4, M.Z0 + 4 * M.ZL - 4, now, 0.57);
-  mbScreen(Q, 'R', 1.4, 3.3, M.Z0 + 5 * M.ZL + 4, M.Z0 + 8 * M.ZL - 16, now, 0.81);
-  mbScreen(Q, 'R', 5.2, 6.7, M.Z0 + 2 * M.ZL + 4, M.Z0 + 5 * M.ZL - 4, now, 0.35);
-  // bandeau commercial continu au-dessus du rez-de-chaussée (panneaux d'enseignes)
-  for (let s = B.u0; s < B.u1 - 0.01; s += 0.5) { const c = MB_NEON[Math.floor(hash(Math.round(s * 10), 4, 323) * MB_NEON.length)]; fL(B.v1, s + 0.03, s + 0.47, M.Z0 - 12, M.Z0 + 4, '#1b1d2e'); fL(B.v1, s + 0.08, s + 0.42, M.Z0 - 7, M.Z0 - 1, blink(hash(Math.round(s * 10), 5, 324), 1.3) ? c : shade(c, 0.45)); }
-  for (let s = B.v0; s < B.v1 - 0.01; s += 0.5) { const c = MB_NEON[Math.floor(hash(Math.round(s * 10), 6, 323) * MB_NEON.length)]; fR(B.u1, s + 0.03, s + 0.47, M.Z0 - 12, M.Z0 + 4, '#16182a'); fR(B.u1, s + 0.08, s + 0.42, M.Z0 - 7, M.Z0 - 1, blink(hash(Math.round(s * 10), 7, 324), 1.3) ? c : shade(c, 0.45)); }
-  // rez-de-chaussée : vitrines éclairées, entrées couvertes
-  for (let s = B.u0 + 0.05; s < B.u1 - 0.1; s += 0.4) fL(B.v1, s, s + 0.34, 4, M.Z0 - 16, '#ffd98a');
-  for (let s = B.v0 + 0.05; s < B.v1 - 0.1; s += 0.4) fR(B.u1, s, s + 0.34, 4, M.Z0 - 16, '#e9b968');
-  fL(B.v1, M.ES.u0 + 0.1, M.ES.u1 - 0.1, 0, M.Z0 - 12, '#2a1830'); fR(B.u1, M.EE.v0 + 0.1, M.EE.v1 - 0.1, 0, M.Z0 - 12, '#22142a');
-  for (let i = 0; i < 4; i++) { fL(B.v1, M.ES.u0 + 0.2 + i * 0.32, M.ES.u0 + 0.44 + i * 0.32, 2, M.Z0 - 18, 'rgba(255,225,150,.55)'); fR(B.u1, M.EE.v0 + 0.2 + i * 0.28, M.EE.v0 + 0.4 + i * 0.28, 2, M.Z0 - 18, 'rgba(255,215,140,.5)'); }
-  // marquises rayées le long des façades (hors entrées)
-  const awnL = (s0, s1) => { for (let s = s0; s < s1 - 0.01; s += 0.25) quad([Q(s, B.v1, M.Z0 - 14), Q(Math.min(s1, s + 0.25), B.v1, M.Z0 - 14), Q(Math.min(s1, s + 0.25), B.v1 + 0.32, M.Z0 - 26), Q(s, B.v1 + 0.32, M.Z0 - 26)], MB_AWN[(Math.round(s * 4) + Math.floor(s / 1.5)) % MB_AWN.length]); };
-  const awnR = (s0, s1) => { for (let s = s0; s < s1 - 0.01; s += 0.25) quad([Q(B.u1, s, M.Z0 - 14), Q(B.u1, Math.min(s1, s + 0.25), M.Z0 - 14), Q(B.u1 + 0.32, Math.min(s1, s + 0.25), M.Z0 - 26), Q(B.u1 + 0.32, s, M.Z0 - 26)], MB_AWN[(Math.round(s * 4) + 3 + Math.floor(s / 1.5)) % MB_AWN.length]); };
-  awnL(B.u0, M.ES.u0 - 0.1); awnL(M.ES.u1 + 0.1, B.u1); awnR(B.v0, M.EE.v0 - 0.1); awnR(M.EE.v1 + 0.1, B.v1);
-  // auvents des entrées (grandes marquises sur poteaux)
-  const canL = { u0: M.ES.u0 - 0.15, v0: B.v1, u1: M.ES.u1 + 0.15, v1: B.v1 + 0.95 }, canR = { u0: B.u1, v0: M.EE.v0 - 0.15, u1: B.u1 + 0.95, v1: M.EE.v1 + 0.15 };
-  [[canL.u0 + 0.1, canL.v1 - 0.12], [canL.u1 - 0.18, canL.v1 - 0.12]].forEach(c => prism({ u0: c[0], v0: c[1], u1: c[0] + 0.08, v1: c[1] + 0.08 }, 0, M.Z0 - 8, '#d0d4e0'));
-  [[canR.u1 - 0.12, canR.v0 + 0.1], [canR.u1 - 0.12, canR.v1 - 0.18]].forEach(c => prism({ u0: c[0], v0: c[1], u1: c[0] + 0.08, v1: c[1] + 0.08 }, 0, M.Z0 - 8, '#d0d4e0'));
-  prism(canL, M.Z0 - 8, M.Z0, '#e8394d'); prism(canR, M.Z0 - 8, M.Z0, '#2f9be0');
-  fL(canL.v1, canL.u0 + 0.05, canL.u1 - 0.05, M.Z0 - 6, M.Z0 - 2, blink(0.3, 3) ? '#ffe9a8' : '#b98a40'); fR(canR.u1, canR.v0 + 0.05, canR.v1 - 0.05, M.Z0 - 6, M.Z0 - 2, blink(0.6, 3) ? '#bfe9ff' : '#3d6f90');
-  // enseignes-drapeaux lumineuses
-  mbBlade(Q(B.u0 + 0.35, B.v1 + 0.12, M.Z0 + 7 * M.ZL), 'MODE', '#ff3d8b', blink(0.11)); mbBlade(Q(4.6, B.v1 + 0.12, M.Z0 + 7.4 * M.ZL), 'FOOD', '#ffcc33', blink(0.23));
-  mbBlade(Q(B.u1 - 0.2, B.v1 + 0.12, M.Z0 + 7.6 * M.ZL), 'SALE', '#33e1ff', blink(0.37, 3)); mbBlade(Q(B.u1 + 0.12, 4.2, M.Z0 + 4.8 * M.ZL), 'TECH', '#7dff6a', blink(0.41));
-  mbBlade(Q(B.u1 + 0.12, B.v0 + 0.3, M.Z0 + 8.6 * M.ZL), 'CINÉ', '#b46bff', blink(0.53));
+function mbBlade(q, txt, col, on) {   // petite enseigne verticale (stations) : lettres empilées blanc chaud sur fond graphite
+  const n = txt.length, hgt = n * 18 + 10, x = q[0], y = q[1];
+  ctx.fillStyle = '#23272f'; ctx.fillRect(x - 11, y - hgt, 22, hgt); ctx.strokeStyle = MB_GD; ctx.lineWidth = 1.5; ctx.strokeRect(x - 11, y - hgt, 22, hgt);
+  if (on) { ctx.shadowColor = 'rgba(255,210,140,.9)'; ctx.shadowBlur = 8; } ctx.fillStyle = on ? col : shade(col, 0.7); ctx.font = '500 15px "IBM Plex Sans", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < n; i++) ctx.fillText(txt[i], x, y - hgt + 14 + i * 18); ctx.shadowBlur = 0;
 }
 function mbItem(o, Q, prism, fL, fR, flat, quad, now, blink) {
   const M = MB, s = o.s || 0;
@@ -13407,28 +13614,22 @@ function mbItem(o, Q, prism, fL, fR, flat, quad, now, blink) {
     for (let i = 0; i < 5; i++) { const u = o.u0 + 0.3 + hash(i, 1, 335) * (o.u1 - o.u0 - 0.7), v = o.v0 + 0.3 + hash(i, 2, 335) * (o.v1 - o.v0 - 0.6); prism({ u0: u, v0: v, u1: u + 0.3, v1: v + 0.16 }, H, H + 8, MB_AWN[i % MB_AWN.length]); }
     const q = Q(o.u1 - 0.3, o.v1 - 0.3, H); ctx.fillStyle = '#1f5fd0'; ctx.fillRect(q[0] - 15, q[1] - 46, 30, 30); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(q[0] - 15, q[1] - 46, 30, 30); ctx.fillRect(q[0] - 1, q[1] - 16, 2, 16);
     ctx.fillStyle = '#fff'; ctx.font = '900 22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('P', q[0], q[1] - 30);
-  } else if (o.k === 'pav') {   // pavillon d'arrivée des passerelles (station)
-    const H = 150; prism(o, 0, H, '#dfe3ee');
-    for (let l = 0; l < 4; l++) { const z = 18 + l * 32; fL(o.v1, o.u0 + 0.06, o.u1 - 0.06, z, z + 16, '#7fc8ff'); fR(o.u1, o.v0 + 0.06, o.v1 - 0.06, z, z + 16, '#5aa6dd'); }
-    prism({ u0: o.u0 - 0.06, v0: o.v0 - 0.06, u1: o.u1 + 0.06, v1: o.v1 + 0.06 }, H, H + 8, o.f === 'L' ? '#ff3d8b' : '#33e1ff');
-    const q = o.f === 'L' ? Q((o.u0 + o.u1) / 2, o.v1, H - 6) : Q(o.u1, (o.v0 + o.v1) / 2, H - 6); mbBlade([q[0], q[1] + 2], o.f === 'L' ? 'BTS' : 'MRT', o.f === 'L' ? '#ffcc33' : '#7dff6a', blink(o.s, 1.6));
-  } else if (o.k === 'bridge') {   // passerelle aérienne vitrée
-    const z0 = M.Z0 + 1.4 * M.ZL, z1 = z0 + 26; prism(o, z0, z1, '#cfe9ff');
-    if (o.f === 'L') fR(o.u1, o.v0, o.v1, z0 + 6, z1 - 6, '#6fb8f0'); else fL(o.v1, o.u0, o.u1, z0 + 6, z1 - 6, '#6fb8f0');
+  } else if (o.k === 'pav') {   // pavillon d'arrivée des passerelles (station) : verre bleu-gris et titane, petite enseigne blanc chaud
+    const cu = (o.u0 + o.u1) / 2, cv = (o.v0 + o.v1) / 2, ru = (o.u1 - o.u0) / 2 - 0.04, rv = (o.v1 - o.v0) / 2 - 0.04, H = 104;
+    const Pb = mbRing(cu, cv, ru, rv, 3.2, 0, 0, 64), Pg = mbRing(cu, cv, ru - 0.06, rv - 0.06, 3.2, 0, 0, 64), Pl = mbRing(cu, cv, ru * 0.55, rv * 0.55, 2, 0, 0, 40);
+    mbSide(Q, Pb, Pb, 10, 0, MB_TI); mbTopF(Q, Pb, 10, mbRgb(MB_TI, 1.04));
+    mbSide(Q, Pg, Pg, 90, 10, MB_GL, { vg: [[0, 'rgba(206,222,236,.42)'], [1, 'rgba(255,206,140,.38)']], mul: 'rgba(28,38,50,.32)', ms: 3 });
+    const Rg = mbRun(Pg); [38, 64].forEach(zz => mbLine(Rg.map(i => Q(Pg[i].u, Pg[i].v, zz)), 'rgba(255,226,170,.8)', 1.4));
+    mbSide(Q, Pb, Pb, H, 90, MB_TI); mbTopF(Q, Pb, H, mbRgb(MB_TI, 1.04)); mbTopF(Q, Pl, H + 1, '#a9bccb');
+    const Rb = mbRun(Pb); mbLine(Rb.map(i => Q(Pb[i].u, Pb[i].v, 90.5)), MB_GD, 1.4);
+    const q = o.f === 'L' ? Q(cu, o.v1 - 0.02, 22) : Q(o.u1 - 0.02, cv, 22); mbBlade([q[0], q[1]], o.f === 'L' ? 'BTS' : 'MRT', '#fff1d6', blink(o.s, 0.7));
+  } else if (o.k === 'pbridge') { mbParkBridge(Q); const a = Q(7.55, 3.62, 0), b = Q(7.55, 3.62, 66); mbLine([a, b], '#c9ccd2', 3);
+  } else if (o.k === 'bridge') {   // passerelle-tube vitrée (courbe) entre le socle et la station
+    const c = o.f === 'L' ? [[2.5, 6.7], [2.62, 7.62], [2.5, 8.62]] : [[6.7, 5.7], [7.62, 5.58], [8.62, 5.7]], path = [];
+    for (let k = 0; k <= 10; k++) { const t = k / 10; path.push([(1 - t) * (1 - t) * c[0][0] + 2 * t * (1 - t) * c[1][0] + t * t * c[2][0], (1 - t) * (1 - t) * c[0][1] + 2 * t * (1 - t) * c[1][1] + t * t * c[2][1]]); }
+    const m = path[5], a = Q(m[0], m[1], 0), b = Q(m[0], m[1], 50); mbLine([a, b], '#c9ccd2', 3);
+    mbTube(Q, path, 0.16, 50, 72);
   }
-}
-function mbRoofSign(Q, now) {   // enseigne géante « MALL CENTRAL » sur le toit (néon, chenillard de bord)
-  const M = MB, H = M.H, c = Q((M.B.u0 + M.B.u1) / 2 + 0.6, (M.B.v0 + M.B.v1) / 2 + 0.6, H), T = now / 1000;
-  ctx.save(); ctx.font = '900 76px sans-serif'; const tw = ctx.measureText('MALL CENTRAL').width, pw = tw + 70, ph = 104, x0 = c[0] - pw / 2, y0 = c[1] - 60 - ph;
-  ctx.fillStyle = '#5b6070'; [x0 + 40, x0 + pw - 46].forEach(px => ctx.fillRect(px, y0 + ph, 6, 60));
-  ctx.fillStyle = 'rgba(12,14,30,.92)'; ctx.fillRect(x0, y0, pw, ph);
-  const col = ['#ffcc33', '#ff3d8b', '#33e1ff'][Math.floor(T / 3) % 3];
-  ctx.shadowColor = col; ctx.shadowBlur = 26; ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.strokeRect(x0 + 4, y0 + 4, pw - 8, ph - 8);
-  ctx.fillStyle = '#fff6d8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MALL CENTRAL', c[0], y0 + ph / 2 + 3); ctx.shadowBlur = 0;
-  const n = 44, per = 2 * (pw + ph); for (let i = 0; i < n; i++) { const d = i / n * per, on = ((i + Math.floor(T * 10)) % 4) < 2; let px, py;
-    if (d < pw) { px = x0 + d; py = y0; } else if (d < pw + ph) { px = x0 + pw; py = y0 + d - pw; } else if (d < 2 * pw + ph) { px = x0 + pw - (d - pw - ph); py = y0 + ph; } else { px = x0; py = y0 + ph - (d - 2 * pw - ph); }
-    ctx.fillStyle = on ? '#fff3b0' : '#6a5a30'; ctx.beginPath(); ctx.arc(px, py, 3.2, 0, 7); ctx.fill(); }
-  ctx.restore(); return y0 - 10;
 }
 function poleBadge(a, now, pulse) {   // passe 45 : halo bien visible des boutiques qui profitent du mall ou d'un pôle commercial (contour doré au sol et pastille au-dessus du toit)
   const b = mallBonus(a.x, a.y); if (!b.near && !b.pole) return;
@@ -13681,7 +13882,7 @@ function drawSatellite(now) {
   const vr = visibleRange();
   eachVisible(vr, (x, y) => {
     const rc = S.grid[idx(x, y)]; if (!rc || rc.t === 'road' || rc.t === 'part') return;
-    if (isMall(rc)) { const MP = mallPos(); if (MP && MP.w >= 10) { if (x === MP.x + MP.w - 1 && y === MP.y + MP.w - 1) { pPrism(MP.x, MP.y, MP.w, MP.w, 0, 6, '#d6c9ae'); pPrism(MP.x + MB.T.u0, MP.y + MB.T.v0, MB.T.u1 - MB.T.u0, MB.T.v1 - MB.T.v0, 0, MB.TL * MB.TZ, '#bfc4d0'); pPrism(MP.x + MB.B.u0, MP.y + MB.B.v0, MB.B.u1 - MB.B.u0, MB.B.v1 - MB.B.v0, 0, MB.H, '#f2c46a'); } return; } }   // passe 45 : grand mall en vue satellite (un seul volume)
+    if (isMall(rc)) { const MP = mallPos(); if (MP && MP.w >= 10) { if (x === MP.x + MP.w - 1 && y === MP.y + MP.w - 1) mbSat(MP.x, MP.y); return; } }   // passe 46 : grand mall en vue satellite (silhouette courbe simplifiée)
     const a = rc, T = TYPES[a.t]; if (!T) return;
     const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
     const H = fl * 15 + 6, w = a.w || 1, h = a.h || 1;
@@ -15631,7 +15832,7 @@ Object.assign(window.WSE, { coach: { st: coachSt, pick: coachPick, view: coachVi
 Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDaily, obs: netObs, render: renderNet, tab: setNetTab, unread: netUnread, badge: netBadge, save: netSave, san: netSan, reply: netReply, TPL: NET_TPL, CHAT: NET_CHAT, BOTS: NET_BOTS, reset: sd => { S.net = null; const n = netS(); if (sd != null) { n.sd = sd | 0; n.posts = []; n.chat = []; n.id = 0; netSeedContent(); n.seen = n.id; n.o = netSnap(); } NET._t = 0; return n; }, setGap: ms => { NET._t = ms ? NET._t : 0; } } });   // passe 42 : Réseau Wall Street
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
-window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
+window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 Object.defineProperty(window.WSE, 'imm', { get() { return { on: immOn, tr: imm.tr, from: imm.from, idle: imm.idle, panel: immPanel, ang: planAng, yaw: planYaw, cam: { z: scam.z, x: scam.x, y: scam.y, bs: scam.bs }, W: imm.W, H: imm.H }; } });
 })();
 </script>

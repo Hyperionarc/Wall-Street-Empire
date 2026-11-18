@@ -1225,6 +1225,25 @@ Guide de l'agriculteur : raisin jouable, élevages sans « en préparation » : 
 ### 7. Limites
 Les animaux ne sont pas individualisés (troupeau = pourcentage) ; pas de reproduction ni d'abattage choisi ; le cuir brut n'a pas d'étape de tannage ; les concurrents IA n'ouvrent pas d'élevage (leurs fermes restent des cultures) ; sprites isométriques d'élevage à générer (`ELEVAGES.md`).
 
+## Passe 46 : nouveau bâtiment principal du Mall central (architecture curviligne)
+
+Retour du producteur sur la passe 45 : « on dirait un truc de la Gay Pride avec votre écran arc-en-ciel ». On garde l'esprit, l'emprise 10×10, le clic, le pôle, la tour de parking à rampes (en haut à droite), le marché de rue (étals, parasols, scooters, tuk-tuk, arbres, banderoles, passants) ; on remplace le bâtiment principal par une architecture moderne et curviligne, esprit Guggenheim / grand mall de Dubaï. Test : `t44_mall.js` (contrôle ajouté).
+
+### 1. Le bâtiment (`mbBody`, `mbGeo`, `MBX`)
+- **Socle ondulé** : superellipse (centre 4, 4 ; rayon 3 ; exposant 2,6), six bandeaux empilés aux ondulations décalées : vitrines chaudes à montants fins, dalles de titane nacré (liseré blanc en rive, filet doré en sous-face), rubans de verre bleu-gris éclairés de l'intérieur.
+- **Tambour en spirale** : noyau vitré évasé (rayon 1,52 → 2,36 cases, cône inversé façon Guggenheim New York) qui s'incline en courbe vers la gauche (`mbDc`) et surplombe le socle ; rampe continue en ruban de titane (`mbZt`, pas de 54 px, 3,6 tours), terrasses plantées (haies) sur le dessus du ruban ; ruban de cuivre brossé qui s'enroule en diagonale de la verrière jusqu'à la couronne.
+- **Verrière ondulée** de l'atrium (nappe de verre à trois vagues entre le tambour et l'acrotère) : intérieur chaud et galeries visibles par transparence ; jardin périphérique (haies, petits arbres) sur l'acrotère.
+- **Couronne** de verre fumé portant l'enseigne **« MALL CENTRAL »** (`mbSign`) : lettres fines et espacées (IBM Plex Sans 500, repli Helvetica / Arial) posées sur la courbe (chaque lettre suit la tangente du cylindre), lueur blanc chaud, liserés dorés ; **coupole** vitrée à nervures nacrées (`mbDome`, panneaux visibles seulement), lanterne et oculus dorés.
+- **Entrées** (`mbEntrances`) : halls vitrés chauds sur deux niveaux, ailerons de titane, auvents en demi-ellipse en porte-à-faux ; projecteurs chauds au pied du socle (`mbUplights`) ; **bassin** courbe à margelle blanche entre les deux entrées, jets d'eau animés.
+- Palette sobre : titane nacré, verre bleu-gris, accents dorés et cuivrés, éclairage chaud ; aucun écran, aucun arc-en-ciel (le contrôle de `t44` mesure moins de 3 % de pixels saturés dans le rendu du bâtiment ; mesure : 0,7 %). Lumière venant de la gauche (`mbLit`, même convention que les faces des immeubles), ombres portées douces du socle et du tambour.
+- Abords : parvis de granit clair (fini le damier rouge), stations BTS / MRT en verre et titane (petite enseigne blanc chaud, `mbBlade`), passerelles-tubes courbes vers les stations et **passerelle courbe vers la tour de parking** (`mbTube`, `mbParkBridge`), passants en tenues sobres (`MB_WALK`).
+
+### 2. Performance (`mbCache`, `mbLive`)
+- La partie statique (sol, arbres de l'arrière, bâtiment, entrées, enseigne) est rendue une fois dans un canvas hors écran (`ctx` est réassigné le temps du rendu), reconstruit seulement si l'échelle (zoom × dpr, par quart d'octave, plafonnée à 2,6) ou la police change. Restent animés : passants, liserés lumineux qui courent le long de la spirale, respiration des liserés du socle, reflet du ciel qui glisse sur le tambour, jets du bassin.
+- Mesure : `drawMallBig` ≈ 0,85 ms par image contre ≈ 1,1 ms pour le rendu de la passe 45.
+- Vue satellite (`mbSat`) : version allégée du même rendu en cache (silhouette tambour + coupole lisible de loin) et tour de parking.
+- `MB.H` (hauteur de la couronne, 384 px) sert toujours au cadrage de la vue de départ ; `window.WSE.mall.render` expose `cache`, `builds`, `geo`, `MBX`, `draw` pour les tests.
+
 ## Passe 45 : le grand Mall central (bloc complet de 10×10 cases)
 
 Demande du producteur : « le mall doit prendre un block complet de 10 cases et place-le au centre », façon grand centre commercial asiatique (MBK Center à Bangkok). Test : `t44_mall.js` (étendu).
@@ -1239,7 +1258,7 @@ Demande du producteur : « le mall doit prendre un block complet de 10 cases et 
 - Le grand mall est posé avant la ville ; le mall tient lieu de cœur de ville : l'occupation des lots se mesure à `MALL_SH = 1,4` case du centre, la hauteur de départ à `MALL_LV0 = 6,5` cases, la valeur du sol de la croissance (`cityLV`, `cityTarget`) à `MALL_LV = 8,5` cases (les lots qui bordent l'anneau valent le centre) ; `CITY_D0 = 0,6` inchangé ; une rangée de lots libres au-delà de l'anneau, de chaque côté. Anciennes sauvegardes (sans grand mall) : aucun décalage.
 - Mesures : **62 600 habitants** (capacité 73 500), 247 bâtiments PNJ dont 15 parcs et 11 équipements, 425 lots libres sur 672, plus haut immeuble 11 étages. Économie de départ inchangée (`S.bx` : 289 000 habitants-équivalents, emplois / actifs 0,88). Croissance : 62 k → 70 k en 3 ans de jeu, 83 k en 9 ans ; passif 194 k en 7 200 jours (plus haut immeuble 17 étages).
 
-### 3. Rendu (`drawMallBig`, `mbLayout`, `mbBlock`, `mbItem`, `mbScreen`, `mbBlade`, `mbRoofSign`)
+### 3. Rendu (`drawMallBig`, `mbLayout`, `mbItem` ; bâtiment principal remplacé à la passe 46)
 - Sans image nouvelle (primitives iso) : bâtiment massif de 9 niveaux sur 6×6 cases (bandes de fenêtres éclairées, couronne LED en chenillard), quatre écrans LED animés (programmes « SALE −50 % », damier, arc-en-ciel, « MALL »), enseignes-drapeaux verticales (MODE, FOOD, SALE, TECH, CINÉ), bandeau d'enseignes, marquises rayées, deux grandes entrées couvertes, deux passerelles vers des pavillons (stations BTS / MRT), tour de parking à rampes accolée (logo P), enseigne « MALL CENTRAL » géante sur le toit, halo lumineux.
 - Au pied : marché de rue dense (étals à toile rayée, parasols, rangées de scooters, tuk-tuk, arbres en bacs — sprite `arbre_ville` ajouté à `P2_NAMES`), parvis dallés devant les entrées, banderoles de fanions, une centaine de passants animés. Agencement déterministe (hash) ; tout reste dans l'emprise ; dessiné une fois depuis la case avant (x0 + 9, y0 + 9), dans l'ordre de profondeur interne. Vue satellite : un volume unique.
 
