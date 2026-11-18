@@ -8,7 +8,7 @@ Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
 
 | Zone | Rôle |
 |---|---|
-| **Ville** (centre-ouest) | Depuis la passe 35 : petite ville de départ (≈ 100 000 habitants, ≈ 370 bâtiments bas, 1 à 15 étages) qui s'étend et se densifie (voir « Passe 35 »). Les anciennes sauvegardes gardent la ville d'origine de 288 000 habitants (≈ 300 immeubles de 3 à 66 étages, deux tours-repères). Grille d'avenues aérée (une tous les 6 cases, blocs de 5×5). Le promoteur y construit logements, commerces, Tour Tech et Banque |
+| **Ville** (centre-ouest) | Depuis la passe 44 : ville de départ aérée (≈ 60 000 habitants, ≈ 290 bâtiments bas, 2 à 10 étages, 61 % de lots libres) autour du **Mall central** (passe 35 : ≈ 100 000 habitants, ≈ 370 bâtiments) qui s'étend et se densifie (voir « Passe 35 »). Les anciennes sauvegardes gardent la ville d'origine de 288 000 habitants (≈ 300 immeubles de 3 à 66 étages, deux tours-repères). Grille d'avenues aérée (une tous les 6 cases, blocs de 5×5). Le promoteur y construit logements, commerces, Tour Tech et Banque |
 | **Campagne** | Presque aucune route : une autoroute ville-port et quelques départementales. Les gisements y sont rares (11 amas d'origine, plus 33 sites de matières industrielles depuis la passe 33). Puits et mines se posent dessus |
 | **Zone du port** (est, à 6-9 km de la ville) | Pré-zone industrielle quadrillée : usines et fonderie d'or |
 | **Quai et mer** | Terminal portuaire (grues, conteneurs, navire à quai). Navires animés en mer |
@@ -1216,6 +1216,29 @@ Guide de l'agriculteur : raisin jouable, élevages sans « en préparation » : 
 
 ### 7. Limites
 Les animaux ne sont pas individualisés (troupeau = pourcentage) ; pas de reproduction ni d'abattage choisi ; le cuir brut n'a pas d'étape de tannage ; les concurrents IA n'ouvrent pas d'élevage (leurs fermes restent des cultures) ; sprites isométriques d'élevage à générer (`ELEVAGES.md`).
+
+## Passe 44 : ville aérée, Mall central et pôle commercial
+
+Le joueur doit voir ce qu'il peut construire et s'approprier la ville : elle démarre clairsemée, autour d'un grand centre commercial où les rivaux vendent déjà (test `t44_mall.js`).
+
+### 1. Ville de départ aérée (`CITY_D0`, en tête du script)
+- Réglage unique `CITY_D0 = 0,6` (1 = ville de la passe 35) : `genNpcTown(grid, d0)` prend la hauteur maximale d'une ville de 100 000 × √D habitants (centre de 2 à 10 étages, aucun gratte-ciel), occupe moins de lots (`× 0,55 + 0,45 D`), ajoute des parcs et pelouses (7 % + 12 % × (1 − D) des lots du centre) et laisse libre un parvis d'une case autour du mall.
+- Mesures : **59 800 habitants** (capacité 70 200), 297 bâtiments PNJ (dont 21 parcs, 11 équipements, le mall), 463 lots libres sur 756, plus haut immeuble 10 étages.
+- **Économie de départ inchangée** : `S.bx` (champ optionnel) ajoute au bassin des habitants-équivalents de la région (villages, navetteurs) : `popE = pop × 2,8325 + bx`, calé sur `POPE_REF = 288 533` (valeur de la passe 35). Emplois par étage (`S.jpf`), demande, chômage (9,3 %) et rapport emplois / actifs (0,88) sont identiques. Aucune constante économique n'est modifiée.
+- Croissance : la ville regrandit (60 k → 67 k en 3 ans de jeu, 81 k en 9 ans en passif) ; tous les mécanismes (promoteurs, extension, densification) restent actifs.
+
+### 2. Le Mall central
+- Quatre cases PNJ `mon` (`m = 'mall'`) sur le coin 2×2 du bloc central (28-29, 28-29), contre le carrefour du centre ; sprite HD `mega_centre_commercial` (repli vectoriel), enseigne « MALL CENTRAL ». Non démolissable, non rachetable (équipement public), sauvegardé avec la ville. Il ne compte pas dans la satisfaction des services publics (économie inchangée).
+- Clic : panneau **Le Mall** (`mallHTML`) : demande de la ville par rayon (u/mois, prix de rayon, ta part, celle des rivaux), qui vend quoi (chaque rival : caste, rayons, part de marché pondérée par la demande et lue dans `S.mkt`, prix relatif ×px et écart avec ton prix, produit phare), les produits les plus demandés par rayon (`mkDemandDay`, prix de rayon), règles du pôle commercial, et trois actions : **Ouvrir ma boutique près du mall** (outil petit marché, caméra et étoile sur la case libre la plus proche), **Voir les produits**, **Importer depuis le port** (fiche de ta boutique, onglet Logistique, ou vue du port).
+- Anciennes sauvegardes : le mall est ajouté au chargement si ses quatre cases sont libres (sinon sur le coin 2×2 libre le plus proche du centre, sinon pas de mall) ; rien n'est détruit.
+
+### 3. Pôle commercial (la densité est récompensée)
+- Boutique (`s1` à `s4`) à moins de 6 cases du mall : **+20 %** de fréquentation. Quatre boutiques voisines ou plus (adjacentes ou séparées d'une case, avenue comprise) : **+10 %** et **frais fixes −8 %**. Cumul ×1,32 au plus, fréquentation plafonnée à 100 ; aucun aléa (`poleIndex`, `mallBonus`, `poleUm`).
+- Visible : pastille « Pôle commercial » dans la fiche du magasin (ou conseil pour en profiter), halo doré sous les boutiques concernées, calque Fréquentation.
+
+### 4. Démarrage
+- La caméra s'ouvre sur le mall (`cityFocus`). Conseiller : jalons rapides `mall` (« Clique sur le Mall central pour voir le marché »), `shop1` (« Ouvre ta boutique près du mall »), `imp` (« Importe un produit du port », atteint dès que tes rayons sont remplis par l'import), enchaînés sans attente ; les jalons suivants sont inchangés. L'écran d'accueil présente le mall.
+- `window.WSE.mall` : position, ouverture, données du panneau, bonus, pôle, réglages.
 
 ## Passe 35 : petite ville de départ et croissance jusqu'à un million d'habitants
 
