@@ -122,3 +122,6 @@ Tout est poussé sur `assets/factory-sprites`.
 
 ## Fermes v14 (cohérence)
 - 4 cases, bâtiment unique (long ou rond), chemin d'accès (CHEMIN dans parcelle.py), tracteur, ouvriers/fermier, cheptels étalés sur tout le terrain. Bovins : stabulation ronde. Poulets : dépassement résiduel ≈5 % (silo) ; le contrôle EMPRISE n'est pas valable pour un bâtiment rond.
+
+## Cultures et chai (4 cases)
+- Bug corrigé dans parcelle.py : les boucles des cultures écrasaient `k` (échelle du bâtiment) → hangar géant / bâtiment absent (sucre). Blé, sucre, coton : hangar+silo réduit, chemin, tracteur, ouvriers. Chai : recadré. Reste : caoutchouc, remplissage complet du terrain par la culture.
