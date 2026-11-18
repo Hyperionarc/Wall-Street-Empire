@@ -105,7 +105,7 @@ def main():
     # trottoir (bordure) puis chaussée
     poly(d, [P(0, 0), P(1, 0), P(1, 1), P(0, 1)], (206, 206, 200, 255))
     m = 0.035
-    poly(d, [P(m, m), P(1 - m, m), P(1 - m, 1 - m), P(m, 1 - m)], (74, 78, 86, 255) if mode == 'parking' else (128, 124, 116, 255))
+    poly(d, [P(m, m), P(1 - m, m), P(1 - m, 1 - m), P(m, 1 - m)], (74, 78, 86, 255) if mode == 'parking' else ((108, 160, 80, 255) if mode == 'jardin' else (128, 124, 116, 255)))
     # liseré de bordure
     for (a, b) in [((0, 0), (1, 0)), ((1, 0), (1, 1)), ((1, 1), (0, 1)), ((0, 1), (0, 0))]:
         d.line([P(*a), P(*b)], fill=(236, 236, 230, 255), width=3 * SS)
@@ -366,11 +366,12 @@ def main():
         pts.append((0.985, t))      # bord bas-droit   (u ~ 1)
     pts += [(0.985, 0.02), (0.02, 0.985)]
     if ferme: pts = []
+    if mode == 'jardin': pts = [(0.93, 0.35), (0.35, 0.93), (0.93, 0.7), (0.7, 0.93)]
     pts.sort(key=lambda p: p[0] + p[1])
     for (u, v) in pts:
         arbre(u, v)
     # lampadaires
-    for (u, v) in ([] if ferme else [(0.5, 0.985), (0.985, 0.5)]):
+    for (u, v) in ([] if (ferme or mode == 'jardin') else [(0.5, 0.985), (0.985, 0.5)]):
         x, y = P(u, v, 0)
         dc.line([(x, y), (x, y - 50 * SS)], fill=(70, 74, 82, 255), width=3 * SS)
         dc.ellipse([x - 5 * SS, y - 56 * SS, x + 5 * SS, y - 46 * SS], fill=(250, 240, 190, 255))
