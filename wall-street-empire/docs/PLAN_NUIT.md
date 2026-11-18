@@ -18,7 +18,7 @@ Objectif : rejoindre SimCity (la ville vivante) et Capitalism Lab (la profondeur
 5a. [ ] **Chantiers validés par Rémy (18 nov., 00 h)** : combler les sept écarts économiques, dans cet ordre (un agent par lot, un seul en cours à la fois quand la machine est chargée) :
    - (i) **Stock local par usine + carnet de commandes réel + fin de l'export silencieux du surplus** : chaque usine a son propre stock ; le carnet devient une vraie file de commandes dans la simulation (commandes de clients, retards, annulations) ; le surplus est un choix visible (export chiffré, désactivable), jamais silencieux.
    - (ii) **Rivaux qui fabriquent** : chaînes réelles croissant avec le palier du joueur (voitures, ordinateurs).
-   - (iii) **Brevets liés à un produit avec licences** (fin de la rente fixe).
+   - (iii) **Brevets liés à un produit avec licences** (fin de la rente fixe). **Fait (passe 47)** : brevets de produit, licences, brevets des rivaux, panneau R&D et brevets, accélération en Diamants (aucun paiement réel, `IAP_LIVE = false`).
    - (iv) **Obligations** : émission, coupon selon le cycle et la notation, échéances (onglet Financement > Debt raising).
    - (v) **Éditeur de scénarios JSON + défi de classe asynchrone**.
    - (vi) **Multijoueur asynchrone** (serveur et WebSocket : conception d'abord, selon le PDF d'investisseurs).
