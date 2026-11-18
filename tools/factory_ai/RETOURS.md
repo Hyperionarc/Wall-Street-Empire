@@ -125,3 +125,6 @@ Tout est poussé sur `assets/factory-sprites`.
 
 ## Cultures et chai (4 cases)
 - Bug corrigé dans parcelle.py : les boucles des cultures écrasaient `k` (échelle du bâtiment) → hangar géant / bâtiment absent (sucre). Blé, sucre, coton : hangar+silo réduit, chemin, tracteur, ouvriers. Chai : recadré. Reste : caoutchouc, remplissage complet du terrain par la culture.
+
+## Maïs et colza
+- Nouvelles cultures `fcorn` (maïs → huile) et `frapeseed` (colza → carburant), mêmes règles que les autres fermes (4 cases, hangar+silo, chemin, tracteur, ouvriers). Mode `ferme:mais` / `ferme:colza` dans parcelle.py.
