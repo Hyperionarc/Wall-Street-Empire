@@ -6,7 +6,8 @@ const A = process.argv.slice(2), arg = (k, d) => { const i = A.indexOf('--' + k)
 if (process.env.SIM_WORKER) {
   const { chromium } = require('playwright'); const jobs = JSON.parse(process.env.SIM_WORKER), out = process.env.SIM_OUT, DAYS = +process.env.SIM_DAYS;
   const botSrc = fs.readFileSync(path.join(__dirname, 'bot_lib.js'), 'utf8');
-  const PRESET = { bon: { lev: 0.45, every: 4, idle: 0, p: { hurdle: 0.05 } }, rapide: { lev: 0.55, every: 2, idle: 0, p: { hurdle: 0.03, mature: 28, maxPerTick: 8, demC: { s1: 0.5, s2: 0.45, s3: 0.3, s4: 0.35 } } }, lent: { lev: 0.35, every: 8, idle: 0.25, p: { hurdle: 0.08, mature: 45 } }, casual: { lev: 0.25, every: 12, idle: 0.5, p: { hurdle: 0.10, mature: 50 } }, industriel: { lev: 0.5, every: 3, idle: 0, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.6, bourse: false, fam: ['s1', 's2', 's3', 's4', 'off', 'miron', 'mcopper', 'mcoal', 'mgold', 'well'] } } };
+  const PRESET = { bon: { lev: 0.45, every: 4, idle: 0, p: { hurdle: 0.05 } }, rapide: { lev: 0.55, every: 2, idle: 0, p: { hurdle: 0.03, mature: 28, maxPerTick: 8, demC: { s1: 0.5, s2: 0.45, s3: 0.3, s4: 0.35 } } }, lent: { lev: 0.35, every: 8, idle: 0.25, p: { hurdle: 0.08, mature: 45 } }, casual: { lev: 0.25, every: 12, idle: 0.5, p: { hurdle: 0.10, mature: 50 } }, industriel: { lev: 0.5, every: 3, idle: 0, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.6, bourse: false, fam: ['s1', 's2', 's3', 's4', 'off', 'miron', 'mcopper', 'mcoal', 'mgold', 'well'] } },
+    fermier: { lev: 0.4, every: 3, idle: 0, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.5, bourse: false, fam: ['fwheat', 'fsugar', 'fcotton', 'fvine', 'fcattle', 'fchicken', 'fpig', 'fsheep', 's1', 's2', 's3'] } } };
   (async () => {
     const b = await chromium.launch();
     for (const j of jobs) {
@@ -20,7 +21,7 @@ if (process.env.SIM_WORKER) {
           const r = await p.evaluate(([every, DAYS]) => { const W = window.WSE, S = W.S, t = S.day + 100; while (S.day < t && !S.mode.done) { for (let k = 0; k < every; k++) W.step(); window.BOT.tick(); } const F = S.fin || {}; return { d: S.day, done: S.mode.done || null, val: Math.round(W.valuation()), cash: Math.round(S.cash), loan: Math.round(S.loan || 0), net: Math.round(F.net || 0), rk: W.rankPlayers()[0], n: W.rankPlayers()[1], unemp: +(S.stats.unemp || 0).toFixed(3), happy: Math.round(S.stats.happy || 0), pop: Math.round(S.pop), bld: Object.values(window.BOT.cnt).reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0) }; }, [pre.every, DAYS]);
           series.push(r); if (r.done || r.d >= DAYS) { fin = r; break; }
         }
-        fs.appendFileSync(out, JSON.stringify({ caste: j.caste, profile: j.profile, seed: j.seed, events: j.events, series, fin, errs: errs.slice(0, 2), ms: Date.now() - t0 }) + '\n');
+        fs.appendFileSync(out, JSON.stringify({ persona: j.persona, caste: j.caste, profile: j.profile, seed: j.seed, events: j.events, series, fin, errs: errs.slice(0, 2), ms: Date.now() - t0 }) + '\n');
       } catch (e) { fs.appendFileSync(out, JSON.stringify({ caste: j.caste, profile: j.profile, seed: j.seed, events: j.events, erreur: String(e).slice(0, 200) }) + '\n'); }
       await p.close();
     }
@@ -31,7 +32,8 @@ if (process.env.SIM_WORKER) {
   const castes = (arg('castes', 'agriculteur,banquier,negociant,industriel,promoteur,innovateur')).split(','), profiles = (arg('profiles', 'bon,rapide,lent,casual')).split(',');
   const jobs = [];
   if (A.includes('--personas')) {   // même monde pour les trois personas : même graine et même caste ; hardcore = rapide (optimise), « elle » = bon (régulière), ado = casual (parties courtes, joue peu)
-    for (let s = 1; s <= seeds; s++) for (const pr of ['rapide', 'bon', 'casual']) jobs.push({ caste: castes[(s - 1) % castes.length], profile: pr, seed: 7000 + s, events: true });
+    const PERS = [['hardcore', 'rapide'], ['joueuse', 'bon'], ['ado', 'casual'], ['fermier', 'fermier']];   // monde partagé : même graine ; chaque persona prend une caste différente et tourne sur les six castes au fil des mondes
+    for (let w = 1; w <= seeds; w++) PERS.forEach((pr, i) => jobs.push({ persona: pr[0], caste: castes[(w - 1 + i) % castes.length], profile: pr[1], seed: 7000 + w, events: true }));
   } else for (let s = 1; s <= seeds; s++) for (const c of castes) for (const p of profiles) jobs.push({ caste: c, profile: p, seed: 1000 * s + 17 * castes.indexOf(c) + 3 * profiles.indexOf(p), events: s % 2 === 0 });
   fs.writeFileSync(out, ''); const slices = Array.from({ length: W }, () => []); jobs.forEach((j, i) => slices[i % W].push(j));
   console.log(jobs.length, 'parties,', W, 'travailleurs, horizon', days, 'jours ->', out);
