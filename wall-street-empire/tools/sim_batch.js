@@ -31,7 +31,10 @@ if (process.env.SIM_WORKER) {
   const out = path.resolve(A[0] || 'sim_results.jsonl'), W = +arg('workers', 4), seeds = +arg('seeds', 10), days = +arg('days', 3600);
   const castes = (arg('castes', 'agriculteur,banquier,negociant,industriel,promoteur,innovateur')).split(','), profiles = (arg('profiles', 'bon,rapide,lent,casual')).split(',');
   const jobs = [];
-  if (A.includes('--personas')) {   // même monde pour les trois personas : même graine et même caste ; hardcore = rapide (optimise), « elle » = bon (régulière), ado = casual (parties courtes, joue peu)
+  if (A.includes('--like')) {   // rejoue exactement les mêmes parties qu'un autre fichier (comparaison avant/après d'une modification)
+    const src = arg('like', ''), lim = +arg('limit', 24), seen = new Set();
+    fs.readFileSync(src, 'utf8').split('\n').filter(Boolean).forEach(l => { try { const r = JSON.parse(l); if (r.series && jobs.length < lim) jobs.push({ persona: r.persona, caste: r.caste, profile: r.profile, seed: r.seed, events: r.events }); } catch (e) {} });
+  } else if (A.includes('--personas')) {   // même monde pour les trois personas : même graine et même caste ; hardcore = rapide (optimise), « elle » = bon (régulière), ado = casual (parties courtes, joue peu)
     const PERS = [['hardcore', 'rapide'], ['joueuse', 'bon'], ['ado', 'casual'], ['fermier', 'fermier']];   // monde partagé : même graine ; chaque persona prend une caste différente et tourne sur les six castes au fil des mondes
     for (let w = 1; w <= seeds; w++) PERS.forEach((pr, i) => jobs.push({ persona: pr[0], caste: castes[(w - 1 + i) % castes.length], profile: pr[1], seed: 7000 + w, events: true }));
   } else for (let s = 1; s <= seeds; s++) for (const c of castes) for (const p of profiles) jobs.push({ caste: c, profile: p, seed: 1000 * s + 17 * castes.indexOf(c) + 3 * profiles.indexOf(p), events: s % 2 === 0 });
