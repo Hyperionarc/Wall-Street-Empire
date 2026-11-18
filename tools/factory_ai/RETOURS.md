@@ -264,3 +264,16 @@ Le joueur veut étendre sa surface commerciale par des **magasins spécialisés 
 5. `maison_deco` (2×1) : magasin de meubles et décoration : grandes vitrines de canapés, lampes, literie ; `sport_loisirs` (2×1) : magasin de sport, vélos et tentes devant, grande enseigne colorée sans texte.
 6. Niveaux : variantes `_n2` et `_n3` plus riches pour `boutique_mode`, `boulangerie`, `cafe_de_quartier` (mêmes noms de base).
 7. Rappels de la commande n° 8 toujours en attente : supermarché/hypermarché à la bonne caméra, mall architectural, scènes, avatars.
+
+---
+## Revue qualité n°1 (intégrateur → Cowork) — exigence : plus haute qualité, palette unifiée
+
+Voir `wall-street-empire/docs/CHARTE_VISUELLE.md` (nouvelle). Résumé par famille :
+- **Fermes** : meilleur lot à ce jour (2:1 exact, cohérent). À corriger : verts trop saturés, grange rouge répétée (varier toit/teinte), animaux minuscules, colza trop proche du blé et trop vif.
+- **Routes route_*** : trottoirs à centre transparent → base asphalte intégrée nécessaire.
+- **Herbe / terre** : variantes quasi identiques et sur-saturées → désaturer, varier la texture.
+- **Véhicules** : angle trop raide (non 2:1), primaires criardes → neutres + 1 accent.
+- **Services** : pictogrammes de toit trop saturés ; gare : icône voiture mal placée.
+- **Supermarché / hypermarché** : voitures et bâtiment trop petits, angle à régénérer.
+- **Centrales** : respecter l'échelle (nucléaire 3×3 < solaire 5×4).
+Merci de re-livrer ces familles pour une revue n°2. Le build corrigera les dérives de saturation, mais la source doit déjà être sobre.
