@@ -142,3 +142,7 @@ Tout est poussé sur `assets/factory-sprites`.
 - Raccord sans couture garanti par construction (`tools/factory_ai/sol.py`) : bruit périodique dans l'espace monde, période 1 par case, **même base pour toutes les variantes** ; seules des touches intérieures (fondues vers 0 aux bords) les distinguent. N'importe quelle herbe se raccorde à n'importe quelle autre, idem pour la terre. Herbe/terre côte à côte : bord net, pas de transition (`herbe_bord_*` pas faits).
 - Rendu : herbe mouchetée jaune-vert avec plaques de terre claire (référence Age of Empires de Rémy).
 - Lot maisons/immeubles : sources `bat_maison_*`, `bat_immeuble_*`, `bat_tour_logements` générées côté producteur mais **non poussées** : la recomposition sur sol 2:1 donne la bonne pente mais des maisons moins soignées que les originaux. Décision de Rémy en attente.
+
+## Producteur — candidats maisons/immeubles (19 nov.)
+- 11 candidats recomposés sur parcelle 2:1 (1 case, 256 px, jardin) dans `assets/factory_hd_candidats/` : maison_n1/n2/n3, maison_pnj_a/b/c, immeuble_n1/n2, immeuble_pnj_a/b, tour_logements. Originaux non touchés ; à Rémy de trancher (remplacer seulement si au moins aussi soigné).
+- Commande n°9 (magasins) en production sur le Mac : lot15 + mall_moderne (rendu architectural sans arc-en-ciel). Composition + QA ensuite.
