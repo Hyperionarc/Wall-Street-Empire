@@ -141,3 +141,49 @@ Constaté à l'écran, du zoom le plus large au plus serré :
 4. **Camp de bûcherons** : sprite HD branché, mais trop petit sous les arbres voxels ; il retrouvera sa place avec la nouvelle forêt.
 5. **Objets divers vectoriels** : tour de télécommunication, parcs, monuments, stades, voitures et bateaux : à lister avec le producteur ; `voiture_ville_a/b`, `navire_cargo`, `parc_urbain`, `stade_sport` existent en phase 2 mais ne sont pas encore branchés.
 6. **Niveau de détail au zoom maximal** : les bâtiments HD sont nets ; les sprites de la phase 2 sont embarqués à demi-résolution (198 px par case) et restent corrects au zoom maximal sauf le camp de bûcherons et les mines vus de très près (légèrement flous). Si le producteur préfère, je peux repasser en pleine résolution pour une liste ciblée (+3 Mo).
+## Producteur (Mac) — 17 nov. 2026, soir : commerces recalés sur la grille 2:1
+Problème constaté en jeu : le losange au sol de `supermarche` et `hypermarche` penchait à environ 0,78 (au lieu de 0,5) et ne suivait pas les routes. Corrigé : le bâtiment est généré seul (`bat_*.png`), puis posé par `parcelle.py` sur une parcelle dessinée par programme, **exactement 2:1** (parking, places, voitures, arbres, trottoir).
+- `drugstore` : parcelle de **2x2 cases**, losange 512 x 256 px, image 512 x ~480.
+- `supermarche` : **2x2 cases**, losange 512 x 256 px.
+- `hypermarche` : **3x3 cases**, losange 768 x 384 px.
+- `ancres.json` : `ancre_x/ancre_y` = centre du losange au sol ; nouveaux champs `emprise_px` (largeur du losange) et `emprise_cases`. Pour poser : échelle = (cases x largeur d'une case en jeu) / `emprise_px`.
+- Hypothèse : une case = 256 px de large en HD (comme la ville). À confirmer ; si la case HD est 396 px, c'est le facteur d'échelle qui change, pas les images.
+- Mesure sur les autres sprites de la ville : la pente du losange au sol est de 0,6 à 0,8 (cible 0,5) pour la plupart des maisons et immeubles (angle de caméra d'environ 35 degrés au lieu de 30). Les dalles vertes des maisons masquent l'écart, mais dis-moi si tu vois des décalages : je peux les redresser en lot.
+
+## Producteur (Mac) — 17 nov. 2026, soir : refonte graphique (réponse aux demandes n° 6 et 7)
+Tout est poussé sur `assets/factory-sprites`.
+- **Routes (16)** dessinées par programme : bords exacts, raccord sans couture vérifié sur un petit réseau. `assets/phase2_hd/` : `route_droite_ne` (axe NE-SW), `route_droite_nw` (axe NW-SE), `route_croix`, `route_t_{ne,se,sw,nw}` (le suffixe = côté sans branche), `route_coude_ne_se`, `route_coude_se_sw`, `route_coude_sw_nw`, `route_coude_ne_nw`, `route_bout_{ne,se,sw,nw}` (le suffixe = côté où la route arrive), `route_isolee`. Les anciens `route_t`, `route_coude`, `route_bout` sont supprimés (ils étaient incohérents entre eux). Losange 396x198, trottoir sur les bords. Script : `routes.py`.
+- **Sols** : `herbe_a`, `herbe_b`, `herbe_c` (3 variantes de pelouse).
+- **Végétation** : `foret_dense_a/b/c`, `foret_sapins_a/b` (groupes d'arbres sur dalle), `arbre_isole_a/b/c/d`, `buisson_a/b`, `rochers_a/b`.
+- **Gisements** : `gisement_or` (nouveau, doré saturé), `gisement_fer` (rouge vif, arêtes métalliques), `gisement_petrole` (flaque noire avec geyser).
+- **Scierie** : `assets/factory_hd/scierie_exterieure.png` (parcelle 1x1 : 256x128 de losange).
+- **Caméra / losange 2:1** : `mega_centre_commercial` (`phase2_hd`, 3x3 cases) refait avec la parcelle dessinée en 2:1 exact comme `supermarche`, `hypermarche`, `drugstore`. Contrôles `usine_*`, `centre_rd`, `data_center`, `terminal_portuaire`, `centrales` : non refaits, à signaler si un décalage se voit en jeu.
+- **Fermes et élevages (3x3 cases, 768x384 de losange, parcelle 2:1 exacte)** dans `assets/factory_hd/` : `fwheat`, `fsugar`, `fcotton`, `frubber`, `fvine`, `fcattle`, `fchicken`, `fpig`, `fsheep`. Rappel : 3x3 pour une emprise 3x4 (règle de ton calage).
+- **Ancres** : `assets/phase2_hd/ancres.json` (158 entrées, ancre et emprise déduites de la boîte englobante, comme ta règle). Les sprites générés par `parcelle.py` ont `emprise_px` et `emprise_cases` dans `assets/factory_hd/ancres.json`.
+- **Guide léger** : `assets/guide_hd_256/<clé>.jpg` (256 px, 1,3 Mo pour les 163).
+- Pas encore fait : niveaux 2 et 3 (usine, supermarché, hypermarché), câble enterré, pipeline, concasseur (`crush`). Je continue dans cet ordre.
+
+## Niveaux 2 et 3 des commerces (Mac → intégrateur)
+- Ajoutés : `supermarche_n2`, `supermarche_n3` (512×~342, 2×2), `hypermarche_n2`, `hypermarche_n3` (768×~496, 3×3), dans assets/factory_hd, même losange 2:1 exact et mêmes ancres que le niveau 1 (ancre = centre du losange, voir ancres.json). Bâtiments seuls : `bat_*_n2/n3`.
+- Non vérifié en jeu.
+
+## Refonte réaliste (référence : Age of Empires Mobile)
+- Blé (`fwheat`) : champ dense d'épis dorés avec vagues de vent et sentier. `fsugar`, `fcotton` : plants individuels sur sillons, avec ombres. `fvine` : chai en pierre (cuves inox, tonneaux), ceps avec grappes, vendangeurs.
+- Élevages refaits selon le métier : `fcattle` (salle de traite, foin, meules, sans silo), `fsheep` (bergerie avec tonte et traite), `fpig` (long hangar à auges), `fchicken` (long poulailler, caisses d'œufs). Même losange 2:1 (3×3, 768 px), mêmes ancres.
+- Animaux phase 2 régénérés en 240×195 (réalistes, en chair) : animal_vache/cochon/mouton/poule. Nouveaux objets : meule_foin, balles_foin, auge_foin, vendangeur, vigneron_hotte, fermier_seau.
+- Nature régénérée : herbe_a/b/c, arbre_isole_a–d, buisson_a/b, foret_dense_a–c, foret_sapins_a/b. Véhicules `veh_*` (10) générés, pas encore posés dans les parkings.
+- Non vérifié en jeu. `frubber` (caoutchouc) pas encore refait.
+
+## Élevages recadrés (corrige la version précédente)
+- `fcattle`, `fsheep`, `fpig`, `fchicken` : les longs bâtiments sont maintenant posés le long du bord nord→est (pointe haute → pointe est), deux bâtiments bout à bout, chacun par son coin avant sur l'arête du losange. Pente du sol ramenée à 2:1 par affine (verticales conservées). Dépassement hors bande mesuré ≈ 3 % (bouts de toit seulement).
+- Cheptels visibles : 55 vaches, 220 moutons, 170 cochons, 260 poules ; meules, auges, soigneurs.
+- Outils : `parcelle.py` (variables BAT_FLIP, BAT_COIN, BAT_AUTOV, BAT_N), `ferme_cadre.py`, `emprise_check.py`. Même emprise 3×3 (768 px), mêmes ancres.
+- Pas vérifié en jeu. Cultures (blé, sucre, coton, vigne) gardent leur hangar : non recadrées avec cette méthode.
+
+## Fermes recadrées (4 cases, un seul bâtiment)
+- Poulets, porcs (mare), moutons : une ferme de 4 cases, un seul bâtiment le long du bord nord→est, cheptels aérés dont l'effectif suit la surface (agrandissements). Consignes dans `CONSIGNES_FERMES.md`.
+- Nouveaux sprites : stabulation ronde, étable traversante, carrousel de traite, poulailler/porcherie longs (vaches pas encore recomposées).
+- Dépassement résiduel : poulets ≈4,6 % (silo en bout), porcs ≈1,6 %, moutons ≈0,2 %.
+
+## Fermes v14 (cohérence)
+- 4 cases, bâtiment unique (long ou rond), chemin d'accès (CHEMIN dans parcelle.py), tracteur, ouvriers/fermier, cheptels étalés sur tout le terrain. Bovins : stabulation ronde. Poulets : dépassement résiduel ≈5 % (silo) ; le contrôle EMPRISE n'est pas valable pour un bâtiment rond.
