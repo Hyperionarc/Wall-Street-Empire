@@ -8,7 +8,7 @@ exports.run = async (t, L) => {
   for (const k of ['bread', 'utensils']) {
     const r = await CA.runChain(CA.PLANS[k], days), b = await CA.runChain(CA.PLANS[k], days, true), d = CA.delta(r, b);
     t.range(`chaîne ${k} bien construite : EBITDA global 12-35 %`, d.margin * 100, 12, 35, ' %', 0);
-    t.range(`chaîne ${k} bien construite : retour sur capex 2-5,5 ans`, d.payback, 2, 5.5, ' an', 1);
+    t.range(`chaîne ${k} bien construite : retour sur capex 1,5-5,5 ans (marges relevées)`, d.payback, 1.5, 5.5, ' an', 1);
     t.check(`chaîne ${k} : 0 pageerror`, r.errs.length === 0, r.errs.slice(0, 2).join(';'));
   }
   // Chaîne mal construite : usine de pain seule, farine à acheter. L'auto-production suspend les achats ruineux : pas de perte, pas de gain miracle.

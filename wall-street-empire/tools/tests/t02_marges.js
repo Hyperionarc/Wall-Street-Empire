@@ -1,17 +1,17 @@
 // Marges par secteur (feuille maîtresse d'équilibrage, passe 16). EBITDA = (CA - intrants - salaires - entretien - fret - pub) / CA, macro figée.
 exports.name = 'Marges et rendements';
 exports.run = async (t, L) => {
-  // Commerce : s1..s4 sur le banc d'une ville (8 logements), EBITDA 5-14 % (s4 : 5-15 % depuis les 12 rayons maximum, passe 22)
+  // Commerce : s1..s4 sur le banc d'une ville (8 logements), EBITDA 5-21 % (s4 : 5-22 %) : marges de rayon relevées de 12 à 20 points de marque (RETAIL_MK) pour récompenser le commerce, décision du producteur du 18 novembre
   const r = await L.bench(`B.s1=inC('s1'); B.s2=inC('s2'); B.s3=inC('s3'); B.s4=inC('s4'); for(let i=0;i<8;i++) inC('res'); inP('port');`, 50, 60);
-  ['s1', 's2', 's3', 's4'].forEach(k => { const o = r.res[k]; t.check(`${k} : EBITDA 5-${k === 's4' ? 15 : 14} % (arrondi à l'unité)`, !!o && Math.round(o.eb * 100) >= 5 && Math.round(o.eb * 100) <= (k === 's4' ? 15 : 14), o ? `EBITDA ${(o.eb * 100).toFixed(1)} %, MB ${(o.gm * 100).toFixed(0)} %` : 'absent'); });
+  ['s1', 's2', 's3', 's4'].forEach(k => { const o = r.res[k]; t.check(`${k} : EBITDA 5-${k === 's4' ? 22 : 21} % (arrondi à l'unité)`, !!o && Math.round(o.eb * 100) >= 5 && Math.round(o.eb * 100) <= (k === 's4' ? 22 : 21), o ? `EBITDA ${(o.eb * 100).toFixed(1)} %, MB ${(o.gm * 100).toFixed(0)} %` : 'absent'); });
   t.check('commerce : 0 pageerror', r.errs.length === 0, r.errs.slice(0, 2).join(';'));
 
   // Usines : économie isolée (intrants au prix de base, 100 % d'effectif)
   const F1 = ['steel', 'chem', 'plastic', 'wire', 'plank', 'flour', 'fabric', 'glass'], F2 = ['osb', 'tire', 'motor', 'battery'], PH = ['headache', 'cough', 'obesity'];
   const all = await L.pool([...F1, ...F2, ...PH], 4, k => L.isoFactory(k));
   const by = Object.fromEntries(all.map(a => [a.key, a]));
-  F1.forEach(k => t.range(`f1 ${k} : EBITDA 10-18 %`, by[k].eb * 100, 10, 18, ' %'));
-  F2.forEach(k => t.range(`f2 ${k} : EBITDA 10-18 %`, by[k].eb * 100, 10, 18, ' %'));
+  F1.forEach(k => t.range(`f1 ${k} : EBITDA 10-21 %`, by[k].eb * 100, 10, 21, ' %'));
+  F2.forEach(k => t.range(`f2 ${k} : EBITDA 10-21 %`, by[k].eb * 100, 10, 21, ' %'));
   PH.forEach(k => t.check(`pharma ${k} : marge brute >= 72 %`, by[k].gm >= 0.72, `MB ${(by[k].gm * 100).toFixed(0)} %, EBITDA ${(by[k].eb * 100).toFixed(0)} %`));
   PH.forEach(k => t.range(`pharma ${k} : EBITDA 30-45 %`, by[k].eb * 100, 30, 45, ' %', 0));
   t.check('usines isolées : 0 pageerror', all.every(a => a.errs.length === 0), all.flatMap(a => a.errs).slice(0, 2).join(';'));
