@@ -187,3 +187,18 @@ Tout est poussé sur `assets/factory-sprites`.
 
 ## Fermes v14 (cohérence)
 - 4 cases, bâtiment unique (long ou rond), chemin d'accès (CHEMIN dans parcelle.py), tracteur, ouvriers/fermier, cheptels étalés sur tout le terrain. Bovins : stabulation ronde. Poulets : dépassement résiduel ≈5 % (silo) ; le contrôle EMPRISE n'est pas valable pour un bâtiment rond.
+
+## Contrôle qualité complet des sprites par l'intégrateur (18 nov.) : angle, débordement, coupes
+Outil : `python3 tools/factory_ai/asset_qa.py` (370 sprites de `factory_hd` et `phase2_hd`). Il mesure la **pente des arêtes basses de la dalle** (le jeu est en projection 2:1 : pente 0,50, caméra à 30°), le débordement hors de la parcelle, les images coupées et les dalles décentrées. À lancer côté producteur avant chaque push ; un sprite hors tolérance est un rebut.
+**1. Angle de caméra incohérent (le défaut principal).**
+- Tuiles de sol et de route (`route_*`, `sol_*`, `herbe_*`, `eau_*`, 26 images) : pente 0,50 exacte, correct.
+- `supermarche`, `hypermarche`, `drugstore` : 0,50 (dalle correcte) ; mais les variantes `bat_supermarche(_n2,_n3)`, `bat_hypermarche(_n2,_n3)`, `bat_mega_centre_commercial`, `bat_scierie` : 0,66 à 0,73.
+- **Tous les bâtiments de ville** (maisons, immeubles, boulangerie, café, école, église, gare, hôpital, mairie, hôtel, banque, tours et gratte-ciel) : pente 0,60 à 0,76, soit une caméra de 40 à 48 degrés. La mairie (0,76), les gratte-ciel 40 étages (0,89), l'école, l'hôpital, la gare, l'hôtel et la banque (0,73 à 0,76) sont les plus relevés.
+- Mines et carrières : 0,54 à 0,71 ; gisements : 0,43 à 0,71 (`gisement_cuivre`, `_graphite`, `_zinc` sont trop bas : 0,43 à 0,46).
+- Conséquence : à 0,70 la parcelle est 40 % plus haute que le losange de la case (91 px au lieu de 66) et déborde sur la route et la parcelle voisine. En attendant les images corrigées, le jeu **écrase verticalement** chaque sprite (coefficient mesuré, 0,56 à 0,95) pour le ramener sur la grille ; c'est un pis-aller qui aplatit un peu les façades.
+- À produire : refaire en **pente 0,50 ± 0,03** les familles ci-dessus, avec la caméra de `drugstore.png`/`supermarche.png` (dalle) mais en gardant leur volume de bâtiment.
+**2. Sprites coupés au bord du canevas** (pixels opaques sur la première ou la dernière ligne ou colonne) : 112 images, dont les gratte-ciel 25 étages, tours de bureaux 12 étages, raffinerie, citerne, torchère, murs bas, éolienne, centrale nucléaire, entrepôt, chantiers, bacs de matières, forêts et arbres. Marge transparente d'au moins 4 px sur les quatre côtés.
+**3. Dalles décentrées** (le milieu de la dalle n'est pas au milieu de l'image, écart > 6 % de la largeur) : 26 images, dont `arbre`, `camion_*`, `chariot_elevateur`, `convoyeur_coin`, `rack_stockage`, `rack_vide`, `mur_bas_*` (0,23), `presse`, `machine_assemblage`, `manufacturing_unit`, `quai_chargement`, `eolienne`. Le jeu ancre ces objets sur le centre de la dalle ; un décalage les pose à côté de leur case.
+**4. Doublons de noms** : `bat_ferme_porcherie_long` et `bat_ferme_porcherie_longue` ; `bat_ferme_poulailler` et `_long` ; plusieurs séries `bat_*` (bat_chai_vigne, bat_chai_vigneron, bat_drugstore) en plus des noms sans préfixe : dire lesquels sont les versions finales pour que je branche les bonnes.
+**5. Personnages et accessoires** (`ouvrier_*`, `chariot_elevateur*`) : pente 0,14 à 0,37, normal pour des objets sans dalle, mais préciser leur ancre (pieds) dans `ancres.json`.
+**6. Nouveaux assets bien reçus** : forêts (`foret_dense_a/b/c`, `foret_sapins_a/b`), arbres isolés, buissons, animaux, fermes 4 cases v14 : je les branche ensuite ; mêmes contrôles à appliquer avant push.
