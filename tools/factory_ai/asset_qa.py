@@ -4,7 +4,8 @@ débordement hors de la parcelle (pixels opaques hors du losange élargi de l'é
 Usage : python3 tools/factory_ai/asset_qa.py [dossier ...]   (défaut : assets/factory_hd assets/phase2_hd)  ->  tableau + JSON dans stdout / --json fichier"""
 import sys, os, json
 from PIL import Image
-import numpy as np
+import numpy as np, warnings
+warnings.filterwarnings('ignore')
 
 def analyse(path):
     im = Image.open(path).convert('RGBA'); a = np.array(im.getchannel('A')) > 40; h, w = a.shape
@@ -17,11 +18,12 @@ def analyse(path):
     wid = ext[:, 1] - ext[:, 0]; wid[ext[:, 0] < 0] = 0; mw = wid.max(); rows = np.where(wid >= mw - 3)[0]; ym = rows.mean(); xl = ext[rows, 0].min(); xr = ext[rows, 1].max()
     # pente des arêtes basses : régression x(y) sur le tiers central de la demi-hauteur basse
     yb = y1; span = yb - ym
-    sel = [y for y in range(int(ym + 0.25 * span), int(ym + 0.7 * span)) if wid[y] > 0]
+    sel = [y for y in range(int(y1 - 0.30 * span), int(y1 - 0.06 * span)) if wid[y] > 0]   # V du bas de la dalle : le bâtiment ne la masque pas
     slope = None
     if len(sel) > 6:
         yy = np.array(sel, float); L = ext[sel, 0].astype(float); R = ext[sel, 1].astype(float)
-        sl = abs(np.polyfit(L, yy, 1)[0]); sr = abs(np.polyfit(R, yy, 1)[0]); slope = (sl + sr) / 2
+        try: sl = abs(np.polyfit(L, yy, 1)[0]); sr = abs(np.polyfit(R, yy, 1)[0]); slope = (sl + sr) / 2
+        except Exception: slope = None
     # débordement : pixels opaques sous la rangée la plus large hors du losange (demi-largeur décroissante avec pente 0,5) élargi de 6 % de la largeur
     tol = 0.06 * mw; over = 0; tot = 0
     for y in range(int(ym) + 1, h):

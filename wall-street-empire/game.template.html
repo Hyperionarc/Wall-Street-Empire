@@ -14174,7 +14174,7 @@ Object.keys(CITYHD).forEach(n => { const im = new Image(), e = CITY_IMG[n] = { i
 const CITY_HOUSES = ['maison_moderne_cubique', 'pavillon_banlieue', 'maison_de_ville_briques', 'chalet_savoyard', 'maison_japonaise', 'villa_mediterraneenne', 'maison_bois_nordique'];
 function cityHouse(a) { const c = CITY_HOUSES.filter(n => CITY_IMG[n] && CITY_IMG[n].ok); return c.length ? CITY_IMG[c[Math.floor(a.seed * 7919) % c.length]] : null; }
 function cityBox(hs, p) {   // cadre d'un sprite de ville : le losange de la parcelle (emprise opaque) est calé sur celui de la case, pour qu'aucun bâtiment ne mord sur la route
-  const A = hs.a, dm = A.dm; if (dm) { const k = TW / (dm[1] - dm[0]); return { x: p.x - (dm[0] + dm[1]) / 2 * k, y: p.y + TH / 2 - dm[2] * k, w: hs.im.width * k, h: hs.im.height * k }; }   // centre de la dalle = centre de la case
+  const A = hs.a, dm = A.dm; if (dm) { const k = TW / (dm[1] - dm[0]), sy = A.sy || 1; return { x: p.x - (dm[0] + dm[1]) / 2 * k, y: p.y + TH / 2 - dm[2] * k * sy, w: hs.im.width * k, h: hs.im.height * k * sy }; }   // centre de la dalle = centre de la case
   const bb = A.bb || [0, 0, hs.im.width, hs.im.height], k = TW / (bb[2] - bb[0]);
   return { x: p.x - (bb[0] + bb[2]) / 2 * k, y: p.y + TH - bb[3] * k, w: hs.im.width * k, h: hs.im.height * k };
 }
@@ -14190,7 +14190,7 @@ const P2_EXT = { well: 'puits_petrole', gwell: 'puits_gaz', miron: 'mine_fer', m
 Object.keys(P2HD).forEach(n => { const im = new Image(), e = P2_IMG[n] = { im, ok: false }; im.onload = () => { e.ok = true; }; im.src = P2HD[n]; });
 function p2Draw(name, p, cells, c) {   // dessine le sprite : le centre de sa dalle (rangée la plus large) est posé sur le centre c = {x, y} de l'emprise (par défaut le centre de la case p) ; renvoie le haut du sprite, ou null
   const e = P2_IMG[name], d = P2DIM[name]; if (!e || !e.ok || !d) return null;
-  const dm = d.length >= 9 ? [d[6], d[7], d[8]] : [d[2], d[4], d[5] - (d[4] - d[2]) / 4], k = TW * (cells || 1) / (dm[1] - dm[0]), w = d[0] * k, h = d[1] * k, cx = c ? c.x : p.x, cy = c ? c.y : p.y + TH / 2, x = cx - (dm[0] + dm[1]) / 2 * k, y = cy - dm[2] * k;
+  const dm = d.length >= 9 ? [d[6], d[7], d[8]] : [d[2], d[4], d[5] - (d[4] - d[2]) / 4], sy = d[9] || 1, k = TW * (cells || 1) / (dm[1] - dm[0]), w = d[0] * k, h = d[1] * k * sy, cx = c ? c.x : p.x, cy = c ? c.y : p.y + TH / 2, x = cx - (dm[0] + dm[1]) / 2 * k, y = cy - dm[2] * k * sy;
   ctx.drawImage(e.im, x, y, w, h); return y;
 }
 const PRODHD = __PRODHD_JSON__, GUIDEHD = __GUIDEHD_JSON__;   // GUIDEHD : photos des cartes du Guide du fabricant (clé de bien ou de produit)
