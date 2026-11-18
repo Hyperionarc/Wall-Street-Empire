@@ -1225,6 +1225,35 @@ Guide de l'agriculteur : raisin jouable, élevages sans « en préparation » : 
 ### 7. Limites
 Les animaux ne sont pas individualisés (troupeau = pourcentage) ; pas de reproduction ni d'abattage choisi ; le cuir brut n'a pas d'étape de tannage ; les concurrents IA n'ouvrent pas d'élevage (leurs fermes restent des cultures) ; sprites isométriques d'élevage à générer (`ELEVAGES.md`).
 
+## Passe 45 : le grand Mall central (bloc complet de 10×10 cases)
+
+Demande du producteur : « le mall doit prendre un block complet de 10 cases et place-le au centre », façon grand centre commercial asiatique (MBK Center à Bangkok). Test : `t44_mall.js` (étendu).
+
+### 1. Emprise et réseau
+- `MALL_BIG = { x0: 26, y0: 26, w: 10 }` : cases 26 à 35, centre à 0,5 case du centre de la ville (même écart que l'alignement 25-34, mais l'anneau avant tombe sur les avenues 36 existantes : les lots les plus proches du bord sont devant le mall, visibles).
+- `MALLB` (emprise active) et `isRoadPos` : aucune route dans l'emprise (l'avenue 30 s'arrête sur l'anneau), anneau complet autour (avenues 36 à l'est et au sud, nouvelles voies 25 au nord et à l'ouest), raccordé au réseau. `isRoadPos0` est l'ancienne règle.
+- Les 100 cases sont des cases PNJ `mon` / `m = 'mall'` (`mallSet(grid, x, y, w)`) : non démolissables, non rachetables, sauvegardées avec la ville ; un clic sur n'importe laquelle ouvre le panneau « Le Mall ». `mallPos()` renvoie `{ x, y, w }` (w = 10, ou 2 pour l'ancien mall), `mallRect()` l'emprise.
+- `cityScan` ignore les cases du mall et l'anneau public : la croissance (`cityGrow`, `cityExtend`) ne construit jamais dans l'emprise.
+
+### 2. Ville de départ (`genNpcTown`)
+- Le grand mall est posé avant la ville ; le mall tient lieu de cœur de ville : l'occupation des lots se mesure à `MALL_SH = 1,4` case du centre, la hauteur de départ à `MALL_LV0 = 6,5` cases, la valeur du sol de la croissance (`cityLV`, `cityTarget`) à `MALL_LV = 8,5` cases (les lots qui bordent l'anneau valent le centre) ; `CITY_D0 = 0,6` inchangé ; une rangée de lots libres au-delà de l'anneau, de chaque côté. Anciennes sauvegardes (sans grand mall) : aucun décalage.
+- Mesures : **62 600 habitants** (capacité 73 500), 247 bâtiments PNJ dont 15 parcs et 11 équipements, 425 lots libres sur 672, plus haut immeuble 11 étages. Économie de départ inchangée (`S.bx` : 289 000 habitants-équivalents, emplois / actifs 0,88). Croissance : 62 k → 70 k en 3 ans de jeu, 83 k en 9 ans ; passif 194 k en 7 200 jours (plus haut immeuble 17 étages).
+
+### 3. Rendu (`drawMallBig`, `mbLayout`, `mbBlock`, `mbItem`, `mbScreen`, `mbBlade`, `mbRoofSign`)
+- Sans image nouvelle (primitives iso) : bâtiment massif de 9 niveaux sur 6×6 cases (bandes de fenêtres éclairées, couronne LED en chenillard), quatre écrans LED animés (programmes « SALE −50 % », damier, arc-en-ciel, « MALL »), enseignes-drapeaux verticales (MODE, FOOD, SALE, TECH, CINÉ), bandeau d'enseignes, marquises rayées, deux grandes entrées couvertes, deux passerelles vers des pavillons (stations BTS / MRT), tour de parking à rampes accolée (logo P), enseigne « MALL CENTRAL » géante sur le toit, halo lumineux.
+- Au pied : marché de rue dense (étals à toile rayée, parasols, rangées de scooters, tuk-tuk, arbres en bacs — sprite `arbre_ville` ajouté à `P2_NAMES`), parvis dallés devant les entrées, banderoles de fanions, une centaine de passants animés. Agencement déterministe (hash) ; tout reste dans l'emprise ; dessiné une fois depuis la case avant (x0 + 9, y0 + 9), dans l'ordre de profondeur interne. Vue satellite : un volume unique.
+
+### 4. Pôle commercial
+- `mallDist` mesure la distance depuis le **bord** de l'emprise (6 cases : +20 % ; 7 : rien). « Ouvrir ma boutique près du mall » (`mallSpot`) choisit la case libre la plus proche du bord, au bord de l'anneau.
+- Halo nettement visible : contour doré lumineux autour des boutiques concernées et pastille « ★ +20 % » / « ★ +32 % » au-dessus du toit (`poleBadge`) ; outil de boutique choisi : losanges dorés sur les cases libres de la zone du bonus.
+
+### 5. Caméra et accueil
+- `frameCity` cadre tout le mall (enseigne comprise) entre le bandeau et la barre d'outils. L'encart « Bienvenue sur un marché déjà en pleine activité » est replié dans un coin (classe `wlmini`, bouton « Voir mes 3 idées ») et ne masque plus le mall.
+
+### 6. Compatibilité
+- `load()` n'active le grand mall que si la sauvegarde contient ses 100 cases ; une sauvegarde avec l'ancien mall 2×2 garde l'ancien réseau (avenue 30), l'ancien mall et l'ancien calcul de distance ; une sauvegarde sans mall se comporte comme avant (mall 2×2 ajouté si ses cases sont libres). `window.WSE.mall` gagne `rect` et les constantes `MALL_SH`, `MB_H`, `BIG`.
+- Tests : `t44` (emprise 10×10 centrée, aucune route ni bâtiment dedans, anneau connecté, clic sur 5 cases, pôle depuis le bord, vue de départ, encart replié, croissance hors emprise, sauvegarde 2×2) ; population attendue 55 000-65 000 ; tolérance relative de 0,2 % sur la fréquentation enregistrée du pôle (la ville grandit tous les 2 jours, la fréquentation est rafraîchie tous les 5 jours). `t34` : les 100 cases du mall sont comptées à part (11 équipements + mall), le « centre » devient l'anneau de quartiers autour du mall (moins de 11,5 cases), la périphérie commence à 16 cases.
+
 ## Passe 44 : ville aérée, Mall central et pôle commercial
 
 Le joueur doit voir ce qu'il peut construire et s'approprier la ville : elle démarre clairsemée, autour d'un grand centre commercial où les rivaux vendent déjà (test `t44_mall.js`).

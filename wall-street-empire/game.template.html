@@ -998,7 +998,7 @@ body.vopen #feed{z-index:9}
 .sgstrip .sgc{flex:0 0 380px;grid-template-columns:48px 1fr;padding:5px}.sgstrip .sgth{width:48px;height:48px}.sgstrip .sgw{font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.sgstrip .sgbt .btn{min-height:30px;font-size:12px}
 .srcb{display:block;font-family:var(--font-m);font-size:9.5px;line-height:1.2;margin-top:2px;color:var(--cyan)}.srcb.buy{color:#ff9bd0}.srcb.mix{color:#ffd23f}
 #mkview{position:absolute;z-index:14;left:50%;top:calc(var(--hud-h) + 8px);transform:translateX(-50%);width:min(980px,calc(100% - 16px));max-height:calc(100% - var(--hud-h) - 20px);overflow:auto;padding:12px;border-radius:12px;background:var(--panel);border:1px solid var(--gold);backdrop-filter:blur(8px);color:var(--fg)}
-#mkview[hidden]{display:none}
+#mkview[hidden]{display:none}#mkview.wlmini{top:auto;left:auto;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 128px);transform:none;width:min(340px,calc(100% - 24px));padding:9px 11px}#mkview.wlmini h3{font-size:14px}#mkview.wlmini .note{font-size:12px;margin:2px 0 0}#mkview.wlmini .mkh{display:flex;flex-direction:column;gap:6px}#mkview .wlbt{display:flex;gap:6px;align-items:center}#mkview .wlbt .btn{min-height:32px;font-size:12px}#mkview .sgcards[hidden]{display:none}@media (max-width:760px){#mkview.wlmini{bottom:calc(env(safe-area-inset-bottom,0px) + 110px);width:auto;max-width:calc(100% - 24px)}#mkview.wlmini .note{display:none}#mkview.wlmini h3{font-size:12.5px}}
 #mkview h3{margin:0 0 2px;font-family:var(--font-d);color:var(--gold);letter-spacing:.06em;font-size:18px}#mkview h4{margin:12px 0 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}#mkview h5{margin:8px 0 3px;font-size:11px;color:var(--gold)}
 .mkh{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}.mkh>div{flex:1}.mkh .ibtn{flex:0 0 auto}
 .verdict{margin:4px 0 8px;padding:8px 10px;border-radius:8px;background:var(--panel-hi);border-left:3px solid var(--gold);font-size:13px}.verdict:empty{display:none}
@@ -1329,7 +1329,7 @@ body.vopen #feed{z-index:9}
 const N = 96, TW = 132, TH = 66, FH = 32, DAY_MS = 2000, START = { x: 74, y: 63 };
 // Passe 44 : densité de la ville de départ (1 = petite ville de la passe 35, ≈ 100 000 habitants ; 0,6 ≈ 60 000 habitants, immeubles bas, lots libres, parcs).
 // Seul réglage de la ville aérée : il règle la hauteur des immeubles, l'occupation des lots et la part des parcs ; l'économie de départ (bassin) n'en dépend pas.
-const CITY_D0 = 0.6;
+const CITY_D0 = 0.6, MALL_SH = 1.4, MALL_LV0 = 6.5, MALL_LV = 8.5;   // passe 45 : décalages (cases) depuis le centre, autour du grand mall : MALL_SH occupation des lots de la ville de départ, MALL_LV0 sa hauteur, MALL_LV valeur du sol pour la croissance
 const SAVE_KEY = 'wse-city-v8';
 const SUMMER_TINT = 'rgba(112,188,92,.30)';   // herbe d'été : saison unique
 const ZONE_TINT = ['rgba(112,188,92,.30)', 'rgba(205,208,222,.30)', 'rgba(128,122,130,.45)', '', 'rgba(96,102,118,.55)'];   // campagne, ville, zone portuaire, mer, quai
@@ -2816,7 +2816,15 @@ function cityExtend(x, y) {
 // routes de campagne : autoroute ville-port et quelques départementales (rares)
 const RURAL_ROADS = [[49, 48, 66, 48], [66, 48, 66, 53], [30, 0, 30, 11], [0, 30, 11, 30], [30, 49, 30, 95], [60, 20, 60, 47], [72, 28, 72, 53]];
 const ruralRoadAt = (x, y) => RURAL_ROADS.some(s => x >= s[0] && x <= s[2] && y >= s[1] && y <= s[3]);
-const isRoadPos = (x, y) => ((inCity(x, y) || extU(x, y)) && ((x - CITY0.x0) % GRID === 0 || (y - CITY0.y0) % GRID === 0)) || (inPort(x, y) && ((x - PORT.x0) % GRID === 0 || (y - PORT.y0) % GRID === 0)) || ruralRoadAt(x, y);
+// Passe 45 : grand Mall central (bloc complet de 10×10 cases au centre de la ville, cases 26-35 : centre à 0,5 case du centre de la ville, comme l'alignement 25-34, mais l'anneau avant tombe sur les avenues 36, si bien que les lots libres les plus proches du bord sont devant le mall, visibles). MALLB = emprise active (nouvelle partie ou sauvegarde qui la contient) ; null = ancien mall 2×2 ou pas de mall (anciennes sauvegardes).
+// L'emprise n'a aucune route intérieure (l'avenue 30 s'arrête sur l'anneau) ; un anneau de routes l'entoure (avenues 36 existantes à l'est et au sud, nouvelles voies 25 au nord et à l'ouest) et reste raccordé au réseau.
+const MALL_BIG = { x0: 26, y0: 26, w: 10 };
+let MALLB = null;
+const inMallB = (x, y) => !!MALLB && x >= MALLB.x0 && x <= MALLB.x1 && y >= MALLB.y0 && y <= MALLB.y1;
+const mallRingAt = (x, y) => !!MALLB && x >= MALLB.x0 - 1 && x <= MALLB.x1 + 1 && y >= MALLB.y0 - 1 && y <= MALLB.y1 + 1 && !inMallB(x, y);
+function mallBSet(on) { MALLB = on ? { x0: MALL_BIG.x0, y0: MALL_BIG.y0, x1: MALL_BIG.x0 + MALL_BIG.w - 1, y1: MALL_BIG.y0 + MALL_BIG.w - 1, w: MALL_BIG.w } : null; return MALLB; }
+const isRoadPos = (x, y) => MALLB && x >= MALLB.x0 - 1 && x <= MALLB.x1 + 1 && y >= MALLB.y0 - 1 && y <= MALLB.y1 + 1 ? !inMallB(x, y) : isRoadPos0(x, y);
+const isRoadPos0 = (x, y) => ((inCity(x, y) || extU(x, y)) && ((x - CITY0.x0) % GRID === 0 || (y - CITY0.y0) % GRID === 0)) || (inPort(x, y) && ((x - PORT.x0) % GRID === 0 || (y - PORT.y0) % GRID === 0)) || ruralRoadAt(x, y);
 const UNLINKED_EFF = 0.65;   // rendement d'une installation d'extraction sans route jusqu'au réseau
 
 /* ---------- Passe 34 : subventions de zone (zone portuaire, zone industrielle) ---------- */
@@ -3043,9 +3051,9 @@ function genNpc(grid) {
 const CITY_POP0 = 100000; let CG_R0 = 5.6e-5, CG_P = 2.6, CG_CAP = 1.0e6, CG_REL = 0;   // CG_REL > 0 : la croissance dépend aussi de la taille actuelle (croissance composée) ; réglages exposés par WSE.cityTune pour les mesures
 const cityR = pop => 10 * Math.pow(Math.max(20000, pop) / CITY_POP0, 0.38);          // rayon d'influence du centre (cases) : il grandit avec la ville
 const cityFmax = pop => clamp(10 * Math.pow(Math.max(20000, pop) / CITY_POP0, 0.95), 4, 110);   // hauteur maximale au centre (étages) : effet d'agglomération
-const cityLV = (x, y, R) => Math.exp(-Math.pow(Math.hypot(x - CBD.x, y - CBD.y) / R, 1.4));   // valeur du sol relative (1 au centre)
-function cityTarget(x, y, kind, R, Fm) {   // hauteur visée d'un lot (étages)
-  const lv = cityLV(x, y, R), j = 0.8 + 0.4 * hash(x, y, 77);
+const cityLV = (x, y, R, sh) => Math.exp(-Math.pow(Math.max(0, Math.hypot(x - CBD.x, y - CBD.y) - (sh != null ? sh : MALLB ? MALL_LV : 0)) / R, 1.4));   // valeur du sol relative (1 au centre) ; passe 45 : avec le grand mall, mesurée depuis son anneau (MALL_LV : le mall tient lieu de cœur de ville, les lots qui le bordent valent le centre)
+function cityTarget(x, y, kind, R, Fm, sh) {   // hauteur visée d'un lot (étages)
+  const lv = cityLV(x, y, R, sh), j = 0.8 + 0.4 * hash(x, y, 77);
   return Math.max(1, Math.round((kind === 'off' ? Fm * Math.pow(lv, 1.25) * 0.9 : Fm * Math.pow(lv, 1.6)) * j));
 }
 const cityLevel = f => f <= 1 ? 0 : f <= 4 ? 1 : f <= 9 ? 2 : f <= 24 ? 3 : f <= 49 ? 4 : 5;
@@ -3068,14 +3076,16 @@ function genNpcTown(grid, d0) {   // petite ville : centre bas et dense, quartie
       const key = x + ',' + y;
       if (MONU[key]) { const c = npcCellOf(x, y, 'mon', 1); c.m = MONU[key]; grid[id] = c; continue; }
       if (i >= 3 && j >= 3) continue;
-      if (plaza >= 0 && x >= MALL0.x - plaza && x <= MALL0.x + 1 + plaza && y >= MALL0.y - plaza && y <= MALL0.y + 1 + plaza) continue;   // abords du mall : lots libres pour les boutiques du joueur
-      const d = Math.hypot(x - CBD.x, y - CBD.y) + (hash(x, y, 47) - 0.5) * 2.4, pOcc = 0.97 * occK * Math.exp(-Math.pow(d / 16.5, 2.3));
+      if (MALLB) { if (x >= MALLB.x0 - 3 && x <= MALLB.x1 + 2 && y >= MALLB.y0 - 3 && y <= MALLB.y1 + 2) continue; }   // passe 45 : abords du grand mall (la rangée de lots au-delà de l'anneau, de chaque côté) libres pour les boutiques du joueur
+      else if (plaza >= 0 && x >= MALL0.x - plaza && x <= MALL0.x + 1 + plaza && y >= MALL0.y - plaza && y <= MALL0.y + 1 + plaza) continue;   // abords du mall : lots libres pour les boutiques du joueur
+      const dc = MALLB ? Math.max(0, Math.hypot(x - CBD.x, y - CBD.y) - MALL_SH) : Math.hypot(x - CBD.x, y - CBD.y);   // passe 45 : le grand mall tient lieu de cœur de ville ; la densité se mesure depuis son bord
+      const d = dc + (hash(x, y, 47) - 0.5) * 2.4, pOcc = 0.97 * occK * Math.exp(-Math.pow(d / 16.5, 2.3));
       if (hash(x, y, 41) >= pOcc) continue;
       const r1 = hash(x, y, 42), r3 = hash(x, y, 43);
       if (d < 13 && hash(x, y, 49) < parkP) { grid[id] = npcCellOf(x, y, 'park', 1); continue; }
       const sh = d < 5 ? [0.35, 0.65, 0] : d < 9 ? [0.2, 0.62, 0.18] : d < 13 ? [0.1, 0.5, 0.4] : [0.04, 0.2, 0.76];   // bureaux, immeubles, maisons
       let kind = r1 < sh[0] ? 'off' : r1 < sh[0] + sh[1] ? 'res' : 'house', floors = 1;
-      if (kind !== 'house') { floors = Math.max(2, Math.round(cityTarget(x, y, kind, R, Fm) * (1.04 + 0.42 * r3))); if (kind === 'res' && floors < 2) kind = 'house'; }
+      if (kind !== 'house') { floors = Math.max(2, Math.round(cityTarget(x, y, kind, R, Fm, MALLB ? MALL_LV0 : null) * (1.04 + 0.42 * r3))); if (kind === 'res' && floors < 2) kind = 'house'; }
       grid[id] = npcCellOf(x, y, kind, floors);
       if (kind === 'res') cap += 5 * floors; else if (kind === 'house') cap += 5; else offFloors += floors;
     }
@@ -3087,15 +3097,18 @@ function genNpcTown(grid, d0) {   // petite ville : centre bas et dense, quartie
    Nouvelle partie : posé à la génération. Ancienne sauvegarde : ajouté au chargement si ses 4 cases sont libres (sinon sur le coin 2×2 libre le plus proche du centre, sinon pas de mall). */
 const MALL0 = { x: 28, y: 28 };
 function mallFree(grid, x, y) { for (let oy = 0; oy < 2; oy++) for (let ox = 0; ox < 2; ox++) { const X = x + ox, Y = y + oy; if (!inb(X, Y) || grid[idx(X, Y)] || ZONE[idx(X, Y)] !== 1 || isRoadPos(X, Y)) return false; } return true; }
-function mallSet(grid, x, y) { for (let oy = 0; oy < 2; oy++) for (let ox = 0; ox < 2; ox++) { const c = npcCellOf(x + ox, y + oy, 'mon', 1); c.m = 'mall'; grid[idx(x + ox, y + oy)] = c; } _mallG = grid; _mallP = { x, y }; }
-function mallFind(grid) { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const c = grid[y * N + x]; if (c && c.t === 'npc' && c.k === 'mon' && c.m === 'mall') return { x, y }; } return null; }
-function mallEnsure(grid) {   // renvoie la position du mall (coin nord) ou null ; ne déplace ni ne détruit aucune case occupée
+function mallSet(grid, x, y, w) { w = w || 2; for (let oy = 0; oy < w; oy++) for (let ox = 0; ox < w; ox++) { const id = idx(x + ox, y + oy), o = grid[id]; if (o && !(o.t === 'road' && !o.own) && !isMall(o)) continue; const c = npcCellOf(x + ox, y + oy, 'mon', 1); c.m = 'mall'; grid[id] = c; } _mallG = grid; _mallP = { x, y, w }; }
+function mallFind(grid) { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const c = grid[y * N + x]; if (c && c.t === 'npc' && c.k === 'mon' && c.m === 'mall') return { x, y, w: MALLB && x === MALLB.x0 && y === MALLB.y0 ? MALLB.w : 2 }; } return null; }
+function mallEnsure(grid) {   // renvoie la position du mall (coin nord, w = côté) ou null ; ne déplace ni ne détruit aucune case occupée
+  if (MALLB) { mallSet(grid, MALLB.x0, MALLB.y0, MALLB.w); return _mallP; }   // passe 45 : grand mall 10×10 (emprise réservée : aucune route ni immeuble)
   const f = mallFind(grid); if (f) { _mallG = grid; _mallP = f; return f; }
   let best = mallFree(grid, MALL0.x, MALL0.y) ? [MALL0.x, MALL0.y] : null, bd = 1e9;
   if (!best) for (let by = 0; by < 6; by++) for (let bx = 0; bx < 6; bx++) { const x = CITY0.x0 + 4 + bx * GRID, y = CITY0.y0 + 4 + by * GRID, d = Math.hypot(x + 1 - CBD.x, y + 1 - CBD.y); if (d < bd && d <= 9 && mallFree(grid, x, y)) { bd = d; best = [x, y]; } }
   if (!best) { _mallG = grid; _mallP = null; return null; }
   mallSet(grid, best[0], best[1]); return _mallP;
 }
+// emprise du mall {x0, y0, x1, y1, w} (10×10 pour le grand mall, 2×2 pour l'ancien) ou null
+function mallRect() { const M = mallPos(); return M ? { x0: M.x, y0: M.y, x1: M.x + M.w - 1, y1: M.y + M.w - 1, w: M.w } : null; }
 let _mallG = null, _mallP = null;
 function mallPos() { if (!S || !S.grid) return null; if (_mallG !== S.grid) { _mallG = S.grid; _mallP = mallFind(S.grid); } return _mallP; }
 const isMall = c => !!c && c.t === 'npc' && c.k === 'mon' && c.m === 'mall';
@@ -3116,6 +3129,7 @@ function cityScan() {
     const id = y * N + x; if (ZONE[id] !== 1 || !isLot(x, y)) continue;
     const c = S.grid[id];
     if (!c) { if (!S.dep[id]) { o.lots++; o.free++; if (!(hold && hold[id] > S.day)) o.freeL.push(id); } continue; }
+    if ((c.t === 'road' && !c.own) || isMall(c)) continue;   // passe 45 : l'anneau du grand mall et ses 100 cases ne sont pas des lots (la ville n'y construit jamais)
     o.lots++;
     if (c.t !== 'npc') { o.own++; continue; }
     if (c.k === 'mon') { o.mons++; continue; } if (c.k === 'park') { o.parks++; continue; }
@@ -3225,7 +3239,7 @@ function extLinked(c, lm) {
 }
 
 function newCity() {
-  cityReset();   // zone urbaine d'origine (une partie précédente a pu l'étendre)
+  cityReset(); mallBSet(true);   // zone urbaine d'origine (une partie précédente a pu l'étendre) ; passe 45 : emprise du grand mall (avant les routes)
   const grid = new Array(N * N).fill(null);
   const S0 = {
     cash: 40000, pop: 40, day: 0, grid, dep: genDeposits(), hist: [], boomUntil: -1, milestone: 99, lastWarn: -99,
@@ -3244,7 +3258,7 @@ function newCity() {
   };
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
-  const npc = genNpcTown(grid); mallEnsure(grid);   // passe 44 : ville aérée (CITY_D0) et Mall central
+  mallEnsure(grid); const npc = genNpcTown(grid);   // passe 44 : ville aérée (CITY_D0) et Mall central ; passe 45 : grand mall 10×10 posé avant la ville (emprise réservée)
   const pop0 = Math.round(npc.cap * K_POP * 0.85), bx0 = Math.max(0, Math.round(POPE_REF - pop0 * BASSIN_NEW));   // région : la demande de départ reste celle de la passe 35 (POPE_REF habitants-équivalents)
   S0.cityV = 2; S0.bassin = BASSIN_NEW; S0.bx = bx0; S0.cityExt = []; S0.cg = { acc: 0, park: 0, ms: 0, ext: 0, jt: 0.88, f: {} };
   S0.jpf = 0.88 * 0.55 * (pop0 * BASSIN_NEW + bx0) / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.npcOwn = {}; S0.neg = {}; S0.reqs = []; S0.rid = 0; S0.npcGrow = {}; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.mode = { k: 'free' }; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
@@ -3312,6 +3326,7 @@ function load() {
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
     const cv2 = d.cv === 2;   // passe 35 : ville de départ « petite ville » + croissance ; sinon l'ancienne ville (288 000 habitants) est régénérée à l'identique
+    { let nm = 0; if (cv2 && Array.isArray(d.cty)) d.cty.forEach(q => { if (Array.isArray(q) && q[2] === 'mon' && q[5] === 'mall' && q[0] >= MALL_BIG.x0 && q[0] < MALL_BIG.x0 + MALL_BIG.w && q[1] >= MALL_BIG.y0 && q[1] < MALL_BIG.y0 + MALL_BIG.w) nm++; }); mallBSet(nm >= MALL_BIG.w * MALL_BIG.w); }   // passe 45 : grand mall seulement si la sauvegarde le contient ; ancien mall 2×2 ou pas de mall : comportement d'avant
     Object.assign(CITY, CITY0); if (cv2 && Array.isArray(d.cext)) d.cext.forEach(b => { if (Array.isArray(b)) cityBlockApply(b[0] | 0, b[1] | 0); });
     genRoads(grid);
     const npcInfo = cv2 ? ctyLoad(grid, d.cty) : genNpc(grid);
@@ -4535,7 +4550,11 @@ function poleAt(x, y) {   // taille du pôle d'une boutique posée (ou à poser,
   if (a) return 0;
   const me = { x, y, w: 1, h: 1 }, seen = {}; let n = 1; P.L.forEach((b, i) => { if (!fpGap(me, b)) return; const r = P.f(i); if (!seen[r]) { seen[r] = 1; n += P.of[b.y * N + b.x].n; } }); return n;
 }
-function mallDist(x, y, w, h) { const M = mallPos(); return M ? Math.hypot(x + ((w || 1) - 1) / 2 - (M.x + 0.5), y + ((h || 1) - 1) / 2 - (M.y + 0.5)) : Infinity; }
+function mallDist(x, y, w, h) {   // passe 45 : grand mall, distance (cases) entre le centre de la boutique et le BORD de l'emprise 10×10 ; ancien mall 2×2 : distance au centre, comme avant
+  const M = mallPos(); if (!M) return Infinity; const cx = x + ((w || 1) - 1) / 2, cy = y + ((h || 1) - 1) / 2;
+  if (M.w >= 10) return Math.hypot(Math.max(M.x - cx, 0, cx - (M.x + M.w - 1)), Math.max(M.y - cy, 0, cy - (M.y + M.w - 1)));
+  return Math.hypot(cx - (M.x + 0.5), cy - (M.y + 0.5));
+}
 function mallBonus(x, y) {
   const a = S && S.grid ? anchorOf(S.grid[idx(x, y)]) : null, shop = a && POLE_SHOPS[a.t];
   if (a && !shop) return { k: 1, near: false, pole: 0, d: Infinity };
@@ -8005,16 +8024,19 @@ function mkRender() {
   const v = el('mkview'); if (!mkV) { v.hidden = true; return; }
   let h = ''; try { h = mkV.kind === 'test' ? testHTML(mkV.pk) : mkV.kind === 'offers' ? offersHTML(mkV.pk) : mkV.kind === 'trial' ? trialHTML(mkV.pk) : mkV.kind === 'welcome' ? welcomeHTML() : ''; } catch (e) { h = ''; }
   if (!h) { v.hidden = true; mkV = null; return; }
+  v.classList.toggle('wlmini', mkV.kind === 'welcome' && !mkV.open);
   v.hidden = false; if (v._h !== h) { const t = v.scrollTop; v.innerHTML = h; v._h = h; v.scrollTop = t; }
 }
 function welcomeHTML() {
   const a = mkSuggest().slice(0, 3);
-  return `<div class="mkh"><div><h3>Bienvenue sur un marché déjà en pleine activité</h3><p class="note">Presque tous les produits existent déjà : des sociétés les fabriquent et les vendent. Tu n'as pas à refaire la R&D. Choisis comment démarrer : fabriquer toi-même (avec une licence) ou acheter chez un autre pour revendre. Voici ce que je te recommande aujourd'hui.</p></div><button class="ibtn" data-sg="close">Plus tard</button></div><div class="sgcards">${a.map(x => sgCardHTML(x)).join('')}</div>`;
+  const op = !!(mkV && mkV.open);   // passe 45 : replié au départ (bandeau discret dans un coin), déplié par « Voir mes 3 idées »
+  return `<div class="mkh"><div><h3>Bienvenue sur un marché déjà en pleine activité</h3>${op ? `<p class="note">Presque tous les produits existent déjà : des sociétés les fabriquent et les vendent. Tu n'as pas à refaire la R&D. Choisis comment démarrer : fabriquer toi-même (avec une licence) ou acheter chez un autre pour revendre. Voici ce que je te recommande aujourd'hui.</p>` : `<p class="note">Commence par le Mall central, au centre de la ville. Trois idées de produits t'attendent ici.</p>`}</div><div class="wlbt">${op ? '' : '<button class="btn" data-sg="wlopen">Voir mes 3 idées</button>'}<button class="ibtn" data-sg="close">Plus tard</button></div></div><div class="sgcards"${op ? '' : ' hidden'}>${a.map(x => sgCardHTML(x)).join('')}</div>`;
 }
 function sgAct(a) {
   const [k, p1, p2, p3] = a.split(':');
   if (k === 'f') { sgF = a.slice(2); sgHtml = ''; }
   else if (k === 'close') { mkV = null; }
+  else if (k === 'wlopen') { if (mkV) mkV.open = true; }   // passe 45 : l'encart de bienvenue, discret au départ (il ne masque plus le mall), se déplie à la demande
   else if (k === 'sel') { selProd = p1; mkV = null; setPview(true); renderProducts(); try { const pv = el('pview'), pd = el('pdetail'); pv.scrollTop = Math.max(0, pd.offsetTop - 70); } catch (e) {} }
   else if (k === 'make') { askProduce(p1); }
   else if (k === 'makehere') { const c = catFac && cell(catFac.x, catFac.y); if (c && easyLaunch(c, p1)) { refreshStats(); closeCatalog(true); } else mkMake(p1); }
@@ -13211,6 +13233,212 @@ function drawMall(a, x, y, p, now) {   // passe 44 : parvis pavé sur les 4 case
   ctx.fillStyle = '#ffb347'; ctx.fillText('MALL CENTRAL', sx, sy - 8); ctx.restore();
   a._top = sy - 34;
 }
+/* ---------- Passe 45 : rendu du grand Mall central (10×10 cases), façon grand centre commercial asiatique (MBK Center) ----------
+   Tout en primitives iso, sans image nouvelle : bâtiment massif de 9 niveaux (6×6 cases), bandes de fenêtres, écrans LED animés, enseignes-drapeaux lumineuses,
+   marquises colorées, grandes entrées couvertes, deux passerelles aériennes vers des pavillons, tour de parking à rampes accolée, enseigne « MALL CENTRAL » sur le toit ;
+   au pied, un marché de rue dense (étals, parasols, scooters, tuk-tuk, arbres en bacs, banderoles, passants animés). Agencement déterministe (hash) ; tout reste dans l'emprise.
+   Dessiné une seule fois, depuis la case avant (x0 + 9, y0 + 9), dans l'ordre de profondeur interne (arrière, bâtiment, avant). */
+const MB_NEON = ['#ff3d8b', '#ffcc33', '#33e1ff', '#7dff6a', '#ff7a2b', '#b46bff', '#ff4d4d', '#2bffc8'];
+const MB_AWN = ['#e8394d', '#f4c430', '#2f9be0', '#3fbf6a', '#ff7a2b', '#c04bd8'];
+const MB = { B: { u0: 1, v0: 1, u1: 7, v1: 7 }, Z0: 52, ZL: 34, NL: 8, T: { u0: 7.25, v0: 0.35, u1: 9.65, v1: 3.05 }, TL: 6, TZ: 26,
+  P1: { u0: 1.75, v0: 8.55, u1: 3.25, v1: 9.7 }, P2: { u0: 8.55, v0: 4.95, u1: 9.7, v1: 6.4 }, SB1: { u0: 2.25, v0: 7, u1: 2.75, v1: 8.55 }, SB2: { u0: 7, v0: 5.45, u1: 8.55, v1: 5.95 },
+  ES: { u0: 3.8, u1: 5.4 }, EE: { v0: 3.45, v1: 4.85 } };
+MB.H = MB.Z0 + MB.NL * MB.ZL;   // hauteur du toit (px monde)
+let _mbL = null;
+function mbLayout() {   // agencement statique du marché de rue (déterministe)
+  if (_mbL) return _mbL;
+  const it = [], ov = (a, b) => a.u0 < b.u1 && a.u1 > b.u0 && a.v0 < b.v1 && a.v1 > b.v0, M = MB;
+  const clear = [{ u0: M.ES.u0 - 0.2, v0: 7, u1: M.ES.u1 + 0.2, v1: 10 }, { u0: 7, v0: M.EE.v0 - 0.2, u1: 10, v1: M.EE.v1 + 0.2 }, M.T, M.P1, M.P2, { u0: M.SB1.u0 - 0.15, v0: 7, u1: M.SB1.u1 + 0.15, v1: 8.6 }, { u0: 7, v0: M.SB2.v0 - 0.15, u1: 8.6, v1: M.SB2.v1 + 0.15 }];
+  const put = (u, v, edge, sd) => { const r = { u0: u, v0: v, u1: u + 0.44, v1: v + 0.44 }; if (clear.some(c => ov(c, r))) return; const h = hash(Math.round(u * 10), Math.round(v * 10), sd);
+    const k = edge ? (h < 0.34 ? 'tree' : h < 0.66 ? 'scoot' : h < 0.86 ? 'tuk' : 'stall') : (h < 0.64 ? 'stall' : h < 0.84 ? 'para' : h < 0.92 ? 'scoot' : null);
+    if (k) it.push({ k, u, v, w: 0.44, h: 0.44, s: hash(Math.round(u * 10), Math.round(v * 10), sd + 1) }); };
+  for (let i = 0; i < 4; i++) for (let v = 3.0; v < 9.6; v += 0.6) put(7.35 + i * 0.6, v, i === 3, 301);   // bande est (devant la face droite)
+  for (let j = 0; j < 4; j++) for (let u = 0.25; u < 7.0; u += 0.6) put(u, 7.35 + j * 0.6, j === 3, 302);   // bande sud (devant la face gauche)
+  for (let u = 0.3; u < 9.8; u += 0.9) it.push({ k: 'tree', u, v: 0.2, w: 0.44, h: 0.44, s: hash(u * 10 | 0, 2, 303), back: 1 });   // arrière : arbres en bacs le long de l'anneau
+  for (let v = 1.1; v < 7.0; v += 0.9) it.push({ k: 'tree', u: 0.2, v, w: 0.44, h: 0.44, s: hash(v * 10 | 0, 3, 303), back: 1 });
+  it.push(Object.assign({ k: 'tower' }, M.T), Object.assign({ k: 'pav', s: 0.2, f: 'L' }, M.P1), Object.assign({ k: 'pav', s: 0.7, f: 'R' }, M.P2), Object.assign({ k: 'bridge', f: 'L' }, M.SB1), Object.assign({ k: 'bridge', f: 'R' }, M.SB2));
+  it.forEach(o => { if (o.u1 == null) { o.u0 = o.u; o.v0 = o.v; o.u1 = o.u + o.w; o.v1 = o.v + o.h; } o.key = (o.u0 + o.u1 + o.v0 + o.v1) / 2; });
+  const walk = [];   // passants : allers-retours sur les parvis et dans les allées
+  for (let i = 0; i < 26; i++) walk.push({ ax: 'v', c: M.ES.u0 + 0.1 + hash(i, 1, 311) * (M.ES.u1 - M.ES.u0 - 0.2), a: 7.1, b: 9.9 });
+  for (let i = 0; i < 22; i++) walk.push({ ax: 'u', c: M.EE.v0 + 0.1 + hash(i, 2, 311) * (M.EE.v1 - M.EE.v0 - 0.2), a: 7.1, b: 9.9 });
+  for (let i = 0; i < 24; i++) { const j = i % 3; walk.push({ ax: 'u', c: 7.86 + j * 0.6, a: 0.25, b: M.ES.u0 - 0.1 }); }
+  for (let i = 0; i < 18; i++) { const j = i % 3; walk.push({ ax: 'v', c: 7.86 + j * 0.6, a: 6.5, b: 9.9 }); }
+  walk.forEach((w, i) => { w.ph = hash(i, 7, 312); w.sp = 9000 + hash(i, 8, 312) * 9000; w.col = MB_NEON[Math.floor(hash(i, 9, 312) * MB_NEON.length)]; });
+  return (_mbL = { it, walk });
+}
+function drawMallBig(a, x, y, now) {
+  const P = mallPos(); if (!P) return; a._top = iso(x, y).y - 40; if (x !== P.x + P.w - 1 || y !== P.y + P.w - 1) return;
+  const X0 = P.x, Y0 = P.y, M = MB, L = mbLayout(), Q = (u, v, z) => PP(X0 + u, Y0 + v, z);
+  const quad = (pts, col) => pQuad(pts, col), flat = (u0, v0, u1, v1, z, col) => quad([Q(u0, v0, z), Q(u1, v0, z), Q(u1, v1, z), Q(u0, v1, z)], col);
+  const fL = (v, ua, ub, za, zb, col) => quad([Q(ua, v, zb), Q(ub, v, zb), Q(ub, v, za), Q(ua, v, za)], col);   // face avant gauche (plan v = cste)
+  const fR = (u, va, vb, za, zb, col) => quad([Q(u, va, zb), Q(u, vb, zb), Q(u, vb, za), Q(u, va, za)], col);   // face avant droite (plan u = cste)
+  const prism = (o, z0, z1, col) => pPrism(X0 + o.u0, Y0 + o.v0, o.u1 - o.u0, o.v1 - o.v0, z0, z1, col);
+  const T = now / 1000, blink = (s, f) => Math.sin(T * (f || 2.2) + s * 40) > -0.55;   // néons : clignotement déterministe (hash + horloge)
+  // --- sol : halo lumineux, dalle du marché, parvis
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; const c0 = Q(5, 5, 0), g = ctx.createRadialGradient(c0[0], c0[1], 40, c0[0], c0[1], 820);
+  g.addColorStop(0, 'rgba(255,160,60,.30)'); g.addColorStop(0.55, 'rgba(255,80,160,.12)'); g.addColorStop(1, 'rgba(255,80,160,0)'); ctx.fillStyle = g;
+  ctx.beginPath(); [Q(-0.9, -0.9, 0), Q(10.9, -0.9, 0), Q(10.9, 10.9, 0), Q(-0.9, 10.9, 0)].forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); ctx.restore();
+  flat(0, 0, 10, 10, 0, '#b9ad97'); flat(0.06, 0.06, 9.94, 9.94, 1, '#d6c9ae');
+  for (let k = 1; k < 10; k++) { quad([Q(k - 0.02, 0.06, 1.2), Q(k + 0.02, 0.06, 1.2), Q(k + 0.02, 9.94, 1.2), Q(k - 0.02, 9.94, 1.2)], 'rgba(120,100,80,.18)'); quad([Q(0.06, k - 0.02, 1.2), Q(9.94, k - 0.02, 1.2), Q(9.94, k + 0.02, 1.2), Q(0.06, k + 0.02, 1.2)], 'rgba(120,100,80,.18)'); }
+  for (let v = 7; v < 9.9; v += 0.5) for (let u = M.ES.u0; u < M.ES.u1 - 0.01; u += 0.4) flat(u, v, u + 0.4, v + 0.5, 1.4, (Math.round(u * 2.5) + Math.round(v * 2)) % 2 ? '#efe4cc' : '#c8574a');   // parvis dallé (sud)
+  for (let u = 7; u < 9.9; u += 0.5) for (let v = M.EE.v0; v < M.EE.v1 - 0.01; v += 0.35) flat(u, v, u + 0.5, v + 0.35, 1.4, (Math.round(v / 0.35) + Math.round(u * 2)) % 2 ? '#efe4cc' : '#c8574a');   // parvis dallé (est)
+  // --- éléments : arrière, bâtiment principal, avant (ordre de profondeur)
+  const front = [], back = []; L.it.forEach(o => (o.back ? back : front).push(o));
+  L.walk.forEach(w => { const t = ((now / w.sp + w.ph) % 2), f = t < 1 ? t : 2 - t, p = w.a + (w.b - w.a) * f, u = w.ax === 'u' ? p : w.c, v = w.ax === 'u' ? w.c : p; front.push({ k: 'walk', u, v, key: u + v, w0: w, st: (now / 180 + w.ph * 10) | 0 }); });
+  front.sort((p, q) => p.key - q.key); back.sort((p, q) => p.key - q.key);
+  const draw = o => mbItem(o, Q, prism, fL, fR, flat, quad, now, blink);
+  back.forEach(draw);
+  mbBlock(Q, prism, fL, fR, flat, quad, now, blink);
+  front.forEach(draw);
+  // banderoles de fanions au-dessus des allées
+  for (let j = 0; j < 3; j++) { const v = 7.86 + j * 0.6; [[0.3, M.SB1.u0 - 0.2], [M.SB1.u1 + 0.2, M.ES.u0 - 0.2], [M.ES.u1 + 0.2, 6.9]].forEach(sg => mbBunting(Q(sg[0], v, 36), Q(sg[1], v, 36), j * 7 + sg[0] * 3)); }
+  for (let j = 0; j < 3; j++) { const u = 7.86 + j * 0.6; mbBunting(Q(u, 6.5, 36), Q(u, 9.8, 36), 40 + j); }
+  a._top = mbRoofSign(Q, now);   // enseigne géante sur le toit
+}
+function mbBunting(p0, p1, sd) {
+  ctx.strokeStyle = 'rgba(40,30,30,.7)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.quadraticCurveTo((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + 12, p1[0], p1[1]); ctx.stroke();
+  const n = Math.max(3, Math.round(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / 16));
+  for (let i = 0; i < n; i++) { const t = (i + 0.5) / n, x = p0[0] + (p1[0] - p0[0]) * t, y = p0[1] + (p1[1] - p0[1]) * t + 12 * 2 * t * (1 - t); ctx.fillStyle = MB_AWN[(i + Math.floor(sd)) % MB_AWN.length]; ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 8); ctx.closePath(); ctx.fill(); }
+}
+function mbClip(pts, fn) { ctx.save(); ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.clip(); fn(); ctx.restore(); }
+function mbScreen(Q, face, a0, a1, z0, z1, now, sd) {   // écran LED animé sur une face (programme choisi par l'horloge et la graine)
+  const M = MB, P = face === 'L' ? (s, z) => Q(s, M.B.v1, z) : (s, z) => Q(M.B.u1, s, z), pts = [P(a0, z1), P(a1, z1), P(a1, z0), P(a0, z0)];
+  pQuad([P(a0 - 0.06, z1 + 6), P(a1 + 0.06, z1 + 6), P(a1 + 0.06, z0 - 6), P(a0 - 0.06, z0 - 6)], '#111522');
+  const prog = (Math.floor(now / 4200 + sd * 7)) % 4, T = now / 1000;
+  mbClip(pts, () => {
+    const o = face === 'L' ? P(a0, z1) : P(a1, z1), wd = Math.abs(a1 - a0) * 66, ht = z1 - z0;
+    ctx.save(); ctx.translate(o[0], o[1]); ctx.transform(1, face === 'L' ? 0.5 : -0.5, 0, 1, 0, 0);   // repère de la face : x le long de la façade, y vers le bas
+    if (prog === 0) { for (let i = 0; i < 8; i++) { ctx.fillStyle = `hsl(${Math.round(T * 60 + i * 45 + sd * 360) % 360},90%,55%)`; ctx.fillRect(i * wd / 8, 0, wd / 8 + 1, ht); } }
+    else if (prog === 1) { const gr = ctx.createLinearGradient(0, 0, wd, ht); gr.addColorStop(0, '#ff2e7e'); gr.addColorStop(1, '#ffb020'); ctx.fillStyle = gr; ctx.fillRect(0, 0, wd, ht); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `900 ${Math.round(Math.min(ht * 0.34, wd * 0.28))}px sans-serif`; ctx.fillText('SALE', wd / 2, ht * 0.36); ctx.font = `900 ${Math.round(Math.min(ht * 0.28, wd * 0.22))}px sans-serif`; ctx.fillText('−50 %', wd / 2, ht * 0.72); }
+    else if (prog === 2) { ctx.fillStyle = '#081830'; ctx.fillRect(0, 0, wd, ht); const nx = 10, ny = 6; for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) if (hash(i, j, Math.floor(T * 3) + Math.round(sd * 100)) > 0.45) { ctx.fillStyle = MB_NEON[(i + j) % MB_NEON.length]; ctx.fillRect(i * wd / nx + 1, j * ht / ny + 1, wd / nx - 2, ht / ny - 2); } }
+    else { ctx.fillStyle = '#1b0f3a'; ctx.fillRect(0, 0, wd, ht); ctx.fillStyle = '#33e1ff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `900 ${Math.round(Math.min(ht * 0.3, wd * 0.25))}px sans-serif`; ctx.fillText('MALL', wd / 2, ht * 0.34); ctx.fillStyle = '#ffcc33'; ctx.font = `800 ${Math.round(Math.min(ht * 0.16, wd * 0.09))}px sans-serif`; ctx.fillText('7 j/7 · 10 h - 22 h', wd / 2, ht * 0.7);
+      const sx = (T * 120) % (wd + 60) - 30; ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(sx, 0, 18, ht); }
+    ctx.restore();
+  });
+}
+function mbBlade(q, txt, col, on) {   // enseigne-drapeau verticale (perpendiculaire à la façade, lettres empilées)
+  const n = txt.length, hgt = n * 22 + 12, x = q[0], y = q[1];
+  ctx.fillStyle = '#141826'; ctx.fillRect(x - 13, y - hgt, 26, hgt);
+  if (on) { ctx.shadowColor = col; ctx.shadowBlur = 14; } ctx.strokeStyle = on ? col : shade(col, 0.5); ctx.lineWidth = 2.5; ctx.strokeRect(x - 13, y - hgt, 26, hgt);
+  ctx.fillStyle = on ? col : shade(col, 0.55); ctx.font = '900 19px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < n; i++) ctx.fillText(txt[i], x, y - hgt + 17 + i * 22); ctx.shadowBlur = 0;
+}
+function mbBlock(Q, prism, fL, fR, flat, quad, now, blink) {   // bâtiment principal : 9 niveaux, façade en bandes, écrans, enseignes, marquises, entrées
+  const M = MB, B = M.B, H = M.H, T = now / 1000;
+  prism(B, 0, H, '#e7dfd0');
+  // niveaux : dalles claires et bandes de fenêtres (éclairées le soir, hash)
+  for (let l = 0; l < M.NL; l++) { const z = M.Z0 + l * M.ZL;
+    fL(B.v1, B.u0, B.u1, z - 2, z + 2, '#f8f3ea'); fR(B.u1, B.v0, B.v1, z - 2, z + 2, '#d9d2c4');
+    for (let s = B.u0 + 0.08; s < B.u1 - 0.1; s += 0.36) fL(B.v1, s, s + 0.3, z + 8, z + 26, hash(Math.round(s * 10), l, 321) < 0.7 ? '#ffe2a0' : '#2c3a66');
+    for (let s = B.v0 + 0.08; s < B.v1 - 0.1; s += 0.36) fR(B.u1, s, s + 0.3, z + 8, z + 26, hash(Math.round(s * 10), l, 322) < 0.7 ? '#e6c27e' : '#24305a'); }
+  // couronne LED du toit (chenillard)
+  fL(B.v1, B.u0, B.u1, H - 12, H, '#1a1d30'); fR(B.u1, B.v0, B.v1, H - 12, H, '#14172a');
+  for (let i = 0; i < 30; i++) { const s = B.u0 + (i + 0.5) * (B.u1 - B.u0) / 30, on = ((i + Math.floor(T * 8)) % 6) < 3, q = Q(s, B.v1, H - 6); ctx.fillStyle = on ? MB_NEON[i % 4] : '#3a3050'; ctx.fillRect(q[0] - 3, q[1] - 3, 6, 6); }
+  for (let i = 0; i < 30; i++) { const s = B.v0 + (i + 0.5) * (B.v1 - B.v0) / 30, on = ((i + Math.floor(T * 8)) % 6) < 3, q = Q(B.u1, s, H - 6); ctx.fillStyle = on ? MB_NEON[(i + 2) % 4] : '#3a3050'; ctx.fillRect(q[0] - 3, q[1] - 3, 6, 6); }
+  // toit : parapet, groupes de climatisation, édicules
+  flat(B.u0 + 0.12, B.v0 + 0.12, B.u1 - 0.12, B.v1 - 0.12, H + 0.5, '#aeb2bf');
+  [[1.6, 1.5, 0.9, 0.7, 26], [5.0, 1.6, 1.1, 0.8, 20], [1.7, 4.9, 0.8, 0.8, 16], [3.2, 2.0, 0.5, 0.5, 34]].forEach(r => prism({ u0: r[0], v0: r[1], u1: r[0] + r[2], v1: r[1] + r[3] }, H, H + r[4], '#c6cad6'));
+  // grands écrans LED
+  mbScreen(Q, 'L', 1.35, 3.55, M.Z0 + 2 * M.ZL + 4, M.Z0 + 6 * M.ZL - 4, now, 0.13);
+  mbScreen(Q, 'L', 5.35, 6.75, M.Z0 + 1 * M.ZL + 4, M.Z0 + 4 * M.ZL - 4, now, 0.57);
+  mbScreen(Q, 'R', 1.4, 3.3, M.Z0 + 5 * M.ZL + 4, M.Z0 + 8 * M.ZL - 16, now, 0.81);
+  mbScreen(Q, 'R', 5.2, 6.7, M.Z0 + 2 * M.ZL + 4, M.Z0 + 5 * M.ZL - 4, now, 0.35);
+  // bandeau commercial continu au-dessus du rez-de-chaussée (panneaux d'enseignes)
+  for (let s = B.u0; s < B.u1 - 0.01; s += 0.5) { const c = MB_NEON[Math.floor(hash(Math.round(s * 10), 4, 323) * MB_NEON.length)]; fL(B.v1, s + 0.03, s + 0.47, M.Z0 - 12, M.Z0 + 4, '#1b1d2e'); fL(B.v1, s + 0.08, s + 0.42, M.Z0 - 7, M.Z0 - 1, blink(hash(Math.round(s * 10), 5, 324), 1.3) ? c : shade(c, 0.45)); }
+  for (let s = B.v0; s < B.v1 - 0.01; s += 0.5) { const c = MB_NEON[Math.floor(hash(Math.round(s * 10), 6, 323) * MB_NEON.length)]; fR(B.u1, s + 0.03, s + 0.47, M.Z0 - 12, M.Z0 + 4, '#16182a'); fR(B.u1, s + 0.08, s + 0.42, M.Z0 - 7, M.Z0 - 1, blink(hash(Math.round(s * 10), 7, 324), 1.3) ? c : shade(c, 0.45)); }
+  // rez-de-chaussée : vitrines éclairées, entrées couvertes
+  for (let s = B.u0 + 0.05; s < B.u1 - 0.1; s += 0.4) fL(B.v1, s, s + 0.34, 4, M.Z0 - 16, '#ffd98a');
+  for (let s = B.v0 + 0.05; s < B.v1 - 0.1; s += 0.4) fR(B.u1, s, s + 0.34, 4, M.Z0 - 16, '#e9b968');
+  fL(B.v1, M.ES.u0 + 0.1, M.ES.u1 - 0.1, 0, M.Z0 - 12, '#2a1830'); fR(B.u1, M.EE.v0 + 0.1, M.EE.v1 - 0.1, 0, M.Z0 - 12, '#22142a');
+  for (let i = 0; i < 4; i++) { fL(B.v1, M.ES.u0 + 0.2 + i * 0.32, M.ES.u0 + 0.44 + i * 0.32, 2, M.Z0 - 18, 'rgba(255,225,150,.55)'); fR(B.u1, M.EE.v0 + 0.2 + i * 0.28, M.EE.v0 + 0.4 + i * 0.28, 2, M.Z0 - 18, 'rgba(255,215,140,.5)'); }
+  // marquises rayées le long des façades (hors entrées)
+  const awnL = (s0, s1) => { for (let s = s0; s < s1 - 0.01; s += 0.25) quad([Q(s, B.v1, M.Z0 - 14), Q(Math.min(s1, s + 0.25), B.v1, M.Z0 - 14), Q(Math.min(s1, s + 0.25), B.v1 + 0.32, M.Z0 - 26), Q(s, B.v1 + 0.32, M.Z0 - 26)], MB_AWN[(Math.round(s * 4) + Math.floor(s / 1.5)) % MB_AWN.length]); };
+  const awnR = (s0, s1) => { for (let s = s0; s < s1 - 0.01; s += 0.25) quad([Q(B.u1, s, M.Z0 - 14), Q(B.u1, Math.min(s1, s + 0.25), M.Z0 - 14), Q(B.u1 + 0.32, Math.min(s1, s + 0.25), M.Z0 - 26), Q(B.u1 + 0.32, s, M.Z0 - 26)], MB_AWN[(Math.round(s * 4) + 3 + Math.floor(s / 1.5)) % MB_AWN.length]); };
+  awnL(B.u0, M.ES.u0 - 0.1); awnL(M.ES.u1 + 0.1, B.u1); awnR(B.v0, M.EE.v0 - 0.1); awnR(M.EE.v1 + 0.1, B.v1);
+  // auvents des entrées (grandes marquises sur poteaux)
+  const canL = { u0: M.ES.u0 - 0.15, v0: B.v1, u1: M.ES.u1 + 0.15, v1: B.v1 + 0.95 }, canR = { u0: B.u1, v0: M.EE.v0 - 0.15, u1: B.u1 + 0.95, v1: M.EE.v1 + 0.15 };
+  [[canL.u0 + 0.1, canL.v1 - 0.12], [canL.u1 - 0.18, canL.v1 - 0.12]].forEach(c => prism({ u0: c[0], v0: c[1], u1: c[0] + 0.08, v1: c[1] + 0.08 }, 0, M.Z0 - 8, '#d0d4e0'));
+  [[canR.u1 - 0.12, canR.v0 + 0.1], [canR.u1 - 0.12, canR.v1 - 0.18]].forEach(c => prism({ u0: c[0], v0: c[1], u1: c[0] + 0.08, v1: c[1] + 0.08 }, 0, M.Z0 - 8, '#d0d4e0'));
+  prism(canL, M.Z0 - 8, M.Z0, '#e8394d'); prism(canR, M.Z0 - 8, M.Z0, '#2f9be0');
+  fL(canL.v1, canL.u0 + 0.05, canL.u1 - 0.05, M.Z0 - 6, M.Z0 - 2, blink(0.3, 3) ? '#ffe9a8' : '#b98a40'); fR(canR.u1, canR.v0 + 0.05, canR.v1 - 0.05, M.Z0 - 6, M.Z0 - 2, blink(0.6, 3) ? '#bfe9ff' : '#3d6f90');
+  // enseignes-drapeaux lumineuses
+  mbBlade(Q(B.u0 + 0.35, B.v1 + 0.12, M.Z0 + 7 * M.ZL), 'MODE', '#ff3d8b', blink(0.11)); mbBlade(Q(4.6, B.v1 + 0.12, M.Z0 + 7.4 * M.ZL), 'FOOD', '#ffcc33', blink(0.23));
+  mbBlade(Q(B.u1 - 0.2, B.v1 + 0.12, M.Z0 + 7.6 * M.ZL), 'SALE', '#33e1ff', blink(0.37, 3)); mbBlade(Q(B.u1 + 0.12, 4.2, M.Z0 + 4.8 * M.ZL), 'TECH', '#7dff6a', blink(0.41));
+  mbBlade(Q(B.u1 + 0.12, B.v0 + 0.3, M.Z0 + 8.6 * M.ZL), 'CINÉ', '#b46bff', blink(0.53));
+}
+function mbItem(o, Q, prism, fL, fR, flat, quad, now, blink) {
+  const M = MB, s = o.s || 0;
+  if (o.k === 'stall') {   // étal couvert : comptoir, marchandises colorées, toile rayée
+    const c = MB_AWN[Math.floor(s * MB_AWN.length)], sd = Math.round(s * 100);
+    prism({ u0: o.u0 + 0.04, v0: o.v0 + 0.04, u1: o.u1 - 0.04, v1: o.v1 - 0.04 }, 0, 10, s > 0.5 ? '#b07a4a' : '#8a6a52');
+    for (let i = 0; i < 5; i++) { const q = Q(o.u0 + 0.08 + hash(i, sd, 331) * 0.28, o.v0 + 0.08 + hash(i, sd, 332) * 0.28, 11); ctx.fillStyle = MB_NEON[(i + sd) % MB_NEON.length]; ctx.fillRect(q[0] - 2.5, q[1] - 2.5, 5, 4); }
+    [[o.u0 + 0.04, o.v1 - 0.06], [o.u1 - 0.06, o.v1 - 0.06], [o.u1 - 0.06, o.v0 + 0.04]].forEach(p => { const a = Q(p[0], p[1], 0), b = Q(p[0], p[1], 24); ctx.strokeStyle = '#5b4a3a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); });
+    for (let k = 0; k < 4; k++) quad([Q(o.u0 - 0.02 + k * 0.12, o.v0 - 0.02, 26), Q(o.u0 + 0.1 + k * 0.12, o.v0 - 0.02, 26), Q(o.u0 + 0.1 + k * 0.12, o.v1 + 0.02, 22), Q(o.u0 - 0.02 + k * 0.12, o.v1 + 0.02, 22)], k % 2 ? c : '#f4efe4');
+    if (s > 0.72) { const q = Q(o.u0 + 0.22, o.v0 + 0.22, 30); ctx.fillStyle = blink(s, 4) ? '#fff3b0' : '#8a7a50'; ctx.beginPath(); ctx.arc(q[0], q[1], 2.2, 0, 7); ctx.fill(); }   // ampoule
+  } else if (o.k === 'para') {   // parasol et petite table
+    const c = MB_AWN[Math.floor(s * MB_AWN.length)], b = Q(o.u0 + 0.22, o.v0 + 0.22, 0), t = Q(o.u0 + 0.22, o.v0 + 0.22, 24);
+    flat(o.u0 + 0.14, o.v0 + 0.14, o.u0 + 0.3, o.v0 + 0.3, 9, '#ddd6c8');
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(t[0], t[1]); ctx.stroke();
+    ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(t[0], t[1], 22, 11, 0, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.moveTo(t[0], t[1] - 4); ctx.lineTo(t[0] - 22, t[1]); ctx.lineTo(t[0] - 11, t[1] + 9); ctx.closePath(); ctx.fill();
+  } else if (o.k === 'scoot') {   // rangée de scooters garés
+    for (let i = 0; i < 3; i++) { const u = o.u0 + 0.06 + i * 0.14, a = Q(u, o.v0 + 0.08, 4), b = Q(u + 0.02, o.v0 + 0.34, 4), col = MB_NEON[Math.floor(hash(i, Math.round(s * 100), 333) * MB_NEON.length)];
+      ctx.fillStyle = '#1a1a22'; ctx.beginPath(); ctx.arc(a[0], a[1] + 2, 2.6, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(b[0], b[1] + 2, 2.6, 0, 7); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(a[0], a[1] - 3); ctx.lineTo(b[0], b[1] - 3); ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.fillStyle = '#222'; ctx.fillRect((a[0] + b[0]) / 2 - 2, (a[1] + b[1]) / 2 - 8, 4, 3); }
+  } else if (o.k === 'tuk') {   // tuk-tuk : caisse colorée, toit, roues
+    const col = ['#2fbf71', '#2f9be0', '#f4c430', '#e8394d'][Math.floor(s * 4)], r = { u0: o.u0 + 0.06, v0: o.v0 + 0.1, u1: o.u0 + 0.38, v1: o.v0 + 0.32 };
+    const w1 = Q(r.u0 + 0.04, r.v1, 0), w2 = Q(r.u1 - 0.04, r.v1, 0); ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(w1[0], w1[1], 3, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(w2[0], w2[1], 3, 0, 7); ctx.fill();
+    prism(r, 3, 13, col); prism({ u0: r.u0 - 0.02, v0: r.v0 - 0.02, u1: r.u1 + 0.02, v1: r.v1 + 0.02 }, 20, 23, '#222838');
+    [[r.u0, r.v1], [r.u1, r.v1], [r.u1, r.v0]].forEach(p => { const a = Q(p[0], p[1], 13), b = Q(p[0], p[1], 20); ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); });
+  } else if (o.k === 'tree') {   // arbre en bac
+    prism({ u0: o.u0 + 0.1, v0: o.v0 + 0.1, u1: o.u0 + 0.36, v1: o.v0 + 0.36 }, 0, 7, '#8d8f9c');
+    const te = P2_IMG.arbre_ville && P2_IMG.arbre_ville.ok ? P2_IMG.arbre_ville : P2_IMG.arbre_isole_a, b = Q(o.u0 + 0.23, o.v0 + 0.23, 7);
+    if (te && te.ok) { const hh = 62, ww = hh * te.im.width / te.im.height; ctx.drawImage(te.im, b[0] - ww / 2, b[1] - hh + 4, ww, hh); }
+    else { ctx.fillStyle = '#6b4a2a'; ctx.fillRect(b[0] - 1.5, b[1] - 14, 3, 14); ctx.fillStyle = s > 0.5 ? '#2f7a45' : '#3f9a55'; ctx.beginPath(); ctx.arc(b[0], b[1] - 22, 12, 0, 7); ctx.fill(); }
+  } else if (o.k === 'walk') {   // passant (petit point coloré animé)
+    const q = Q(o.u, o.v, 0), w = o.w0, ph = o.st % 2; ctx.fillStyle = '#2a2430'; ctx.fillRect(q[0] - 2 + (ph ? 1 : -1), q[1] - 5, 2, 5); ctx.fillRect(q[0] + (ph ? -1 : 1), q[1] - 5, 2, 5);
+    ctx.fillStyle = w.col; ctx.fillRect(q[0] - 3, q[1] - 13, 6, 8); ctx.fillStyle = '#f0c8a0'; ctx.beginPath(); ctx.arc(q[0], q[1] - 15.5, 2.6, 0, 7); ctx.fill();
+  } else if (o.k === 'tower') {   // tour de parking à rampes accolée
+    const H = M.TL * M.TZ; prism(o, 0, H, '#bfc4d0');
+    for (let l = 0; l < M.TL; l++) { const z = l * M.TZ; fL(o.v1, o.u0 + 0.05, o.u1 - 0.05, z + 6, z + 19, '#2a2f40'); fR(o.u1, o.v0 + 0.05, o.v1 - 0.05, z + 6, z + 19, '#232838');
+      for (let i = 0; i < 6; i++) { const q = Q(o.u0 + 0.25 + i * 0.36, o.v1, z + 10); ctx.fillStyle = MB_AWN[(i + l) % MB_AWN.length]; if (hash(i, l, 334) < 0.7) ctx.fillRect(q[0] - 7, q[1] - 3, 14, 7); }
+      const a = Q(o.u1, o.v1 - 0.1, z + 2), b = Q(o.u1, o.v0 + 0.1, z + M.TZ - 2); ctx.strokeStyle = '#f4c430'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }   // rampes
+    flat(o.u0 + 0.05, o.v0 + 0.05, o.u1 - 0.05, o.v1 - 0.05, H + 0.5, '#9aa0ae');
+    for (let i = 0; i < 5; i++) { const u = o.u0 + 0.3 + hash(i, 1, 335) * (o.u1 - o.u0 - 0.7), v = o.v0 + 0.3 + hash(i, 2, 335) * (o.v1 - o.v0 - 0.6); prism({ u0: u, v0: v, u1: u + 0.3, v1: v + 0.16 }, H, H + 8, MB_AWN[i % MB_AWN.length]); }
+    const q = Q(o.u1 - 0.3, o.v1 - 0.3, H); ctx.fillStyle = '#1f5fd0'; ctx.fillRect(q[0] - 15, q[1] - 46, 30, 30); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(q[0] - 15, q[1] - 46, 30, 30); ctx.fillRect(q[0] - 1, q[1] - 16, 2, 16);
+    ctx.fillStyle = '#fff'; ctx.font = '900 22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('P', q[0], q[1] - 30);
+  } else if (o.k === 'pav') {   // pavillon d'arrivée des passerelles (station)
+    const H = 150; prism(o, 0, H, '#dfe3ee');
+    for (let l = 0; l < 4; l++) { const z = 18 + l * 32; fL(o.v1, o.u0 + 0.06, o.u1 - 0.06, z, z + 16, '#7fc8ff'); fR(o.u1, o.v0 + 0.06, o.v1 - 0.06, z, z + 16, '#5aa6dd'); }
+    prism({ u0: o.u0 - 0.06, v0: o.v0 - 0.06, u1: o.u1 + 0.06, v1: o.v1 + 0.06 }, H, H + 8, o.f === 'L' ? '#ff3d8b' : '#33e1ff');
+    const q = o.f === 'L' ? Q((o.u0 + o.u1) / 2, o.v1, H - 6) : Q(o.u1, (o.v0 + o.v1) / 2, H - 6); mbBlade([q[0], q[1] + 2], o.f === 'L' ? 'BTS' : 'MRT', o.f === 'L' ? '#ffcc33' : '#7dff6a', blink(o.s, 1.6));
+  } else if (o.k === 'bridge') {   // passerelle aérienne vitrée
+    const z0 = M.Z0 + 1.4 * M.ZL, z1 = z0 + 26; prism(o, z0, z1, '#cfe9ff');
+    if (o.f === 'L') fR(o.u1, o.v0, o.v1, z0 + 6, z1 - 6, '#6fb8f0'); else fL(o.v1, o.u0, o.u1, z0 + 6, z1 - 6, '#6fb8f0');
+  }
+}
+function mbRoofSign(Q, now) {   // enseigne géante « MALL CENTRAL » sur le toit (néon, chenillard de bord)
+  const M = MB, H = M.H, c = Q((M.B.u0 + M.B.u1) / 2 + 0.6, (M.B.v0 + M.B.v1) / 2 + 0.6, H), T = now / 1000;
+  ctx.save(); ctx.font = '900 76px sans-serif'; const tw = ctx.measureText('MALL CENTRAL').width, pw = tw + 70, ph = 104, x0 = c[0] - pw / 2, y0 = c[1] - 60 - ph;
+  ctx.fillStyle = '#5b6070'; [x0 + 40, x0 + pw - 46].forEach(px => ctx.fillRect(px, y0 + ph, 6, 60));
+  ctx.fillStyle = 'rgba(12,14,30,.92)'; ctx.fillRect(x0, y0, pw, ph);
+  const col = ['#ffcc33', '#ff3d8b', '#33e1ff'][Math.floor(T / 3) % 3];
+  ctx.shadowColor = col; ctx.shadowBlur = 26; ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.strokeRect(x0 + 4, y0 + 4, pw - 8, ph - 8);
+  ctx.fillStyle = '#fff6d8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MALL CENTRAL', c[0], y0 + ph / 2 + 3); ctx.shadowBlur = 0;
+  const n = 44, per = 2 * (pw + ph); for (let i = 0; i < n; i++) { const d = i / n * per, on = ((i + Math.floor(T * 10)) % 4) < 2; let px, py;
+    if (d < pw) { px = x0 + d; py = y0; } else if (d < pw + ph) { px = x0 + pw; py = y0 + d - pw; } else if (d < 2 * pw + ph) { px = x0 + pw - (d - pw - ph); py = y0 + ph; } else { px = x0; py = y0 + ph - (d - 2 * pw - ph); }
+    ctx.fillStyle = on ? '#fff3b0' : '#6a5a30'; ctx.beginPath(); ctx.arc(px, py, 3.2, 0, 7); ctx.fill(); }
+  ctx.restore(); return y0 - 10;
+}
+function poleBadge(a, now, pulse) {   // passe 45 : halo bien visible des boutiques qui profitent du mall ou d'un pôle commercial (contour doré au sol et pastille au-dessus du toit)
+  const b = mallBonus(a.x, a.y); if (!b.near && !b.pole) return;
+  const col = b.pole ? '255,140,30' : '255,205,80', pts = [iso(a.x, a.y), iso(a.x + a.w, a.y), iso(a.x + a.w, a.y + a.h), iso(a.x, a.y + a.h)];
+  ctx.save(); ctx.shadowColor = `rgb(${col})`; ctx.shadowBlur = 14; ctx.lineWidth = 5; ctx.strokeStyle = `rgba(${col},${(0.7 + 0.3 * pulse).toFixed(2)})`; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.closePath(); ctx.stroke();
+  const tx = (pts[0].x + pts[2].x) / 2, ty = Math.min(a._top == null ? pts[0].y - 40 : a._top, pts[0].y) - 18, k = Math.round((b.k - 1) * 100), txt = '+' + k + ' %';
+  ctx.font = '800 20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(txt).width + 30;
+  ctx.fillStyle = 'rgba(20,16,36,.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(tx - w / 2, ty - 14, w, 28, 14) : ctx.rect(tx - w / 2, ty - 14, w, 28); ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0; ctx.fillStyle = `rgb(${col})`; ctx.fillText('★' + txt, tx, ty + 1); ctx.restore();
+}
 function drawPark(a, now) {
   const x = a.x, y = a.y, s = a.seed;
   pQuad([PP(x, y, 0), PP(x + 1, y, 0), PP(x + 1, y + 1, 0), PP(x, y + 1, 0)], '#6fae52'); pQuad([PP(x + 0.06, y + 0.06, 0.4), PP(x + 0.94, y + 0.06, 0.4), PP(x + 0.94, y + 0.94, 0.4), PP(x + 0.06, y + 0.94, 0.4)], '#7fbd5e');
@@ -13251,7 +13479,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
   } else if (PROC_IND[a.t]) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
   } else if (a.t === 'npc' && a.k === 'mon' && a.m === 'mall') {
-    drawMall(a, x, y, p, o.now);
+    { const MP = mallPos(); if (MP && MP.w >= 10) drawMallBig(a, x, y, o.now); else drawMall(a, x, y, p, o.now); }   // passe 45 : grand mall 10×10 (dessiné une fois, depuis la case avant)
   } else if (a.t === 'npc' && a.k === 'mon') {
     drawMonument(a, o.now);
   } else if (a.t === 'npc' && a.k === 'park') {
@@ -13453,6 +13681,7 @@ function drawSatellite(now) {
   const vr = visibleRange();
   eachVisible(vr, (x, y) => {
     const rc = S.grid[idx(x, y)]; if (!rc || rc.t === 'road' || rc.t === 'part') return;
+    if (isMall(rc)) { const MP = mallPos(); if (MP && MP.w >= 10) { if (x === MP.x + MP.w - 1 && y === MP.y + MP.w - 1) { pPrism(MP.x, MP.y, MP.w, MP.w, 0, 6, '#d6c9ae'); pPrism(MP.x + MB.T.u0, MP.y + MB.T.v0, MB.T.u1 - MB.T.u0, MB.T.v1 - MB.T.v0, 0, MB.TL * MB.TZ, '#bfc4d0'); pPrism(MP.x + MB.B.u0, MP.y + MB.B.v0, MB.B.u1 - MB.B.u0, MB.B.v1 - MB.B.v0, 0, MB.H, '#f2c46a'); } return; } }   // passe 45 : grand mall en vue satellite (un seul volume)
     const a = rc, T = TYPES[a.t]; if (!T) return;
     const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
     const H = fl * 15 + 6, w = a.w || 1, h = a.h || 1;
@@ -13541,7 +13770,8 @@ function frame(now) {
         else drawDeposit(p, d, now, x, y);
         if (wantDep === d.k && !rc) { ctx.lineWidth = 4; poly(tilePts(p, 0.92), null, `rgba(255,255,255,${0.35 + 0.5 * pulse})`); }
       }
-      { const ah = rc && rc.t !== 'road' ? anchorOf(rc) : null; if (ah && POLE_SHOPS[ah.t]) { const mb = mallBonus(ah.x, ah.y); if (mb.near || mb.pole) { ctx.lineWidth = 3; poly(tilePts(p, 1.06), mb.pole ? 'rgba(255,179,71,.30)' : 'rgba(255,215,106,.18)', mb.pole ? 'rgba(255,179,71,.75)' : 'rgba(255,215,106,.45)'); } } }   // passe 44 : halo des boutiques du pôle commercial / près du mall
+      { const ah = rc && rc.t !== 'road' ? anchorOf(rc) : null; if (ah && POLE_SHOPS[ah.t]) { const mb = mallBonus(ah.x, ah.y); if (mb.near || mb.pole) { ctx.lineWidth = 6; poly(tilePts(p, 1.02), mb.pole ? `rgba(255,140,30,${(0.42 + 0.16 * pulse).toFixed(2)})` : `rgba(255,205,80,${(0.34 + 0.14 * pulse).toFixed(2)})`, mb.pole ? 'rgba(255,140,30,.98)' : 'rgba(255,220,110,.95)'); ctx.lineWidth = 2.5; poly(tilePts(p, 0.72), null, 'rgba(255,255,255,.7)'); } }
+      }   // passe 44 : halo des boutiques du pôle commercial / près du mall (passe 45 : plus marqué, et repris au-dessus du bâtiment en passe 2)
       if (rc && rc.t === 'part') return;
       if (rc && rc.t !== 'road' && rc.linked === false) { ctx.setLineDash([8, 6]); ctx.lineWidth = 3; poly(tilePts(p, 0.86), null, 'rgba(255,177,92,' + (0.55 + 0.35 * pulse) + ')'); ctx.setLineDash([]); }
       else if (rc && rc.t !== 'road' && !rc.conn) { ctx.setLineDash([8, 6]); ctx.lineWidth = 3; poly(tilePts(p, 0.86), null, 'rgba(255,90,95,' + (0.6 + 0.35 * pulse) + ')'); ctx.setLineDash([]); }
@@ -13565,6 +13795,7 @@ function frame(now) {
           poly(tilePts(iso(x, y), 0.96), `hsla(${h},85%,52%,${0.16 + 0.28 * (lay === 'logi' ? 1 - v : v)})`, null); });
       }
       if (bestTile && T0 && (FLEVEL[tool] || tool === 'foundry')) { const q = iso(bestTile.x, bestTile.y); ctx.lineWidth = 5; poly(tilePts(q, 0.9), 'rgba(255,215,106,.25)', 'rgba(255,215,106,.95)'); ctx.fillStyle = '#ffd76a'; ctx.font = '700 34px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('★', q.x, q.y + 44); } }
+    if (POLE_SHOPS[tool] && mallPos()) { ctx.lineWidth = 3; eachVisible(vr, (x, y) => { if (ZONE[idx(x, y)] !== 1 || S.grid[idx(x, y)] || mallDist(x, y) > MALL_R) return; poly(tilePts(iso(x, y), 0.5), `rgba(255,205,80,${(0.22 + 0.14 * pulse).toFixed(2)})`, `rgba(255,205,80,${(0.7 + 0.25 * pulse).toFixed(2)})`); }); }   // passe 45 : zone du bonus du mall (6 cases depuis le bord de l'emprise) quand un outil de boutique est choisi
     if (mallHint && performance.now() < mallHint.until && !S.grid[idx(mallHint.x, mallHint.y)]) { const q = iso(mallHint.x, mallHint.y); ctx.lineWidth = 5; poly(tilePts(q, 0.9), 'rgba(255,179,71,.25)', `rgba(255,179,71,${(0.55 + 0.4 * pulse).toFixed(2)})`); ctx.fillStyle = '#ffb347'; ctx.font = '700 34px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('★', q.x, q.y + 44); }   // passe 44 : case conseillée près du mall
     // survol / aperçu
     let ghost = null;
@@ -13604,7 +13835,7 @@ function frame(now) {
             const ox = rc.t === 'part' ? rc.ox : 0, oy = rc.t === 'part' ? rc.oy : 0;
             const o = { now, born: a.born, alert: S.day <= a.alertUntil };
             drawTileOf(a, x, y, ox, oy, o);
-            if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawOverlay(a, o);
+            if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { drawOverlay(a, o); if (POLE_SHOPS[a.t]) poleBadge(a, now, pulse); }
           }
         }
       } else if (ZONE[i] === 4) {
@@ -14091,7 +14322,7 @@ const pctD = v => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v * 1000) / 10).t
 function cityFocus() {
   const mine = [], city = [];   // tes bâtiments d'abord, sinon les immeubles de la ville
   eachBuilding(c => { if (c.t !== 'npc') mine.push(c); else if (inCity(c.x, c.y)) city.push(c); });
-  if (!mine.length) { const M = mallPos(); if (M) return { x: M.x + 1, y: M.y + 1, built: true, mall: true }; }   // passe 44 : la partie commence sur le Mall central
+  if (!mine.length) { const M = mallPos(); if (M) { const c = M.w >= 10 ? (M.w - 1) / 2 : 1; return { x: M.x + c, y: M.y + c, built: true, mall: true, big: M.w >= 10 }; } }   // passe 44 : la partie commence sur le Mall central
   const L = mine.length ? mine : city;
   if (!L.length) return { x: (CITY.x0 + CITY.x1) >> 1, y: (CITY.y0 + CITY.y1) >> 1, built: false };
   const cx = L.reduce((a, c) => a + c.x, 0) / L.length, cy = L.reduce((a, c) => a + c.y, 0) / L.length;   // on se recentre sur le bâtiment le plus proche du barycentre
@@ -14104,7 +14335,9 @@ function fitView(topH, botH, tiles) {
 }
 function frameCity() {
   if (!W) return null; const f = cityFocus(), hud = $('#hud').getBoundingClientRect(), bar = $('#bar').getBoundingClientRect();
-  fitView(hud.bottom, H - bar.top, 18); centerOn(f.x, f.y); fitted = true; return f;
+  fitView(hud.bottom, H - bar.top, f.big ? 13 : 18); centerOn(f.x, f.y);
+  if (f.big) { const M = mallPos(), top = iso(M.x + 4.6, M.y + 4.6).y - MB.H - 180, bot = iso(M.x + M.w, M.y + M.w).y, mid = (Math.max(0, hud.bottom) + Math.min(H, bar.top)) / 2; cam.x = iso(M.x + M.w / 2, M.y + M.w / 2).x; cam.y = (top + bot) / 2 - (mid - vy) / z; }   // passe 45 : tout le grand mall (enseigne comprise) dans la fenêtre utile, entre le bandeau et la barre d'outils
+  fitted = true; return f;
 }
 function camTile() { const sx = cam.x, sy = cam.y + 10; return { x: (sx / (TW / 2) + sy / (TH / 2)) / 2 - 0.5, y: (sy / (TH / 2) - sx / (TW / 2)) / 2 - 0.5 }; }
 function builtNear(x, y, r) { let n = 0; eachBuilding(c => { if (Math.abs(c.x - x) <= r && Math.abs(c.y - y) <= r) n++; }); return n; }
@@ -15312,7 +15545,8 @@ function mallOpen() {
 function mallClose() { mallOn = false; const b = el('mallp'); if (b) b.hidden = true; }
 function mallSpot(key) {   // case libre la plus proche du mall où la boutique peut être posée
   const P = mallPos(); if (!P) return null; let best = null, bd = 1e9;
-  for (let y = P.y - 8; y <= P.y + 9; y++) for (let x = P.x - 8; x <= P.x + 9; x++) { if (!inb(x, y) || footprintError(x, y, key || 's1')) continue; const d = mallDist(x, y, (TYPES[key || 's1'].w || 1), (TYPES[key || 's1'].h || 1)) + 0.01 * hash(x, y, 144); if (d < bd) { bd = d; best = { x, y, d }; } }
+  const W0 = P.w || 2, R0 = W0 >= 10 ? MALL_R + 2 : 8;   // passe 45 : autour du grand mall, la case libre la plus proche du bord (au bord de l'anneau routier)
+  for (let y = P.y - R0; y <= P.y + W0 - 1 + R0; y++) for (let x = P.x - R0; x <= P.x + W0 - 1 + R0; x++) { if (!inb(x, y) || footprintError(x, y, key || 's1')) continue; const d = mallDist(x, y, (TYPES[key || 's1'].w || 1), (TYPES[key || 's1'].h || 1)) + 0.01 * hash(x, y, 144); if (d < bd) { bd = d; best = { x, y, d }; } }
   return best;
 }
 function mallAct(a) {
@@ -15397,7 +15631,7 @@ Object.assign(window.WSE, { coach: { st: coachSt, pick: coachPick, view: coachVi
 Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDaily, obs: netObs, render: renderNet, tab: setNetTab, unread: netUnread, badge: netBadge, save: netSave, san: netSan, reply: netReply, TPL: NET_TPL, CHAT: NET_CHAT, BOTS: NET_BOTS, reset: sd => { S.net = null; const n = netS(); if (sd != null) { n.sd = sd | 0; n.posts = []; n.chat = []; n.id = 0; netSeedContent(); n.seen = n.id; n.o = netSnap(); } NET._t = 0; return n; }, setGap: ms => { NET._t = ms ? NET._t : 0; } } });   // passe 42 : Réseau Wall Street
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
-window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, popE, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF } };   // passe 44 : Mall central et pôle commercial
+window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 Object.defineProperty(window.WSE, 'imm', { get() { return { on: immOn, tr: imm.tr, from: imm.from, idle: imm.idle, panel: immPanel, ang: planAng, yaw: planYaw, cam: { z: scam.z, x: scam.x, y: scam.y, bs: scam.bs }, W: imm.W, H: imm.H }; } });
 })();
 </script>

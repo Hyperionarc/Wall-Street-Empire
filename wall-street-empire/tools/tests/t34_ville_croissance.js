@@ -3,9 +3,10 @@
 // croissance passive (250-420 k en 7 200 jours) et active (600 k-1,2 M), niveaux de densité, extension de la zone, jalons, indicateurs, sauvegarde, performances.
 exports.name = 'Ville : petite ville de départ et croissance';
 
-const SCAN = `(() => { const W = window.WSE, S = W.S, N = W.N; const o = { house: 0, res: 0, off: 0, park: 0, mon: 0, lm: 0, max: 0, cx: 0, nx: 0, px: 0, np: 0, lots: 0, free: 0, n: 0 };
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const c = S.grid[y * N + x]; if (!c || c.t !== 'npc') continue; o.n++; o[c.k]++; if (c.lm) o.lm++; if (c.floors > o.max) o.max = c.floors;
-    const d = Math.hypot(x - 30, y - 30); if (c.k === 'res' || c.k === 'off' || c.k === 'house') { if (d < 7) { o.cx += c.floors; o.nx++; } else if (d > 12) { o.px += c.floors; o.np++; } } }
+// passe 45 : les 100 cases du grand mall (bloc 10×10 au centre) sont comptées à part ; le « centre » devient l'anneau de quartiers autour du mall (moins de 11,5 cases du centre), la périphérie commence à 16 cases
+const SCAN = `(() => { const W = window.WSE, S = W.S, N = W.N; const o = { house: 0, res: 0, off: 0, park: 0, mon: 0, mall: 0, lm: 0, max: 0, cx: 0, nx: 0, px: 0, np: 0, lots: 0, free: 0, n: 0 }; const M = W.mall && W.mall.pos(), big = !!M && M.w >= 10;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const c = S.grid[y * N + x]; if (!c || c.t !== 'npc') continue; if (c.k === 'mon' && c.m === 'mall') { o.mall++; continue; } o.n++; o[c.k]++; if (c.lm) o.lm++; if (c.floors > o.max) o.max = c.floors;
+    const d = Math.hypot(x - 30, y - 30); if (c.k === 'res' || c.k === 'off' || c.k === 'house') { if (d < (big ? 11.5 : 7)) { o.cx += c.floors; o.nx++; } else if (d > (big ? 16 : 12)) { o.px += c.floors; o.np++; } } }
   const sc = S.cg && S.city ? S.city : {}; o.lots = sc.lots || 0; o.free = sc.free || 0; return o; })()`;
 
 exports.run = async (t, L) => {
@@ -20,7 +21,7 @@ exports.run = async (t, L) => {
   t.range('départ : économie équivalente à celle de l\'ancienne ville (habitants x bassin + région)', st.popE / 1000, 270, 310, ' k', 0);
   t.range('départ : rapport emplois / actifs comme avant (0,80 à 0,95)', st.jobs / st.wf, 0.8, 0.95, '', 2);
   t.range('départ : chômage de départ inchangé (5 à 14 %)', st.unemp * 100, 5, 14, ' %');
-  t.check('départ : maisons, immeubles, bureaux, parcs et équipements publics présents', a.house >= 80 && a.res >= 60 && a.off >= 20 && a.off <= 80 && a.park >= 8 && a.mon === 15, JSON.stringify({ house: a.house, res: a.res, off: a.off, park: a.park, mon: a.mon }));
+  t.check('départ : maisons, immeubles, bureaux, parcs et équipements publics présents', a.house >= 80 && a.res >= 60 && a.off >= 20 && a.off <= 80 && a.park >= 8 && a.mon === 11 && a.mall === 100, JSON.stringify({ house: a.house, res: a.res, off: a.off, park: a.park, mon: a.mon, mall: a.mall }));
   t.check('départ : bâtiments bas (aucune tour de plus de 20 étages, aucun repère de 54-66 étages)', a.max <= 20 && a.lm === 0, `plus haut ${a.max} étages`);
   t.check('départ : moins de 400 bâtiments PNJ (tous bas)', a.n <= 400, a.n + ' bâtiments');
   t.check('départ : beaucoup de terrain libre (au moins 40 % des lots)', st.lots > 0 && st.free / st.lots >= 0.4, `${st.free} lots libres sur ${st.lots}`);
