@@ -248,3 +248,12 @@ Le mall occupe **un bloc complet de 10×10 cases, au centre de la ville** (losan
 - Raccord sans couture garanti par construction (`tools/factory_ai/sol.py`) : bruit périodique dans l'espace monde, période 1 par case, **même base pour toutes les variantes** ; seules des touches intérieures (fondues vers 0 aux bords) les distinguent. N'importe quelle herbe se raccorde à n'importe quelle autre, idem pour la terre. Herbe/terre côte à côte : bord net, pas de transition (`herbe_bord_*` pas faits).
 - Rendu : herbe mouchetée jaune-vert avec plaques de terre claire (référence Age of Empires de Rémy).
 - Lot maisons/immeubles : sources `bat_maison_*`, `bat_immeuble_*`, `bat_tour_logements` générées côté producteur mais **non poussées** : la recomposition sur sol 2:1 donne la bonne pente mais des maisons moins soignées que les originaux. Décision de Rémy en attente.
+
+## Retour de l'intégrateur n° 9 (maïs et colza)
+**Branché dans le jeu** : `fcorn` (Culture de maïs) et `frapeseed` (Culture de colza) sont deux vraies fermes 2×2 du menu Agriculture (famille Cultures), avec zones fertiles de maïs et de colza sur la carte ; les sprites `assets/factory_hd/fcorn.png` et `frapeseed.png` sont embarqués par le build (`P2_NAMES`) et calés sur le losange de 2 cases exactement comme `fwheat` (losange mesuré 512 px, ancre de `ancres.json`). Plus de « pas dans le jeu ».
+Nouveaux biens : `corn` (Maïs, brut), `rapeseed` (Colza en graines, brut), `cookoil` (Huile de cuisine = maïs + colza, intermédiaire), `biodiesel` (Biodiesel = colza + produits chimiques, intermédiaire). Nouveaux produits finis : `tableoil` (Huile de table, première nécessité), `cornchips` (Chips de maïs), `biofuel` (Biocarburant en bidons, rayon Auto et outils).
+**Attend une image du Mac** (le jeu retombe sur la vignette vectorielle en attendant ; sujets décrits dans `tools/factory_ai/photos_guide.json`, même consigne que les autres) :
+1. Photos du Guide du fabricant, `assets/guide_hd/<clé>.jpg` (512×512) : produits `tableoil`, `cornchips`, `biofuel` ; biens `corn`, `rapeseed`, `cookoil`, `biodiesel`.
+2. Vignettes produits (lot E, `hero_*` facultatif) : `tableoil`, `cornchips`, `biofuel`.
+3. Marchandises sur palette (sprites `MAT_SPR`, 2,2 × 2,2 cases, ancre au centre), facultatif : `sacs_mais`, `sacs_colza`, `futs_huile`, `futs_biodiesel` ; en attendant, sacs et fûts vectoriels.
+4. Gisement (facultatif) : une parcelle de champ fertile « maïs » et « colza » au repos (losange 1 case, comme les autres gisements de la phase 2) ; en attendant, champ vectoriel jaune.
