@@ -35,7 +35,8 @@ if (process.env.SIM_WORKER) {
     const PERS = [['hardcore', 'rapide'], ['joueuse', 'bon'], ['ado', 'casual'], ['fermier', 'fermier']];   // monde partagé : même graine ; chaque persona prend une caste différente et tourne sur les six castes au fil des mondes
     for (let w = 1; w <= seeds; w++) PERS.forEach((pr, i) => jobs.push({ persona: pr[0], caste: castes[(w - 1 + i) % castes.length], profile: pr[1], seed: 7000 + w, events: true }));
   } else for (let s = 1; s <= seeds; s++) for (const c of castes) for (const p of profiles) jobs.push({ caste: c, profile: p, seed: 1000 * s + 17 * castes.indexOf(c) + 3 * profiles.indexOf(p), events: s % 2 === 0 });
-  fs.writeFileSync(out, ''); const slices = Array.from({ length: W }, () => []); jobs.forEach((j, i) => slices[i % W].push(j));
+  let done = new Set(); if (A.includes('--resume') && fs.existsSync(out)) { fs.readFileSync(out, 'utf8').split('\n').filter(Boolean).forEach(l => { try { const r = JSON.parse(l); if (r.series) done.add([r.persona || '', r.caste, r.profile, r.seed].join('|')); } catch (e) {} }); } else fs.writeFileSync(out, '');
+  for (let i = jobs.length - 1; i >= 0; i--) if (done.has([jobs[i].persona || '', jobs[i].caste, jobs[i].profile, jobs[i].seed].join('|'))) jobs.splice(i, 1); const slices = Array.from({ length: W }, () => []); jobs.forEach((j, i) => slices[i % W].push(j));
   console.log(jobs.length, 'parties,', W, 'travailleurs, horizon', days, 'jours ->', out);
   slices.forEach(sl => { const c = spawn(process.execPath, [__filename], { env: Object.assign({}, process.env, { SIM_WORKER: JSON.stringify(sl), SIM_OUT: out, SIM_DAYS: String(days) }), stdio: 'inherit' }); c.on('exit', () => console.log('travailleur terminé')); });
 }
