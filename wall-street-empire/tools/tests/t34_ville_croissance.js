@@ -13,13 +13,14 @@ exports.run = async (t, L) => {
   let pg = await L.newPage({ wait: 700 }); await L.setup(pg, { caste: 'industriel', cash: 5e9 }); await L.inject(pg);
   await pg.evaluate('window.WSE.refreshStats(); window.WSE.step();');
   const a = await pg.evaluate(SCAN);
-  const st = await pg.evaluate(() => { const W = window.WSE, S = W.S; W.refreshStats(); return { pop: S.pop, bs: S.bassin, cv: S.cityV, jobs: S.stats.jobs, wf: S.stats.workforce, unemp: S.stats.unemp, cap: S.stats.cap, hudPop: document.getElementById('vPop').textContent, hudSub: document.getElementById('vPopSub').textContent, free: S.city && S.city.free, lots: S.city && S.city.lots }; });
-  t.range('départ : population (petite ville)', st.pop, 95000, 110000, ' hab.', 0);
+  const st = await pg.evaluate(() => { const W = window.WSE, S = W.S; W.refreshStats(); return { pop: S.pop, bs: S.bassin, cv: S.cityV, jobs: S.stats.jobs, wf: S.stats.workforce, unemp: S.stats.unemp, cap: S.stats.cap, popE: W.mall.popE(), hudPop: document.getElementById('vPop').textContent, hudSub: document.getElementById('vPopSub').textContent, free: S.city && S.city.free, lots: S.city && S.city.lots }; });
+  // passe 44 : ville de départ aérée (CITY_D0 = 0,6) : ≈ 60 000 habitants au lieu de ≈ 100 000 ; l'économie de départ est conservée par la région du bassin (S.bx)
+  t.range('départ : population (petite ville aérée, passe 44)', st.pop, 50000, 75000, ' hab.', 0);
   t.check('départ : nouvelle ville de la passe 35 (S.cityV = 2) avec bassin de consommation', st.cv === 2 && st.bs > 2.5 && st.bs < 3.2, `cityV ${st.cv} · bassin ${st.bs}`);
-  t.range('départ : économie équivalente à celle de l\'ancienne ville (habitants x bassin)', st.pop * st.bs / 1000, 270, 310, ' k', 0);
+  t.range('départ : économie équivalente à celle de l\'ancienne ville (habitants x bassin + région)', st.popE / 1000, 270, 310, ' k', 0);
   t.range('départ : rapport emplois / actifs comme avant (0,80 à 0,95)', st.jobs / st.wf, 0.8, 0.95, '', 2);
   t.range('départ : chômage de départ inchangé (5 à 14 %)', st.unemp * 100, 5, 14, ' %');
-  t.check('départ : maisons, immeubles, bureaux, parcs et équipements publics présents', a.house >= 80 && a.res >= 60 && a.off >= 20 && a.off <= 80 && a.park >= 8 && a.mon === 11, JSON.stringify({ house: a.house, res: a.res, off: a.off, park: a.park, mon: a.mon }));
+  t.check('départ : maisons, immeubles, bureaux, parcs et équipements publics présents', a.house >= 80 && a.res >= 60 && a.off >= 20 && a.off <= 80 && a.park >= 8 && a.mon === 15, JSON.stringify({ house: a.house, res: a.res, off: a.off, park: a.park, mon: a.mon }));
   t.check('départ : bâtiments bas (aucune tour de plus de 20 étages, aucun repère de 54-66 étages)', a.max <= 20 && a.lm === 0, `plus haut ${a.max} étages`);
   t.check('départ : moins de 400 bâtiments PNJ (tous bas)', a.n <= 400, a.n + ' bâtiments');
   t.check('départ : beaucoup de terrain libre (au moins 40 % des lots)', st.lots > 0 && st.free / st.lots >= 0.4, `${st.free} lots libres sur ${st.lots}`);
@@ -37,11 +38,13 @@ exports.run = async (t, L) => {
     for (let d = 0; d < 7200; d++) { W.step(); if (S.day % 600 === 0) { out.push(Math.round(S.pop)); if (S.day % 1200 === 0) { const b = T.scan(); bad += b.length; } } }
     const c = S.city; return { out, ms: (performance.now() - t0) / 7200, bad, ms2: S.cg.ms, ext: (S.cityExt || []).length, lv: c.lv, top: c.top, free: c.free, lots: c.lots, hud: document.getElementById('vPopSub').textContent, ev: (S._sayBuf || []).join(' | ') }; });
   const pp = P.out;
-  t.range('passif : population après 7 200 jours', pp[pp.length - 1] / 1000, 250, 420, ' k', 0);
+  // passe 44 : départ à 60 k au lieu de 100 k, même rythme relatif (×3,2 en 7 200 jours contre ×3,05) : seuil bas abaissé de 250 k à 150 k
+  t.range('passif : population après 7 200 jours', pp[pp.length - 1] / 1000, 150, 420, ' k', 0);
   t.check('passif : la ville croît en continu (jamais de recul de plus de 3 % entre deux mesures)', pp.every((v, i) => i === 0 || v >= pp[i - 1] * 0.97) && pp[pp.length - 1] > 2 * pp[0], pp.map(v => Math.round(v / 1000)).join(' '));
-  t.check('passif : se densifie par niveaux (immeubles, tours de plus de 10 étages)', P.lv[2] > 20 && P.lv[3] > 10 && P.top >= 20, `niveaux ${P.lv.join('/')} · plus haut ${P.top} étages`);
-  t.check('passif : la zone urbaine s\'étend quand les lots manquent', P.ext >= 1, P.ext + ' blocs ajoutés');
-  t.check('passif : jalons de taille annoncés (au moins 2)', P.ms2 >= 2, 'jalons ' + P.ms2);
+  t.check('passif : se densifie par niveaux (immeubles, tours de plus de 10 étages)', P.lv[2] > 20 && P.lv[3] > 10 && P.top >= 15, `niveaux ${P.lv.join('/')} · plus haut ${P.top} étages`);
+  // passe 44 : la ville aérée garde des lots libres plus longtemps : l'extension n'est exigée que si les lots ont manqué (moins de 14 % libres)
+  t.check('passif : la zone urbaine s\'étend quand les lots manquent', P.ext >= 1 || P.free >= 0.14 * P.lots, `${P.ext} blocs ajoutés · ${P.free} lots libres sur ${P.lots}`);
+  t.check('passif : jalons de taille annoncés (au moins 1 : 150 000 habitants)', P.ms2 >= 1, 'jalons ' + P.ms2);
   t.check('passif : 0 NaN, 0 pageerror', P.bad === 0 && pg.errs.length === 0, pg.errs.slice(0, 2).join(';'));
   t.check('passif : coût de simulation raisonnable (moins de 25 ms par jour en moyenne)', P.ms < 25, P.ms.toFixed(1) + ' ms/jour');
   // sauvegarde aller-retour (ville nouvelle formule) dans le même contexte

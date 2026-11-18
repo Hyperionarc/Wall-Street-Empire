@@ -25,6 +25,7 @@ exports.run = async (t, L) => {
     const W = window.WSE, C = W.coach, T = window.T, S = W.S, r = {};
     const show = o => { const c = C.pick(o); return c ? { id: c.id, ph: c.ph, cost: c.cost, gain: c.gain, min: c.min, years: c.years } : null; };
     r.a = show(C.st(true));                                   // A : rien de construit
+    S.coach = S.coach || { done: {}, prop: -1e9 }; const m0 = S.coach.mall; S.coach.mall = S.day + 1; r.a2 = show(C.st(true)); S.coach.mall = m0;   // passe 44 : une fois le Mall central visité
     for (let i = 0; i < 3; i++) T.inC('s1'); T.stepN(12, true); r.shops = C.st(true).shops;
     const o2 = C.st(true); r.b = show(o2);                    // B : 3 commerces, pas d'usine
     const o3 = Object.assign({}, o2, { fac: 1, facOn: 1, prodOn: 3, prodRnd: 0, adWaste30: 0, loan: 4e6, cash: 9e6, val: 3e7, hq: false });   // C : usine, 3 produits, dette
@@ -32,7 +33,8 @@ exports.run = async (t, L) => {
     const o4 = Object.assign({}, o3, { loan: 0, hq: true, listed: false, val: 3e7 }); r.d = show(o4);
     return r;
   });
-  t.check('état A (rien de construit) : phase 1 Commerce, premier commerce', S3.a && S3.a.id === 'shop1' && S3.a.ph === 0, JSON.stringify(S3.a));
+  // passe 44 : le premier jalon est « Clique sur le Mall central pour voir le marché », puis le premier commerce (près du mall)
+  t.check('état A (rien de construit) : phase 1 Commerce, visite du Mall central puis premier commerce', S3.a && S3.a.id === 'mall' && S3.a.ph === 0 && S3.a2 && S3.a2.id === 'shop1' && S3.a2.ph === 0, JSON.stringify([S3.a, S3.a2]));
   t.check('état B (3 commerces, pas d\'usine) : phase 2 Première usine', S3.shops >= 3 && S3.b && S3.b.ph === 1, JSON.stringify({ n: S3.shops, b: S3.b }));
   t.check('état C (usine, produits, dette) : phase 4, remboursement de la dette', S3.c && S3.c.ph === 3 && S3.c.id === 'debt', JSON.stringify(S3.c));
   t.check('état D (sans dette, siège) : introduction en bourse', S3.d && S3.d.id === 'ipo', JSON.stringify(S3.d));
