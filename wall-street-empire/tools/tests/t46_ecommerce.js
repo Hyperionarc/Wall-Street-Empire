@@ -69,6 +69,9 @@ exports.run = async (t, L) => {
     W.refreshStats(); const amt = S.cash - cash0, E = S.ecom; day(); return { card: !!card, txt: /startup Testshop/i.test(txt), amt, V, sold: E.sold, capd: (S.capAdj || 0) - cap0, raw0, raw1: S.stats.raw, n: E.n, mi: E.last.mi, eb: E.last.eb, raised: E.raised }; });
   t.check('startup financée par une levée (Financement > Equity raising) : 10 % cédés, fonds en trésorerie, contrepartie minoritaire au bilan', f.card && f.txt && f.amt > 0 && Math.abs(f.sold - 0.1) < 1e-9 && Math.abs(f.capd + f.amt) < 1 && f.n === 1, JSON.stringify({ levee: Math.round(f.amt), val: Math.round(f.V), cede: f.sold }));
   t.check('la levée n\'enrichit pas le fondateur ; les investisseurs touchent leur part des bénéfices de la startup', Math.abs(f.raw1 - f.raw0) < 0.02 * Math.abs(f.raw0) + 1e5 && (f.eb > 0 ? Math.abs(f.mi - 0.1 * f.eb) < 1e-6 * f.eb + 1e-6 : f.mi === 0), JSON.stringify({ raw0: Math.round(f.raw0), raw1: Math.round(f.raw1), eb: Math.round(f.eb), part: Math.round(f.mi) }));
+  // fiche du bâtiment (outil Main) : indicateurs de l'entrepôt en ligne
+  const fb = await pg.evaluate(async () => { const { W, e } = window.B; W.openBuilding(e.x, e.y); await new Promise(r => setTimeout(r, 300)); const box = document.getElementById('bview') || document.body, txt = box.innerText.replace(/\s+/g, ' '); W.closeBuilding(); return { txt: /Expéditions vers le monde/.test(txt) && /Ventes en ligne/.test(txt), nan: /NaN/.test(txt) }; });
+  t.check('fiche du bâtiment : expéditions vers le monde et ventes en ligne affichées, sans NaN', fb.txt && !fb.nan, JSON.stringify(fb));
   // 7. page « Ma plateforme en ligne » et onglet Apprendre à 1280x720
   const ui = async (pg, tag) => { const o = {};
     await pg.evaluate(() => { window.WSE.ecom.show(); }); await pg.waitForTimeout(250);

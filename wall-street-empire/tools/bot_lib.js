@@ -266,7 +266,7 @@ window.BOT = (function () {
     if (!list.length) { add('ewh'); return; }
     if (!K || s.day - (EC.lastAdd || 0) < 60) return;
     if (L.lostSite > 0.08 * L.O && K.eb > 0) { if (add('dc')) EC.lastAdd = s.day; return; }
-    if (L.U >= 0.9 * L.scap && K.eb > 0 && list.length < (P.ecMax || 4)) { if (add('ewh')) EC.lastAdd = s.day; }
+    if (L.U >= 0.9 * L.scap && K.eb > 0 && list.length < (P.ecMax || 6)) { if (add('ewh')) EC.lastAdd = s.day; }
   }
   function tick() {
     const s = S(); let did = 0, spent = 0;
