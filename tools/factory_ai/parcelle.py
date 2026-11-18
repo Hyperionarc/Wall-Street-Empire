@@ -148,18 +148,18 @@ def main():
                         x, y = P(uu, vv)
                         d.ellipse([x - 2 * SS, y - 1 * SS, x + 13 * SS, y + 4 * SS], fill=(40, 30, 20, 150))      # ombre portée
                         if kind == 'sucre':
-                            for k in range(7):
-                                ang = k * 0.9 + rr.uniform(-0.2, 0.2)
+                            for kq in range(7):
+                                ang = kq * 0.9 + rr.uniform(-0.2, 0.2)
                                 lx, ly = x + math.cos(ang) * 7 * SS, y - 6 * SS + math.sin(ang) * 3.5 * SS
                                 g = rr.choice([(58, 130, 46), (76, 154, 56), (96, 176, 66)])
                                 d.ellipse([lx - 4.5 * SS, ly - 4 * SS, lx + 4.5 * SS, ly + 3 * SS], fill=g + (255,))
                             d.ellipse([x - 3 * SS, y - 9 * SS, x + 3 * SS, y - 4 * SS], fill=(122, 190, 78, 255))
                         else:
-                            for k in range(6):
-                                ang = k * 1.05 + rr.uniform(-0.2, 0.2)
+                            for kq in range(6):
+                                ang = kq * 1.05 + rr.uniform(-0.2, 0.2)
                                 lx, ly = x + math.cos(ang) * 6 * SS, y - 7 * SS + math.sin(ang) * 3 * SS
                                 d.ellipse([lx - 4 * SS, ly - 3.5 * SS, lx + 4 * SS, ly + 3 * SS], fill=rr.choice([(52, 118, 48), (70, 140, 58)]) + (255,))
-                            for k in range(2):
+                            for kq in range(2):
                                 bx, by = x + rr.uniform(-5, 5) * SS, y - rr.uniform(7, 12) * SS
                                 d.ellipse([bx - 2.2 * SS, by - 2.2 * SS, bx + 2.2 * SS, by + 1.9 * SS], fill=(252, 252, 246, 255))
                                 d.ellipse([bx - 1.4 * SS, by - 1.6 * SS, bx + 0.6 * SS, by + 0.2 * SS], fill=(255, 255, 255, 255))
@@ -171,10 +171,10 @@ def main():
                         x, y = P(uu, vv)
                         d.ellipse([x - 3 * SS, y - 1 * SS, x + 12 * SS, y + 3.5 * SS], fill=(36, 40, 22, 140))
                         d.line([(x, y), (x, y - 16 * SS)], fill=(96, 68, 44, 255), width=2 * SS)
-                        for k in range(7):
+                        for kq in range(7):
                             lx, ly = x + rr.uniform(-6.5, 6.5) * SS, y - rr.uniform(6, 17) * SS
                             d.ellipse([lx - 4.2 * SS, ly - 3.4 * SS, lx + 4.2 * SS, ly + 3.2 * SS], fill=rr.choice([(52, 120, 46), (70, 142, 54), (92, 164, 60), (120, 170, 60)]) + (255,))
-                        for k in range(2):
+                        for kq in range(2):
                             gx, gy = x + rr.uniform(-4, 4) * SS, y - rr.uniform(3, 8) * SS
                             for m_ in range(4):
                                 ox_ = rr.uniform(-1.5, 1.5) * SS
