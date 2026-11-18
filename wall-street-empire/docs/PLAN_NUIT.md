@@ -10,8 +10,9 @@ Objectif : rejoindre SimCity (la ville vivante) et Capitalism Lab (la profondeur
 1. [ ] **Tests de marges** : élargir les fourchettes EBITDA (t02 : commerces 5-20 %, usines 10-22 %) en justifiant ; relancer la suite seule ; tout vert.
 2. [ ] **Fusionner le mall 10×10** (branche de l'agent), reconstruire, tests t44/t34/t26/t01, capture de la vue de départ.
 3. [ ] **Croissance de la ville** : retenir un réglage intermédiaire (1 M d'habitants vers le jour 5 000 en passif), le valider avec le bot actif sur 4 h ; faire croître les emplois avec la population (chômage ≤ 15 % à plusieurs millions) ; borner les hauteurs ; `tools/city_growth.js`.
-4. [ ] **Parité SimCity** (voir `docs/PARITE_SIMCITY_CAPITALISM.md`, produit par l'agent d'audit) : implémenter les 3 écarts les plus rentables (calques de services et de valeur du terrain, circulation, budget par service...).
-5. [ ] **Parité Capitalism Lab** : implémenter les 3 écarts les plus rentables.
+4. [ ] **Parité : petits lots rentables** (`docs/PARITE_SIMCITY_CAPITALISM.md`, ordre de l'audit) : (a) calques de carte étendus ; (b) barre RCI et courbes de la ville ; (c) fin de l'export silencieux du surplus des usines (le surplus doit être visible, chiffré et désactivable).
+5. [ ] **Parité : lots moyens** : (d) valeur du terrain unifiée (centre = le mall, pollution prise en compte) ; (e) services à couverture gérés par une mairie IA (rayons, calque, budget) ; (f) pollution diffuse avec vent.
+5b. [ ] **Parité : gros lots** (un seul si le temps manque) : stock local par usine ; rivaux à chaînes réelles croissant avec le palier du joueur ; circulation légère proportionnelle à la charge ; niveaux d'unité ; brevets liés à un produit ; éditeur de scénarios JSON et défi de classe.
 6. [ ] **Supply chain pédagogique** : effet coup de fouet réel (politique de réapprovisionnement avec commandes amont variables), équilibre capacité des rayons / demande.
 7. [ ] **Concurrence profonde** : rivaux qui construisent de vraies chaînes sur les produits de rang 3-4 (option C : abstraits + chaînes réelles pour les filières verrouillables) ; contre-mesures anti-monopole.
 8. [ ] **Cinq premières minutes** : relancer les personas (40 parties) sur le nouveau build, comparer à l'étude du jour ; ajuster.
