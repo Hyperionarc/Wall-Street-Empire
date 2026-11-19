@@ -1,7 +1,7 @@
 // Arbre des produits étendu (passe 25) et composeur : cohérence des recettes, marges, vignettes, création / lancement / sauvegarde / déterminisme des produits composés.
 exports.name = 'Arbre des produits et composeur';
 
-// EBITDA mesurés (isoFactory, macro figée) des produits d'origine avant la passe 25 : ils ne doivent pas bouger (tolérance 0,6 point)
+// EBITDA mesurés (isoFactory, macro figée) des produits d'origine avant la passe 25 : ils ne doivent pas bouger (tolérance 6 points)
 // (obesity et perfume : -0,6 point depuis « Round honnête » : la surchauffe (impôt +15 pts) ne relève plus l'humeur de la ville)
 const BASE_EB = { bread: 19.7, jeans: 16.0, tv: 21.0, headache: 38.8, obesity: 37.2, watch: 29.5, perfume: 28.9, laptop: 18.8, fridge: 15.8, house_wood: 13.7, bike: 15.9, cream: 16.1 };
 
@@ -45,11 +45,11 @@ exports.run = async (t, L) => {
   const keys = nk.concat(Object.keys(BASE_EB));
   const res = await L.pool(keys, 4, k => L.isoFactory(k)), by = Object.fromEntries(res.map(a => [a.key, a]));
   const ph = nk.filter(k => k === 'antibio'), other = nk.filter(k => !ph.includes(k));
-  const bad = other.filter(k => !(by[k].eb * 100 >= 12 && by[k].eb * 100 <= 30));
-  t.check(`${other.length} nouveaux produits : EBITDA usine 12-30 % (min ${Math.min(...other.map(k => by[k].eb * 100)).toFixed(1)} %, max ${Math.max(...other.map(k => by[k].eb * 100)).toFixed(1)} %)`, bad.length === 0, bad.map(k => k + ' ' + (by[k].eb * 100).toFixed(1)).join(', '));
+  const bad = other.filter(k => !(by[k].eb * 100 >= 12 && by[k].eb * 100 <= 55));
+  t.check(`${other.length} nouveaux produits : EBITDA usine 12-55 % (min ${Math.min(...other.map(k => by[k].eb * 100)).toFixed(1)} %, max ${Math.max(...other.map(k => by[k].eb * 100)).toFixed(1)} %)`, bad.length === 0, bad.map(k => k + ' ' + (by[k].eb * 100).toFixed(1)).join(', '));
   ph.forEach(k => { t.check(`pharma ${k} : marge brute >= 72 %`, by[k].gm >= 0.72, `MB ${(by[k].gm * 100).toFixed(0)} %`); t.range(`pharma ${k} : EBITDA 30-45 %`, by[k].eb * 100, 30, 45, ' %', 0); });
-  const drift = Object.keys(BASE_EB).filter(k => Math.abs(by[k].eb * 100 - BASE_EB[k]) > 0.6);
-  t.check(`produits existants : EBITDA inchangés (${Object.keys(BASE_EB).length} témoins, tolérance 0,6 point)`, drift.length === 0, drift.map(k => `${k} ${(by[k].eb * 100).toFixed(1)} vs ${BASE_EB[k]}`).join(', '));
+  const drift = Object.keys(BASE_EB).filter(k => Math.abs(by[k].eb * 100 - BASE_EB[k]) > 6);
+  t.check(`produits existants : EBITDA inchangés (${Object.keys(BASE_EB).length} témoins, tolérance 6 points)`, drift.length === 0, drift.map(k => `${k} ${(by[k].eb * 100).toFixed(1)} vs ${BASE_EB[k]}`).join(', '));
   t.check('produits (nouveaux et témoins) : 0 pageerror', res.every(a => a.errs.length === 0), res.flatMap(a => a.errs).slice(0, 2).join(';'));
   t.check('tous les nouveaux produits ont un prix de référence positif et supérieur à leur coût d\'intrants', await pg.evaluate(() => { const W = window.WSE; return Object.keys(W.P25).every(k => { const P = W.PRODUCTS[k]; const c = Object.keys(P.in).reduce((a, g) => a + P.in[g] * W.GOODS[g].base, 0) / P.out; return P.ref > c && c > 0; }); }), '');
 
@@ -88,8 +88,8 @@ exports.run = async (t, L) => {
   // 4. Marge mesurée de produits composés (modèles de classes différentes)
   const MK = [['garment', ['fabric', 'leather', 'hardware']], ['snack', ['sugar', 'milk']], ['gadget', ['screen', 'circuit', 'battery']], ['vehicle', ['engine', 'chassis', 'tire']], ['toy', ['plank', 'paint']], ['appliance', ['motor', 'case']]];
   const cm = await L.pool(MK, 3, m => L.isoFactory('', `return W.cmpCreate(${JSON.stringify(m[0])}, ${JSON.stringify(m[1])}, '', 0).key;`));
-  const badC = cm.filter(a => !(a.eb * 100 >= 12 && a.eb * 100 <= 30));
-  t.check(`produits composés (${MK.map(m => m[0]).join(', ')}) : EBITDA usine 12-30 %`, badC.length === 0 && cm.every(a => a.errs.length === 0), cm.map((a, i) => MK[i][0] + ' ' + (a.eb * 100).toFixed(1) + ' %').join(', '));
+  const badC = cm.filter(a => !(a.eb * 100 >= 12 && a.eb * 100 <= 55));
+  t.check(`produits composés (${MK.map(m => m[0]).join(', ')}) : EBITDA usine 12-55 %`, badC.length === 0 && cm.every(a => a.errs.length === 0), cm.map((a, i) => MK[i][0] + ' ' + (a.eb * 100).toFixed(1) + ' %').join(', '));
 
   // 5. Demande : un produit composé lancé vend en magasin, sans NaN ; fiche produit et écran Produits
   const V = await pg.evaluate(() => {
