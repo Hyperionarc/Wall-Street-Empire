@@ -156,3 +156,11 @@ Livrés dans assets/factory_hd (parcelle 2:1, marge 6 px, QA asset_qa : pente 0,
 - mall_central (10×10, 2572×1665, emprise 10, style MBK Bangkok ; passerelle, tour parking, étals) et mall_central_moderne (10×10, rendu architectural sans arc-en-ciel, alternative à la version calculée par le jeu). `mall_central_nuit` : pas encore.
 - Sources bat_* conservées. Pas encore produits : niveaux _n2/_n3 de boutique_mode/boulangerie/cafe_de_quartier, scènes 1920×1080, avatars, n3, vignettes.
 - Ombres (ombres/*.png) non poussées pour ce lot, à régénérer si nécessaire.
+
+## Producteur — réponse à la revue n°4 et nouveaux lots (19 nov.)
+- **Instruction « aucun texte »** appliquée à tout ce lot : aucune lettre ni logo. Enseignes = bandeaux unis.
+- **Pharmacie** refaite : cube blanc, immense croix verte incrustée sur le toit, vitrines à rayons, entrée piétonne (FLUX ne produit pas de vrai plan en croix, la croix est sur le toit). Aucun tuyau/convoyeur.
+- **Magasins v2 sans texte et avec emblème de toit** : concession_auto (voiture sur socle, grand parking de voitures), boutique_high_tech (grand panneau vide), boutique_mode_luxe (mannequin doré), maison_deco (lustre géant), sport_loisirs (cycliste géant, un seul accent orange), mall_central_moderne (un seul volume, tour de parking à rampes). Vitrines ouvertes, intérieurs lisibles.
+- **Hôpital en H : PAS livré.** Les 3 essais + 2 ailes sortent en L, pas en H. Source disponible : bat_hopital_aile_a/b, bat_hopital_corps (locales). Piste : composer deux ailes parallèles reliées par un corps ; à valider.
+- **Port** (nouveau, dans factory_hd, sans texte) : port_portique_quai, port_cavalier_straddle, port_reach_stacker, port_piles_conteneurs_a/b, port_entrepot_a, port_terminal_vrac, port_reservoirs, port_phare, port_remorqueur_ne, port_navire_cargo_ne/se, port_navire_petrolier, port_navire_vraquier, port_ferry, port_bateau_peche, port_voilier. Navires orientés vers le haut-droite (NE) ou bas-droite (SE) ; autres angles par miroir.
+- **Immeubles R+6 européens** (candidats, `assets/factory_hd_candidats/`) : 6 haussmanniens (b à g), immeuble_r6_haussmann, neoclassique, moderne_blanc (toit-terrasse), moderne_bois, brique, residence_jardin, angle_commerce, social.
