@@ -1243,6 +1243,32 @@ Retour du producteur sur la passe 45 : « on dirait un truc de la Gay Pride avec
 - Mesure : `drawMallBig` ≈ 0,85 ms par image contre ≈ 1,1 ms pour le rendu de la passe 45.
 - Vue satellite (`mbSat`) : version allégée du même rendu en cache (silhouette tambour + coupole lisible de loin) et tour de parking.
 - `MB.H` (hauteur de la couronne, 384 px) sert toujours au cadrage de la vue de départ ; `window.WSE.mall.render` expose `cache`, `builds`, `geo`, `MBX`, `draw` pour les tests.
+## Passe 51 : maïs et colza (cultures, huile, biodiesel)
+
+Les sprites `fcorn` et `frapeseed` du poste de production sont branchés : deux nouvelles fermes de cultures, quatre biens et trois produits finis.
+
+### 1. Cultures (catégorie Agriculture, famille « Cultures »)
+| Bâtiment | Bien brut | Base | Débit nominal | Capex (`EXT_CAPEX`) | Terrain préféré (`fertility`) |
+|---|---|---|---|---|---|
+| Culture de maïs (`fcorn`, 2×2) | Maïs (`corn`) | 6 $ | 100 (×5 × K) | 2,0 M$ | terres à moins de 35 cases de l'eau |
+| Culture de colza (`frapeseed`, 2×2) | Colza en graines (`rapeseed`) | 9 $ | 70 (×5 × K) | 2,6 M$ | plaines à plus de 18 cases de l'eau |
+
+Tables renseignées comme les autres cultures : `TYPES`, `GOODS` (groupe brut), `DEPOSITS`, `CROPS`, `CROP_COL`, `RAW_SRC`, `RES_COST` (0,80, EBITDA visé 20 %), `LOCAL_D` (maïs 560, colza 390 : même rapport offre / demande que le blé), `EL_RAW`, `Y_CROP` (maïs 0,96 : rendement mesuré près du port), icônes, menu, exploitant agricole (−25 %), `CASTE_BLD`, `PROC_IND`, verrou de scénario `L2`, `P2_TYPE` et `P2_NAMES` (sprites HD calés sur le losange de 2 cases comme `fwheat`). Mesuré (`isoExtractor`, champ le plus proche du port) : maïs EBITDA 17,6 %, retour 2,4 ans ; colza 23,8 %, 1,7 an ; la ferme de blé reste à 25,6 %, 1,2 an.
+
+**Zones fertiles** (`CROP2_SITES`, `genCropFields2`) : 5 zones de maïs et 5 de colza réparties dans les quatre quarts de la carte (≈ 127 et 107 cases), générées **après** tous les autres gisements : les cartes existantes ne bougent pas. Une ancienne sauvegarde sans maïs ni colza reçoit ces zones au chargement, sur les seules cases libres (ni bâtiment, ni route, ni gisement).
+
+### 2. Chaînes et produits
+- **Huile de cuisine** (`cookoil`, petite usine) = 4 maïs + 2 colza → 3 ; **Biodiesel** (`biodiesel`, usine moyenne) = 4 colza + 0,5 produits chimiques (méthanol) → 3. Prix de base recalculés (`calP`, EBITDA 15 %) : 19 $ et 20,6 $ ; ils se vendent aussi comme marchandises au marché et au port.
+- **Huile de table** (`tableoil`, basic) = 2 huile de cuisine + 0,3 plastique, nécessité 80, poids 50/30/20, 0,8 u/hab./an, famille Alimentation.
+- **Chips de maïs** (`cornchips`, basic) = 2 maïs + 0,5 huile + 0,1 sel, nécessité 25, poids 35/25/40, 0,5 u/hab./an.
+- **Biocarburant en bidons** (`biofuel`, basic) = 2 biodiesel + 0,3 plastique, nécessité 40, poids 55/30/15, 0,2 u/hab./an, famille Auto et outils. Le jeu n'a pas de consommation de carburant par les transports : le biodiesel se vend donc en bidons aux automobilistes et comme marchandise.
+Les trois produits sont dans `P25` (le poids de demande des 35 produits d'origine ne bouge pas) avec `PROD_W`, `NECESS`, `DEMAND_PC`, `MEGA_OF`, `OBSO`, `PROD_TECH`/`TECH_SHARE`, `FAM`, vignette `GLY`. EBITDA mesurés (`isoFactory`) : huile de cuisine 14,5 %, biodiesel 15 %, huile de table 19,5 %, chips 19,7 %, biocarburant 19,4 %. Aucun produit existant n'a changé de recette.
+
+### 3. Visuels et guides
+Vignettes vectorielles des biens (`drawItem` : épi, fleur de colza, bouteille, fût), plants dans les champs et sur la scène de la ferme, couleurs de gisement. Guide de l'agriculteur : maïs (semis en avril, récolte en octobre) et colza (semis en septembre, récolte en juillet) jouables. Photos du Guide du fabricant attendues du Mac (`tools/factory_ai/photos_guide.json`, retour de l'intégrateur n° 9 dans `RETOURS.md`) : repli sur la vignette vectorielle d'ici là.
+
+### 4. Tests
+`t51_mais_colza.js` (41 contrôles) : données, prix, recettes, tables des produits, zones fertiles, sprites HD 2×2, production des deux fermes, rentabilité (EBITDA 15-30 %, retour 1,5 à 6 ans), marges des usines, « Fabriquer » de bout en bout jusqu'à la vente en magasin, guides, ancienne sauvegarde, déterminisme. `t02_marges` mesure aussi `fcorn` et `frapeseed` ; `t10_arbre` compte 95 produits (92 + 3).
 
 ## Passe 45 : le grand Mall central (bloc complet de 10×10 cases)
 
