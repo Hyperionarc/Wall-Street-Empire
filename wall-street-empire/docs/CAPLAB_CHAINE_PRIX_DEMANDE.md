@@ -357,9 +357,25 @@ Ordre retenu, par impact sur le plaisir de jeu et le réalisme, sans toucher aux
 
 ## 8. Validation (avant / après)
 
-Voir `tools/tests/t61_chaine_prix.js` et le §8 complété ci-dessous après les mesures.
+**Tests ciblés** (un par un, 1 worker, sans build pendant un test) : t02, t04, t08 (chaînes et scénarios), t09, t20, t22, t23, t24, t37 et t45 sont **tous verts avant et après** (0 FAIL). Le nouveau test t61 donne 24 PASS.
 
-<!-- MESURES -->
+**`tools/sim_batch.js`** : 1 200 jours, 1 worker, 3 graines, castes industriel et négociant, profils bon et industriel, soit 12 parties. La même graine est jouée avant (commit 70151f3) et après (commit 4b0f6b6).
+
+| Partie | Valeur avant | Valeur après | Écart | Résultat net/j avant → après |
+|---|---|---|---|---|
+| industriel / bon (3 graines) | 57,1 · 59,1 · 56,7 M$ | identiques | 0 % | identiques |
+| négociant / bon (3 graines) | 53,2 · 53,7 · 55,6 M$ | identiques | 0 % | identiques |
+| industriel / industriel 1003 | 104,1 M$ | 100,4 M$ | −3,5 % | 146 892 → 156 474 |
+| industriel / industriel 2003 | 106,8 M$ | 103,2 M$ | −3,3 % | 138 752 → 147 355 |
+| industriel / industriel 3003 | 101,6 M$ | 102,7 M$ | +1,1 % | 160 743 → 152 112 |
+| négociant / industriel 1020 | 94,2 M$ | 95,2 M$ | +1,1 % | 139 539 → 134 357 |
+| négociant / industriel 2020 | 91,2 M$ | 88,9 M$ | −2,6 % | 134 237 → 137 739 |
+| négociant / industriel 3020 | 61,5 M$ | 61,5 M$ | −0,1 % | 100 456 → 100 052 |
+| **Moyenne des 12** | 74,57 M$ | 73,95 M$ | **−0,8 %** | rang 1/6 partout, 0 erreur de page |
+
+Lecture. Le profil « bon » (commerce et services) est inchangé bit à bit : le COO est en manuel par défaut, les locaux ne bougent pas sans produit de marque, et ce profil n'achète pas d'intrants à des fournisseurs nommés. Le profil industriel bouge de −3,5 % à +1,1 %. Deux effets s'y combinent : le couplage prix-qualité des fournisseurs, et le reliquat importé quand un fournisseur est saturé. Le résultat net quotidien de fin de partie monte même dans 3 cas sur 6. Ce n'est donc pas un plafond sur les gains : c'est le coût réaliste de plusieurs usines branchées sur un seul petit fournisseur.
+
+**Banc du directeur des prix** (une chaîne de jeans, 2 usines, 4 magasins, 360 jours, même graine). En manuel, le prix reste à 100 %. En **Normal**, le COO monte le prix à 112-113 % : la note du produit (41) dépassait celle de la concurrence (39), il récupère donc de la marge en égalisant les notes, et la trésorerie gagne +3 % sur la période. En **Agressif** et **Très agressif**, la cible +10 / +20 est inatteignable au-dessus du coût des intrants : le COO s'arrête au plancher (≈ 101 %) au lieu de brader. Pendant une guerre des prix d'un rival au jour 120, le Normal suit le marché (109 % au plus bas, puis 113 %). Limite du banc : les rayons de ce montage ne vendaient pas le produit de marque (ventes nulles), donc il mesure la règle de prix et les coûts, pas l'effet sur le volume. L'effet volume est couvert par t61 (note visée atteinte) et par `productScore`.
 
 ---
 
