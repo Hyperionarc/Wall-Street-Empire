@@ -5,7 +5,7 @@ exports.name = 'Ville : petite ville de départ et croissance';
 
 // passe 45 : les 100 cases du grand mall (bloc 10×10 au centre) sont comptées à part ; le « centre » devient l'anneau de quartiers autour du mall (moins de 11,5 cases du centre), la périphérie commence à 16 cases
 const SCAN = `(() => { const W = window.WSE, S = W.S, N = W.N; const o = { house: 0, res: 0, off: 0, park: 0, mon: 0, mall: 0, lm: 0, max: 0, cx: 0, nx: 0, px: 0, np: 0, lots: 0, free: 0, n: 0 }; const M = W.mall && W.mall.pos(), big = !!M && M.w >= 10;
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const c = S.grid[y * N + x]; if (!c || c.t !== 'npc') continue; if (c.k === 'mon' && c.m === 'mall') { o.mall++; continue; } o.n++; o[c.k]++; if (c.lm) o.lm++; if (c.floors > o.max) o.max = c.floors;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const c = S.grid[y * N + x]; if (!c || c.t !== 'npc') continue; if (c.k === 'mon' && c.m === 'mall') { o.mall++; continue; } if (c.m === 'air') continue; o.n++; o[c.k]++; if (c.lm) o.lm++; if (c.floors > o.max) o.max = c.floors;
     const d = Math.hypot(x - 30, y - 30); if (c.k === 'res' || c.k === 'off' || c.k === 'house') { if (d < (big ? 11.5 : 7)) { o.cx += c.floors; o.nx++; } else if (d > (big ? 16 : 12)) { o.px += c.floors; o.np++; } } }
   const sc = S.cg && S.city ? S.city : {}; o.lots = sc.lots || 0; o.free = sc.free || 0; return o; })()`;
 

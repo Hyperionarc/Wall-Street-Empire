@@ -808,6 +808,14 @@ body.vopen #feed{z-index:9}
 #mallp .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}#mallp .acts .btn{flex:1 1 150px;min-height:40px}
 .polepip{display:inline-block;padding:1px 8px;border-radius:10px;background:rgba(255,179,71,.18);border:1px solid #ffb347;color:#ffb347;font-size:11px;letter-spacing:.04em}.bn.polebn{border-color:#ffb347}
 @media (max-width:760px){#mallp{z-index:31;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 74px);max-height:64%;font-size:12px;padding:10px 11px}#mallp .r{gap:6px}}
+#airp{position:absolute;z-index:13;left:50%;top:calc(var(--hud-h) + 10px);transform:translateX(-50%);width:min(560px,calc(100% - 24px));max-height:calc(100% - var(--hud-h) - 96px);overflow:auto;padding:12px 14px;border-radius:12px;background:linear-gradient(var(--panel),var(--panel)),#0e1330;border:1px solid #8fb4d9;box-shadow:0 10px 40px rgba(0,0,0,.5);font-size:13px;display:flex;flex-direction:column;gap:5px}
+#airp[hidden]{display:none}#airp .mhd{display:flex;align-items:center;justify-content:space-between;gap:8px}#airp .mhd b{font-family:var(--font-d);font-weight:800;font-size:18px;letter-spacing:.04em;color:#a9c8e8}
+#airp h4{margin:6px 0 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}#airp .mnote{margin:0;color:var(--dim)}#airp .r{display:flex;justify-content:space-between;gap:10px;padding:1px 0}#airp .r span:last-child{font-family:var(--font-m);text-align:right}#airp .r small{color:var(--dim)}#airp .r.you{border-top:1px solid var(--line);padding-top:4px;color:var(--gold)}
+#airp .mriv{padding:5px 8px;border-radius:8px;background:rgba(255,255,255,.04)}#airp .mrt{display:flex;align-items:center;gap:6px;flex-wrap:wrap}#airp .mrt i{width:9px;height:9px;border-radius:50%;flex:none}#airp .mrt small{color:var(--dim);flex:1 1 140px}#airp .mpc{font-family:var(--font-m);color:var(--gold)}
+#airp .mrr,#airp .mtop{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--dim)}#airp .mrr b,#airp .mtop b{color:var(--ink,#e9edff)}#airp .mtop small{min-width:46px;color:var(--mut)}#airp .mtop em{font-style:normal;color:var(--mut)}
+#airp .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}#airp .acts .btn{flex:1 1 150px;min-height:40px}
+@media (max-width:760px){#airp{z-index:31;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 74px);max-height:64%;font-size:12px;padding:10px 11px}#airp .r{gap:6px}}
+#airp .ash{display:flex;flex-wrap:wrap;gap:6px}#airp .ash .btn{flex:0 1 auto;min-height:32px;padding:4px 10px;font-size:12px}#airp .ash .btn[aria-pressed="false"]{opacity:.55;text-decoration:line-through}
 #acq[hidden],#neg[hidden]{display:none}#acq>b,#neg>b{font-family:var(--font-d);font-weight:800;font-size:18px;letter-spacing:.04em;color:#ff9a3d;display:flex;align-items:center;gap:8px}#neg>b i,#acq .ownr i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
 #acq p,#neg p{margin:0;color:var(--fg)}#acq .r,#neg .r{display:flex;justify-content:space-between;gap:10px;padding:1px 0}#acq .r span:last-child,#neg .r span:last-child{font-family:var(--font-m)}
 #acq .adv2,#neg .adv2{padding-top:5px;border-top:1px solid var(--line);color:var(--gold)}#acq .acts,#neg .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}#acq .acts .btn,#neg .acts .btn{flex:1;min-height:44px}#acq .btn:disabled{opacity:.45}
@@ -1324,6 +1332,7 @@ body.vopen #feed{z-index:9}
   <div id="neg" hidden role="dialog" aria-live="polite"></div>
   <div id="pfiche" hidden role="dialog" aria-live="polite"></div>
   <div id="mallp" hidden role="dialog" aria-live="polite" aria-label="Le Mall central"></div>
+  <div id="airp" hidden role="dialog" aria-live="polite" aria-label="L'aéroport"></div>
   <div id="feed" aria-live="polite"></div>
   <div id="rvban" hidden></div>
   <div id="znban" hidden></div>
@@ -3284,6 +3293,85 @@ function mallRect() { const M = mallPos(); return M ? { x0: M.x, y0: M.y, x1: M.
 let _mallG = null, _mallP = null;
 function mallPos() { if (!S || !S.grid) return null; if (_mallG !== S.grid) { _mallG = S.grid; _mallP = mallFind(S.grid); } return _mallP; }
 const isMall = c => !!c && c.t === 'npc' && c.k === 'mon' && c.m === 'mall';
+/* ---------- Passe 49 : l'Aéroport (équipement de la ville, un seul par carte, 6×4 cases en périphérie sud, contre la route du sud) ----------
+   Cases « mon » (m = 'air') : sauvegardées avec la ville (cty) comme le mall. Nouvelle partie ou ancienne sauvegarde sans aéroport : posé sur le premier
+   rectangle libre (ni bâtiment, ni gisement, campagne hors de la zone d'extension de la ville) qui touche une route, le plus près de AIR_AT (déterministe). */
+const AIR_W = 6, AIR_H = 4, AIR_AT = { x: 33, y: 66 }, AIR_Y0 = 56;
+const isAir = c => !!c && c.t === 'npc' && c.k === 'mon' && c.m === 'air';
+let _airG = null, _airP = null;
+function airFind(grid) { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (isAir(grid[y * N + x])) return { x, y, w: AIR_W, h: AIR_H }; return null; }
+function airFree(grid, dep, x, y) {
+  for (let oy = 0; oy < AIR_H; oy++) for (let ox = 0; ox < AIR_W; ox++) { const X = x + ox, Y = y + oy; if (!inb(X, Y)) return false; const id = idx(X, Y); if (grid[id] || (dep && dep[id]) || ZONE[id] !== 0) return false; }
+  const rd = (X, Y) => inb(X, Y) && grid[idx(X, Y)] && grid[idx(X, Y)].t === 'road';
+  for (let k = 0; k < AIR_H; k++) if (rd(x - 1, y + k) || rd(x + AIR_W, y + k)) return true;
+  for (let k = 0; k < AIR_W; k++) if (rd(x + k, y - 1) || rd(x + k, y + AIR_H)) return true;
+  return false;
+}
+function airEnsure(grid, dep) {   // renvoie la position de l'aéroport ({x, y, w, h}) ou null ; ne déplace ni ne détruit rien
+  const f = airFind(grid); if (f) { _airG = grid; _airP = f; return f; }
+  let best = null, bd = 1e9;
+  for (let y = AIR_Y0; y + AIR_H < N; y++) for (let x = 1; x + AIR_W < N; x++) { const d = Math.abs(x - AIR_AT.x) + Math.abs(y - AIR_AT.y) + 0.01 * hash(x, y, 461); if (d < bd && airFree(grid, dep, x, y)) { bd = d; best = [x, y]; } }
+  _airG = grid; if (!best) { _airP = null; return null; }
+  for (let oy = 0; oy < AIR_H; oy++) for (let ox = 0; ox < AIR_W; ox++) { const c = npcCellOf(best[0] + ox, best[1] + oy, 'mon', 1); c.m = 'air'; grid[idx(best[0] + ox, best[1] + oy)] = c; }
+  return (_airP = { x: best[0], y: best[1], w: AIR_W, h: AIR_H });
+}
+function airPos() { if (!S || !S.grid) return null; if (_airG !== S.grid) { _airG = S.grid; _airP = airFind(S.grid); } return _airP; }
+/* Économie du duty free (sans aléa). Les voyageurs sont une demande EN PLUS de celle des habitants : achats d'impulsion à prix +30 % (AIR_MK), mais l'aéroport
+   prélève une redevance de 35 % du chiffre d'affaires (AIR_TAX : 1,3 × 0,65 = 0,845 du prix de rayon, sous les ~0,87 qu'un magasin garde après salaires et entretien) et un petit loyer. Le trafic (passagers par jour) suit la taille de la région (popE) et le PIB ;
+   chaque rayon est partagé à parts égales entre tous les vendeurs présents (toi et les rivaux qui tiennent ce rayon) : plus il y a de vendeurs, moins chacun vend.
+   Aucun plafond sur l'argent gagné : le seul plafond est le trafic. Bilan : marge brute par unité plus haute qu'en ville, marge nette après redevance plus basse
+   qu'un grand magasin bien rempli ; presque pas d'investissement, donc idéal pour démarrer et écouler du luxe, jamais un substitut à une chaîne de magasins. */
+const AIR_PAX0 = 4000, AIR_BUY = { basic: 0.06, std: 0.03, lux: 0.0075 }, AIR_MK = 1.3, AIR_TAX = 0.35, AIR_ENTRY = 20000, AIR_RENT = 120, AIR_CLS = ['basic', 'std', 'lux'];
+// agencement du dessin (coordonnées locales u le long de x, v le long de y, z en px monde) : piste à l'arrière, aire de stationnement, terminal et tour de contrôle devant
+const AIR_L = { R: { u0: 0.2, v0: 0.3, u1: 5.8, v1: 1.15 }, A: { u0: 0.3, v0: 1.45, u1: 4.4, v1: 2.45 }, T: { u0: 0.45, v0: 2.6, u1: 4.15, v1: 3.7, z: 34 }, C: { u0: 4.75, v0: 2.85, z: 92 } };
+function airSan(d) {
+  if (!d || typeof d !== 'object') return null;
+  const o = { on: d.on ? 1 : 0, d0: d.d0 | 0, g: {}, off: {}, h: Array.isArray(d.h) ? d.h.filter(r => Array.isArray(r) && r.length >= 4).slice(-30).map(r => r.slice(0, 4).map(v => +v || 0)) : [], ca: +d.ca || 0, fee: +d.fee || 0, u: +d.u || 0, nIn: d.nIn | 0 };
+  AIR_CLS.forEach(c => { o.g[c] = !d.g || d.g[c] == null ? 1 : (d.g[c] ? 1 : 0); }); if (d.off && typeof d.off === 'object') Object.keys(d.off).forEach(k => { if (d.off[k]) o.off[k] = 1; });
+  return o;
+}
+function airPax() { const M = S.macro || { gdp: 0.03 }; return AIR_PAX0 * popE() / POPE_REF * clamp(1 + 3 * ((M.gdp == null ? 0.03 : M.gdp) - 0.03), 0.7, 1.4) * shockDemand(); }   // passagers par jour
+const airPrice = (c, pk) => (pk ? prodPrice(pk) : S.price[c]) * retailMk(c) * AIR_MK;   // prix duty free unitaire
+const airRivals = () => (S.rivals || []).filter(r => !r.dead && r.att && AIR_CLS.some(c => (r.att[c] || 0) > 0.01));
+function airMine(c) {   // ce que ta boutique propose dans le rayon c : marchandises importées (g) et tes produits lancés cochés (avec du stock)
+  const A = S.air; if (!A || !A.on) return null;
+  const prods = PKEYS.filter(pk => PRODUCTS[pk].cls === c && S.prod[pk] && S.prod[pk].st === 'on' && !A.off[pk] && S.prod[pk].stock > 0.5);
+  return A.g[c] || prods.length ? { gen: !!A.g[c], prods } : null;
+}
+function airStep(mult) {   // un jour de ventes à l'aéroport ; renvoie { rev (avant mult), imp, fee } pour le compte de résultat du joueur
+  const o = { rev: 0, imp: 0, fee: 0, u: 0 }, P = airPos(); if (!P) { S._air = null; return o; }
+  const pax = airPax(), rs = airRivals(), A = S.air, day = { pax, mult, cls: {}, riv: {} }, buyK = TM.buy * modOf('buy');
+  AIR_CLS.forEach(c => {
+    const D = pax * AIR_BUY[c], mine = airMine(c), vend = rs.filter(r => (r.att[c] || 0) > 0.01), n = vend.length + (mine ? 1 : 0), q = n ? D / n : 0;
+    day.cls[c] = { D, n, q, you: 0, ca: 0, cost: 0 };
+    vend.forEach(r => { const ca = q * airPrice(c); day.riv[r.id] = (day.riv[r.id] || 0) + ca; r.cash = (r.cash || 0) + ca * (1 - AIR_TAX) - q * S.price[c] * PNJ_MK; });
+    if (!mine) return;
+    let left = q; const k = mine.prods.length + (mine.gen ? 1 : 0);
+    mine.prods.forEach((pk, i) => { const ps = S.prod[pk], want = left / (k - i), u = Math.min(want, Math.max(0, ps.stock)); if (u <= 1e-9) return; const val = u * airPrice(c, pk); ps.stock -= u; fSellExt(pk, u, val * mult, 1); o.rev += val; left -= u; o.u += u; day.cls[c].you += u; day.cls[c].ca += val * mult; });
+    if (mine.gen && left > 1e-9) { const ic = left * S.price[c] * PNJ_MK * buyK; o.rev += left * airPrice(c); o.imp += ic; o.u += left; day.cls[c].you += left; day.cls[c].ca += left * airPrice(c) * mult; day.cls[c].cost += ic; }
+  });
+  rs.forEach(r => { r.cash -= AIR_RENT * cpi(); r.aca = (r.aca || 0) * 29 / 30 + (day.riv[r.id] || 0); });   // aca : CA aéroport lissé sur 30 jours (≈ mensuel)
+  if (A && A.on) { const ca = o.rev * mult; o.fee = AIR_TAX * ca + AIR_RENT * cpi(); A.h.push([ca, o.fee, o.imp, o.u]); if (A.h.length > 30) A.h.shift(); A.ca += ca; A.fee += o.fee; A.u += o.u; }
+  S._air = day; return o;
+}
+function airData() {
+  const P = airPos(), A = S.air, day = S._air, pax = day ? day.pax : (P ? airPax() : 0), rs = airRivals();
+  const cls = {}; AIR_CLS.forEach(c => { const mine = airMine(c), n = rs.filter(r => (r.att[c] || 0) > 0.01).length + (mine ? 1 : 0); cls[c] = { D: pax * AIR_BUY[c], n, price: airPrice(c), shelf: S.price[c] * retailMk(c), mine: !!mine }; });
+  const h = A && A.h && A.h.length ? A.h : null, k = h ? 30 / h.length : 0, sum = i => h ? h.reduce((a, r) => a + r[i], 0) * k : 0;
+  const me = { on: !!(A && A.on), ca: sum(0), fee: sum(1), cogs: sum(2), u: sum(3) }; me.net = me.ca - me.fee - me.cogs;
+  const vendors = rs.map(r => ({ id: r.id, name: r.name, col: r.col, cls: AIR_CLS.filter(c => (r.att[c] || 0) > 0.01), ca: r.aca || 0 }));
+  return { pos: P, pax, cls, vendors, n: vendors.length + (me.on ? 1 : 0), me, entry: AIR_ENTRY * cpi(), rent: AIR_RENT * cpi() * DM, K: { AIR_MK, AIR_TAX, AIR_PAX0, AIR_BUY, AIR_ENTRY, AIR_RENT } };
+}
+function airOpenShop() {
+  const A = S.air, cost = AIR_ENTRY * cpi(); if (A && A.on) return true; if (!airPos()) return false;
+  if (S.cash < cost) { say(`Il te faut ${money(cost)} pour le droit d'entrée de la boutique duty free.`, 'warn'); return false; }
+  S.cash -= cost; S.air = Object.assign(airSan(A || {}), { on: 1, d0: S.day }); S.air.nIn++; say(`Boutique duty free ouverte à l'aéroport (${money(cost)}) : les voyageurs achètent dès demain. Redevance de ${Math.round(AIR_TAX * 100)} % du chiffre d'affaires.`, 'gold'); saveSoon(); return true;
+}
+function airCloseShop() { if (S.air && S.air.on) { S.air.on = 0; say('Boutique duty free fermée : l\'emplacement est rendu à l\'aéroport (le droit d\'entrée n\'est pas remboursé).', 'info'); saveSoon(); } }
+function airShelf(key, on) {   // key : 'g:basic' (marchandises du rayon) ou une clé de produit
+  const A = S.air; if (!A) return false; if (key.indexOf('g:') === 0) { const c = key.slice(2); if (AIR_CLS.indexOf(c) < 0) return false; A.g[c] = on == null ? (A.g[c] ? 0 : 1) : (on ? 1 : 0); }
+  else if (PRODUCTS[key]) { const off = on == null ? !A.off[key] : !on; if (off) A.off[key] = 1; else delete A.off[key]; } else return false; saveSoon(); return true;
+}
 const ctyPack = () => { const a = []; S.grid.forEach(c => { if (c && c.t === 'npc') a.push(c.k === 'mon' ? [c.x, c.y, 'mon', 1, +c.seed.toFixed(4), c.m] : [c.x, c.y, c.k, c.floors, +c.seed.toFixed(4), c.lm ? 1 : 0]); }); return a; };
 function ctyLoad(grid, list) {
   let cap = 0, offFloors = 0;
@@ -3431,7 +3519,7 @@ function newCity() {
   };
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
-  mallEnsure(grid); const npc = genNpcTown(grid);   // passe 44 : ville aérée (CITY_D0) et Mall central ; passe 45 : grand mall 10×10 posé avant la ville (emprise réservée)
+  mallEnsure(grid); const npc = genNpcTown(grid); airEnsure(grid, S0.dep);   // passe 49 : aéroport en périphérie ; passe 44 : ville aérée (CITY_D0) et Mall central ; passe 45 : grand mall 10×10 posé avant la ville (emprise réservée)
   const pop0 = Math.round(npc.cap * K_POP * 0.85), bx0 = Math.max(0, Math.round(POPE_REF - pop0 * BASSIN_NEW));   // région : la demande de départ reste celle de la passe 35 (POPE_REF habitants-équivalents)
   S0.cityV = 2; S0.bassin = BASSIN_NEW; S0.bx = bx0; S0.cityExt = []; S0.cg = { acc: 0, park: 0, ms: 0, ext: 0, jt: 0.88, f: {} };
   S0.jpf = 0.88 * 0.55 * (pop0 * BASSIN_NEW + bx0) / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.npcOwn = {}; S0.neg = {}; S0.reqs = []; S0.rid = 0; S0.npcGrow = {}; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.mode = { k: 'free' }; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
@@ -3469,7 +3557,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, ecom: S.ecom ? ecSave() : undefined, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, ecom: S.ecom ? ecSave() : undefined, air: S.air ? airSan(S.air) : undefined, g, dep }));
     localStorage.setItem(SAVE_KEY + '_gal', JSON.stringify(S.gal || {}));
   } catch (e) { /* stockage indisponible */ }
 }
@@ -3511,6 +3599,7 @@ function load() {
     (d.dep || []).forEach(a => { if (LEGACY_DEP[a[1]]) a[1] = LEGACY_DEP[a[1]]; if (DEPOSITS[a[1]]) { dep[a[0]] = { k: a[1], r: a[2] }; if (a[3] > 1) dep[a[0]].pm = +a[3]; if (a[4]) dep[a[0]].own = 1; } });
     if (!dep.some(q => q && CROPS[q.k])) genCropFields(dep);
     { const have = {}; dep.forEach(q => { if (q) have[q.k] = 1; }); const miss = {}; let nm = 0; NEW_DEP_KINDS.forEach(k => { if (!have[k]) { miss[k] = 1; nm++; } }); if (nm) genExtraDeposits(dep, grid, miss); if (!have.corn && !have.rapeseed) genCropFields2(dep, grid); }   // passe 33 : sauvegarde antérieure, les nouveaux gisements sont ajoutés sur les cases encore libres
+    airEnsure(grid, dep);   // passe 49 : aéroport (sauvegardé dans cty ; absent des anciennes sauvegardes : posé sur un rectangle libre)
     const S0 = {
       cash: +d.cash, pop: +d.pop, day: d.day | 0, grid, dep, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: d.boomUntil == null ? -1 : (+d.boomUntil | 0),
       milestone: 99, lastWarn: -99, tax: clamp(+d.tax || 0.25, 0.05, 0.45),
@@ -3525,7 +3614,8 @@ function load() {
     S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP * (cv2 ? S0.bassin : 1) / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.firms = Array.isArray(d.firms) ? d.firms.filter(f => f && f.id > 0 && typeof f.name === 'string') : []; S0.grp = (d.grp && typeof d.grp === 'object') ? d.grp : null;   // passe 32 : filiales (absentes des anciennes sauvegardes)
-    S0.net = netSan(d.net); S0.edu = eduSan(d.edu); S0.ecom = ecSan(d.ecom);   // passe 43 : apprentissage (champ facultatif)
+    S0.net = netSan(d.net); S0.edu = eduSan(d.edu); S0.ecom = ecSan(d.ecom); S0.air = airSan(d.air);   // passe 49 : boutique duty free (facultatif)
+      // passe 43 : apprentissage (champ facultatif)
       // passe 42 : Réseau Wall Street (absent des anciennes sauvegardes)
     S0.cprod = cprod; S0.prod = initProd(); S0.mat = d.mat ? 1 : 0; S0.matPop = +d.matPop || 0; S0.trials = Array.isArray(d.trials) ? d.trials : []; S0.tid = +d.tid || 0; if (Array.isArray(d.mkv)) { S0.mkBuy = +d.mkv[0] || 0; S0.mkRoy = +d.mkv[1] || 0; S0.mkTrialCost = +d.mkv[2] || 0; }
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -4708,7 +4798,7 @@ function landCache() {   // champs partagés (vue sur la mer, parcs, hauteurs, q
   if (LMC && LMC.key === key && LMC.g === S.grid) { LMC.day = S.day; LMC.pcv = S._pcv | 0; return LMC; }
   const W1 = N + 1, PK = new Float32Array(W1 * W1), TL = new Float32Array(W1 * W1), pk = new Float32Array(N * N), tl = new Float32Array(N * N), rd = new Uint8Array(N * N);
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!c) continue; if (c.t === 'road') { rd[i] = 1; continue; } const a = c.t === 'part' ? S.grid[c.ai] : c; if (!a) continue;
-    if (a.t === 'npc' && (a.k === 'park' || (a.k === 'mon' && a.m !== 'mall'))) pk[i] = 1; else if (a.t === 'sport') pk[i] = 1;
+    if (a.t === 'npc' && (a.k === 'park' || (a.k === 'mon' && a.m !== 'mall' && a.m !== 'air'))) pk[i] = 1; else if (a.t === 'sport') pk[i] = 1;
     const fl = a.t === 'npc' ? ((a.k === 'res' || a.k === 'off') ? (a.floors || 1) : 0) : (a.t === 'res' || LM_OFF[a.t]) ? (a.floors || 1) : 0; if (fl >= 3) tl[i] = fl; }
   for (let y = 0; y < N; y++) { let a = 0, b = 0; for (let x = 0; x < N; x++) { a += pk[y * N + x]; b += tl[y * N + x]; PK[(y + 1) * W1 + x + 1] = PK[y * W1 + x + 1] + a; TL[(y + 1) * W1 + x + 1] = TL[y * W1 + x + 1] + b; } }
   const box = (I, x, y, r) => { const x0 = Math.max(0, x - r), y0 = Math.max(0, y - r), x1 = Math.min(N - 1, x + r) + 1, y1 = Math.min(N - 1, y + r) + 1; return I[y1 * W1 + x1] - I[y0 * W1 + x1] - I[y1 * W1 + x0] + I[y0 * W1 + x0]; };
@@ -5631,6 +5721,7 @@ function step() {
     fTrimAll();
     S._portUse = used; S._portCap = tp; }
   { const er = ecomStep(portN, mult); revExp += er.rev / Math.max(0.01, mult); importCost += er.buy; }   // passe 46 : ventes en ligne (exports par le port), après les magasins de la ville et avant l'export du surplus
+  const AD = airStep(mult); revRetVal += AD.rev; importCost += AD.imp;   // passe 49 : ventes duty free de l'aéroport (CA en commerce, marchandises importées, redevance en frais), avant l'export du surplus
   PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - prodRoom(pk)); if (ex > 0) { const exF = FGD ? Math.min(ex, Math.max(0, ps.stock - ledRes(pk))) : ex, xv = exF * prodPrice(pk) / mpProd(pk).m * (expRate - 0.1); fSellExt(pk, exF, xv); if (FGD && ex > exF) fLose(pk, ex - exF); ps.stock -= ex; ps.exp = exF; revExp += xv; S._xv[pk] = xv; } else ps.exp = 0; });   // passe 21 : le surplus au-delà de ~15 jours de ventes part à l'export (cours - 10 pts) au lieu de dormir jusqu'à 10 000 unités
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
@@ -5671,6 +5762,7 @@ function step() {
   const od = odLimit(), interest = S.loan * loanRate / 360 + (Math.min(od, Math.max(0, -S.cash)) * (loanRate + 0.04) + Math.max(0, -S.cash - od) * (loanRate + 0.12)) / 360;   // découvert limité (1 % de la valeur) à taux + 4 pts, au-delà taux + 12 pts (pas de défaite automatique)
   const rate = S.tax + regTax();
   let upkeepI = upkeep * cpi();
+  upkeepI += AD.fee;   // passe 49 : redevance et loyer de l'aéroport
   // passe 32 : comptes par société (filiales) ; la maison mère est le solde du consolidé, l'impôt est calculé par société (ou sur le périmètre d'intégration fiscale)
   const FD = FGD ? firmDay({ mult, loanRate, ca: revRetail + revExport + revTech + revBank }) : null;
   if (FD) upkeepI += FD.fee;
@@ -6235,6 +6327,7 @@ function refreshStats() {
 function inspect(x, y) {
   const c = cell(x, y);
   if (isMall(c)) { selected = { x, y }; mallOpen(); return; }   // passe 44 : le Mall central ouvre son panneau
+  if (isAir(c)) { selected = { x, y }; airOpen(); return; }   // passe 49 : l'aéroport ouvre son panneau
   selected = { x, y };
   const d = S.dep[idx(x, y)];
   if (!c) {
@@ -6436,7 +6529,7 @@ function updateHUD() {
     setBar('dR', st.demR || 0); setBar('dC', st.demC || 0); setBar('dI', st.demI || 0);
     drawSeries(el('spark'), h, '#f2b84b');
   }
-  try { if (!el('panel').hidden) renderOps(); if (pfSel) renderFiche(); if (mallOn) mallRender(); } catch (e) { /* panneau facultatif */ }
+  try { if (!el('panel').hidden) renderOps(); if (pfSel) renderFiche(); if (mallOn) mallRender(); if (airOn) airRender(); } catch (e) { /* panneau facultatif */ }
   try { netBadge(); renderNet(); } catch (e) { /* réseau facultatif */ }
   try { renderEdu(); } catch (e) { /* apprentissage facultatif */ }
   try { renderEcom(); } catch (e) { /* commerce en ligne facultatif */ }
@@ -8979,7 +9072,7 @@ function builtSet(x, y, k, fl) { const b = (S.built || []).find(q => q[0] === x 
 const ZGROW = { R: ['res', 8], o: ['off', 14], c: ['off', 5] };
 function stepZones() {
   const p = PR(), zn = S.pzn; if (!zn) return; const keys = Object.keys(zn); if (!keys.length) return;
-  if (S.day % 5 === 0) { let n = 0; eachBuilding(b => { if (b.t === 'npc' && (b.k === 'park' || (b.k === 'mon' && b.m !== 'mall'))) n++; else if (b.t === 'sport') n += 2; }); p.svcC = clamp(n / Math.max(1, (S.pop || 0) / 5500), 0, 1.3); }
+  if (S.day % 5 === 0) { let n = 0; eachBuilding(b => { if (b.t === 'npc' && (b.k === 'park' || (b.k === 'mon' && b.m !== 'mall' && b.m !== 'air'))) n++; else if (b.t === 'sport') n += 2; }); p.svcC = clamp(n / Math.max(1, (S.pop || 0) / 5500), 0, 1.3); }
   const D = zoneDem(); p.dem = D; const sv = 0.4 + 0.6 * Math.min(1, p.svcC == null ? 1 : p.svcC); let sp = 0, gr = 0;
   for (const k of keys) {
     const i = +k, x = i % N, y = (i / N) | 0, t = zn[k], c = S.grid[i];
@@ -13821,6 +13914,37 @@ function drawMall(a, x, y, p, now) {   // passe 44 : parvis pavé sur les 4 case
   ctx.fillStyle = '#ffb347'; ctx.fillText('MALL CENTRAL', sx, sy - 8); ctx.restore();
   a._top = sy - 34;
 }
+/* ---------- Passe 49 : rendu procédural de l'aéroport (6×4 cases) : piste, aire de stationnement avec un avion, terminal vitré, tour de contrôle, enseigne sobre.
+   Palette retenue (gris béton, verre bleuté, herbe rase) ; un avion roule sur la piste puis décolle en boucle. Aucune image : le sprite HD est commandé dans RETOURS.md. */
+function drawAirport(a, x, y, now) {
+  const P = airPos(); if (!P) return; const u = x - P.x, v = y - P.y, L = AIR_L;
+  pQuad([PP(x, y, 0), PP(x + 1, y, 0), PP(x + 1, y + 1, 0), PP(x, y + 1, 0)], v < 1.5 ? '#8a9a74' : '#b3b8bf');   // herbe rase autour de la piste, béton devant
+  a._top = iso(x, y).y - 30; if (u !== P.w - 1 || v !== P.h - 1) return;
+  const Q = (uu, vv, z) => PP(P.x + uu, P.y + vv, z), flat = (r, z, col) => pQuad([Q(r.u0, r.v0, z), Q(r.u1, r.v0, z), Q(r.u1, r.v1, z), Q(r.u0, r.v1, z)], col);
+  const prism = (u0, v0, u1, v1, z0, z1, col) => pPrism(P.x + u0, P.y + v0, u1 - u0, v1 - v0, z0, z1, col);
+  // piste : asphalte, axe pointillé, seuils
+  flat(L.R, 0.6, '#3d424b'); for (let s = L.R.u0 + 0.5; s < L.R.u1 - 0.5; s += 0.42) flat({ u0: s, v0: 0.7, u1: s + 0.22, v1: 0.75 }, 0.9, '#e9edf2');
+  [L.R.u0 + 0.08, L.R.u1 - 0.3].forEach(s => { for (let k = 0; k < 4; k++) flat({ u0: s, v0: 0.38 + k * 0.2, u1: s + 0.22, v1: 0.46 + k * 0.2 }, 0.9, '#e9edf2'); });
+  flat({ u0: 4.55, v0: 1.1, u1: 4.85, v1: 2.5 }, 0.5, '#555b65'); flat(L.A, 0.5, '#c9cdd3');   // bretelle et aire de stationnement
+  // avion stationné (fuselage, ailes, dérive) relié au terminal par une passerelle
+  const plane = (u0, v0, z, sc) => { prism(u0 + 0.75 * sc, v0 - 0.55 * sc, u0 + 1.05 * sc, v0 + 0.65 * sc, z + 7 * sc, z + 9 * sc, '#d9dde3'); prism(u0, v0, u0 + 1.8 * sc, v0 + 0.16 * sc, z + 4 * sc, z + 13 * sc, '#f2f4f7');
+    prism(u0 + 0.05 * sc, v0 + 0.05 * sc, u0 + 0.3 * sc, v0 + 0.11 * sc, z + 13 * sc, z + 26 * sc, '#4f6f95'); prism(u0, v0 - 0.22 * sc, u0 + 0.28 * sc, v0 + 0.38 * sc, z + 12 * sc, z + 13.5 * sc, '#d9dde3'); };
+  plane(1.5, 1.85, 0, 1); prism(2.35, 2.0, 2.55, 2.62, 10, 16, '#8d949e');
+  // avion qui roule sur la piste puis décolle (cycle de 14 s)
+  { const t = (now / 14000) % 1, uu = 0.4 + 5 * t, zz = t > 0.6 ? (t - 0.6) * 260 : 0; ctx.save(); ctx.globalAlpha *= t > 0.92 ? (1 - t) / 0.08 : 1; plane(uu, 0.65, zz, 0.8); ctx.restore(); }
+  // terminal : socle, façade vitrée en bandeaux, toiture claire débordante
+  const T = L.T; prism(T.u0, T.v0, T.u1, T.v1, 0, T.z, '#dfe3e8');
+  pWindows(P.x + T.u0, P.y + T.v0, T.u1 - T.u0, T.v1 - T.v0, 6, T.z - 6, 12, false);
+  for (let k = 0; k < 3; k++) { const vv = T.v0 + 0.15 + k * 0.32; pQuad([Q(T.u1, vv, T.z - 6), Q(T.u1, vv + 0.2, T.z - 6), Q(T.u1, vv + 0.2, 6), Q(T.u1, vv, 6)], '#5f7f9f'); }
+  prism(T.u0 - 0.08, T.v0 - 0.08, T.u1 + 0.08, T.v1 + 0.08, T.z, T.z + 4, '#eef0f3');
+  // tour de contrôle : fût, vigie vitrée, toit, balise clignotante
+  const C = L.C; prism(C.u0, C.v0, C.u0 + 0.4, C.v0 + 0.4, 0, C.z, '#d3d8de'); prism(C.u0 - 0.12, C.v0 - 0.12, C.u0 + 0.52, C.v0 + 0.52, C.z, C.z + 14, '#5d86ad'); prism(C.u0 - 0.16, C.v0 - 0.16, C.u0 + 0.56, C.v0 + 0.56, C.z + 14, C.z + 18, '#3a414c');
+  const bt = Q(C.u0 + 0.2, C.v0 + 0.2, C.z + 24); ctx.fillStyle = Math.sin(now / 350) > 0 ? '#ff4b4b' : '#7a2b2b'; ctx.beginPath(); ctx.arc(bt[0], bt[1], 3, 0, 7); ctx.fill();
+  // enseigne sur le toit du terminal
+  const sg = Q((T.u0 + T.u1) / 2, (T.v0 + T.v1) / 2, T.z + 4); ctx.save(); ctx.font = '700 17px sans-serif'; ctx.textAlign = 'center'; const tw = ctx.measureText('AÉROPORT').width + 18;
+  ctx.fillStyle = 'rgba(29,36,51,.9)'; ctx.fillRect(sg[0] - tw / 2, sg[1] - 26, tw, 24); ctx.fillStyle = '#e9edf2'; ctx.fillText('AÉROPORT', sg[0], sg[1] - 8); ctx.restore();
+  a._top = Math.min(sg[1] - 30, Q(C.u0, C.v0, C.z + 30)[1]);
+}
 /* ---------- Passe 45 / 46 : rendu du grand Mall central (10×10 cases) ----------
    Passe 46 (retour du producteur : « plus d'écran arc-en-ciel, un vrai bâtiment moderne ») : le bâtiment principal devient une architecture curviligne,
    esprit Guggenheim / grand mall de Dubaï : socle ondulé en superellipse (bandeaux de titane nacré, rubans de verre bleu-gris éclairés de l'intérieur),
@@ -14275,6 +14399,8 @@ function drawTileOf(a, x, y, ox, oy, o) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawSpecShop(a, o.now, grow);
   } else if (a.t === 'npc' && a.k === 'mon' && a.m === 'mall') {
     { const MP = mallPos(); if (MP && MP.w >= 10) drawMallBig(a, x, y, o.now); else drawMall(a, x, y, p, o.now); }   // passe 45 : grand mall 10×10 (dessiné une fois, depuis la case avant)
+  } else if (a.t === 'npc' && a.k === 'mon' && a.m === 'air') {
+    drawAirport(a, x, y, o.now);   // passe 49 : aéroport (dessiné une fois, depuis la case avant)
   } else if (a.t === 'npc' && a.k === 'mon') {
     drawMonument(a, o.now);
   } else if (a.t === 'npc' && a.k === 'park') {
@@ -14480,6 +14606,7 @@ function drawSatellite(now) {
   eachVisible(vr, (x, y) => {
     const rc = S.grid[idx(x, y)]; if (!rc || rc.t === 'road' || rc.t === 'part') return;
     if (isMall(rc)) { const MP = mallPos(); if (MP && MP.w >= 10) { if (x === MP.x + MP.w - 1 && y === MP.y + MP.w - 1) mbSat(MP.x, MP.y); return; } }   // passe 46 : grand mall en vue satellite (silhouette courbe simplifiée)
+    if (isAir(rc)) { const AP = airPos(); if (AP && x === AP.x + AP.w - 1 && y === AP.y + AP.h - 1) { pPrism(AP.x, AP.y, AP.w, AP.h, 0, 3, '#a7adb5'); pPrism(AP.x + AIR_L.T.u0, AP.y + AIR_L.T.v0, AIR_L.T.u1 - AIR_L.T.u0, AIR_L.T.v1 - AIR_L.T.v0, 0, AIR_L.T.z, '#d5dae0'); pPrism(AP.x + AIR_L.C.u0, AP.y + AIR_L.C.v0, 0.4, 0.4, 0, AIR_L.C.z, '#c9ced6'); } return; }   // passe 49 : aéroport en vue satellite
     const a = rc, T = TYPES[a.t]; if (!T) return;
     const fl = a.t === 'npc' ? a.floors : (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') ? lvFloors(a) : (TYPES[a.t].capK ? 2 + 2 * (TYPES[a.t].w || 1) : 2) + 2 * (a.lvl || 0);
     const H = fl * 15 + 6, w = a.w || 1, h = a.h || 1;
@@ -17003,7 +17130,7 @@ function mallHTML() {
   h += `<h4>Pôle commercial</h4><p class="mnote">Boutique à moins de ${MALL_R} cases du mall : +${Math.round(MALL_TRF * 100)} % de fréquentation. ${POLE_N} boutiques voisines ou plus (adjacentes ou à une case, avenue comprise) : pôle commercial, +${Math.round(POLE_TRF * 100)} % de fréquentation et frais fixes partagés −${Math.round(POLE_UPK * 100)} %. Cumul ×${f2((1 + MALL_TRF) * (1 + POLE_TRF))} au plus ; la fréquentation reste plafonnée à 100.</p>`;
   h += vvSvcHTML();   // ville vivante : commerces de quartier
   h += `<div class="r"><span>Magasins spécialisés présents</span><span>${specMallLine()}</span></div><p class="mnote">Concession, high-tech, luxe, mode, pharmacie, maison, sport, bricolage : un spécialiste ne vend que sa famille, mais la vend mieux (attrait, marge, marque). Près du mall, il profite aussi du bonus de fréquentation.</p>`;
-  h += `<div class="acts"><button class="btn" data-mall="shop">Ouvrir ma boutique près du mall</button><button class="btn" data-mall="prod">Voir les produits</button><button class="btn" data-mall="port">Importer depuis le port</button></div>`;
+  h += `<div class="acts"><button class="btn" data-mall="shop">Ouvrir ma boutique près du mall</button><button class="btn" data-mall="prod">Voir les produits</button><button class="btn" data-mall="air">Aéroport : vendre aux voyageurs</button><button class="btn" data-mall="port">Importer depuis le port</button></div>`;
   return h;
 }
 function mallRender() { const b = el('mallp'); if (!b) return; if (!mallOn) { b.hidden = true; return; } b.innerHTML = mallHTML(); b.hidden = false; }
@@ -17023,6 +17150,7 @@ function mallAct(a) {
   if (a === 'close') { mallClose(); return; }
   if (a === 'shop') { const sp = mallSpot('s1'); mallClose(); setTool('s1'); if (sp) { centerOn(sp.x, sp.y); fitted = true; mallHint = { x: sp.x, y: sp.y, until: performance.now() + 15000 }; say(`Case libre à ${f1(sp.d)} cases du mall marquée d'une étoile : pose ton petit marché (outil sélectionné). Près du mall : +${Math.round(MALL_TRF * 100)} % de fréquentation.`, 'info'); } else say('Plus aucune case libre près du mall : choisis une case au bord d\'une rue.', 'warn'); return; }
   if (a === 'prod') { mallClose(); const b = el('pv'); if (b) b.click(); return; }
+  if (a === 'air') { mallClose(); airShow(); return; }   // passe 49
   if (a === 'port') {
     mallClose(); let shop = null; eachBuilding(b => { if (!shop && POLE_SHOPS[b.t]) shop = b; });
     if (shop) { openBuilding(shop.x, shop.y); const t = document.querySelector('#bview [data-act="tab:lg"]'); if (t) t.click(); say('Approvisionnement de ta boutique : quand ton stock est vide, le port importe automatiquement (mode Auto). Choisis « Import par le port » pour un produit précis ; plus tard, fabrique-le dans tes usines de la zone du port pour garder la marge.', 'info'); }
@@ -17032,6 +17160,43 @@ function mallAct(a) {
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && mallOn) mallClose(); });
 el('mallp').addEventListener('click', e => { const b = e.target.closest('[data-mall]'); if (b && !b.disabled) mallAct(b.dataset.mall); });
 ['mallp'].forEach(id => { const e = el(id); ['pointerdown', 'pointerup', 'wheel'].forEach(t => e.addEventListener(t, ev => ev.stopPropagation(), { passive: true })); });
+/* ---------- Passe 49 : panneau « Aéroport » (trafic, vendeurs présents, redevance, mes ventes, boutique duty free) ---------- */
+let airOn = false;
+function airHTML() {
+  const d = airData(), pc = v => Math.round(v * 100) + ' %', f2 = v => (+v).toFixed(2).replace('.', ','), px$ = v => (v >= 100 ? fmt(v) : f2(v)) + ' $', A = S.air;
+  const row = (a, b, cl) => `<div class="r"><span>${a}</span><span class="${cl || ''}">${b}</span></div>`;
+  let h = `<div class="mhd"><b>AÉROPORT</b><button class="ibtn" data-air="close" aria-label="Fermer le panneau de l'aéroport">Fermer</button></div>`;
+  h += `<p class="mnote">Les voyageurs achètent sur un coup de tête : ils paient ${pc(d.K.AIR_MK - 1)} de plus qu'en ville. L'aéroport prélève une redevance de ${pc(d.K.AIR_TAX)} du chiffre d'affaires. Le trafic est partagé entre tous les vendeurs présents : plus il y a de boutiques, moins chacune vend. Idéal pour démarrer et écouler du luxe ; pour grandir, tes propres magasins rapportent plus.</p>`;
+  h += `<h4>Trafic aérien</h4>` + row('Passagers', `${fmt(d.pax)} par jour <small>(${fmt(d.pax * DM)} par mois · croît avec la ville)</small>`)
+    + AIR_CLS.map(c => { const k = d.cls[c]; return row(`Rayon ${CLS_S[c]}`, `${fmt(k.D * DM)} u/mois · ${k.n} vendeur${k.n > 1 ? 's' : ''}<br><small>prix duty free ${px$(k.price)} (ville ${px$(k.shelf)})</small>`); }).join('');
+  h += `<h4>Vendeurs présents (${d.n})</h4>` + (d.me.on ? `<div class="mriv" data-arv="you" style="border-left:3px solid var(--gold)"><div class="mrt"><b>Toi</b><small>${AIR_CLS.filter(c => d.cls[c].mine).map(c => CLS_S[c]).join(', ') || 'aucun rayon actif'}</small><span class="mpc">${money(d.me.ca)}/mois</span></div></div>` : '')
+    + (d.vendors.length ? d.vendors.map(v => `<div class="mriv" data-arv="${v.id}" style="border-left:3px solid ${v.col}"><div class="mrt"><i style="background:${v.col}"></i><b>${v.name}</b><small>${v.cls.map(c => CLS_S[c]).join(', ')}</small><span class="mpc">${money(v.ca)}/mois</span></div></div>`).join('') : '<p class="mnote">Aucun rival au terminal : les voyageurs sont à toi.</p>');
+  h += `<h4>Taxes et loyer</h4>` + row('Redevance aéroportuaire', `${pc(d.K.AIR_TAX)} du chiffre d'affaires`) + row('Loyer de l\'emplacement', `${money(d.rent)}/mois`) + row('Droit d\'entrée', money(d.entry));
+  h += `<h4>Mes ventes${A && A.h && A.h.length && A.h.length < 30 ? ' (estimées sur ' + A.h.length + ' j)' : ' (30 jours)'}</h4>`;
+  if (A && (A.on || A.h.length)) h += row('Unités vendues', `${fmt(d.me.u)}/mois`) + row('Chiffre d\'affaires', `${money(d.me.ca)}/mois`) + row('Redevance et loyer', `−${money(d.me.fee)}/mois`) + row('Marchandises importées', `−${money(d.me.cogs)}/mois`)
+    + `<div class="r you"><span>Résultat de la boutique</span><span class="${d.me.net >= 0 ? 'pos' : 'neg'}">${d.me.net >= 0 ? '+' : '−'}${money(Math.abs(d.me.net))}/mois</span></div>`;
+  else h += `<p class="mnote">Pas encore de boutique au terminal.</p>`;
+  if (A && A.on) {
+    const prods = PKEYS.filter(pk => AIR_CLS.indexOf(PRODUCTS[pk].cls) >= 0 && S.prod[pk] && S.prod[pk].st === 'on');
+    h += `<h4>Ma boutique duty free : rayons</h4><div class="ash">` + AIR_CLS.map(c => `<button class="btn sec" data-air="g:${c}" aria-pressed="${A.g[c] ? 'true' : 'false'}">${CLS_S[c]} (import)</button>`).join('')
+      + prods.map(pk => `<button class="btn sec" data-air="${pk}" aria-pressed="${A.off[pk] ? 'false' : 'true'}">${PRODUCTS[pk].name}</button>`).join('') + `</div>`
+      + `<p class="mnote">Les marchandises d'un rayon coché sont importées par le port au fil des ventes ; tes produits lancés passent en premier, tant qu'il reste du stock.</p>`
+      + `<div class="acts"><button class="btn sec" data-air="closeshop">Fermer ma boutique</button></div>`;
+  } else h += `<div class="acts"><button class="btn" data-air="open"${S.cash < d.entry ? ' disabled' : ''}>Ouvrir une boutique duty free (${money(d.entry)})</button></div>`;
+  return h;
+}
+function airRender() { const b = el('airp'); if (!b) return; if (!airOn) { b.hidden = true; return; } b.innerHTML = airHTML(); b.hidden = false; }
+function airOpen() { if (!airPos()) return false; airOn = true; if (typeof mallClose === 'function') mallClose(); if (typeof proCloseFiche === 'function') proCloseFiche(); airRender(); return true; }
+function airClose() { airOn = false; const b = el('airp'); if (b) b.hidden = true; }
+function airShow() { const P = airPos(); if (!P) { say('Pas d\'aéroport sur cette carte.', 'warn'); return false; } setTool('view'); centerOn(P.x + P.w / 2, P.y + P.h / 2); fitted = true; return airOpen(); }
+function airAct(a) {
+  if (a === 'close') { airClose(); return; }
+  if (a === 'open') airOpenShop(); else if (a === 'closeshop') airCloseShop(); else airShelf(a);
+  airRender(); try { updateHUD(); } catch (e) { /* HUD absent */ }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && airOn) airClose(); });
+el('airp').addEventListener('click', e => { const b = e.target.closest('[data-air]'); if (b && !b.disabled) airAct(b.dataset.air); });
+['airp'].forEach(id => { const e = el(id); ['pointerdown', 'pointerup', 'wheel'].forEach(t => e.addEventListener(t, ev => ev.stopPropagation(), { passive: true })); });
 // ----- Panneau Opérations (onglet du bureau)
 function proPxIndex() { const p = PR(); return p.px || []; }
 function renderOps() {
@@ -17104,6 +17269,7 @@ Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ec
 Object.assign(window.WSE, { ground: { GT, ROAD_SPR, GT_NAMES, kind: gtKind, active: gtActive, roadSpr: (x, y) => ROAD_SPR[roadMask(x, y)], clearing: gtClearing, tex: gtTex }, view: { get z() { return z; }, setZ: v => { fitted = true; z = clamp(v, 0.03, 1.8); }, centerOn, get dpr() { return dpr; } } });   // passe sol et routes
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
 window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMILY, famOf: pFamOf, byFam: SPEC_BY_FAM, of: specOf, tab: specTab, share: specShare, famShare: specFamShare, mk: specMk, known: specKnown, locked: specLocked, need: specNeedTxt, shelfOk: specShelfOk, bcT: specBcT, stats: specStats, card: specCard, mall: specMallLine, edu: eduSpecHTML, PASS: SPEC_PASS, PRI: SPEC_PRI, day: () => S._spec || {} };   // passe 46 : magasins spécialisés
+window.WSE.air = { pos: airPos, ensure: airEnsure, pax: airPax, data: airData, html: airHTML, open: airOpen, close: airClose, isOpen: () => airOn, show: airShow, act: airAct, openShop: airOpenShop, closeShop: airCloseShop, shelf: airShelf, price: airPrice, step: airStep, san: airSan, K: { AIR_W, AIR_H, AIR_PAX0, AIR_BUY, AIR_MK, AIR_TAX, AIR_ENTRY, AIR_RENT, AIR_L } };   // passe 49 : aéroport et duty free
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.rd = { patentHeld, held: patentHeld, mine: patMine, block: patBlock, blockMsg: patBlockMsg, grant: patGrant, value: patValue, incDay: patIncDay, licDay: patLicDay, revDay: patRevDay, licFee: patLicFee, buyLicence: patBuyLicence, opps: patOpps, develop: patDevelop, answer: patOfferAnswer, step: patStep, years: patYears, comp: patCompF, top: mkTopRaw, save: patSave, load: patLoad, st: rdxS, pat: () => S.pat || {}, list: accList, info: accInfo, quote: accQuote, accelerate, gemCost, gemAdd, render: renderRdp, edu: patEduHTML, advice: rdpAdvice, iap: { LIVE: IAP_LIVE, PACKS: IAP_PACKS, purchase: iapPurchase, log: IAP }, K: { PAT_Y, PAT_NIV_Y, PAT_ROY, PAT_LIC_SH, PAT_LIC_MAX, PAT_RIV_FROM, PAT_RIV_EVERY, PAT_OFF_EVERY, PAT_WARN_D, PAT_DISC, PAT_MONO, GEM_N, GEM_START, GEM_TIER, GEM_JAL, ACC_TOT, ACC_DAY_MAX, ACC_CASH_K, ACC_LAB_MAX, ACC_LAB_GAIN } };   // passe 47 : brevets de produit, R&D, accélération (aucun paiement réel)
