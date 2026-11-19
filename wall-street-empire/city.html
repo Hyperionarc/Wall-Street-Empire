@@ -2014,7 +2014,7 @@ function marketBounds(g) {
   return { base, fl, cap: Math.max(fl, base * 1.6 * mpM(g)), pass };   // passe 46 : le plafond de pénurie s'applique au prix de pouvoir de marché (pas de plafond de marge)
 }
 /* ---------- Passe 46 : POUVOIR DE MARCHÉ. Les marges sont le résultat de la concurrence, pas un plafond.
-   Nombre équivalent de vendeurs n = 1 (toi) + concurrents actifs + substituts (import, génériques), part équivalente s = 1 / n.
+   Nombre équivalent de vendeurs n = 1 (toi) + concurrents actifs + substituts (import, sans marque), part équivalente s = 1 / n.
    Prime de prix = P × max(0, s − 0,10) / 0,90 × √couverture (part de la demande locale que tu sers) ; P dépend de la filière (commodité 0,7 · standard 0,9 · spécialité 1,25 : plastique, chimie, électronique, pharmacie).
    Seul (import en face) : s = 0,67, prime ≈ 0,63 × P ; 1 concurrent : 0,33 × P ; 2 : 0,21 × P ; 4 : 0,09 × P ; 6 : 0,04 × P. La surcapacité des entrants fait EN PLUS baisser le cours (rapport demande / offre, plancher = intrants + 8 %).
    Garde-fous sans plafond : élasticité (un prix haut fait perdre des ventes locales), export payé au cours mondial (sans prime), et « appel d'air » : une prime durablement forte attire
@@ -2034,7 +2034,7 @@ function mpGood(g, my, want) {
   const k = mpK(g), n = 1 + k + MP_IMP, cov = clamp((my || 0) / Math.max(1e-6, want || 0), 0, 1), p = mpPrime(mpPg(g), n) * Math.sqrt(cov);   // couverture : part de la demande que tu sers (√ : l'import, plus cher, laisse de la marge à un producteur local même partiel)
   return { m: 1 + p, p, k, n, cov };
 }
-// Produit fini : rivaux présents dans la catégorie (1 s'il a copié ton produit, sinon son attrait / 0,2), copies étrangères, substituts génériques ; une marque forte réduit la pression
+// Produit fini : rivaux présents dans la catégorie (1 s'il a copié ton produit, sinon son attrait / 0,2), copies étrangères, substituts sans marque ; une marque forte réduit la pression
 function mpProdOf(pk) {
   const pr = PRODUCTS[pk], ps = S && S.prod && S.prod[pk]; if (!pr || !ps) return { m: 1, p: 0, k: 0, n: 1 };
   const cls = pr.cls, P = isPh(pk) ? 0.9 : (MP_PCLS[cls] || 0); if (!P) return { m: 1, p: 0, k: 0, n: 1 };
@@ -16307,7 +16307,7 @@ function patCompF(pk) { const r = patentHeld(pk); if (!r || mkOn()) return 1; co
 // redevances nominales par jour d'un brevet (hors indice des prix) : part de la demande servie par chaque licencié × prix de gros × taux
 function patLicDay(pk, l) { const r = patentHeld(pk); if (!r || r.holder !== 'me' || !l || l.id === 'me') return 0; return PAT_LIC_SH * mkDemandDay(pk) * PRODUCTS[pk].ref * QTIER[r.q].ref * (l.rate || r.rate) * (casteIs('innovateur') ? 1.5 : 1); }
 function patIncDay(pk) { const r = patentHeld(pk); if (!r || r.holder !== 'me') return 0; return (r.licensees || []).reduce((a, l) => a + patLicDay(pk, l), 0); }
-function patRevDay() {   // revenus de brevets du jour (redevances + anciens brevets génériques d'une sauvegarde antérieure) ; S.patRev, payé via revTech
+function patRevDay() {   // revenus de brevets du jour (redevances + anciens brevets à rente fixe d'une sauvegarde antérieure) ; S.patRev, payé via revTech
   if (!S.pat && !(S.rdx && S.rdx.old)) return 0;
   let v = 0; Object.keys(S.pat || {}).forEach(pk => { if (PRODUCTS[pk]) v += patIncDay(pk); });
   const o = S.rdx && S.rdx.old; if (o && o.until > S.day) v += o.n * 70 * (casteIs('innovateur') ? 1.5 : 1);
@@ -16455,7 +16455,7 @@ function patLoad(S0, d) {
     off: Array.isArray(x.off) ? x.off.filter(o => o && PRODUCTS[o.pk]).slice(0, 4).map(o => ({ id: o.id | 0, pk: o.pk, who: String(o.who).slice(0, 40), name: String(o.name || '').slice(0, 60), fee: num(o.fee, 0, 1e12, 0), rate: num(o.rate, 0, 0.3, PAT_ROY), exp: num(o.exp, 0, 1e7, 0) | 0 })) : [],
     hist: Array.isArray(x.hist) ? x.hist.filter(h => h && PRODUCTS[h.pk]).slice(0, 12).map(h => ({ pk: h.pk, holder: String(h.holder).slice(0, 40), hn: String(h.hn || '').slice(0, 60), until: h.until | 0, roy: num(h.roy, 0, 1e13, 0) })) : [],
     old: x.old && isFinite(+x.old.n) ? { n: num(x.old.n, 0, 500, 0) | 0, until: num(x.old.until, 0, 1e7, 0) | 0 } : null } : null;
-  // conversion d'une sauvegarde antérieure : chaque ancien brevet devient un brevet sur un produit que tu as développé (R&D payée), le reste un lot de brevets génériques
+  // conversion d'une sauvegarde antérieure : chaque ancien brevet devient un brevet sur un produit que tu as développé (R&D payée), le reste un lot de brevets à rente fixe
   const n0 = Math.max(0, Math.min(500, +d.patents || 0) | 0);
   if (n0 > 0 && !d.pat) {
     const day = +d.day || 0, own = PKEYS.filter(pk => S0.prod[pk] && S0.prod[pk].st === 'on' && !PRODUCTS[pk].free && !S0.prod[pk].lic && !S0.prod[pk].res);
@@ -16516,7 +16516,7 @@ function renderRdp(force) {
   if (!mine.length && !(X.old && X.old.until > S.day)) h += '<p class="note">Aucun brevet : sois le premier à terminer la R&D d\'un produit (marché mûr : une gamme au-dessus de la meilleure vendue).</p>';
   mine.forEach(pk => { const r = P[pk], ps = S.prod[pk];
     h += `<div class="rdrow mine"><b>${PRODUCTS[pk].name} · gamme ${patQn(r.q)} et au-dessus</b><small>Expire le ${dateTxt(r.until)} (dans ${patLeftTxt(r)}) · valeur ${money(patValue(pk))} · redevances ${mj(patIncDay(pk) * cpi())}/mois (cumul ${money(r.roy || 0)})${ps.st === 'on' ? '' : ' · produit non lancé'}</small><small>Licenciés : ${(r.licensees || []).length ? r.licensees.map(l => `${l.name} (${pctTxt(l.rate)})`).join(', ') : 'aucun : exclusivité totale'}</small></div>`; });
-  if (X.old && X.old.until > S.day) h += `<div class="rdrow mine"><b>${X.old.n} brevet${X.old.n > 1 ? 's' : ''} génériques (ancienne sauvegarde)</b><small>Rente de ${mj(X.old.n * 70 * (casteIs('innovateur') ? 1.5 : 1) * cpi())}/mois jusqu'au ${dateTxt(X.old.until)}, puis ils expirent.</small></div>`;
+  if (X.old && X.old.until > S.day) h += `<div class="rdrow mine"><b>${X.old.n} brevet${X.old.n > 1 ? 's' : ''} à rente fixe (ancienne sauvegarde)</b><small>Rente de ${mj(X.old.n * 70 * (casteIs('innovateur') ? 1.5 : 1) * cpi())}/mois jusqu'au ${dateTxt(X.old.until)}, puis ils expirent.</small></div>`;
   // offres reçues
   h += `<h3>OFFRES DE LICENCE REÇUES</h3>`;
   if (!X.off.length) h += '<p class="note">Aucune offre en attente. Les concurrents te proposent des licences sur tes brevets de temps en temps.</p>';
