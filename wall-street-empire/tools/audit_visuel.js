@@ -62,9 +62,9 @@ const PAGE = async (o) => {
   // 2. Bâtiments de la ville (PNJ) : un échantillon par sorte
   { const seen = {}; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!c || c.t !== 'npc' || c.x + c.y * N !== i) continue;
       const fl = c.k === 'house' ? '' : c.floors <= 3 ? 'bas' : c.floors <= 8 ? 'moyen' : c.floors <= 30 ? 'tour' : 'gratte-ciel';
-      if (c.m === 'mall' || c.m === 'air') continue;
+      if (c.m === 'mall' || c.m === 'air') continue; if (W.fp.monMulti(c) && (c.x !== c.mx || c.y !== c.my)) continue;
       const key = c.k + (c.m ? ':' + c.m : '') + (c.lm ? ':repère' : '') + (fl ? ':' + fl : ''); if (seen[key] >= (c.k === 'res' || c.k === 'off' || c.k === 'house' ? 3 : 1)) continue; seen[key] = (seen[key] || 0) + 1;
-      const mf = c.k === 'mon' && window.WSE.fp && window.WSE.fp.MON_FP[c.m], w = mf ? mf[0] : c.w || 1, h = mf ? mf[1] : c.h || 1, q = G.iso(c.x + w / 2, c.y + h / 2), big = Math.max(1, (w + h) / 2.2);
+      const mm = W.fp.monMulti(c), w = mm ? c.mw : c.w || 1, h = mm ? c.mh : c.h || 1, q = G.iso(c.x + w / 2, c.y + h / 2), big = Math.max(1, (w + h) / 2.2);   // équipement de plusieurs cases : toute son emprise (la case dessinée décide du sol et du sprite)
       probe('Ville (PNJ)', key + '#' + seen[key], key, () => { for (let s = 0; s <= w + h - 2; s++) for (let ox = 0; ox < w; ox++) { const oy = s - ox; if (oy < 0 || oy >= h) continue; G.tile(c, c.x + ox, c.y + oy, ox, oy, { now }); } }, { x: q.x, y: q.y - (c.floors > 8 ? 160 : 50) * big }, (c.floors > 8 ? 520 : 300) * big);
   } }
   // grands équipements dessinés une fois depuis leur case avant (mall 10×10, aéroport) : toutes leurs cases, dans l'ordre de profondeur

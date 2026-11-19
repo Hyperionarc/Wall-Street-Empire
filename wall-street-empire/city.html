@@ -3208,9 +3208,16 @@ function monFit(grid, x, y, w, h, can) {   // coin nord d'une emprise w×h de lo
   }
   return best;
 }
+function monNear(grid, x, y, w, h, can, R) {   // emprise w×h la plus proche de (x, y) (rayon R cases, déterministe) quand celle qui contient (x, y) est prise : l'équipement garde toujours la taille du barème
+  let best = monFit(grid, x, y, w, h, can), bd = best ? 0 : 1e9; if (best) return best;
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const d = Math.abs(dx) + Math.abs(dy) + 0.001 * (dy * 31 + dx); if (d >= bd) continue; const X = x + dx, Y = y + dy; if (!inb(X, Y)) continue; const o = grid[idx(X, Y)]; if (o && (!can || !can(o))) continue; const a = monFit(grid, X, Y, w, h, can); if (a) { best = a; bd = d; } }
+  return best;
+}
+const MONV = new WeakMap();   // ancre virtuelle {x, y, w, h} d'un équipement de plusieurs cases (tri de profondeur et cadre d'enseigne), une par coin nord
+function monV(c) { const k = (inb(c.mx, c.my) && S.grid[idx(c.mx, c.my)]) || c; let v = MONV.get(k); if (!v || v.x !== c.mx || v.y !== c.my || v.w !== c.mw || v.h !== c.mh) { v = { vm: 1, t: 'npc', k: 'mon', m: c.m, x: c.mx, y: c.my, w: c.mw, h: c.mh }; MONV.set(k, v); } return v; }
 function monPut(grid, m, ax, ay, w, h, seed) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const c = npcCellOf(ax + i, ay + j, 'mon', 1, seed == null ? null : seed); c.m = m; if (w > 1 || h > 1) { c.mx = ax; c.my = ay; c.mw = w; c.mh = h; } grid[idx(ax + i, ay + j)] = c; } }
 function monPlaceAll(grid) {   // génération : les équipements de plusieurs cases d'abord (sur des lots libres), les autres restent posés par la boucle des lots
-  Object.keys(MONU).forEach(k => { const m = MONU[k], fp = MON_FP[m]; if (!fp) return; const [x, y] = k.split(',').map(Number); const a = monFit(grid, x, y, fp[0], fp[1], null); if (a) monPut(grid, m, a.x, a.y, fp[0], fp[1], hash(x, y, 44)); });
+  Object.keys(MONU).forEach(k => { const m = MONU[k], fp = MON_FP[m]; if (!fp) return; const [x, y] = k.split(',').map(Number); const a = monNear(grid, x, y, fp[0], fp[1], null, 8); if (a) monPut(grid, m, a.x, a.y, fp[0], fp[1], hash(x, y, 44)); });
 }
 function monLink(grid) {   // chargement : relie les cases d'un équipement de plusieurs cases ; une ancienne sauvegarde (équipement sur 1 case) est agrandie à l'emprise du barème sur les lots voisins (maisons et immeubles de la ville repris, jamais un bâtiment du joueur ni une rue)
   const razed = [];
@@ -3219,8 +3226,9 @@ function monLink(grid) {   // chargement : relie les cases d'un équipement de p
     const x0 = Math.min(...cs.map(c => c.x)), y0 = Math.min(...cs.map(c => c.y)), x1 = Math.max(...cs.map(c => c.x)), y1 = Math.max(...cs.map(c => c.y));
     if (cs.length === fp[0] * fp[1] && x1 - x0 + 1 === fp[0] && y1 - y0 + 1 === fp[1]) { cs.forEach(c => { c.mx = x0; c.my = y0; c.mw = fp[0]; c.mh = fp[1]; }); return; }
     if (cs.length !== 1) { cs.forEach(c => { delete c.mx; delete c.my; delete c.mw; delete c.mh; }); return; }   // forme inattendue : chaque case reste un équipement d'une case
-    const c0 = cs[0], a = monFit(grid, c0.x, c0.y, fp[0], fp[1], o => o.t === 'npc' && o.k !== 'mon');
+    const c0 = cs[0], a = monNear(grid, c0.x, c0.y, fp[0], fp[1], o => o === c0 || (o.t === 'npc' && o.k !== 'mon'), 10);   // place voisine prise par le joueur : l'équipement est reconstruit sur le lot le plus proche (jamais réduit à une case)
     if (!a) return;
+    if (!(c0.x >= a.x && c0.x < a.x + fp[0] && c0.y >= a.y && c0.y < a.y + fp[1])) grid[idx(c0.x, c0.y)] = null;   // ancienne case libérée
     for (let j = 0; j < fp[1]; j++) for (let i = 0; i < fp[0]; i++) { const X = a.x + i, Y = a.y + j, o = grid[idx(X, Y)]; if (o && o !== c0) razed.push([X, Y]); }
     monPut(grid, m, a.x, a.y, fp[0], fp[1], c0.seed);
   });
@@ -3627,7 +3635,7 @@ function load() {
     genRoads(grid);
     const npcInfo = cv2 ? ctyLoad(grid, d.cty) : genNpc(grid); const fpRz = monLink(grid);   // barème des tailles : équipements publics à leur emprise (hôpital 3×3, lycée 3×2…)
     if (!cv2) (Array.isArray(d.built) ? d.built : []).forEach(b => { const id = idx(b[0], b[1]); if (!grid[id]) grid[id] = { t: 'npc', k: b[2], seed: b[4], floors: b[3], lvl: 0, w: 1, h: 1, x: b[0], y: b[1], born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; });
-    if (!cv2) (Array.isArray(d.npcMods) ? d.npcMods : []).forEach(m => { const c = grid[idx(m[0], m[1])]; if (!c || c.t !== 'npc') return; if (m[2] === 'x') grid[idx(m[0], m[1])] = null; else { c.k = m[2]; c.floors = m[3]; } });
+    if (!cv2) (Array.isArray(d.npcMods) ? d.npcMods : []).forEach(m => { const c = grid[idx(m[0], m[1])]; if (!c || c.t !== 'npc' || monMulti(c)) return;   /* une modification d'avant le barème ne retire jamais une case d'un équipement de plusieurs cases */ if (m[2] === 'x') grid[idx(m[0], m[1])] = null; else { c.k = m[2]; c.floors = m[3]; } });
     if (d.npcGrow && !cv2) Object.keys(d.npcGrow).forEach(k => { const [gx, gy] = k.split(',').map(Number), c = inb(gx, gy) && grid[idx(gx, gy)], v = d.npcGrow[k]; if (c && c.t === 'npc' && c.k === 'off' && Array.isArray(v)) { c.floors = Math.max(c.floors, v[0] | 0); c.f0 = v[1] | 0 || c.floors; } });
     mallEnsure(grid);   // passe 44 : Mall central (absent des anciennes sauvegardes : ajouté seulement si ses cases sont libres)
     const dep = new Array(N * N).fill(null);
@@ -6091,6 +6099,7 @@ function fpAudit(grid) {
     const w = c.w || 1, h = c.h || 1; if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) { push(`${c.t} (${X},${Y}) emprise ${w}×${h}`); continue; }
     if (c.t === 'npc') { if (w !== 1 || h !== 1) push(`immeuble de la ville (${X},${Y}) sur ${w}×${h} cases`); if (own[i] >= 0) push(`(${X},${Y}) déjà prise`); own[i] = i;
       if (monMulti(c)) { if (!(X >= c.mx && X < c.mx + c.mw && Y >= c.my && Y < c.my + c.mh)) push(`équipement ${c.m} (${X},${Y}) hors de son emprise`); for (let j = 0; j < c.mh; j++) for (let k = 0; k < c.mw; k++) { const q = inb(c.mx + k, c.my + j) && grid[idx(c.mx + k, c.my + j)]; if (!q || q.t !== 'npc' || q.k !== 'mon' || q.m !== c.m || q.mx !== c.mx || q.my !== c.my) { push(`équipement ${c.m} : emprise ${c.mw}×${c.mh} incomplète en (${c.mx + k},${c.my + j})`); j = c.mh; break; } } }
+      if (c.k === 'mon' && MON_FP[c.m]) { const f = MON_FP[c.m]; if (!monMulti(c) || c.mw !== f[0] || c.mh !== f[1]) push(`équipement ${c.m} (${X},${Y}) sur ${c.mw || 1}×${c.mh || 1} case(s) au lieu de ${f[0]}×${f[1]} (barème)`); if (isRoadPos(X, Y)) push(`équipement ${c.m} (${X},${Y}) posé sur une rue`); }
       continue; }
     for (let oy = 0; oy < h; oy++) for (let ox = 0; ox < w; ox++) {
       const x = X + ox, y = Y + oy; if (!inb(x, y)) { push(`${c.t} (${X},${Y}) déborde de la carte`); continue; } const j = idx(x, y), q = grid[j];
@@ -14267,7 +14276,7 @@ const SIGN_IMP = { s3: 3, s4: 3, hq: 3, port: 3, ewh: 3, 'mon:hospital': 3, 'mon
 const signImp = s => SIGN_IMP[s.key] || 1;
 const signMinImp = () => z < 0.3 ? 3 : z < 0.5 ? 2 : 1;   // zoom faible : seulement les grands repères (mall, aéroport, hôpital, hypermarché, siège…)
 function signBox(a, o) {   // passe 57 : silhouette approchée de chaque bâtiment dessiné (colonne de l'emprise, du toit au sommet bas), dans l'ordre de profondeur
-  if (!SG.on || o.ghost) return; const L = iso(a.x, a.y + a.h), R = iso(a.x + a.w, a.y), B = iso(a.x + a.w, a.y + a.h), t = a._top;
+  if (!SG.on || o.ghost) return; const f = monMulti(a) ? { x: a.mx, y: a.my, w: a.mw, h: a.mh } : a, L = iso(f.x, f.y + f.h), R = iso(f.x + f.w, f.y), B = iso(f.x + f.w, f.y + f.h), t = a._top;
   if (Number.isFinite(t)) SG.bb.push([++SG.ord, L.x, Math.min(t, B.y), R.x, B.y, a]);
 }
 function signCollect(a, o) {   // après drawOverlay, sur la case avant : bandeau uni sur l'ancienne enseigne (dans l'ordre de profondeur) et plaque mise en file
@@ -14837,7 +14846,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; farmFx(a, o.now); if (VV_FARM[a.t]) vvFarm(a); if ((a.t === 's2' || a.t === 's3') && a.w === a.h) { const cur = SG.cur; drawCarts(a); SG.cur = cur; } }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes ; barème : sprite carré sur toute l'emprise carrée, caddies sur le parking
   } else if ((a.t === 's2' || a.t === 's3') && !a.fpOld) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { drawRetailBox(a, grow); drawCarts(a); }   // repli sans sprite (jamais l'ancien atlas en losanges)
-  } else if (a.t === 'npc' && vvNpc(a, p)) {
+  } else if (a.t === 'npc' && vvNpc(a, p, x, y)) {
     // ville vivante : équipement, parc, chantier, service de quartier ou tour en HD (dessiné par vvNpc)
   } else if (a.t === 'hq' && vvHq(a)) {
     if (ox === a.w - 1 && oy === a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), n = vvHq(a); a._top = vvDraw(n, p, n === 'siege_hq_n1' ? 1.15 : Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); }   // siège social : 3 niveaux HD (le niveau 1, sans parvis, est posé au centre de l'emprise à l'échelle d'une case : sinon ses 3 étages seraient géants)
@@ -14850,7 +14859,8 @@ function drawTileOf(a, x, y, ox, oy, o) {
   } else if (a.t === 'npc' && a.k === 'mon' && a.m === 'air') {
     drawAirport(a, x, y, o.now);   // passe 49 : aéroport (dessiné une fois, depuis la case avant)
   } else if (a.t === 'npc' && a.k === 'mon') {
-    if (monFront(a)) drawMonument(monMulti(a) ? Object.assign({}, a, { x: a.mx + a.mw - 1, y: a.my + a.mh - 1 }) : a, o.now);   // repli sans sprite : une seule fois par équipement
+    if (!monMulti(a)) drawMonument(a, o.now);
+    else { if (x === a.mx && y === a.my) monGround(a); if (x === a.mx + a.mw - 1 && y === a.my + a.mh - 1) { const n2 = Math.min(a.mw, a.mh), m = a.mw === a.mh && n2 % 2 ? (n2 - 1) / 2 : 0; drawMonument(Object.assign({}, a, { x: a.mx + a.mw - 1 - m, y: a.my + a.mh - 1 - m }), o.now); } }   // repli sans sprite (image pas encore chargée) : sol de l'emprise et bâtiment au centre, une seule fois par équipement
   } else if (a.t === 'npc' && a.k === 'park') {
     drawPark(a, o.now);
   } else if (a.t === 'npc' && !a.lm && a.k !== 'house' && a.floors >= 8 && hash(a.x, a.y, 53) < 0.55 && !citySpr(a)) {
@@ -15217,18 +15227,19 @@ function frame(now) {
       }
       if (ok && T && !T.ext && tool !== 'road') { const g = mkCell(tool, 0.5); g.x = hv.x; g.y = hv.y; ghost = g; }
     }
-    if (selected && tool === 'view') { ctx.lineWidth = 4; poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }
+    if (selected && tool === 'view') { ctx.lineWidth = 4; if (monMulti(selected)) { const f = selected, L = iso(f.mx, f.my + f.mh), R = iso(f.mx + f.mw, f.my), T = iso(f.mx, f.my), B = iso(f.mx + f.mw, f.my + f.mh); poly([T, R, B, L], null, 'rgba(242,184,75,.95)'); } else poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }   // équipement de plusieurs cases : tout son contour
 
     // passe 2 : arbres et bâtiments dans l'ordre de profondeur
     const treeCol = 1; signReset();
     // passe 57 : tri de profondeur des bâtiments de plusieurs cases. Un bâtiment w×h est dessiné (toutes ses cases, la case avant en dernier) juste après la diagonale
     // de son CENTRE (x + y + (w + h) / 2 - 1) au lieu de celle de sa case avant : les voisins posés devant ses flancs (cases x + w ou y + h) passent désormais après lui
     // et ne sont plus masqués par sa hauteur. Les bâtiments d'une case gardent l'ordre d'origine.
-    const bTile = (a, x, y) => {
+    const bTile = (a0, x, y) => {
       const rc = S.grid[idx(x, y)]; if (!rc || rc.t === 'road') return;
+      const a = a0.vm ? rc : a0;   // équipement de la ville de plusieurs cases : chaque case est sa propre cellule (barème des tailles)
       const ox = rc.t === 'part' ? rc.ox : 0, oy = rc.t === 'part' ? rc.oy : 0;
       const o = { now, born: a.born, alert: S.day <= a.alertUntil };
-      const fr = x === a.x + a.w - 1 && y === a.y + a.h - 1; if (fr) SG.cur = null;
+      const fr = x === a0.x + a0.w - 1 && y === a0.y + a0.h - 1; if (fr) SG.cur = null;
       drawTileOf(a, x, y, ox, oy, o);
       if (fr) { if (SG.cur) SG.cur.a = a; drawOverlay(a, o); if (POLE_SHOPS[a.t]) poleBadge(a, now, pulse); signCollect(a, o); }   // passe 54 : enseigne
     };
@@ -15244,7 +15255,7 @@ function frame(now) {
       if (x + y !== curD) { bFlush(curD); curD = x + y; }
       if (rc) {
         if (rc.t !== 'road') {
-          const a = anchorOf(rc);
+          const a = monMulti(rc) ? monV(rc) : anchorOf(rc);   // équipement de la ville de plusieurs cases : trié comme un grand bâtiment (centre de son emprise)
           if (a && a.w * a.h > 1) { if (!PBs.has(a)) { PBs.add(a); PB.push({ a, k: bKey(a) }); } }
           else if (a) bTile(a, x, y);
         }
@@ -17441,13 +17452,14 @@ function vvSvcMap() {   // une passe par jour de jeu : chaque service va aux cas
   });
   VV.svc = out; VV.list = list; return out;
 }
-function vvNpc(a, p) {   // bâtiment PNJ en HD (équipement, parc, chantier de la croissance, service de quartier, tour) ; true si dessiné
+function vvNpc(a, p, x, y) {   // bâtiment PNJ en HD (équipement, parc, chantier de la croissance, service de quartier, tour) ; true si dessiné ; (x, y) = case dessinée (par défaut celle de a)
+  if (x == null) { x = a.x; y = a.y; }
   if (a.k === 'mon') { const n = VV_MON[a.m]; if (!n || !vvOk(n)) return false;
-    if (monMulti(a)) {   // barème des tailles : équipement de plusieurs cases, sol de l'emprise (depuis le coin nord, dessiné en premier) puis sprite calé sur le plus grand carré de l'emprise (depuis la case avant)
-      if (a.x === a.mx && a.y === a.my) monGround(a);
-      if (!monFront(a)) { a._top = null; return true; }
+    if (monMulti(a)) {   // barème des tailles : équipement de plusieurs cases, sol de l'emprise (depuis le coin nord, dessiné en premier) puis sprite recalé (sprFit) sur le plus grand carré de l'emprise (depuis la case avant)
+      if (x === a.mx && y === a.my) monGround(a);   // la case dessinée décide (et non la cellule passée) : n'importe quelle case de l'équipement peut servir à le dessiner en entier
+      if (!(x === a.mx + a.mw - 1 && y === a.my + a.mh - 1)) { a._top = null; return true; }
       const n2 = Math.min(a.mw, a.mh), q = iso(a.mx + (a.mw - n2) + (n2 - 1) / 2, a.my + (a.mh - n2) + (n2 - 1) / 2);   // bâtiment au fond de l'emprise si elle n'est pas carrée (la cour ou le terrain de sport devant)
-      a._top = vvDraw(n, p, n2, { x: q.x, y: q.y + TH / 2 }); return true; }
+      const t = vvDraw(n, p, n2, { x: q.x, y: q.y + TH / 2 }, [n2, n2]); a._top = t; return true; }
     a._top = vvDraw(n, p, 1, null, [1, 1]); return true; }
   if (a.k === 'park') { if (!vvOk('parc_urbain')) return false; a._top = vvDraw('parc_urbain', p, 1, null, [1, 1]); return true; }
   if (!a.lm && a.cd != null && S.day - a.cd < 6) { const n = a.k === 'house' ? 'chantier_petit' : 'immeuble_en_construction'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // chantier : 6 jours après une construction ou une surélévation par la ville

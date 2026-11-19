@@ -57,7 +57,8 @@ function pageAudit(ZOOMS) {
   // 2. Bâtiments PNJ de la ville générée : un exemplaire par sprite (rendu seul, la ville n'est pas modifiée)
   // (le mall 10×10 et l'aéroport 6×4 sont faits de cases PNJ d'une case dessinées ensemble depuis leur case avant : leur emprise réelle est leur parcelle, hors de cet audit case par case)
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!c || c.t !== 'npc' || c.x + c.y * N !== i || (c.k === 'mon' && (c.m === 'mall' || c.m === 'air'))) continue;
-    const lab = 'pnj ' + (c.k === 'mon' ? 'mon:' + c.m : c.k); try { const mf = c.k === 'mon' && W.fp && W.fp.MON_FP[c.m]; run(lab, mf ? Object.assign({}, c, { w: mf[0], h: mf[1] }) : c); } catch (e) { rows.push({ type: lab, spr: 'ERREUR ' + e.message, w: c.w, h: c.h, lat: NaN, mOld: NaN, mNew: NaN, nan: true }); } }
+    const mm = W.fp.monMulti(c); if (mm && (c.x !== c.mx || c.y !== c.my)) continue;   // équipement de plusieurs cases (barème) : audité une fois, sur toute son emprise (mx, my, mw, mh), depuis son coin nord
+    const lab = 'pnj ' + (c.k === 'mon' ? 'mon:' + c.m : c.k); try { run(lab, mm ? Object.assign({}, c, { w: c.mw, h: c.mh }) : c); } catch (e) { rows.push({ type: lab, spr: 'ERREUR ' + e.message, w: c.w, h: c.h, lat: NaN, mOld: NaN, mNew: NaN, nan: true }); } }
   return rows;
 }
 

@@ -88,4 +88,30 @@ exports.run = async (t, L) => {
   const mm = await mp.evaluate(() => { const W = window.WSE, d = W.sign.drawn; return { plates: d.filter(s => /HYPERMARCH/.test(s.txt)).length, bad: W.fp.audit().length, sw: document.documentElement.scrollWidth, vw: window.innerWidth }; });
   t.check('téléphone (390 × 844) : hypermarché 3×3 dessiné avec sa plaque, pas de défilement horizontal, 0 erreur', mo.c3[2] === 3 && mm.plates === 1 && mm.bad === 0 && mm.sw <= mm.vw + 1 && mp.errs.length === 0, JSON.stringify(Object.assign(mo, mm)) + ' ' + mp.errs.slice(0, 2).join(' ; '));
   await mp.context().close();
+
+  // ---- 9. Nouvelle partie : hôpital, lycée, collège, hôtel de ville et stades à l'emprise du barème, dessinés par leur sprite HD (jamais le repli vectoriel)
+  const np = await L.newPage({ wait: 2600 });
+  const eq = await np.evaluate(() => { const W = window.WSE; W.startMode('free'); W.setCaste('industriel'); W.setSpeed(0); const S = W.S, N = W.N, F = W.fp, out = {};
+    Object.keys(F.MON_FP).forEach(m => { const fp = F.MON_FP[m], cs = S.grid.filter(c => c && c.t === 'npc' && c.k === 'mon' && c.m === m), c0 = cs[0];
+      const one = c0 && cs.every(c => c.mx === c0.mx && c.my === c0.my && c.mw === fp[0] && c.mh === fp[1] && c.x >= c.mx && c.x < c.mx + c.mw && c.y >= c.my && c.y < c.my + c.mh);
+      const lots = c0 && cs.every(c => W.ZONE[c.y * N + c.x] === 1 && c.x % 6 !== 0 && c.y % 6 !== 0);   // jamais sur une avenue ni une rue
+      let spr = null; if (c0) { const a = S.grid[c0.my * N + c0.mx]; try { spr = W.audit.solo(Object.assign({}, a, { w: a.mw, h: a.mh }), 0.3).spr; } catch (e) { spr = 'erreur ' + e.message; } }
+      out[m] = { n: cs.length, want: fp[0] * fp[1], one: !!one, lots: !!lots, spr, hd: W.vv.MON[m] }; });
+    return { out, bad: F.audit() }; });
+  const eqBad = Object.keys(eq.out).filter(m => { const o = eq.out[m]; return o.n !== o.want || !o.one || !o.lots; });
+  t.check('nouvelle partie : hôpital 3×3, lycée 3×2, collège, hôtel de ville et stades 2×2 — exactement leur emprise, sur des lots (ni rue ni voisin), WSE.fp.audit() vide', eqBad.length === 0 && eq.bad.length === 0, JSON.stringify(eqBad.map(m => [m, eq.out[m]])) + ' ' + eq.bad.slice(0, 3).join(' · '));
+  const sprBad = Object.keys(eq.out).filter(m => eq.out[m].spr !== eq.out[m].hd);
+  t.check('nouvelle partie : chaque équipement dessiné par son sprite HD sur son emprise (hopital, ecole, mairie, stade_sport), aucun repli vectoriel', sprBad.length === 0, Object.keys(eq.out).map(m => m + '=' + eq.out[m].spr).join(' '));
+  // ancienne sauvegarde : hôpital sur 1 case entouré de bâtiments du joueur → reconstruit à 3×3 sur le lot libre le plus proche, sans toucher au joueur
+  const os = await np.evaluate(() => { const W = window.WSE, S = W.S, N = W.N; S.cash = 5e9;
+    const hs = S.grid.filter(c => c && c.t === 'npc' && c.k === 'mon' && c.m === 'hospital'), k = hs[0], kx = k.mx + 1, ky = k.my + 1;
+    hs.forEach(c => { S.grid[c.y * N + c.x] = null; }); let placed = 0;
+    for (let y = ky - 2; y <= ky + 2; y++) for (let x = kx - 2; x <= kx + 2; x++) { if (x === kx && y === ky) continue; const c = S.grid[y * N + x]; if (c && c.t === 'npc' && c.k !== 'mon') S.grid[y * N + x] = null; if (!S.grid[y * N + x] && !W.footprintError(x, y, 'res') && W.place(x, y, 'res')) placed++; }
+    const h1 = { t: 'npc', k: 'mon', m: 'hospital', seed: 0.5, floors: 1, lvl: 0, w: 1, h: 1, x: kx, y: ky, born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; S.grid[ky * N + kx] = h1;
+    W.save(); const nb = S.grid.filter(c => c && c.t === 'res').length; return { placed, nb, at: [kx, ky] }; });
+  await np.reload(); await np.waitForTimeout(2600);
+  const ol = await np.evaluate(() => { const W = window.WSE, S = W.S, hs = S.grid.filter(c => c && c.t === 'npc' && c.k === 'mon' && c.m === 'hospital'); return { n: hs.length, fp: hs[0] && [hs[0].mx, hs[0].my, hs[0].mw, hs[0].mh], nb: S.grid.filter(c => c && c.t === 'res').length, bad: W.fp.audit() }; });
+  t.check('ancienne sauvegarde : hôpital d\'une case entouré par le joueur → 3×3 sur le lot libre le plus proche, bâtiments du joueur intacts, aucune emprise qui se chevauche', os.placed >= 6 && ol.n === 9 && ol.fp && ol.fp[2] === 3 && ol.fp[3] === 3 && ol.nb === os.nb && ol.bad.length === 0, JSON.stringify({ os, ol: Object.assign({}, ol, { bad: ol.bad.slice(0, 3) }) }));
+  t.check('nouvelle partie et sauvegarde relue : 0 erreur de page', np.errs.length === 0, np.errs.slice(0, 3).join(' ; '));
+  await np.context().close();
 };
