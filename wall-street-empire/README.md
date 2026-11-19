@@ -1,6 +1,6 @@
 # Wall Street Empire — prototype jouable (V0.7)
 
-Carte isométrique de 96×96 cases (une case ≈ 150 m) : une petite ville de 100 000 habitants qui grandit jusqu'au million (passe 35), une campagne presque sans routes avec de rares gisements,
+Carte isométrique de 96×96 cases (une case ≈ 150 m) : une petite ville de 60 000 habitants qui grandit jusqu'à plusieurs millions (passe 60 : le million vers le jour 5 000 sans rien faire, 3 à 5 millions et plus en jeu actif), une campagne presque sans routes avec de rares gisements,
 la mer à l'est, un port et sa zone industrielle, le tout jouable dans le navigateur (téléphone ou ordinateur).
 Ouvrir `city.html` : un seul fichier, sans serveur, sprites inclus.
 
@@ -1345,6 +1345,20 @@ Le joueur doit voir ce qu'il peut construire et s'approprier la ville : elle dé
 ### 4. Démarrage
 - La caméra s'ouvre sur le mall (`cityFocus`). Conseiller : jalons rapides `mall` (« Clique sur le Mall central pour voir le marché »), `shop1` (« Ouvre ta boutique près du mall »), `imp` (« Importe un produit du port », atteint dès que tes rayons sont remplis par l'import), enchaînés sans attente ; les jalons suivants sont inchangés. L'écran d'accueil présente le mall.
 - `window.WSE.mall` : position, ouverture, données du panneau, bonus, pôle, réglages.
+
+## Passe 60 : villes de plusieurs millions d'habitants (priorité 3)
+
+Détail complet, diagnostic et courbes : [docs/VILLE_MILLIONS.md](docs/VILLE_MILLIONS.md). Test `t34_ville_croissance.js`, outils `tools/city_growth.js` et `tools/city_perf.js`.
+- **Diagnostic** : la ville ne pouvait viabiliser que les blocs sans aucun gisement (5 blocs sur 72) et plafonnait à 1 million (plafond logistique) avec un rythme faible : 206 000 habitants
+  au jour 7 200 en passif, 730 000 en actif, 0 lot libre dès le jour 5 760.
+- **Niveaux de ville** (`CITY_TIER` : Bourg, Petite ville, Ville, Grande ville, Métropole, Mégalopole, Mégapole, Mégapole mondiale) avec un rythme relatif par niveau (`cityTierR`) ;
+  `CG_R0 = 2e-4`, plafond logistique à 5 millions (`CG_CAP`) ; hauteur jusqu'à 96 étages au centre (`CITY_FTOP`) ; extension sur toute la terre ferme (blocs 0 à 14), champs et bois
+  urbanisés, minerais conservés, blocs surtout ruraux préservés (`CITY_RURAL`).
+- **Emplois et services proportionnés** : bassin régional en √ au-delà de 300 000 habitants (`bassin()`), bureaux à 0,88-0,90 emploi par actif jusqu'à 5 millions ; écoles, hôpitaux,
+  commissariats et casernes ajoutés selon la population (`CITY_SVC`, `citySvcGrow`, noms `hospital_2`…), couverture dans l'attractivité et l'écran Empire.
+- **Mesures** (jour 7 200, `tools/city_growth.js`) : passif 206 k → **2,27 M** (1 M vers le jour 4 850) ; actif 730 k → **5,4 M** (1 M vers le jour 2 870) ; `t34` : passif 1,77 M,
+  actif 6,5 M. Rendu borné par les lots (≈ 2 500 à 2 900 bâtiments, ×1,4 à 1,8 appels de dessin à 4,5 M), sauvegarde ≈ 320 Ko, trafic, masque des routes et boucles sur les bâtiments
+  accélérés pour garder le coût d'un jour simulé. Effet de bord : un bon joueur vaut 35 à 110 % de plus au jour 1 800 (marché plus grand).
 
 ## Passe 35 : petite ville de départ et croissance jusqu'à un million d'habitants
 
