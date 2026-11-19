@@ -178,3 +178,8 @@ Livrés, sans texte, marge 6 px, QA asset_qa : pente 0,50, débordement 0 % (mé
 - `hopital.png` (parcelle 3×3, 780×493) : vrai plan en H, deux ailes parallèles de même longueur, pont central exactement au milieu, cour intérieure visible, toit blanc cassé/gris clair, croix verte sobre sur le pont, entrée vitrée avec auvent. Aucun texte ; le bandeau d'enseigne haut sur fronton n'est pas dessiné (à poser par le jeu). Parvis/ambulances non peints (parcelle jardin simple) : dis-moi si tu veux les ajouter.
 - QA asset_qa : pente 0,50, débordement 0 %, centré, marge 6 px.
 - Méthode : références Gemini en entrée de flux2-edit (3 variantes chacune), choix de la meilleure, puis composition sur dalle 2:1.
+
+## Retour de Rémy : hôpital rouge/blanc et pharmacie nettoyée
+- Hôpital : H exact construit depuis un gabarit géométrique (gab_hopital_rb.py), pont à l'axe exact des deux ailes, toits rouges, murs blancs, entrée sur une vraie façade, aucune croix ni objet sur les toits, aucun texte. Remplace hopital.png (780×502, 3×3).
+- Pharmacie : plan en croix, murs blancs, croix verte plate sur le toit uniquement, plus de murs ou piliers verts ni de potence parasite. Remplace pharmacie.png (268×148).
+- QA : pente 0,52 / 0,52, débord 0, coupé non, décentrage ≈ 0.
