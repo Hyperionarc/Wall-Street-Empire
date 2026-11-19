@@ -13589,14 +13589,14 @@ function drawLoggingCamp(p, now, seed, active) {
 function drawQuarry(p, now, seed, active, kind) {
   const cx = p.x, cy = p.y + 33;
   const col = { crush: '#b9b09a', qgravel: '#8e8e98', qsand: '#e0c98a', qlime: '#ebe7da', qsilica: '#d6eef7', qclay: '#c98f6a', qsalt: '#f1f4ff' }[kind];
-  drawPile(cx - 30, cy + 22, col); drawPile(cx + 34, cy + 24, col);
+  drawPile(cx - 22, cy + 10, col); drawPile(cx + 24, cy + 10, col);   // passe 57 : tas et pelle tenus dans la case (ils mordaient sur les voisins)
   // pelle mécanique
   const sw = Math.sin(now / 700 + seed * 5) * (active ? 8 : 0);
   isoBox(cx + 4, cy + 8, 0.5, 0.36, 12, '#ffd56a', '#f2b84b', '#b9831f');
   isoBox(cx + 4, cy - 6, 0.34, 0.3, 14, '#fff2b8', '#ffd56a', '#c99a2a');
   ctx.strokeStyle = '#f2b84b'; ctx.lineWidth = 6; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(cx + 12, cy - 12); ctx.lineTo(cx + 44 + sw, cy - 44); ctx.lineTo(cx + 66 + sw, cy - 14); ctx.stroke();
-  ctx.fillStyle = '#3a3f55'; ctx.beginPath(); ctx.arc(cx + 66 + sw, cy - 10, 7, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx + 10, cy - 12); ctx.lineTo(cx + 32 + sw * 0.5, cy - 40); ctx.lineTo(cx + 44 + sw * 0.5, cy - 16); ctx.stroke();
+  ctx.fillStyle = '#3a3f55'; ctx.beginPath(); ctx.arc(cx + 44 + sw * 0.5, cy - 12, 6, 0, 7); ctx.fill();
 }
 function drawTowerCrane(cx, cy, now, seed) {
   ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 5; ctx.lineCap = 'round';
@@ -13924,7 +13924,7 @@ const SIGN = { s1: { st: 'com', sz: 1 }, s2: { st: 'com', sz: 2 }, s3: { st: 'co
 const SIGN_COVER = { boutique_high_tech: { c: [99, 52], u: [35, 15], v: [0, 10], f: '#3b4452' }, sport_loisirs: { c: [266, 94], u: [58, 23], v: [0, 10.5], f: '#3f4a58' },
   hopital: { c: [159, 91], u: [54, -32], v: [50, 35], f: '#c81e28' }, supermarche: { c: [319.6, 75.3], u: [43, -24.5], v: [22.5, 13], f: '#b4bcc1' },
   hypermarche: { c: [509.75, 99], u: [53, -32], v: [28.5, 16.5], f: '#b0b9c0' } };
-const SG = { on: true, list: [], drawn: [], obst: [], cur: null, cache: new Map(), fo: false, foT: 0, ms: 0, avg: 0, n: 0, hidden: 0 };
+const SG = { on: true, list: [], drawn: [], obst: [], bb: [], ord: 0, ui: [], uiT: -1e9, uiW: 0, uiH: 0, lost: {}, cur: null, cache: new Map(), fo: false, foT: 0, ms: 0, avg: 0, n: 0, hidden: 0 };
 function signTxt(key) {   // nom affiché : celui de l'interface (TYPES, PUB, VV_SVC), partie avant « · », en capitales
   const D = SIGN[key]; if (!D) return ''; if (D.txt) return D.txt;
   const nm = key.startsWith('mon:') ? (PUB[key.slice(4)] || [''])[0] : key.startsWith('sv:') ? (VV_SVC[key.slice(3)] || [''])[0] : (TYPES[key] && TYPES[key].name) || '';
@@ -13952,41 +13952,98 @@ function signCv(txt, D, px) {   // plaque en cache : canevas hors écran à la t
   if (SG.cache.size > 480) { let i = 0; for (const k of SG.cache.keys()) { SG.cache.delete(k); if (++i >= 120) break; } }
   SG.cache.set(key, cv); return cv;
 }
+// Passe 57 : importance de chaque enseigne (3 = repère de la ville, 2 = moyen, 1 = petit commerce ou service) ; le détail croît avec le zoom
+const SIGN_IMP = { s3: 3, s4: 3, hq: 3, port: 3, ewh: 3, 'mon:hospital': 3, 'mon:hall': 3, 'mon:air': 3, 'sv:gare_ferroviaire': 3,
+  s2: 2, sauto: 2, stech: 2, shome: 2, ssport: 2, sbrico: 2, dc: 2, rd: 2, wh: 2, tv: 2, 'mon:lycee': 2 };
+const signImp = s => SIGN_IMP[s.key] || 1;
+const signMinImp = () => z < 0.3 ? 3 : z < 0.5 ? 2 : 1;   // zoom faible : seulement les grands repères (mall, aéroport, hôpital, hypermarché, siège…)
+function signBox(a, o) {   // passe 57 : silhouette approchée de chaque bâtiment dessiné (colonne de l'emprise, du toit au sommet bas), dans l'ordre de profondeur
+  if (!SG.on || o.ghost) return; const L = iso(a.x, a.y + a.h), R = iso(a.x + a.w, a.y), B = iso(a.x + a.w, a.y + a.h), t = a._top;
+  if (Number.isFinite(t)) SG.bb.push([++SG.ord, L.x, Math.min(t, B.y), R.x, B.y, a]);
+}
 function signCollect(a, o) {   // après drawOverlay, sur la case avant : bandeau uni sur l'ancienne enseigne (dans l'ordre de profondeur) et plaque mise en file
-  if (!SG.on || o.ghost) return; const t0 = performance.now(), key = signKey(a), D = key && SIGN[key]; if (!D) return;
+  if (!SG.on || o.ghost) return; signBox(a, o); const t0 = performance.now(), key = signKey(a), D = key && SIGN[key]; if (!D) return;
   const cur = SG.cur && SG.cur.a === a ? SG.cur : null, C = cur && SIGN_COVER[cur.n]; let wx, wy, mode = 'b';
+  const fx = iso(a.x + a.w / 2, a.y + a.h / 2).x, fy = a._top;   // position flottante (au-dessus du toit) : repli d'une plaque posée que masque un bâtiment de devant
   if (C) {
     const M = (u, v) => [cur.x + (C.c[0] + u[0] + v[0]) * cur.kx, cur.y + (C.c[1] + u[1] + v[1]) * cur.ky], U = C.u, V = C.v, nU = [-U[0], -U[1]], nV = [-V[0], -V[1]];
     const pts = [M(nU, nV), M(U, nV), M(U, V), M(nU, V)]; ctx.fillStyle = C.f; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill();
     [wx, wy] = M([0, 0], [0, 0]); mode = 'c';
-  } else { wx = iso(a.x + a.w / 2, a.y + a.h / 2).x; wy = a._top; }
-  if (Number.isFinite(wx) && Number.isFinite(wy)) SG.list.push({ id: a.x + ',' + a.y, key, D, wx, wy, mode, cover: !!C, pri: a.w * a.h * 10 + D.sz + (C ? 5 : 0) });
+  } else { wx = fx; wy = fy; }
+  if (Number.isFinite(wx) && Number.isFinite(wy)) SG.list.push({ id: a.x + ',' + a.y, a, ord: SG.ord, key, D, wx, wy, fx, fy, mode, cover: !!C, pri: a.w * a.h * 10 + D.sz + (C ? 5 : 0) });
   SG.ms += performance.now() - t0;
 }
-function signFlush() {   // dessine les plaques à plat, en pixels physiques entiers (texte net), sans chevauchement
-  const t0 = performance.now(); SG.drawn = []; SG.hidden = 0;
+function signUi() {   // passe 57 : rectangles (px CSS, repère du canevas) des éléments d'interface posés sur la vue : aucune plaque ne passe dessous
+  const out = [], app = document.getElementById('app'); if (!app) return out; const cr = cvs.getBoundingClientRect();
+  const walk = (e, d) => {
+    if (e.hidden || e === cvs) return; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return;
+    const r = e.getBoundingClientRect(), kids = e.children.length, bg = cs.backgroundColor, solid = (bg && bg !== 'transparent' && !/^rgba\(.*,\s*0\)$/.test(bg)) || cs.backgroundImage !== 'none' || parseFloat(cs.borderTopWidth) > 0 || cs.boxShadow !== 'none';
+    if (r.width >= 1 && r.height >= 1 && (solid || !kids || d >= 4)) { out.push([r.left - cr.left, r.top - cr.top, r.right - cr.left, r.bottom - cr.top]); return; }
+    if (d < 4) for (const c of e.children) walk(c, d + 1);
+  };
+  for (const e of app.children) walk(e, 0);
+  return out;
+}
+function signFlush() {   // dessine les plaques à plat, en pixels physiques entiers (texte net), sans chevauchement entre elles ni avec l'interface
+  const t0 = performance.now(); SG.drawn = []; SG.hidden = 0; SG.lost = { ui: 0, col: 0, imp: 0, read: 0 };
   if (t0 - SG.foT > 1000) { SG.foT = t0; SG.fo = !!(document.fonts && document.fonts.check && document.fonts.check('800 20px "Big Shoulders Display"')); }
+  if (t0 - SG.uiT > 250 || SG.uiW !== W || SG.uiH !== H) { SG.uiT = t0; SG.uiW = W; SG.uiH = H; try { SG.ui = signUi(); } catch (e) { SG.ui = []; } }
+  const m = 2 * dpr, hit = (r, q, mm) => r[0] < q[2] + mm && r[2] > q[0] - mm && r[1] < q[3] + mm && r[3] > q[1] - mm;
+  const ui = SG.ui.map(b => [b[0] * dpr, b[1] * dpr, b[2] * dpr, b[3] * dpr]);
   const acc = SG.obst.map(b => { const p = [vx + (b[0] - cam.x) * z, vy + (b[1] - cam.y) * z, vx + (b[2] - cam.x) * z, vy + (b[3] - cam.y) * z]; return p.map(v => v * dpr); });
-  const L = SG.list.sort((p, q) => q.pri - p.pri || p.wy - q.wy || p.wx - q.wx), m = 2 * dpr;
+  const anc = t => { if (!t || !S || !S.grid || !inb(t.x, t.y)) return null; const c = S.grid[idx(t.x, t.y)]; return c ? anchorOf(c) : null; }, focA = [anc(selected), anc(hover)].filter(Boolean);
+  const minImp = signMinImp(); SG.list.forEach(s => { s.foc = !!(s.a && focA.includes(s.a)); });
+  // priorité : bâtiment survolé ou sélectionné (toujours affiché, au premier plan), puis les grands bâtiments, puis les autres ; les perdants ne s'affichent pas
+  const L = SG.list.sort((p, q) => (q.foc - p.foc) || q.pri - p.pri || p.wy - q.wy || p.wx - q.wx);
+  const sc = (wx, wy) => [(vx + (wx - cam.x) * z) * dpr, (vy + (wy - cam.y) * z) * dpr];
+  const front = (s, r) => SG.bb.some(b => b[0] > s.ord && b[5] !== s.a && hit(r, [(vx + (b[1] - cam.x) * z) * dpr, (vy + (b[2] - cam.y) * z) * dpr, (vx + (b[3] - cam.x) * z) * dpr, (vy + (b[4] - cam.y) * z) * dpr], 0));
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
   for (const s of L) {
-    const fs = signFs(s.D), al = signAl(fs); if (al <= 0) continue;
+    let fs = signFs(s.D), al = signAl(fs);
+    if (s.foc) { fs = Math.max(fs, 10); al = 1; }   // survol / sélection : toujours lisible
+    else if (al <= 0) { SG.lost.read++; continue; } else if (signImp(s) < minImp) { SG.lost.imp++; continue; }
     const txt = signTxt(s.key), cv = signCv(txt, s.D, Math.max(1, Math.round(fs * dpr))), w = cv.width, h = cv.height;
-    const sx = (vx + (s.wx - cam.x) * z) * dpr, sy = (vy + (s.wy - cam.y) * z) * dpr, x0 = Math.round(sx - w / 2), y0 = Math.round(s.mode === 'c' ? sy - h / 2 : sy - h - 4 * dpr);
-    if (x0 > W * dpr || y0 > H * dpr || x0 + w < 0 || y0 + h < 0) continue;
-    const r = [x0, y0, x0 + w, y0 + h];
-    if (!s.cover && acc.some(q => r[0] < q[2] + m && r[2] > q[0] - m && r[1] < q[3] + m && r[3] > q[1] - m)) { SG.hidden++; continue; }
-    acc.push(r); ctx.globalAlpha = al; ctx.drawImage(cv, x0, y0);
-    SG.drawn.push({ id: s.id, key: s.key, txt, x: x0 / dpr, y: y0 / dpr, w: w / dpr, h: h / dpr, fs, al, cover: s.cover });
+    const put = (wx, wy, md) => { const q = sc(wx, wy), x0 = Math.round(q[0] - w / 2), y0 = Math.round(md === 'c' ? q[1] - h / 2 : q[1] - h - 4 * dpr); return [x0, y0, x0 + w, y0 + h]; };
+    let r = put(s.wx, s.wy, s.mode), cover = s.cover;
+    if (cover && s.ord && front(s, r)) { if (!Number.isFinite(s.fy)) continue; r = put(s.fx, s.fy, 'b'); cover = false; }   // plaque posée masquée par un bâtiment de devant : elle passe au-dessus du toit
+    if (r[0] > W * dpr || r[1] > H * dpr || r[2] < 0 || r[3] < 0) continue;
+    if (r[0] < 0 || r[1] < 0 || r[2] > W * dpr || r[3] > H * dpr || ui.some(q => hit(r, q, m))) { SG.hidden++; SG.lost.ui++; continue; }   // jamais coupée par le bord ni sous l'interface
+    if (acc.some(q => hit(r, q, m))) { SG.hidden++; SG.lost.col++; continue; }   // jamais deux plaques l'une sur l'autre
+    acc.push(r); ctx.globalAlpha = al; ctx.drawImage(cv, r[0], r[1]);
+    SG.drawn.push({ id: s.id, key: s.key, txt, x: r[0] / dpr, y: r[1] / dpr, w: w / dpr, h: h / dpr, fs, al, cover, foc: s.foc, imp: signImp(s) });
   }
   ctx.restore(); ctx.globalAlpha = 1;
   SG.ms += performance.now() - t0; SG.n++; SG.avg = SG.n < 2 ? SG.ms : SG.avg * 0.9 + SG.ms * 0.1; SG.last = SG.ms;
 }
-function signReset() { SG.list = []; SG.obst = []; SG.ms = 0; }
+function signReset() { SG.list = []; SG.obst = []; SG.bb = []; SG.ord = 0; SG.ms = 0; }
+/* Passe 57 : audit de débordement (tools/audit_overlap.js). auditSolo rend UN bâtiment seul, hors écran, à l'échelle s (mêmes fonctions de dessin que la vue),
+   et renvoie son masque alpha avec le cadre monde ; auditBefore dit si la case voisine (nx, ny) est dessinée avant le bâtiment (ordre 'old' : case avant, 'new' : centre). */
+function auditSolo(a, s) {
+  const Lc = iso(a.x, a.y + a.h), Rc = iso(a.x + a.w, a.y), Bc = iso(a.x + a.w, a.y + a.h), Tc = iso(a.x, a.y);
+  const x0 = Lc.x - 3 * TW, x1 = Rc.x + 3 * TW, y0 = Tc.y - 1500, y1 = Bc.y + 3 * TH, cw = Math.ceil((x1 - x0) * s), ch = Math.ceil((y1 - y0) * s);
+  const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d'), old = ctx, on = SG.on, cur = SG.cur, imgs = [], dI = g.drawImage.bind(g);
+  g.drawImage = function (im, ...r) { imgs.push(im); return dI(im, ...r); };
+  const conn = a.conn; ctx = g; SG.on = false; a.conn = true;
+  try {
+    g.setTransform(s, 0, 0, s, -x0 * s, -y0 * s); g.imageSmoothingEnabled = true; const o = { now: 0, born: null, alert: false };
+    for (let d = a.x + a.y; d <= a.x + a.y + a.w + a.h - 2; d++) for (let x = Math.max(a.x, d - (a.y + a.h - 1)); x <= Math.min(a.x + a.w - 1, d - a.y); x++) {
+      const y = d - x, rc = S.grid[idx(x, y)], ox = rc && rc.t === 'part' ? rc.ox : x - a.x, oy = rc && rc.t === 'part' ? rc.oy : y - a.y;
+      if (x === a.x + a.w - 1 && y === a.y + a.h - 1) SG.cur = null; drawTileOf(a, x, y, ox, oy, o); if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawOverlay(a, o);
+    }
+  } finally { ctx = old; SG.on = on; a.conn = conn; }
+  const nm = n => { for (const k in P2_IMG) if (P2_IMG[k].im === n) return k; for (const k in CITY_IMG) if (CITY_IMG[k].im === n) return k; return n === ATLAS ? 'atlas' : n && n.tagName === 'CANVAS' ? 'canvas' : '?'; };
+  const spr = SG.cur && SG.cur.n ? SG.cur.n : imgs.length ? nm(imgs[imgs.length - 1]) : 'vectoriel'; SG.cur = cur;
+  return { cv, x0, y0, s, spr, top: a._top };
+}
+function auditBefore(a, nx, ny, mode) {
+  const d = nx + ny, fx = a.x + a.w - 1, fy = a.y + a.h - 1;
+  if (mode === 'old' || a.w * a.h === 1) return d < fx + fy || (d === fx + fy && nx < fx);
+  return d <= Math.ceil(a.x + a.y + (a.w + a.h) / 2 - 1 - 0.5);
+}
 function drawMall(a, x, y, p, now) {   // passe 44 : parvis pavé sur les 4 cases, sprite HD du méga-centre commercial (2×2) sur la case avant, enseigne « MALL CENTRAL »
   pQuad([PP(x, y, 0), PP(x + 1, y, 0), PP(x + 1, y + 1, 0), PP(x, y + 1, 0)], '#d8d2c2'); pQuad([PP(x + 0.08, y + 0.08, 0.3), PP(x + 0.92, y + 0.08, 0.3), PP(x + 0.92, y + 0.92, 0.3), PP(x + 0.08, y + 0.92, 0.3)], '#e6e0cf');
   const P = mallPos(); a._top = p.y - 40; if (!P || x !== P.x + 1 || y !== P.y + 1) return;
-  const q = iso(P.x + 0.5, P.y + 0.5); let top = p2Draw('mega_centre_commercial', p, 2, { x: q.x, y: q.y + TH / 2 });
+  const q = iso(P.x + 0.5, P.y + 0.5); let top = p2Draw('mega_centre_commercial', p, 2, { x: q.x, y: q.y + TH / 2 }, [2, 2]);
   if (top == null) { pPrism(P.x + 0.12, P.y + 0.12, 1.76, 1.76, 0, 44, '#e9d6f2'); pPrism(P.x + 0.5, P.y + 0.5, 1, 1, 44, 70, '#c9a6e6'); top = PP(P.x + 1, P.y + 1, 90)[1]; }
   const sx = q.x, sy = top + 4, gl = 0.75 + 0.25 * Math.sin(now / 600);
   ctx.save(); ctx.font = '800 22px sans-serif'; ctx.textAlign = 'center'; const tw = ctx.measureText('MALL CENTRAL').width + 22;
@@ -14021,7 +14078,7 @@ function drawAirport(a, x, y, now) {
   const C = L.C; prism(C.u0, C.v0, C.u0 + 0.4, C.v0 + 0.4, 0, C.z, '#d3d8de'); prism(C.u0 - 0.12, C.v0 - 0.12, C.u0 + 0.52, C.v0 + 0.52, C.z, C.z + 14, '#5d86ad'); prism(C.u0 - 0.16, C.v0 - 0.16, C.u0 + 0.56, C.v0 + 0.56, C.z + 14, C.z + 18, '#3a414c');
   const bt = Q(C.u0 + 0.2, C.v0 + 0.2, C.z + 24); ctx.fillStyle = Math.sin(now / 350) > 0 ? '#ff4b4b' : '#7a2b2b'; ctx.beginPath(); ctx.arc(bt[0], bt[1], 3, 0, 7); ctx.fill();
   // enseigne sur le toit du terminal
-  const sg = Q((T.u0 + T.u1) / 2, (T.v0 + T.v1) / 2, T.z + 4); if (SG.on) SG.list.push({ id: 'air', key: 'mon:air', D: SIGN['mon:air'], wx: sg[0], wy: sg[1] + 2, mode: 'b', cover: false, pri: 1e4 });   // passe 54 : enseigne générique (au-dessus du terminal)
+  const sg = Q((T.u0 + T.u1) / 2, (T.v0 + T.v1) / 2, T.z + 4); if (SG.on) SG.list.push({ id: 'air', a, ord: 0, key: 'mon:air', D: SIGN['mon:air'], wx: sg[0], wy: sg[1] + 2, fx: sg[0], fy: sg[1] + 2, mode: 'b', cover: false, pri: 1e4 });   // passe 54 : enseigne générique (au-dessus du terminal)
   a._top = Math.min(sg[1] - 30, Q(C.u0, C.v0, C.z + 30)[1]);
 }
 /* ---------- Passe 45 / 46 : rendu du grand Mall central (10×10 cases) ----------
@@ -14468,11 +14525,11 @@ function drawTileOf(a, x, y, ox, oy, o) {
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
   if (P2_TYPE[a.t] && p2Ready(a.t)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
-    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }); a._top = ty == null ? p.y - 40 : ty; if (VV_FARM[a.t]) vvFarm(a); }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes
+    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; if (VV_FARM[a.t]) vvFarm(a); }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes
   } else if (a.t === 'npc' && vvNpc(a, p)) {
     // ville vivante : équipement, parc, chantier, service de quartier ou tour en HD (dessiné par vvNpc)
   } else if (a.t === 'hq' && vvHq(a)) {
-    if (ox === a.w - 1 && oy === a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), n = vvHq(a); a._top = vvDraw(n, p, n === 'siege_hq_n1' ? 1.15 : Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }); }   // siège social : 3 niveaux HD (le niveau 1, sans parvis, est posé au centre de l'emprise à l'échelle d'une case : sinon ses 3 étages seraient géants)
+    if (ox === a.w - 1 && oy === a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), n = vvHq(a); a._top = vvDraw(n, p, n === 'siege_hq_n1' ? 1.15 : Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); }   // siège social : 3 niveaux HD (le niveau 1, sans parvis, est posé au centre de l'emprise à l'échelle d'une case : sinon ses 3 étages seraient géants)
   } else if (PROC_IND[a.t]) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
   } else if (SPEC_T[a.t]) {   // passe 46 : magasin spécialisé composé en primitives iso
@@ -14526,13 +14583,13 @@ function drawTileOf(a, x, y, ox, oy, o) {
     const vw = a.works && a.works.k === 'new' && vvOk('chantier_petit'), vl = vw ? null : vvLvl(a, floors);   // ville vivante : chantier HD pendant la construction, sprite de niveau (logements par étages, tours)
     if (a.works && a.works.k === 'new' && !vw) ctx.globalAlpha *= 0.45;
     const hs = vw || vl || a.t === 'hq' || a.t === 'sport' || a.t === 'tv' ? null : citySpr(a, a.t === 'res' ? 'res' : a.t === 'bank' ? 'bank' : 'tech', floors);   // sprite HD de la ville pour les immeubles du joueur
-    if (vw || vl) a._top = vvDraw(vw ? 'chantier_petit' : vl, p, 1);
+    if (vw || vl) a._top = vvDraw(vw ? 'chantier_petit' : vl, p, 1, null, [1, 1]);
     else if (hs) { const q = cityBox(hs, p); ctx.drawImage(hs.im, q.x, q.y + (1 - grow) * 30, q.w, q.h * grow); a._top = q.y; }
     else { for (let i = 0; i < floors; i++) blit(name, bx, by - i * FH); a._top = by - (floors - 1) * FH; }
     if (!vw && !vl) roofTop(a, p, o.now);
     if (a.works) drawWorksOver(a, p, bx, by, floors, o.now);
   } else {
-    const name = tileSprite(a, ox, oy), s = name && SP[name];
+    const hdx = P2_EXT[a.t] && P2_IMG[P2_EXT[a.t]] && P2_IMG[P2_EXT[a.t]].ok, name = hdx ? null : tileSprite(a, ox, oy), s = name && SP[name];   // passe 57 : extracteur en HD, plus de bloc de l'atlas dessous (il débordait sur les cases voisines)
     const hs = TYPES[a.t].ret ? 1 + 0.12 * (a.lvl || 0) : 1;   // les commerces s'élèvent avec leur niveau
     if (s) ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] / 2, p.y + 99 - s[3] * hs + (1 - grow) * 30, s[2], s[3] * grow * hs);
     if (ox === 0 && oy === 0) a._top = p.y - 28 - (s ? s[3] * (hs - 1) : 0);
@@ -14562,7 +14619,7 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
     drawCrane(p.x + 28, p.y + 40, a.seed, now); drawCrane(p.x - 40, p.y + 12, a.seed + 1, now);
     drawShip(p.x + 160, p.y + 78, Math.floor(a.seed * 10)); topY = p.y - 120;
   } else if (P2_EXT[a.t] && P2_IMG[P2_EXT[a.t]] && P2_IMG[P2_EXT[a.t]].ok) {
-    const nm = a.t === 'mcopper' && (a.lvl || 0) >= 2 && P2_IMG.mine_cuivre_niveau3 && P2_IMG.mine_cuivre_niveau3.ok ? 'mine_cuivre_niveau3' : P2_EXT[a.t], ty = p2Draw(nm, p, 1); topY = ty == null ? p.y - 40 : ty;
+    const nm = a.t === 'mcopper' && (a.lvl || 0) >= 2 && P2_IMG.mine_cuivre_niveau3 && P2_IMG.mine_cuivre_niveau3.ok ? 'mine_cuivre_niveau3' : P2_EXT[a.t], ty = p2Draw(nm, p, 1, null, [1, 1]); topY = ty == null ? p.y - 40 : ty;
   } else if (a.t === 'well' || a.t === 'gwell') {
     drawPumpjack(p.x, p.y + 33, now, a.seed, conn && a.out > 0.01); topY = p.y - 50;
   } else if (a.t === 'logging') {
@@ -14852,18 +14909,32 @@ function frame(now) {
 
     // passe 2 : arbres et bâtiments dans l'ordre de profondeur
     const treeCol = 1; signReset();
+    // passe 57 : tri de profondeur des bâtiments de plusieurs cases. Un bâtiment w×h est dessiné (toutes ses cases, la case avant en dernier) juste après la diagonale
+    // de son CENTRE (x + y + (w + h) / 2 - 1) au lieu de celle de sa case avant : les voisins posés devant ses flancs (cases x + w ou y + h) passent désormais après lui
+    // et ne sont plus masqués par sa hauteur. Les bâtiments d'une case gardent l'ordre d'origine.
+    const bTile = (a, x, y) => {
+      const rc = S.grid[idx(x, y)]; if (!rc || rc.t === 'road') return;
+      const ox = rc.t === 'part' ? rc.ox : 0, oy = rc.t === 'part' ? rc.oy : 0;
+      const o = { now, born: a.born, alert: S.day <= a.alertUntil };
+      const fr = x === a.x + a.w - 1 && y === a.y + a.h - 1; if (fr) SG.cur = null;
+      drawTileOf(a, x, y, ox, oy, o);
+      if (fr) { if (SG.cur) SG.cur.a = a; drawOverlay(a, o); if (POLE_SHOPS[a.t]) poleBadge(a, now, pulse); signCollect(a, o); }   // passe 54 : enseigne
+    };
+    const PB = [], PBs = new Set(), bKey = a => a.x + a.y + (a.w + a.h) / 2 - 1;
+    const bFlush = dmax => {   // dessine les grands bâtiments en attente dont le centre est atteint (dans l'ordre de leur centre)
+      if (!PB.length) return; PB.sort((p, q) => p.k - q.k || p.a.x - q.a.x);
+      while (PB.length && PB[0].k - 0.5 <= dmax) { const a = PB.shift().a;
+        for (let d = a.x + a.y; d <= a.x + a.y + a.w + a.h - 2; d++) for (let x = Math.max(a.x, d - (a.y + a.h - 1)); x <= Math.min(a.x + a.w - 1, d - a.y); x++) { const y = d - x; if (x >= vr.x0 && x <= vr.x1 && y >= vr.y0 && y <= vr.y1) bTile(a, x, y); } }
+    };
+    let curD = -1e9;
     eachVisible(vr, (x, y) => {
       const i = idx(x, y), rc = S.grid[i], p = iso(x, y);
+      if (x + y !== curD) { bFlush(curD); curD = x + y; }
       if (rc) {
         if (rc.t !== 'road') {
           const a = anchorOf(rc);
-          if (a) {
-            const ox = rc.t === 'part' ? rc.ox : 0, oy = rc.t === 'part' ? rc.oy : 0;
-            const o = { now, born: a.born, alert: S.day <= a.alertUntil };
-            const fr = x === a.x + a.w - 1 && y === a.y + a.h - 1; if (fr) SG.cur = null;
-            drawTileOf(a, x, y, ox, oy, o);
-            if (fr) { if (SG.cur) SG.cur.a = a; drawOverlay(a, o); if (POLE_SHOPS[a.t]) poleBadge(a, now, pulse); signCollect(a, o); }   // passe 54 : enseigne
-          }
+          if (a && a.w * a.h > 1) { if (!PBs.has(a)) { PBs.add(a); PB.push({ a, k: bKey(a) }); } }
+          else if (a) bTile(a, x, y);
         }
       } else if (ZONE[i] === 4) {
         drawQuayDecor(p, x, y, now);
@@ -14880,6 +14951,7 @@ function frame(now) {
         drawOverlay(ghost, { now, alpha: 0.65, ghost: true });
       }
     });
+    bFlush(1e9);
     ships.forEach(sh => { const sp = iso(sh.x, sh.y); drawShip(sp.x, sp.y + 33 + 12, sh.seed); });
     drawOwnership(vr, pulse);
     signFlush();   // passe 54 : enseignes nettes, après tous les bâtiments
@@ -16908,10 +16980,15 @@ const CITY_MAP = { res: [['maison_moderne_cubique', 1, 2], ['pavillon_banlieue',
 Object.keys(CITYHD).forEach(n => { const im = new Image(), e = CITY_IMG[n] = { im, ok: false, a: CITYANCH[n] || null }; im.onload = () => { e.ok = true; if (!e.a) e.a = { largeur: im.width, hauteur: im.height, ancre_x: im.width / 2, ancre_y: im.height, emprise_px: im.width }; }; im.src = CITYHD[n]; });
 const CITY_HOUSES = ['maison_moderne_cubique', 'pavillon_banlieue', 'maison_de_ville_briques', 'chalet_savoyard', 'maison_japonaise', 'villa_mediterraneenne', 'maison_bois_nordique'];
 function cityHouse(a) { const c = CITY_HOUSES.filter(n => CITY_IMG[n] && CITY_IMG[n].ok); return c.length ? CITY_IMG[c[Math.floor(a.seed * 7919) % c.length]] : null; }
-function cityBox(hs, p) {   // cadre d'un sprite de ville : le losange de la parcelle (emprise opaque) est calé sur celui de la case, pour qu'aucun bâtiment ne mord sur la route
+function cityBox0(hs, p) {   // cadre d'un sprite de ville : le losange de la parcelle (emprise opaque) est calé sur celui de la case, pour qu'aucun bâtiment ne mord sur la route
   const A = hs.a, dm = A.dm; if (dm) { const k = TW / (dm[1] - dm[0]), sy = A.sy || 1; return { x: p.x - (dm[0] + dm[1]) / 2 * k, y: p.y + TH / 2 - dm[2] * k * sy, w: hs.im.width * k, h: hs.im.height * k * sy }; }   // centre de la dalle = centre de la case
   const bb = A.bb || [0, 0, hs.im.width, hs.im.height], k = TW / (bb[2] - bb[0]);
   return { x: p.x - (bb[0] + bb[2]) / 2 * k, y: p.y + TH - bb[3] * k, w: hs.im.width * k, h: hs.im.height * k };
+}
+function cityBox(hs, p) {   // passe 57 : cadre d'origine, puis recalé dans la colonne de la case (sprFit)
+  const q = cityBox0(hs, p), k = q.w / hs.im.width, sy = q.h / (hs.im.height * k), cx = p.x, cy = p.y + TH / 2;
+  const F = sprFit('city:' + hs.im.src.length + ':' + hs.im.width + 'x' + hs.im.height, hs.im, hs.im.width, hs.im.height, k, q.x - cx, q.y - cy, sy, [1, 1]);
+  return { x: cx + F.dx, y: cy + F.dy, w: F.w, h: F.h };
 }
 function citySpr(a, grp, fl) {   // sprite HD pour un immeuble (choix déterministe par graine), ou null ; grp : res / tech / bank
   const L = CITY_MAP[grp || (a.k === 'res' ? 'res' : ['tech', 'tech', 'bank'][Math.floor(a.seed * 997) % 3])]; if (!L) return null; if (fl == null) fl = a.floors; a = { seed: a.seed, floors: fl };
@@ -16925,9 +17002,44 @@ const P2_TYPE = { ewh: 'entrepot', fwheat: 'fwheat', fsugar: 'fsugar', fcotton: 
 const p2Ready = t => { const n = P2_TYPE[t] || P2_EXT[t]; return !!(n && P2_IMG[n] && P2_IMG[n].ok); };
 const P2_EXT = { well: 'puits_petrole', gwell: 'puits_gaz', miron: 'mine_fer', mcoal: 'mine_charbon', mcopper: 'mine_cuivre', mgold: 'mine_or', mnicr: 'mine_nickel_chrome', mbauxite: 'mine_bauxite', mlithium: 'mine_lithium', mzinc: 'mine_zinc', mgraphite: 'mine_graphite', qsilica: 'carriere_silice', qclay: 'carriere_argile', qsalt: 'mine_sel', mphos: 'mine_phosphate', mpotash: 'mine_potasse', qgravel: 'carriere', qsand: 'carriere', qlime: 'carriere', logging: 'camp_bucherons' };
 Object.keys(P2HD).forEach(n => { const im = new Image(), e = P2_IMG[n] = { im, ok: false }; im.onload = () => { e.ok = true; }; im.src = P2HD[n]; });
-function p2Draw(name, p, cells, c) {   // dessine le sprite : le centre de sa dalle (rangée la plus large) est posé sur le centre c = {x, y} de l'emprise (par défaut le centre de la case p) ; renvoie le haut du sprite, ou null
+/* Passe 57 : recalage des sprites de bâtiments dans la colonne de leur emprise (losange fp = [w, h] cases prolongé vers le haut), calculé une fois par sprite et
+   par emprise. Point de départ : le calage d'origine (dalle de l'image sur le losange, cityBox / p2Draw). Puis, d'après le profil bas réel de l'image :
+   1. silhouette plus large que le losange : réduite à sa largeur ; 2. silhouette décalée : ramenée dans la colonne ; 3. toit pris pour la parcelle (bas de
+   l'image sous le sommet bas du losange) ou coins bas débordants : le sprite remonte jusqu'à ce que chaque colonne de pixels opaques reste au-dessus des arêtes
+   basses du losange. Résultat (tools/audit_overlap.js) : aucun sprite ne mord plus de quelques % sur une case voisine ou une route. */
+const SPR_FIT = {}, SPR_PROF = {};
+function sprProf(key, im, iw, ih) {   // profil bas : pour chaque colonne de l'image (px d'origine), dernière ligne opaque (+1), ou -1 ; null si illisible
+  if (SPR_PROF[key] !== undefined) return SPR_PROF[key];
+  try { const s = Math.min(1, 200 / Math.max(1, iw)), cw = Math.max(1, Math.round(iw * s)), ch = Math.max(1, Math.round(ih * s)), cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+    const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0, cw, ch); const px = g.getImageData(0, 0, cw, ch).data, out = new Array(Math.ceil(iw)).fill(-1);
+    for (let x = 0; x < cw; x++) { let b = -1; for (let y = ch - 1; y >= 0; y--) if (px[(y * cw + x) * 4 + 3] > 96) { b = (y + 1) / s; break; } for (let i = Math.floor(x / s); i < Math.min(out.length, Math.floor((x + 1) / s)); i++) out[i] = b; }
+    return (SPR_PROF[key] = out); } catch (err) { return (SPR_PROF[key] = null); }
+}
+function sprFit(key, im, iw, ih, k, dx, dy, sy, fp) {   // (k, dx, dy) : échelle et coin haut-gauche relatif au centre de l'emprise ; renvoie le cadre recalé
+  const ck = key + '|' + fp + '|' + k.toFixed(4); let F = SPR_FIT[ck]; if (F) return F;
+  const hw = (fp[0] + fp[1]) / 4 * TW, hb = (fp[0] + fp[1]) / 4 * TH, pr = sprProf(key, im, iw, ih);
+  if (pr) {
+    let c0 = pr.findIndex(v => v >= 0), c1 = pr.length - 1; while (c1 > 0 && pr[c1] < 0) c1--;
+    if (c0 >= 0) {
+      if ((c1 + 1 - c0) * k > 2 * hw * 1.005) { const mb = Math.max(...pr), by = dy + mb * k * sy; k = 2 * hw / (c1 + 1 - c0); dx = -(c0 + c1 + 1) / 2 * k; dy = by - mb * k * sy; }
+      const l = dx + c0 * k, r = dx + (c1 + 1) * k; if (l < -hw) dx += -hw - l; else if (r > hw) dx -= r - hw;
+      let lift = 0; for (let i = c0; i <= c1; i++) { if (pr[i] < 0) continue; const X = dx + (i + 0.5) * k, eb = hb * (1 - Math.min(1, Math.abs(X) / hw)), Y = dy + pr[i] * k * sy; if (Y - eb > lift) lift = Y - eb; }
+      dy -= lift;
+    }
+  }
+  return (SPR_FIT[ck] = { k, dx, dy, sy, w: iw * k, h: ih * k * sy });
+}
+function p2Fit(name, d, cells, fp) {
+  const dm = d.length >= 9 ? [d[6], d[7], d[8]] : [d[2], d[4], d[5] - (d[4] - d[2]) / 4], sy = d[9] || 1, k = TW * (cells || 1) / (dm[1] - dm[0]);
+  return sprFit('p2:' + name, P2_IMG[name].im, d[0], d[1], k, -(dm[0] + dm[1]) / 2 * k, -dm[2] * k * sy, sy, fp);
+}
+function p2Fit0(d, cells) {   // ancien calage (gisements, forêts, champs : pas un bâtiment)
+  const dm = d.length >= 9 ? [d[6], d[7], d[8]] : [d[2], d[4], d[5] - (d[4] - d[2]) / 4], sy = d[9] || 1, k = TW * cells / (dm[1] - dm[0]);
+  return { k, sy, dx: -(dm[0] + dm[1]) / 2 * k, dy: -dm[2] * k * sy, w: d[0] * k, h: d[1] * k * sy };
+}
+function p2Draw(name, p, cells, c, fp) {   // dessine le sprite dans la colonne de son emprise (passe 57 : recalé par p2Fit) ; c = centre de l'emprise (par défaut celui de la case p) ; renvoie le haut du sprite, ou null
   const e = P2_IMG[name], d = P2DIM[name]; if (!e || !e.ok || !d) return null;
-  const dm = d.length >= 9 ? [d[6], d[7], d[8]] : [d[2], d[4], d[5] - (d[4] - d[2]) / 4], sy = d[9] || 1, k = TW * (cells || 1) / (dm[1] - dm[0]), w = d[0] * k, h = d[1] * k * sy, cx = c ? c.x : p.x, cy = c ? c.y : p.y + TH / 2, x = cx - (dm[0] + dm[1]) / 2 * k, y = cy - dm[2] * k * sy;
+  const F = fp ? p2Fit(name, d, cells || 1, fp) : p2Fit0(d, cells || 1), w = F.w, h = F.h, cx = c ? c.x : p.x, cy = c ? c.y : p.y + TH / 2, x = cx + F.dx, y = cy + F.dy;
   ctx.drawImage(e.im, x, y, w, h); SG.cur = { n: name, x, y, kx: w / d[0], ky: h / d[1] }; return y;   // passe 54 : cadre du sprite, pour poser l'enseigne
 }
 /* ---------- Ville vivante (intégrateur n° 9) : services de quartier, véhicules et navires HD, décor du port, détails des fermes, niveaux, parcs, rochers, chantiers ----------
@@ -16940,7 +17052,7 @@ function p2DrawBox(name, p, cells, c) {
   const n = cells || 1, k = TW * n / Math.max(1, d[4] - d[2]), cx = c ? c.x : p.x, cy = (c ? c.y : p.y + TH / 2) + TH * n / 2, x = cx - (d[2] + d[4]) / 2 * k, y = cy - d[5] * k;
   ctx.drawImage(e.im, x, y, d[0] * k, d[1] * k); SG.cur = { n: name, x, y, kx: k, ky: k }; return y + d[3] * k;
 }
-const vvDraw = (name, p, cells, c) => VV_BOX[name] ? p2DrawBox(name, p, cells, c) : p2Draw(name, p, cells, c);
+const vvDraw = (name, p, cells, c, fp) => VV_BOX[name] ? p2DrawBox(name, p, cells, c) : p2Draw(name, p, cells, c, fp);
 function vvSpr(n, x, y, w, flip) {   // objet posé (véhicule, animal, personnage, grue, navire, marchandise) : ancre d'ancres.json (sinon bas de la silhouette) en (x, y), silhouette opaque large de w px monde ; flip = miroir horizontal
   const e = P2_IMG[n], d = P2DIM[n]; if (!e || !e.ok || !d) return null;
   const k = w / Math.max(1, d[4] - d[2]), ax = d[10] >= 0 ? d[10] : (d[2] + d[4]) / 2, ay = d[11] >= 0 ? d[11] : d[5], dw = d[0] * k, dh = d[1] * k;
@@ -16973,13 +17085,13 @@ function vvSvcMap() {   // une passe par jour de jeu : chaque service va aux cas
   VV.svc = out; VV.list = list; return out;
 }
 function vvNpc(a, p) {   // bâtiment PNJ en HD (équipement, parc, chantier de la croissance, service de quartier, tour) ; true si dessiné
-  if (a.k === 'mon') { const n = VV_MON[a.m]; if (!n || !vvOk(n)) return false; a._top = vvDraw(n, p, 1); return true; }
-  if (a.k === 'park') { if (!vvOk('parc_urbain')) return false; a._top = vvDraw('parc_urbain', p, 1); return true; }
-  if (!a.lm && a.cd != null && S.day - a.cd < 6) { const n = a.k === 'house' ? 'chantier_petit' : 'immeuble_en_construction'; if (vvOk(n)) { a._top = vvDraw(n, p, 1); return true; } }   // chantier : 6 jours après une construction ou une surélévation par la ville
-  vvSvcMap(); if (a._sv && vvOk(a._sv)) { a._top = vvDraw(a._sv, p, 1); return true; }
-  if (a.k === 'house' && hash(a.x, a.y, 84) < 0.3) { const n = ['maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c'][Math.floor(hash(a.x, a.y, 85) * 3)]; if (vvOk(n)) { a._top = vvDraw(n, p, 1); return true; } }   // maisons et petits immeubles PNJ de la phase 2 mêlés aux autres
-  if (a.k !== 'house' && !a.lm && a.floors >= 3 && a.floors <= 8 && hash(a.x, a.y, 86) < 0.3) { const n = a.k === 'off' || hash(a.x, a.y, 87) < 0.5 ? 'immeuble_pnj_b' : 'immeuble_pnj_a'; if (vvOk(n)) { a._top = vvDraw(n, p, 1); return true; } }
-  if (a.k !== 'house' && !a.lm && a.floors >= 12 && a.floors <= 30 && hash(a.x, a.y, 77) < 0.35) { const n = hash(a.x, a.y, 78) < 0.5 ? 'tour_pnj_a' : 'tour_pnj_b'; if (vvOk(n)) { a._top = vvDraw(n, p, 1); return true; } }
+  if (a.k === 'mon') { const n = VV_MON[a.m]; if (!n || !vvOk(n)) return false; a._top = vvDraw(n, p, 1, null, [1, 1]); return true; }
+  if (a.k === 'park') { if (!vvOk('parc_urbain')) return false; a._top = vvDraw('parc_urbain', p, 1, null, [1, 1]); return true; }
+  if (!a.lm && a.cd != null && S.day - a.cd < 6) { const n = a.k === 'house' ? 'chantier_petit' : 'immeuble_en_construction'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // chantier : 6 jours après une construction ou une surélévation par la ville
+  vvSvcMap(); if (a._sv && vvOk(a._sv)) { a._top = vvDraw(a._sv, p, 1, null, [1, 1]); return true; }
+  if (a.k === 'house' && hash(a.x, a.y, 84) < 0.3) { const n = ['maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c'][Math.floor(hash(a.x, a.y, 85) * 3)]; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // maisons et petits immeubles PNJ de la phase 2 mêlés aux autres
+  if (a.k !== 'house' && !a.lm && a.floors >= 3 && a.floors <= 8 && hash(a.x, a.y, 86) < 0.3) { const n = a.k === 'off' || hash(a.x, a.y, 87) < 0.5 ? 'immeuble_pnj_b' : 'immeuble_pnj_a'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }
+  if (a.k !== 'house' && !a.lm && a.floors >= 12 && a.floors <= 30 && hash(a.x, a.y, 77) < 0.35) { const n = hash(a.x, a.y, 78) < 0.5 ? 'tour_pnj_a' : 'tour_pnj_b'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }
   return false;
 }
 const vvSvcName = c => { if (!c || c.t !== 'npc') return ''; vvSvcMap(); return c._sv && VV_SVC[c._sv] ? VV_SVC[c._sv][0] : ''; };
@@ -17349,7 +17461,7 @@ Object.assign(window.WSE, { coach: { st: coachSt, pick: coachPick, view: coachVi
 Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDaily, obs: netObs, render: renderNet, tab: setNetTab, unread: netUnread, badge: netBadge, save: netSave, san: netSan, reply: netReply, TPL: NET_TPL, CHAT: NET_CHAT, BOTS: NET_BOTS, reset: sd => { S.net = null; const n = netS(); if (sd != null) { n.sd = sd | 0; n.posts = []; n.chat = []; n.id = 0; netSeedContent(); n.seen = n.id; n.o = netSnap(); } NET._t = 0; return n; }, setGap: ms => { NET._t = ms ? NET._t : 0; } } });   // passe 42 : Réseau Wall Street
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ecomStep, list: ewhList, site: ecSite, cat: ecCatalog, delay: ecDelay, attract: ecAttract, pool: ecPool, val: ecVal, tier: () => tierOf((S.stats && S.stats.worth) || 0), raise: ecRaise, set: ecSet, kpi: ecKpi, advice: ecAdvice, save: ecSave, san: ecSan, render: renderEcom, show: ecShow, html: ecomHTML, edu: ecEduHTML, shipCap: ecShipCap, storeCap: ecStoreCap, used: ecUsed, CLS: EC_CLS, MIX: EC_MIX, RET: EC_RET, WORLD: EC_WORLD, FREQ: EC_FREQ, BASKET: EC_BASKET, EL: EC_EL, SHIP: EC_SHIP, STORE: EC_STORE, HOST: EC_HOST, DC: EC_DC, RESV: EC_RESV, LAUNCH: EC_LAUNCH } });   // passe 46 : commerce en ligne
-Object.assign(window.WSE, { sign: { SIGN, SIGN_COVER, SIGN_ST, SIGN_SZ, txt: signTxt, key: signKey, get drawn() { return SG.drawn.slice(); }, get queued() { return SG.list.length; }, get hidden() { return SG.hidden; }, get ms() { return SG.last || 0; }, get avg() { return SG.avg; }, get on() { return SG.on; }, set on(v) { SG.on = !!v; }, get cacheN() { return SG.cache.size; } } });   // passe 54 : enseignes dessinées par le code
+Object.assign(window.WSE, { audit: { solo: auditSolo, before: auditBefore, iso, TW, TH, mkCell }, sign: { SIGN, SIGN_COVER, SIGN_ST, SIGN_SZ, txt: signTxt, key: signKey, get drawn() { return SG.drawn.slice(); }, get queued() { return SG.list.length; }, get hidden() { return SG.hidden; }, get lost() { return Object.assign({}, SG.lost); }, get ui() { return SG.ui.slice(); }, IMP: SIGN_IMP, minImp: signMinImp, get ms() { return SG.last || 0; }, get avg() { return SG.avg; }, get on() { return SG.on; }, set on(v) { SG.on = !!v; }, get cacheN() { return SG.cache.size; } } });   // passe 54 : enseignes dessinées par le code
 Object.assign(window.WSE, { ground: { GT, ROAD_SPR, GT_NAMES, kind: gtKind, active: gtActive, roadSpr: (x, y) => ROAD_SPR[roadMask(x, y)], clearing: gtClearing, tex: gtTex }, view: { get z() { return z; }, setZ: v => { fitted = true; z = clamp(v, 0.03, 1.8); }, centerOn, get dpr() { return dpr; } } });   // passe sol et routes
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
 window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMILY, famOf: pFamOf, byFam: SPEC_BY_FAM, of: specOf, tab: specTab, share: specShare, famShare: specFamShare, mk: specMk, known: specKnown, locked: specLocked, need: specNeedTxt, shelfOk: specShelfOk, bcT: specBcT, stats: specStats, card: specCard, mall: specMallLine, edu: eduSpecHTML, PASS: SPEC_PASS, PRI: SPEC_PRI, day: () => S._spec || {} };   // passe 46 : magasins spécialisés
