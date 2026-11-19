@@ -4047,7 +4047,8 @@ function cityAttract() {
   const cn = st.cn || {}, riv = (S.rivals || []).filter(r => r.caste === 'promoteur' && !r.dead).length, P = Math.min(10, (cn.btp || 0) + 2 * (cn.immo || 0) + (S.caste === 'promoteur' ? 3 : 0) + 1.5 * riv), aP = 1 + 0.045 * P;
   const ipc = popE() > 0 ? (st.income || 0) / popE() : 0, aE = 1 + 0.38 * clamp(Math.log10(Math.max(ipc, 1e-4) / 0.05) / 2.2, 0, 1);   // poids économique de ton entreprise : chiffre d'affaires quotidien par habitant du bassin
   const aQ = 0.9 + 0.1 * citySvcCov();   // passe 60 : services publics proportionnés à la population (1 tant que la ville en a assez)
-  return { v: Math.pow(aJ, 0.8) * Math.pow(aH, 0.8) * aS * aT * aG * aP * aE * aQ, aJ, aH, aS, aT, aG, aP, aE, aQ };
+  const aD = proAttrCity();   // passe 69 : logements, tours de prestige et programmes emblématiques livrés par le promoteur (offre de logements, image de la ville)
+  return { v: Math.pow(aJ, 0.8) * Math.pow(aH, 0.8) * aS * aT * aG * aP * aE * aQ * aD, aJ, aH, aS, aT, aG, aP, aE, aQ, aD };
 }
 function crnd() { const G = S.cg; G.r = ((G.r == null ? 0x2f6e2b1 : G.r) + 0x6D2B79F5) | 0; let t = Math.imul(G.r ^ (G.r >>> 15), 1 | G.r); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }   // aléa propre à la ville : ne touche pas à la suite de rnd() du reste du jeu
 function cityPickWeighted(ids, wf) { let tot = 0; const w = ids.map(id => { const v = Math.max(0, wf(id)); tot += v; return v; }); if (!(tot > 0)) return -1; let r = crnd() * tot; for (let i = 0; i < ids.length; i++) { r -= w[i]; if (r <= 0) return ids[i]; } return ids[ids.length - 1]; }
@@ -4238,7 +4239,8 @@ function cellExtra(c) {
   if (c.lp) { o.lp = Math.round(c.lp); o.lpm = +(c.lpm || 1).toFixed(4); if (c.lpv > 0) o.lv = Math.round(c.lpv); }
   if (c.acq) o.aq = Math.round(c.acq);
   if (c.t === 'dc' && (c.bat || c.gb === 0 || c.tb || c.soc > 0 || c.ct != null || (c.uph && c.uph.length))) { o.dcp = [c.bat | 0, c.gb === 0 ? 0 : 1, Math.round(c.soc || 0), +dcCt(c).toFixed(3), (c.uph || []).slice(-30).map(v => Math.round(v * 1000))]; if (c.tb) o.dcp.push(1); }   // passe 66 : 6e champ optionnel = appoint négociant   // passe 55 : batteries, appoint réseau, charge, contrats, uptime
-  if (c.bday != null) o.bd = c.bday; if (c.fcap != null) o.fc = Math.round(c.fcap); if (c.works) o.wk = [c.works.k === 'new' ? 1 : 0, c.works.to, c.works.due, c.works.cost, c.works.t0];   // passe 34 : logements (achat, travaux)
+  if (c.bday != null) o.bd = c.bday; if (c.fcap != null) o.fc = Math.round(c.fcap); if (c.works) o.wk = [c.works.k === 'new' ? 1 : c.works.k === 'prog' ? 2 : 0, c.works.to, c.works.due, c.works.cost, c.works.t0];   // passe 34 : logements (achat, travaux) ; passe 69 : 2 = aménagement d'un programme emblématique
+  if (c.bn) o.bn = c.bn; if (c.prog) o.pg = c.prog;   // passe 69 : tour baptisée (marque du promoteur), programme emblématique (hôtel, casino, centre commercial)
   if (c.plan && PLAN_DIM[c.t]) { o.pl = c.plan.join(','); if (c.rb) { const rb = {}; Object.keys(c.rb).forEach(i => { rb[i] = [c.rb[i].k, +c.rb[i].w.toFixed(4)]; }); o.rb = rb; } }   // plan d'usine (absent = plan par défaut)
   if (c.fx) { const f = c.fx; o.fx = { s: f.s, w: f.w.map(v => v | 0), g: f.g, tot: Math.round(f.tot), run: Math.round(f.run), brk: f.brk | 0, bn: f.bn | 0, ok: f.ok | 0, ins: f.ins | 0, ir: f.ir || '', st: f.st | 0, rep: f.rep | 0 }; }   // passe 28 : atelier visité en vue immersive
   if (c.pkd) { const pd = {}; Object.keys(c.pkd).forEach(k => { if (c.pk && c.pk[k]) pd[k] = Math.min(400, c.pkd[k].d | 0); }); if (Object.keys(pd).length) o.pd = pd; }
@@ -4273,7 +4275,7 @@ function load() {
       const c = mkCell(r[0], r[1]); c.lvl = clamp(r[2] | 0, 0, 4); if (r[3]) c.floors = r[3]; if (r[4] === 'spirit') r[4] = 'wine'; if (r[4] && (PRODUCTS[r[4]] || RECIPES[r[4]])) c.prod = r[4]; if (r[5]) c.crew = clamp(+r[5], 1, 2); if (r[6] != null) c.wage = clamp(r[6] | 0, 0, 2); c.qual = clamp(r[7] | 0, 0, 3); c.eff = clamp(r[8] | 0, 0, 3); c.invest = r[9] > 0 ? +r[9] : TYPES[r[0]].cost + upgradeSpent(c); c.days = r[10] | 0; if (Array.isArray(r[11]) && r[11].length >= 8) { c.cm = r[11].map(Number); while (c.cm.length < 9) c.cm.push(0); } if (Array.isArray(r[12])) { c.ad = { tv: +r[12][0] || 0, radio: +r[12][1] || 0, net: +r[12][2] || 0 }; c.aw = +r[12][3] || 0; } if (Array.isArray(r[14]) && r[14].length === 4) { c.dept = {}; DEPTS.forEach(([k], i) => { c.dept[k] = r[14][i] / 100; }); } if (Array.isArray(r[16])) c.slots = r[16].map(x => x || null);
       if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3); if (r[19] && typeof r[19] === 'object') c.src = r[19];
       if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.mb != null) c.mr = clamp(+e.mb, 0, 3); if (e.ap != null) c.adp = clamp(+e.ap || 1, 0.4, 2); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; if (e.lv > 0) c.lpv = +e.lv; } if (e.aq > 0) c.acq = +e.aq; if (e.fx && typeof e.fx === 'object' && PLAN_DIM[r[0]]) { const x = e.fx, f = fxMake(c); if (Array.isArray(x.s) && x.s.length === 3) f.s = x.s.map(v => clamp(+v || 0, 0, 100)); if (Array.isArray(x.w)) f.w = x.w.slice(0, 9).map(v => clamp(v | 0, 0, FX_TMAX)); if (x.g && typeof x.g === 'object') FX_GOALS.forEach(g => { if (x.g[g.id]) f.g[g.id] = +x.g[g.id] || 1; }); f.tot = Math.max(0, +x.tot || 0); f.run = Math.max(0, +x.run || 0); f.brk = Math.max(0, x.brk | 0); f.bn = x.bn | 0; f.ok = x.ok | 0; f.ins = x.ins | 0; f.ir = x.ir === 'ok' || x.ir === 'warn' ? x.ir : ''; f.st = x.st | 0; f.rep = x.rep | 0; } if (typeof e.pl === 'string' && PLAN_DIM[r[0]]) { const pa = e.pl.split(','), dm = PLAN_LEG[r[0]]; if ((pa.length === PLAN_N || pa.length === dm[0] * dm[1]) && pa.every(k => k === '' || PLAN_KEYS.indexOf(k) >= 0)) { c.plan = pa; if (e.rb && typeof e.rb === 'object') { c.rb = {}; Object.keys(e.rb).forEach(i => { const v = e.rb[i]; if (pa[i] === 'robot' && Array.isArray(v) && ROBOTS[v[0]]) c.rb[i] = { k: v[0], w: clamp(+v[1] || 0, 0, 1) }; }); } } } }
-      if (r[20] && typeof r[20] === 'object') { const e2 = r[20]; if (e2.bd != null) c.bday = e2.bd | 0; if (e2.fc != null) c.fcap = +e2.fc; if (Array.isArray(e2.wk)) c.works = { k: e2.wk[0] ? 'new' : 'up', to: e2.wk[1] | 0, due: e2.wk[2] | 0, cost: +e2.wk[3] || 0, t0: e2.wk[4] | 0 }; }
+      if (r[20] && typeof r[20] === 'object') { const e2 = r[20]; if (e2.bd != null) c.bday = e2.bd | 0; if (e2.fc != null) c.fcap = +e2.fc; if (Array.isArray(e2.wk)) c.works = { k: e2.wk[0] === 2 ? 'prog' : e2.wk[0] ? 'new' : 'up', to: e2.wk[1] | 0, due: e2.wk[2] | 0, cost: +e2.wk[3] || 0, t0: e2.wk[4] | 0 }; if (e2.bn) c.bn = String(e2.bn); if (e2.pg && PROG[e2.pg]) c.prog = e2.pg; }
       if (r[20] && typeof r[20] === 'object' && Array.isArray(r[20].dcp) && r[0] === 'dc') { const q = r[20].dcp; c.bat = clamp(q[0] | 0, 0, 3); if (q[1] === 0) c.gb = 0; c.soc = Math.max(0, +q[2] || 0); c.ct = clamp(+q[3] || 1, DC_CT_MIN, 1); if (Array.isArray(q[4])) c.uph = q[4].slice(-30).map(v => clamp((+v || 0) / 1000, 0, 1)); if (q[5] === 1) c.tb = 1; }
       if (r[20] && typeof r[20] === 'object') { if (r[20].fm > 0) c.firm = r[20].fm | 0; if (r[20].is != null) c.isale = r[20].is ? 1 : 0; if (r[20].fe) c.fert = 1; if (r[20].hd != null) c.hd = clamp(+r[20].hd || 0.2, 0.2, 1); if (r[20].sk > 0) c.sickUntil = r[20].sk | 0; }
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
@@ -4409,7 +4411,7 @@ const lvTxt = c => `Niveau ${(c.lvl || 0) + 1}/${MAX_LVL + 1} · capacité ×${l
 const lvFloors = c => c.t === 'npc' ? c.floors : c.floors + (c.t === 'res' ? 0 : 2 * (c.lvl || 0));   // étages visibles : +2 par niveau pour les tours
 function upgradeCost(c) {
   if (!c || c.t === 'road' || c.t === 'pylon' || c.t === 'cable' || c.t === 'pipeline') return 0;
-  if (c.t === 'res') return c.floors >= maxFl() ? 0 : floorCost(c);   // passe 34 : un étage coûte ≈ 1,1 × le prix du logement + 12 % du lot (avant : 350 + 250 × étages)
+  if (c.t === 'res') return c.floors >= proMaxAt(c.x, c.y) ? 0 : floorCost(c);   // passe 69 : droits à bâtir du lot pour le promoteur   // passe 34 : un étage coûte ≈ 1,1 × le prix du logement + 12 % du lot (avant : 350 + 250 × étages)
   if (c.lvl >= MAX_LVL) return 0;
   return Math.round(TYPES[c.t].cost * LVL_COST[c.lvl || 0]);
 }
@@ -4437,7 +4439,7 @@ function evaluate() {
     { const bv = T.cost * (c.lg || 1) * 0.9 + upgradeSpent(c) * 0.6 + landVal(c); value += bv; if (IMMO_T.indexOf(c.t) >= 0) immo += bv; }
     if (c.conn) {
       cn[c.t]++; un[c.t] += unitsOf(c); jobs += jobsOf(c); c.haul = haulOf(c);
-      if (c.t === 'res' && !(c.works && c.works.k === 'new')) cap += 6 + 4 * c.floors;
+      if (c.t === 'res' && !(c.works && c.works.k === 'new')) cap += 5 * K_POP * c.floors;   // passe 69 : un étage de logements livré loge autant qu'un étage de la ville (avant : 6 + 4 × étages, 25 fois moins)
     }
     if (INDUSTRIAL.indexOf(c.t) >= 0) {
       for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++)
@@ -4452,6 +4454,7 @@ function evaluate() {
   cap += 4 * Math.floor(S.houses || 0);
   eachBuilding(c => { if (c.t === 'res' && c.conn) { nres++; if (smog[idx(c.x, c.y)]) polluted++; } });
   value += proHoldBasis() + proLandAssets();   // passe 34 : biens loués rachetés et terrains créés ou achetés, au prix payé
+  { const mt = proMtm(); value += mt.adj; immo += mt.iv; }   // passe 69 : parc immobilier (logements livrés, biens rachetés) à la valeur de marché nette des frais de vente : il monte dans la bulle et chute au krach
   return { cc, cn, un, roads, ownRoads, cap, jobs: jobs + npcJobs, playerJobs: jobs, upkeep, value, immo, polluted, nres };
 }
 // Valorisation = trésorerie + actifs au coût amorti (0,9 × coût, terrain au prix payé réindexé) : plus de bonus d'humeur ni de plus-value à la construction ; l'argent ne se crée que par les profits
@@ -6901,7 +6904,7 @@ function acqPlan(x, y, key) {
   return { x, y, key, w: T.w || 1, h: T.h || 1, items, groups, acqNpc, build, total: acqNpc + build, housing, jobs, desc: descCells(cs), npcDesc: descCells(items.filter(i => i.owner === 'npc').map(i => i.c)) };
 }
 function acqDemolish(it) {
-  S.grid[idx(it.x, it.y)] = null; (S.npcMods = S.npcMods || []).push([it.x, it.y, 'x', 0]); cityHold(it.x, it.y); if (S.npcOwn) delete S.npcOwn[it.x + ',' + it.y];
+  proRazed(it.c); S.grid[idx(it.x, it.y)] = null; (S.npcMods = S.npcMods || []).push([it.x, it.y, 'x', 0]); cityHold(it.x, it.y); if (S.npcOwn) delete S.npcOwn[it.x + ',' + it.y];
   flyers.push({ x: it.x, y: it.y, text: 'Rasé', t: performance.now(), col: '#ffa34d' });
 }
 // Exécute l'acquisition + la construction (deals : prix négociés par propriétaire rival). Atomique : annulée si la pose échoue.
@@ -7084,12 +7087,13 @@ function place(x, y, key) {
   if (key === 'buyout') {
     if (c && c.t === 'npc' && c.k === 'mon') { say('Bâtiment public : la mairie ne le vend pas.', 'info'); return false; }
     if (c && c.t === 'npc' && ownerOf(c) !== 'npc' && ownerOf(c) !== 'me') { say(`Ce bâtiment appartient à ${ownerName(ownerOf(c))} : pose un commerce dessus pour négocier son rachat.`, 'info'); return false; }
+    if (c && c.t === 'npc' && ownerOf(c) === 'npc' && proNoSale(c.x, c.y)) { say('Le propriétaire vient de l\'acheter : il ne revend pas avant deux ans.', 'info'); return false; }   // passe 69
     if (!c || c.t !== 'npc') { say('Acquisition BTP : clique un immeuble ou une maison de la ville existante pour l\'acheter et libérer son terrain (tu pourras ensuite y construire). Moins cher pour la caste Promoteur BTP.', 'info'); return false; }
     const own = ownerOf(c) === 'me', cost = own ? 0 : proAsk(c), fees = own ? 0 : proFees(cost), V = proValue(c).v;
     if (S.cash < cost + fees) { say(`Prix de marché ${money(V)} : le vendeur demande ${money(cost)} + ${money(fees)} de frais (loyers capitalisés de ${kindFr(c.k, 1)}, quartier et cycle). Il te manque ${money(cost + fees - S.cash)}.`, 'bad'); return false; }
     const basis = own ? (((S.pro && S.pro.hold[c.x + ',' + c.y]) || {}).basis || 0) : cost + fees;
     S.cash -= cost + fees; plSet(idx(c.x, c.y), basis); if (S.pro) delete S.pro.hold[c.x + ',' + c.y]; if (!own) { const q = PR(); q.st.bought++; if (c.k === 'house') q.st.bHouse++; q.st.spent += cost + fees; }
-    rubAdd(rubbleOf(c)); S.grid[idx(c.x, c.y)] = null; (S.npcMods = S.npcMods || []).push([c.x, c.y, 'x', 0]); cityHold(c.x, c.y); if (S.npcOwn) delete S.npcOwn[c.x + ',' + c.y]; trfDirty = true; siteC.dirty = true; proDirty();
+    proRazed(c); rubAdd(rubbleOf(c)); S.grid[idx(c.x, c.y)] = null; (S.npcMods = S.npcMods || []).push([c.x, c.y, 'x', 0]); cityHold(c.x, c.y); if (S.npcOwn) delete S.npcOwn[c.x + ',' + c.y]; trfDirty = true; siteC.dirty = true; proDirty();
     flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cost + fees), t: performance.now(), col: '#ff8a8e' });
     say(`Immeuble racheté et rasé (${money(cost)}${fees ? ' + ' + money(fees) + ' de frais' : ''}) : le terrain est libre et déjà payé pour ton projet. ${c.k === 'res' ? 'Les habitants sont relogés ailleurs (population -' + 5 * c.floors + ' de capacité).' : c.k === 'house' ? '' : 'Les emplois disparaissent avec lui.'}`, 'gold');
     refreshStats(); updateHUD(); checkPro(); save(); return true;
@@ -7895,6 +7899,7 @@ function cityHTML() {
     + kp('Demande d\'emplois', lvl(c.demJobs), c.demJobs > 0.15 ? 'pos' : '', 'chômage ' + (c.unemp * 100).toFixed(1).replace('.', ',') + ' %')
     + kp('Attractivité', c.attr.toFixed(2).replace('.', ','), c.attr >= 1.2 ? 'pos' : c.attr < 0.9 ? 'neg' : '', 'emplois, humeur, services, impôt, cycle')
     + kp('Étages bâtis', fmt(c.resF) + ' logements · ' + fmt(c.offF) + ' bureaux', '', '')
+    + (() => { if (!S.pro) return ''; const d = proDemo(); if (!(d.net > 0)) return ''; return kp('Population créée par tes projets', fmt(d.pop) + ' habitants', 'pos', 'logements livrés : ' + fmt(d.units) + ' immeubles, ' + fmt(d.fl) + ' étages · ' + pc(d.share) + ' de la ville · attractivité +' + Math.round(100 * (proAttrCity() - 1)) + ' %'); })()   // passe 69
     + (() => { const H = citySvcHave(), n = Object.keys(CITY_SVC).reduce((t, k) => t + (H.n[k] || 0), 0), cv = citySvcCov(); return kp('Services publics', fmt(n) + ' écoles, hôpitaux, commissariats et casernes', cv < 0.95 ? 'neg' : '', 'couverture ' + pc(cv) + ' des besoins de ' + fmt(c.pop) + ' habitants'); })()   // passe 60
     + `</div><p class="note">${dens || 'Aucun immeuble'}. La ville se densifie quand la demande et la valeur du sol le justifient (maison, petit immeuble, immeuble, tour, grande tour, supertour) ; ses promoteurs rachètent et reconstruisent plus haut.</p>`
     + (S.cg && S.cg.h && S.cg.h.length > 1 ? `<canvas id="citspark" width="640" height="110" style="width:100%;height:70px" aria-label="Population au fil des mois"></canvas>` : '');
@@ -7960,13 +7965,18 @@ function creditLimit() {
 // Promoteur BTP : actifs gageables = trésorerie + stocks (80 %) + immobilier expertisé (× indice de prix) + autres immobilisations (60 %) ; dette ≤ 80 % de ces actifs, soit 4 × les fonds propres (levier ×5)
 const IMMO_T = ['res', 'immo', 'btp', 'off', 'hq', 'wh', 'sport', 's1', 's2', 's3', 's4'];
 const PROMO_LTV = 0.8, PROMO_COV = 0.9;   // LTV à l'octroi 80 % ; au-delà de 90 % : appel de marge
-const immoIdx = () => { const M = S.macro || { gdp: 0.03, rate: 0.04 }; return clamp(1 + 2 * (M.gdp - 0.03) - 3 * (M.rate - 0.04) - 0.3 * shockI('credit'), 0.55, 1.35); };   // indice des prix de l'immobilier : baisse en récession, quand les taux montent et en crise du crédit
+const immoIdx = () => { const M = S.macro || { gdp: 0.03, rate: 0.04 }; return clamp(1 + 2 * (M.gdp - 0.03) - 3 * (M.rate - 0.04) - 0.3 * shockI('credit') - 0.3 * ((S.pro && S.pro.cy && S.pro.cy.k) || 0), 0.45, 1.35); };   // passe 69 : − krach immobilier (expertises des prêteurs)   // indice des prix de l'immobilier : baisse en récession, quand les taux montent et en crise du crédit
 function promoAssets() { const st = S.stats || {}, iv = st.iv || 0, fv = st.fv || 0; return S.cash + 0.8 * stockValue() + iv * immoIdx() + 0.6 * Math.max(0, fv - iv); }
 function promoLimit() { return Math.max(0, Math.round((PROMO_LEV - 1) * (promoAssets() - (S.loan || 0)) / 1000) * 1000); }
 const promoLtv = () => { const a = promoAssets(); return (S.loan || 0) <= 0 ? 0 : a > 0 ? (S.loan || 0) / a : 9; };
 function promoPts() { return casteIs('promoteur') && (S.loan || 0) > 0 ? 0.03 * clamp((promoLtv() - 0.5) / 0.4, 0, 1) + (S.mc ? 0.03 : 0) : 0; }
 function forcedSale(target) {   // vente forcée : le prêteur fait vendre l'immobilier le plus cher avec une décote de 15 %, jusqu'à revenir sous la LTV cible
   let sold = 0, got = 0;
+  // passe 69 : le prêteur fait d'abord vendre le parc immobilier (logements livrés, biens rachetés) au marché, décote de vente forcée (15 % de plus que la décote du marché, krach compris)
+  for (let it = 0; it < 40 && (S.loan || 0) > 0 && promoLtv() > target; it++) {
+    const L = proPortList().filter(c => !c.works).sort((a, b) => proValue(b).v - proValue(a).v)[0]; if (!L) break;
+    const r = proSellExec(L, proValue(L).v * proBonus() * (proMktK() - 0.15), 'npc', 'vente forcée'); if (!r.ok) break; const rep = Math.min(S.loan, Math.max(0, r.q.net)); S.loan -= rep; S.cash -= rep; sold++; got += r.q.price; PR().st.forced = (PR().st.forced || 0) + 1; refreshStats();
+  }
   for (let it = 0; it < 8 && (S.loan || 0) > 0 && promoLtv() > target; it++) {
     let best = null, bv = 0; eachBuilding(c => { if (c.t === 'npc' || IMMO_T.indexOf(c.t) < 0) return; const v = (TYPES[c.t].cost * 0.9 + upgradeSpent(c) * 0.6 + landVal(c)) * immoIdx(); if (v > bv) { bv = v; best = c; } });
     if (best) { for (let ox = 0; ox < best.w; ox++) for (let oy = 0; oy < best.h; oy++) S.grid[idx(best.x + ox, best.y + oy)] = null; const px = 0.85 * bv, rep = Math.min(S.loan, px); S.loan -= rep; S.cash += px - rep; sold++; got += px; refreshStats(); }
@@ -7979,7 +7989,7 @@ function stepCovenant() {   // covenant du promoteur : LTV > 90 % = appel de mar
   const l = promoLtv();
   if (S.mc) {
     if (l <= PROMO_LTV) { say('Appel de marge soldé : ta LTV est revenue sous 80 %.', 'good'); S.mc = null; }
-    else if (S.day >= S.mc.until) { const r = forcedSale(PROMO_LTV - 0.02); say(`Vente forcée : ${r.sold ? r.sold + ' immeuble(s) cédé(s) à −15 %' : 'trésorerie saisie'} (${money(r.got)}) pour ramener la dette sous la LTV de 80 %.`, 'bad'); S.mc = promoLtv() > PROMO_COV ? { d0: S.day, until: S.day + 30 } : null; }
+    else if (S.day >= S.mc.until) { const r = forcedSale(PROMO_LTV - 0.02); proBankrupt(); say(`Vente forcée : ${r.sold ? r.sold + ' immeuble(s) cédé(s) à −15 %' : 'trésorerie saisie'} (${money(r.got)}) pour ramener la dette sous la LTV de 80 %.`, 'bad'); S.mc = promoLtv() > PROMO_COV ? { d0: S.day, until: S.day + 30 } : null; }
   } else if (l > PROMO_COV) { S.mc = { d0: S.day, until: S.day + 30 }; say(`Appel de marge : ta dette atteint ${Math.round(l * 100)} % de tes actifs gageables (covenant 90 %). Rembourse ou l'immobilier sera vendu de force sous 30 jours ; taux +3 pts.`, 'bad'); }
 }
 function creditLimitBase() { return Math.max(Math.round(curAssetsCL() * (casteIs('banquier') ? 1.5 : 1) * (execOn('cfo') ? 1.2 : 1) / 1000) * 1000, creditLimit0()); }
@@ -9744,32 +9754,42 @@ function proCtx() {
 }
 const proGdp = () => { const m = S.macro || {}; return m.gdp == null ? 0.03 : m.gdp; };
 const proRentK = () => clamp(1 + 1.2 * (proGdp() - 0.03), 0.9, 1.12) * (1 + 0.05 * ((S.pro && S.pro.hype) || 0));
-function proCap() { const m = S.macro || {}; return clamp(0.045 + 0.65 * (m.rate == null ? 0.03 : m.rate) - (m.boom ? 0.006 : 0) - 0.007 * ((S.pro && S.pro.hype) || 0), 0.042, 0.15); }
+function proCap() { const m = S.macro || {}, cy = (S.pro && S.pro.cy) || {}; return clamp(0.045 + 0.65 * (m.rate == null ? 0.03 : m.rate) - (m.boom ? 0.006 : 0) - 0.007 * ((S.pro && S.pro.hype) || 0) - 0.008 * (cy.bub || 0) + 0.03 * (cy.k || 0), 0.038, 0.16); }   // passe 69 : la bulle comprime le taux de capitalisation (prix gonflés), le krach le fait bondir
 function proAttr(x, y) {
   const A = reAttr({ x, y }), C = proCtx(), dens = clamp((C.dens(x, y) - 20) / 90, 0, 1) * 0.22, bl = Math.min(0.12, 0.03 * C.boul(x, y));
   let sea = 0; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(d => { if (inb(x + d[0], y + d[1]) && ZONE[idx(x + d[0], y + d[1])] === 3) sea = 0.06; });
   { const LC = landCache(); if (LC) sea = Math.max(sea, 0.2 * LC.view[idx(x, y)]); }   // passe 48 : la vue sur la mer (champ de vision, pas seulement le front de mer) fait le loyer, comme le prix du lot
   const svc = Math.min(0, (S.pro && S.pro.svcC != null ? S.pro.svcC : 1) - 1) * 0.08;
-  return clamp(A.attr + dens + bl + sea + svc, 0.45, 1.8);
+  return clamp(A.attr + dens + bl + sea + svc + proGolfAm(x, y), 0.45, 1.8);   // passe 69 : un golf du promoteur valorise le voisinage
 }
 // Valeur de marché d'un bien (cellule de la ville ou logement du joueur) ; mémoïsée par jour
 function proValue(c) {
-  const k = c.t === 'npc' ? c.k : c.t, K = PRO_KIND[k], fl = Math.max(1, c.floors || 1), x = c.x, y = c.y, C = proCtx(), mk = C.key + ':' + fl + ':' + k;
+  const k = c.t === 'npc' ? c.k : c.t, K = PRO_KIND[k] && PRO_KIND[k] * proProgK(c), fl = Math.max(1, c.floors || 1), x = c.x, y = c.y, C = proCtx(), mk = C.key + ':' + fl + ':' + k + ':' + (c.prog || '') + ':' + (c.bn ? 1 : 0);
   if (c._pv && c._pv.k === mk) return c._pv.o;
   const lot = landPrice(x, y, landUseOf(k) || undefined), cap = proCap(); let o;   // passe 48 : lot évalué pour l'usage du bien (logement, bureaux)
   if (!K) o = { v: Math.round(lot * (k === 'park' ? 0.6 : 1.5) / 10) * 10, vi: 0, noi: 0, gross: 0, occ: 0, cap, lot, attr: 0, fl, K: 0, rentFl: 0, idx: 0 };
   else {
-    const attr = proAttr(x, y), ix = reIdxAt(x, y), occ = clamp(1.05 - 0.6 * ix + 1.2 * (proGdp() - 0.03), 0.3, 1), rentFl = PRO_RENT * K * attr * cpi() * proRentK();
+    const attr = proAttr(x, y), ix = reIdxAt(x, y), occ = clamp(1.05 - 0.6 * ix + 1.2 * (proGdp() - 0.03), 0.3, 1) * (K && k !== 'off' ? proResOcc() : 1), rentFl = PRO_RENT * K * attr * cpi() * proRentK() * proBrandK(c);   // passe 69 : prime de marque des tours baptisées du promoteur
     const gross = fl * rentFl * occ, noi = gross * (1 - PRO_OPEX), vi = noi * 365 / cap, u = c.t === 'npc' ? 0.96 + 0.08 * hash(x, y, 77) : 1;
     o = { v: Math.round(Math.max(vi, 0.8 * lot) * u / 10) * 10, vi, noi, gross, occ, cap, lot, attr, fl, K, rentFl, idx: ix };
   }
   c._pv = { k: mk, o }; return o;
 }
+// Passe 69 : logements vacants de la ville (capacité non occupée au-delà de la vacance normale de 13 %) : l'excès d'offre fait baisser l'occupation des logements à louer
+// et l'offre nouvelle : le marché absorbe sans baisse des logements livrés pour 15 % de la population par an ; au-delà, l'occupation et les prix baissent (suroffre)
+function proResOcc() { const st = S.stats || {}, cap = st.cap || 0; if (!(cap > 0) || !S.cityV) return 1; const vac = 1 - (S.pop || 0) / cap, sup = proSupply();
+  return clamp(1 - 1.5 * Math.max(0, vac - 0.13) - 0.8 * Math.max(0, (st.unemp || 0) - 0.08) - 1.2 * Math.max(0, sup - 0.15), 0.5, 1); }
+function proSupply() { const p = S.pro; if (!p || !p.dl || !p.dl.length) return 0; let n = 0; p.dl.forEach(q => { if (q[0] > S.day - 365) n += q[1]; }); return n / Math.max(20000, S.pop || 0); }
 // Valeur d'un immeuble hypothétique (pour simuler une promotion avant de la lancer)
 const proValueAt = (x, y, k, fl) => proValue({ t: 'npc', k, x, y, floors: fl });
 const resUpk = c => TYPES.res.upkeep + 4.6 * (c.floors || 1);
 const maxFl = () => MAX_FLOORS + (casteIs('promoteur') ? 2 : 0) + (casteIs('promoteur') && proLevel() >= 4 ? 1 : 0);
-function floorCost(c) { return Math.round((1.0 * TYPES.res.cost * (1 + 0.1 * ((c.floors || 1) - 1)) + 0.12 * landPrice(c.x, c.y, 'res')) * casteCost('res') * Math.max(1, cpi()) / 10) * 10; }
+function floorCost(c) { const hard = Math.round((1.0 * TYPES.res.cost * (1 + 0.1 * ((c.floors || 1) - 1)) + 0.12 * landPrice(c.x, c.y, 'res')) * casteCost('res') * Math.max(1, cpi()) / 10) * 10, f = c.floors || 1;
+  return hard + proRights(proValueAt(c.x, c.y, 'res', f + 1).v - proValueAt(c.x, c.y, 'res', f).v - hard); }   // passe 69 : + charge foncière (droits à bâtir) sur la valeur créée par l'étage
+// Passe 69 : charge foncière. La ville vend les droits à bâtir : elle prend PRO_RIGHTS de la valeur créée au-delà du coût de construction (loyers capitalisés − coût), sinon un étage
+// au centre (≈ 200 000 $ de valeur pour ≈ 70 000 $ de travaux) serait un gain gratuit. Promoteur : −35 % (négociation, contreparties d'urbanisme).
+const PRO_RIGHTS = 0.55;
+const proRights = residual => Math.max(0, Math.round(PRO_RIGHTS * (casteIs('promoteur') ? 0.65 : 1) * residual / 10) * 10);
 const proDays = d => Math.max(2, Math.round(d * (casteIs('promoteur') ? 0.7 : 1)));
 const proAccess = () => ({ ok: casteIs('promoteur') || (((S.stats && S.stats.cn) || {}).btp || 0) > 0, k: casteIs('promoteur') ? 1 : 1.6 });
 // Prix demandé par le vendeur : valeur de marché ± écart propre au bien ; −8 % pour le promoteur (réseau d'agents)
@@ -9797,8 +9817,9 @@ function plandSum(x, y, key) { const T = TYPES[key]; let s = 0; if (!S.pland) re
 const proBasis = c => c.t === 'res' ? Math.round((c.invest != null ? c.invest : TYPES.res.cost) + (c.lp || 0)) : (((S.pro && S.pro.hold[c.x + ',' + c.y]) || {}).basis || 0);
 const proHeld = c => c.t === 'res' ? S.day - (c.bday != null ? c.bday : S.day) : S.day - (((S.pro && S.pro.hold[c.x + ',' + c.y]) || {}).day || S.day);
 const proTaxRate = d => d < 45 ? 0.32 : d < 150 ? 0.24 : 0.16;
+const PRO_TAXREL = 0.25;   // passe 69 : allègements fiscaux du promoteur (amortissements, report d'imposition en cas de réinvestissement) : −25 % sur l'impôt de plus-value
 function proQuote(c, price) {
-  const fee = Math.round(price * PRO_FEE), basis = proBasis(c), held = proHeld(c), gain = Math.round(price - fee - basis), rate = proTaxRate(held), tax = Math.round(Math.max(0, gain) * rate);
+  const fee = Math.round(price * PRO_FEE), basis = proBasis(c), held = proHeld(c), gain = Math.round(price - fee - basis), rate = proTaxRate(held), tax = Math.round(Math.max(0, gain) * rate * (casteIs('promoteur') ? 1 - PRO_TAXREL : 1));
   return { price: Math.round(price), fee, basis, gain, rate, tax, net: Math.round(price - fee - tax), held };
 }
 const proBonus = () => casteIs('promoteur') ? 1.10 : 1;
@@ -9821,13 +9842,13 @@ function proWorks(c, k, to, cost, days) { c.works = { k, to, due: S.day + days, 
 function proStepWorks() {
   eachBuilding(c => {
     if (c.t !== 'res' || !c.works || S.day < c.works.due) return;
-    const w = c.works; delete c.works; if (w.k === 'up') { c.floors = w.to; PR().st.floors++; } PR().st.built++; c.born = performance.now() - 300;
+    const w = c.works; delete c.works; if (w.k === 'up') { c.floors = w.to; PR().st.floors++; } else if (w.k === 'prog') { proProgDone(c); return; } else proDelivered(c); PR().st.built++; c.born = performance.now() - 300;
     flyers.push({ x: c.x, y: c.y, text: 'Livré', t: performance.now(), col: '#46d39a' }); proDirty(); say(`Chantier livré : logements en (${c.x + 1}, ${c.y + 1}), ${c.floors} étage(s).`, 'good'); refreshStats();
   });
 }
 function proUpgrade(c) {
   if (!c || c.t !== 'res') return false;
-  const cost = upgradeCost(c); if (!cost) { say(`Hauteur maximale atteinte (${maxFl()} étages).${casteIs('promoteur') ? '' : ' Le permis de grande hauteur est réservé aux promoteurs.'}`, 'info'); return false; }
+  const cost = upgradeCost(c); if (!cost) { say(`Hauteur maximale atteinte (${proMaxAt(c.x, c.y)} étages).${casteIs('promoteur') ? '' : ' Le permis de grande hauteur est réservé aux promoteurs.'}`, 'info'); return false; }
   if (c.works) { say('Un chantier est déjà en cours sur cet immeuble.', 'info'); return false; }
   if (S.cash < cost) { say(`Il faut ${money(cost)} pour ajouter un étage (le coût suit la valeur du terrain : lot à ${money(landPrice(c.x, c.y, 'res'))}).`, 'bad'); return false; }
   S.cash -= cost; c.invest = investOf(c) + cost; c.fcap = (c.fcap != null ? c.fcap : Math.max(0, c.floors - 1) * 400) + cost; proWorks(c, 'up', c.floors + 1, cost, proDays(5 + 2 * c.floors)); PR().st.spent += cost;
@@ -9840,6 +9861,7 @@ function proBuyCheck(c) {
   const o = ownerOf(c), price = proAsk(c), fees = proFees(price);
   if (o === 'me') return { ok: false, why: 'Tu possèdes déjà ce bien.', price: 0 };
   if (o !== 'npc') return { ok: false, why: `Ce bien appartient à ${ownerName(o)} : pose un bâtiment dessus pour négocier son rachat.`, price };
+  if (proNoSale(c.x, c.y)) return { ok: false, why: 'Le propriétaire vient de l\'acheter : il ne revend pas avant deux ans.', price };
   if (S.cash < price + fees) return { ok: false, why: `Il te manque ${money(price + fees - S.cash)} (prix demandé ${money(price)} + frais ${money(fees)}).`, price, fees };
   return { ok: true, price, fees };
 }
@@ -9857,13 +9879,13 @@ function proSellExec(c, price, buyer, how) {
   p.log.unshift({ d: S.day, x: c.x, y: c.y, k: c.t === 'res' ? 'res' : c.k, f: c.floors, price: q.price, basis: q.basis, gain: q.gain, tax: q.tax, held: q.held, to: ownerName(buyer), how }); if (p.log.length > 40) p.log.pop();
   const x = c.x, y = c.y, key = x + ',' + y;
   if (c.t === 'res') { const seed = +hash(x, y, 91).toFixed(4); S.grid[idx(x, y)] = { t: 'npc', k: 'res', seed, floors: c.floors, lvl: 0, w: 1, h: 1, x, y, born: performance.now() - 300, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; (S.built = S.built || []).push([x, y, 'res', c.floors, seed]); delete PL()[idx(x, y)]; }
-  S.npcOwn = S.npcOwn || {}; S.npcOwn[key] = buyer; delete p.hold[key]; p.ops = p.ops.filter(o => !(o.t === 'sale' && o.key === key));
+  S.npcOwn = S.npcOwn || {}; S.npcOwn[key] = buyer; delete p.hold[key]; (p.ns = p.ns || {})[key] = S.day + 720; (p.rs = p.rs || []).push(S.day); if (p.rs.length > 60) p.rs.shift();   // passe 69 : l'acquéreur garde le bien 2 ans ; ventes récentes (profondeur du marché) p.ops = p.ops.filter(o => !(o.t === 'sale' && o.key === key));
   if (rivalById(buyer)) { const r = rivalById(buyer); r.cash -= q.price; r.re = (r.re || 0) + q.price; }
   flyers.push({ x, y, text: '+' + fmt(q.net), t: performance.now(), col: '#46d39a' }); proDirty(); trfDirty = true; siteC.dirty = true;
   say(`Vendu ${money(q.price)} à ${ownerName(buyer)} : plus-value ${money(q.gain)} (${q.basis ? Math.round(100 * q.gain / q.basis) : 0} %), impôt ${money(q.tax)}, net encaissé ${money(q.net)}.`, q.gain > 0 ? 'gold' : 'warn');
   refreshStats(); updateHUD(); checkPro(); save(); return { ok: true, q };
 }
-function proSellMarket(x, y) { const c = inb(x, y) && S.grid[idx(x, y)]; if (!c) return { ok: false, why: 'Rien à vendre ici.' }; return proSellExec(c, proValue(c).v * proBonus() * 0.95, 'npc', 'marché'); }
+function proSellMarket(x, y) { const c = inb(x, y) && S.grid[idx(x, y)]; if (!c) return { ok: false, why: 'Rien à vendre ici.' }; return proSellExec(c, proValue(c).v * proBonus() * proMktK(), 'npc', 'marché'); }   // passe 69 : décote de vente immédiate 5 % (marché liquide) à 20 % (krach, marché gelé)
 function proList(x, y, mult) {
   const c = inb(x, y) && S.grid[idx(x, y)]; if (!c || (c.t !== 'res' && ownerOf(c) !== 'me')) return { ok: false, why: 'Ce bien ne t\'appartient pas.' };
   if (c.works) return { ok: false, why: 'Chantier en cours : attends la livraison avant de vendre.' };
@@ -9877,7 +9899,7 @@ function proStepSales() {
     if (o.t !== 'sale') continue; const c = S.grid[idx(o.x, o.y)];
     if (!c || (c.t !== 'res' && ownerOf(c) !== 'me')) { p.ops.splice(p.ops.indexOf(o), 1); continue; }
     if (c.works) continue;
-    const V = proValue(c).v * proBonus(), pr = clamp(0.40 * (1.28 - o.ask / V) + 0.08 * (p.hype || 0), 0, 0.5);
+    const V = proValue(c).v * proBonus(), rec = (p.rs || []).filter(d => d > S.day - 30).length, dep = 3 + (S.pop || 0) / 50000, pr = clamp(0.40 * (1.28 - o.ask / V) + 0.08 * (p.hype || 0), 0, 0.5) * proLiq() * (rec >= dep ? 0.25 : 1);   // passe 69 : profondeur du marché (3 ventes + 1 par 50 000 habitants par mois)   // passe 69 : liquidité du marché (krach, crise du crédit : peu d'acquéreurs)
     if (hash(o.x, o.y, 400 + S.day) < pr) { const rv = (S.rivals || []).filter(r => r.cash > o.ask * 1.5), rb = rv.length && hash(o.x, o.y, 410 + S.day) < 0.35 ? rv[Math.floor(hash(o.y, o.x, 420 + S.day) * rv.length)] : null; proSellExec(c, o.ask, rb ? rb.id : 'npc', 'annonce'); }
     else if (S.day >= o.until) { p.ops.splice(p.ops.indexOf(o), 1); say(`Annonce expirée en (${o.x + 1}, ${o.y + 1}) : aucun acquéreur à ${money(o.ask)}. Baisse le prix ou vends au marché.`, 'warn'); }
   }
@@ -9978,7 +10000,7 @@ function stepZones() {
     if (!c) {
       if (sp >= 4 || hash(x, y, 300 + S.day) > 0.03 * D[t] * sv || !zoneConn(x, y)) continue; const h = hash(x, y, 311);
       if (t === 'r') npcAdd(x, y, 'house', 1); else if (t === 'R') npcAdd(x, y, 'res', 2 + Math.floor(h * 3)); else if (t === 'c') npcAdd(x, y, 'off', 2 + Math.floor(h * 3)); else if (t === 'o') npcAdd(x, y, 'off', 4 + Math.floor(h * 5)); else npcAdd(x, y, 'off', 1 + Math.floor(h * 3));
-      sp++; p.zb = (p.zb || 0) + 1;
+      sp++; p.zb = (p.zb || 0) + 1; (p.zg = p.zg || {})[i] = 1;   // passe 69 : bâtiment poussé sur un zonage du promoteur (démographie)
       if (p.zb % 12 === 0) { for (const q of keys) { const j = +q; if (!S.grid[j] && zn[q] && j !== i) { npcAdd(j % N, (j / N) | 0, 'park', 1); delete zn[q]; say('La mairie aménage un parc dans le nouveau quartier (services publics).', 'info'); break; } } }
     } else if (c.t === 'npc' && gr < 2 && ownerOf(c) === 'npc' && hash(x, y, 600 + S.day) < 0.006 * D[t] * (0.5 + proAttr(x, y) / 2)) {   // densification spontanée : les îlots zonés montent d'un étage quand la demande et le prix du sol le permettent
       if (t === 'r' && c.k === 'house' && D.r > 0.4) { c.k = 'res'; c.floors = 2; c.born = performance.now() - 300; builtSet(x, y, 'res', 2); gr++; proDirty(); }
@@ -10012,7 +10034,8 @@ function checkPro() {
 function proStep() {
   if (!S.pro && !S.pzn && !S.pland && !casteIs('promoteur')) return;
   const p = PR(), m = S.macro || {};
-  const tg = clamp(1.3 * (proGdp() - 0.03) / 0.03 - 1.3 * ((m.rate == null ? 0.03 : m.rate) - 0.04) / 0.03 + (m.boom ? 0.5 : 0), -1, 1); p.hype = clamp((p.hype || 0) + (tg - (p.hype || 0)) * 0.015, -1, 1);
+  const kr = (p.cy && p.cy.k) || 0, tg = clamp(1.3 * (proGdp() - 0.03) / 0.03 - 1.3 * ((m.rate == null ? 0.03 : m.rate) - 0.04) / 0.03 + (m.boom ? 0.5 : 0) - 2.2 * kr, -1, 1); p.hype = clamp((p.hype || 0) + (tg - (p.hype || 0)) * (kr > 0.1 ? 0.05 : 0.015), -1, 1);
+  proCycleStep(p); if (p.br > 0) p.br *= 0.99971;   // passe 69 : cycle bulle / krach ; la marque s'use de 10 % par an sans nouvelle tour
   proStepWorks(); proStepSales(); proStepTerra(); stepZones();
   if (S.day % 5 === 0) { checkPro(); proKeyUpdate(); }
   if (S.day % 30 === 0 && (S._comm || 0) > 0) { say(`Honoraires de maîtrise d'ouvrage et de permis : ${money(S._comm)} sur 30 jours.`, 'info'); S._comm = 0; }
@@ -10027,6 +10050,170 @@ function proRoadErr(x, y) {
   if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(d => isRoad(x + d[0], y + d[1]))) return 'Une voie nouvelle doit se raccorder à une rue existante.';
   return '';
 }
+/* ---------- Passe 69 : le promoteur « à la Trump » — achat-revente, droits à bâtir, marque de prestige, programmes emblématiques, démographie, cycle immobilier ---------- */
+// Droits à bâtir : hauteur autorisée sur un lot. Hors promoteur : la règle de la passe 34 (6 étages). Promoteur : la hauteur que la ville vise sur ce lot (cityTarget),
+// majorée de 15 % (dérogations, transferts de droits à bâtir) + 1 étage par niveau de caste, jamais moins que sa grande hauteur de base, 60 au plus. Elle monte avec la ville.
+function proMaxAt(x, y) {
+  const b = maxFl(); if (!casteIs('promoteur') || !S.cityV || !S.cg) return b;
+  return Math.max(b, Math.min(60, Math.round(1.15 * cityTarget(x, y, 'res', cityR(S.pop || 0), cityFmax(S.pop || 0))) + proLevel()));
+}
+// Programmes emblématiques (sur une tour de logements du joueur) : hôtel de luxe, casino-hôtel, centre commercial de luxe, golf et club-house.
+// K : loyer de l'étage × K (rendements décroissants si on en multiplie) ; fit : aménagement en part de la valeur ; att : image de la ville (attractivité) ; am : agrément pour le voisinage (golf)
+const PROG = {
+  hotel: { n: 'Hôtel de luxe', K: 1.6, min: 8, max: 80, fit: 0.25, d: 60, pOk: 1, att: 0.012 },
+  casino: { n: 'Casino-hôtel', K: 2.2, min: 12, max: 80, fit: 0.4, d: 90, pOk: 0.7, att: 0.015, vol: 5 },
+  mall: { n: 'Centre commercial de luxe', K: 1.45, min: 3, max: 12, fit: 0.2, d: 45, pOk: 1, att: 0.01 },
+  golf: { n: 'Golf et club-house', K: 0.9, min: 1, max: 3, fit: 0.5, d: 60, pOk: 0.9, att: 0.008, am: 0.12 }
+};
+function proProgList() {
+  if (S._pgl && S._pgl.day === S.day && S._pgl.v === (S._pcv | 0)) return S._pgl;
+  const o = { day: S.day, v: S._pcv | 0, n: {}, golf: [] };
+  eachBuilding(c => { if (c.t !== 'res' || !c.prog || (c.works && c.works.k === 'prog')) return; o.n[c.prog] = (o.n[c.prog] || 0) + 1; if (c.prog === 'golf') o.golf.push([c.x, c.y]); });
+  return (S._pgl = o);
+}
+function proProgK(c) {
+  if (!c || c.t !== 'res' || !c.prog || (c.works && c.works.k === 'prog')) return 1; const P = PROG[c.prog]; if (!P) return 1;
+  const n = proProgList().n[c.prog] || 1; let K = 1 + (P.K - 1) / (1 + 0.35 * (n - 1)); if (P.vol) K *= clamp(1 + P.vol * (proGdp() - 0.03), 0.6, 1.3);   // le casino suit la conjoncture
+  return K;
+}
+const proGolfAm = (x, y) => { if (!S.pro) return 0; let a = 0; proProgList().golf.forEach(q => { if (Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 5) a += PROG.golf.am; }); return Math.min(0.18, a); };
+function proProgErr(c, k) {
+  const P = PROG[k]; if (!P) return 'Programme inconnu.'; if (!c || c.t !== 'res') return 'Un programme s\'installe dans un de tes immeubles de logements livrés.';
+  if (!casteIs('promoteur')) return 'Programmes emblématiques réservés à la caste Promoteur.'; if (c.works) return 'Chantier en cours.'; if (c.prog === k) return 'Déjà en place.';
+  if (c.floors < P.min) return `${P.n} : au moins ${P.min} étages.`; if (c.floors > P.max) return `${P.n} : ${P.max} étages au plus.`; return '';
+}
+const proProgCost = (c, k) => Math.round(proValue(c).v * PROG[k].fit / 10) * 10;
+function proProg(x, y, k) {
+  const c = inb(x, y) && S.grid[idx(x, y)], e = proProgErr(c, k); if (e) return { ok: false, why: e };
+  const cost = proProgCost(c, k), P = PROG[k]; if (S.cash < cost) return { ok: false, why: `Aménagement : ${money(cost)} (il te manque ${money(cost - S.cash)}).` };
+  if (hash(x, y, 700 + S.day) >= P.pOk) { const fee = Math.round(cost * 0.05); S.cash -= fee; say(`Licence refusée pour ${P.n.toLowerCase()} en (${x + 1}, ${y + 1}) : ${money(fee)} de frais de dossier perdus.`, 'bad'); return { ok: false, why: 'Licence refusée.' }; }
+  S.cash -= cost; c.invest = investOf(c) + cost; c.fcap = (c.fcap || 0) + cost; c.prog = k; proWorks(c, 'prog', c.floors, cost, proDays(P.d)); PR().st.spent += cost; proDirty();
+  say(`${P.n} en chantier en (${x + 1}, ${y + 1}) : ${money(cost)}, ouverture dans ${c.works.due - S.day} jours.`, 'info'); refreshStats(); return { ok: true, cost };
+}
+function proProgDone(c) { const p = PR(); p.br = (p.br || 0) + 50; p.st.prog = (p.st.prog || 0) + 1; c.born = performance.now() - 300; proDirty(); say(`${PROG[c.prog].n}${c.bn ? ' ' + c.bn : ''} ouvert en (${c.x + 1}, ${c.y + 1}) : la ville gagne un lieu emblématique, ta marque aussi.`, 'gold'); refreshStats(); }
+// Marque de prestige : chaque tour livrée de 10 étages ou plus est baptisée du nom du promoteur. Score = étages des tours baptisées + 50 par programme emblématique,
+// −10 % par an. Marque (0 à 1) = 1 − e^(−score / 1500) (≈ 0,5 après une cinquantaine de tours de 20 étages). Prime de loyer et de valeur de ses tours : jusqu'à +30 % × marque, selon la hauteur, moins avec l'âge.
+const PRO_NAME_FL = 10;
+const proBrand = () => { const p = S && S.pro; return p && p.br > 0 ? 1 - Math.exp(-p.br / 1500) : 0; };
+const proBrandName = () => (S.pro && S.pro.bname) || 'Empire';
+function proBrandK(c) {
+  if (!c || c.t !== 'res' || !c.bn) return 1; const age = S.day - (c.bday != null ? c.bday : S.day);
+  return 1 + 0.3 * proBrand() * clamp(1 - age / 5400, 0.5, 1) * (0.6 + 0.4 * Math.min(1, (c.floors || 1) / 30));
+}
+function proDelivered(c) {
+  const p = PR(), fl = c.floors || 1; p.st.dfl = (p.st.dfl || 0) + fl; p.st.dlv = (p.st.dlv || 0) + 1; (p.mine = p.mine || {})[idx(c.x, c.y)] = 1;
+  p.dl = (p.dl || []).filter(q => q[0] > S.day - 365); p.dl.push([S.day, 5 * K_POP * fl]);   // offre nouvelle des 12 derniers mois (absorption du marché)
+  if (casteIs('promoteur') && fl >= PRO_NAME_FL) {
+    if (!c.bn) { p.tn = (p.tn || 0) + 1; c.bn = proBrandName() + ' Tower' + (p.tn > 1 ? ' ' + p.tn : ''); }
+    p.br = (p.br || 0) + fl; say(`${c.bn} inaugurée : ${fl} étages, ${fmt(5 * K_POP * fl)} habitants logés. Ta marque vaut désormais +${Math.round(30 * proBrand())} % de loyer sur tes tours neuves.`, 'gold');
+  }
+}
+// Rachats qui rasent du logement : capacité retirée (comptée contre la population créée)
+function proRazed(c) { if (!c || c.t !== 'npc') return; const p = PR(); p.st.razed = (p.st.razed || 0) + (c.k === 'res' ? 5 * K_POP * c.floors : c.k === 'house' ? 5 * K_POP : 0); }
+// Démographie : capacité de logement apportée par les projets du promoteur (logements livrés, même revendus ; bâtiments poussés sur ses zonages et ses terrains créés), moins ce qu'il a rasé.
+function proDemo() {
+  const key = S.day + ':' + (S._pcv | 0); if (S._pdm && S._pdm.key === key && S._pdm.g === S.grid) return S._pdm;
+  const p = S.pro || {}, seen = {}; let cap = 0, jobs = 0, fl = 0, units = 0;
+  const add = i => { if (seen[i]) return; seen[i] = 1; const c = S.grid[i]; if (!c) return;
+    if (c.t === 'res') { if (!(c.works && c.works.k === 'new')) { cap += 5 * K_POP * c.floors; fl += c.floors; units++; } }
+    else if (c.t === 'npc') { if (c.k === 'res') { cap += 5 * K_POP * c.floors; fl += c.floors; units++; } else if (c.k === 'house') { cap += 5 * K_POP; fl++; units++; } else if (c.k === 'off') jobs += c.floors * (S.jpf || 0); } };
+  Object.keys(p.mine || {}).forEach(k => add(+k)); Object.keys(p.zg || {}).forEach(k => add(+k)); Object.keys(S.pzm || {}).forEach(k => add(+k));
+  const st = S.stats || {}, razed = (p.st && p.st.razed) || 0, net = Math.max(0, cap - razed), tot = Math.max(1, st.cap || 1), share = clamp(net / tot, 0, 1);
+  return (S._pdm = { key, g: S.grid, cap, razed, net, share, pop: Math.round(share * (S.pop || 0)), jobs: Math.round(jobs), fl, units });
+}
+// Attractivité de la ville due au promoteur : offre de logements (jusqu'à +4 % quand ses projets logent 15 % de la ville), image (marque, programmes emblématiques) ; 1,08 au plus
+// (la croissance de la ville suit l'attractivité à la puissance 2,6 : +8 % d'attractivité = +22 % de rythme de chantiers)
+function proAttrCity() {
+  if (!S || !S.pro) return 1; const d = proDemo(), g = proProgList(); let a = 1 + 0.04 * clamp(d.share / 0.15, 0, 1) + 0.02 * proBrand();
+  Object.keys(PROG).forEach(k => { const n = g.n[k] || 0; if (n) a += 0.4 * PROG[k].att * Math.min(3, n); }); return Math.min(1.08, a);
+}
+// Synergies (jeu à somme positive) : ce que le promoteur apporte aux autres castes, ce qu'elles lui apportent
+function proSyn() {
+  const d = proDemo(), st = S.stats || {}, pop = Math.max(1, S.pop || 0), rate = loanRateNow();
+  let rivRev = 0; (S.rivals || []).forEach(r => { rivRev += Math.max(0, (r.lastRev || r.rev || 0)); });
+  return { give: { pop: d.pop, share: d.share, units: d.units, fl: d.fl, interest: Math.round((S.loan || 0) * rate), work: Math.round(d.pop * 0.55), attr: proAttrCity() },
+    get: { jobs: Math.max(0, Math.round((st.jobs || 0) - (st.playerJobs || 0))), loan: Math.round(S.loan || 0), attr: S.city ? S.city.attr : 1, pop } };
+}
+// Cycle immobilier : bulle (euphorie prolongée, taux bas, levier) puis krach (hausse des taux, choc de crédit, récession, ou retournement spontané) ; déterministe (hash)
+function proLiq() { const p = (S && S.pro) || {}, cy = p.cy || {}; return clamp(1 - 1.2 * (cy.k || 0) - 0.5 * shockI('credit') + 0.15 * (p.hype || 0), 0.15, 1.1); }
+const proMktK = () => 0.95 - 0.15 * clamp(1 - proLiq(), 0, 1);           // vente immédiate au marché : −5 % (liquide) à −20 % (gelé)
+const proMtmK = () => 0.95 - 0.10 * clamp(1 - proLiq(), 0, 1);           // valeur nette de réalisation (frais d'agent, délai de vente)
+function proCycleStep(p) {
+  const m = S.macro || {}, rate = m.rate == null ? 0.03 : m.rate, L = p.cy || (p.cy = { bub: 0, k: 0, rmin: rate, n: 0 }), cr = shockI('credit');
+  if (L.k > 0) { L.k *= 0.994; if (L.k < 0.03) { L.k = 0; say('Le marché immobilier se stabilise après le krach : les acquéreurs reviennent.', 'info'); } return; }
+  const lev = casteIs('promoteur') && (S.loan || 0) > 0 ? promoLtv() : 0;
+  L.bub = clamp(L.bub + 0.0022 * Math.max(0, (p.hype || 0) - 0.2) + 0.002 * Math.max(0, lev - 0.55) + 0.15 * Math.max(0, 0.03 - rate) - 0.004 * Math.max(0, -(p.hype || 0)) - 0.0005, 0, 1);
+  L.rmin = L.bub > 0.05 ? Math.min(L.rmin, rate) : rate;
+  if (L.bub > 0.4 && (cr > 0.2 || proGdp() < 0.005 || rate - L.rmin > 0.012 || hash(S.day, 77, 991) < 0.003 * L.bub)) {
+    L.k = clamp(0.2 + 0.45 * L.bub, 0.2, 0.65); L.n = (L.n || 0) + 1; L.kd = S.day; L.bub = 0;
+    say(`Krach immobilier : la bulle éclate. Taux de capitalisation +${pf1(3 * L.k)} pt, acquéreurs rares (ventes au marché −${Math.round(100 * (1 - proMktK()))} %), banques prudentes : les promoteurs endettés sont exposés.`, 'bad');
+  }
+}
+function proBankrupt() {
+  if (!casteIs('promoteur') || !S.mode || S.mode.done) return;
+  if (valuation() < 0 && promoLtv() > 1) { S.pro.bk = S.day; endGame('lose', 'Faillite : ta dette dépasse la valeur de ton immobilier après les ventes forcées. Le krach a eu raison de ton levier.'); }
+}
+// Portefeuille et valeur de marché (mark-to-market) : logements livrés et biens rachetés pour louer. Les prêteurs (collatéral, iv) ne retiennent que 60 % de la plus-value latente.
+const PRO_APPR = 0.6;
+function proPortList() { const o = []; eachBuilding(c => { if (c.t === 'res') o.push(c); }); return o.concat(proKeptList()); }
+function proMtm() {
+  const key = S.day + ':' + (S._pcv | 0); if (S._mtm && S._mtm.key === key && S._mtm.g === S.grid) return S._mtm;
+  let mkt = 0, book = 0, iv = 0; const k = proMtmK();
+  eachBuilding(c => { if (c.t !== 'res' || (c.works && c.works.k === 'new')) return; const b = TYPES.res.cost * 0.9 + upgradeSpent(c) * 0.6 + landVal(c), m = proValue(c).v * k; mkt += m; book += b; iv += PRO_APPR * (m - b); });
+  if (S.pro) proKeptList().forEach(c => { const b = (S.pro.hold[c.x + ',' + c.y] || {}).basis || 0, m = proValue(c).v * k; mkt += m; book += b; iv += b + PRO_APPR * (m - b); });
+  return (S._mtm = { key, g: S.grid, mkt, book, adj: mkt - book, iv });
+}
+// Promotion en une fois : rachat (s'il y a un bien de la ville), construction d'une tour de fl étages. Coût de construction d'un projet neuf : logement + étages à
+// (1 + 3 % par étage) × logement + 12 % du lot (l'étage ajouté plus tard sur un immeuble existant reste plus cher : +10 % par étage, passe 34). Durée : 10 + 4 jours par étage (−30 %).
+function proDevQuote(x, y, fl) {
+  if (!inb(x, y) || ZONE[idx(x, y)] !== 1) return { ok: false, why: 'Hors de la zone urbaine.' };
+  const c = S.grid[idx(x, y)];
+  if (c && c.t !== 'npc') return { ok: false, why: 'Case occupée par un de tes bâtiments.' };
+  if (c && (c.k === 'mon' || c.k === 'park' || c.lm)) return { ok: false, why: 'Bâtiment public ou repère : non vendable.' };
+  const own = c ? ownerOf(c) : null; if (c && own !== 'npc' && own !== 'me') return { ok: false, why: 'Bien d\'un rival : négociation nécessaire.' };
+  if (c && own === 'npc' && proNoSale(c.x, c.y)) return { ok: false, why: 'Le propriétaire vient d\'acheter : il ne revend pas encore.' };
+  if (!c && (!isLot(x, y) || isRoadPos(x, y) || S.dep[idx(x, y)])) return { ok: false, why: 'Pas un lot constructible.' };
+  if (!zoneConn(x, y)) return { ok: false, why: 'Aucune rue à portée.' };
+  const mx = proMaxAt(x, y); fl = clamp(fl | 0 || mx, 1, mx);
+  const acq = c && own === 'npc' ? proAsk(c) : 0, fees = acq ? proFees(acq) : 0, land = c ? 0 : landCostFor(x, y, 'res'), held = c && own === 'me' ? (((S.pro && S.pro.hold[c.x + ',' + c.y]) || {}).basis || 0) : 0;
+  const ck = casteCost('res') * Math.max(1, cpi()), base = Math.round(TYPES.res.cost * ck), lot = landPrice(x, y, 'res'); let extra = 0;
+  for (let f = 1; f < fl; f++) extra += Math.round((TYPES.res.cost * (1 + 0.03 * (f - 1)) + 0.12 * lot) * ck / 10) * 10;
+  const value = proValueAt(x, y, 'res', fl).v, rights = proRights(value - (acq + fees + land + base + extra + held)); extra += rights;
+  const total = acq + fees + land + base + extra, bk = fl >= PRO_NAME_FL && casteIs('promoteur') ? 1 + 0.3 * proBrand() * (0.6 + 0.4 * Math.min(1, fl / 30)) : 1;
+  const sale = Math.round(value * bk * proBonus() * (1 - PRO_FEE)), cost = total + held, gain = sale - cost;
+  return { ok: true, x, y, fl, mx, acq, fees, land, base, extra, rights, held, total, cost, value: Math.round(value * bk), sale, gain, margin: cost > 0 ? gain / cost : 0, days: proDays(10 + 4 * fl), npc: !!c, k: c ? c.k : null, f0: c ? c.floors : 0 };
+}
+function proDevelop(x, y, fl) {
+  const q = proDevQuote(x, y, fl); if (!q.ok) return q;
+  if (S.cash < q.total) return { ok: false, why: `Il te manque ${money(q.total - S.cash)} (projet ${money(q.total)}).`, short: q.total - S.cash };
+  const c0 = S.grid[idx(x, y)], cash0 = S.cash;
+  if (c0) { if (!place(x, y, 'buyout')) return { ok: false, why: 'Rachat impossible.' }; }
+  if (!place(x, y, 'res')) return { ok: false, why: 'Construction impossible ici.', spent: cash0 - S.cash };
+  const b = S.grid[idx(x, y)]; if (!b || b.t !== 'res') return { ok: false, why: 'Construction impossible ici.' };
+  S.cash -= q.extra; b.floors = q.fl; b.fcap = q.extra; b.invest = (b.invest || 0) + q.extra; b.works = { k: 'new', to: q.fl, due: S.day + q.days, cost: Math.round(cash0 - S.cash), t0: S.day };
+  const p = PR(); p.st.spent += q.extra; p.st.dev = (p.st.dev || 0) + 1; p.st.rights = (p.st.rights || 0) + (q.rights || 0); proDirty(); refreshStats(); updateHUD();
+  say(`Promotion lancée en (${x + 1}, ${y + 1}) : tour de ${q.fl} étages, ${money(cash0 - S.cash)} investis, livraison dans ${q.days} jours (valeur visée ${money(q.value)}).`, 'info');
+  return { ok: true, fl: q.fl, cost: cash0 - S.cash, q };
+}
+// Opportunités : biens de la ville sous-valorisés (prix demandé loin de la valeur après surélévation) et lots libres, triés par marge de promotion
+function proDeals(n, minM) {
+  n = n || 8; const R = cityR(S.pop || 0), pre = [];
+  for (let y = Math.max(1, CITY.y0); y <= Math.min(N - 2, CITY.y1); y++) for (let x = Math.max(1, CITY.x0); x <= Math.min(N - 2, CITY.x1); x++) {
+    const i = idx(x, y); if (ZONE[i] !== 1) continue; const c = S.grid[i]; let f0 = 0;
+    if (c) { if (c.t !== 'npc' || c.k === 'mon' || c.k === 'park' || c.lm) continue; const o = ownerOf(c); if (o !== 'npc' && o !== 'me') continue; f0 = c.k === 'house' ? 1 : c.floors; }
+    else if (!isLot(x, y) || isRoadPos(x, y) || S.dep[i]) continue;
+    const mx = proMaxAt(x, y); if (mx < Math.max(3, 1.6 * f0)) continue; pre.push([(mx - f0) * cityLV(x, y, R), x, y]);
+  }
+  pre.sort((a, b) => b[0] - a[0]); const out = [];
+  for (let k = 0; k < Math.min(pre.length, 120); k++) {
+    const x = pre[k][1], y = pre[k][2], mx = proMaxAt(x, y); let best = null;
+    [mx, Math.round(mx * 0.75), Math.round(mx * 0.5)].filter((v, j, a) => v >= 2 && a.indexOf(v) === j).forEach(f => { const q = proDevQuote(x, y, f); if (q.ok && (!best || q.gain > best.gain)) best = q; });
+    if (best && best.margin >= (minM == null ? 0.1 : minM)) out.push(best);
+  }
+  out.sort((a, b) => b.margin - a.margin); return out.slice(0, n);
+}
+// Après une vente à un acquéreur de la ville, il garde le bien 2 ans : pas de rachat immédiat du même immeuble pour le revendre aussitôt
+const proNoSale = (x, y) => { const h = S.pro && S.pro.ns; return !!(h && h[x + ',' + y] > S.day); };
 const SVC_KIND = t => isPlant(t) ? 'power' : ({ ewh: 'ewh', tv: 'tv', off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'dc', port: 'port', btp: 'btp' })[t] || null;
 const svcOf = c => { const T = TYPES[c.t]; return (T.ext || T.rec || T.ret) ? null : SVC_KIND(c.t); };
 const hasBld = t => { let n = 0; eachBuilding(b => { if (b.t === t && b.conn) n++; }); return n; };
@@ -18494,7 +18681,9 @@ const proMood = () => { const h = PR().hype || 0; return h > 0.45 ? 'euphorie (p
 function proFicheHTML(c) {
   const F = proFiche(c), v = F.v, row = (a, b, cl, t) => `<div class="r"${t ? ' title="' + t + '"' : ''}><span>${a}</span><span class="${cl || ''}">${b}</span></div>`;
   const own = F.own, fl = c.floors || 1, ow = ownerOf(c);
-  let h = `<b>${proKindTxt(c)} · ${fl} étage${fl > 1 ? 's' : ''}</b><p>(${c.x + 1}, ${c.y + 1}) · propriétaire : ${proOwnerTxt(c)}${c.works ? ' · <span class="neg">chantier en cours</span>' : ''}</p>`;
+  let h = `<b>${c.bn ? c.bn + ' · ' : ''}${c.prog && PROG[c.prog] ? PROG[c.prog].n + ' · ' : ''}${proKindTxt(c)} · ${fl} étage${fl > 1 ? 's' : ''}</b><p>(${c.x + 1}, ${c.y + 1}) · propriétaire : ${proOwnerTxt(c)}${c.works ? ' · <span class="neg">chantier en cours</span>' : ''}</p>`;
+  if (c.t === 'res' && c.bn) h += row('Prime de marque', '+' + Math.round(100 * (proBrandK(c) - 1)) + ' % de loyer et de valeur', 'pos', 'Tour baptisée de ta marque : prime selon la notoriété de la marque, la hauteur et l\'âge de la tour.');
+  if (casteIs('promoteur')) h += row('Droits à bâtir', proMaxAt(c.x, c.y) + ' étages', '', 'Hauteur que la ville vise sur ce lot (+15 % de dérogations) : elle monte avec la population.');
   h += row('Valeur marchande', money(F.value), '', 'Loyers nets capitalisés : étages × loyer de marché × occupation × (1 − 22 % de charges) × 365 ÷ taux de capitalisation. Plancher : 80 % de la valeur du lot.');
   h += row('Loyer de marché', money(v.rentFl * DM) + ' par étage et par mois', '', `Attractivité du quartier ${pfPct(v.attr)} (CBD, commodités, fréquentation, densité voisine, boulevards, vue sur mer).`);
   h += row('Occupation (marché)', pfPct(v.occ) + (v.idx > 0.05 ? ' · offre excédentaire' : v.idx < -0.05 ? ' · pénurie de logements' : ''), v.idx > 0.05 ? 'neg' : v.idx < -0.05 ? 'pos' : '');
@@ -18515,7 +18704,7 @@ function proFicheHTML(c) {
     else if (!k.ok) h += `<div class="adv2" style="color:var(--red)">${k.why}</div>`;
     if (ow === 'npc' && c.k !== 'mon') { [4, maxFl()].filter((q, i, a) => a.indexOf(q) === i).forEach(f => { const d = proDevPlan(c.x, c.y, f); h += `<div class="adv2">Si tu rases et construis ${f} étages : coût ${money(d.cost)} (rachat ${money(d.buy)} + construction ${money(d.build)}), valeur ${money(d.value)}, plus-value nette ${pfSign(d.gain)} (${Math.round(d.margin * 100)} %) après ${d.days} jours de chantier.</div>`; }); }
   }
-  if (c.works) { const w = c.works, pr = clamp((S.day - w.t0) / Math.max(1, w.due - w.t0), 0, 1); h += `<div class="bar"><i style="width:${Math.round(pr * 100)}%"></i></div><small>${w.k === 'new' ? 'Construction' : 'Étage supplémentaire'} : livraison dans ${Math.max(0, w.due - S.day)} jours. ${w.k === 'new' ? 'Aucun loyer avant la livraison.' : 'Loyers réduits de 60 % pendant les travaux.'}</small>`; }
+  if (c.works) { const w = c.works, pr = clamp((S.day - w.t0) / Math.max(1, w.due - w.t0), 0, 1); h += `<div class="bar"><i style="width:${Math.round(pr * 100)}%"></i></div><small>${w.k === 'new' ? 'Construction' : w.k === 'prog' ? 'Aménagement du programme' : 'Étage supplémentaire'} : livraison dans ${Math.max(0, w.due - S.day)} jours. ${w.k === 'new' ? 'Aucun loyer avant la livraison.' : 'Loyers réduits de 60 % pendant les travaux.'}</small>`; }
   let acts = '';
   if (c.t === 'res') {
     const uc = upgradeCost(c), dv = uc ? proValueAt(c.x, c.y, 'res', fl + 1).v - proValueAt(c.x, c.y, 'res', fl).v : 0, ol = (PR().ops.find(o => o.t === 'sale' && o.key === c.x + ',' + c.y) || null);
@@ -18523,12 +18712,14 @@ function proFicheHTML(c) {
     acts += `<button class="btn sec" data-pf="rentdn">Loyer −5 % (${Math.round((c.rent == null ? 1 : c.rent) * 100)} %)</button><button class="btn sec" data-pf="rentup">Loyer +5 %</button>`;
     acts += `<button class="btn" data-pf="sell" ${c.works ? 'disabled' : ''}>Vendre au marché : ${money(F.quote.net)} net</button><button class="btn sec" data-pf="list" data-m="1.1" ${c.works ? 'disabled' : ''}>Annonce à 110 %</button><button class="btn sec" data-pf="list" data-m="1.2" ${c.works ? 'disabled' : ''}>Annonce à 120 %</button>`;
     if (ol) acts += `<button class="btn sec" data-pf="unlist">Retirer l'annonce (${money(ol.ask)}, ${Math.max(0, ol.until - S.day)} j)</button>`;
+    if (casteIs('promoteur')) Object.keys(PROG).forEach(k => { const e = proProgErr(c, k); if (e && c.prog !== k) return; if (c.prog === k) return; acts += `<button class="btn sec" data-pf="prog" data-k="${k}" title="Loyer ×${PROG[k].K} (rendements décroissants), image de la ville">${PROG[k].n} : ${money(proProgCost(c, k))}</button>`; });   // passe 69
   } else if (c.t === 'npc' && ow === 'me') {
     const ol = (PR().ops.find(o => o.t === 'sale' && o.key === c.x + ',' + c.y) || null);
     acts += `<button class="btn" data-pf="sell">Vendre au marché : ${money(F.quote.net)} net</button><button class="btn sec" data-pf="list" data-m="1.1">Annonce à 110 %</button><button class="btn sec" data-pf="list" data-m="1.2">Annonce à 120 %</button><button class="btn sec" data-pf="raze" title="Tu perds le bâti, le terrain reste à toi (déjà payé)">Raser et reconstruire</button>`;
     if (ol) acts += `<button class="btn sec" data-pf="unlist">Retirer l'annonce (${money(ol.ask)})</button>`;
   } else if (c.t === 'npc' && ow === 'npc' && c.k !== 'mon') {
     const k = proBuyCheck(c); acts += `<button class="btn" data-pf="keep" ${k.ok ? '' : 'disabled'}>Racheter pour louer</button><button class="btn sec" data-pf="buyraze" ${k.ok ? '' : 'disabled'}>Racheter et raser</button>`;
+    if (casteIs('promoteur')) { const q = proDevQuote(c.x, c.y); if (q.ok) acts += `<button class="btn" data-pf="dev" ${S.cash >= q.total ? '' : 'disabled'} title="Rachat, démolition et tour aux droits à bâtir ; plus-value estimée ${pfSign(q.gain)} (${Math.round(q.margin * 100)} %)">Promotion ${q.fl} étages : ${money(q.total)}</button>`; }   // passe 69
   }
   return h + `<div class="acts">${acts}<button class="btn sec" data-pf="close">Fermer</button></div>`;
 }
@@ -18543,6 +18734,8 @@ el('pfiche').addEventListener('click', e => {
   if (a === 'close') { proCloseFiche(); return; } if (!c) { proCloseFiche(); return; }
   if (a === 'up') proUpgrade(c);
   else if (a === 'sell') { const r = proSellMarket(x, y); if (!r.ok) say(r.why, 'warn'); }
+  else if (a === 'prog') { const r = proProg(x, y, b.dataset.k); if (!r.ok) say(r.why, 'warn'); }
+  else if (a === 'dev') { const r = proDevelop(x, y); if (!r.ok) say(r.why, 'warn'); }
   else if (a === 'list') { const r = proList(x, y, +b.dataset.m); if (!r.ok) say(r.why, 'warn'); }
   else if (a === 'unlist') proList(x, y, 0);
   else if (a === 'rentdn' || a === 'rentup') c.rent = clamp(Math.round(((c.rent == null ? 1 : c.rent) + (a === 'rentup' ? 0.05 : -0.05)) * 100) / 100, 0.6, 1.6);
@@ -18661,6 +18854,17 @@ function renderOps() {
   const pxs = (p.px || []), pxv = pxs.length ? pxs[pxs.length - 1] : 0, px0 = pxs.length > 1 ? pxs[0] : pxv;
   h += '<div class="plh">MARCHÉ IMMOBILIER</div>' + row('Taux de capitalisation', f(proCap() * 100) + ' %') + row('Taux directeur', f(((m.rate || 0) * 100)) + ' %') + row('Humeur du marché', proMood()) + row('Immeuble de référence (4 étages au centre)', money(pxv) + (px0 ? ' (' + (pxv >= px0 ? '+' : '−') + Math.abs(Math.round(100 * (pxv / px0 - 1))) + ' % sur la période)' : ''));
   if (pxs.length > 2) { const mn = Math.min(...pxs), mx = Math.max(...pxs), W = 220, H = 36; h += `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" aria-label="Indice de prix"><polyline fill="none" stroke="#ffb347" stroke-width="2" points="${pxs.map((v, i) => (i * W / (pxs.length - 1)).toFixed(1) + ',' + (H - 3 - (H - 6) * (v - mn) / Math.max(1, mx - mn)).toFixed(1)).join(' ')}"/></svg>`; }
+  { // passe 69 : cycle, marque, démographie, synergies, opportunités
+    const cy = p.cy || {}, liq = proLiq(), D2 = proDemo(), Y = proSyn(), lev = (S.loan || 0) > 0 && prom ? promoLtv() : 0;
+    h += row('Cycle', cy.k > 0 ? `<b class="neg">krach en cours</b> (intensité ${Math.round(cy.k * 100)} %)` : `bulle ${Math.round((cy.bub || 0) * 100)} %` + ((cy.bub || 0) > 0.4 ? ' : risque de krach' : ''), cy.k > 0 || (cy.bub || 0) > 0.4 ? 'neg' : '') + row('Liquidité du marché', pfPct(Math.min(1, liq)) + ` · vente immédiate −${Math.round(100 * (1 - proMktK()))} %`, liq < 0.7 ? 'neg' : 'pos') + (cy.n ? row('Krachs subis', String(cy.n)) : '');
+    if (prom) h += row('Levier (dette / actifs gageables)', pfPct(lev) + ' · appel de marge au-delà de 90 %', lev > 0.8 ? 'neg' : lev > 0.6 ? '' : 'pos');
+    if (prom) { const g = proProgList(); h += '<div class="plh">MARQUE DE PRESTIGE</div>' + row('Notoriété de la marque « ' + proBrandName() + ' »', pfPct(proBrand()) + ` · prime jusqu'à +${Math.round(30 * proBrand())} % sur les tours neuves`, 'pos') + row('Tours baptisées', String(p.tn || 0) + ' (dès ' + PRO_NAME_FL + ' étages)') + row('Programmes emblématiques', Object.keys(PROG).map(k => (g.n[k] || 0) + ' ' + PROG[k].n.toLowerCase()).join(', ')); }
+    h += '<div class="plh">POPULATION CRÉÉE PAR TES PROJETS</div>' + row('Habitants logés par tes projets', fmt(D2.pop) + ' (' + pfPct(D2.share) + ' de la ville)', 'pos') + row('Logements livrés', fmt(D2.units) + ' immeubles · ' + fmt(D2.fl) + ' étages') + row('Capacité rasée par tes rachats', '−' + fmt(D2.razed) + ' habitants', D2.razed ? 'neg' : '') + row('Attractivité de la ville due à tes projets', '+' + Math.round(100 * (proAttrCity() - 1)) + ' %', 'pos');
+    h += '<div class="plh">CE QUE TU APPORTES AUX AUTRES CASTES</div>' + row('Consommateurs pour les commerces, fermes et usines', '+' + fmt(Y.give.pop) + ' habitants (' + pfPct(Y.give.share) + ' de la demande)', 'pos') + row('Main-d\'œuvre pour les entreprises', '+' + fmt(Y.give.work) + ' actifs', 'pos') + row('Intérêts versés aux banques', money(Y.give.interest) + '/an', 'pos');
+    h += '<div class="plh">CE QUE LES AUTRES CASTES T\'APPORTENT</div>' + row('Emplois des autres entreprises et de la ville', fmt(Y.get.jobs) + ' : ils font venir tes locataires', 'pos') + row('Crédit des banques', money(Y.get.loan)) + row('Attractivité de la ville', pf1(Y.get.attr) + ' : elle porte tes loyers et tes droits à bâtir');
+    if (prom) { const dl = S._pdl && S._pdl.day > S.day - 5 ? S._pdl.v : (S._pdl = { day: S.day, v: proDeals(4, 0.05) }).v;
+      h += '<div class="plh">OPPORTUNITÉS (BIENS SOUS-VALORISÉS)</div>' + (dl.length ? dl.map(q => row(`(${q.x + 1}, ${q.y + 1}) ${q.npc ? (q.k === 'house' ? 'maison' : q.f0 + ' ét.') : 'lot libre'} → ${q.fl} ét.`, `${money(q.total)} · ${pfSign(q.gain)} (${Math.round(q.margin * 100)} %)`, q.gain > 0 ? 'pos' : 'neg')).join('') : '<p class="note">Aucune promotion rentable pour l\'instant.</p>'); }
+  }
   if (prom) h += '<div class="plh">OBJECTIFS DE CASTE</div>' + PRO_GOALS.map(g => { const v = g.v(p), d = !!p.goals[g.id], pc = Math.round(100 * Math.min(1, v / g.t)); return `<div class="cm"><i style="background:${d ? '#46d39a' : '#ffb347'}"></i><span>${g.n}</span><b>${g.m ? money(v) + ' / ' + money(g.t) : Math.min(v, g.t) + ' / ' + g.t}</b><div class="bar"><i style="width:${pc}%"></i></div><small>${d ? 'accompli (+' + money(g.r) + ')' : 'récompense ' + money(g.r)}</small></div>`; }).join('');
   const works = []; eachBuilding(c => { if (c.t === 'res' && c.works) works.push(c); });
   h += `<div class="plh">CHANTIERS EN COURS (${works.length + p.terr.length})</div>`;
@@ -18709,7 +18913,7 @@ function drawWorksOver(a, p, bx, by, floors, now) {
   ctx.restore();
 }
 
-window.WSE = { say, isCmp, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating, lev: rivLev, rate: rivRate, gross: rivGross, canBorrow: rivCanBorrow, K2: { RIV_LEV_AV, RIV_GS_P, RIV_MAT }, tr: { R: trR, S: trS, K: trK, sup: trSup, list: supplierList, val: trVal, market: trMarket, day: trDay, power: trPower, left: trLeft, cov: trCov, M: trM, delay: trDelay, act: trCasteAct, line: trLine, joinCartel: trJoinCartel, C: { TR_DAYS, TR_STEP, TR_TM, TR_DCAP, TR_BUD, TR_FLOW, TR_ELCAP, TR_DCK, TR_ELK, TR_EXP, TR_BUY } }, lx: { R: lxR, S: lxS, quote: lxQuote, lend: lxLend, take: lxTake, day: lxDay, book: lxBook, cap: lxCap, st: lxSt, act: lxCasteAct, rescue: lxRescue, line: lxLine, meAmt: lxMeAmt, offerAmt: lxOfferAmt, C: { LX_LEV, LX_LEVMAX, LX_TERM, LX_ST } }, answerX: rvxAnswer, role: casteRoleTxt }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { say, isCmp, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML, maxAt: proMaxAt, devQuote: proDevQuote, develop: proDevelop, deals: proDeals, prog: proProg, progErr: proProgErr, progCost: proProgCost, PROG, brand: proBrand, brandK: proBrandK, demo: proDemo, syn: proSyn, attrCity: proAttrCity, liq: proLiq, mktK: proMktK, mtm: proMtm, cycle: p => proCycleStep(p || PR()), ltv: () => promoLtv(), limit: () => promoLimit(), immoIdx: () => immoIdx(), resOcc: proResOcc, port: proPortList, noSale: proNoSale, cityHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating, lev: rivLev, rate: rivRate, gross: rivGross, canBorrow: rivCanBorrow, K2: { RIV_LEV_AV, RIV_GS_P, RIV_MAT }, tr: { R: trR, S: trS, K: trK, sup: trSup, list: supplierList, val: trVal, market: trMarket, day: trDay, power: trPower, left: trLeft, cov: trCov, M: trM, delay: trDelay, act: trCasteAct, line: trLine, joinCartel: trJoinCartel, C: { TR_DAYS, TR_STEP, TR_TM, TR_DCAP, TR_BUD, TR_FLOW, TR_ELCAP, TR_DCK, TR_ELK, TR_EXP, TR_BUY } }, lx: { R: lxR, S: lxS, quote: lxQuote, lend: lxLend, take: lxTake, day: lxDay, book: lxBook, cap: lxCap, st: lxSt, act: lxCasteAct, rescue: lxRescue, line: lxLine, meAmt: lxMeAmt, offerAmt: lxOfferAmt, C: { LX_LEV, LX_LEVMAX, LX_TERM, LX_ST } }, answerX: rvxAnswer, role: casteRoleTxt }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; if (o.TIER != null) CG_TIER = o.TIER; return { CG_R0, CG_P, CG_CAP, CG_REL, CG_TIER }; }, citySvcCov, citySvc: () => ({ need: CITY_SVC, have: citySvcHave().n, cov: citySvcCov() }), cityTiers: CITY_TIER, cityTierR, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
