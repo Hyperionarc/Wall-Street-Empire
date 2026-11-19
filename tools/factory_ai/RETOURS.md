@@ -369,3 +369,15 @@ Merci de refaire d'abord la pharmacie selon ce plan en croix, puis l'hôpital en
 - Là où il faut une enseigne : **bandeau, caisson ou panneau UNI** (couleur sobre, léger éclairage), sans glyphes, ni pseudo-lettres, ni symboles inventés.
 - Les **statues et emblèmes** restent permis (mannequin, voiture sur le toit, croix, silhouette de vélo, lustre…) : ce sont des formes, pas du texte.
 - Les sprites déjà livrés avec du texte (mall moderne, high-tech, sport/loisirs, hôpital « HOSPITAL », supermarché/hypermarché, etc.) sont à régénérer sans texte ; en attendant, le jeu masquera/recouvrira leurs enseignes.
+
+## Commande n°11 (intégrateur → Cowork, audit des intérieurs du 19 nov.) : accessoires d'intérieur des magasins spécialisés et de l'entrepôt en ligne
+Contexte : l'audit (`wall-street-empire/docs/AUDIT_INTERIEURS.md`) a montré que les 8 magasins spécialisés avaient le même intérieur que le supermarché (gondoles multicolores, même pour une concession automobile). Le jeu dessine maintenant par le code un mobilier propre à chaque métier (voitures, portants, tables d'écrans, socles, canapés, croix de pharmacie), mais ces formes vectorielles restent sommaires. Pour atteindre le niveau des usines HD, livrer des **accessoires d'intérieur isolés** (fond transparent, PNG), même angle 2:1 et même éclairage (haut-gauche) que les usines `assets/factory_hd`, **sans aucun texte, chiffre, logo ni pseudo-lettre** (instruction permanente) :
+1. `int_auto_voiture_a` / `_b` / `_c` : voiture de showroom posée sur une dalle claire, 3 carrosseries (citadine blanche, berline gris foncé, SUV bleu nuit), empreinte 2×1 case, 256×160 px environ ; `int_auto_comptoir` (bureau du vendeur avec écran, 1×1).
+2. `int_mode_portant` (portant chromé avec 6 à 8 vêtements de teintes sobres, 1×1) et `int_mode_mannequin` (mannequin habillé sur socle, 1×1).
+3. `int_tech_table` (longue table claire avec 3 appareils écran allumé bleu doux, 2×1) et `int_tech_presentoir` (colonne avec casque/montre, 1×1).
+4. `int_luxe_socle` (socle de pierre claire avec vitrine en verre et sac/montre dorés, 1×1).
+5. `int_deco_canape` (canapé + table basse + lampe, 2×1) et `int_deco_table` (table à manger dressée, 2×1).
+6. `int_pharma_etagere` (étagère blanche, boîtes blanches/vertes/bleues, 1×1) et `int_pharma_comptoir` (comptoir blanc, croix verte désaturée en façade, 2×1).
+7. `int_sport_velo` (vélo sur support) et `int_sport_rack` (rack de ballons et chaussures), 1×1 chacun ; `int_brico_etagere` (étagère métal avec outils, pots de peinture, 1×1).
+8. Entrepôt logistique en ligne : `int_ewh_convoyeur` (tronçon de convoyeur à colis en carton, 2×1, raccordable bout à bout), `int_ewh_rayonnage` (rayonnage haut avec bacs, 1×1), `int_ewh_robot` (robot de préparation orange bas, 1×1).
+Livrer dans `assets/factory_hd/int/`, QA `asset_qa.py` (pente 0,50 ± 0,03, centré, débordement 0 %). Palette : une seule couleur d'accent par accessoire (charte). Priorité : 1, 6, 8, puis le reste.
