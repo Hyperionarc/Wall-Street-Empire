@@ -1184,6 +1184,16 @@ Six régressions apparues seulement une fois les branches fusionnées, chacune m
 
 API : `window.WSE.rd` ; sauvegarde : champs facultatifs bornés `pat` et `rdx` (clé `wse-city-v8` inchangée). Test : `tools/tests/t47_brevets.js` (30 vérifications).
 
+## Passe : marque et R&D selon les règles de Capitalism Lab
+
+Étude des règles publiques (manuel de Capitalism II, pages officielles de capitalismlab.com, forum, guides Steam) : `docs/CAPLAB_MARQUE_RD.md`. Le document contient la spécification, le niveau de confiance de chaque règle, le tableau des écarts et les sources. Quatre écarts sont corrigés, avec un commit chacun.
+- **Oubli lent de la notoriété** (M2) : `ps.brand` monte comme avant (7 %/jour vers la cible publicitaire) mais retombe avec une demi-vie de 120 jours (`AW_HL`) au lieu d'environ 10. Une notoriété de 99 vaut encore 83 un mois après la coupure, contre 11 avant. Une campagne de quelques mois suivie d'une hausse de prix devient une stratégie.
+- **Fidélité gagnée par l'essai** (M3, `loyTarget`, `loyStep`) : sans notoriété ni ventes, la fidélité plafonne vers 30, alors qu'avant elle atteignait 44 en 120 jours sans aucune publicité. La notoriété accélère et relève la fidélité. Une qualité perçue au-dessus de la moyenne du marché la nourrit, en dessous elle l'use. Une publicité qui crée une demande non servie (plus de 25 % de la demande non servie) la fait baisser.
+- **R&D ciblée et rattrapage** (R3 et R4) : Bureau du PDG > R&D et brevets > **Technologie de tes produits** montre le niveau, la pointe, la qualité réelle et les points par an, avec un bouton « Prioriser ». Le produit prioritaire reçoit 3 fois la part des autres, à effort total constant. Un produit en retard gagne `× (1 + retard / pointe)` (formule publiée de Capitalism Lab), plafonné à ×1,9.
+- **Changer de stratégie de marque** (M6) remet à zéro la notoriété et le capital de marque des produits concernés, et ramène la fidélité à 20. Le changement reste gratuit tant qu'aucune marque n'est construite.
+
+Sauvegarde : champ facultatif `rdf` (produit prioritaire), clé `wse-city-v8` inchangée. API : `WSE.brand.awStep/loyTarget/loyStep/setStrat`, `WSE.rd.focus/techRows/catchUp`. Test : `tools/tests/t62_marque_rd.js` (15 contrôles).
+
 ## Passe 43 : outil d'apprentissage (écoles de commerce)
 
 Bureau du PDG > **Apprendre**, trois écrans, tous les chiffres sont lus dans la simulation (demande adressée `S._dw.pd`, ventes, production, stock, capacité des rayons `S._dw.pc`, capital de marque).
