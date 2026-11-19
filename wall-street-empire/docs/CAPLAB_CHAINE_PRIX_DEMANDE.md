@@ -300,7 +300,7 @@ Barème de gravité : **4** = change la façon de jouer ou fausse une règle cen
 | G10 | Seuls les spécialistes créent de la demande (D8) ; fréquentation 0-100, bonus de chaîne (P6) | Passe 46 : `specDay`, `specAttr`, `SPEC_PASS` ; `custIndex` (emplacement 38 %, notoriété, qualité, assortiment, humeur), `trafficAt` | Au niveau | — |
 | G11 | Chaque vendeur a son prix (X1) | Prix unique par bien `S.price` (passe 14, choix d'équipe « à la Offworld ») ; le joueur ne règle pas le prix de ses composants ; le pouvoir de marché (`mpGood`) fait la marge | Écart volontaire (lisibilité) ; le pouvoir de marché reproduit l'effet « seul vendeur = marge » | 2 (assumé) |
 | G12 | Acheteurs industriels classés par note (S7) | `stepLocalMarket` : ta part = ta capacité / (ta capacité + capacité PNJ) : le prix et la qualité de tes composants ne changent pas ta part | Part à la capacité, pas à la note | 3 |
-| G13 | Fournisseur à court : barres offre/demande vraies, rationnement, pénurie (S2, S7) | Fournisseurs nommés et import **illimités** ; la barre « Offre » de la fiche fournisseur est tirée au hasard (`supCards`) | Pas de rupture côté fournisseur ; une barre décorative | 3 |
+| G13 | Fournisseur à court : barres offre/demande vraies, rationnement, pénurie (S2, S7) | Fournisseurs nommés et import **illimités** ; la barre « Offre » de la fiche fournisseur est tirée au hasard (`supCards`) | Pas de rupture côté fournisseur ; une barre décorative | 3 · **corrigé (7.4)** |
 | G14 | Port non constant, offre qui peut s'arrêter (S3, E1) | Import instantané et illimité, ×1,05-1,3 + fret | Pas de risque d'approvisionnement portuaire | 2 |
 | G15 | Stock local par unité, lag, sortie pleine = arrêt (K2-K5) | Stock commun à l'empire (`S.stock`, `S.prod[pk].stock`) ; usine arrêtée si le stock commun est plein (`roomFor`) ; au-delà de 15 jours de ventes, le surplus de produit fini part **automatiquement** à l'export à ≈ 72 % du cours mondial, **sans congestion** (contrairement aux biens) | Déjà relevé (C3, C5 de `PARITE`) ; surproduction peu visible | 3 |
 | G16 | Niveaux d'unité 1-9 (table 4.2) | Pas de niveau par unité (plan à 12 emplacements, robots) | Déjà relevé (C2) | 3 |
@@ -338,10 +338,18 @@ Ordre retenu, par impact sur le plaisir de jeu et le réalisme, sans toucher aux
 - Attrait de la marchandise locale : `0,5 × ((50 + poids qualité × (locQ − q0)) / 50)^1,6`, la même courbe que celle des produits. Exemple : avec 50 % du marché en jeans de qualité perçue 95 et la compétence modérée, `locQ` passe de 55 à 63 en deux ans, et l'attrait des locaux de 0,50 à 0,55 (+10 %).
 - Sauvegarde : clé optionnelle `lq` (absente = ancien comportement).
 
-### 7.4 Écarts laissés ouverts (et pourquoi)
+### 7.4 Les fournisseurs nommés ont une capacité ; les barres offre / demande deviennent vraies (G13)
+
+- Chaque fournisseur nommé (`supplierList`) reçoit un facteur de taille `cf` (0,35 à 0,95, déterministe ; 2 pour une puissance étrangère). Sa capacité quotidienne vaut `cf × 1,5 × demande locale de référence du bien` (`supCap`, `supRef`), et elle est partagée entre **tous** ses clients du jour (`S._supU`, non sauvegardé). Repère : une usine moyenne de jeans consomme ≈ 1 750 u/j de tissu ; un fournisseur de tissu livre 1 800 à 4 100 u/j. Il sert donc une à deux usines, pas trois.
+- Au-delà de la capacité, l'unité d'achat complète au port, au prix de l'import (l'équivalent du « port de secours » de CapLab, S5). L'usine ne s'arrête pas : elle paie plus cher, et un message l'explique au plus une fois par mois. C'est un choix d'accueil : en CapLab strict, l'usine manquerait d'intrant.
+- Le choix automatique (`bestOffer` en cas de rupture ou avec « Chercher de meilleurs fournisseurs », `autoSource` au lancement) écarte un fournisseur qui n'a plus de quoi servir l'acheteur, et la recherche quitte un fournisseur saturé.
+- Vue « Sélectionner un fournisseur » : la barre « Offre » (capacité restante pour cet acheteur) et la barre « Demande » (son besoin) sont tracées sur la même échelle. Elles remplacent les barres tirées au hasard.
+
+### 7.5 Écarts laissés ouverts (et pourquoi)
 
 - **G12** (acheteurs industriels classés par note) et **G11** (un prix par vendeur) : ils remettent en cause le prix unique de la passe 14, décidé avec l'équipe. À trancher avec Rémy avant de coder.
-- **G13 / G14** (capacité et rationnement des fournisseurs, coupures du port) : les bots et `autoSource` s'appuient sur des fournisseurs nommés illimités. Ajouter une capacité casserait des chaînes existantes sans garde-fou de repli. Proposition : une capacité par fournisseur (la barre « Offre » devient vraie), un report automatique vers le meilleur fournisseur suivant au-delà de la tolérance, et des coupures du port réservées aux paliers avancés.
+- **G14** (coupures du port) : avec le report automatique de 7.4, une coupure ne change presque que le coût. Sans report, elle arrête des chaînes entières dès le début de partie. Proposition : des coupures déterministes (hash) de 10 à 30 jours par bien industriel, réservées aux paliers avancés, réglées par « Activité des puissances étrangères ». L'entrepôt (spéculation, tampon) y gagnerait un vrai rôle.
+- **Rationnement strict** (une usine qui s'arrête faute de fournisseur) : à garder pour une option « CapLab strict », comme l'option « approvisionnement constant » du jeu.
 - **G15 / G16** (stock local, niveaux d'unité) : chantiers L déjà spécifiés dans `ANALYSE_CAPITALISM.md` et `PARITE_SIMCITY_CAPITALISM.md`. Pour le surplus exporté sans congestion, la congestion de la passe 21 pourrait s'appliquer aussi aux produits finis. Elle réduirait les gains des gros producteurs : c'est à trancher avec Rémy (principe « pas de plafond »).
 - **G8** (segment sensible au prix) : modifierait toutes les parts de rayon et donc les marges calibrées (t02, t45). Il vaut mieux le faire dans une passe d'équilibrage dédiée.
 

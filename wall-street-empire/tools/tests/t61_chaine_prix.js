@@ -38,6 +38,20 @@ exports.run = async (t, L) => {
   t.check('poids de la qualité : usine de produit fini > magasin', a.qwF > 0.3 && a.qwS < 0.1, `usine ${a.qwF.toFixed(2)}, magasin ${a.qwS.toFixed(2)}`);
   t.check('propagation : fournisseur de qualité haute > basse dans la qualité livrée et la qualité réelle du produit', a.iqHi > a.iqLo && a.fiHi > a.fiLo && a.tqHi > a.tqLo, `${a.g} : q ${a.qLo}→${a.qHi} ; livrée ${a.iqLo}→${a.iqHi} ; trueQ ${a.tqLo.toFixed(1)}→${a.tqHi.toFixed(1)}`);
   t.check('import : qualité livrée du port (55)', a.iqPort === 55, 'port ' + a.iqPort);
+  // ---------- 7.4 Capacité des fournisseurs nommés ----------
+  const k = await pg.evaluate(() => {
+    const W = window.WSE, S = W.S, C = W.cl, out = {};
+    const fs = [T.inP('f2'), T.inP('f2'), T.inP('f2')].filter(Boolean); fs.forEach(f => { f.prod = 'jeans'; });
+    T.stepN(1, true); const s0 = C.supplierList('fabric').find(s => s.name.indexOf('(') < 0); fs.forEach(f => { f.src = { fabric: 'co:' + s0.id }; });
+    T.stepN(3, true);
+    const cap = C.supCap('fabric', C.supplierList('fabric').find(s => s.id === s0.id)), used = (S._supU || {})['fabric:' + s0.id] || 0, need = fs.reduce((p, f) => p + (f._u || 0) * W.productInputs('jeans').fabric, 0), over = fs.reduce((p, f) => p + ((f._supS || {}).fabric || 0), 0);
+    out.cap = cap; out.used = used; out.need = need; out.over = over; out.n = fs.length;
+    const b0 = C.bestOffer('fabric', fs[2].haul, C.buyerQw(fs[2]), fs[2]); out.bestSkip = b0 && b0.id !== 'co:' + s0.id;   // le choix automatique écarte un fournisseur saturé
+    out.stuck = fs.filter(f => f.limit === 'fabric').length;   // l'usine ne s'arrête pas : le reliquat vient du port
+    return out;
+  });
+  t.check('capacité : un fournisseur nommé ne livre pas plus que sa capacité, le reliquat est importé', k.used <= k.cap + 1e-6 && (k.need <= k.cap || Math.abs(k.over - (k.need - k.used)) < 1), `capacité ${Math.round(k.cap)}, livré ${Math.round(k.used)}, besoin ${Math.round(k.need)}, port ${Math.round(k.over)} (${k.n} usines)`);
+  t.check('capacité : aucune usine arrêtée faute de tissu ; le choix automatique écarte le fournisseur saturé', k.stuck === 0 && (k.need <= k.cap || k.bestSkip), JSON.stringify({ stuck: k.stuck, skip: k.bestSkip }));
   // ---------- 7.2 Directeur des prix ----------
   const b = await pg.evaluate(() => {
     const W = window.WSE, S = W.S, C = W.cl, ps = S.prod.jeans, out = {};
