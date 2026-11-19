@@ -502,6 +502,27 @@ canvas.mm{display:block;width:140px;height:140px;border-radius:6px;image-renderi
 .rank td:nth-child(2),.rank th:nth-child(2){text-align:left}.rank td:first-child{color:var(--mut)}
 .fint tr.tot td{font-weight:700;border-top:2px solid var(--gold)}
 .fint tr.sub td{color:var(--mut)}
+.rkw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 0;border:1px solid var(--line);border-radius:8px;max-width:100%}
+.rkw .fint{margin:0}
+.rkt th[data-rkcs],.rkt th[data-rkps]{cursor:pointer;white-space:nowrap}
+.rkt th[aria-sort]{color:var(--gold)}
+.rkt td:first-child,.rkt th:first-child{position:sticky;left:0;background:#10173a;z-index:1;min-width:120px;max-width:190px;white-space:normal}
+.rkt tr.me td{color:var(--gold)}.rkt tr.me td.pos,.rkt tr.me td.neg{color:inherit}
+.rkt tr[data-rkpk]{cursor:pointer}.rkt tr[data-rkpk]:hover td{background:rgba(63,216,255,.06)}
+.rkdot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+.rkctl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:6px 0}
+.rkctl label{display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.rkctl select{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;font-size:12.5px;min-height:36px;width:100%}
+.rkcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin:6px 0}
+.rkcard{border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:rgba(22,30,69,.55);min-width:0}
+.rkcard small{display:block;color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.rkcard b{display:block;font-size:14px;margin-top:2px;overflow-wrap:anywhere}
+.rkcard span{display:block;font-size:11.5px;color:var(--mut)}
+.rkbar{display:block;height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:3px}.rkbar i{display:block;height:100%}
+.rkup{color:var(--green)}.rkdn{color:var(--red)}.rkspark{vertical-align:middle}
+.objbar .orank .orkb{min-height:22px;padding:1px 8px;font-size:10.5px;margin-left:auto}
+@media (pointer:coarse){.objbar .orank .orkb{display:none}}   /* écran tactile : Menu > Classements (cible de 44 px) plutôt qu'un petit bouton dans le bandeau */
+@media (max-width:560px){.rkt td+td,.rkt th+th{padding-left:9px}.rkctl{grid-template-columns:repeat(2,minmax(0,1fr))}.rkt td:first-child,.rkt th:first-child{min-width:104px;max-width:128px}#rkTabs .btn{min-height:40px}.rkcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .fgrid{display:grid;grid-template-columns:1fr;gap:12px}
 @media (min-width:700px){.fgrid{grid-template-columns:1fr 1fr}}
 .fnote{font-size:11.5px;color:var(--mut);margin:6px 0}
@@ -1235,6 +1256,7 @@ body.cmp #pclose{margin-left:auto;flex:0 0 auto}
       <div class="ng">Marchés</div>
       <button data-ptab="market" aria-pressed="false" title="Cours, portefeuille, terminal"><i>↗</i>Bourse</button>
       <button data-ptab="rivals" aria-pressed="false" title="Sociétés rivales et parts de marché"><i>⚔</i>Concurrents</button>
+      <button data-ptab="rank" aria-pressed="false" title="Classements des sociétés et des produits, palmarès"><i>№</i>Classements</button>
       <button data-ptab="guide" aria-pressed="false" title="Guide du fabricant"><i>☷</i>Guide</button>
       <div class="ng">Stratégie</div>
       <button data-ptab="goals" aria-pressed="false" title="Objectif, score, classement, compétences"><i>✦</i>Objectifs</button>
@@ -1306,7 +1328,13 @@ body.cmp #pclose{margin-left:auto;flex:0 0 auto}
     <div class="seg2" id="eduTabs" style="margin-bottom:8px"><button class="btn" data-edut="brand">Atelier marque</button><button class="btn sec" data-edut="scm">Supply chain</button><button class="btn sec" data-edut="deb">Bilan d'apprentissage</button><button class="btn sec" data-edut="pat">Brevets</button><button class="btn sec" data-edut="spec">Généraliste ou spécialiste ?</button><button class="btn sec" data-edut="exp">Pourquoi exporter ?</button></div>
     <div id="eduBody"></div>
     </section>
+    <section data-sec="rank" hidden>
+    <h3>CLASSEMENTS</h3>
+    <div class="seg2" id="rkTabs" style="margin-bottom:8px"><button class="btn" data-rkt="co" aria-pressed="true">Entreprises</button><button class="btn sec" data-rkt="pr" aria-pressed="false">Produits</button><button class="btn sec" data-rkt="sel" aria-pressed="false">Par produit</button><button class="btn sec" data-rkt="hof" aria-pressed="false">Palmarès</button></div>
+    <div id="rkBody"></div>
+    </section>
     <section data-sec="rivals" hidden>
+    <div class="seg2" style="margin-bottom:6px"><button class="btn sec" id="rkFromRiv">Classements complets (sociétés, produits, palmarès)</button></div>
     <h3>RIVAUX · UNE IA PAR CASTE</h3>
     <div id="rivals"></div>
     </section>
@@ -1449,6 +1477,7 @@ const N = 96, TW = 132, TH = 66, FH = 32, DAY_MS = 2000, START = { x: 74, y: 63 
 // Seul réglage de la ville aérée : il règle la hauteur des immeubles, l'occupation des lots et la part des parcs ; l'économie de départ (bassin) n'en dépend pas.
 const CITY_D0 = 0.6, MALL_SH = 1.4, MALL_LV0 = 6.5, MALL_LV = 8.5;   // passe 45 : décalages (cases) depuis le centre, autour du grand mall : MALL_SH occupation des lots de la ville de départ, MALL_LV0 sa hauteur, MALL_LV valeur du sol pour la croissance
 const SAVE_KEY = 'wse-city-v8';
+let RK_ON = true, RKW = null; const RKQ = [], RK_T = { n: 0, ms: 0 };   // passe 71 : classements (file des ventes du jour, poids de répartition par classe, coût CPU mesuré)
 const SUMMER_TINT = 'rgba(112,188,92,.30)';   // herbe d'été : saison unique
 const ZONE_TINT = ['rgba(112,188,92,.30)', 'rgba(205,208,222,.30)', 'rgba(128,122,130,.45)', '', 'rgba(96,102,118,.55)'];   // campagne, ville, zone portuaire, mer, quai
 const ZONE_COL = [[58, 92, 66], [96, 100, 125], [96, 90, 98], [34, 86, 152], [82, 86, 106]];
@@ -2743,7 +2772,7 @@ function fabDay(r, cls, v, pr, inD) {
       const units = q * P / Math.max(1e-6, stdPrice(f.pk)), ip = PRODUCTS[f.pk]; Object.keys(ip.in).forEach(g => { inD[g] = (inD[g] || 0) + units * ip.in[g] / Math.max(1, ip.out || 1); }); }
     f.bv = Math.max(0, (f.bv || 0) * (1 - FAB_DEP)); });
   const stk = fs.reduce((a, f) => a + f.stk, 0), want = Math.min(v, capT), sell = Math.min(want, stk);
-  fs.forEach(f => { const s = stk > 0 ? sell * f.stk / stk : 0; f.stk -= s; f.sold = s; own += s; gross += s * P * (pr - f.uc); });
+  fs.forEach(f => { const s = stk > 0 ? sell * f.stk / stk : 0; f.stk -= s; f.sold = s; own += s; gross += s * P * (pr - f.uc); if (RK_ON && s > 1e-6) RKQ.push(['F', r.id, f.pk, s * P, pr]); });   // passe 71 : ventes des usines rivales (classements)
   return { own, gross, lost: Math.max(0, want - sell) * 0.6, cost, cogs: fs.reduce((a, f) => a + (f.sold || 0) * P * f.uc, 0) };   // cost : production payée ce jour ; cogs : coût des ventes (la différence est l'investissement en stock)   // une rupture n'est couverte qu'à 40 % par de la marchandise achetée : le reste des clients part
 }
 // Meilleure cible d'une offre de rachat : le bâtiment du joueur le plus rentable que le rival peut payer comptant
@@ -2844,6 +2873,7 @@ function stepRivalsAI(rivalPart) {
       r.vs[cls] = r.vs[cls] == null ? u : r.vs[cls] * 0.97 + u * 0.03;   // volume lissé (unités de classe/jour) : base du dimensionnement des usines
       const fd = r.fab && r.fab.length ? fabDay(r, cls, u, pr, inD) : null, ownU = fd ? fd.own : 0, resU = Math.max(0, u - ownU - (fd ? fd.lost : 0));
       if (fd) { inv += fd.cost - fd.cogs; r.oo = r.oo || {}; r.oo[cls] = clamp((r.oo[cls] == null ? 1 : r.oo[cls]) * 0.9 + 0.1 * (u > 0 ? (u - fd.lost) / u : 1), 0, 1); }
+      if (RK_ON && resU > 1e-6) RKQ.push(['R', r.id, cls, resU * Pc, pr]);   // passe 71 : négoce du rival dans la classe (classements)
       rev += (ownU + resU) * Pc * pr; gross += (fd ? fd.gross : 0) + resU * Pc * (pr - 1 + mr); if (fd) r.fsm = (r.fsm || 0) + fd.gross - ownU * Pc * (pr - 1 + mr);   // fsm : surplus de marge des usines sur le négoce (cumul du mois)
       r.cb[cls] = +(u > 0 ? (ownU * (fd && ownU > 0 ? (pr - fd.gross / (ownU * Pc)) : 0) + resU * (1 - mr)) / Math.max(1e-9, ownU + resU) || (1 - mr) : (1 - mr)).toFixed(4); });   // coût unitaire moyen (relatif au cours) : plancher de prix
     if (inv) r.cash -= inv;
@@ -4251,7 +4281,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, lq: S.locQ || undefined, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', rdf: S.rdFocus || undefined, deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, ecom: S.ecom ? ecSave() : undefined, air: S.air ? airSan(S.air) : undefined, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, lq: S.locQ || undefined, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', rdf: S.rdFocus || undefined, deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, ecom: S.ecom ? ecSave() : undefined, air: S.air ? airSan(S.air) : undefined, rk: S.rk ? rkSave() : undefined, g, dep }));
     localStorage.setItem(SAVE_KEY + '_gal', JSON.stringify(S.gal || {}));
   } catch (e) { /* stockage indisponible */ }
 }
@@ -4311,7 +4341,7 @@ function load() {
     S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP * (cv2 ? S0.bassin : 1) / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.firms = Array.isArray(d.firms) ? d.firms.filter(f => f && f.id > 0 && typeof f.name === 'string') : []; S0.grp = (d.grp && typeof d.grp === 'object') ? d.grp : null;   // passe 32 : filiales (absentes des anciennes sauvegardes)
-    S0.net = netSan(d.net); S0.edu = eduSan(d.edu); S0.ecom = ecSan(d.ecom); S0.air = airSan(d.air);   // passe 49 : boutique duty free (facultatif)
+    S0.net = netSan(d.net); S0.edu = eduSan(d.edu); S0.ecom = ecSan(d.ecom); S0.air = airSan(d.air); S0.rk = rkSan(d.rk);   // passe 71 : classements (facultatif) ; passe 49 : boutique duty free (facultatif)
       // passe 43 : apprentissage (champ facultatif)
       // passe 42 : Réseau Wall Street (absent des anciennes sauvegardes)
     S0.cprod = cprod; S0.prod = initProd(); S0.mat = d.mat ? 1 : 0; S0.matPop = +d.matPop || 0; S0.trials = Array.isArray(d.trials) ? d.trials : []; S0.tid = +d.tid || 0; if (Array.isArray(d.mkv)) { S0.mkBuy = +d.mkv[0] || 0; S0.mkRoy = +d.mkv[1] || 0; S0.mkTrialCost = +d.mkv[2] || 0; }
@@ -6455,6 +6485,7 @@ function step() {
   const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
   let revRetVal = 0;
   PKEYS.forEach(pk => { const ps = S.prod[pk]; ps.sold = 0; ps.rev = 0; ps.share = 0; });
+  RKQ.length = 0;   // passe 71 : file des ventes du jour (classements)
   ['estate', 'lux', 'std', 'basic'].forEach(cls => {
     const items = cls === 'estate' ? [] : [{ k: 'g', attr: locAttr(cls), stock: S.stock[cls], price: S.price[cls] }];   // CapLab : les producteurs locaux améliorent leur qualité avec le marché (locQ)
     const mine = PKEYS.filter(pk => PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on');
@@ -6498,7 +6529,8 @@ function step() {
       if (gen) { S.stock[cls] -= fromStock; want[cls] += fromStock; }   // les ventes en magasin sont de la demande servie
       else { const ps = S.prod[it.k]; ps.stock -= got; if (ps.stock < 0) ps.stock = 0; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
       fFlush(gen ? cls : it.k);
-      sold[cls] += got; revRetVal += got * it.price * retailMk(cls) * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOfK(c, key) * specMk(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
+      const vRet = got * it.price * retailMk(cls) * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOfK(c, key) * specMk(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
+      sold[cls] += got; revRetVal += vRet; if (RK_ON && got > 1e-6) rkRet(key, gen ? null : it.k, cls, got, vRet, car, it.price);   // passe 71 : relevé des ventes pour les classements (lecture seule)
     });
     if (cls !== 'estate') { want[cls] += dem[cls] * 0.5; made[cls] += dem[cls] * 0.47; }   // fournisseurs extérieurs : la ville n'est jamais en pénurie permanente
   });
@@ -6540,6 +6572,7 @@ function step() {
   { const er = ecomStep(portN, mult); revExp += er.rev / Math.max(0.01, mult); importCost += er.buy; }   // passe 46 : ventes en ligne (exports par le port), après les magasins de la ville et avant l'export du surplus
   const AD = airStep(mult); revRetVal += AD.rev; importCost += AD.imp;   // passe 49 : ventes duty free de l'aéroport (CA en commerce, marchandises importées, redevance en frais), avant l'export du surplus
   PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - prodRoom(pk)); if (ex > 0) { const exF = FGD ? Math.min(ex, Math.max(0, ps.stock - ledRes(pk))) : ex, xv = exF * prodPrice(pk) / mpProd(pk).m * (expRate - 0.1); fSellExt(pk, exF, xv); if (FGD && ex > exF) fLose(pk, ex - exF); ps.stock -= ex; ps.exp = exF; revExp += xv; S._xv[pk] = xv; } else ps.exp = 0; });   // passe 21 : le surplus au-delà de ~15 jours de ventes part à l'export (cours - 10 pts) au lieu de dormir jusqu'à 10 000 unités
+  rkDay();   // passe 71 : compteurs des classements (ventes par produit et par vendeur), après toutes les ventes du jour
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
   const P = S.price;
@@ -7351,7 +7384,7 @@ function updateHUD() {
     { const cf = CASTES[casteOf()]; el('ptitleSub').innerHTML = cf ? `<span class="cbadge" style="--cc:${cf.col}">${CASTE_IMG[casteOf()] ? `<img alt="" src="${CASTE_IMG[casteOf()]}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;object-position:50% 15%;border:2px solid ${cf.col}">` : '<i></i>'}${cf.n}</span>` : 'New Dollarton'; if (cf) el('tierLine').textContent = 'New Dollarton · ' + cf.n; }
   { const F2 = finM().F || {}, w2 = (S.stats && S.stats.worth) || 0; el('psCash').textContent = money(S.cash); el('psCash').className = S.cash >= 0 ? 'pos' : 'neg'; el('psWorth').textContent = money(w2); el('psNet').textContent = (F2.net >= 0 ? '+' : '−') + mj(Math.abs(F2.net || 0)); el('psNet').className = (F2.net || 0) >= 0 ? 'pos' : 'neg'; el('psDate').textContent = dateTxt(S.day);
     const tp = advisorTips(), adv = '<b>Conseiller</b>' + tp.map(x => `<p>${x}</p>`).join(''); if (el('advisor').dataset.h !== adv) { el('advisor').innerHTML = adv; el('advisor').dataset.h = adv; } const ab = '<b>Conseiller</b>' + tp.map(x => `<span>${x}</span>`).join(''); if (el('advbar').dataset.h !== ab) { el('advbar').innerHTML = ab; el('advbar').dataset.h = ab; } }
-  syncEvToggle(); if (typeof syncUnlock === "function") syncUnlock(); renderGoals(); renderEmpire(); renderTechs(); try { renderRdp(); } catch (e) { /* passe 47 facultative */ } renderProdScreen(); renderGuide(); renderChainSum(); renderChain(); renderTerm();
+  syncEvToggle(); if (typeof syncUnlock === "function") syncUnlock(); try { renderRank(); } catch (e) { /* classements facultatifs */ } renderGoals(); renderEmpire(); renderTechs(); try { renderRdp(); } catch (e) { /* passe 47 facultative */ } renderProdScreen(); renderGuide(); renderChainSum(); renderChain(); renderTerm();
     const rawP = (S.stats && S.stats.raw) || 0, lrows = [];
     if (S.float > 0) lrows.push({ n: 'Ta société', col: '#f2b84b', px: rawP * (S.prem || 1.1) / SHARES, sp: S.sp || [], cap: rawP * (S.prem || 1.1) });
     else lrows.push({ n: 'Ta société', col: '#f2b84b', px: null, sp: [], cap: 0 });
@@ -14268,7 +14301,7 @@ function setPtab(n) {
   document.querySelectorAll('#panel [data-ptab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ptab === n ? 'true' : 'false'));
   document.querySelectorAll('#panel [data-sec]').forEach(s => { s.hidden = s.dataset.sec !== n; });
   try { sessionStorage.setItem('wse-ptab', n); } catch (e) {}
-  updateHUD(); if (n === 'net') try { renderNet(true); } catch (e) { /* réseau facultatif */ } if (n === 'edu') try { renderEdu(true); } catch (e) { /* apprentissage facultatif */ } if (n === 'rdp') try { renderRdp(true); } catch (e) { /* brevets facultatifs */ } if (n === 'ecom') try { renderEcom(true); } catch (e) { /* commerce en ligne facultatif */ }
+  updateHUD(); if (n === 'net') try { renderNet(true); } catch (e) { /* réseau facultatif */ } if (n === 'edu') try { renderEdu(true); } catch (e) { /* apprentissage facultatif */ } if (n === 'rdp') try { renderRdp(true); } catch (e) { /* brevets facultatifs */ } if (n === 'ecom') try { renderEcom(true); } catch (e) { /* commerce en ligne facultatif */ } if (n === 'rank') try { renderRank(true); } catch (e) { console.error('classements', e); }
 }
 document.querySelectorAll('#panel [data-ptab]').forEach(b => { b.onclick = () => setPtab(b.dataset.ptab); });
 el('mProd').onclick = () => { setPview(true); };
@@ -16488,6 +16521,302 @@ function ranking() {
 }
 const rankPlayers = () => { const r = ranking().filter(x => x.kind !== 'groupe'); return [r.findIndex(x => x.me) + 1, r.length]; };
 const rankWorld = () => { const r = ranking(); return [r.findIndex(x => x.me) + 1, r.length]; };
+/* ---------- Passe 71 : CLASSEMENTS (Menu > Classements). Inspiré des classements publics de Capitalism Lab (sociétés, produits, vendeurs de chaque produit, palmarès).
+   Information seule : aucun bonus, aucun plafond, aucun tirage aléatoire (la simulation est inchangée).
+   Comptage quotidien des ventes par produit (95 produits finis) et par bien (matières, composants), et par vendeur :
+   - « me » (toi) : produits de ta marque vendus dans tes rayons (unités, CA au prix public, prix de chaque magasin), biens vendus au marché local et exportés, surplus de produits exporté ;
+   - « loc » : marchandises sans marque des producteurs locaux vendues dans tes rayons (panier de la classe) ;
+   - rivaux IA : production de leurs usines (produit exact) + négoce de la classe (panier).
+   Un panier de classe est réparti sur les produits de la classe au prorata de leur demande en valeur (typeW × prix standard ; 15 % sur le produit phare d'un rival).
+   Prix public d'un rival = prix standard × marge de rayon × son prix relatif (comme l'affiche de son produit phare) ; unités = valeur au cours / prix standard (convention de fabDay).
+   S.rk (optionnel, sauvegardé) : { v: 1, m0 (jour du dernier relevé mensuel), C {clé: {vendeur: [unités, CA]}} mois en cours, L dernier mois complet, T cumul des mois clos,
+     X / XL / XT {clé: [u, CA]} exportations du joueur (mois, dernier mois, cumul), hp {clé: [prix, vendeur, jour]} prix le plus élevé pratiqué,
+     H [{ d, p: {clé: [u, CA]}, f: {vendeur: [valorisation, CA/mois, résultat/mois]} }] 13 derniers relevés mensuels, nm {vendeur: [nom, couleur]},
+     rec {clé: [valeur, vendeur, jour, détail]} records du palmarès, lg [[jour, texte]] journal des records }. */
+const RK_FL = 0.15, RK_NOB = { npc: 1, road: 1, part: 1, pylon: 1, cable: 1, pipeline: 1 };
+const RK_CLS = { basic: 'Base', std: 'Courant', lux: 'Luxe', estate: 'Immobilier', pharma: 'Pharmacie', goods: 'Biens' };
+const rkNew = () => ({ v: 1, m0: S ? S.day | 0 : 0, C: {}, B: {}, L: {}, T: {}, X: {}, XL: {}, XT: {}, hp: {}, H: [], nm: {}, rec: {}, lg: [] });
+function rkS() { if (!S.rk || S.rk.v !== 1) S.rk = rkNew(); return S.rk; }
+const rkR1 = x => Math.round(x * 10) / 10;
+function rkRnd(o) { const r = {}; for (const k in o) { const s = o[k], q = {}; for (const id in s) q[id] = [rkR1(s[id][0]), Math.round(s[id][1])]; r[k] = q; } return r; }
+function rkRndB(B) { const r = {}; for (const c in B) { const q = {}; for (const id in B[c]) { const a = B[c][id]; q[id] = [Math.round(a[0]), Math.round(a[1]), Math.round(a[2] * 1e4) / 1e4, a[3] | 0]; } r[c] = q; } return r; }
+function rkRndX(o) { const r = {}; for (const k in o) r[k] = [rkR1(o[k][0]), Math.round(o[k][1])]; return r; }
+function rkSave() { const R = S.rk; return { v: 1, m0: R.m0, C: rkRnd(R.C), B: rkRndB(R.B), L: R.L, T: R.T, X: rkRndX(R.X), XL: R.XL, XT: R.XT, hp: R.hp, H: R.H, nm: R.nm, rec: R.rec, lg: R.lg, ll: R.ll || undefined }; }
+function rkSan(d) {   // chargement tolérant : tout champ absent ou invalide est remplacé par une valeur vide
+  if (!d || typeof d !== 'object' || d.v !== 1) return null; RKW = null;
+  const ob = x => x && typeof x === 'object' && !Array.isArray(x) ? x : {}, R = rkNew();
+  const sel = o => { const r = {}; Object.keys(ob(o)).forEach(k => { if (!PRODUCTS[k] && !GOODS[k]) return; const s = ob(o[k]), q = {}; Object.keys(s).forEach(id => { const a = s[id]; if (Array.isArray(a) && isFinite(a[0]) && isFinite(a[1])) q[id] = [Math.max(0, +a[0]), Math.max(0, +a[1])]; }); r[k] = q; }); return r; };
+  const xs = o => { const r = {}; Object.keys(ob(o)).forEach(k => { const a = o[k]; if ((PRODUCTS[k] || GOODS[k]) && Array.isArray(a) && isFinite(a[0]) && isFinite(a[1])) r[k] = [Math.max(0, +a[0]), Math.max(0, +a[1])]; }); return r; };
+  R.m0 = isFinite(d.m0) ? +d.m0 : 0; R.C = sel(d.C); Object.keys(ob(d.B)).forEach(c => { if (RIV_CLS.indexOf(c) < 0) return; const o = ob(d.B[c]), q = {}; Object.keys(o).forEach(id => { const a = o[id]; if (Array.isArray(a) && a.length >= 4 && a.every(x => isFinite(x))) q[id] = a.slice(0, 4).map(x => Math.max(0, +x)); }); R.B[c] = q; }); R.L = sel(d.L); R.T = sel(d.T); R.X = xs(d.X); R.XL = xs(d.XL); R.XT = xs(d.XT);
+  Object.keys(ob(d.hp)).forEach(k => { const a = d.hp[k]; if ((PRODUCTS[k] || GOODS[k]) && Array.isArray(a) && isFinite(a[0])) R.hp[k] = [+a[0], String(a[1]).slice(0, 40), +a[2] || 0]; });
+  R.H = (Array.isArray(d.H) ? d.H : []).filter(h => h && isFinite(h.d)).slice(-13).map(h => ({ d: +h.d, p: xs(h.p), f: ob(h.f) }));
+  Object.keys(ob(d.nm)).slice(0, 40).forEach(k => { const a = d.nm[k]; if (Array.isArray(a)) R.nm[k] = [String(a[0]).slice(0, 40), String(a[1] || '#9aa7b8').slice(0, 12)]; });
+  Object.keys(ob(d.rec)).forEach(k => { const a = d.rec[k]; if (Array.isArray(a) && isFinite(a[0])) R.rec[k] = [+a[0], String(a[1]).slice(0, 40), +a[2] || 0, a[3] == null ? null : String(a[3]).slice(0, 60)]; });
+  Object.keys(ob(d.ll)).forEach(k => { if (isFinite(d.ll[k])) (R.ll || (R.ll = {}))[k] = +d.ll[k]; });
+  R.lg = (Array.isArray(d.lg) ? d.lg : []).filter(x => Array.isArray(x)).slice(-30).map(x => [+x[0] || 0, String(x[1]).slice(0, 200)]);
+  return R;
+}
+// Poids de répartition d'un panier de classe : [produit, part de la valeur, prix standard] (recalculés chaque mois)
+function rkWeights() {
+  const W = {}; RIV_CLS.forEach(cls => { const a = PKEYS.filter(k => PRODUCTS[k].cls === cls && !/^c\d/.test(k)).map(k => { const sp = stdPrice(k); return [k, typeW(k) * sp, sp]; }), t = a.reduce((s, x) => s + x[1], 0) || 1; a.forEach(x => { x[1] /= t; }); W[cls] = a; });
+  return W;
+}
+function rkAdd(R, k, sid, u, v, px) {
+  if (!(u > 0) || !(v > 0)) return;
+  const o = R.C[k] || (R.C[k] = {}), a = o[sid] || (o[sid] = [0, 0]); a[0] += u; a[1] += v;
+  if (px > 0) { const h = R.hp[k]; if (!h || px > h[0]) R.hp[k] = [Math.round(px * 100) / 100, sid, S.day]; }
+}
+// Panier de classe du jour : V = valeur au cours de la classe, rel = prix relatif du vendeur (rival : px ; rayons : prix de rayon moyen).
+// Il est cumulé par classe et par vendeur (R.B : [V, V × rel, rel maximal, jour du maximum]) et réparti sur les produits à la lecture et au relevé mensuel (coût quotidien minimal).
+function rkBask(R, sid, cls, V, rel, fl) {
+  if (!(V > 0)) return; let Vr = V;
+  if (fl && fl.cls === cls && PRODUCTS[fl.k]) { const sp = stdPrice(fl.k), mk = retailMk(cls), d = fl.d || 1, vf = V * RK_FL; rkAdd(R, fl.k, sid, vf / (sp * d), vf * rel * mk, sp * mk * rel * d); Vr -= vf; }
+  const o = R.B[cls] || (R.B[cls] = {}), a = o[sid] || (o[sid] = [0, 0, 0, 0]); a[0] += Vr; a[1] += Vr * rel; if (rel > a[2]) { a[2] = rel; a[3] = S.day; }
+}
+const rkW = () => RKW || (RKW = rkWeights());
+// Répartition des paniers sur les produits (dans out : {clé: {vendeur: [u, CA]}}) ; hp : meilleurs prix candidats {clé: [prix, vendeur, jour]}
+function rkExpand(B, out, hp) {
+  const W = rkW();
+  for (const cls in B) { const w = W[cls]; if (!w) continue; const mk = retailMk(cls);
+    for (const id in B[cls]) { const a = B[cls][id]; if (!(a[0] > 0)) continue;
+      for (let i = 0; i < w.length; i++) { const x = w[i]; if (out) { const o = out[x[0]] || (out[x[0]] = {}), b = o[id] || (o[id] = [0, 0]); b[0] += a[0] * x[1] / x[2]; b[1] += a[1] * x[1] * mk; }
+        if (hp) { const px = x[2] * mk * a[2], h = hp[x[0]]; if (!h || px > h[0]) hp[x[0]] = [Math.round(px * 100) / 100, id, a[3]]; } } } }
+}
+function rkHpNow(R) { const hp = Object.assign({}, R.hp); rkExpand(R.B, null, hp); return hp; }
+// Vente du jour dans tes rayons (appelée depuis la boucle de vente existante)
+function rkRet(key, pk, cls, got, vRet, car, price) {
+  if (pk) { let mx = 0; const mk = retailMk(cls); for (let i = 0; i < car.length; i++) { const c = car[i]; if ((c.sales[key] || 0) > 1e-6) { const p = price * mk * pfOfK(c, key) * specMk(c); if (p > mx) mx = p; } } RKQ.push(['P', pk, got, vRet, mx]); }
+  else if (cls !== 'estate') RKQ.push(['L', cls, got * price, vRet / Math.max(1e-9, got * price * retailMk(cls))]);
+}
+function rkDay() {
+  if (!RK_ON) { RKQ.length = 0; return; }
+  const t0 = performance.now(), R = rkS();
+  const RV = {}; (S.rivals || []).forEach(r => { RV[r.id] = r; if (!R.nm[r.id] || R.nm[r.id][0] !== r.name) R.nm[r.id] = [r.name, r.col || '#9aa7b8']; });
+  for (let i = 0; i < RKQ.length; i++) { const q = RKQ[i];
+    if (q[0] === 'P') rkAdd(R, q[1], 'me', q[2], q[3], q[4]);
+    else if (q[0] === 'L') rkBask(R, 'loc', q[1], q[2], q[3], null);
+    else if (q[0] === 'R') rkBask(R, q[1], q[2], q[3], q[4], RV[q[1]] && RV[q[1]].fl);
+    else if (q[0] === 'F' && PRODUCTS[q[2]]) { const cls = PRODUCTS[q[2]].cls, sp = stdPrice(q[2]), mk = retailMk(cls); rkAdd(R, q[2], q[1], q[3] / sp, q[3] * q[4] * mk, sp * mk * q[4]); }
+  }
+  RKQ.length = 0;
+  const ls = S.locSold || {}; for (const g in ls) { const q = ls[g]; if (q > 0.01 && GOODS[g] && RIV_CLS.indexOf(g) < 0) rkAdd(R, g, 'me', q, q * S.price[g] * 0.97, S.price[g] * 0.97); }   // biens vendus au marché local (dont usines rivales)
+  const xs = S._xs || {}, xv = S._xv || {}, ex = (k, q, v) => { if (!(q > 0.01) || !(v > 0)) return; rkAdd(R, k, 'me', q, v, v / q); const a = R.X[k] || (R.X[k] = [0, 0]); a[0] += q; a[1] += v; };
+  for (const g in xs) if (GOODS[g] && RIV_CLS.indexOf(g) < 0) ex(g, xs[g], xv[g]);   // exportations du port
+  for (let i = 0; i < PKEYS.length; i++) { const pk = PKEYS[i], ps = S.prod[pk]; if (ps && ps.exp > 0.01) ex(pk, ps.exp, xv[pk]); }   // surplus de produits exporté
+  if (S.day - R.m0 >= 30) rkRoll(R);
+  RK_T.n++; RK_T.ms += performance.now() - t0;
+}
+// Relevé mensuel : cumul, dernier mois, historique, sociétés, records
+function rkRoll(R) {
+  rkExpand(R.B, R.C, R.hp); R.B = {}; RKW = rkWeights();   // paniers du mois répartis aux prix standard du relevé ; poids du mois suivant
+  const p = {};
+  for (const k in R.C) { const o = R.C[k], t = R.T[k] || (R.T[k] = {}); let u = 0, v = 0; for (const id in o) { const a = o[id], b = t[id] || (t[id] = [0, 0]); u += a[0]; v += a[1]; b[0] = rkR1(b[0] + a[0]); b[1] = Math.round(b[1] + a[1]); } if (v > 0) p[k] = [rkR1(u), Math.round(v)]; }
+  for (const k in R.X) { const a = R.X[k], b = R.XT[k] || (R.XT[k] = [0, 0]); b[0] = rkR1(b[0] + a[0]); b[1] = Math.round(b[1] + a[1]); }
+  R.L = rkRnd(R.C); R.XL = rkRndX(R.X); R.C = {}; R.X = {};
+  const rows = rkCos(), f = {}; rows.forEach(x => { f[x.sid] = [Math.round(x.val), Math.round(x.rev), Math.round(x.net)]; });
+  R.H.push({ d: S.day, p, f }); if (R.H.length > 13) R.H.shift(); R.m0 = S.day;
+  rkRecords(R, rows, p);
+}
+function rkName(sid) { if (sid === 'me') return 'Ta société'; if (sid === 'loc') return 'Marchandises locales (tes rayons)'; const r = (S.rivals || []).find(x => x.id === sid); return r ? r.name : (S.rk && S.rk.nm[sid] ? S.rk.nm[sid][0] : 'Société disparue'); }
+function rkCol(sid) { if (sid === 'me') return '#f2b84b'; if (sid === 'loc') return '#8f9acb'; const r = (S.rivals || []).find(x => x.id === sid); return r ? r.col : (S.rk && S.rk.nm[sid] ? S.rk.nm[sid][1] : '#9aa7b8'); }
+const rkJobs = k => { const T = TYPES[k]; return T ? (T.jobs0 ? T.jobs0 * K_SIZE : (T.jobs || 0)) : 0; };
+// Classement des sociétés (toi + IA indépendantes) : valeurs du jour
+function rkCos() {
+  const mk = S.mkt || {}, st = S.stats || {}, F = finM().F || {}, H = (S.rk && S.rk.H) || [], rows = [];
+  const ref = lag => { for (let i = H.length - 1; i >= 0; i--) if (H[i].d <= S.day - lag) return H[i]; return null; }, h30 = ref(30), h360 = ref(360);
+  const pat = {}; Object.keys(S.pat || {}).forEach(k => { const h = S.pat[k] && S.pat[k].holder; if (h) pat[h] = (pat[h] || 0) + 1; });
+  const own = {}; Object.keys(S.npcOwn || {}).forEach(k => { const id = S.npcOwn[k]; own[id] = (own[id] || 0) + 1; });
+  let nb = 0; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.x + c.y * N === i && !RK_NOB[c.t]) nb++; }
+  let bw = 0, bs = 0; PKEYS.forEach(k => { const ps = S.prod[k]; if (ps && ps.st === 'on') { const w = (ps.sold || 0) + 1e-3; bw += w; bs += w * 100 * bcSig(bcOf(ps)); } });
+  const rev = ((F.revRetail || 0) + (F.revExport || 0) + (F.revTech || 0) + (F.revBank || 0)) * DM, net = (F.net || 0) * DM, val = valuation();
+  rows.push({ sid: 'me', me: 1, caste: casteOf(), val, rev, net, mg: rev > 0 ? net / rev : null, cap: (S.float > 0 && S.sp && S.sp.length) ? S.sp[S.sp.length - 1] * SHARES : (st.worth || val), emp: Math.round((st.playerJobs || 0) * (st.jobs > 0 ? Math.min(1, (st.employed || 0) / st.jobs) : 1)), nb, ms: marketShareAvg(), br: bw > 0 ? bs / bw : 0, rd: pat.me || 0, tech: Object.keys(S.tech || {}).length });
+  const jS = rkJobs('s2'), jF = rkJobs('f2');
+  (S.rivals || []).forEach(r => { if (r.sub) return; const v = rivalValue(r), rv = (r.rev || 0) * DM, nt = (r.pf || 0) * DM, fb = (r.fab || []).length, tw = Math.max(0, (own[r.id] || 0) - (fb - (r.fab || []).filter(f => f.x == null).length)), nf = fb, eS = rivalSum(r) * RIV_OPEX / (WAGE_K * 1.2 * cpi());   // estimations : magasins d'après leurs frais d'exploitation (salaires), usines au gabarit f2
+    rows.push({ sid: r.id, caste: r.caste || '', val: v, rev: rv, net: nt, mg: rv > 0 ? nt / rv : null, cap: rivalPx(r) * RSH, emp: Math.round(eS + fb * jF), nb: tw + nf + Math.max(1, Math.round(eS / Math.max(1, jS))), ms: RIV_CLS.reduce((a, c) => a + (mk[c] ? ((mk[c].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0), 0) / 4, br: 100 * bcSig(r.bk == null ? 100 * rivProf(r) : r.bk), rd: pat[r.id] || 0, tech: null, est: 1 }); });
+  rows.forEach(x => { x.name = rkName(x.sid); x.col = rkCol(x.sid); const a = h30 && h30.f[x.sid], b = h360 && h360.f[x.sid]; x.g30 = a && a[0] > 0 ? x.val / a[0] - 1 : null; x.g360 = b && b[0] > 0 ? x.val / b[0] - 1 : null; x.tr = H.slice(-12).map(h => h.f[x.sid] ? h.f[x.sid][0] : null).concat([x.val]); });
+  rows.slice().sort((a, b) => b.val - a.val).forEach((x, i) => { x.rank = i + 1; });
+  if (h30) { const pv = Object.keys(h30.f).sort((a, b) => h30.f[b][0] - h30.f[a][0]); rows.forEach(x => { const i = pv.indexOf(x.sid); x.drk = i >= 0 ? i + 1 - x.rank : null; }); } else rows.forEach(x => { x.drk = null; });
+  return rows;
+}
+const RK_CO_K = ['val', 'rev', 'net', 'mg', 'cap', 'emp', 'nb', 'ms', 'br', 'rd', 'g30', 'g360', 'rank', 'name'];
+function rkCompanies(sort, dir) { const k = RK_CO_K.indexOf(sort) >= 0 ? sort : 'val', d = dir === 1 ? 1 : -1; return rkSort(rkCos(), k, k === 'rank' || k === 'name' ? -d : d); }
+// Tri stable : d = −1 décroissant, 1 croissant ; les valeurs absentes (null) toujours en bas
+function rkSort(a, k, d) { return a.sort((x, y) => { const u = x[k], v = y[k]; if (u == null && v == null) return 0; if (u == null) return 1; if (v == null) return -1; return typeof u === 'string' ? d * u.localeCompare(v, 'fr') : d * (u - v) || 0; }); }
+// Source d'une période : mois en cours, dernier mois complet, depuis le début
+function rkSrc(per) {
+  const R = rkS(); if (per === 'last') return { s: R.L, x: R.XL };
+  const s = {}, add = (o, k, id, a) => { const q = o[k] || (o[k] = {}), b = q[id] || (q[id] = [0, 0]); b[0] += a[0]; b[1] += a[1]; };
+  (per === 'all' ? [R.T, R.C] : [R.C]).forEach(o => { for (const k in o) for (const id in o[k]) add(s, k, id, o[k][id]); }); rkExpand(R.B, s, null);
+  if (per !== 'all') return { s, x: R.X };
+  const x = {}; [R.XT, R.X].forEach(o => { for (const k in o) { const b = x[k] || (x[k] = [0, 0]); b[0] += o[k][0]; b[1] += o[k][1]; } });
+  return { s, x };
+}
+const rkClsOf = k => PRODUCTS[k] ? (isPh(k) ? 'pharma' : PRODUCTS[k].cls) : GOODS[k] ? 'goods' : null;
+const RK_FK = {}; const rkFac = lvl => RK_FK[lvl] || (RK_FK[lvl] = mkFacKey(lvl));
+function rkCost(k) {   // coût de fabrication estimé d'une unité (intrants au cours + salaires et exploitation d'un atelier neuf)
+  const P = PRODUCTS[k]; if (!P) return GOODS[k] ? chUnit(k) : 0;
+  let m = 0; Object.keys(P.in).forEach(g => { m += P.in[g] * (S.price[g] || (GOODS[g] ? GOODS[g].base : 0)); }); const fk = rkFac(P.lvl), T = TYPES[fk];
+  return (m + (T ? ((T.jobs || 0) * WAGE_K * 1.2 + (T.upkeep || 0)) * cpi() / chNewU(fk) : 0)) / Math.max(1, P.out || 1);
+}
+function rkQB(sid, k) {   // qualité et marque d'un vendeur sur un produit (0-100) ; null pour un bien
+  const P = PRODUCTS[k]; if (!P) return [null, null]; const cls = P.cls;
+  if (sid === 'me') { const ps = S.prod[k]; return ps ? [trueQ(k), 100 * bcSig(bcOf(ps))] : [null, null]; }
+  if (sid === 'loc') return [locQ(cls), 0];
+  const r = (S.rivals || []).find(x => x.id === sid); return r ? [(CITY_Q[cls] || 50) + 10 * ((r.mq || 1) - 1), 100 * bcSig(r.bk == null ? 100 * rivProf(r) : r.bk)] : [null, null];
+}
+const RK_PR_K = ['v', 'u', 'avg', 'pmax', 'mg', 'g1', 'g12', 'n', 'lsh', 'q', 'b', 'name'], RK_VIEW = { ca: 'v', vol: 'u', cher: 'pmax', marge: 'mg', crois: 'g1', prix: 'avg' };
+// Classement des produits. o : { per: cur|last|all, cls: all|basic|std|lux|estate|pharma|goods|prod, ch: all|city|exp, sort, dir, n }
+function rkProducts(o) {
+  o = o || {}; const R = rkS(), src = rkSrc(o.per), H = R.H, HP = rkHpNow(R), cls = o.cls || 'all', ch = o.ch || 'all', rows = [];
+  for (const k in src.s) {
+    const cl = rkClsOf(k); if (!cl || (cls !== 'all' && (cls === 'prod' ? cl === 'goods' : cl !== cls))) continue;
+    let sel = src.s[k]; const xk = src.x[k];
+    if (ch === 'exp') { if (!xk) continue; sel = { me: xk }; } else if (ch === 'city' && xk && sel.me) { const m = [sel.me[0] - xk[0], sel.me[1] - xk[1]]; sel = Object.assign({}, sel); if (m[1] > 0.5 && m[0] > 1e-6) sel.me = m; else delete sel.me; }
+    let u = 0, v = 0; const sl = []; for (const id in sel) { const a = sel[id]; if (!(a[1] > 0)) continue; u += a[0]; v += a[1]; sl.push({ sid: id, u: a[0], v: a[1] }); }
+    if (!(v > 0)) continue; sl.sort((a, b) => b.v - a.v); let qw = 0, qs = 0, bs = 0;
+    sl.forEach(s => { s.sh = s.v / v; s.avg = s.u > 0 ? s.v / s.u : 0; const qb = rkQB(s.sid, k); s.q = qb[0]; s.b = qb[1]; if (qb[0] != null) { qw += s.u; qs += s.u * qb[0]; bs += s.u * qb[1]; } });
+    const hp = HP[k], avg = u > 0 ? v / u : 0, c = rkCost(k), a1 = H.length > 0 ? H[H.length - 1].p[k] : null, a0 = H.length > 1 ? H[H.length - 2].p[k] : null, a12 = H.length >= 13 ? H[H.length - 13].p[k] : null;
+    rows.push({ k, name: gName(k), cls: cl, u, v, avg, pmax: hp ? hp[0] : avg, pby: hp ? hp[1] : null, pday: hp ? hp[2] : null, lead: sl[0].sid, lsh: sl[0].sh, n: sl.length, sellers: sl, q: qw > 0 ? qs / qw : null, b: qw > 0 ? bs / qw : null, mg: avg > 0 ? 1 - c / avg : null, g1: a1 && a0 && a0[1] > 0 ? a1[1] / a0[1] - 1 : null, g12: a1 && a12 && a12[1] > 0 ? a1[1] / a12[1] - 1 : null });
+  }
+  const k = RK_PR_K.indexOf(o.sort) >= 0 ? o.sort : RK_VIEW[o.view] || 'v', d = o.dir === 1 ? 1 : -1; rkSort(rows, k, k === 'name' ? -d : d);
+  return o.n ? rows.slice(0, o.n) : rows;
+}
+// Vendeurs d'un produit (part de chacun)
+function rkSellers(k, per) { const r = rkProducts({ per, cls: 'all' }).find(x => x.k === k); return r ? r.sellers.map(s => Object.assign({ name: rkName(s.sid) }, s)) : []; }
+// N° 1 de chaque produit
+function rkLeaders(per, n) { return rkProducts({ per, cls: 'prod', n }).map(r => ({ k: r.k, name: r.name, lead: r.lead, leadName: rkName(r.lead), sh: r.lsh, n: r.n, v: r.v, u: r.u })); }
+// Records du palmarès (relevés chaque mois) ; le journal garde un changement de détenteur ou une nouvelle catégorie
+function rkRecords(R, rows, p) {
+  const rec = R.rec, lg = t => { R.lg.push([S.day, t]); if (R.lg.length > 30) R.lg.shift(); };
+  const best = (key, v, sid, det, txt) => { if (!(v > 0) || !isFinite(v)) return; const o = rec[key]; if (o && v <= o[0]) return; const chg = !o || o[1] !== sid || o[3] !== (det == null ? null : String(det)), ll = R.ll || (R.ll = {}); rec[key] = [Math.round(v * 100) / 100, sid, S.day, det == null ? null : String(det)]; if (chg && !(S.day - (ll[key] == null ? -999 : ll[key]) < 90)) { ll[key] = S.day; lg(txt); } };   // au plus une entrée par catégorie tous les 90 jours (les records de valorisation changent souvent de mains)
+  rows.forEach(x => { best('val', x.val, x.sid, null, `Record de valorisation : ${x.name} (${fmtV(x.val)}).`); best('pf', x.net, x.sid, null, `Entreprise la plus rentable : ${x.name} (${money(x.net)} de résultat sur un mois).`); if (x.g360 != null) best('gr', x.g360, x.sid, null, `Plus forte croissance sur 12 mois : ${x.name} (+${Math.round(x.g360 * 100)} %).`); });
+  let pk = null, pv = 0; for (const k in p) if (PRODUCTS[k] && p[k][1] > pv) { pv = p[k][1]; pk = k; }
+  if (pk) { const o = R.L[pk] || {}; let ls = null, lv = -1; for (const id in o) if (o[id][1] > lv) { lv = o[id][1]; ls = id; } const chg = !rec.m1 || rec.m1[3] !== pk; rec.m1 = [Math.round(pv), ls, S.day, pk]; if (chg) lg(`Produit n° 1 du mois : ${gName(pk)} (${money(pv)} de ventes, ${rkName(ls)} en tête).`); }
+  const HP = rkHpNow(R); let hk = null, hv = 0; for (const k in HP) if (PRODUCTS[k] && HP[k][0] > hv) { hv = HP[k][0]; hk = k; } if (hk) best('px', hv, HP[hk][1], hk, `Produit le plus cher vendu : ${gName(hk)} à ${money(hv)} (${rkName(HP[hk][1])}).`);
+  let sb = null, sv = 0, fb = null, fv = 0; eachBiz(c => { const T = TYPES[c.t]; if (!T) return; if (T.ret && (c._rev || 0) * DM > sv) { sv = (c._rev || 0) * DM; sb = c; } if (FLEVEL[c.t] && c.prod && (c.out || 0) > 0) { const v = c.out * (PRODUCTS[c.prod] ? prodPrice(c.prod) : (S.price[c.prod] || 0)) * DM; if (v > fv) { fv = v; fb = { sid: 'me', n: `${T.name} · ${gName(c.prod)} (${c.x + 1}, ${c.y + 1})` }; } } });
+  if (sb) best('shop', sv, 'me', `${TYPES[sb.t].name} (${sb.x + 1}, ${sb.y + 1})`, `Plus gros magasin : ${TYPES[sb.t].name.toLowerCase()} (${sb.x + 1}, ${sb.y + 1}), ${money(sv)} de ventes sur un mois.`);
+  (S.rivals || []).forEach(r => (r.fab || []).forEach(f => { if (f.on === false) return; const v = (f.cap || 0) * (f.fill == null ? 1 : f.fill) * (S.price[f.cls] || 0) * DM; if (v > fv) { fv = v; fb = { sid: r.id, n: `Usine de ${gName(f.pk).toLowerCase()} de ${r.name}` }; } }));
+  if (fb) best('fac', fv, fb.sid, fb.n, `Plus grosse usine : ${fb.n} (${money(fv)} de production sur un mois).`);
+}
+// Palmarès : records + produit n° 1 depuis le début
+function rkHof() {
+  const R = rkS(), rec = R.rec, all = rkProducts({ per: 'all', cls: 'prod' }), top = all[0] || null, out = [];
+  const it = (k, t, v, by, det, day) => out.push({ k, t, v, by, det, day });
+  if (top) it('top', 'Produit n° 1 de la partie', money(top.v) + ' de ventes', rkName(top.lead) + ' en tête (' + Math.round(top.lsh * 100) + ' %)', top.name, null);
+  const r = (k, t, f) => { const o = rec[k]; if (o) it(k, t, f(o[0]), rkName(o[1]), o[3] ? (PRODUCTS[o[3]] ? gName(o[3]) : o[3]) : null, o[2]); };
+  r('px', 'Produit le plus cher vendu', v => money(v) + ' l\'unité');
+  r('pf', 'Entreprise la plus rentable', v => money(v) + ' de résultat / mois');
+  r('gr', 'Plus forte croissance (12 mois)', v => '+' + Math.round(v * 100) + ' %');
+  r('shop', 'Plus gros magasin', v => money(v) + ' de ventes / mois');
+  r('fac', 'Plus grosse usine', v => money(v) + ' de production / mois');
+  r('val', 'Record de valorisation', v => fmtV(v));
+  return { items: out, top, log: R.lg.slice().reverse(), hist: rkHofHist() };
+}
+function rkHofHist() { try { const a = JSON.parse(localStorage.getItem('wse-hof') || '[]'); return Array.isArray(a) ? a.slice(-10).reverse() : []; } catch (e) { return []; } }
+function rkHofArchive() {   // fin de partie : le palmarès rejoint l'historique local (10 dernières parties)
+  try { const h = rkHof(), a = JSON.parse(localStorage.getItem('wse-hof') || '[]'), L = Array.isArray(a) ? a : []; L.push({ at: new Date().toISOString().slice(0, 10), mode: modeName(), day: S.day, caste: CASTES[casteOf()] ? CASTES[casteOf()].n : '', items: h.items.map(x => [x.t, x.det ? x.det + ' · ' + x.v : x.v, x.by]) }); localStorage.setItem('wse-hof', JSON.stringify(L.slice(-10))); } catch (e) { /* stockage indisponible */ }
+}
+// Contrôle de cohérence (tests) : somme des vendeurs = total du produit, valeurs finies, tris
+function rkCheck() {
+  const R = rkS(); let bad = 0, n = 0, maxErr = 0;
+  const scan = o => { for (const k in o) for (const id in o[k]) { const a = o[k][id]; n++; if (!isFinite(a[0]) || !isFinite(a[1]) || a[0] < 0 || a[1] < 0) bad++; } };
+  [R.C, R.L, R.T].forEach(scan);
+  R.H.forEach((h, i) => { if (i < R.H.length - 1) return; for (const k in h.p) { let v = 0; const o = R.L[k] || {}; for (const id in o) v += o[id][1]; maxErr = Math.max(maxErr, Math.abs(v - h.p[k][1]) / Math.max(1, h.p[k][1])); } });
+  ['cur', 'last', 'all'].forEach(per => rkProducts({ per }).forEach(r => { let v = 0, u = 0; r.sellers.forEach(s => { v += s.v; u += s.u; }); maxErr = Math.max(maxErr, Math.abs(v - r.v) / Math.max(1, r.v), Math.abs(u - r.u) / Math.max(1, r.u)); if (!isFinite(r.avg) || !isFinite(r.pmax)) bad++; }));
+  return { n, bad, maxErr };
+}
+function rkCsv(kind, o) {
+  const q = v => { const s = v == null ? '' : String(v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }, n2 = v => v == null || !isFinite(v) ? '' : (Math.round(v * 100) / 100).toString();
+  if (kind === 'companies') { const a = rkCompanies('val'); return ['Rang;Société;Caste;Valorisation;CA/mois;Résultat/mois;Marge;Capitalisation;Employés;Établissements;Part de marché;Marque;Brevets;Croissance 30 j;Croissance 360 j'].concat(a.map(x => [x.rank, x.name, x.caste ? (CASTES[x.caste] || {}).n : '', Math.round(x.val), Math.round(x.rev), Math.round(x.net), n2(x.mg), Math.round(x.cap), x.emp, x.nb, n2(x.ms), n2(x.br), x.rd, n2(x.g30), n2(x.g360)].map(q).join(';'))).join('\n'); }
+  const a = rkProducts(Object.assign({ per: 'all' }, o || {}));
+  return ['Rang;Produit;Classe;Unités;CA;Prix moyen;Prix le plus élevé;Vendeur du prix record;N° 1;Part du n° 1;Vendeurs;Qualité;Marque;Marge filière;Croissance 1 mois'].concat(a.map((x, i) => [i + 1, x.name, RK_CLS[x.cls], n2(x.u), Math.round(x.v), n2(x.avg), n2(x.pmax), x.pby ? rkName(x.pby) : '', rkName(x.lead), n2(x.lsh), x.n, n2(x.q), n2(x.b), n2(x.mg), n2(x.g1)].map(q).join(';'))).join('\n');
+}
+function rkRefPrices(n) { return PKEYS.filter(k => !/^c\d/.test(k)).map(k => ({ k, name: PRODUCTS[k].name, ref: PRODUCTS[k].ref, std: stdPrice(k), cls: rkClsOf(k) })).sort((a, b) => b.ref - a.ref).slice(0, n || 10); }
+const RK_API = { state: () => rkS(), companies: rkCompanies, products: rkProducts, sellers: rkSellers, leaders: rkLeaders, hof: rkHof, check: rkCheck, csv: rkCsv, refPrices: rkRefPrices, roll: () => rkRoll(rkS()), weights: () => RKW || (RKW = rkWeights()),
+  top: (kind, n, per) => kind === 'companies' ? rkCompanies('val').slice(0, n || 5) : rkProducts({ per: per || 'all', cls: 'prod', view: kind || 'ca', n: n || 5 }),
+  topPrice: () => { const HP = rkHpNow(rkS()); let k = null, v = 0; for (const q in HP) if (PRODUCTS[q] && HP[q][0] > v) { v = HP[q][0]; k = q; } return k ? { k, name: gName(k), px: v, by: HP[k][1], byName: rkName(HP[k][1]), day: HP[k][2] } : null; },
+  enable: v => { RK_ON = !!v; RKQ.length = 0; }, cost: () => ({ days: RK_T.n, ms: RK_T.ms, perDay: RK_T.n ? RK_T.ms / RK_T.n : 0 }), resetCost: () => { RK_T.n = 0; RK_T.ms = 0; }, CLS: RK_CLS, render: v => renderRank(true, v) };
+// ---- Écran Classements (Menu > Classements) : quatre vues, tri par colonne, filtres, export CSV
+const RKU = { t: 'co', cs: 'val', cd: -1, view: 'ca', ps: null, pd: -1, per: 'cur', cls: 'all', ch: 'all', all: 0, pk: null, lper: 'cur' };
+const rkPc = (v, s) => v == null || !isFinite(v) ? '–' : (s && v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v * 100)) + ' %';
+const rkPx = v => !isFinite(v) ? '–' : v >= 1000 ? fmt(v) + ' $' : v >= 10 ? (Math.round(v * 10) / 10).toLocaleString('fr-FR') + ' $' : (Math.round(v * 100) / 100).toLocaleString('fr-FR') + ' $';
+const rkU = v => v >= 1e6 ? (v / 1e6).toFixed(1).replace('.', ',') + ' M' : v >= 1e4 ? fmt(Math.round(v / 1e3)) + ' k' : fmt(v);
+const rkM = v => (v < 0 ? '−' : '') + kMoney(Math.abs(v));
+function rkSpark(a) {
+  const v = a.filter(x => x != null && isFinite(x)); if (v.length < 2) return '<span class="note">–</span>';
+  const lo = Math.min(...v), hi = Math.max(...v), w = 54, h = 16, n = a.length - 1, pts = []; a.forEach((x, i) => { if (x != null && isFinite(x)) pts.push(`${(i / n * w).toFixed(1)},${(h - 1 - (hi > lo ? (x - lo) / (hi - lo) : 0.5) * (h - 2)).toFixed(1)}`); });
+  const up = v[v.length - 1] >= v[0];
+  return `<svg class="rkspark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline fill="none" stroke="${up ? 'var(--green)' : 'var(--red)'}" stroke-width="1.5" points="${pts.join(' ')}"/></svg>`;
+}
+const rkTh = (cols, sk, sd, attr) => `<tr>${cols.map(c => `<th data-${attr}="${c[0]}"${c[0] === sk ? ` aria-sort="${sd === 1 ? 'ascending' : 'descending'}"` : ''} title="${c[2] || ''}">${c[1]}${c[0] === sk ? (sd === 1 ? ' ▴' : ' ▾') : ''}</th>`).join('')}</tr>`;
+const rkDot = sid => `<i class="rkdot" style="background:${rkCol(sid)}"></i>`;
+function rkCoHTML() {
+  const a = rkCompanies(RKU.cs, RKU.cd), me = a.find(x => x.me), ld = a.slice().sort((x, y) => y.val - x.val)[0];
+  const cols = [['name', 'Société'], ['val', 'Valorisation'], ['rev', 'CA / mois'], ['net', 'Résultat / mois'], ['mg', 'Marge', 'Résultat net / chiffre d\'affaires'], ['cap', 'Capitalisation', 'Cours × actions (si cotée), sinon valeur des capitaux propres'], ['emp', 'Employés', 'IA : estimé d\'après ses immeubles et usines'], ['nb', 'Établ.', 'Établissements : bâtiments exploités (IA : immeubles et usines)'], ['ms', 'Part de marché', 'Moyenne des 4 catégories de la ville'], ['br', 'Marque', 'Force de marque 0-100'], ['rd', 'Brevets', 'Brevets détenus (toi : + recherches terminées)'], ['g30', 'Crois. 30 j'], ['g360', 'Crois. 360 j'], ['tr', 'Tendance', 'Valorisation des 12 derniers relevés mensuels']];
+  let h = `<div class="rkcards"><div class="rkcard"><small>Ton rang</small><b>${me ? me.rank : '–'} / ${a.length}</b><span>${me && me.drk ? (me.drk > 0 ? '▲ ' + me.drk + ' place' + (me.drk > 1 ? 's' : '') + ' en 30 j' : '▼ ' + (-me.drk) + ' place' + (me.drk < -1 ? 's' : '') + ' en 30 j') : 'stable sur 30 jours'}</span></div><div class="rkcard"><small>Leader</small><b>${ld ? ld.name : '–'}</b><span>${ld ? fmtV(ld.val) : ''}</span></div><div class="rkcard"><small>Plus rentable ce mois</small>${(() => { const b = a.slice().sort((x, y) => y.net - x.net)[0]; return b ? `<b>${b.name}</b><span>${rkM(b.net)} / mois</span>` : '<b>–</b>'; })()}</div></div>`;
+  h += `<div class="rkw"><table class="fint rkt" data-rkt="co">${rkTh(cols, RKU.cs, RKU.cd, 'rkcs')}${a.map(x => `<tr class="${x.me ? 'me' : ''}"><td>${x.rank}. ${rkDot(x.sid)}${x.name}${x.drk ? ` <small class="${x.drk > 0 ? 'rkup' : 'rkdn'}">${x.drk > 0 ? '▲' : '▼'}${Math.abs(x.drk)}</small>` : ''}${x.caste && CASTES[x.caste] ? `<br><small class="note">${CASTES[x.caste].n}</small>` : ''}</td><td>${fmtV(x.val)}</td><td>${rkM(x.rev)}</td><td class="${x.net >= 0 ? 'pos' : 'neg'}">${rkM(x.net)}</td><td>${rkPc(x.mg)}</td><td>${fmtV(x.cap)}</td><td>${x.est ? '≈ ' : ''}${fmt(x.emp)}</td><td>${x.est ? '≈ ' : ''}${fmt(x.nb)}</td><td>${rkPc(x.ms)}</td><td>${Math.round(x.br)}</td><td>${fmt(x.rd)}${x.tech != null ? ` <small class="note">· ${x.tech} tech.</small>` : ''}</td><td class="${x.g30 > 0 ? 'pos' : x.g30 < 0 ? 'neg' : ''}">${rkPc(x.g30, 1)}</td><td class="${x.g360 > 0 ? 'pos' : x.g360 < 0 ? 'neg' : ''}">${rkPc(x.g360, 1)}</td><td>${rkSpark(x.tr)}</td></tr>`).join('')}</table></div>`;
+  h += `<p class="note">Toi et les sociétés IA indépendantes (une par caste). Clique un en-tête pour trier. Croissance et rang : relevés mensuels de la valorisation. Effectifs et établissements des IA estimés.</p><div class="seg2"><button class="btn sec" data-rkcsv="companies">Exporter en CSV</button></div>`;
+  return h;
+}
+const RK_VIEWS = [['ca', 'Meilleures ventes (CA)'], ['vol', 'Meilleures ventes (volume)'], ['cher', 'Produit le plus cher vendu'], ['marge', 'Meilleure marge'], ['crois', 'Plus forte croissance'], ['prix', 'Prix moyen le plus élevé']];
+const RK_PERS = [['cur', 'Mois en cours'], ['last', 'Dernier mois complet'], ['all', 'Depuis le début']];
+const rkSel = (id, cur, opts, lbl) => `<label>${lbl}<select data-rksel="${id}">${opts.map(o => `<option value="${o[0]}"${o[0] === cur ? ' selected' : ''}>${o[1]}</option>`).join('')}</select></label>`;
+function rkPrHTML() {
+  const rows = rkProducts({ per: RKU.per, cls: RKU.cls, ch: RKU.ch, view: RKU.view, sort: RKU.ps, dir: RKU.pd }), sk = RKU.ps || RK_VIEW[RKU.view], tp = RK_API.topPrice();
+  let h = `<div class="rkctl">${rkSel('view', RKU.view, RK_VIEWS, 'Classement')}${rkSel('cls', RKU.cls, [['all', 'Tous'], ['prod', 'Produits finis'], ['basic', 'Base'], ['std', 'Courant'], ['lux', 'Luxe'], ['estate', 'Immobilier'], ['pharma', 'Pharmacie'], ['goods', 'Biens (matières, composants)']], 'Classe')}${rkSel('per', RKU.per, RK_PERS, 'Période')}${rkSel('ch', RKU.ch, [['all', 'Ville et export'], ['city', 'Ville seulement'], ['exp', 'Export seulement']], 'Canal')}</div>`;
+  const all = rkProducts({ per: RKU.per, cls: 'prod' }), t1 = all[0], tv = all.slice().sort((a, b) => b.u - a.u)[0];
+  h += `<div class="rkcards"><div class="rkcard"><small>N° 1 des ventes</small><b>${t1 ? t1.name : '–'}</b><span>${t1 ? rkM(t1.v) + ' · ' + rkName(t1.lead) + ' en tête' : 'aucune vente sur la période'}</span></div><div class="rkcard"><small>Plus gros volume</small><b>${tv ? tv.name : '–'}</b><span>${tv ? rkU(tv.u) + ' unités' : ''}</span></div><div class="rkcard"><small>Produit le plus cher vendu</small><b>${tp ? tp.name : '–'}</b><span>${tp ? rkPx(tp.px) + ' · ' + tp.byName + ' · jour ' + tp.day : 'record établi à la première vente'}</span></div></div>`;
+  const cols = [['name', 'Produit'], ['u', 'Unités'], ['v', 'CA', 'Chiffre d\'affaires au prix public'], ['avg', 'Prix moyen'], ['pmax', 'Prix max', 'Prix unitaire le plus élevé pratiqué depuis le début'], ['lsh', 'N° 1 · part'], ['n', 'Vendeurs'], ['q', 'Qualité', 'Moyenne pondérée par les ventes (0-100)'], ['b', 'Marque', 'Moyenne pondérée par les ventes (0-100)'], ['mg', 'Marge', 'Marge de la filière : 1 − coût de fabrication estimé / prix moyen'], ['g1', 'Crois. 1 mois', 'CA du dernier mois complet / mois précédent'], ['g12', 'Crois. 12 mois']];
+  const shown = RKU.all ? rows : rows.slice(0, 25);
+  h += rows.length ? `<div class="rkw"><table class="fint rkt" data-rkt="pr">${rkTh(cols, sk, RKU.ps ? RKU.pd : -1, 'rkps')}${shown.map((x, i) => `<tr class="${x.lead === 'me' ? 'me' : ''}" data-rkpk="${x.k}"><td>${i + 1}. ${x.name}<br><small class="note">${RK_CLS[x.cls]}</small></td><td>${rkU(x.u)}</td><td>${rkM(x.v)}</td><td>${rkPx(x.avg)}</td><td>${rkPx(x.pmax)}</td><td>${rkDot(x.lead)}${rkName(x.lead).replace(' (tes rayons)', '')} · ${Math.round(x.lsh * 100)} %</td><td>${x.n}</td><td>${x.q == null ? '–' : Math.round(x.q)}</td><td>${x.b == null ? '–' : Math.round(x.b)}</td><td>${rkPc(x.mg)}</td><td class="${x.g1 > 0 ? 'pos' : x.g1 < 0 ? 'neg' : ''}">${rkPc(x.g1, 1)}</td><td class="${x.g12 > 0 ? 'pos' : x.g12 < 0 ? 'neg' : ''}">${rkPc(x.g12, 1)}</td></tr>`).join('')}</table></div>` : '<p class="note">Aucune vente enregistrée sur cette période et ce filtre.</p>';
+  h += `<div class="seg2">${rows.length > 25 ? `<button class="btn sec" data-rkall="1">${RKU.all ? 'Afficher le top 25' : `Afficher les ${rows.length} lignes`}</button>` : ''}<button class="btn sec" data-rkcsv="products">Exporter en CSV</button></div>`;
+  h += '<p class="note">Ventes de tous les vendeurs de la ville et de tes exportations, au prix public. Les marchandises sans marque et le négoce des IA sont des paniers par classe, répartis sur les produits selon leur demande. Touche une ligne pour voir ses vendeurs. Une seule ville : pas de classement par zone.</p>';
+  return h;
+}
+function rkSelHTML() {
+  const all = rkProducts({ per: RKU.lper, cls: 'all' }); if (!all.length) return `<div class="rkctl">${rkSel('lper', RKU.lper, RK_PERS, 'Période')}</div><p class="note">Aucune vente enregistrée sur cette période.</p>`;
+  if (!RKU.pk || !all.some(x => x.k === RKU.pk)) RKU.pk = all[0].k; const r = all.find(x => x.k === RKU.pk);
+  let h = `<div class="rkctl">${rkSel('pk', RKU.pk, all.map(x => [x.k, x.name]), 'Produit')}${rkSel('lper', RKU.lper, RK_PERS, 'Période')}</div>`;
+  h += `<div class="rkcards"><div class="rkcard"><small>${RK_CLS[r.cls]}</small><b>${r.name}</b><span>${rkU(r.u)} unités · ${rkM(r.v)}</span></div><div class="rkcard"><small>Prix moyen · record</small><b>${rkPx(r.avg)}</b><span>record ${rkPx(r.pmax)}${r.pby ? ' · ' + rkName(r.pby) : ''}</span></div><div class="rkcard"><small>N° 1</small><b>${rkName(r.lead)}</b><span>${Math.round(r.lsh * 100)} % du CA · ${r.n} vendeur${r.n > 1 ? 's' : ''}</span></div></div>`;
+  h += `<div class="rkw"><table class="fint rkt"><tr><th>Vendeur</th><th>Part</th><th>Unités</th><th>CA</th><th>Prix moyen</th><th>Qualité</th><th>Marque</th></tr>${r.sellers.map((s, i) => `<tr class="${s.sid === 'me' ? 'me' : ''}"><td>${i + 1}. ${rkDot(s.sid)}${rkName(s.sid)}<span class="rkbar"><i style="width:${(s.sh * 100).toFixed(1)}%;background:${rkCol(s.sid)}"></i></span></td><td>${Math.round(s.sh * 100)} %</td><td>${rkU(s.u)}</td><td>${rkM(s.v)}</td><td>${rkPx(s.avg)}</td><td>${s.q == null ? '–' : Math.round(s.q)}</td><td>${s.b == null ? '–' : Math.round(s.b)}</td></tr>`).join('')}</table></div>`;
+  const L = rkLeaders(RKU.lper), lim = RKU.all ? L : L.slice(0, 20);
+  h += `<h3>N° 1 DE CHAQUE PRODUIT</h3><div class="rkw"><table class="fint rkt"><tr><th>Produit</th><th>N° 1</th><th>Part</th><th>Vendeurs</th><th>CA</th></tr>${lim.map(x => `<tr class="${x.lead === 'me' ? 'me' : ''}" data-rkpk="${x.k}"><td>${x.name}</td><td>${rkDot(x.lead)}${x.leadName.replace(' (tes rayons)', '')}</td><td>${Math.round(x.sh * 100)} %</td><td>${x.n}</td><td>${rkM(x.v)}</td></tr>`).join('')}</table></div>`;
+  const mine = L.filter(x => x.lead === 'me').length;
+  h += `<p class="note">Tu es n° 1 sur ${mine} produit${mine > 1 ? 's' : ''} sur ${L.length}.</p>${L.length > 20 ? `<div class="seg2"><button class="btn sec" data-rkall="1">${RKU.all ? 'Afficher les 20 premiers' : `Afficher les ${L.length} produits`}</button></div>` : ''}`;
+  return h;
+}
+function rkHofHTML() {
+  const H = rkHof();
+  let h = `<div class="rkcards">${H.items.map(x => `<div class="rkcard"><small>${x.t}</small><b>${x.det ? x.det : x.v}</b><span>${x.det ? x.v + ' · ' : ''}${x.by}${x.day != null ? ' · jour ' + x.day : ''}</span></div>`).join('') || '<p class="note">Les records sont relevés chaque mois de jeu : reviens après le premier mois.</p>'}</div>`;
+  if (H.log.length) h += `<h3>JOURNAL DES RECORDS</h3><div class="rvlog">${H.log.slice(0, 12).map(l => `<div><small>Jour ${l[0]}</small> ${l[1]}</div>`).join('')}</div>`;
+  if (H.hist.length) h += `<h3>PARTIES PRÉCÉDENTES</h3>${H.hist.map(g => `<div class="rkcard" style="margin-bottom:6px"><small>${g.at} · ${g.mode}${g.caste ? ' · ' + g.caste : ''} · ${fmt(g.day)} jours</small>${(g.items || []).slice(0, 4).map(i => `<span>${i[0]} : <b style="display:inline;font-size:12px">${i[1]}</b> (${i[2]})</span>`).join('')}</div>`).join('')}`;
+  return h;
+}
+function renderRank(force, tab) {
+  const box = el('rkBody'); if (!box || !S) return; if (tab) RKU.t = tab;
+  const sec = box.closest('section'); if (!force && sec && sec.hidden) return;
+  if (!force && document.activeElement && document.activeElement.closest && document.activeElement.closest('#rkBody select')) return;   // ne pas refermer une liste ouverte
+  document.querySelectorAll('#rkTabs [data-rkt]').forEach(b => { b.classList.toggle('sec', b.dataset.rkt !== RKU.t); b.setAttribute('aria-pressed', b.dataset.rkt === RKU.t ? 'true' : 'false'); });
+  const h = RKU.t === 'pr' ? rkPrHTML() : RKU.t === 'sel' ? rkSelHTML() : RKU.t === 'hof' ? rkHofHTML() : rkCoHTML();
+  if (box.dataset.h !== h) { const sl = [...box.querySelectorAll('.rkw')].map(w => w.scrollLeft); box.innerHTML = h; box.dataset.h = h; box.querySelectorAll('.rkw').forEach((w, i) => { if (sl[i]) w.scrollLeft = sl[i]; }); }
+}
+function rkDownload(kind) {
+  const csv = rkCsv(kind, kind === 'products' ? { cls: RKU.cls, ch: RKU.ch, per: RKU.per } : null), b = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = `wse-classement-${kind === 'products' ? 'produits' : 'societes'}-j${S.day}.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function openRank(tab) { setPanel(true); setPtab('rank'); renderRank(true, tab || RKU.t); }
+el('rkTabs').addEventListener('click', e => { const b = e.target.closest('[data-rkt]'); if (b) { RKU.t = b.dataset.rkt; RKU.all = 0; renderRank(true); } });
+el('rkBody').addEventListener('click', e => {
+  const t = e.target.closest('[data-rkcs],[data-rkps],[data-rkcsv],[data-rkall],[data-rkpk]'); if (!t) return; const d = t.dataset;
+  if (d.rkcs) { if (d.rkcs === 'tr') return; RKU.cd = RKU.cs === d.rkcs ? -RKU.cd : -1; RKU.cs = d.rkcs; }
+  else if (d.rkps) { const cur = RKU.ps || RK_VIEW[RKU.view]; RKU.pd = cur === d.rkps ? -(RKU.ps ? RKU.pd : -1) : -1; RKU.ps = d.rkps; }
+  else if (d.rkcsv) { rkDownload(d.rkcsv); return; }
+  else if (d.rkall) RKU.all = RKU.all ? 0 : 1;
+  else if (d.rkpk) { RKU.pk = d.rkpk; if (RKU.t === 'pr') RKU.lper = RKU.per; RKU.t = 'sel'; RKU.all = 0; }
+  renderRank(true);
+});
+el('rkBody').addEventListener('change', e => { const s = e.target.closest('[data-rksel]'); if (!s) return; const k = s.dataset.rksel; RKU[k] = s.value; if (k === 'view') { RKU.ps = null; RKU.pd = -1; } RKU.all = 0; s.blur(); renderRank(true); });
+el('rkFromRiv').onclick = () => openRank('co');
 // Rattrapage public : le retardataire (moins de 70 % du leader des joueurs) emprunte moins cher ; le leader paie une prime de levier
 const leaderVal = () => Math.max(valuation(), ...(S.rivals || []).filter(r => !r.sub).map(r => rivalValue(r)));
 function catchUp() { const v = valuation(), L = leaderVal(), ratio = L > 0 ? v / L : 1; return { on: ratio < 0.7 && (S.rivals || []).length > 0, ratio, disc: ratio < 0.7 ? 0.35 : 0, leader: ratio >= 1 }; }
@@ -16560,6 +16889,7 @@ function endGame(kind, msg) {
   const miss = isScn() ? SCN[m.k].ms.filter(x => { const r = x.f(); return !(r[0] >= r[1]); }).map(x => x.t) : [];
   m.res = { kind, msg, miss, day: S.day, min: Math.round(daysToMin(S.day)), val: valuation(), net: Math.round(personalNet() * cpi()), ms: Math.round(marketShareAvg() * 100), rank: rankWorld(), rows: rows.slice(0, 8).concat(rows.slice(8).filter(r => r.me)).map(r => [r.n, Math.round(r.v), r.me ? 1 : 0]), parts, total };
   try { const key = 'wse-prog', p = JSON.parse(localStorage.getItem(key) || '{}'); if (kind === 'win') p[m.k] = Math.max(p[m.k] || 0, total); localStorage.setItem(key, JSON.stringify(p)); } catch (e) { /* stockage indisponible */ }
+  try { rkRecords(rkS(), rkCos(), {}); rkHofArchive(); } catch (e) { /* palmarès facultatif */ }   // passe 71
   setSpeed(0); showEnd(); save();
 }
 function showEnd() {
@@ -16569,13 +16899,14 @@ function showEnd() {
   box.innerHTML = `<div class="ebox ${r.kind}"><h2>${head}</h2><p class="elead">${r.msg}</p><small>${modeName()} · ${fmt(r.day)} jours · ${r.min} min à vitesse normale</small>
     <div class="ekp"><div><small>Valorisation</small><b class="gold">${fmtV(r.val)}</b></div><div><small>Fortune personnelle</small><b>${fmtV(r.net)}</b></div><div><small>Parts de marché</small><b>${r.ms} %</b></div><div><small>Classement</small><b>${r.rank[0]} / ${r.rank[1]}</b></div></div>
     <h4>Classement final</h4>${r.rows.map((x, i) => `<div class="erow ${x[2] ? 'me' : ''}"><span>${x[2] && i >= 8 ? r.rank[0] : i + 1}. ${x[0]}</span><b>${fmtV(x[1])}</b></div>`).join('')}
+    ${(() => { try { const it = rkHof().items.slice(0, 4); return it.length ? `<h4>Palmarès de la partie</h4>${it.map(x => `<div class="erow"><span>${x.t} : ${x.det ? x.det + ' · ' : ''}${x.by}</span><b>${x.v}</b></div>`).join('')}` : ''; } catch (e) { return ''; } })()}
     <h4>Répartition du score · ${fmt(r.total)} pts</h4>${r.parts.map(p => `<div class="erow"><span>${p[0]}</span><i style="width:${Math.round(p[1] / tot * 100)}%"></i><b>${fmt(p[1])} pts · ${Math.round(p[1] / tot * 100)} %</b></div>`).join('')}
     ${r.kind !== 'win' && r.miss && r.miss.length ? `<h4>Jalons manqués</h4><ul class="scnlist">${r.miss.map(x => `<li><i>○</i><span>${x}</span></li>`).join('')}</ul><p class="note">Réessaie : le tutoriel et le bouton Conseil t'indiquent la marche à suivre.</p>` : ''}
     ${nx ? `<p class="elead">Scénario ${nx.i} débloqué : ${nx.n}</p>` : ''}
-    <div class="eact">${nx ? `<button class="btn" data-end="next">Scénario ${nx.i} : ${nx.n}</button>` : ''}${r.kind !== 'win' && isScn() ? '<button class="btn" data-end="retry">Réessayer ce scénario</button>' : ''}<button class="btn ${nx ? 'sec' : ''}" data-end="cont">Continuer en Libre</button><button class="btn sec" data-end="new">Menu principal</button><button class="btn sec" data-end="edu">Bilan d'apprentissage</button></div></div>`;
+    <div class="eact">${nx ? `<button class="btn" data-end="next">Scénario ${nx.i} : ${nx.n}</button>` : ''}${r.kind !== 'win' && isScn() ? '<button class="btn" data-end="retry">Réessayer ce scénario</button>' : ''}<button class="btn ${nx ? 'sec' : ''}" data-end="cont">Continuer en Libre</button><button class="btn sec" data-end="new">Menu principal</button><button class="btn sec" data-end="rank">Classements</button><button class="btn sec" data-end="edu">Bilan d'apprentissage</button></div></div>`;
   box.hidden = false;
 }
-el('endscr').addEventListener('click', e => { const b = e.target.closest('[data-end]'); if (!b) return; if (b.dataset.end === 'edu') { el('endscr').hidden = true; eduShow('deb'); return; } if (b.dataset.end === 'cont') { el('endscr').hidden = true; S.mode.k = 'free'; S.mode.cont = 1; buildTools(); setSpeed(1); syncSpeedUI(); updateHUD(); save(); } else if (b.dataset.end === 'next') { const k = 's' + (+modeK()[1] + 1); el('endscr').hidden = true; startMode(k); } else if (b.dataset.end === 'retry') { el('endscr').hidden = true; startMode(modeK()); } else { el('endscr').hidden = true; showModes(); } });
+el('endscr').addEventListener('click', e => { const b = e.target.closest('[data-end]'); if (!b) return; if (b.dataset.end === 'rank') { el('endscr').hidden = true; openRank('hof'); return; } if (b.dataset.end === 'edu') { el('endscr').hidden = true; eduShow('deb'); return; } if (b.dataset.end === 'cont') { el('endscr').hidden = true; S.mode.k = 'free'; S.mode.cont = 1; buildTools(); setSpeed(1); syncSpeedUI(); updateHUD(); save(); } else if (b.dataset.end === 'next') { const k = 's' + (+modeK()[1] + 1); el('endscr').hidden = true; startMode(k); } else if (b.dataset.end === 'retry') { el('endscr').hidden = true; startMode(modeK()); } else { el('endscr').hidden = true; showModes(); } });
 // Sélection de partie : Libre, 5 scénarios (déblocage progressif), Round compétitif
 function progOf() { try { return JSON.parse(localStorage.getItem('wse-prog') || '{}'); } catch (e) { return {}; } }
 function showModes() {
@@ -16658,6 +16989,7 @@ el('objbar').addEventListener('click', e => {
   if (a === 'skip') { tutoF().tdone = 1; applyHl(null); }
   else if (a === 'ok') { tutoF().t5 = 1; }
   else if (a === 'tip') { coachOpen = !coachOpen; }
+  else if (a === 'rank') { openRank('co'); }
   else if (a === 'hqsite') { const h = hqSite(true); say(hqSiteMsg(h), 'info'); if (h.x != null) { fitted = true; centerOn(h.x + 1, h.y + 1); } setTool('hq'); if (h.kind === 'acq') acqOpen(h.plan); }
   updObj();
 });
@@ -16887,7 +17219,7 @@ function rankHTML() {
   const rows = rankRows(); if (rows.length < 2) return '';
   const me = rows.find(r => r.me), arrow = t => t > 0 ? '<i class="up">▲</i>' : t < 0 ? '<i class="dn">▼</i>' : '<i>▬</i>';
   const top = rows.slice(0, isMob() ? 2 : 4), shown = me && top.indexOf(me) < 0 ? top.concat([me]) : top;
-  return `<div class="orank" title="Classement en direct par valorisation (tendance sur 10 jours)"><span class="olbl">Classement</span>${shown.map(r => `<span class="${r.me ? 'me' : ''}">${r.rank}. ${r.n} <b>${fmtV(r.v)}</b> ${arrow(r.tr)}</span>`).join('')}${me && me.rank > 1 ? `<span class="gap">écart avec le leader : −${fmtV(-me.gap)}</span>` : '<span class="gap up">tu es en tête</span>'}</div>`;
+  return `<div class="orank" title="Classement en direct par valorisation (tendance sur 10 jours)"><span class="olbl">Classement</span>${shown.map(r => `<span class="${r.me ? 'me' : ''}">${r.rank}. ${r.n} <b>${fmtV(r.v)}</b> ${arrow(r.tr)}</span>`).join('')}${me && me.rank > 1 ? `<span class="gap">écart avec le leader : −${fmtV(-me.gap)}</span>` : '<span class="gap up">tu es en tête</span>'}<button class="btn sec orkb" data-ob="rank" title="Classements complets : sociétés, produits, palmarès">Classements</button></div>`;
 }
 
 // ---- Récapitulatifs après un événement macro, un événement de jeu ou un rachat
@@ -18913,7 +19245,7 @@ function drawWorksOver(a, p, bx, by, floors, now) {
   ctx.restore();
 }
 
-window.WSE = { say, isCmp, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML, maxAt: proMaxAt, devQuote: proDevQuote, develop: proDevelop, deals: proDeals, prog: proProg, progErr: proProgErr, progCost: proProgCost, PROG, brand: proBrand, brandK: proBrandK, demo: proDemo, syn: proSyn, attrCity: proAttrCity, liq: proLiq, mktK: proMktK, mtm: proMtm, cycle: p => proCycleStep(p || PR()), ltv: () => promoLtv(), limit: () => promoLimit(), immoIdx: () => immoIdx(), resOcc: proResOcc, port: proPortList, noSale: proNoSale, cityHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating, lev: rivLev, rate: rivRate, gross: rivGross, canBorrow: rivCanBorrow, K2: { RIV_LEV_AV, RIV_GS_P, RIV_MAT }, tr: { R: trR, S: trS, K: trK, sup: trSup, list: supplierList, val: trVal, market: trMarket, day: trDay, power: trPower, left: trLeft, cov: trCov, M: trM, delay: trDelay, act: trCasteAct, line: trLine, joinCartel: trJoinCartel, C: { TR_DAYS, TR_STEP, TR_TM, TR_DCAP, TR_BUD, TR_FLOW, TR_ELCAP, TR_DCK, TR_ELK, TR_EXP, TR_BUY } }, lx: { R: lxR, S: lxS, quote: lxQuote, lend: lxLend, take: lxTake, day: lxDay, book: lxBook, cap: lxCap, st: lxSt, act: lxCasteAct, rescue: lxRescue, line: lxLine, meAmt: lxMeAmt, offerAmt: lxOfferAmt, C: { LX_LEV, LX_LEVMAX, LX_TERM, LX_ST } }, answerX: rvxAnswer, role: casteRoleTxt }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { say, isCmp, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML, maxAt: proMaxAt, devQuote: proDevQuote, develop: proDevelop, deals: proDeals, prog: proProg, progErr: proProgErr, progCost: proProgCost, PROG, brand: proBrand, brandK: proBrandK, demo: proDemo, syn: proSyn, attrCity: proAttrCity, liq: proLiq, mktK: proMktK, mtm: proMtm, cycle: p => proCycleStep(p || PR()), ltv: () => promoLtv(), limit: () => promoLimit(), immoIdx: () => immoIdx(), resOcc: proResOcc, port: proPortList, noSale: proNoSale, cityHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating, lev: rivLev, rate: rivRate, gross: rivGross, canBorrow: rivCanBorrow, K2: { RIV_LEV_AV, RIV_GS_P, RIV_MAT }, tr: { R: trR, S: trS, K: trK, sup: trSup, list: supplierList, val: trVal, market: trMarket, day: trDay, power: trPower, left: trLeft, cov: trCov, M: trM, delay: trDelay, act: trCasteAct, line: trLine, joinCartel: trJoinCartel, C: { TR_DAYS, TR_STEP, TR_TM, TR_DCAP, TR_BUD, TR_FLOW, TR_ELCAP, TR_DCK, TR_ELK, TR_EXP, TR_BUY } }, lx: { R: lxR, S: lxS, quote: lxQuote, lend: lxLend, take: lxTake, day: lxDay, book: lxBook, cap: lxCap, st: lxSt, act: lxCasteAct, rescue: lxRescue, line: lxLine, meAmt: lxMeAmt, offerAmt: lxOfferAmt, C: { LX_LEV, LX_LEVMAX, LX_TERM, LX_ST } }, answerX: rvxAnswer, role: casteRoleTxt }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, rk: RK_API, openRank, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; if (o.TIER != null) CG_TIER = o.TIER; return { CG_R0, CG_P, CG_CAP, CG_REL, CG_TIER }; }, citySvcCov, citySvc: () => ({ need: CITY_SVC, have: citySvcHave().n, cov: citySvcCov() }), cityTiers: CITY_TIER, cityTierR, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
