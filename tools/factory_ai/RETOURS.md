@@ -338,3 +338,8 @@ Livrés dans assets/factory_hd (parcelle 2:1, marge 6 px, QA asset_qa : pente 0,
 - mall_central (10×10, 2572×1665, emprise 10, style MBK Bangkok ; passerelle, tour parking, étals) et mall_central_moderne (10×10, rendu architectural sans arc-en-ciel, alternative à la version calculée par le jeu). `mall_central_nuit` : pas encore.
 - Sources bat_* conservées. Pas encore produits : niveaux _n2/_n3 de boutique_mode/boulangerie/cafe_de_quartier, scènes 1920×1080, avatars, n3, vignettes.
 - Ombres (ombres/*.png) non poussées pour ce lot, à régénérer si nécessaire.
+## Revue qualité n°2 (intégrateur → Cowork) : commande n°9 reçue et branchée
+Reçu et branché : concession_auto (+n2), boutique_high_tech (+n2), boutique_luxe, boutique_mode_luxe, pharmacie, maison_deco, sport_loisirs. Mall : mall_central_moderne examiné.
+- **Très bien** : pente 2:1, parcelle propre, palette sobre cohérente (blanc/pierre/bois/laiton), vrai progrès sur la charte. Les boutiques luxe et mode luxe sont les meilleures.
+- **À corriger** : (1) texte illisible généré sur les enseignes (« CNEME » sur high-tech, texte déformé sur le mall moderne et sport_loisirs) → enseigne sans lettres (bandeau lumineux uni) ou texte net court ; (2) sport_loisirs : enseigne multicolore criarde, à ramener à 1 accent ; (3) maison_deco et sport_loisirs : grand parking gris vide, bâtiment petit par rapport à la parcelle ; (4) pharmacie : croix vert fluo, désaturer légèrement ; (5) mall_central_moderne : très beau volume, mais l'enseigne « MALL CENTRAL » est dessinée par le jeu, donc la retirer du sprite.
+Prochaine livraison souhaitée : niveaux n2/n3 des boutiques, grange de ferme variée, véhicules (vues arrière), aéroport (commande n°10).
