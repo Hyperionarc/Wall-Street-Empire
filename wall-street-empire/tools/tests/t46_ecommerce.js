@@ -11,7 +11,7 @@ const SETUP = ec => `(() => {
   W.launchProduct('${PK}'); const ps = S.prod['${PK}']; ps.st = 'on'; ps.rnd = 0; ps.pf = 1;
   f.prod = '${PK}'; f.wage = 2; const ins = Object.keys(W.productInputs('${PK}'));
   f.src = {}; ins.forEach(g => { f.src[g] = 'local'; });
-  const e = T.inP('ewh'); T.inC('dc'); if (${ec}) W.ecom.launch('Testshop');   // mêmes bâtiments (mêmes emplois) dans les deux parties : seule la plateforme diffère
+  const e = T.inP('ewh'); T.inP('dc'); if (${ec}) W.ecom.launch('Testshop');   // mêmes bâtiments (mêmes emplois) dans les deux parties : seule la plateforme diffère
   const pre = () => { T.frz(); S.cash = Math.max(S.cash, 5e9); ins.forEach(g => { S.stock[g] = 1e6; }); };
   const log = { ret: [], sold: [], pd: [], exp: [], ec: [], xv: [], pu: [], inv: [], res: [] };
   const day = () => { pre(); W.step(); const p = S.prod['${PK}'], E = S.ecom, L = E && E.last;
