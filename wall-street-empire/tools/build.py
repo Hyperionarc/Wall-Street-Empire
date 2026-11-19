@@ -287,6 +287,12 @@ def _ground_tile(name, im, path=None):
             if wm.sum() > 100 and len(rm) > 100:
                 mu, sd, mr, sr = t[wm].mean(0), t[wm].std(0) + 1e-3, rm.mean(0), rm.std(0)
                 t2 = t.copy(); t2[wm] = (t[wm] - mu) / sd * sr + mr; img = Image.fromarray(np.uint8(np.clip(t2, 0, 255)), 'RGB')
+    if name in ('eau_calme', 'eau_rivage_quai'):   # charte : eau bleu-gris profond, pas de cyan vif (teinte vers le bleu, saturation -28 %, luminosité -22 %) ; sur le quai, seuls les pixels d'eau changent
+        t = np.asarray(img, dtype=np.float32); hsv = np.asarray(img.convert('HSV'), dtype=np.float32)
+        hsv[..., 0] = np.clip(hsv[..., 0] + 14, 0, 255); hsv[..., 1] *= 0.72; hsv[..., 2] *= 0.78
+        g = np.asarray(Image.fromarray(np.uint8(np.clip(hsv, 0, 255)), 'HSV').convert('RGB'), dtype=np.float32)
+        wm = (t[..., 2] > t[..., 0] + 25)[..., None] if name == 'eau_rivage_quai' else np.ones(t.shape[:2] + (1,), bool)
+        img = Image.fromarray(np.uint8(np.where(wm, g, t)), 'RGB')
     if name.startswith('herbe_'):   # charte : herbe moins saturée (-25 %) et teinte décalée vers le jaune-vert doux
         h, s, v = img.convert('HSV').split()
         h = h.point(lambda x: max(0, x - 3)); s = s.point(lambda x: int(x * 0.75))
