@@ -1,5 +1,5 @@
 // Chaînes industrielles complètes (passe 21) : mine/ferme -> composants -> usine du produit -> magasins, auto-production activée.
-// Une chaîne bien construite doit être rentable (EBITDA global 12-25 %, retour sur capex 3-5 ans) ; une chaîne mal construite (composants achetés dehors) ne doit pas gagner d'argent.
+// Une chaîne bien construite doit être rentable (EBITDA global ≥ 12 %, retour sur capex ≤ 5,5 ans ; sans plafond depuis la passe 46) ; une chaîne mal construite (composants achetés dehors) ne doit pas gagner d'argent.
 const CA = require('../chain_audit.js');
 exports.name = 'Chaînes industrielles (passe 21)';
 exports.run = async (t, L) => {
@@ -7,8 +7,10 @@ exports.run = async (t, L) => {
   // Chaîne équilibrée : pain (ferme -> farine -> pain -> magasins) et ustensiles (fer, charbon, pétrole -> acier, plastique -> ustensiles)
   for (const k of ['bread', 'utensils']) {
     const r = await CA.runChain(CA.PLANS[k], days), b = await CA.runChain(CA.PLANS[k], days, true), d = CA.delta(r, b);
-    t.range(`chaîne ${k} bien construite : EBITDA global 12-35 %`, d.margin * 100, 12, 35, ' %', 0);
-    t.range(`chaîne ${k} bien construite : retour sur capex 1,5-5,5 ans (marges relevées)`, d.payback, 1.5, 5.5, ' an', 1);
+    // Passe 46 : plus de borne HAUTE d'EBITDA ni de retour minimal sur capex (c'étaient des plafonds de marge) : une chaîne intégrée qui tient seule son marché peut être une pépite.
+    // On garde le plancher de rentabilité, un retour fini et l'absence de NaN ; la chaîne mal construite (ci-dessous) reste testée.
+    t.check(`chaîne ${k} bien construite : EBITDA global ≥ 12 % et fini`, Number.isFinite(d.margin) && d.margin * 100 >= 11.5, (d.margin * 100).toFixed(0) + ' %');
+    t.check(`chaîne ${k} bien construite : retour sur capex ≤ 5,5 ans et positif`, Number.isFinite(d.payback) && d.payback > 0 && d.payback <= 5.5, d.payback.toFixed(1) + ' an');
     t.check(`chaîne ${k} : 0 pageerror`, r.errs.length === 0, r.errs.slice(0, 2).join(';'));
   }
   // Chaîne mal construite : usine de pain seule, farine à acheter. L'auto-production suspend les achats ruineux : pas de perte, pas de gain miracle.

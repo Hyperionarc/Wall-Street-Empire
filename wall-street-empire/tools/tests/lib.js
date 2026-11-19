@@ -84,7 +84,7 @@ async function isoFactory(key, preSrc) {   // preSrc : code optionnel (W, S) qui
     const f = put(fk, 66, 84, 54, 84); put('port', 66, 84, 54, 84); for (let i = 0; i < 10; i++) put('res', 14, 44, 14, 44); put('s2', 14, 44, 14, 44);
     if (isP) { W.launchProduct(key); const ps = S.prod[key]; ps.st = 'on'; ps.rnd = 0; ps.pf = 1; ps.A = 0.03; ps.age = 0; ps._q = ps.q; W.assignProduct(key, 1); } else W.assignRecipe(key, 1);
     const ins = Object.keys(isP ? W.productInputs(key) : rec.in); f.src = {}; ins.forEach(g => { f.src[g] = 'local'; });
-    const pre = () => { S.macro.phase = Math.PI; S.macro.boom = 0; ins.forEach(g => { S.stock[g] = 1e9; S.price[g] = W.GOODS[g].base * (S.cpi || 1); }); if (!isP) { S.stock[key] = 0; S.price[key] = W.GOODS[key].base * (S.cpi || 1); } else S.prod[key].stock = 0; };
+    const pre = () => { S.macro.phase = Math.PI; S.macro.boom = 0; ins.forEach(g => { S.stock[g] = 1e9; S.price[g] = W.GOODS[g].base * (S.cpi || 1); }); if (!isP) { S.stock[key] = 0; S.price[key] = W.GOODS[key].base * (S.cpi || 1); } else { S.prod[key].stock = 0; S.prod[key].mpx = 20; S.prod[key].mph = 0; } };   // passe 46 : mesure « marché concurrentiel » comme pour les composants (prix de base) : 20 copies étrangères annulent la prime de pouvoir de marché (voir bench_pouvoir.js pour le monopole)
     for (let i = 0; i < 20; i++) { pre(); W.step(); }
     const A = { pRev: 0, cogs: 0, wag: 0, upk: 0, tr: 0, out: 0, util: 0 }, D = 40;
     for (let i = 0; i < D; i++) { pre(); W.step(); A.pRev += f.pRev || 0; A.cogs += f.inCost || 0; A.wag += f.wages || 0; A.upk += f.upk || 0; A.tr += f.transport || 0; A.out += f.out || 0; A.util += f.util || 0; }
