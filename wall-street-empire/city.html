@@ -2073,11 +2073,13 @@ function stepLocalMarket(made, want) {
     mpEntry(g, n, Dl);   // passe 46 : appel d'air (déterministe)
     if (!n.cap && n.days > 18 && rnd() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * ROOM * 0.15; if (n.k != null) n.k = Math.max(1, n.k); if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
     const myCap = Math.max(1, made[g] + Math.max(0, S.stock[g] - 750) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1;
-    want[g] += Dl * ROOM; made[g] += n.cap + NPC_IMP * Dl * ROOM;
-    const avail = Math.max(0, S.stock[g] - Math.max(ROBOTS[g] ? 2 : 750, FGD ? ledRes(g) : 0)), q = Math.min(avail, Dl * ROOM * share);   // passe 32 : le stock réservé à la vente interne n'est jamais vendu au marché
-    S.locSold[g] = q; (S._lm || (S._lm = {}))[g] = { D: Dl * ROOM, npc: n.cap + NPC_IMP * Dl * ROOM, sh: share };   // relevé pour le bureau de l'usine (aucun effet)
+    const Dr = (S.rv && S.rv.inD && S.rv.inD[g]) || 0;   // achats d'intrants des usines rivales : clients du marché local, donc aussi du joueur ; les importateurs suivent au rapport offre / demande du jour (cours inchangé)
+    want[g] += Dl * ROOM; made[g] += n.cap + NPC_IMP * Dl * ROOM; if (Dr > 0) { const k = made[g] / Math.max(1e-6, want[g]); want[g] += Dr; made[g] += Dr * k; }
+    const avail = Math.max(0, S.stock[g] - Math.max(ROBOTS[g] ? 2 : 750, FGD ? ledRes(g) : 0)), q = Math.min(avail, (Dl * ROOM + Dr) * share);   // passe 32 : le stock réservé à la vente interne n'est jamais vendu au marché
+    S.locSold[g] = q; (S._lm || (S._lm = {}))[g] = { D: Dl * ROOM + Dr, npc: n.cap + NPC_IMP * Dl * ROOM, sh: share, riv: Dr, rivMe: Dr > 0 ? q * Dr / (Dl * ROOM + Dr) : 0 };   // relevé pour le bureau de l'usine (aucun effet) ; rivMe : ventes du joueur aux usines rivales
     if (q > 0.01) { fSellExt(g, q, q * S.price[g] * 0.97); S.stock[g] -= q; v += q * S.price[g] * 0.97; }
   });
+  if (S.rv && S.rv.inD) Object.keys(S.rv.inD).forEach(g => { if (!LOCAL_D[g] && GOODS[g]) { const k = (made[g] || 0) / Math.max(1e-6, want[g] || 0) || 1; want[g] = (want[g] || 0) + S.rv.inD[g]; made[g] = (made[g] || 0) + k * S.rv.inD[g]; } });   // intrants sans marché local : même règle (cours inchangé)
   return v;
 }
 // Options de partie (inspirées de l'écran « Competitors » de Capitalism Lab) : niveaux 0..4 = Très bas, Bas, Modéré, Élevé, Très élevé
@@ -2312,7 +2314,7 @@ function companyOf(k) {
     return { caste: k, id: 'me', name: 'Ton empire', col: '#f2b84b', ctrl: 'human', pid: S.pid || 'me', cash: S.cash, debt: S.loan || 0, value: valuation(), rev: (F.revRetail || 0) + (F.revExport || 0) + (F.revTech || 0) + (F.revBank || 0), pf: F.net || 0, shares: sh, px, brand: (S._brandAvg || {}).aw || 0, bld: n, strat: null }; }
   const r = (S.rivals || []).find(x => x.caste === k); if (!r) return null;
   const sh = {}; RIV_CLS.forEach(c => { sh[c] = mk[c] ? ((mk[c].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0; });
-  return { caste: k, id: r.id, name: r.name, col: r.col, ctrl: r.ctrl === 'human' ? 'human' : 'ai', pid: r.pid || null, cash: r.cash, debt: 0, value: rivalValue(r), rev: r.rev || 0, pf: r.pf || 0, shares: sh, px: Object.assign({}, r.px), brand: r.bk || 0, bld: r.nb || 0, strat: r.st || null };
+  return { caste: k, id: r.id, name: r.name, col: r.col, ctrl: r.ctrl === 'human' ? 'human' : 'ai', pid: r.pid || null, cash: r.cash, debt: r.debt || 0, value: rivalValue(r), rev: r.rev || 0, pf: r.pf || 0, shares: sh, px: Object.assign({}, r.px), brand: r.bk || 0, bld: r.nb || 0, strat: r.st || null };
 }
 function seatClaim(k, pid) {
   if (!RIV_CASTE[k]) return { ok: false, why: 'Caste inconnue.' };
@@ -2339,8 +2341,8 @@ const rivPxRel = (r, cls) => r.px && r.px[cls] > 0 ? r.px[cls] / (rivP(r).px[cls
 const rivPm = (r, cls) => { if (!r.px) return 1; const x = rivPxRel(r, cls) * (r.fl && r.fl.cls === cls ? 0.7 + 0.3 * (r.fl.d || 1) : 1); return Math.pow(clamp(x, 0.5, 1.8), -RIV_EL[cls]); };
 const rivalAttr = cls => optV('price', OPT_PRICE) * (S.rivals || []).reduce((a, r) => a + rivEff(r, cls) * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
 // Valeur d'un rival : trésorerie + magasins (≈ 27 M$ par point d'attrait à K_SIZE = 5) + actifs hors magasins (usines, brevets, participations, fermes) + immobilier
-const rivalValue = r => Math.round((Math.max(0, r.cash) + RIV_ASSET * rivalSum(r) + (r.as || 0) + (r.re || 0)) * (casteIs('industriel') ? 0.85 : 1) / 5000) * 5000;
-const rvLog = (r, t) => { const L = rvS().log || (rvS().log = []); L.push({ d: S.day, id: r ? r.id : '', n: r ? r.name : '', t }); if (L.length > 14) L.shift(); try { netRivLog(r, t); } catch (e) { /* réseau facultatif */ } };
+const rivalValue = r => Math.round((Math.max(0, r.cash) + RIV_ASSET * rivalSum(r) + (r.as || 0) + (r.re || 0) + (r.fab ? fabVal(r) : 0) - (r.debt || 0)) *(casteIs('industriel') ? 0.85 : 1) / 5000) * 5000;
+const rvLog = (r, t, quiet) => { const L = rvS().log || (rvS().log = []); L.push({ d: S.day, id: r ? r.id : '', n: r ? r.name : '', t }); if (L.length > 40) L.shift(); if (!quiet) try { netRivLog(r, t); } catch (e) { /* réseau facultatif */ } };   // quiet : journal seul (prix, usines), sans message sur le réseau social simulé (ses publications nourrissent d'autres mécaniques)
 const rvCartelK = cls => (S && S.rv && S.rv.cartel && S.rv.cartel.cls === cls) ? 1.08 : 1;   // entente acceptée : tes prix de rayon montent de 8 % dans la classe
 // Services disputés : la banque de l'IA banquier et les data centers de l'IA innovateur prennent jusqu'à 12 % des recettes de services du joueur à mesure que leurs actifs grandissent
 const rivSvc = k => { const r = (S.rivals || []).find(x => x.caste === (k === 'bank' ? 'banquier' : 'innovateur')); return r ? 0.12 * Math.min(1, (r.as || 0) / (1.5 * Math.max(1e6, r.v0 || 2e7))) : 0; };
@@ -2359,14 +2361,23 @@ function rivWar(r, cls) {
 function rivPrice(r) {
   const P = rivP(r), mk = S.mkt || {}, st = r.st || {}, RV = rvS(), val = Math.max(1, rivalValue(r)), cr = r.cash / val; r.sm = r.sm || {};
   RIV_CLS.forEach(cls => {
-    const b = P.px[cls] || 1, you = mk[cls] ? mk[cls].you : 0, mine = mk[cls] ? ((mk[cls].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0; let t = 1;
+    const b = P.px[cls] || 1, you = mk[cls] ? mk[cls].you : 0, mine = mk[cls] ? ((mk[cls].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0; let t = 1; const why = [];   // why : facteurs du prix cible, pour le journal explicatif
+    const f = (k, x) => { if (Math.abs(x - 1) > 1e-4) why.push([k, x]); t *= x; };
     r.sm[cls] = r.sm[cls] == null ? mine : r.sm[cls] * 0.97 + mine * 0.03;
-    if (r.att[cls] > 0.01 && r.sm[cls] > 0.005) t *= 1 - 0.15 * clamp((r.sm[cls] - mine) / r.sm[cls], -0.4, 0.6);
-    t *= cr < 0.04 && rivalSum(r) >= (r.a0 || 0) + rivYoung() ? 1.06 : cr > 0.45 && S.day > 120 ? 0.97 : 1;
-    if (you > 0.05) t *= 1 + clamp((playerPx(cls) - 1) * P.fol, -0.12, 0.1) * Math.min(1, you / 0.25);
-    if (st.k === 'war' && st.cls === cls) t *= 1 - st.d; else if (st.k === 'limit' && st.cls === cls) t *= 0.93;
-    if (RV.cartel && RV.cartel.cls === cls) t *= RV.cartel.rid === r.id ? RV.cartel.m : 1 + (RV.cartel.m - 1) / 2;
-    const tgt = clamp(b * t, b * 0.7, b * 1.3); r.px[cls] = +(r.px[cls] + clamp(tgt - r.px[cls], -0.03 * b, 0.015 * b)).toFixed(4);
+    if (r.att[cls] > 0.01 && r.sm[cls] > 0.005) f('part', 1 - 0.15 * clamp((r.sm[cls] - mine) / r.sm[cls], -0.4, 0.6));
+    f('cash', cr < 0.04 && rivalSum(r) >= (r.a0 || 0) + rivYoung() ? 1.06 : cr > 0.45 && S.day > 120 ? 0.97 : 1);
+    if (you > 0.05) f('toi', 1 + clamp((playerPx(cls) - 1) * P.fol, -0.12, 0.1) * Math.min(1, you / 0.25));
+    if (st.k === 'war' && st.cls === cls) f('guerre', 1 - st.d); else if (st.k === 'limit' && st.cls === cls) f('limite', 0.93);
+    if (RV.cartel && RV.cartel.cls === cls) f('entente', RV.cartel.rid === r.id ? RV.cartel.m : 1 + (RV.cartel.m - 1) / 2);
+    const war = st.k === 'war' && st.cls === cls, cb = r.cb && r.cb[cls], fl = cb > 0 && r.fab && r.fab.length ? b * (cb + (war ? -0.04 : 0.02)) : 0;   // « ne jamais vendre sous le coût » (politique du COO de Capitalism Lab), sauf guerre des prix : jusqu'à 4 % sous le coût
+    if (fl > b * t) why.push(['coût', fl / (b * t)]);
+    const tgt = clamp(Math.max(b * t, fl), b * 0.7, b * 1.3); r.px[cls] = +(r.px[cls] + clamp(tgt - r.px[cls], -0.03 * b, 0.015 * b)).toFixed(4);
+    // journal explicatif : un mouvement de prix d'au moins 6 % depuis le dernier relevé est expliqué par son facteur principal (au plus une fois par mois et par rival)
+    r.pxL = r.pxL || {}; if (r.pxL[cls] == null) r.pxL[cls] = r.px[cls];
+    const dv = r.px[cls] / r.pxL[cls] - 1;
+    if (Math.abs(dv) >= 0.06 && r.att[cls] > 0.02 && S.day - (r.pxD || -99) >= 30) { r.pxL[cls] = r.px[cls]; r.pxD = S.day; const w = why.sort((x, y) => Math.abs(Math.log(y[1])) - Math.abs(Math.log(x[1])))[0];
+      const RS = { part: 'ses parts reculent', cash: cr < 0.04 ? 'sa trésorerie est tendue' : 'sa trésorerie est abondante', toi: `il s'aligne sur tes prix (indice ${playerPx(cls).toFixed(2).replace('.', ',')})`, guerre: 'guerre des prix contre toi', limite: 'prix limite pour freiner ta progression', entente: 'entente sur les prix', 'coût': `il ne vend pas sous son coût de revient (${Math.round(cb * 100)} % du cours)` };
+      rvLog(r, `${dv < 0 ? 'baisse' : 'monte'} ses prix de ${Math.round(Math.abs(dv) * 100)} % sur ${CLS_FR[cls]} (×${r.px[cls].toFixed(2).replace('.', ',')}) : ${w ? RS[w[0]] : 'retour à son positionnement habituel'}.`, 1); }
   });
   if (r.fl) { const ft = st.k === 'war' && st.cls === r.fl.cls ? 0.9 : cr < 0.04 ? 1.05 : 1; r.fl.d = +(r.fl.d + clamp(ft - r.fl.d, -0.03, 0.015)).toFixed(4); }   // produit phare : produit d'appel en guerre des prix
 }
@@ -2392,6 +2403,71 @@ function rivCasteAct(r) {
   else if (r.caste === 'negociant') { const raws = GKEYS.filter(g => GOODS[g].grp === 'raw'), g = raws[Math.floor(rnd() * raws.length)]; if (room('basic')) r.att.basic += 0.008; r.cash -= bud; r.as += bud; tell(`signe un contrat de négoce à long terme (${GOODS[g].name.toLowerCase()}) : ses rayons sont approvisionnés moins cher que les tiens.`); }   // pas d'effet sur les cours : une hausse de 12 % d'une matière ruinait le joueur industriel (mesuré)
   else if (r.caste === 'innovateur') { const dc = r.acts % 2 === 0 && rivTower(r, 'off', 6 + Math.floor(rnd() * 4)); r.bk = clamp((r.bk || 0) + 10, 0, 300); if (room('std')) r.att.std += 0.006; if (room('lux')) r.att.lux += 0.003; r.cash -= bud; r.as += bud; tell(dc ? 'ouvre un data center en ville et vend sa puissance de calcul.' : 'dépose de nouveaux brevets : ses produits tech gagnent en attrait, ses licences rapportent.'); }
   else { r.cash -= bud; r.as += bud; }
+}
+/* ---------- Passe « concurrence IA à la Capitalism Lab » : les rivaux fabriquent (voir docs/CAPLAB_CONCURRENCE_IA.md) ----------
+   Une IA de caste fabricante peut monter des usines (r.fab, champ optionnel) sur les produits de ses classes de cœur, avec les MÊMES recettes que le joueur.
+   Chaque usine : { pk, cls, cap (unités de classe/jour), stk (stock de produits finis), uc (coût unitaire relatif au cours de la classe), bv (valeur comptable), on, x, y, d0, lo (jours de marge insuffisante), ok (jours de marge revenue), fill }.
+   Règle « fabriquer ou acheter » : l'usine n'est construite que si la marge fabriquée (1 − intrants au cours − main-d'œuvre) dépasse la marge de négoce d'au moins FAB_GAIN
+   et si le gain annuel rapporte au moins FAB_HURDLE de l'investissement. Les intrants sont achetés au marché local (dont au joueur) : la demande des rivaux s'ajoute
+   à celle de la ville (S.rv.inD), un intrant en pénurie (S.rat) fait tourner l'usine au ralenti et l'IA perd des ventes (rupture). Aucun tirage aléatoire. */
+const RIV_FABF = { industriel: ['Auto et outils', 'Électroménager', 'Maison et meubles', 'Jouets et sport'], innovateur: ['Électronique', 'Santé et beauté'], agriculteur: ['Alimentation', 'Boissons'], negociant: ['Alimentation', 'Mode', 'Maison et meubles'], banquier: ['Mode', 'Boissons'], promoteur: ['Immobilier'] };   // familles que chaque caste sait fabriquer (spécialisation de l'IA, comme l'expertise produit de Capitalism Lab)
+const RIV_FABC = {}; Object.keys(RIV_FABF).forEach(k => { const c = new Set(); RIV_FABF[k].forEach(f => (FAM[f] || []).forEach(pk => { if (PRODUCTS[pk]) c.add(PRODUCTS[pk].cls); })); RIV_FABC[k] = RIV_CLS.filter(x => c.has(x)); });
+const fabFamOk = (r, pk) => (RIV_FABF[r.caste] || []).some(f => (FAM[f] || []).indexOf(pk) >= 0);
+const FAB_LAB = 0.18, FAB_GAIN = 0.04, FAB_HURDLE = 0.22, FAB_CAPEX = 150, FAB_DAYS = 12, FAB_SHARE = 0.3, FAB_PAY = 0.8, FAB_DEP = 0.06 / 360, RIV_DEBT_MAX = 0.3;
+// part des intrants dans le prix de gros d'un produit, aux cours du jour (mêmes recettes que le joueur)
+function fabKin(pk) { const pr = PRODUCTS[pk]; if (!pr || !pr.in) return 1; let c = 0; Object.keys(pr.in).forEach(g => { c += pr.in[g] * (S.price[g] || (GOODS[g] ? GOODS[g].base : 0)); }); return c / Math.max(1, pr.out || 1) / Math.max(1e-6, stdPrice(pk)); }
+// taux de service des intrants : 1 si le marché est équilibré ; en pénurie (demande / offre > 1), l'usine tourne au ralenti
+// pénurie = cours proche du plafond ; le marché local sert d'abord ; le port importe jusqu'à 60 % du manque, 35 % plus cher (prime répercutée dans le coût : imp)
+function fabFill(pk) { const pr = PRODUCTS[pk]; let f = 1, why = null; Object.keys(pr.in || {}).forEach(g => { if (!GOODS[g]) return; const mb = marketBounds(g), p = S.price[g] || GOODS[g].base, x = mb.cap > mb.fl * 1.05 ? clamp(1 - 2.5 * (p / mb.cap - 0.8), 0.35, 1) : 1; if (x < f) { f = x; why = g; } }); const fill = f + 0.6 * (1 - f); return { f: fill, why, imp: 1 + 0.35 * 0.6 * (1 - f) / Math.max(0.01, fill) }; }
+const rivMr = r => clamp(rivP(r).m * (r.mq || 1) * rivDiff().m, 0.05, 0.4);   // marge de négoce (revente de marchandises achetées)
+const fabMax = r => { if (!r || !r.caste || !RIV_FABC[r.caste] || r.ctrl === 'human' || r.sub || (S.mode && /^s[1-5]$/.test(S.mode.k || '')) || S.day < 360) return 0; const k = compNow(); return clamp(k.t + (S.day >= 540 ? 1 : 0) - (S.mode && S.mode.easy ? 1 : 0), 0, 3); };   // difficulté : aucune usine IA la première année (les IA s'industrialisent au fil de la partie), puis palier du joueur + 1 après le jour 540
+const fabOn = r => (r.fab || []).filter(f => f.on !== false);
+const fabVal = r => (r.fab || []).reduce((a, f) => a + (f.bv || 0) + (f.stk || 0) * (f.uc || 0) * (S.price[f.cls] || 0), 0);
+// meilleur projet d'usine d'un rival (lisible : marge fabriquée, marge de négoce, gain annuel, investissement, rendement)
+function fabPlan(r) {
+  const C = RIV_FABC[r.caste]; if (!C) return null; const mr = rivMr(r), have = new Set((r.fab || []).map(f => f.pk)), kt = compNow().t; let best = null;
+  C.forEach(cls => {
+    const vs = (r.vs && r.vs[cls]) || 0, used = fabOn(r).filter(f => f.cls === cls).reduce((a, f) => a + f.cap, 0), cap = Math.round(Math.min(FAB_SHARE * vs, 0.95 * vs - used)); if (cap < 5) return;
+    Object.keys(PRODUCTS).forEach(pk => { const pr = PRODUCTS[pk]; if (pr.cls !== cls || /^c\d/.test(pk) || have.has(pk) || !fabFamOk(r, pk) || !pr.in || !Object.keys(pr.in).length || (pr.tier || 0) > kt + 1) return;
+      const fl = fabFill(pk), kin = fabKin(pk) * fl.imp, mo = 1 - (1 - mr) * (kin + FAB_LAB), gain = mo - mr;   // fabriquer remplace l'achat en gros (1 − mr du prix) par intrants + main-d'œuvre if (gain < FAB_GAIN) return;
+      const P = S.price[cls] || 1, yr = gain * cap * fl.f * P * 360, capex = Math.round(FAB_CAPEX * cap * P / 1000) * 1000, roi = yr / Math.max(1, capex) + (r.fl && r.fl.k === pk ? 0.03 : 0);
+      if (!best || roi > best.roi) best = { pk, cls, cap, kin, mo, mr, gain, yr, capex, roi }; });
+  });
+  return best;
+}
+const fabTxt = f => `${gName(f.pk)} (${Math.round(f.cap)} u/j)`;
+function fabBuild(r, pl) {
+  const val = Math.max(1, rivalValue(r)), reserve = 0.08 * val; let own = Math.max(0, Math.min(pl.capex, r.cash - reserve)), loan = pl.capex - own;
+  if (loan > 0 && ((r.debt || 0) + loan > RIV_DEBT_MAX * val || !((r.pf || 0) > 0))) return false;
+  r.cash -= own; if (loan > 0) { r.debt = (r.debt || 0) + loan; }
+  const n0 = S.built.length, ok = rivTower(r, 'off', 2 + Math.round(clamp(pl.cap / 60, 1, 6))), b = ok ? S.built[n0] : null;
+  const f = { pk: pl.pk, cls: pl.cls, cap: pl.cap, stk: 0, uc: 1 - pl.mo, bv: pl.capex, on: true, d0: S.day, lo: 0, ok: 0, fill: 1 }; if (b) { f.x = b[0]; f.y = b[1]; }
+  (r.fab = r.fab || []).push(f); const RV = rvS(); RV.fabs = (RV.fabs || 0) + 1;
+  const pc = v => Math.round(v * 100) + ' %', t = `ouvre une usine de ${fabTxt(f)} : marge fabriquée ${pc(pl.mo)} contre ${pc(pl.mr)} en négoce, ${money(pl.capex)} investis${loan > 0 ? ' dont ' + money(loan) + ' empruntés' : ''}, retour en ${(1 / Math.max(0.01, pl.roi)).toFixed(1).replace('.', ',')} ans. Ses intrants s'achètent au marché local${pl.kin > 0 ? ' (' + Object.keys(PRODUCTS[pl.pk].in).map(g => GOODS[g].name.toLowerCase()).join(', ') + ')' : ''}.`;
+  say(`${r.name} ${t}`, 'warn'); rvLog(r, t, 1); return true;
+}
+// décision mensuelle (déterministe) : construire, mettre en sommeil une usine qui perd de l'argent, la rouvrir quand ses intrants redeviennent abordables
+function rivFabDecide(r) {
+  const mr = rivMr(r);
+  (r.fab || []).forEach(f => { const m = 1 - (1 - mr) * (fabKin(f.pk) * fabFill(f.pk).imp + FAB_LAB);
+    if (f.on !== false) { f.lo = m < mr - 0.02 ? (f.lo || 0) + 30 : 0; if (f.lo >= 60) { f.on = false; f.lo = 0; const g = Object.keys(PRODUCTS[f.pk].in).sort((a, b) => (S.price[b] / GOODS[b].base) - (S.price[a] / GOODS[a].base))[0]; rvLog(r, `met en sommeil son usine de ${fabTxt(f)} : ${GOODS[g].name.toLowerCase()} trop cher (${Math.round((S.price[g] / (GOODS[g].base * cpi()) - 1) * 100)} % au-dessus du cours de base), marge fabriquée ${Math.round(m * 100)} % sous la marge de négoce ; elle revend des marchandises achetées.`, 1); } }
+    else { f.ok = m > mr + 0.04 ? (f.ok || 0) + 30 : 0; if (f.ok >= 30) { f.on = true; f.ok = 0; rvLog(r, `rouvre son usine de ${fabTxt(f)} : ses intrants sont redevenus abordables (marge fabriquée ${Math.round(m * 100)} %).`, 1); } } });
+  if (fabOn(r).length >= fabMax(r) || (r.cash < 0)) return;
+  const pl = fabPlan(r); if (pl && pl.roi >= FAB_HURDLE / Math.max(0.3, optV('exp', OPT_EXP))) fabBuild(r, pl);
+}
+// journée d'usine d'un rival dans une classe : production (bornée par la capacité, le stock cible et les intrants), ventes sur stock, achats d'intrants.
+// Renvoie { own (ventes fabriquées), gross (marge sur ces ventes), lost (ventes perdues par rupture) }
+function fabDay(r, cls, v, pr, inD) {
+  const fs = fabOn(r).filter(f => f.cls === cls); if (!fs.length) return { own: 0, gross: 0, lost: 0, cost: 0 };
+  const P = S.price[cls] || 1; let own = 0, gross = 0, cost = 0, capT = 0;
+  fs.forEach(f => { capT += f.cap; const fl = fabFill(f.pk), kin = fabKin(f.pk), q = Math.max(0, Math.min(f.cap * fl.f, f.cap * FAB_DAYS - f.stk + Math.min(f.cap, v * f.cap / Math.max(1, fs.reduce((a, x) => a + x.cap, 0)))));
+    f.fill = fl.f; f.why = fl.f < 0.9 ? fl.why : null;
+    if (q > 0) { const uc = (1 - rivMr(r)) * (kin * fl.imp + FAB_LAB); f.uc = f.stk > 0 ? (f.uc * f.stk + uc * q) / (f.stk + q) : uc; f.stk += q; cost += q * P * uc;
+      const units = q * P / Math.max(1e-6, stdPrice(f.pk)), ip = PRODUCTS[f.pk]; Object.keys(ip.in).forEach(g => { inD[g] = (inD[g] || 0) + units * ip.in[g] / Math.max(1, ip.out || 1); }); }
+    f.bv = Math.max(0, (f.bv || 0) * (1 - FAB_DEP)); });
+  const stk = fs.reduce((a, f) => a + f.stk, 0), want = Math.min(v, capT), sell = Math.min(want, stk);
+  fs.forEach(f => { const s = stk > 0 ? sell * f.stk / stk : 0; f.stk -= s; f.sold = s; own += s; gross += s * P * (pr - f.uc); });
+  return { own, gross, lost: Math.max(0, want - sell) * 0.6, cost, cogs: fs.reduce((a, f) => a + (f.sold || 0) * P * f.uc, 0) };   // cost : production payée ce jour ; cogs : coût des ventes (la différence est l'investissement en stock)   // une rupture n'est couverte qu'à 40 % par de la marchandise achetée : le reste des clients part
 }
 // Meilleure cible d'une offre de rachat : le bâtiment du joueur le plus rentable que le rival peut payer comptant
 function rivBuyTarget(r) {
@@ -2456,7 +2532,7 @@ function rvAnswer0(yes) {
 }
 // (d) faillite : les actifs du failli sont à vendre 30 jours ; si le joueur ne les prend pas, le rival le plus riche les rachète
 function rivBankrupt(r) {
-  const RV = rvS(), assets = RIV_ASSET * rivalSum(r) + (r.as || 0) + (r.re || 0), price = Math.max(50000, Math.round(0.45 * assets / 5000) * 5000);
+  const RV = rvS(), assets = RIV_ASSET * rivalSum(r) + (r.as || 0) + (r.re || 0) + (r.fab ? fabVal(r) : 0), price = Math.max(50000, Math.round(0.45 * assets / 5000) * 5000);
   if (RV.sale) rvSaleEnd();
   RV.sale = { id: r.id, name: r.name, col: r.col, caste: r.caste || null, att: Object.assign({}, r.att), rev: r.rev || 0, price, until: S.day + 30 }; RV.fails = (RV.fails || 0) + 1;
   if (RV.war && RV.war.rid === r.id) RV.war = null; if (RV.offer && RV.offer.rid === r.id) RV.offer = null; if (RV.cartel && RV.cartel.rid === r.id) RV.cartel = null;
@@ -2481,11 +2557,20 @@ function stepRivals(rivalPart) {
   rivRand(() => stepRivalsAI(rivalPart)); renderRvBan();
 }
 function stepRivalsAI(rivalPart) {
-  const rs = S.rivals || [], RV = rvS(), E = rivDiff(), A = {}, mk = S.mkt || {}, rents = rivalRents(), opt = optV('price', OPT_PRICE);
+  const rs = S.rivals || [], RV = rvS(), E = rivDiff(), A = {}, mk = S.mkt || {}, rents = rivalRents(), opt = optV('price', OPT_PRICE), inD = {};
   RIV_CLS.forEach(cls => { A[cls] = rivalAttr(cls); });
   rs.forEach((r, i) => {
-    rivNorm(r); const P = rivP(r); let rev = 0, gross = 0;
-    RIV_CLS.forEach(cls => { if (!(A[cls] > 0 && rivalPart[cls] > 0)) return; const pr = rivPxRel(r, cls), v = rivalPart[cls] * Math.min(1, opt * rivEff(r, cls) * ((r.emb || 0) >= S.day ? 0.5 : 1) / A[cls]) * (S.price[cls] || 300); rev += v * pr; gross += v * (pr - 1 + clamp(P.m * (r.mq || 1) * E.m, 0.05, 0.4)); });
+    rivNorm(r); const P = rivP(r); let rev = 0, gross = 0, inv = 0; r.vs = r.vs || {}; r.cb = r.cb || {};
+    RIV_CLS.forEach(cls => { if (!(A[cls] > 0 && rivalPart[cls] > 0)) { r.vs[cls] = (r.vs[cls] || 0) * 0.97; return; } const pr = rivPxRel(r, cls), u = rivalPart[cls] * Math.min(1, opt * rivEff(r, cls) * ((r.emb || 0) >= S.day ? 0.5 : 1) / A[cls]), Pc = S.price[cls] || 300, mr = clamp(P.m * (r.mq || 1) * E.m, 0.05, 0.4);
+      r.vs[cls] = r.vs[cls] == null ? u : r.vs[cls] * 0.97 + u * 0.03;   // volume lissé (unités de classe/jour) : base du dimensionnement des usines
+      const fd = r.fab && r.fab.length ? fabDay(r, cls, u, pr, inD) : null, ownU = fd ? fd.own : 0, resU = Math.max(0, u - ownU - (fd ? fd.lost : 0));
+      if (fd) { inv += fd.cost - fd.cogs; r.oo = r.oo || {}; r.oo[cls] = clamp((r.oo[cls] == null ? 1 : r.oo[cls]) * 0.9 + 0.1 * (u > 0 ? (u - fd.lost) / u : 1), 0, 1); }
+      rev += (ownU + resU) * Pc * pr; gross += (fd ? fd.gross : 0) + resU * Pc * (pr - 1 + mr); if (fd) r.fsm = (r.fsm || 0) + fd.gross - ownU * Pc * (pr - 1 + mr);   // fsm : surplus de marge des usines sur le négoce (cumul du mois)
+      r.cb[cls] = +(u > 0 ? (ownU * (fd && ownU > 0 ? (pr - fd.gross / (ownU * Pc)) : 0) + resU * (1 - mr)) / Math.max(1e-9, ownU + resU) || (1 - mr) : (1 - mr)).toFixed(4); });   // coût unitaire moyen (relatif au cours) : plancher de prix
+    if (inv) r.cash -= inv;
+    if (S.day % 30 === 0 && r.fsm != null) { const d = FAB_PAY * Math.max(0, r.fsm); r.fsm = 0;   // politique de distribution : la majeure partie du surplus des usines rembourse la dette, puis part en dividendes (part du joueur actionnaire versée)
+      if (d > 0 && r.cash > d) { const p = Math.min(r.debt || 0, d); if (p > 0) r.debt -= p; const dv = d - p; r.cash -= d; r.div = (r.div || 0) + dv; const st = stakeOf(r.id); if (st > 0 && st <= 0.5 && dv > 0) S.cash += dv * st; } }
+    if ((r.debt || 0) > 0) { const it = r.debt * (((S.macro && S.macro.rate) || 0.04) + 0.03) / 360; gross -= it; if (r.cash > 0.25 * rivalValue(r) && S.day % 30 === 0) { const p = Math.min(r.debt, 0.1 * r.cash); r.debt -= p; r.cash -= p; } }   // dette des usines : intérêts au taux directeur + 3 points, remboursement quand la trésorerie le permet
     const rent = rents[r.id] || 0, inc = ((r.as || 0) + (r.re || 0)) * RIV_YIELD * (r.mq || 1) / (1 + ((r.as || 0) + (r.re || 0)) / (3 * Math.max(1e6, r.v0 || 2e7)));   // rendements décroissants : un empire d'actifs rapporte de moins en moins par dollar   // loyers des immeubles détenus en ville ; revenus des actifs hors magasins
     r.rev = rev + rent + inc; r.pf = gross + 0.6 * rent + inc - rivalSum(r) * RIV_OPEX; r.cash += r.pf;
     if (r.v0 == null) r.v0 = rivalValue(r); if (r.a0 == null) r.a0 = rivalSum(r);
@@ -2494,18 +2579,21 @@ function stepRivalsAI(rivalPart) {
       if (st.until != null && S.day >= st.until) rivEndStrat(r, 'elle a assez duré'); else if (st.k === 'war' && r.cash < 0.04 * rivalValue(r)) rivEndStrat(r, 'trésorerie épuisée');
       if (!r.sub && (S.day + i * 3) % 10 === 0) rivDecide(r);
       if (!r.sub && r.caste && S.day > 20 && (S.day + i * 11) % 60 === 0) rivCasteAct(r);
+      if (!r.sub && r.caste && S.day > 30 && (S.day + i * 7) % 30 === 0) rivFabDecide(r);
       rivPrice(r);
       if (S.day % 5 === 0 && r.cash > 3 * RIV_EXPAND && (rs.length <= 3 || (S.day / 5 + i) % rs.length < 3)) rivExpand(r);   // cadence d'ensemble de 3 enseignes, quel que soit le nombre d'IA
       if (S.day % 30 === 0 && (r.pf || 0) < 0 && r.cash < 0.1 * rivalValue(r) && rivalSum(r) > 0.15) { const b4 = rivalSum(r); RIV_CLS.forEach(k => { r.att[k] *= 0.97; }); r.cash += (b4 - rivalSum(r)) * RIV_ASSET * 0.6; r.xp = null; rvLog(r, 'ferme ses magasins déficitaires'); }   // restructuration
     }
     if (r.cash < 0) {   // vente forcée : d'abord les actifs hors magasins, puis les magasins ; la trésorerie ne reste jamais négative durablement
       if ((r.as || 0) > 0) { const s = Math.min(r.as, -r.cash / 0.7 + 1); r.as -= s; r.cash += s * 0.7; }
+      if (r.cash < 0 && fabOn(r).length) { const f = r.fab.filter(x => x.on !== false).sort((a, b) => (a.bv || 0) - (b.bv || 0))[0], got = 0.5 * ((f.bv || 0) + f.stk * f.uc * (S.price[f.cls] || 0)); r.cash += got; r.fab.splice(r.fab.indexOf(f), 1); if (f.x != null && S.npcOwn) delete S.npcOwn[f.x + ',' + f.y]; rvLog(r, `vend son usine de ${fabTxt(f)} pour ${money(got)} (trésorerie à sec${(r.debt || 0) > 0 ? ', dette ' + money(r.debt) : ''}).`, 1); }
       if (r.cash < 0) { const b4 = rivalSum(r); RIV_CLS.forEach(k => { r.att[k] *= 0.95; }); r.cash += (b4 - rivalSum(r)) * RIV_ASSET * 0.6; r.red = (r.red || 0) + 1; }
     }
     r.mood = clamp((r.mood || 0) * 0.95 + (rnd() - 0.5) * 0.04, -0.2, 0.2);
     r.sp = r.sp || []; r.sp.push(rivalValue(r) / RSH * (1 + r.mood)); if (r.sp.length > 60) r.sp.shift();
   });
   RIV_CLS.forEach(c => { const y = mk[c] ? mk[c].you : 0; RV.ys = RV.ys || {}; RV.ys[c] = RV.ys[c] == null ? y : RV.ys[c] * 0.98 + y * 0.02; });
+  if (Object.keys(inD).length || RV.inD) RV.inD = Object.keys(inD).length ? Object.fromEntries(Object.keys(inD).map(g => [g, +inD[g].toFixed(2)])) : null;   // achats d'intrants des usines rivales : demande du marché local de ce jour (stepLocalMarket)
   S.subDiv = 0;
   rs.forEach(r => {   // rachat majoritaire (> 50 %) : le rival devient une filiale gérée par l'IA, qui verse des dividendes au prorata de ta part
     const st = stakeOf(r.id);
@@ -2546,14 +2634,28 @@ function renderRvBan() {
 // Statut d'un siège pour l'écran des castes
 function seatTxt(k) { const s = seatsSync().find(x => x.caste === k), r = (S.rivals || []).find(x => x.caste === k); if (k === casteOf()) return { t: 'Ton siège', human: false }; if (s && s.ctrl === 'human') return { t: 'Joueur : ' + String(s.pid).replace(/^h:/, ''), human: true }; return { t: 'IA' + (r ? ' (' + r.name + ')' : '') + ' — disponible', human: false }; }
 // Panneau Rivaux : offre en attente, actifs d'un failli, une carte par IA (caste, parts, prix relatif, stratégie, valorisation, trésorerie), sièges, journal
+// Usines d'un rival, en clair : produit, capacité, stock en jours, coût unitaire, rupture d'intrant, bouton « Voir » (centre la carte sur sa tour)
+function fabLine(r) {
+  const fs = r.fab || [], mx = fabMax(r); if (!fs.length && !(mx > 0 && RIV_FABC[r.caste])) return '';
+  if (!fs.length) return `<div class="rshr"><span>Usines : aucune pour l'instant (négoce de marchandises achetées, marge ${Math.round(rivMr(r) * 100)} %)</span></div>`;
+  return `<div class="rshr"><span>Usines (${fabOn(r).length}/${mx}) :</span>${fs.map(f => `<span>${f.on === false ? 'en sommeil · ' : ''}${gName(f.pk)} <b>${Math.round(f.cap)} u/j</b> · stock ${Math.round((f.stk || 0) / Math.max(1, f.cap))} j · coût ${Math.round((f.uc || 0) * 100)} % du prix${f.why ? ` · <b class="neg">rupture : ${GOODS[f.why].name.toLowerCase()}</b>` : ''}${f.x != null ? ` <button class="btn sec" data-rvfab="${f.x},${f.y}" style="min-height:22px;padding:1px 6px;font-size:10px">Voir</button>` : ''}</span>`).join('')}${(r.debt || 0) > 0 ? `<span>Dette <b>${money(r.debt)}</b></span>` : ''}${(r.div || 0) > 0 ? `<span>Dividendes versés <b>${money(r.div)}</b></span>` : ''}</div>`;
+}
+// Note de difficulté de la concurrence, à la manière de Capitalism Lab (barre 1 à 8 et note en %) : 100 % = réglages par défaut au palier Citoyen ; elle monte avec ton palier, la profondeur de tes chaînes et ton avance
+function rivRating() {
+  const k = compNow(), n = (S.rivals || []).filter(r => !r.sub).length, easy = S.mode && S.mode.easy ? 0.7 : 1;
+  const v = 100 * easy * Math.pow(Math.max(0.5, n) / 5, 0.5) * Math.pow(optV('cap', OPT_CAP), 0.15) * Math.pow(optV('exp', OPT_EXP), 0.3) * optV('price', OPT_PRICE) * Math.pow(Math.max(0.3, optV('local', OPT_LOC)), 0.1) * Math.pow(k.c / 0.4, 0.5) * (1 + k.g);
+  return Math.round(v);
+}
 function rivPanelHTML(avg, shares) {
   const RV = S.rv || {}, f2 = v => (+v).toFixed(2).replace('.', ','), o = RV.offer, ro = o && rivalById(o.rid), s = RV.sale; let h = '';
+  { const rt = rivRating(), lm = S._lm || {}, buy = Object.keys(lm).filter(g => lm[g] && lm[g].riv > 0.5).sort((a, b) => lm[b].riv - lm[a].riv).slice(0, 4);
+    h += `<div class="rshr"><span>Difficulté de la concurrence <b>${rt} %</b> (100 % au départ ; elle monte avec ton palier, tes chaînes et ton avance)</span>${buy.length ? `<span>Achats des usines rivales : ${buy.map(g => `${GOODS[g].name.toLowerCase()} <b>${Math.round(lm[g].riv)} u/j</b>${lm[g].rivMe > 0.5 ? ' (dont ' + Math.round(lm[g].rivMe) + ' chez toi)' : ''}`).join(', ')}</span>` : ''}</div>`; }
   if (o && ro) h += `<div class="rcard" style="border-left:3px solid ${ro.col}"><div class="rstrat"><b>${ro.name}</b> ${o.kind === 'cartel' ? `te propose une entente sur ${CLS_FR[o.cls]} : tes prix de rayon et les siens montent (+8 % pour toi) pendant 90 jours. L'autorité de la concurrence peut infliger une amende (5 % de ta valorisation). Refuser peut déclencher une guerre des prix.` : `offre ${money(o.price)} pour ton ${TYPES[o.t].name.toLowerCase()} (case ${o.x}, ${o.y}).`}</div><div class="rbot"><small>Réponse attendue avant le jour ${o.until}</small><span><button class="btn" data-rv="yes">Accepter</button> <button class="btn sec" data-rv="no">Refuser</button></span></div></div>`;
   if (s) h += `<div class="rcard" style="border-left:3px solid ${s.col}"><div class="rtop"><i style="background:${s.col}"></i><b>${s.name} · en faillite</b><small>jusqu'au jour ${s.until}</small></div><div class="rbot"><small>Ses magasins et ses immeubles deviennent ta filiale (revenu d'environ ${mj(Math.max(40, (s.rev || 0) * 0.12))}). Sans repreneur, un rival les rachètera.</small><button class="btn" data-rv="sale" ${S.cash >= s.price ? '' : 'disabled'}>Racheter les actifs ${money(s.price)}</button></div></div>`;
   h += (S.rivals || []).map(r => { const v = rivalValue(r), C = r.caste && CASTES[r.caste], g = r.v0 > 0 ? v / r.v0 : 1, P = RIV_CASTE[r.caste];
     const px = RIV_CLS.filter(c => r.att[c] > 0.01).map(c => `<span>${CLS_S[c]} <b>×${f2(r.px ? r.px[c] : 1)}</b></span>`).join('');
     const fl = r.fl && r.px && PRODUCTS[r.fl.k] ? `<span>Produit phare : ${gName(r.fl.k)} <b>${money(Math.round(stdPrice(r.fl.k) * retailMk(r.fl.cls) * r.px[r.fl.cls] * (r.fl.d || 1)))}</b></span>` : '';
-    return `<div class="rcard" data-riv="${r.id}"><div class="rtop"><i style="background:${r.col}"></i><b>${r.name}</b>${C ? `<span class="rcaste" style="color:${C.col}">${C.n}${P ? ' · ' + P.tag : ''}</span>` : ''}<small>${Math.round(avg(r.id) * 100)} % du marché</small></div><div class="rshr">${shares(r.id)}</div><div class="rshr"><span>Prix relatif (1 = marché)</span>${px}${fl}</div><div class="rstrat">Stratégie : <b>${rivStratTxt(r)}</b></div><div class="rbot"><small>Valorisation <b>${money(v)}</b> (×${g.toFixed(1).replace('.', ',')} depuis le départ) · trésorerie ${money(r.cash)} · ${mj(r.rev || 0)} de ventes/mois</small><button class="btn sec" data-buy="${r.id}" ${S.cash >= v && r.ctrl !== 'human' ? '' : 'disabled'}>Racheter ${money(v)}</button></div></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
+    return `<div class="rcard" data-riv="${r.id}"><div class="rtop"><i style="background:${r.col}"></i><b>${r.name}</b>${C ? `<span class="rcaste" style="color:${C.col}">${C.n}${P ? ' · ' + P.tag : ''}</span>` : ''}<small>${Math.round(avg(r.id) * 100)} % du marché</small></div><div class="rshr">${shares(r.id)}</div><div class="rshr"><span>Prix relatif (1 = marché)</span>${px}${fl}</div><div class="rstrat">Stratégie : <b>${rivStratTxt(r)}</b></div>${fabLine(r)}<div class="rbot"><small>Valorisation <b>${money(v)}</b> (×${g.toFixed(1).replace('.', ',')} depuis le départ) · trésorerie ${money(r.cash)} · ${mj(r.rev || 0)} de ventes/mois</small><button class="btn sec" data-buy="${r.id}" ${S.cash >= v && r.ctrl !== 'human' ? '' : 'disabled'}>Racheter ${money(v)}</button></div></div>`; }).join('') || '<p class="note">Plus aucun concurrent : tu domines le marché.</p>';
   h += `<div class="rshr"><span>Sièges :</span>${seatsSync().map(x => `<span>${CASTES[x.caste].n} <b>${x.caste === casteOf() ? 'toi' : x.ctrl === 'human' ? String(x.pid).replace(/^h:/, '') : (S.rivals || []).some(r => r.caste === x.caste) ? 'IA' : 'vacant'}</b></span>`).join('')}</div>`;
   if (RV.log && RV.log.length) h += `<h3>JOURNAL DES RIVAUX</h3><div class="rvlog">${RV.log.slice().reverse().slice(0, 8).map(l => `<div><small>Jour ${l.d}</small> ${l.n ? '<b>' + l.n + '</b> ' : ''}${l.t}</div>`).join('')}</div>`;
   return h;
@@ -2636,7 +2738,7 @@ function brandDuel(pk, a, b) { const A = attractiveness(pk, Object.assign({}, S.
 const RIV_BG = { basic: 0.15, std: 0.5, lux: 1, estate: 0.1 }, RIV_PROF = { r1: 0.5, r2: 1, r3: 0.15, r4: 0.45, r5: 0.3, r6: 0.8 };
 const rivProf = r => RIV_PROF[r.id] != null ? RIV_PROF[r.id] : 0.2 + 0.7 * hash(String(r.id).length, String(r.id).charCodeAt(String(r.id).length - 1) || 0, 77);
 const rivBm = (r, cls) => r.bk == null ? 1 : (1 + RIV_BG[cls] * bcSig(r.bk)) / (1 + RIV_BG[cls] * bcSig(100 * rivProf(r)));
-const rivEff = (r, cls) => r.att[cls] * rivBm(r, cls) * rivPm(r, cls);   // attrait × marque × prix relatif
+const rivEff = (r, cls) => r.att[cls] * rivBm(r, cls) * rivPm(r, cls) * (r.oo && r.oo[cls] != null ? 0.7 + 0.3 * r.oo[cls] : 1);   // attrait × marque × prix relatif × service (rupture de ses usines : clients perdus)
 function stepRivBrand() {
   let top = 0; PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps.st === 'on') top = Math.max(top, bcOf(ps)); });
   (S.rivals || []).forEach(r => { const pf = rivProf(r); if (r.bk == null) r.bk = 100 * pf;
@@ -6928,7 +7030,7 @@ function updateHUD() {
   try { renderEcom(); } catch (e) { /* commerce en ligne facultatif */ }
 }
 el('rvban').addEventListener('click', e => { const b = e.target.closest('[data-rv]'); if (b) { rvAnswer(b.dataset.rv === 'yes'); save(); } });
-el('rivals').addEventListener('click', e => { const q = e.target.closest('[data-rv]'); if (q && !q.disabled) { if (q.dataset.rv === 'sale') rvBuySale(); else rvAnswer(q.dataset.rv === 'yes'); save(); return; } const b = e.target.closest('[data-buy]'); if (!b || b.disabled) return; const r = (S.rivals || []).find(x => x.id === b.dataset.buy); if (!r) return; const v = rivalValue(r); if (S.cash < v) return; S.cash -= v; S.rivals = S.rivals.filter(x => x !== r); say(`Rachat de ${r.name} pour ${money(v)} : sa clientèle est à prendre.`, 'gold'); updateHUD(); save(); });
+el('rivals').addEventListener('click', e => { const fb = e.target.closest('[data-rvfab]'); if (fb) { const [x, y] = fb.dataset.rvfab.split(',').map(Number); centerOn(x, y); return; } const q = e.target.closest('[data-rv]'); if (q && !q.disabled) { if (q.dataset.rv === 'sale') rvBuySale(); else rvAnswer(q.dataset.rv === 'yes'); save(); return; } const b = e.target.closest('[data-buy]'); if (!b || b.disabled) return; const r = (S.rivals || []).find(x => x.id === b.dataset.buy); if (!r) return; const v = rivalValue(r); if (S.cash < v) return; S.cash -= v; S.rivals = S.rivals.filter(x => x !== r); say(`Rachat de ${r.name} pour ${money(v)} : sa clientèle est à prendre.`, 'gold'); updateHUD(); save(); });
 el('bourse').addEventListener('click', e => {
   const raw = (S.stats && S.stats.raw) || 0;
   if (e.target.id === 'openhq') { const h = hqOf(); if (h) openBuilding(h.x, h.y); return; }
@@ -18217,7 +18319,7 @@ function drawWorksOver(a, p, bx, by, floors, now) {
   ctx.restore();
 }
 
-window.WSE = { say, isCmp, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { say, isCmp, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; return { CG_R0, CG_P, CG_CAP, CG_REL }; }, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
