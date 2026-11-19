@@ -191,3 +191,6 @@ Livrés, sans texte, marge 6 px, QA asset_qa : pente 0,50, débordement 0 % (mé
 ## Retour de Rémy (3) : hôpital et pharmacie
 - Hôpital : « HOSPITAL » en blanc peint sur le toit de l'aile avant ; héliport (disque sombre, anneau et H blancs) sur le toit de l'aile arrière ; « EMERGENCY » agrandi (bandeau rouge, lettres blanches) sur la plus longue façade visible. Texte incrusté en perspective isométrique à partir du sprite sans texte (arbres et plan inchangés).
 - Pharmacie : croix verte rendue lumineuse façon néon (teinte vive, relief conservé, léger halo), arbres inchangés.
+
+## Retour de Rémy (4) : EMERGENCY réduit
+- Hôpital : « EMERGENCY » ramené à un petit bandeau (≈110 px) près de l'entrée au lieu de toute la longueur de la façade ; « HOSPITAL » sur le toit et héliport conservés.
