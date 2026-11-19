@@ -1,4 +1,6 @@
 // Passe 35 : ville de départ (petite ville d'environ 100 000 habitants) et croissance urbaine jusqu'à un million d'habitants (modèle à la SimCity).
+// Passe 60 : villes de plusieurs millions d'habitants (niveaux de ville, extension sur toute la terre ferme, tours jusqu'à 96 étages, emplois et services proportionnés) :
+// passif ≈ 1 M vers le jour 5 000 et 1,2 à 3,2 M au jour 7 200, actif 3 à 7,5 M (bornes mises à jour d'après les mesures, voir docs/VILLE_MILLIONS.md).
 // Départ lisible (centre, quartiers, périphérie, terrain libre), économie de départ inchangée (bassin de consommation), anciennes sauvegardes intactes,
 // croissance passive (250-420 k en 7 200 jours) et active (600 k-1,2 M), niveaux de densité, extension de la zone, jalons, indicateurs, sauvegarde, performances.
 exports.name = 'Ville : petite ville de départ et croissance';
@@ -39,26 +41,35 @@ exports.run = async (t, L) => {
   pg = await L.newPage({ wait: 600 }); await L.setup(pg, { caste: 'industriel', cash: 5e9 }); await L.inject(pg);
   const P = await pg.evaluate(() => { const W = window.WSE, S = W.S, T = window.T, out = [], t0 = performance.now(); let ms = 0, bad = 0; const sn = [];
     for (let d = 0; d < 7200; d++) { W.step(); if (S.day % 600 === 0) { out.push(Math.round(S.pop)); if (S.day % 1200 === 0) { const b = T.scan(); bad += b.length; } } }
-    const c = S.city; return { out, ms: (performance.now() - t0) / 7200, bad, ms2: S.cg.ms, ext: (S.cityExt || []).length, lv: c.lv, top: c.top, free: c.free, lots: c.lots, hud: document.getElementById('vPopSub').textContent, ev: (S._sayBuf || []).join(' | ') }; });
+    const c = S.city, mk = {}; S.grid.forEach(q => { if (q && q.t === 'npc' && q.k === 'mon' && q.m !== 'mall' && q.m !== 'air') mk[q.m] = 1; });
+    return { out, ms: (performance.now() - t0) / 7200, bad, ms2: S.cg.ms, ext: (S.cityExt || []).length, lv: c.lv, top: c.top, free: c.free, lots: c.lots, hud: document.getElementById('vPopSub').textContent, ev: (S._sayBuf || []).join(' | '),
+      mons: Object.keys(mk).length, cov: W.citySvcCov ? W.citySvcCov() : -1, bs: W.mall.popE() / S.pop, jr: c.jobsRatio, name: c.name }; });
   const pp = P.out;
-  // passe 44 : départ à 60 k au lieu de 100 k, même rythme relatif (×3,2 en 7 200 jours contre ×3,05) : seuil bas abaissé de 250 k à 150 k
-  t.range('passif : population après 7 200 jours', pp[pp.length - 1] / 1000, 150, 420, ' k', 0);
+  // passe 60 (priorité 3 de Rémy : villes de plusieurs millions d'habitants) : rythme par niveau de ville (CG_R0 5,6e-5 -> 2e-4, plafond logistique 1 M -> 5 M), extension sur
+  // toute la terre ferme, tours jusqu'à 96 étages. Mesuré avant / après sur ce scénario (tools/city_growth.js) : passif 206 k -> ≈ 2,2 M au jour 7 200, ≈ 1 M vers le jour 4 800
+  // (avant : 160 k au jour 5 400). Bornes : 1 M vers le jour 5 000 en passif (0,6 à 1,5 M au jour 4 800), 1,2 à 3,2 M au jour 7 200.
+  t.range('passif : population au jour 4 800 (cap du million vers le jour 5 000)', pp[7] / 1000, 600, 1500, ' k', 0);
+  t.range('passif : population après 7 200 jours', pp[pp.length - 1] / 1000, 1200, 3200, ' k', 0);
   t.check('passif : la ville croît en continu (jamais de recul de plus de 3 % entre deux mesures)', pp.every((v, i) => i === 0 || v >= pp[i - 1] * 0.97) && pp[pp.length - 1] > 2 * pp[0], pp.map(v => Math.round(v / 1000)).join(' '));
   // barème des tailles : les équipements multi-cases prennent 25 lots centraux de plus (dont les mieux placés) ; mesuré sur le même scénario avant/après
   // le barème : population 193 k / 192 k, niveaux 29/172/148/18/0/0 -> 25/178/133/27/0/0 (plus de tours), plus haut 16 -> 14 étages (le lot central le
   // plus haut est désormais un équipement). La densification n'a pas reculé : seuil du plus haut ramené de 15 à 13 étages (toujours « plus de 10 »).
-  t.check('passif : se densifie par niveaux (immeubles, tours de plus de 10 étages)', P.lv[2] > 20 && P.lv[3] > 10 && P.top >= 13, `niveaux ${P.lv.join('/')} · plus haut ${P.top} étages`);
+  t.check('passif : se densifie par niveaux (tours, grandes tours, supertours de 60 étages ou plus au centre)', P.lv[3] > 200 && P.lv[4] > 30 && P.lv[5] > 5 && P.top >= 60 && P.top <= 96, `niveaux ${P.lv.join('/')} · plus haut ${P.top} étages`);
+  t.check('passif : taille de la ville affichée (Mégalopole ou Mégapole)', /Mégalopole|Mégapole/.test(P.name) && /Mégalopole|Mégapole/.test(P.hud), P.name + ' · ' + P.hud);
+  t.check('passif : services publics proportionnés (équipements ajoutés, couverture d\'au moins 90 %)', P.mons > 20 && P.cov >= 0.9, `${P.mons} équipements distincts · couverture ${(P.cov * 100).toFixed(0)} %`);
+  t.check('passif : emplois proportionnés (emplois / actifs 0,8 à 1)', P.jr >= 0.8 && P.jr <= 1, 'emplois / actifs ' + (+P.jr).toFixed(2));
+  t.check('passif : la région ne grandit plus comme la ville (bassin effectif < 2 au-delà d\'un million)', P.bs > 1 && P.bs < 2, 'popE / habitants ' + P.bs.toFixed(2));
   // passe 44 : la ville aérée garde des lots libres plus longtemps : l'extension n'est exigée que si les lots ont manqué (moins de 14 % libres)
-  t.check('passif : la zone urbaine s\'étend quand les lots manquent', P.ext >= 1 || P.free >= 0.14 * P.lots, `${P.ext} blocs ajoutés · ${P.free} lots libres sur ${P.lots}`);
-  t.check('passif : jalons de taille annoncés (au moins 1 : 150 000 habitants)', P.ms2 >= 1, 'jalons ' + P.ms2);
+  t.check('passif : la zone urbaine s\'étend sur la campagne (au moins 20 blocs ajoutés)', P.ext >= 20, `${P.ext} blocs ajoutés · ${P.free} lots libres sur ${P.lots}`);
+  t.check('passif : jalons de taille annoncés (au moins 7 : jusqu\'au million)', P.ms2 >= 7, 'jalons ' + P.ms2);
   t.check('passif : 0 NaN, 0 pageerror', P.bad === 0 && pg.errs.length === 0, pg.errs.slice(0, 2).join(';'));
   t.check('passif : coût de simulation raisonnable (moins de 25 ms par jour en moyenne)', P.ms < 25, P.ms.toFixed(1) + ' ms/jour');
   // sauvegarde aller-retour (ville nouvelle formule) dans le même contexte
   const ctx = pg.context();
-  const s1 = await pg.evaluate(() => { const W = window.WSE, S = W.S; while (S.day % 5 !== 0) W.step(); W.save(); const o = { pop: S.pop, day: S.day, n: 0, ext: (S.cityExt || []).length, floors: 0, bs: S.bassin }; S.grid.forEach(c => { if (c && c.t === 'npc') { o.n++; o.floors += c.floors; } }); return o; });
+  const s1 = await pg.evaluate(() => { const W = window.WSE, S = W.S; while (S.day % 5 !== 0) W.step(); W.save(); const o = { pop: S.pop, day: S.day, n: 0, ext: (S.cityExt || []).length, floors: 0, bs: S.bassin }; S.grid.forEach(c => { if (c && c.t === 'npc') { o.n++; o.floors += c.floors; } }); o.svc = JSON.stringify(W.citySvc().have); return o; });
   const pg2 = await ctx.newPage(); pg2.errs = []; pg2.on('pageerror', e => pg2.errs.push(e.message)); await pg2.goto(L.URL || pg.url()); await pg2.waitForTimeout(900);
-  const s2 = await pg2.evaluate(() => { const W = window.WSE, S = W.S; const o = { pop: S.pop, day: S.day, n: 0, ext: (S.cityExt || []).length, floors: 0, bs: S.bassin, cv: S.cityV, inz: 0 }; S.grid.forEach(c => { if (c && c.t === 'npc') o.n++, o.floors += c.floors; }); (S.cityExt || []).forEach(b => { if (W.inCity(b[0] * 6 + 3, b[1] * 6 + 3)) o.inz++; }); return o; });
-  t.check('sauvegarde : ville, extensions, population et bassin identiques après rechargement', s2.cv === 2 && s2.n === s1.n && s2.floors === s1.floors && s2.ext === s1.ext && s2.inz === s2.ext && Math.abs(s2.pop - s1.pop) < 1 && s2.day === s1.day && s2.bs === s1.bs && pg2.errs.length === 0, JSON.stringify({ avant: s1, apres: s2 }));
+  const s2 = await pg2.evaluate(() => { const W = window.WSE, S = W.S; const o = { pop: S.pop, day: S.day, n: 0, ext: (S.cityExt || []).length, floors: 0, bs: S.bassin, cv: S.cityV, inz: 0 }; S.grid.forEach(c => { if (c && c.t === 'npc') o.n++, o.floors += c.floors; }); (S.cityExt || []).forEach(b => { if (W.inCity(b[0] * 6 + 3, b[1] * 6 + 3)) o.inz++; }); o.svc = JSON.stringify(W.citySvc().have); o.bad = W.fp.audit().length; return o; });
+  t.check('sauvegarde : ville, extensions, équipements ajoutés, population et bassin identiques après rechargement', s2.cv === 2 && s2.n === s1.n && s2.floors === s1.floors && s2.ext === s1.ext && s2.inz === s2.ext && Math.abs(s2.pop - s1.pop) < 1 && s2.day === s1.day && s2.bs === s1.bs && s2.svc === s1.svc && s2.bad === 0 && pg2.errs.length === 0, JSON.stringify({ avant: s1, apres: s2 }));
   // ancienne sauvegarde : on retire les champs de la passe 35 d'une sauvegarde actuelle et on la charge dans un contexte neuf (la ville de 288 000 habitants est régénérée)
   const raw = await pg2.evaluate(() => localStorage.getItem('wse-city-v8'));
   await pg2.context().close();
@@ -94,17 +105,21 @@ exports.run = async (t, L) => {
   t.check('cityExtend : 0 pageerror', pg.errs.length === 0, pg.errs.slice(0, 2).join(';'));
   await pg.context().close();
 
-  // ---- 4. Joueur actif (bot riche) : la ville dépasse 600 000 habitants et reste sous 1,2 million ; promoteurs et immeubles les plus hauts
+  // ---- 4. Joueur actif (bot riche) : passe 60, la ville dépasse 3 millions d'habitants (avant : 600 000 à 1,2 million) ; promoteurs et immeubles les plus hauts
   pg = await L.newPage({ wait: 600 }); await L.setup(pg, { caste: 'industriel', cash: 2e9 }); await L.injectBot(pg);
   const A = await pg.evaluate(() => { const W = window.WSE, S = W.S, out = []; let ms = 0, mx = 0;
     while (S.day < 7200) { const t0 = performance.now(); for (let j = 0; j < 4; j++) W.step(); window.BOT.tick(); const dt = performance.now() - t0; ms += dt; if (dt > mx) mx = dt; if (S.day % 600 === 0 && out.length < Math.floor(S.day / 600)) out.push(Math.round(S.pop)); }
-    const g0 = performance.now(); for (let i = 0; i < 20; i++) { S.cg.acc = 0; W.cityGrow(); } const gms = (performance.now() - g0) / 20; const c = S.city; return { out, ms: ms / S.day, mx, gms, ext: c.ext, lv: c.lv, top: c.top, lots: c.lots, free: c.free, ms2: S.cg.ms, occ: c.occ, attr: c.attr }; });
+    const g0 = performance.now(); for (let i = 0; i < 20; i++) { S.cg.acc = 0; W.cityGrow(); } const gms = (performance.now() - g0) / 20; const c = S.city; return { out, ms: ms / S.day, mx, gms, ext: c.ext, lv: c.lv, top: c.top, lots: c.lots, free: c.free, ms2: S.cg.ms, occ: c.occ, attr: c.attr, jr: c.jobsRatio, svc: W.citySvc(), bad: W.fp.audit().length }; });
   const aa = A.out;
-  t.range('actif : population après 7 200 jours', aa[aa.length - 1] / 1000, 600, 1200, ' k', 0);
-  t.check('actif : plus vite que le joueur passif', aa[aa.length - 1] > 1.5 * pp[pp.length - 1], `${Math.round(aa[aa.length - 1] / 1000)} k contre ${Math.round(pp[pp.length - 1] / 1000)} k`);
-  t.check('actif : grandes tours et supertours (niveaux 4 et 5), immeuble de 40 étages ou plus', A.lv[4] + A.lv[5] > 5 && A.top >= 40, `niveaux ${A.lv.join('/')} · plus haut ${A.top}`);
-  t.check('actif : tous les jalons annoncés jusqu\'à la métropole (au moins 4)', A.ms2 >= 4, 'jalons ' + A.ms2);
-  t.check('actif : performances à 1 million d\'habitants (jour simulé < 40 ms en moyenne, pic < 1,5 s, pas de croissance urbaine > 30 ms)', A.ms < 40 && A.mx < 1500 && A.gms < 30, `${A.ms.toFixed(1)} ms/jour, pic ${A.mx.toFixed(0)} ms, croissance ${A.gms.toFixed(1)} ms`);
+  // passe 60 : mesuré avant / après (tools/city_growth.js, bot riche) : 730 k -> ≈ 5,3 M au jour 7 200, le million vers le jour 2 900 (avant : jamais) ; avec le bot de ce test
+  // (plus actif) : 6,3 M au jour 7 200. Borne haute 7,5 M : la carte pleine loge ≈ 6 à 8 M d'habitants à 96 étages au plus.
+  t.range('actif : population après 7 200 jours (plusieurs millions)', aa[aa.length - 1] / 1000, 3000, 7500, ' k', 0);
+  t.check('actif : plus vite que le joueur passif (jour 3 000 et jour 7 200)', aa[4] > 1.8 * pp[4] && aa[aa.length - 1] > 1.5 * pp[pp.length - 1], `jour 3 000 : ${Math.round(aa[4] / 1000)} k contre ${Math.round(pp[4] / 1000)} k · jour 7 200 : ${Math.round(aa[aa.length - 1] / 1000)} k contre ${Math.round(pp[pp.length - 1] / 1000)} k`);
+  t.check('actif : grandes tours et supertours (niveaux 4 et 5) en nombre, 90 étages ou plus, jamais plus de 96', A.lv[4] > 200 && A.lv[5] > 100 && A.top >= 90 && A.top <= 96, `niveaux ${A.lv.join('/')} · plus haut ${A.top}`);
+  t.check('actif : tous les jalons annoncés jusqu\'à 2,5 millions (au moins 8)', A.ms2 >= 8, 'jalons ' + A.ms2);
+  t.check('actif : emplois proportionnés (emplois / actifs 0,8 à 1) et services publics suivis (couverture ≥ 85 %)', A.jr >= 0.8 && A.jr <= 1 && A.svc.cov >= 0.85, 'emplois / actifs ' + (+A.jr).toFixed(2) + ' · ' + JSON.stringify(A.svc.have) + ' · couverture ' + (A.svc.cov * 100).toFixed(0) + ' %');
+  t.check('actif : aucune emprise qui se chevauche (équipements ajoutés au barème)', A.bad === 0, A.bad + ' anomalies');
+  t.check('actif : performances à plusieurs millions d\'habitants (jour simulé < 40 ms en moyenne, pic < 1,5 s, pas de croissance urbaine > 30 ms)', A.ms < 40 && A.mx < 1500 && A.gms < 30, `${A.ms.toFixed(1)} ms/jour, pic ${A.mx.toFixed(0)} ms, croissance ${A.gms.toFixed(1)} ms`);
   t.check('actif : 0 pageerror', pg.errs.length === 0, pg.errs.slice(0, 2).join(';'));
   t.info('courbe active : ' + aa.map(v => Math.round(v / 1000) + 'k').join(' ') + ' | passive : ' + pp.map(v => Math.round(v / 1000) + 'k').join(' '));
   await pg.context().close();

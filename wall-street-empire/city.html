@@ -2921,7 +2921,10 @@ const BASSIN_NEW = 2.8325;
 // Passe 44 : S.bx (optionnel) = habitants-équivalents de la région ajoutés au bassin (villages, navetteurs) : la ville aérée de départ garde exactement l'économie de la passe 35
 // (popE de départ = POPE_REF) et, quand elle grandit, la demande suit pop × BASSIN_NEW + S.bx (comme avant, à S.bx près).
 const POPE_REF = 288533;
-const bassin = () => S ? ((S.bassin || 1) + (S.bx > 0 && S.pop > 0 ? S.bx / S.pop : 0)) : 1;
+// Passe 60 : au-delà de BASSIN_P1 habitants, la région ne grandit plus au même rythme que la ville (une mégapole draine surtout ses propres habitants) : la part régionale
+// (BASSIN - 1) × habitants devient (BASSIN - 1) × √(BASSIN_P1 × habitants). Sans effet sous 300 000 habitants ni sur les anciennes sauvegardes (bassin de 1).
+const BASSIN_P1 = 300000;
+const bassin = () => { if (!S) return 1; const p = S.pop || 0; let e = (S.bassin || 1) - 1; if (e > 0 && p > BASSIN_P1) e *= Math.sqrt(BASSIN_P1 / p); return 1 + e + (S.bx > 0 && p > 0 ? S.bx / p : 0); };
 const popE = () => ((S && S.pop) || 0) * bassin();
 // Échelle commune de la fortune (paliers, missions de capitalisation, victoire, IPO) : les repères d'origine (Entrepreneur 1,25 M$ ... Oligarque 35 M$) sont multipliés par SCALE_M ; rivaux et grands groupes PNJ suivent (RIV_K, NPC_K)
 const SCALE_M = 4 * K_SIZE, RIV_K = 2 * K_SIZE, NPC_K = 100, MISSION_K = 100;
@@ -3248,7 +3251,11 @@ function buildZones() {
 }
 // Extension de la ville (passe 35) : la zone urbaine grandit par blocs de 6 cases (comme la grille d'avenues). Un bloc ajouté devient zone 1 (constructible, avenues, lots) ; S.cityExt garde la liste des blocs [bx, by] (sauvegardée).
 // cityExtend(x, y) : étend la ville au bloc qui contient la case (x, y), à condition qu'il touche la ville, soit de la campagne libre (ni gisement ni bâtiment du joueur) et reste dans la carte ; renvoie true si le bloc est ajouté.
-const CITY_MAXB = { bx0: 1, bx1: 9, by0: 1, by1: 8 };   // blocs extensibles : x 6 à 60, y 6 à 54 (le port, la mer et les bords de carte restent hors de portée)
+// Passe 60 : la ville peut couvrir toute la terre ferme de la carte (blocs 0 à 14 : le port, la mer et les quais restent hors de portée ; l'aéroport, les bâtiments des joueurs et
+// les fermes des rivaux bloquent leur bloc). Les champs et les bois non exploités d'un bloc viabilisé sont urbanisés (le gisement disparaît, sauf le dernier de sa sorte) ;
+// les gisements miniers et énergétiques restent en place (cases non constructibles pour la ville), au plus CITY_MINERAL cases par bloc ; les blocs surtout ruraux restent à la campagne.
+const CITY_MAXB = { bx0: 0, bx1: 14, by0: 0, by1: 14 }, CITY_MINERAL = 8, CITY_RURAL = 24;   // CITY_RURAL : un bloc dont plus de 24 cases sur 49 sont des champs, bois ou gisements reste à la campagne (grands massifs et grandes exploitations préservés)
+const depUrb = (id) => { const d = S && S.dep && S.dep[id]; return !!d && (d.k === 'wood' || !!CROPS[d.k]) && !d.own && !(S.npcFarm && S.npcFarm[id]); };   // gisement que la ville peut urbaniser
 function cityReset() { Object.assign(CITY, CITY0); buildZones(); }
 function cityBlockApply(bx, by) {
   for (let y = by * GRID; y <= by * GRID + GRID; y++) for (let x = bx * GRID; x <= bx * GRID + GRID; x++) if (inb(x, y) && ZONE[idx(x, y)] === 0) ZONE[idx(x, y)] = 1;
@@ -3256,11 +3263,12 @@ function cityBlockApply(bx, by) {
 }
 function cityBlockState(bx, by) {   // 'ok' | 'urbain' | 'hors' | 'occupe' | 'isole'
   if (bx < CITY_MAXB.bx0 || bx > CITY_MAXB.bx1 || by < CITY_MAXB.by0 || by > CITY_MAXB.by1) return 'hors';
-  let fresh = 0;
+  let fresh = 0, mineral = 0, rural = 0;
   for (let y = by * GRID; y <= by * GRID + GRID; y++) for (let x = bx * GRID; x <= bx * GRID + GRID; x++) {
     if (!inb(x, y)) return 'hors'; const z = ZONE[idx(x, y)];
     if (z === 1) continue; if (z !== 0) return 'hors';
-    if (S && ((S.dep && S.dep[idx(x, y)]) || (S.grid && S.grid[idx(x, y)] && S.grid[idx(x, y)].t !== 'road'))) return 'occupe';
+    if (S && S.grid && S.grid[idx(x, y)] && S.grid[idx(x, y)].t !== 'road') return 'occupe';
+    if (S && S.dep && S.dep[idx(x, y)]) { if (++rural > CITY_RURAL) return 'occupe'; if (!depUrb(idx(x, y))) { const d = S.dep[idx(x, y)]; if (d.own || (S.npcFarm && S.npcFarm[idx(x, y)]) || ++mineral > CITY_MINERAL) return 'occupe'; } }
     fresh++;
   }
   if (!fresh) return 'urbain';
@@ -3268,11 +3276,15 @@ function cityBlockState(bx, by) {   // 'ok' | 'urbain' | 'hors' | 'occupe' | 'is
   for (let k = 0; k <= GRID && !touch; k++) for (const q of [[x0 - 1, y0 + k], [x0 + GRID + 1, y0 + k], [x0 + k, y0 - 1], [x0 + k, y0 + GRID + 1]]) if (inCity(q[0], q[1])) { touch = true; break; }
   return touch ? 'ok' : 'isole';
 }
+function cityBlockDeps(bx, by) { let n = 0; for (let y = by * GRID; y <= by * GRID + GRID; y++) for (let x = bx * GRID; x <= bx * GRID + GRID; x++) if (inb(x, y) && ZONE[idx(x, y)] === 0 && S.dep[idx(x, y)]) n++; return n; }
 function cityExtend(x, y) {
   if (!S || !S.grid) return false;
   const bx = Math.floor(x / GRID), by = Math.floor(y / GRID);
   if (cityBlockState(bx, by) !== 'ok') return false;
+  const fr = []; for (let yy = by * GRID; yy <= by * GRID + GRID; yy++) for (let xx = bx * GRID; xx <= bx * GRID + GRID; xx++) if (inb(xx, yy) && ZONE[idx(xx, yy)] === 0) fr.push(idx(xx, yy));
   cityBlockApply(bx, by); (S.cityExt = S.cityExt || []).push([bx, by]);
+  { const nk = {}; S.dep.forEach(d => { if (d) nk[d.k] = (nk[d.k] || 0) + 1; });   // passe 60 : champs et bois du bloc urbanisés, gisements sous les nouvelles avenues retirés (jamais le dernier de sa sorte)
+    fr.forEach(id => { const d = S.dep[id]; if (d && (depUrb(id) || isRoadPos(id % N, (id / N) | 0)) && nk[d.k] > 1) { nk[d.k]--; S.dep[id] = null; } }); }
   for (let yy = by * GRID; yy <= by * GRID + GRID; yy++) for (let xx = bx * GRID; xx <= bx * GRID + GRID; xx++) { const id = idx(xx, yy); if (inb(xx, yy) && ZONE[id] === 1 && isRoadPos(xx, yy) && !S.grid[id]) S.grid[id] = { t: 'road', x: xx, y: yy }; }
   if (typeof makeDecor === 'function' && typeof decor !== 'undefined') makeDecor();
   trfDirty = true; if (siteC) siteC.dirty = true; if (S._re) S._re.dirty = true;
@@ -3487,6 +3499,8 @@ const PUB_BONUS = { sport: 1.5, admin: 1.5, telecom: 1, sante: 2.5, secu: 2, sec
 // Barème des tailles : emprise (cases) des équipements publics de la ville. Chaque case de l'emprise est une case « mon » du même équipement (comme le mall et l'aéroport),
 // avec le coin nord (mx, my) et la taille (mw, mh) : le sprite est dessiné une fois, depuis la case avant. Les autres équipements restent sur 1 case.
 const MON_FP = { hospital: [3, 3], lycee: [3, 2], college: [2, 2], hall: [2, 2], stadium: [2, 2], stadium2: [2, 2] };
+const monBase = m => typeof m === 'string' ? m.replace(/_\d+$/, '') : m;   // passe 60 : « hospital_3 » -> « hospital » (équipements ajoutés par la croissance)
+const monFpOf = m => MON_FP[m] || MON_FP[monBase(m)];
 const monMulti = c => !!c && c.t === 'npc' && c.k === 'mon' && (c.mw > 1 || c.mh > 1);
 const monFront = c => !monMulti(c) || (c.x === c.mx + c.mw - 1 && c.y === c.my + c.mh - 1);
 function monFit(grid, x, y, w, h, can) {   // coin nord d'une emprise w×h de lots (hors avenues, hors coin 2×2 réservé) qui contient la case (x, y) ; can(case) dit si une case occupée peut être reprise ; null si impossible
@@ -3511,8 +3525,9 @@ function monPlaceAll(grid) {   // génération : les équipements de plusieurs c
 }
 function monLink(grid) {   // chargement : relie les cases d'un équipement de plusieurs cases ; une ancienne sauvegarde (équipement sur 1 case) est agrandie à l'emprise du barème sur les lots voisins (maisons et immeubles de la ville repris, jamais un bâtiment du joueur ni une rue)
   const razed = [];
-  Object.keys(MON_FP).forEach(m => {
-    const fp = MON_FP[m], cs = []; for (let i = 0; i < N * N; i++) { const c = grid[i]; if (c && c.t === 'npc' && c.k === 'mon' && c.m === m) cs.push(c); } if (!cs.length) return;
+  const ms = new Set(Object.keys(MON_FP)); for (let i = 0; i < N * N; i++) { const c = grid[i]; if (c && c.t === 'npc' && c.k === 'mon' && !MON_FP[c.m] && monFpOf(c.m)) ms.add(c.m); }   // passe 60 : équipements ajoutés par la croissance (hospital_2...)
+  ms.forEach(m => {
+    const fp = monFpOf(m), cs = []; for (let i = 0; i < N * N; i++) { const c = grid[i]; if (c && c.t === 'npc' && c.k === 'mon' && c.m === m) cs.push(c); } if (!cs.length) return;
     const x0 = Math.min(...cs.map(c => c.x)), y0 = Math.min(...cs.map(c => c.y)), x1 = Math.max(...cs.map(c => c.x)), y1 = Math.max(...cs.map(c => c.y));
     if (cs.length === fp[0] * fp[1] && x1 - x0 + 1 === fp[0] && y1 - y0 + 1 === fp[1]) { cs.forEach(c => { c.mx = x0; c.my = y0; c.mw = fp[0]; c.mh = fp[1]; }); return; }
     if (cs.length !== 1) { cs.forEach(c => { delete c.mx; delete c.my; delete c.mw; delete c.mh; }); return; }   // forme inattendue : chaque case reste un équipement d'une case
@@ -3559,20 +3574,27 @@ function genNpc(grid) {
 // Nouvelle partie : une petite ville d'environ 100 000 habitants (maisons, petits immeubles de 3 à 8 étages au centre, quelques bureaux, parcs, équipements publics) et beaucoup de terrain libre.
 // Elle grandit seule vers 250 000 à 400 000 habitants en 20 ans et, si le joueur crée emplois, logements et bonne humeur, jusqu'à 600 000 à 1 000 000 : modèle à la SimCity (attractivité -> rythme de construction,
 // densification par niveaux maison -> petit immeuble -> immeuble -> tour -> grande tour -> supertour selon la valeur du sol, extension de la zone urbaine par blocs). Les sauvegardes d'avant (S.cityV absent) gardent leur ancienne ville.
-const CITY_POP0 = 100000; let CG_R0 = 5.6e-5, CG_P = 2.6, CG_CAP = 1.0e6, CG_REL = 0;   // CG_REL > 0 : la croissance dépend aussi de la taille actuelle (croissance composée) ; réglages exposés par WSE.cityTune pour les mesures
+const CITY_POP0 = 100000; let CG_R0 = 2.0e-4, CG_P = 2.6, CG_CAP = 5.0e6, CG_REL = 0, CG_TIER = 1;   // CG_TIER : 1 = rythme par niveau de ville (cityTierR), 0 = ancien rythme   // CG_REL > 0 : la croissance dépend aussi de la taille actuelle (croissance composée) ; réglages exposés par WSE.cityTune pour les mesures
 const cityR = pop => 10 * Math.pow(Math.max(20000, pop) / CITY_POP0, 0.38);          // rayon d'influence du centre (cases) : il grandit avec la ville
-const cityFmax = pop => clamp(10 * Math.pow(Math.max(20000, pop) / CITY_POP0, 0.95), 4, 110);   // hauteur maximale au centre (étages) : effet d'agglomération
+const cityFmax = pop => clamp(10 * Math.pow(Math.max(20000, pop) / CITY_POP0, 0.95), 4, 90);   // hauteur maximale au centre (étages) : effet d'agglomération ; passe 60 : plafond 90 (au lieu de 110) et hauteur visée d'un lot plafonnée à CITY_FTOP
+const CITY_FTOP = 96;   // passe 60 : plus haut immeuble que la ville construit (les sprites HD couvrent jusqu'à 99 étages ; au-delà, le dessin étage par étage coûterait cher)
 const cityLV = (x, y, R, sh) => Math.exp(-Math.pow(Math.max(0, Math.hypot(x - CBD.x, y - CBD.y) - (sh != null ? sh : MALLB ? MALL_LV : 0)) / R, 1.4));   // valeur du sol relative (1 au centre) ; passe 45 : avec le grand mall, mesurée depuis son anneau (MALL_LV : le mall tient lieu de cœur de ville, les lots qui le bordent valent le centre)
 function cityTarget(x, y, kind, R, Fm, sh) {   // hauteur visée d'un lot (étages)
   const lv = cityLV(x, y, R, sh), j = 0.8 + 0.4 * hash(x, y, 77);
-  return Math.max(1, Math.round((kind === 'off' ? Fm * Math.pow(lv, 1.25) * 0.9 : Fm * Math.pow(lv, 1.6)) * j));
+  return clamp(Math.round((kind === 'off' ? Fm * Math.pow(lv, 1.25) * 0.9 : Fm * Math.pow(lv, 1.6)) * j), 1, CITY_FTOP);
 }
 const cityLevel = f => f <= 1 ? 0 : f <= 4 ? 1 : f <= 9 ? 2 : f <= 24 ? 3 : f <= 49 ? 4 : 5;
 const CITY_LVN = ['maisons', 'petits immeubles', 'immeubles', 'tours', 'grandes tours', 'supertours'];
-const CITY_SIZES = [[0, 'Petite ville'], [150000, 'Ville'], [300000, 'Grande ville'], [500000, 'Métropole'], [1000000, 'Mégalopole']];
+// Passe 60 : niveaux de ville (bourg -> mégapole mondiale). Chaque niveau a son nom et son rythme de croissance relatif (CITY_TIER[i][2], interpolé entre deux niveaux sur l'échelle
+// logarithmique de la population) : effet d'agglomération jusqu'à la métropole, puis croissance relative plus lente des très grandes villes.
+const CITY_TIER = [[0, 'Bourg', 1], [40000, 'Petite ville', 1], [150000, 'Ville', 1.06], [300000, 'Grande ville', 1.12], [500000, 'Métropole', 1.12], [1000000, 'Mégalopole', 0.9], [2500000, 'Mégapole', 0.62], [5000000, 'Mégapole mondiale', 0.45]];
+const CITY_SIZES = CITY_TIER.map(a => [a[0], a[1]]);
+const cityTierR = pop => { const T = CITY_TIER, p = Math.max(1, pop); if (p <= T[1][0]) return T[1][2]; for (let i = 1; i < T.length - 1; i++) if (p < T[i + 1][0]) { const u = Math.log(p / T[i][0]) / Math.log(T[i + 1][0] / T[i][0]); return T[i][2] + (T[i + 1][2] - T[i][2]) * u; } return T[T.length - 1][2]; };
 const CITY_MS = [[150000, 'New Dollarton devient une ville : les premiers quartiers de grands immeubles apparaissent.'], [250000, 'Cap des 250 000 habitants : le centre monte, les promoteurs lorgnent les maisons.'],
   [400000, 'New Dollarton devient une grande ville : tours de bureaux et nouveaux quartiers.'], [600000, 'New Dollarton devient une métropole : le centre est une forêt de tours.'],
-  [800000, 'Cap des 800 000 habitants : les supertours dominent le centre.'], [1000000, 'Un million d\'habitants : New Dollarton est une mégalopole.']];
+  [800000, 'Cap des 800 000 habitants : les supertours dominent le centre.'], [1000000, 'Un million d\'habitants : New Dollarton est une mégalopole.'],
+  [1500000, 'Un million et demi d\'habitants : la ville déborde sur la campagne, de nouveaux quartiers sortent de terre.'], [2500000, 'Deux millions et demi d\'habitants : New Dollarton devient une mégapole.'],
+  [4000000, 'Quatre millions d\'habitants : l\'une des plus grandes villes du monde.'], [5000000, 'Cinq millions d\'habitants : New Dollarton est une mégapole mondiale.']];   // passe 60 : jalons ajoutés à la fin (le compteur G.ms des sauvegardes reste valable)
 const citySizeName = pop => { let n = CITY_SIZES[0][1]; CITY_SIZES.forEach(a => { if (pop >= a[0]) n = a[1]; }); return n; };
 const isLot = (x, y) => x % GRID !== 0 && y % GRID !== 0 && !((x % GRID) - 1 >= 3 && (y % GRID) - 1 >= 3);   // lot constructible d'un bloc (les 4 cases du coin 2x2 restent libres : emplacement exact d'un supermarché 2×2)
 const npcCellOf = (x, y, k, floors, seed) => ({ t: 'npc', k, seed: seed == null ? hash(x, y, 44) : seed, floors, lvl: 0, w: 1, h: 1, x, y, born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false });
@@ -3735,7 +3757,8 @@ function cityAttract() {
   const aJ = clamp(1.4 - 2.2 * un, 0.5, 1.4), aH = 0.7 + 0.6 * hp / 100, aS = 0.8 + 0.2 * sat + 0.012 * pubBonus(), aT = taxDrag(S.tax), aG = clamp(1 + 3 * (M.gdp - 0.03), 0.8, 1.25);
   const cn = st.cn || {}, riv = (S.rivals || []).filter(r => r.caste === 'promoteur' && !r.dead).length, P = Math.min(10, (cn.btp || 0) + 2 * (cn.immo || 0) + (S.caste === 'promoteur' ? 3 : 0) + 1.5 * riv), aP = 1 + 0.045 * P;
   const ipc = popE() > 0 ? (st.income || 0) / popE() : 0, aE = 1 + 0.38 * clamp(Math.log10(Math.max(ipc, 1e-4) / 0.05) / 2.2, 0, 1);   // poids économique de ton entreprise : chiffre d'affaires quotidien par habitant du bassin
-  return { v: Math.pow(aJ, 0.8) * Math.pow(aH, 0.8) * aS * aT * aG * aP * aE, aJ, aH, aS, aT, aG, aP, aE };
+  const aQ = 0.9 + 0.1 * citySvcCov();   // passe 60 : services publics proportionnés à la population (1 tant que la ville en a assez)
+  return { v: Math.pow(aJ, 0.8) * Math.pow(aH, 0.8) * aS * aT * aG * aP * aE * aQ, aJ, aH, aS, aT, aG, aP, aE, aQ };
 }
 function crnd() { const G = S.cg; G.r = ((G.r == null ? 0x2f6e2b1 : G.r) + 0x6D2B79F5) | 0; let t = Math.imul(G.r ^ (G.r >>> 15), 1 | G.r); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }   // aléa propre à la ville : ne touche pas à la suite de rnd() du reste du jeu
 function cityPickWeighted(ids, wf) { let tot = 0; const w = ids.map(id => { const v = Math.max(0, wf(id)); tot += v; return v; }); if (!(tot > 0)) return -1; let r = crnd() * tot; for (let i = 0; i < ids.length; i++) { r -= w[i]; if (r <= 0) return ids[i]; } return ids[ids.length - 1]; }
@@ -3753,7 +3776,7 @@ function cityBuild(kind, sc) {   // un chantier : construit sur un lot libre ou 
   if (!list.length) return 0;
   const own = c => S.npcOwn && S.npcOwn[c.x + ',' + c.y], id = cityPickWeighted(list, i => { const c = S.grid[i], tf = cityTarget(c.x, c.y, kind === 'off' ? 'off' : 'res', R, Fm); return (tf - c.floors) / tf * (own(c) ? 3 : 1); });
   if (id < 0) return 0;
-  const c = S.grid[id]; if (!c || c.t !== 'npc') return 0;
+  const c = S.grid[id]; if (!c || c.t !== 'npc' || c.k === 'mon' || c.k === 'park') return 0;
   const tf = cityTarget(c.x, c.y, kind === 'off' ? 'off' : 'res', R, Fm), f0 = c.floors, k0 = c.k;
   let f1; if (k0 === 'house') { f1 = Math.min(tf, 2 + Math.floor(crnd() * 3)); c.k = 'res'; } else f1 = Math.min(tf, f0 + Math.max(1, Math.round(f0 * 0.3) + Math.floor(crnd() * 2)));
   if (f1 <= (k0 === 'house' ? 1 : f0)) { c.k = k0; return 0; }
@@ -3770,22 +3793,71 @@ function cityAddPark(sc) {
   const R = cityR(S.pop), id = cityPickWeighted(sc.freeL, id => { const x = id % N, y = (id / N) | 0, d = Math.hypot(x - CBD.x, y - CBD.y); return d > 3 && d < R * 1.3 ? cityLV(x, y, R) : 0; });
   if (id < 0) return false; const c = npcCellOf(id % N, (id / N) | 0, 'park', 1); c.born = performance.now(); S.grid[id] = c; sc.freeL.splice(sc.freeL.indexOf(id), 1); sc.free--; return true;
 }
+// Passe 60 : services publics proportionnés à la population. La ville vise un équipement de chaque sorte par tranche de CITY_SVC[sorte] habitants (au moins celui de départ) ;
+// les équipements ajoutés (sorte_2, sorte_3...) ont l'emprise du barème, le sprite et la catégorie de l'original, sont posés sur des lots libres loin des équipements de la même sorte
+// et hors du cœur de ville (valeur du sol ≤ 0,85 ; ils desservent les nouveaux quartiers) et se sauvegardent avec la ville. Couverture (0 à 1) : moyenne des rapports équipements / besoin, lue par l'attractivité (aQ).
+const CITY_SVC = { hospital: 600000, lycee: 450000, college: 350000, maternelle: 280000, garderie: 450000, police: 600000, fire: 700000 };
+Object.keys(CITY_SVC).forEach(b => { for (let k = 2; k <= 60; k++) PUB[b + '_' + k] = [PUB[b][0] + ' n° ' + k, PUB[b][1], PUB[b][2].split(' :')[0] + ' : dessert les nouveaux quartiers'] ; });
+function citySvcHave() {
+  if (S._svc && S._svc.day === S.day && S._svc.g === S.grid) return S._svc;
+  const o = { day: S.day, g: S.grid, n: {}, at: {}, names: {} };
+  S.grid.forEach(c => { if (!c || c.t !== 'npc' || c.k !== 'mon') return; const b = monBase(c.m); if (!CITY_SVC[b] || o.names[c.m]) return; if (monMulti(c) && !(c.x === c.mx && c.y === c.my)) return; o.names[c.m] = 1; o.n[b] = (o.n[b] || 0) + 1; (o.at[b] = o.at[b] || []).push([c.x, c.y]); });
+  return (S._svc = o);
+}
+const citySvcNeed = (b, pop) => Math.max(1, Math.ceil(pop / CITY_SVC[b]));
+function citySvcCov() { if (!S || !S.grid || !S.cityV) return 1; const H = citySvcHave(), ks = Object.keys(CITY_SVC); return ks.reduce((s, b) => s + Math.min(1, (H.n[b] || 0) / citySvcNeed(b, S.pop || 0)), 0) / ks.length; }
+function citySvcGrow(sc) {   // pose au plus un équipement (la sorte la plus en retard) ; true si posé
+  const H = citySvcHave(), pop = S.pop; let b = null, bv = 1;
+  Object.keys(CITY_SVC).forEach(k => { if (!H.n[k]) return; const r = H.n[k] / citySvcNeed(k, pop); if (r < bv - 1e-9) { bv = r; b = k; } });   // une sorte absente de la ville (ancienne partie) n'est pas recréée
+  if (!b) return false;
+  let k = 2; while (H.names[b + '_' + k]) k++; const m = b + '_' + k, fp = MON_FP[b] || [1, 1], R = cityR(pop), mine = H.at[b] || [], hold = S.cg && S.cg.hold;
+  const cand = [];
+  sc.freeL.forEach(id => { const x = id % N, y = (id / N) | 0, lv = cityLV(x, y, R); if (lv > 0.85) return; let dm = 1e9; mine.forEach(q => { const d = Math.hypot(q[0] - x, q[1] - y); if (d < dm) dm = d; }); cand.push([Math.min(dm, 0.9 * R) + 6 * lv + 3 * hash(x, y, 601), x, y]); });
+  cand.sort((p, q) => q[0] - p[0]);
+  for (let i = 0; i < Math.min(cand.length, 80); i++) {
+    const x = cand[i][1], y = cand[i][2], a = fp[0] * fp[1] > 1 ? monFit(S.grid, x, y, fp[0], fp[1], null) : (S.grid[idx(x, y)] ? null : { x, y }); if (!a) continue;
+    let ok = true; for (let j = 0; j < fp[1] && ok; j++) for (let q = 0; q < fp[0]; q++) { const id = idx(a.x + q, a.y + j); if (S.grid[id] || S.dep[id] || (hold && hold[id] > S.day)) { ok = false; break; } }
+    if (!ok) continue;
+    monPut(S.grid, m, a.x, a.y, fp[0], fp[1], hash(a.x, a.y, 44));
+    for (let j = 0; j < fp[1]; j++) for (let q = 0; q < fp[0]; q++) { const id = idx(a.x + q, a.y + j), p = sc.freeL.indexOf(id); if (p >= 0) sc.freeL.splice(p, 1); sc.free--; }
+    S._svc = null; if (typeof siteC !== 'undefined') siteC.pub = null;
+    say(`La ville ouvre un nouvel équipement : ${PUB[m] ? PUB[m][0] : m} en (${a.x + 1}, ${a.y + 1}), pour ses ${fmt(Math.round(pop))} habitants.`, 'info');
+    return true;
+  }
+  // plus de lot libre assez grand (ville pleine) : la mairie rachète et rase des immeubles de la ville (30 étages au plus, ni repère, ni bâtiment racheté par un joueur ou un rival)
+  // là où ils sont le moins nombreux, loin des équipements de la même sorte
+  const can = o => o.t === 'npc' && (o.k === 'house' || o.k === 'res' || o.k === 'off' || o.k === 'park') && !o.lm && (o.floors || 1) <= 30 && !(S.npcOwn && S.npcOwn[o.x + ',' + o.y]);
+  const c2 = [];
+  for (let y = CITY.y0; y <= CITY.y1; y++) for (let x = CITY.x0; x <= CITY.x1; x++) { const id = y * N + x; if (ZONE[id] !== 1 || !isLot(x, y) || S.dep[id]) continue; const o = S.grid[id]; if (o && !can(o)) continue; const lv = cityLV(x, y, R); if (lv > 0.85) continue;
+    let dm = 1e9; mine.forEach(q => { const d = Math.hypot(q[0] - x, q[1] - y); if (d < dm) dm = d; }); c2.push([Math.min(dm, 0.9 * R) - 4 * lv + 3 * hash(x, y, 602), x, y]); }
+  c2.sort((p, q) => q[0] - p[0]);
+  let best = null, bc = 1e9;
+  for (let i = 0; i < Math.min(c2.length, 200); i++) { const x = c2[i][1], y = c2[i][2], a = monFit(S.grid, x, y, fp[0], fp[1], can); if (!a) continue; let fl = 0, ok = true;
+    for (let j = 0; j < fp[1] && ok; j++) for (let q = 0; q < fp[0]; q++) { const id = idx(a.x + q, a.y + j), o = S.grid[id]; if (S.dep[id] || (hold && hold[id] > S.day) || (o && !can(o))) { ok = false; break; } if (o) fl += o.k === 'park' ? 2 : o.floors || 1; }
+    if (ok && fl - 0.02 * c2[i][0] < bc) { bc = fl - 0.02 * c2[i][0]; best = a; } }
+  if (!best) return false;
+  let nz = 0; for (let j = 0; j < fp[1]; j++) for (let q = 0; q < fp[0]; q++) { const id = idx(best.x + q, best.y + j); if (S.grid[id]) nz++; else { const p = sc.freeL.indexOf(id); if (p >= 0) sc.freeL.splice(p, 1); sc.free--; } S.grid[id] = null; }
+  monPut(S.grid, m, best.x, best.y, fp[0], fp[1], hash(best.x, best.y, 44)); S._svc = null; S._cs = null; if (typeof siteC !== 'undefined') siteC.pub = null;
+  say(`La ville rachète et rase ${nz} immeuble${nz > 1 ? 's' : ''} pour ouvrir un nouvel équipement : ${PUB[m] ? PUB[m][0] : m} en (${best.x + 1}, ${best.y + 1}), pour ses ${fmt(Math.round(pop))} habitants.`, 'info');
+  return true;
+}
 function cityGrow() {   // un pas de croissance (tous les 2 jours)
   const G = S.cg; if (G.hold) Object.keys(G.hold).forEach(k => { if (G.hold[k] <= S.day) delete G.hold[k]; });
   const sc = cityScan(), A = cityAttract(), st = S.stats || {};
   S.city = Object.assign(S.city || {}, { attr: A.v });
-  const g = CG_R0 * Math.pow(A.v, CG_P) * (1 / (1 + Math.pow(S.pop / CG_CAP, 4))) * (1 + 0.04 * Math.log2(Math.max(1, S.pop / CITY_POP0))) * (1 + CG_REL * (S.pop / CITY_POP0 - 1));
-  G.acc = Math.min(40, G.acc + g * 2 * sc.resF); let n = 0, tfl = 0;
-  while (G.acc >= 1 && n++ < 30) { const a = cityBuild('res', sc); if (!a) { G.acc = Math.min(G.acc, 3); break; } G.acc -= a; tfl += a; G.park += a; }
+  const g = CG_R0 * Math.pow(A.v, CG_P) * (1 / (1 + Math.pow(S.pop / CG_CAP, 4))) * (CG_TIER ? cityTierR(S.pop) : 1 + 0.04 * Math.log2(Math.max(1, S.pop / CITY_POP0))) * (1 + CG_REL * (S.pop / CITY_POP0 - 1));
+  G.acc = Math.min(Math.max(40, 0.004 * sc.resF), G.acc + g * 2 * sc.resF); let n = 0, tfl = 0;   // passe 60 : réserve de chantiers proportionnée à la ville (au moins 40 étages)
+  while (G.acc >= 1 && n++ < 80) { const a = cityBuild('res', sc); if (!a) { G.acc = Math.min(G.acc, 3); break; } G.acc -= a; tfl += a; G.park += a; }
   while (G.park >= 14) { G.park -= 14; cityAddPark(sc); }
-  // bureaux : la ville vise le rapport emplois / actifs du départ (les emplois du joueur comptent)
+  // bureaux : la ville vise le rapport emplois / actifs du départ (les emplois du joueur comptent) ; passe 60 : jusqu'à 30 chantiers par pas pour suivre une grande ville
   const jpf = Math.max(0.01, S.jpf || 1), wf = popE() * 0.55, defO = ((G.jt || 0.88) * wf - sc.offF * jpf - (st.playerJobs || 0)) / jpf;
-  for (let k = 0, d = defO; d > 1 && k < 12; k++) { const a = cityBuild('off', sc); if (!a) break; d -= a; tfl += a; }
-  if (tfl) { sc.dirty = true; trfDirty = true; if (S._re) S._re.dirty = true; if (typeof siteC !== 'undefined') siteC.dirty = true; }
-  // extension : peu de lots libres pour la taille de la ville -> un nouveau bloc est viabilisé près du centre
-  if (S.day - (G.ext || 0) >= 40 && (sc.free < 40 || sc.free < 0.14 * sc.lots)) {
+  for (let k = 0, d = defO; d > 1 && k < 30; k++) { const a = cityBuild('off', sc); if (!a) break; d -= a; tfl += a; }
+  if (S.day % 30 === 0) for (let k = 0; k < 3 && citySvcCov() < 1 && citySvcGrow(sc); k++) tfl++;   // passe 60 : écoles, hôpitaux, commissariats et casernes suivent la population (jusqu'à 3 par mois en cas de retard)
+  if (tfl) { sc.dirty = true; if (S.pop < 1e6 || S.day - (G.trfD || 0) >= 10) { trfDirty = true; G.trfD = S.day; } if (S._re) S._re.dirty = true; if (typeof siteC !== 'undefined') siteC.dirty = true; }   // passe 60 : au-delà d'un million d'habitants, le champ de trafic (et la valeur du sol qui en dépend) est recalculé au plus tous les 10 jours
+  // extension : peu de lots libres pour la taille de la ville -> un nouveau bloc est viabilisé près du centre (passe 60 : tous les 20 jours, deux blocs à la fois au-delà de 1 million d'habitants)
+  if (S.day - (G.ext || 0) >= 20 && (sc.free < 40 || sc.free < 0.14 * sc.lots)) for (let nb = S.pop > 1e6 ? 2 : 1; nb > 0; nb--) {
     let best = null, bd = 1e9;
-    for (let bx = CITY_MAXB.bx0; bx <= CITY_MAXB.bx1; bx++) for (let by = CITY_MAXB.by0; by <= CITY_MAXB.by1; by++) { const d = Math.hypot(bx * GRID + 3 - CBD.x, by * GRID + 3 - CBD.y); if (d < bd && cityBlockState(bx, by) === 'ok') { bd = d; best = [bx, by]; } }
+    for (let bx = CITY_MAXB.bx0; bx <= CITY_MAXB.bx1; bx++) for (let by = CITY_MAXB.by0; by <= CITY_MAXB.by1; by++) { let d = Math.hypot(bx * GRID + 3 - CBD.x, by * GRID + 3 - CBD.y); if (d >= bd || cityBlockState(bx, by) !== 'ok') continue; d += 0.25 * cityBlockDeps(bx, by); if (d < bd) { bd = d; best = [bx, by]; } }   // passe 60 : à distance égale, les blocs sans champs, bois ni gisements d'abord
     if (best && cityExtend(best[0] * GRID + 3, best[1] * GRID + 3)) { G.ext = S.day; sc.dirty = true; say(`La ville s'étend : un nouveau quartier est viabilisé en (${best[0] * GRID + 1}, ${best[1] * GRID + 1}).`, 'good'); }
   }
 }
@@ -3808,18 +3880,18 @@ function stepCity() {
   while (G.ms < CITY_MS.length && S.pop >= CITY_MS[G.ms][0]) { say(CITY_MS[G.ms][1], 'gold'); G.ms++; }
 }
 // routes reliées au réseau public (les rues et routes de la mairie sont les sources)
+// passe 60 : le masque ne dépend que des routes (position, publique ou privée) ; une grande ville a des milliers de cases de route et evaluate() le demande après chaque
+// construction : il est gardé tant que l'empreinte des routes (nombre, somme pondérée des positions) ne change pas. Le masque rendu est en lecture seule.
+let _lmC = null;
 function linkedMask() {
+  const G = S.grid; let n = 0, h = 0, h2 = 0;
+  for (let i = 0; i < N * N; i++) { const c = G[i]; if (c && c.t === 'road') { n++; h = (h + (i + 1) * (c.own ? 7919 : 1)) | 0; h2 = (Math.imul(h2, 31) + i + (c.own ? 50000 : 0)) | 0; } }
+  if (_lmC && _lmC.g === G && _lmC.n === n && _lmC.h === h && _lmC.h2 === h2) return _lmC.m;
   const m = new Uint8Array(N * N), q = [];
-  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road' && !c.own) { m[i] = 1; q.push(i); } }
-  while (q.length) {
-    const i = q.pop(), x = i % N, y = (i / N) | 0;
-    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(d => {
-      const nx = x + d[0], ny = y + d[1]; if (!inb(nx, ny)) return;
-      const j = idx(nx, ny);
-      if (!m[j]) { const c = S.grid[j]; if (c && c.t === 'road') { m[j] = 1; q.push(j); } }
-    });
-  }
-  return m;
+  for (let i = 0; i < N * N; i++) { const c = G[i]; if (c && c.t === 'road' && !c.own) { m[i] = 1; q.push(i); } }
+  const vis = j => { if (!m[j]) { const c = G[j]; if (c && c.t === 'road') { m[j] = 1; q.push(j); } } };
+  while (q.length) { const i = q.pop(), x = i % N, y = (i / N) | 0; if (x + 1 < N) vis(i + 1); if (x > 0) vis(i - 1); if (y + 1 < N) vis(i + N); if (y > 0) vis(i - N); }
+  _lmC = { g: G, n, h, h2, m }; return m;
 }
 function extLinked(c, lm) {
   for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) {
@@ -4032,6 +4104,11 @@ function pipeMask() {
 function pipeAdj(c, pm) { for (let ox = 0; ox < c.w; ox++) for (let oy = 0; oy < c.h; oy++) for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = c.x + ox + d[0], y = c.y + oy + d[1]; if (inb(x, y) && pm[idx(x, y)]) return true; } return false; }
 function eachBuilding(fn) {
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t !== 'road' && c.t !== 'part') fn(c); }
+}
+// passe 60 : bâtiments des joueurs et des rivaux seulement (sans les milliers d'immeubles et équipements de la ville) : pour les boucles dont le test ne peut jamais retenir
+// un immeuble de la ville (magasins, usines, mines, production) ; même ordre de parcours qu'eachBuilding
+function eachBiz(fn) {
+  const G = S.grid; for (let i = 0; i < N * N; i++) { const c = G[i]; if (c && c.t !== 'road' && c.t !== 'part' && c.t !== 'npc') fn(c); }
 }
 
 const MAX_LVL = 4, MAX_FLOORS = 6;
@@ -4835,7 +4912,7 @@ function stepPolicy() {
   const p = S.pol || (S.pol = {}); if (p.cp == null) p.cp = cpi(); if (p.ca == null) p.ca = cpi();
   if (S.day % 30 === 0) { if (!p.noInfP) p.cp = cpi(); if (!p.noInfA) adjustInfl('a'); }
   // « Ne jamais vendre sous le coût » : le prix de rayon d'un magasin remonte tant que son coût d'achat dépasse son chiffre d'affaires
-  eachBuilding(c => { if (!TYPES[c.t].ret || !c.conn) return;
+  eachBiz(c => { if (!TYPES[c.t].ret || !c.conn) return;
     if (p.noLoss && c._rev > 0 && c._cogs > 0) { const r = c._cogs / c._rev; if (r > 0.97) c._nl = Math.min(1.6, (c._nl || 1) * 1.02); else if (r < 0.9 && c._nl > 1) c._nl = Math.max(1, c._nl * 0.99); } else if (!p.noLoss && c._nl) c._nl = 1; });
   // compteur de rupture : jours consécutifs sans matière première
   eachBuilding(c => { const T = TYPES[c.t]; if (!c.conn || c.t === 'npc') return; let sg = null;
@@ -4899,7 +4976,7 @@ const adSpend = c => TYPES[c.t].ret ? AD_KEYS.reduce((a, k) => a + (adOf(c)[k] |
 function adRt(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] || 0; pw += (AD_CH[k].rt || 0.2) * (1 - Math.exp(-b / (AD_CH[k].scale * adScaleOf(c)))); }); return pw; }
 // Marque : notoriété (c.aw), fidélité (c.loy), perception de qualité (c.rt)
 function prodQualityScore() { const on = PKEYS.filter(pk => S.prod[pk].st === 'on'); if (!on.length) return 35; return clamp(on.reduce((a, pk) => a + QTIER[S.prod[pk].q].q, 0) / on.length, 0, 100); }
-function brandOf() { const shops = []; eachBuilding(c => { if (TYPES[c.t].ret && c.conn) shops.push(c); }); const w = shops.reduce((a, c) => a + (TYPES[c.t].ret.cap), 0) || 1, av = f => shops.reduce((a, c) => a + (c[f] || 0) * TYPES[c.t].ret.cap, 0) / w; return { n: shops.length, aw: av('aw'), loy: av('loy'), rt: av('rt') }; }
+function brandOf() { const shops = []; eachBiz(c => { if (TYPES[c.t].ret && c.conn) shops.push(c); }); const w = shops.reduce((a, c) => a + (TYPES[c.t].ret.cap), 0) || 1, av = f => shops.reduce((a, c) => a + (c[f] || 0) * TYPES[c.t].ret.cap, 0) / w; return { n: shops.length, aw: av('aw'), loy: av('loy'), rt: av('rt') }; }
 function adPower(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] || 0; pw += AD_CH[k].gain * (1 - Math.exp(-b / (AD_CH[k].scale * adScaleOf(c)))); }); return pw; }
 const adTarget = c => 100 * clamp(adPower(c) / 1.5, 0, 1);
 // Publicité PAR PRODUIT : le budget par canal est dans S.prod[pk].ad ; l'échelle dépend de la classe (grand public = gros budgets)
@@ -5299,11 +5376,17 @@ function facHaul(x, y, rec) {
   let s = 0; ins.forEach(g => { const d = nearestOf(si.ext[g], x, y); s += d == null ? dPort : Math.min(d, dPort + 6); });
   return Math.round(((ins.length ? s / ins.length : 0) + marketDist(x, y)) / 2);
 }
+let TRF_K = null;
 function rebuildTraffic() {
   trfDirty = false; trfGen++; trf = new Float32Array(N * N); const src = [];
   eachBuilding(b => { if (b.t === 'npc') { if (b.k === 'res') src.push([b.x, b.y, 5 * b.floors]); else if (b.k === 'house') src.push([b.x, b.y, 5]); else src.push([b.x, b.y, 1.5 * b.floors]); } else if (b.t === 'res') src.push([b.x, b.y, 6 + 4 * b.floors]); else if (b.t === 'tech' || b.t === 'bank' || b.t === 'hq') src.push([b.x, b.y, 4 * b.floors]); });
-  let mx = 1; const x0 = CITY.x0 - 6, x1 = CITY.x1 + 6, y0 = CITY.y0 - 6, y1 = CITY.y1 + 6;
-  for (let y = Math.max(0, y0); y <= Math.min(N - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(N - 1, x1); x++) { let v = 0; for (let i = 0; i < src.length; i++) { const q = src[i], dx = q[0] - x, dy = q[1] - y, d2 = dx * dx + dy * dy; if (d2 < 169) v += q[2] * Math.exp(-Math.sqrt(d2) / 5); } trf[idx(x, y)] = v; if (v > mx) mx = v; }
+  let mx = 1; const X0 = Math.max(0, CITY.x0 - 6), X1 = Math.min(N - 1, CITY.x1 + 6), Y0 = Math.max(0, CITY.y0 - 6), Y1 = Math.min(N - 1, CITY.y1 + 6);
+  // passe 60 : chaque source répand son trafic sur les cases à moins de 13 cases (noyau précalculé) au lieu de sommer toutes les sources pour chaque case : même champ, coût
+  // proportionnel au nombre de bâtiments × 530 cases au lieu de bâtiments × cases de la ville (17 fois moins à 3 000 immeubles)
+  const K = TRF_K || (TRF_K = (() => { const k = new Float64Array(25 * 25); for (let dy = -12; dy <= 12; dy++) for (let dx = -12; dx <= 12; dx++) { const d2 = dx * dx + dy * dy; k[(dy + 12) * 25 + dx + 12] = d2 < 169 ? Math.exp(-Math.sqrt(d2) / 5) : 0; } return k; })());
+  for (let i = 0; i < src.length; i++) { const q = src[i], qx = q[0], qy = q[1], w = q[2];
+    for (let y = Math.max(Y0, qy - 12); y <= Math.min(Y1, qy + 12); y++) { const kr = (qy - y + 12) * 25 + 12 + qx, r = y * N; for (let x = Math.max(X0, qx - 12); x <= Math.min(X1, qx + 12); x++) { const kv = K[kr - x]; if (kv) trf[r + x] += w * kv; } } }
+  for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) { const v = trf[y * N + x]; if (v > mx) mx = v; }
   for (let i = 0; i < trf.length; i++) trf[i] = Math.min(1, trf[i] / (mx * 0.8));
 }
 function competitionAt(x, y) { let n = 0; siteIndex().stores.forEach(q => { if (Math.abs(q[0] - x) + Math.abs(q[1] - y) <= 4) n++; }); return n; }
@@ -5393,7 +5476,7 @@ function specStats(c) {   // fiche : famille, avantages chiffrés, part de march
   let fam = 0, famAll = 0, gen = 0, pr = 0; Object.keys(c.sales || {}).forEach(k => { const v = c.sales[k] || 0; if (k.indexOf('g_') === 0) gen += v; else pr += v; });
   PKEYS.forEach(pk => { if (pFamOf(pk) === f && S.prod[pk] && S.prod[pk].st === 'on') fam += S.prod[pk].sold || 0; });
   const dw = S._dw || {}, cls = TYPES[c.t].ret.sells; cls.forEach(cl => { famAll += ((dw.cls && dw.cls[cl] && dw.cls[cl].Dc) || 0) * specShare(f, cl); });
-  const gSold = {}; eachBuilding(b => { if (!TYPES[b.t].ret || !b.sales) return; cls.forEach(cl => { gSold[cl] = (gSold[cl] || 0) + (b.sales['g_' + cl] || 0); }); });
+  const gSold = {}; eachBiz(b => { if (!TYPES[b.t].ret || !b.sales) return; cls.forEach(cl => { gSold[cl] = (gSold[cl] || 0) + (b.sales['g_' + cl] || 0); }); });
   const mine = fam + cls.reduce((a, cl) => a + (gSold[cl] || 0) * specShare(f, cl), 0);   // tes ventes de la famille : tes produits + la part de la famille dans ton panier de classe
   const share = famAll > 0 ? clamp(mine / famAll, 0, 1) : 0, tx = gen + pr, basket = tx > 0.01 ? (c._rev || 0) / tx : 0;
   return { D, f, n: SPEC_FAM[f].n, cov: X.cov || 0, bonus: X.bonus || 0, nShops: X.n || 0, share, famShare: specFamShare(f), basket, tx, gen, pr };
@@ -6408,7 +6491,7 @@ function fpAudit(grid) {
     const w = c.w || 1, h = c.h || 1; if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) { push(`${c.t} (${X},${Y}) emprise ${w}×${h}`); continue; }
     if (c.t === 'npc') { if (w !== 1 || h !== 1) push(`immeuble de la ville (${X},${Y}) sur ${w}×${h} cases`); if (own[i] >= 0) push(`(${X},${Y}) déjà prise`); own[i] = i;
       if (monMulti(c)) { if (!(X >= c.mx && X < c.mx + c.mw && Y >= c.my && Y < c.my + c.mh)) push(`équipement ${c.m} (${X},${Y}) hors de son emprise`); for (let j = 0; j < c.mh; j++) for (let k = 0; k < c.mw; k++) { const q = inb(c.mx + k, c.my + j) && grid[idx(c.mx + k, c.my + j)]; if (!q || q.t !== 'npc' || q.k !== 'mon' || q.m !== c.m || q.mx !== c.mx || q.my !== c.my) { push(`équipement ${c.m} : emprise ${c.mw}×${c.mh} incomplète en (${c.mx + k},${c.my + j})`); j = c.mh; break; } } }
-      if (c.k === 'mon' && MON_FP[c.m]) { const f = MON_FP[c.m]; if (!monMulti(c) || c.mw !== f[0] || c.mh !== f[1]) push(`équipement ${c.m} (${X},${Y}) sur ${c.mw || 1}×${c.mh || 1} case(s) au lieu de ${f[0]}×${f[1]} (barème)`); if (isRoadPos(X, Y)) push(`équipement ${c.m} (${X},${Y}) posé sur une rue`); }
+      if (c.k === 'mon' && monFpOf(c.m)) { const f = monFpOf(c.m); if (!monMulti(c) || c.mw !== f[0] || c.mh !== f[1]) push(`équipement ${c.m} (${X},${Y}) sur ${c.mw || 1}×${c.mh || 1} case(s) au lieu de ${f[0]}×${f[1]} (barème)`); if (isRoadPos(X, Y)) push(`équipement ${c.m} (${X},${Y}) posé sur une rue`); }
       continue; }
     for (let oy = 0; oy < h; oy++) for (let ox = 0; ox < w; ox++) {
       const x = X + ox, y = Y + oy; if (!inb(x, y)) { push(`${c.t} (${X},${Y}) déborde de la carte`); continue; } const j = idx(x, y), q = grid[j];
@@ -7508,6 +7591,7 @@ function cityHTML() {
     + kp('Demande d\'emplois', lvl(c.demJobs), c.demJobs > 0.15 ? 'pos' : '', 'chômage ' + (c.unemp * 100).toFixed(1).replace('.', ',') + ' %')
     + kp('Attractivité', c.attr.toFixed(2).replace('.', ','), c.attr >= 1.2 ? 'pos' : c.attr < 0.9 ? 'neg' : '', 'emplois, humeur, services, impôt, cycle')
     + kp('Étages bâtis', fmt(c.resF) + ' logements · ' + fmt(c.offF) + ' bureaux', '', '')
+    + (() => { const H = citySvcHave(), n = Object.keys(CITY_SVC).reduce((t, k) => t + (H.n[k] || 0), 0), cv = citySvcCov(); return kp('Services publics', fmt(n) + ' écoles, hôpitaux, commissariats et casernes', cv < 0.95 ? 'neg' : '', 'couverture ' + pc(cv) + ' des besoins de ' + fmt(c.pop) + ' habitants'); })()   // passe 60
     + `</div><p class="note">${dens || 'Aucun immeuble'}. La ville se densifie quand la demande et la valeur du sol le justifient (maison, petit immeuble, immeuble, tour, grande tour, supertour) ; ses promoteurs rachètent et reconstruisent plus haut.</p>`
     + (S.cg && S.cg.h && S.cg.h.length > 1 ? `<canvas id="citspark" width="640" height="110" style="width:100%;height:70px" aria-label="Population au fil des mois"></canvas>` : '');
 }
@@ -8211,7 +8295,7 @@ function packSVG(i) {
 // --- Actions ---
 function facCounts(k) {
   const lvl = recipeOf(k).lvl; let total = 0, mine = 0, free = 0, units = 0;
-  eachBuilding(c => { if (!FLEVEL[c.t] || !c.conn || FLEVEL[c.t] < lvl) return; total++; if (c.prod === k) { mine++; units += capOf(c); } else if (freeFact(c)) free++; });
+  eachBiz(c => { if (!FLEVEL[c.t] || !c.conn || FLEVEL[c.t] < lvl) return; total++; if (c.prod === k) { mine++; units += capOf(c); } else if (freeFact(c)) free++; });
   return { total, mine, free, units };
 }
 function launchProduct(pk, mode) {
@@ -8386,7 +8470,7 @@ function cmpCreate(mk, goods, name, colIdx) {
 }
 function assignRecipe(k, max, exact) {   // exact (passe 21, auto-production) : seulement les usines du niveau de la recette, jamais une grande usine (200 emplois) pour fabriquer du plastique
   const lvl = recipeOf(k).lvl, cands = [];
-  eachBuilding(c => { if (FLEVEL[c.t] && c.conn && (exact ? FLEVEL[c.t] === lvl : FLEVEL[c.t] >= lvl) && c.prod !== k && freeFact(c)) cands.push(c); });
+  eachBiz(c => { if (FLEVEL[c.t] && c.conn && (exact ? FLEVEL[c.t] === lvl : FLEVEL[c.t] >= lvl) && c.prod !== k && freeFact(c)) cands.push(c); });
   cands.sort((a, b) => FLEVEL[a.t] - FLEVEL[b.t]);
   const n = Math.min(cands.length, max || 999);
   for (let i = 0; i < n; i++) { cands[i].prod = k; cands[i].src = {}; if (recOf(cands[i])) autoSource(cands[i], true); }   // le choix d'un produit lance l'auto-production : fournisseurs et imports sélectionnés selon l'arborescence
@@ -8404,11 +8488,11 @@ function stopProduct(pk) { unassignProduct(pk); const ps = S.prod[pk]; ps.lic = 
 // --- Cartographie de la chaîne ---
 function sourceInfo(g) {
   const cn = S.stats.cn || {};
-  if (CO_SRC[g]) { let n = 0; eachBuilding(c => { if (c.conn && mineMakes(c, g)) n++; }); return { n, label: 'grosse mine de cuivre ou de lithium (niveau 4 ou plus)'.replace('4', String(TYPES.mcopper.coLvl + 1)) }; }
+  if (CO_SRC[g]) { let n = 0; eachBiz(c => { if (c.conn && mineMakes(c, g)) n++; }); return { n, label: 'grosse mine de cuivre ou de lithium (niveau 4 ou plus)'.replace('4', String(TYPES.mcopper.coLvl + 1)) }; }
   if (RAW_SRC[g]) return { n: cn[RAW_SRC[g]] || 0, label: TYPES[RAW_SRC[g]].name.toLowerCase() };
   if (g === 'ingot') return { n: cn.foundry || 0, label: 'fonderie d\'or' };
   const R = RECIPES[g]; let n = 0;
-  eachBuilding(c => { if (c.prod === g && c.conn && FLEVEL[c.t] >= R.lvl) n++; });
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.prod === g && c.t !== 'npc' && c.t !== 'part' && c.conn && FLEVEL[c.t] >= R.lvl) n++; }   // passe 60 : boucle directe (les milliers d'immeubles de la ville n'ont pas de production)
   return { n, label: LVL_NAME[R.lvl] };
 }
 function treeHTML(g, q, depth) {
@@ -8431,7 +8515,7 @@ function chainLeaves(pk) {
   Object.keys(set).forEach(g => { const bk = RAW_SRC[g]; if (bk && TYPES[bk] && TYPES[bk].live) set.wheat = 1; });   // l'élevage mange du blé : la chaîne descend aussi jusqu'à la ferme de blé
   return Object.keys(set);
 }
-function unitsOn(g) { let u = 0; eachBuilding(c => { if (c.prod === g && c.conn && FLEVEL[c.t] >= RECIPES[g].lvl) u += capOf(c); }); return u; }
+function unitsOn(g) { let u = 0; eachBiz(c => { if (c.prod === g && c.conn && FLEVEL[c.t] >= RECIPES[g].lvl) u += capOf(c); }); return u; }
 // Auto-production : pour chaque intrant de l'usine, choisit tout seul la meilleure source (ta production, concurrents, port) et
 // affecte des usines libres aux composants intermédiaires manquants, en suivant l'arborescence produit du guide du fabricant.
 function autoSource(c, quiet) {
@@ -8500,15 +8584,15 @@ function producePlan(pk, o) {
     const c = pr.free ? 0 : Math.round(pr.rnd * QTIER[ps.q].rnd * (mkOn() ? LIC_K : 1));
     add('rnd', mkOn() ? `Licence de ${pr.name.toLowerCase()}` : `R&D de ${pr.name.toLowerCase()} (${pr.days} jours avant la première vente)`, c);
   }
-  let fac = null; eachBuilding(c => { if (!fac && FLEVEL[c.t] && c.conn && c.prod === pk) fac = c; });
+  let fac = null; eachBiz(c => { if (!fac && FLEVEL[c.t] && c.conn && c.prod === pk) fac = c; });
   const pool = {}; let freeOne = null;
-  eachBuilding(c => { if (FLEVEL[c.t] && c.conn && freeFact(c) && c.prod !== pk) { if (FLEVEL[c.t] >= pr.lvl && !freeOne) freeOne = c; } });
+  eachBiz(c => { if (FLEVEL[c.t] && c.conn && freeFact(c) && c.prod !== pk) { if (FLEVEL[c.t] >= pr.lvl && !freeOne) freeOne = c; } });
   if (!fac && freeOne) { fac = freeOne; add('fac', `${TYPES[fac.t].name} libre réaffectée (déjà à toi)`, 0); }
   if (!fac) {
     const key = cheapestFac(pr.lvl), cost = key ? siteCost(key) : null;
     if (!key || cost == null) { P.missing.push(`une ${LVL_NAME[pr.lvl] || 'usine'} : aucun terrain libre dans la zone industrielle`); P.complete = false; } else add('fac', `${TYPES[key].name} à construire`, cost);
   }
-  eachBuilding(c => { if (FLEVEL[c.t] && c.conn && freeFact(c) && c !== fac) pool[FLEVEL[c.t]] = (pool[FLEVEL[c.t]] || 0) + 1; });
+  eachBiz(c => { if (FLEVEL[c.t] && c.conn && freeFact(c) && c !== fac) pool[FLEVEL[c.t]] = (pool[FLEVEL[c.t]] || 0) + 1; });
   try {
     const { need } = chainNeeds(pk);
     RKEYS.forEach(g => { if (!need[g]) return; let miss = Math.ceil(need[g] - unitsOn(g) - 0.01); const lvl = RECIPES[g].lvl;
@@ -8540,8 +8624,8 @@ function quickProduce(pk, o) {
     if (S.cash < P.build) { say(`Il faut ${money(P.build)} pour monter la chaîne de ${pr.name.toLowerCase()} (il manque ${money(P.build - S.cash)}) : rien n'a été construit.`, 'bad'); return false; }
     if (S.prod[pk].st === 'locked' && !launchProduct(pk)) return false; }   // R&D d'abord : on ne construit rien si elle échoue
   let fac = null;
-  eachBuilding(c => { if (!fac && FLEVEL[c.t] && c.conn && c.prod === pk) fac = c; });
-  if (!fac) eachBuilding(c => { if (!fac && FLEVEL[c.t] >= pr.lvl && c.conn && freeFact(c)) fac = c; });
+  eachBiz(c => { if (!fac && FLEVEL[c.t] && c.conn && c.prod === pk) fac = c; });
+  if (!fac) eachBiz(c => { if (!fac && FLEVEL[c.t] >= pr.lvl && c.conn && freeFact(c)) fac = c; });
   const cheapest = cheapestFac;
   if (!fac) {
     const key = cheapest(pr.lvl);
@@ -8619,7 +8703,7 @@ function mkCache() { const key = S.day + '|' + (S.rivals || []).length + '|' + (
 function mkInv() { _mk = { key: '' }; }
 const mkBase = (pk, tier) => PRODUCTS[pk].ref * QTIER[tier].ref * cpi();   // prix de gros unique du marché pour la gamme (même formule que prodPrice à 100 %)
 const rpOf = (pk, tier) => mkBase(pk, tier) * retailMk(PRODUCTS[pk].cls);   // prix en rayon à 100 %
-function mkShops(cls, pk) { const a = []; eachBuilding(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0 && c.conn !== false && (!R.fam || (pk && pFamOf(pk) === R.fam))) a.push(c); }); return a; }   // passe 46 : un spécialiste ne compte que pour un produit de sa famille
+function mkShops(cls, pk) { const a = []; eachBiz(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0 && c.conn !== false && (!R.fam || (pk && pFamOf(pk) === R.fam))) a.push(c); }); return a; }   // passe 46 : un spécialiste ne compte que pour un produit de sa famille
 const SHOP_OF = { basic: 's1', std: 's2', lux: 's3', estate: 'immo' };
 // Demande du produit sur toute la ville (unités/jour) : part de la demande de la classe selon le poids du produit (au plus 8 produits de poids moyen se partagent la classe)
 function mkDemandDay(pk) {
@@ -8714,7 +8798,7 @@ function mkSim(pk, mode, oid) {
   const shopKey = SHOP_OF[cls], noShop = !shops.length; if (noShop) shopCap = TYPES[shopKey].ret.cap * 0.45;
   let supCap, mc = null;
   if (mode === 'make') {
-    mc = makeCost(pk); let cyc = 0; eachBuilding(c => { if (FLEVEL[c.t] >= pr.lvl && c.conn && (c.prod === pk || freeFact(c))) cyc = Math.max(cyc, unitsOf(c) * fillOf(c)); });
+    mc = makeCost(pk); let cyc = 0; eachBiz(c => { if (FLEVEL[c.t] >= pr.lvl && c.conn && (c.prod === pk || freeFact(c))) cyc = Math.max(cyc, unitsOf(c) * fillOf(c)); });
     R.freeFac = cyc > 0; supCap = (cyc || mc.cyc) * pr.out;
     if (mc.locked) { R.ok = false; R.blockers.push('Il faut d\'abord débloquer : ' + TYPES[mc.key].name.toLowerCase() + '.'); }
     if (fresh && patBlock(pk, tier)) { R.ok = false; R.blockers.push(patBlockMsg(pk)); }
@@ -13053,10 +13137,10 @@ function priceCard(c) {
 }
 function hasSource(g) {
   let ok = false;
-  if (CO_SRC[g]) eachBuilding(b => { if (b.conn && mineMakes(b, g)) ok = true; });
-  else if (RAW_SRC[g]) eachBuilding(b => { if (b.t === RAW_SRC[g] && b.conn) ok = true; });
-  else if (RECIPES[g]) eachBuilding(b => { if (FLEVEL[b.t] && b.prod === g) ok = true; });
-  else if (g === 'ingot') eachBuilding(b => { if (b.t === 'foundry') ok = true; });
+  if (CO_SRC[g]) eachBiz(b => { if (b.conn && mineMakes(b, g)) ok = true; });
+  else if (RAW_SRC[g]) eachBiz(b => { if (b.t === RAW_SRC[g] && b.conn) ok = true; });
+  else if (RECIPES[g]) eachBiz(b => { if (FLEVEL[b.t] && b.prod === g) ok = true; });
+  else if (g === 'ingot') eachBiz(b => { if (b.t === 'foundry') ok = true; });
   return ok;
 }
 const RGRP = { flour: 'Agriculture et textile', fabric: 'Agriculture et textile', tire: 'Agriculture et textile', plank: 'Bois et construction', stud: 'Bois et construction', osb: 'Bois et construction', cement: 'Bois et construction', concrete: 'Bois et construction', steel: 'Métal, énergie, emballage', plastic: 'Métal, énergie, emballage', wire: 'Métal, énergie, emballage', pack: 'Métal, énergie, emballage', glass: 'Métal, énergie, emballage', silicon: 'Électronique', essence: 'Chimie et parfumerie', motor: 'Électronique', battery: 'Électronique', circuit: 'Électronique', screen: 'Électronique', gcase: 'Électronique', paper: 'Bois et construction', wine: 'Chimie et parfumerie', meat: 'Agriculture et textile', tfabric: 'Agriculture et textile', paint: 'Chimie et parfumerie', foam: 'Chimie et parfumerie', rubberp: 'Chimie et parfumerie', ceramic: 'Bois et construction', hardware: 'Métal, énergie, emballage', case: 'Métal, énergie, emballage', engine: 'Mécanique et automobile', chassis: 'Mécanique et automobile', led: 'Électronique', sensor: 'Électronique', pv: 'Électronique', rweld: 'Robotique', rpaint: 'Robotique', rasm: 'Robotique', r6: 'Robotique' };
@@ -13634,7 +13718,7 @@ function advisorTips() {
   if (S.cash < 0) tips.push('Trésorerie négative : emprunte (Finances) ou réduis tes coûts.');
   if (S.rdx && S.rdx.off && S.rdx.off.length) tips.push(`${S.rdx.off.length} offre(s) de licence sur tes brevets : Stratégie > R&D et brevets.`);   // passe 47
   if (cs && cs.bad.length) tips.push(`${cs.bad.length} goulot(s) dans ta chaîne : ouvre l'onglet Chaîne.`);
-  let stores = 0, fact = 0; eachBuilding(c => { if (TYPES[c.t].ret) stores++; if (FLEVEL[c.t]) fact++; });
+  let stores = 0, fact = 0; eachBiz(c => { if (TYPES[c.t].ret) stores++; if (FLEVEL[c.t]) fact++; });
   { let empty = 0; eachBuilding(c => { if (FLEVEL[c.t] && !recOf(c) && !(c.prod && PRODUCTS[c.prod] && S.prod[c.prod].st === 'rnd')) empty++; }); if (empty) tips.push(`${empty} usine(s) vide(s) : ouvre-les et choisis un produit à fabriquer.`); }
   { const sm = bestShop(Math.max(0, S.cash)); if (!stores && fact && (!sm || sm.years <= ROI_MAX)) tips.push('Tu produis mais ne vends pas : construis un commerce (menu Commerce).'); }
   if (!fact && !stores) tips.push('Commence par un petit marché en ville pour lancer ton empire.');
@@ -14524,7 +14608,7 @@ function drawTowerProc(a, p, now) {
   a._top = PP(x + 0.5, y + 0.5, top)[1];
 }
 function drawMonument(a, now) {
-  const x = a.x, y = a.y, m = a.m;
+  const x = a.x, y = a.y, m = monBase(a.m);
   pQuad([PP(x, y, 0), PP(x + 1, y, 0), PP(x + 1, y + 1, 0), PP(x, y + 1, 0)], m === 'statue' ? '#d8d0b8' : '#9fc27a');
   if (m === 'stadium' || m === 'stadium2') {
     const c = PP(x + 0.5, y + 0.5, 0), ell = (rx, ry, z, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(c[0], c[1] - z, rx, ry, 0, 0, 7); ctx.fill(); };
@@ -16214,7 +16298,7 @@ let _csM = { t: 0, v: null };
 function coachSt(fresh) {
   const now = performance.now(); if (!fresh && _csM.v && now - _csM.t < 800) return _csM.v;
   const o = { cash: S.cash, shops: 0, ext: 0, fac: 0, facOn: 0, prodOn: 0, prodRnd: 0, hq: !!hqOf(), listed: S.float > 0, loan: S.loan || 0, val: valuation(), net30: ((S.fin && S.fin.net) || 0) * DM, ca30: 0, share: marketShareAvg(), subs: subCount() };
-  eachBuilding(c => { const T = TYPES[c.t]; if (T.ret && c.t !== 'immo') o.shops++; if (T.ext) o.ext++; if (FLEVEL[c.t]) { o.fac++; if (recOf(c)) o.facOn++; } });
+  eachBiz(c => { const T = TYPES[c.t]; if (T.ret && c.t !== 'immo') o.shops++; if (T.ext) o.ext++; if (FLEVEL[c.t]) { o.fac++; if (recOf(c)) o.facOn++; } });
   PKEYS.forEach(pk => { const s = S.prod[pk].st; if (s === 'on') o.prodOn++; else if (s === 'rnd') o.prodRnd++; });
   { const a = S.m30 || []; o.ca30 = a.length ? a.reduce((t, r) => t + r[0], 0) * DM / a.length : 0; }
   o.shop = bestShop(Math.max(0, o.cash));
@@ -16803,7 +16887,7 @@ function eduShock(pk, k) {   // exercice : choc annoncé tout de suite (paramèt
   s.id = ++E.sid; s.x = 1; E.shk.push(s); E.v++; eduAnnounce(s); return { ok: true, s };
 }
 // ---- capacité, délai, valeur de marque
-function eduFacs(pk) { const o = []; eachBuilding(b => { if (FLEVEL[b.t] && b.prod === pk) o.push(b); }); return o; }
+function eduFacs(pk) { const o = []; eachBiz(b => { if (FLEVEL[b.t] && b.prod === pk) o.push(b); }); return o; }
 function eduCap(pk) {   // capacité de production maximale par jour (unités, personnel et plan actuels) + achats réguliers
   let cap = 0; const q = PRODUCTS[pk].out || 1; eduFacs(pk).forEach(c => { if (recOf(c)) cap += (c._u || 0) * q * (1 - wasteOf(c)); });
   const ps = S.prod[pk]; if (ps.buy && ps.buy.qty > 0) cap += ps.buy.qty; return cap;
@@ -17779,6 +17863,7 @@ const VV_SVC = {
   eglise_de_village: ['Église', 'p', 2], station_service: ['Station-service', 'p', 3, 'road'], station_recharge_electrique: ['Station de recharge électrique', 'p', 2, 'road'], batiment_abandonne: ['Immeuble abandonné (friche)', 'p', 1]
 };
 const VV_MON = { telecom: 'station_tv', hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport' };   // équipements publics existants : sprite HD
+Object.keys(CITY_SVC).forEach(b => { if (VV_MON[b]) for (let k = 2; k <= 60; k++) VV_MON[b + '_' + k] = VV_MON[b]; });   // passe 60 : équipements ajoutés par la croissance, même sprite que l'original
 P2_DEP.gold = 'gisement_or';
 /* Passe 55 (audit visuel) : sprites HD dérivés. Les gisements sans rendu propre (gravier, sable, calcaire, soufre, terres rares) et les parcelles
    de cultures (maïs, colza, canne, coton, hévéa, vigne) reprennent un sprite HD voisin dont la luminance est remappée sur une palette sobre
@@ -17839,7 +17924,7 @@ function vvNpc(a, p, x, y) {   // bâtiment PNJ en HD (équipement, parc, chanti
   return false;
 }
 function monGround(a) {   // sol d'un équipement de plusieurs cases : parvis clair, et pour les écoles et stades une cour ou un terrain de sport tracé sur la partie libre
-  const x = a.mx, y = a.my, w = a.mw, h = a.mh, n2 = Math.min(w, h), sch = /lycee|college/.test(a.m), hos = a.m === 'hospital';
+  const x = a.mx, y = a.my, w = a.mw, h = a.mh, n2 = Math.min(w, h), sch = /lycee|college/.test(a.m), hos = monBase(a.m) === 'hospital';
   pQuad([PP(x + 0.03, y + 0.03, 0.3), PP(x + w - 0.03, y + 0.03, 0.3), PP(x + w - 0.03, y + h - 0.03, 0.3), PP(x + 0.03, y + h - 0.03, 0.3)], hos ? '#c9ccd0' : '#cfcabd');
   if (w !== h) {   // rectangle : la bande libre devant le bâtiment (côté x si w > h, côté y sinon)
     const u0 = w > h ? x + 0.08 : x + 0.1, v0 = w > h ? y + 0.1 : y + 0.08, u1 = w > h ? x + (w - n2) - 0.06 : x + w - 0.1, v1 = w > h ? y + h - 0.1 : y + (h - n2) - 0.06;
@@ -18321,7 +18406,7 @@ function drawWorksOver(a, p, bx, by, floors, now) {
 
 window.WSE = { say, isCmp, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
-Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; return { CG_R0, CG_P, CG_CAP, CG_REL }; }, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
+Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; if (o.TIER != null) CG_TIER = o.TIER; return { CG_R0, CG_P, CG_CAP, CG_REL, CG_TIER }; }, citySvcCov, citySvc: () => ({ need: CITY_SVC, have: citySvcHave().n, cov: citySvcCov() }), cityTiers: CITY_TIER, cityTierR, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
 Object.assign(window.WSE, { imgAudit: { guide: k => !!GUIDEHD[k], hero: k => !!PRODHD[k], photo: k => GUIDEHD[k] || null, productSVG0, compIcon, compIconVec } });   // passe 59 : audit des images de produits (tools/audit_produits.js, t59)
 Object.assign(window.WSE, { setGuidePhoto: (k, src) => { GUIDEHD[k] = src; Object.keys(psvgCache).forEach(c => { if (c.split('|')[0] === k) delete psvgCache[c]; }); if (typeof renderGuide === 'function') renderGuide(true); }, cine: { show: (pk, why) => cineShow(pk, why || 'manuel', true), close: cineClose, get on() { return CINE.on; }, state: () => ({ on: CINE.on, pk: CINE.pk, hero: CINE.hero, frames: CINE.frames, t: CINE.last ? CINE.last.t : 0, q: CINE.q.slice(), shown: CINE.shown, opt: cineOpt(), manual: CINE.manual }), setOpt: cineSetOpt, opt: cineOpt, setHero: setProductHero, heroOf: pk => !!cineHeroOf(pk), watch: cineWatch, facts: cineFacts, setTest: v => { CINE.test = !!v; }, reset: () => { CINE.seen = {}; CINE.snap = null; CINE.q.length = 0; } } });
