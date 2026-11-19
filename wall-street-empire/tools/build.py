@@ -247,14 +247,25 @@ print('batiments HD de la ville :', len(cityhd))
 P2_NAMES = ['gisement_argile', 'gisement_bauxite', 'gisement_charbon', 'gisement_cuivre', 'gisement_fer', 'gisement_gaz', 'gisement_graphite', 'gisement_lithium', 'gisement_nickel_chrome', 'gisement_petrole', 'gisement_phosphate', 'gisement_potasse', 'gisement_sel', 'gisement_silice', 'gisement_zinc',
             'mine_bauxite', 'mine_charbon', 'mine_cuivre', 'mine_cuivre_niveau3', 'mine_fer', 'mine_graphite', 'mine_lithium', 'mine_nickel_chrome', 'mine_or', 'mine_phosphate', 'mine_potasse', 'mine_sel', 'mine_zinc', 'puits_gaz', 'puits_petrole', 'carriere', 'carriere_argile', 'carriere_silice', 'camp_bucherons',
             'entrepot', 'centrale_solaire', 'eolienne', 'centrale_charbon', 'centrale_nucleaire', 'pylone_electrique', 'centre_rd', 'data_center', 'chantier_moyen', 'agence_immo', 'fonderie', 'usine_petite_f1', 'usine_moyenne_f2', 'usine_grande_f3', 'usine_f4_mega', 'petit_marche_n1', 'petit_marche_n2', 'mega_centre_commercial', 'terminal_portuaire', 'station_tv', 'stade_sport', 'supermarche', 'hypermarche', 'fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcattle', 'fchicken', 'fpig', 'fsheep', 'foret_dense_a', 'foret_dense_b', 'foret_dense_c', 'foret_sapins_a', 'foret_sapins_b', 'arbre_isole_a', 'arbre_isole_b', 'arbre_isole_c', 'arbre_isole_d', 'buisson_a', 'buisson_b', 'arbre_ville']
+# Ville vivante (intégrateur n° 9) : services de quartier, véhicules, navire, port, détails de ferme, niveaux, décor ; même chaîne que la phase 2 (moitié de la taille, palette 256 couleurs)
+VV_NAMES = ['boulangerie', 'boutique_mode', 'cafe_de_quartier', 'restaurant_terrasse', 'ecole', 'hopital', 'gare_ferroviaire', 'eglise_de_village', 'station_service', 'station_recharge_electrique', 'drugstore', 'barre_hlm', 'immeuble_en_construction', 'mairie',
+            'veh_argent', 'veh_blanc', 'veh_bleu', 'veh_camionnette', 'veh_jaune', 'veh_noir', 'veh_orange', 'veh_pickup', 'veh_rouge', 'veh_vert', 'voiture_ville_a', 'voiture_ville_b', 'camion_ville', 'navire_cargo',
+            'grue_portique', 'conteneur_bleu', 'conteneur_rouge', 'conteneur_pile', 'bac_argile', 'bac_bauxite', 'bac_chrome', 'bac_graphite', 'bac_lithium', 'bac_nickel', 'bac_phosphate', 'bac_potasse', 'bac_sel', 'bac_silice', 'bac_soufre', 'bac_terres_rares', 'bac_zinc', 'lingots_aluminium', 'lingots_laiton', 'sacs_alumine', 'sacs_engrais', 'barres_galva', 'barres_inox', 'briques_palette', 'futs_gaz', 'porcelaine_caisses', 'chassis_aluminium', 'aimants_terres_rares', 'maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c', 'immeuble_pnj_a', 'immeuble_pnj_b',
+            'animal_vache', 'animal_mouton', 'animal_poule', 'animal_cochon', 'auge_foin', 'balles_foin', 'meule_foin', 'fermier_seau', 'vendangeur', 'vigneron_hotte', 'champ_ble_vert', 'champ_ble_mur',
+            'maison_n1', 'maison_n2', 'maison_n3', 'immeuble_n1', 'immeuble_n2', 'tour_bureaux', 'tour_logements', 'tour_tech', 'tour_pnj_a', 'tour_pnj_b', 'siege_hq_n1', 'siege_hq_n2', 'siege_hq_n3', 'supermarche_n2', 'supermarche_n3', 'hypermarche_n2', 'hypermarche_n3',
+            'parc_urbain', 'rochers_a', 'rochers_b', 'gisement_or', 'batiment_abandonne', 'chantier_petit']
+P2_NAMES += [_n for _n in VV_NAMES if _n not in P2_NAMES]
 p2hd = {}; p2dim = {}
 for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'factory_hd')):
+    _aj = os.path.join(_d, 'ancres.json'); _anc = json.load(open(_aj)) if os.path.exists(_aj) else {}
     for _n in P2_NAMES:
         _f = os.path.join(_d, _n + '.png')
         if _n in p2hd or not os.path.exists(_f): continue
         try:
             import io; from PIL import Image as _I
             _im = _I.open(_f).convert('RGBA'); p2dim[_n] = [_im.width, _im.height] + list(_im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox() or (0, 0, _im.width, _im.height)) + _diamond(_im) + [_sy(_f)]
+            _a = _anc.get(_n + '.png')   # indices 10 et 11 : ancre (pieds, contact au sol) d'ancres.json, -1 si absente ; sert aux objets posés (véhicules, animaux, personnages, grue, navire)
+            p2dim[_n] += [_a['ancre_x'], _a['ancre_y']] if _a and 'ancre_x' in _a and 'ancre_y' in _a else [-1, -1]
             _sm = _im.resize((max(1, _im.width // 2), max(1, _im.height // 2)), _I.LANCZOS).quantize(colors=256, method=_I.FASTOCTREE, dither=_I.NONE)
             _bf = io.BytesIO(); _sm.save(_bf, 'PNG', optimize=True); p2hd[_n] = 'data:image/png;base64,' + base64.b64encode(_bf.getvalue()).decode()
         except Exception as _e: print('phase2 ignoré', _n, _e)
