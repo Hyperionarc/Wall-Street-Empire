@@ -256,6 +256,15 @@ window.BOT = (function () {
     const r = buildChain(aff.pk, aff.sc);
     if (r > 0 || r === 0) { IND.chains[aff.pk] = { sc: aff.sc, day: s.day }; IND.last = s.day; IND.log.push([s.day, aff.sc > 1 ? 'grow' : 'new', aff.pk, aff.sc, Math.round(r || 0)]); }
   }
+  // Banquier (P.bank) : tous les 30 jours, prête la marge disponible de sa banque (moitié entreprises, moitié immobilier) tant que le ratio CET1 garde 2 points
+  // au-dessus du minimum réglementaire ; en crise du crédit ou en récession, il ne prête plus (les défauts rongent les fonds propres).
+  const BK = { last: -99 };
+  function bank() {
+    const s = S(), B = W.bank; if (!B || s.caste !== 'banquier' || s.day - BK.last < 30) return; BK.last = s.day;
+    const b = B.init(); if (b.fail || (s.macro && s.macro.gdp < 0) || (W.macro && W.macro.shockI('credit') > 0)) return;
+    if (B.ratio(b) < B.min() + 0.02) return;
+    ['corp', 'immo'].forEach(k => { const q = 0.5 * B.cap(k); if (q > 1e6) B.lend(q, k); });
+  }
   // passe 46 : commerce en ligne (P.ecom) : à partir du palier Industriel, lance la startup, un entrepôt en ligne près du port, puis ajoute de la capacité
   // (entrepôt ou data center) quand le goulot est mesuré et que la plateforme est rentable sur 30 jours
   const EC = { last: -99, log: [] };
@@ -277,6 +286,7 @@ window.BOT = (function () {
     if (s.day % 8 === 0) missions();
     if (P.industry) industry();
     if (P.ecom) ecom();
+    if (P.bank) bank();
     if (P.idle > 0 && ((s.day * 2654435761) >>> 0) % 1000 < P.idle * 1000) return { did: 0, spent: 0 };
     if (s.stats.unemp < 0.045 && s.cash > 1.5e6 && (cnt.res || 0) < P.resCap) { for (let i = 0; i < 3; i++) { const r = tryBuild('res'); if (r) { spent += r; did++; } } }
     for (let n = 0; n < P.maxPerTick; n++) {
