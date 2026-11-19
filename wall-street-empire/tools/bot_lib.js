@@ -16,7 +16,7 @@ window.BOT = (function () {
   const EXT = { miron: 'iron', mcopper: 'copper', mcoal: 'coal', mgold: 'gold', well: 'oil' };
   const CITY_FAM = ['s1', 's2', 's3', 's4', 'tech', 'dc', 'bank', 'off', 'tv'];
   // EBE/jour a priori par bâtiment (mesuré sur un exemplaire isolé, hors terrain) ; les mines : 40 %/an du capex
-  const EBE0 = { s1: 80, s2: 540, s3: 3100, s4: 11500, tech: 60000, dc: 41000, bank: 49500, off: 15000, tv: 7000, miron: 6800, mcopper: 2300, mcoal: 2800, mgold: 5800, well: 6100 };
+  const EBE0 = { sauto: 100, stech: 2000, slux: 900, smode: 1200, spharma: 650, shome: 400, ssport: 50, sbrico: 30, s1: 80, s2: 540, s3: 3100, s4: 11500, tech: 60000, dc: 41000, bank: 49500, off: 15000, tv: 7000, miron: 6800, mcopper: 2300, mcoal: 2800, mgold: 5800, well: 6100 };
   const REV0 = { tech: 128000, dc: 94000, bank: 114500 }, SVC_COST = { tech: 68000, dc: 53000, bank: 65000 };
   const born = {};   // famille -> liste de {x,y,paid,day}
   function spots(key) {
@@ -47,7 +47,7 @@ window.BOT = (function () {
     }
     if (!sp.length) return -1;
     sp.sort((a, b) => a[2] - b[2]);
-    const retail = key === 's3' || key === 's2' || key === 's1' || key === 's4';
+    const retail = key === 's3' || key === 's2' || key === 's1' || key === 's4' || !!(W.spec && W.spec.T[key]);
     for (let k = 0; k < Math.min(sp.length, 8); k++) {
       const s = retail ? sp[k] : sp[sp.length - 1 - k];
       const before = S().cash; const ok = W.place(s[0], s[1], key);
@@ -111,8 +111,11 @@ window.BOT = (function () {
     const s = S(); const all = [];
     const rate = W.loanRateNow ? W.loanRateNow() : 0.07, hurdle = rate + P.hurdle;
     const room = Math.max(0, Math.min(P.lev * s.stats.worth, W.creditLimit()) - (s.loan || 0));
-    P.fam.forEach(k => {
-      if (P.demC && P.demC[k] != null && (s.stats.demC == null || s.stats.demC < P.demC[k])) return;   // jauge publique « demande commerce » : on ne ssature pas la ville
+    // passe 46 : magasins spécialisés, dès que leur famille est connue et le palier atteint (P.spec = false pour les exclure)
+    const specK = P.spec === false || !W.spec ? [] : W.spec.KEYS.filter(k => P.fam.indexOf(k) < 0 && !W.spec.locked(k) && (W.tierNow ? W.tierNow() : 0) >= (W.TYPES[k].tier || 0));
+    P.fam.concat(specK).forEach(k => {
+      const dc = P.demC && P.demC[k] != null ? P.demC[k] : specK.indexOf(k) >= 0 ? (P.specDemC != null ? P.specDemC : 0.2) : null;
+      if (P.demC && dc != null && (s.stats.demC == null || s.stats.demC < dc)) return;   // jauge publique « demande commerce » : on ne sature pas la ville
       if (!tierOk(k) || !W.TYPES[k] || P.lim && P.lim[k] != null && (cnt[k] || 0) >= P.lim[k]) return;
       if (cnt['x_' + k] && s.day < cnt['x_' + k]) return;   // délai après un échec ou une construction récente
       if ((born[k] || []).some(b => s.day - b.day < (P.mature || 35))) return;   // un seul chantier en cours par famille : on attend de mesurer son rendement réel

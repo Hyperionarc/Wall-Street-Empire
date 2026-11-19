@@ -1206,7 +1206,7 @@ body.vopen #feed{z-index:9}
     </div>
     </section>
     <section data-sec="edu" id="eduSec" hidden>
-    <div class="seg2" id="eduTabs" style="margin-bottom:8px"><button class="btn" data-edut="brand">Atelier marque</button><button class="btn sec" data-edut="scm">Supply chain</button><button class="btn sec" data-edut="deb">Bilan d'apprentissage</button><button class="btn sec" data-edut="pat">Brevets</button></div>
+    <div class="seg2" id="eduTabs" style="margin-bottom:8px"><button class="btn" data-edut="brand">Atelier marque</button><button class="btn sec" data-edut="scm">Supply chain</button><button class="btn sec" data-edut="deb">Bilan d'apprentissage</button><button class="btn sec" data-edut="pat">Brevets</button><button class="btn sec" data-edut="spec">Généraliste ou spécialiste ?</button></div>
     <div id="eduBody"></div>
     </section>
     <section data-sec="rivals" hidden>
@@ -1845,6 +1845,28 @@ const FAM = {
 const FAM_OF = {}; Object.keys(FAM).forEach(f => FAM[f].forEach(k => { FAM_OF[k] = f; }));
 const famOf = pk => PRODUCTS[pk] && PRODUCTS[pk].custom ? 'Tes créations' : FAM_OF[pk] || 'Autres';
 const FAM_ORDER = Object.keys(FAM).concat(['Tes créations']);
+// ===== Passe 46 : familles de VENTE (magasins spécialisés, inspirés des boutiques de Capitalism Lab). Chaque produit appartient à une seule famille ;
+// un magasin spécialisé ne vend que sa famille. Les 92 produits d'origine sont listés ; les créations du joueur suivent leur méga-classe ou leur famille d'affichage.
+const SPEC_FAM = {
+  food: { n: 'Alimentation et boissons' }, health: { n: 'Santé et beauté' }, fashion: { n: 'Mode (prêt-à-porter)' }, luxury: { n: 'Luxe' }, tech: { n: 'High-tech' },
+  auto: { n: 'Automobile et mobilité' }, home: { n: 'Maison et déco' }, sport: { n: 'Sport et loisirs' }, diy: { n: 'Bricolage et outillage' }, estate: { n: 'Immobilier' }
+};
+const PRODUCT_FAMILY = {
+  food:    ['bread', 'biscuits', 'candy', 'yogurt', 'cheese', 'pasta', 'chocolate', 'readymeal', 'soda', 'beer', 'tablewine', 'drinkmilk', 'eggs', 'beefmeat', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'petfood'],
+  health:  ['headache', 'cough', 'obesity', 'antibio', 'vitamins', 'soap', 'cream', 'shampoo', 'toothpaste', 'makeup', 'hygiene'],   // pharmacie et drugstore
+  fashion: ['tshirt', 'jeans', 'sneakers', 'socks', 'dress', 'jacket', 'leathershoes', 'bag', 'sweater'],
+  luxury:  ['watch', 'jewelry', 'handbag', 'couture', 'perfume', 'skincare', 'spirits', 'whisky', 'grandcru'],   // mode de luxe, bijoux, montres, parfums et soins de luxe, spiritueux et grands vins
+  tech:    ['phone', 'tv', 'tablet', 'laptop', 'desktop', 'console', 'camera', 'smartwatch', 'headphones'],
+  auto:    ['car', 'car_alu', 'scooter', 'ebike', 'tyres', 'lube'],
+  home:    ['chair', 'table', 'bed', 'mattress', 'sofa', 'wardrobe', 'utensils', 'cookware', 'glassware', 'tableware', 'lamp', 'washer', 'fridge', 'blender', 'microwave', 'vacuum'],
+  sport:   ['toys', 'woodtoys', 'dolls', 'etoys', 'bike', 'sportswear', 'tent', 'books'],
+  diy:     ['handtools', 'powertools', 'solarpanel'],
+  estate:  ['house_wood', 'house_concrete']
+};
+const PFAM_OF = {}; Object.keys(PRODUCT_FAMILY).forEach(f => PRODUCT_FAMILY[f].forEach(k => { PFAM_OF[k] = f; }));
+const SPEC_MEGA = { food: 'food', health: 'health', fashion: 'fashion', elec: 'tech', luxury: 'luxury', appl: 'home', home: 'home', sport: 'sport', toys: 'sport', auto: 'auto', tools: 'diy' };
+const SPEC_DISP = { 'Alimentation': 'food', 'Boissons': 'food', 'Santé et beauté': 'health', 'Mode': 'fashion', 'Électronique': 'tech', 'Électroménager': 'home', 'Maison et meubles': 'home', 'Jouets et sport': 'sport', 'Auto et outils': 'auto', 'Immobilier': 'estate' };
+const pFamOf = pk => PFAM_OF[pk] || SPEC_MEGA[MEGA_OF[pk]] || (PRODUCTS[pk] && SPEC_DISP[PRODUCTS[pk].fam]) || (PRODUCTS[pk] && PRODUCTS[pk].cls === 'estate' ? 'estate' : null);
 // Coût d'extraction en part du prix de vente (1-99 %) : 1 − RES_COST = EBITDA visé. Plus haut pour l'or (rare, transformable en bien de consommation),
 // plus bas pour le fer (nombreuses étapes de transformation en aval) ; pétrole : marge de major (15-20 %).
 const RES_COST = { oil: 0.82, coal: 0.73, iron: 0.45, copper: 0.55, gold: 0.52, wood: 0.78, gravel: 0.73, sand: 0.73, limestone: 0.73, wheat: 0.80, sugar: 0.80, cotton: 0.80, rubber: 0.78, grapes: 0.78, corn: 0.80, rapeseed: 0.80, milk: 0.76, egg: 0.76, pork: 0.76, wool: 0.78,
@@ -2474,7 +2496,7 @@ function brandShield(pk, ps) { return brandLev(pk) * bcSig(bcOf(ps)) * (0.5 + 0.
 const shEl = (v, sh) => v < 1 && sh > 0 ? Math.pow(v, 1 - 0.6 * sh) : v;   // une hausse de prix coûte moins de volume à une marque forte
 const bcHalf = ps => BC_HL * (1 + 0.5 * clamp((ps.loy || 0) / 100, 0, 1));   // des clients fidèles ralentissent l'érosion
 const bcMkt = () => (1 + cxF('cmo')) * (brandStrat() === 'corp' ? 1.15 : brandStrat() === 'unique' ? 0.9 : 1);   // direction marketing : publicité jusqu'à 2 fois plus efficace
-function bcTarget(pk, ps) { ps = ps || S.prod[pk]; return 100 * clamp(padPower(pk) / 1.5, 0, 1.75) * bcMkt() * (1 + 0.25 * bcSig(bcOf(ps))); }   // apport publicitaire (une marque connue se propage mieux)
+function bcTarget(pk, ps) { ps = ps || S.prod[pk]; return 100 * clamp(padPower(pk) / 1.5, 0, 1.75) * bcMkt() * (1 + 0.25 * bcSig(bcOf(ps))) + specBcT(pk, ps); }   // passe 46 : + vitrine du magasin spécialisé   // apport publicitaire (une marque connue se propage mieux)
 function bcStep(pk, ps) { if (ps.bc == null) ps.bc = 0.6 * (ps.brand || 0); ps.bc = clamp(ps.bc + bcTarget(pk, ps) * Math.LN2 / BC_HL - ps.bc * Math.LN2 / bcHalf(ps), 0, 600); }
 function bcTrend(pk, ps) { ps = ps || S.prod[pk]; const d = bcTarget(pk, ps) / BC_HL - bcOf(ps) / bcHalf(ps); return Math.abs(d) < 0.02 ? 0 : d > 0 ? 1 : -1; }
 function brandVolX(pk, ps) { ps = ps || S.prod[pk]; const z = Object.assign({}, ps, { bc: 0, brand: 0, loy: 0 }); return attractiveness(pk, ps) / Math.max(1e-9, attractiveness(pk, z)); }   // volume face au même produit sans marque
@@ -2687,6 +2709,24 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   TYPES.s4 = Object.assign({}, TYPES.s3, { name: 'Méga-centre commercial', sub: 'Base + manufact. + luxe, ×4', cost: TYPES.s3.cost * 4, upkeep: TYPES.s3.upkeep * 4, jobs: TYPES.s3.jobs * 4, w: 3, h: 3, tier: 3, color: '#ff7ad0', ret: { cap: TYPES.s3.ret.cap * 4, sells: TYPES.s3.ret.sells.slice() } });
   TIERS.forEach(x => { x.at *= SCALE_M; });
 })();
+// ===== Passe 46 : magasins spécialisés (valeurs finales, après l'échelle des commerces). ret.fam : famille vendue (PRODUCT_FAMILY) ; ret.sells : classes de cette famille.
+// att : attrait en plus sur les produits de la famille à pleine couverture de sa demande ; zone : zone de chalandise (part de l'emplacement qui ne dépend plus du passage) ;
+// mk : marge propre à la famille (prix de rayon) ; bc : capital de marque visé par la vitrine (points, quand tout le produit est vendu en spécialiste) ; slots : rayons.
+const SPEC_PASS = 0.85, SPEC_PRI = 2, SPEC_COV = 0.3;   // SPEC_COV : pleine couverture quand les spécialistes d'une famille peuvent servir 30 % de sa demande   // trafic de passage −15 % (moins de clients « en passant ») ; priorité ×2 pour servir la demande de sa famille avant les généralistes
+const SPEC_T = {
+  sauto:   { fam: 'auto',    name: 'Concession automobile', sub: 'Voitures, scooters, vélos électriques, pneus', cost: 2600000, jobs: 4, upkeep: 300, w: 2, h: 2, tier: 2, need: 'lux', cap: 140, slots: 6, color: '#9fb4c8', att: 0.30, zone: 0.55, mk: 0.06, bc: 30, tip: 'Ouvre une concession près d\'une zone aisée et fréquentée : on vient de loin pour une voiture, mais il faut des clients solvables.' },
+  stech:   { fam: 'tech',    name: 'Maison du Numérique', sub: 'High-tech : ordinateurs, téléphones, TV, consoles', cost: 2200000, jobs: 6, upkeep: 380, w: 2, h: 1, tier: 2, need: 'lux', cap: 200, slots: 8, color: '#8fc8e8', att: 0.25, zone: 0.40, mk: 0.05, bc: 30, tip: 'Place ta Maison du Numérique près du Mall ou d\'un quartier de bureaux : vitrine de ta marque high-tech, elle convertit les acheteurs d\'objets chers.' },
+  slux:    { fam: 'luxury',  name: 'Maison de luxe', sub: 'Joaillerie, montres, haute couture, parfums, grands vins', cost: 1600000, jobs: 4, upkeep: 260, tier: 2, need: 'lux', cap: 90, slots: 8, color: '#d8b56a', att: 0.30, zone: 0.45, mk: 0.08, bc: 35, tip: 'Une maison de luxe vit de sa marque : publicité et produits haut de gamme d\'abord, emplacement prestigieux ensuite.' },
+  smode:   { fam: 'fashion', name: 'Boutique de mode', sub: 'Prêt-à-porter, chaussures, maroquinerie', cost: 800000, jobs: 3, upkeep: 160, tier: 1, cap: 200, slots: 8, color: '#e6a8c0', att: 0.20, zone: 0.15, mk: 0.05, bc: 25, tip: 'La mode se vend au passage : groupe ta boutique avec d\'autres (pôle commercial) près du Mall.' },
+  spharma: { fam: 'health',  name: 'Pharmacie · drugstore', sub: 'Médicaments, hygiène, beauté', cost: 520000, jobs: 2, upkeep: 110, tier: 1, cap: 220, slots: 8, color: '#5fcf7a', att: 0.15, zone: 0.05, mk: 0.03, bc: 20, tip: 'La pharmacie est un commerce de proximité : pose-la au cœur des quartiers habités, près d\'un hôpital ou d\'une école.' },
+  shome:   { fam: 'home',    name: 'Maison et déco', sub: 'Meubles, literie, luminaires, électroménager, vaisselle', cost: 1100000, jobs: 3, upkeep: 200, w: 2, h: 1, tier: 1, cap: 260, slots: 8, color: '#d9b48f', att: 0.18, zone: 0.20, mk: 0.04, bc: 20, tip: 'Les meubles s\'achètent rarement : vise les quartiers de logements neufs, où l\'on s\'installe.' },
+  ssport:  { fam: 'sport',   name: 'Sport et loisirs', sub: 'Vélos, tentes, sport, jouets, livres', cost: 900000, jobs: 2, upkeep: 120, w: 2, h: 1, tier: 1, cap: 260, slots: 8, color: '#7fd0a8', att: 0.18, zone: 0.15, mk: 0.04, bc: 20, tip: 'Familles et jeunes : près des écoles, des stades et des parcs.' },
+  sbrico:  { fam: 'diy',     name: 'Brico et outillage', sub: 'Outillage, électroportatif, panneaux solaires', cost: 650000, jobs: 1, upkeep: 90, w: 2, h: 1, tier: 1, cap: 180, slots: 6, color: '#e0a060', att: 0.15, zone: 0.25, mk: 0.03, bc: 15, tip: 'Le bricolage attire les propriétaires : en périphérie, près des maisons, avec de la place pour se garer.' }
+};
+const SPEC_KEYS = Object.keys(SPEC_T), SPEC_BY_FAM = {};
+SPEC_KEYS.forEach(k => { const D = SPEC_T[k], cls = []; ['basic', 'std', 'lux'].forEach(c => { if (PRODUCT_FAMILY[D.fam].some(pk => PRODUCTS[pk] && PRODUCTS[pk].cls === c)) cls.push(c); });
+  TYPES[k] = { name: D.name, sub: D.sub, cost: D.cost, color: D.color, jobs: D.jobs, upkeep: D.upkeep, tier: D.tier, ret: { cap: D.cap, sells: cls, fam: D.fam }, spec: 1 };
+  if (D.w) { TYPES[k].w = D.w; TYPES[k].h = D.h; } SPEC_BY_FAM[D.fam] = k; });
 const ICONS = {
   view: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
   road: '<path d="M8 3l-3 18M16 3l3 18"/><path d="M12 4v3M12 10.5v3M12 17v3"/>',
@@ -2741,6 +2781,16 @@ const ICONS = {
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
 const ICON_OF = { tv: 'bank', off: 'tech', sport: 'res', s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+Object.assign(ICONS, {   // passe 46 : magasins spécialisés
+  sauto: '<path d="M3 15l2-5h14l2 5v4H3z"/><path d="M6 10l2-3h8l2 3"/><circle cx="7.5" cy="18" r="1.6"/><circle cx="16.5" cy="18" r="1.6"/>',
+  stech: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>',
+  slux: '<path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l3 16M15 4l-3 16"/>',
+  smode: '<path d="M12 5a2 2 0 1 1 2 2c-1 .5-2 1-2 2v1"/><path d="M12 10l-9 6h18z"/>',
+  spharma: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 7v10M7 12h10"/>',
+  shome: '<path d="M4 13v6M20 13v6M4 16h16"/><path d="M6 13V9a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/>',
+  ssport: '<circle cx="12" cy="12" r="8"/><path d="M4.5 9.5c4 1 11 1 15 0M4.5 14.5c4-1 11-1 15 0M12 4c-2 4-2 12 0 16"/>',
+  sbrico: '<path d="M14 4l6 6-3 3-6-6z"/><path d="M11 7L4 14l3 3 7-7"/>'
+});
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
   link: { name: 'Relier', sub: 'Auto-route', color: '#9aa4d6' },
@@ -2757,7 +2807,7 @@ const CATS = [
   { id: 'extr',  name: 'Extraction', tools: ['well', 'gwell', 'mcoal', 'miron', 'mcopper', 'mgold', 'mnicr', 'mbauxite', 'mzinc', 'mlithium', 'mgraphite', 'qsilica', 'qclay', 'qsalt', 'mphos', 'mpotash', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'crush', 'btp', 'buyout', 'keep', 'terra', 'zone', 'road'] },
   { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'f4', 'plant', 'solar', 'wind', 'nuclear', 'pylon', 'cable', 'wh', 'port', 'pipeline'] },
-  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 's4', 'immo'] }
+  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 's4', 'sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico', 'immo'] }
 ];
 // Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
 const FAMS = {
@@ -2766,7 +2816,7 @@ const FAMS = {
   extr: [['Énergie', ['well', 'gwell', 'mcoal', 'pipeline']], ['Métaux', ['miron', 'mcopper', 'mgold', 'mnicr', 'mbauxite', 'mzinc', 'mlithium', 'mgraphite']], ['Minéraux industriels', ['qsilica', 'qclay']], ['Chimie de base', ['qsalt', 'mphos', 'mpotash']], ['Bois', ['logging']], ['Accès', ['road', 'link']]],
   btp: [['Carrières', ['qgravel', 'qsand', 'qlime']], ['Recyclage', ['crush']], ['Chantiers', ['btp']], ['Acquisition', ['buyout', 'keep']], ['Urbanisme', ['zone', 'terra', 'road']]],
   indus: [['Usines', ['f1', 'f2', 'f3', 'f4']], ['Fonderie', ['foundry']], ['Centrales', ['plant', 'wind', 'solar', 'nuclear']], ['Réseau', ['pylon', 'cable', 'pipeline']], ['Logistique', ['wh', 'port']]],
-  com: [['Magasins', ['s1', 's2', 's3', 's4']], ['Immobilier', ['immo']]]
+  com: [['Magasins', ['s1', 's2', 's3', 's4']], ['Magasins spécialisés', ['sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico']], ['Immobilier', ['immo']]]
 };
 let famOpen = -1;
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
@@ -4244,10 +4294,10 @@ function irEvent(k) {
 }
 const IPO_MIN = TIERS[1].at;   // introduction en bourse : palier Entrepreneur (même repère que les missions)
 // Rayons : un magasin ne vend qu'un nombre limité de produits selon sa taille (4, 8 ou 12)
-const SLOTS = { s1: 4, s2: 8, s3: 12, s4: 12, immo: 4 };   // 12 produits au plus par magasin (comme Capitalism) ; les sauvegardes plus anciennes (16 rayons) sont tronquées
+const SLOTS = { s1: 4, s2: 8, s3: 12, s4: 12, immo: 4 }; SPEC_KEYS.forEach(k => { SLOTS[k] = SPEC_T[k].slots; });   // 12 produits au plus par magasin (comme Capitalism) ; les sauvegardes plus anciennes (16 rayons) sont tronquées
 const slotsN = c => SLOTS[c.t] || 4;
 function shelfKeys(c) {
-  if (c.slots) return c.slots.filter(Boolean);
+  if (c.slots) return c.slots.filter(k => k && (!SPEC_T[c.t] || specShelfOk(c, k)));
   let items = shelfItems(c).map(i => i.key);
   if (c.shelf) items = items.filter(k => c.shelf[k] !== false);
   return items.slice(0, slotsN(c));
@@ -4298,7 +4348,7 @@ function custIndex(c) {
   const T = TYPES[c.t], sl = Math.max(1, slotsN(c)), kn = shelfKeys(c).length;
   const happy = (S.stats && S.stats.happy) || 60;
   const parts = [
-    { n: 'Emplacement', w: 38, v: c.traffic == null ? 0.5 : c.traffic, tip: 'Habitants à proximité, routes, services publics, concurrence voisine' },
+    { n: 'Emplacement', w: 38, v: specOf(c) ? 1 - (1 - (c.traffic == null ? 0.5 : c.traffic)) * (1 - specOf(c).zone) : c.traffic == null ? 0.5 : c.traffic, tip: specOf(c) ? `Zone de chalandise du spécialiste : ${Math.round(specOf(c).zone * 100)} % de l'emplacement ne dépend plus du passage (on vient de plus loin)` : 'Habitants à proximité, routes, services publics, concurrence voisine' },
     { n: 'Notoriété (publicité)', w: 19, v: clamp((c.aw || 0) / 100, 0, 1), tip: 'Télé, radio, internet' },
     { n: 'Qualité & personnel', w: 19, v: clamp(0.45 + 0.08 * (c.qual || 0), 0, 1) * 0.6 + 0.4 * clamp(fillOf(c), 0, 1), tip: 'Niveau de service et effectifs' },
     { n: 'Assortiment', w: 12, v: clamp(kn / sl, 0, 1), tip: 'Rayons remplis sur les emplacements disponibles' },
@@ -4320,7 +4370,7 @@ Object.keys(AD_CH).forEach(k => { AD_CH[k].max *= K_SIZE; AD_CH[k].step *= K_SIZ
 const AD_KEYS = ['tv', 'radio', 'press', 'net', 'infl'];
 const BRAND_STRAT = { unique: ['Marque unique par produit', 'Chaque produit a sa marque : meilleure perception de qualité (+15 %), mais la notoriété se construit produit par produit (−10 %).'], range: ['Marque de gamme', 'Une marque couvre une gamme de produits : équilibre entre coût et image.'], corp: ['Marque d\'entreprise', 'Une seule marque pour tout : la notoriété est partagée entre tous tes magasins (+15 %), mais une mauvaise image les touche tous.'] };
 const brandStrat = () => (S && S.brandStrat) || 'range';
-const adScaleOf = c => (({ s1: 1, s2: 2.2, s3: 4, s4: 16, immo: 1.5 })[c.t] || 1) * K_SIZE * adEr();
+const adScaleOf = c => (({ s1: 1, s2: 2.2, s3: 4, s4: 16, immo: 1.5, sauto: 3, stech: 2.2, slux: 1.5, smode: 1.2, spharma: 1, shome: 2, ssport: 2, sbrico: 1.6 })[c.t] || 1) * K_SIZE * adEr();
 const adOf = c => c.ad || (c.ad = { tv: 0, radio: 0, net: 0 });
 const adSpend = c => TYPES[c.t].ret ? AD_KEYS.reduce((a, k) => a + (adOf(c)[k] || 0), 0) : 0;
 function adRt(c) { let pw = 0; AD_KEYS.forEach(k => { const b = adOf(c)[k] || 0; pw += (AD_CH[k].rt || 0.2) * (1 - Math.exp(-b / (AD_CH[k].scale * adScaleOf(c)))); }); return pw; }
@@ -4740,7 +4790,7 @@ function trafficAt(x, y) { return clamp(trafficBase(x, y) * mallBonus(x, y).k, 0
 /* ---------- Passe 44 : pôle commercial (la densité commerciale est récompensée, sans aléa) ----------
    Boutique (petit marché, supermarché, hypermarché, méga-centre) à moins de MALL_R cases du Mall central : +20 % de fréquentation.
    Pôle : 4 boutiques ou plus voisines (adjacentes ou séparées d'une case, une avenue comprise) : +10 % de fréquentation et frais fixes partagés −8 %. Cumulables : ×1,32 au plus, fréquentation plafonnée à 100. */
-const MALL_R = 6, MALL_TRF = 0.2, POLE_N = 4, POLE_TRF = 0.1, POLE_UPK = 0.08, POLE_SHOPS = { s1: 1, s2: 1, s3: 1, s4: 1 };
+const MALL_R = 6, MALL_TRF = 0.2, POLE_N = 4, POLE_TRF = 0.1, POLE_UPK = 0.08, POLE_SHOPS = { s1: 1, s2: 1, s3: 1, s4: 1, sauto: 1, stech: 1, slux: 1, smode: 1, spharma: 1, shome: 1, ssport: 1, sbrico: 1 };   // passe 46 : les magasins spécialisés comptent dans le pôle et profitent du Mall
 const fpGap = (a, b) => Math.max(0, b.x - (a.x + (a.w || 1)), a.x - (b.x + (b.w || 1))) <= 1 && Math.max(0, b.y - (a.y + (a.h || 1)), a.y - (b.y + (b.h || 1))) <= 1;   // emprises adjacentes ou à une case
 function poleIndex() {   // composantes de boutiques voisines (mise en cache avec l'index des sites : chaque jour ou à chaque construction)
   const si = siteIndex(); if (si.pole) return si.pole;
@@ -4770,6 +4820,77 @@ function mallBonus(x, y) {
 }
 const poleUm = c => (POLE_SHOPS[c.t] && S && S.grid && poleAt(c.x, c.y) >= POLE_N) ? 1 - POLE_UPK : 1;   // frais fixes partagés du pôle
 function poleTxt(c) { const b = mallBonus(c.x, c.y), t = []; if (b.near) t.push(`à ${f1(b.d)} cases du Mall central : +${Math.round(MALL_TRF * 100)} % de fréquentation`); if (b.pole) t.push(`pôle de ${b.pole} boutiques : +${Math.round(POLE_TRF * 100)} % de fréquentation, frais fixes −${Math.round(POLE_UPK * 100)} %`); return { on: !!(b.near || b.pole), b, t }; }
+/* ---------- Passe 46 : magasins spécialisés (familles de vente), sans aléa ----------
+   Règles : un spécialiste ne vend que sa famille (PRODUCT_FAMILY). Avantages : attrait +att sur les produits de sa famille présentés en rayon (dès que les spécialistes
+   couvrent la demande de la famille), priorité ×SPEC_PRI sur la demande de sa famille, zone de chalandise (part de l'emplacement indépendante du passage), marge +mk,
+   vitrine de marque (+bc points de capital visé, au prorata des ventes faites chez un spécialiste). Inconvénients : famille seule, passage −15 % (SPEC_PASS), coût élevé.
+   Couverture = capacité des spécialistes de la famille ÷ (30 % de la demande de la famille), plafonnée à 1 : en ouvrir plus n'ajoute rien au-delà.
+   Garde-fou : le panier de classe vendu par les spécialistes d'une famille est plafonné par la part de cette famille dans la demande de la classe (specShare). */
+const specOf = c => (c && SPEC_T[c.t]) ? SPEC_T[c.t] : null;
+let SPEC_C = null;
+function specTab() {   // parts de valeur (demande par habitant × prix de référence) de chaque famille, par classe ; cache par jour et par nombre de produits
+  const n = PKEYS.length, d = S ? S.day : -1; if (SPEC_C && SPEC_C.n === n && SPEC_C.d === d) return SPEC_C;
+  const tot = {}, val = {}; PKEYS.forEach(pk => { const P = PRODUCTS[pk]; if (!P || P.cls === 'estate') return; const f = pFamOf(pk) || 'other', v = (DEMAND_PC[pk] || 0.3) * Math.max(0.1, P.ref || 1); tot[P.cls] = (tot[P.cls] || 0) + v; const o = val[f] || (val[f] = {}); o[P.cls] = (o[P.cls] || 0) + v; });
+  const sh = {}, mix = {}; Object.keys(val).forEach(f => { sh[f] = {}; mix[f] = {}; const tf = Object.keys(val[f]).reduce((a, k) => a + val[f][k], 0) || 1; Object.keys(val[f]).forEach(cl => { sh[f][cl] = val[f][cl] / Math.max(1e-9, tot[cl]); mix[f][cl] = val[f][cl] / tf; }); });
+  return (SPEC_C = { n, d, sh, mix });
+}
+const specShare = (f, cls) => (specTab().sh[f] || {})[cls] || 0;   // part de la famille dans la demande (en valeur) de la classe
+const specFamShare = f => { const dw = (S && S._dw && S._dw.dem) || {}, t = ['basic', 'std', 'lux'].reduce((a, cl) => a + (dw[cl] || 0) * ((S.price && S.price[cl]) || 1), 0); return t > 0 ? ['basic', 'std', 'lux'].reduce((a, cl) => a + (dw[cl] || 0) * ((S.price && S.price[cl]) || 1) * specShare(f, cl), 0) / t : 0; };   // part de la famille dans toute la consommation
+const specMk = c => { const D = specOf(c); return D ? 1 + D.mk : 1; };
+const specW = c => specOf(c) ? SPEC_PRI : 1;
+function specShelfOk(c, key) { const D = specOf(c); if (!D) return true; if (key.indexOf('g_') === 0) return specShare(D.fam, key.slice(2)) > 0; return pFamOf(key) === D.fam; }
+const SPEC_GEN = { basic: ['s1', 's2', 's3', 's4'], std: ['s2', 's3', 's4'], lux: ['s3', 's4'] };
+function specMainCls(f) { const k = SPEC_BY_FAM[f]; if (k && SPEC_T[k].need) return SPEC_T[k].need; const m = specTab().mix[f] || {}; return Object.keys(m).sort((a, b) => m[b] - m[a])[0] || 'std'; }   // need : classe exigée (achats rares et chers : luxe), sinon la classe qui pèse le plus dans la famille
+function specKnown(f) {   // la famille est connue : un produit de la famille lancé (fabriqué ou acheté), ou un généraliste qui vend déjà la classe principale de la famille
+  if (S && S.unlockAll) return true;
+  if (PKEYS.some(pk => pFamOf(pk) === f && S.prod[pk] && S.prod[pk].st === 'on')) return true;
+  const cn = (S && S.stats && S.stats.cn) || {}; return SPEC_GEN[specMainCls(f)].some(k => (cn[k] || 0) > 0);
+}
+const specLocked = k => !!(SPEC_T[k] && !specKnown(SPEC_T[k].fam));
+const specNeedTxt = k => { const f = SPEC_T[k].fam, m = specMainCls(f); return `vends d'abord un produit ${SPEC_FAM[f].n.toLowerCase()} (lancé ou acheté) ou ouvre un ${TYPES[SPEC_GEN[m][0]].name.toLowerCase()} (rayon ${CLS[m].name.toLowerCase()})`; };
+function specDay(buildings, dem) {   // couverture de la demande de chaque famille par ses spécialistes et bonus d'attrait obtenu
+  const o = {}; buildings.forEach(c => { const D = specOf(c); if (!D) return; const q = o[D.fam] || (o[D.fam] = { cap: 0, n: 0, shops: [] }); q.cap += c._cap || 0; q.n++; q.shops.push(c); });
+  Object.keys(o).forEach(f => { const q = o[f]; q.D = ['basic', 'std', 'lux'].reduce((a, cl) => a + (dem[cl] || 0) * specShare(f, cl), 0); q.cov = q.D > 0 ? clamp(q.cap / (SPEC_COV * q.D), 0, 1) : 0; q.bonus = SPEC_T[SPEC_BY_FAM[f]].att * q.cov; });
+  return o;
+}
+function specAttr(items, cls, SPX, buildings) {   // le panier de classe gagne le bonus au prorata de la part des familles servies ; un produit, s'il est en rayon chez un spécialiste de sa famille
+  const fs = Object.keys(SPX); if (!fs.length) return;
+  items.forEach(it => {
+    if (it.k === 'g') { let b = 0; fs.forEach(f => { if (SPX[f].shops.some(c => shelfOk(c, 'g_' + cls))) b += specShare(f, cls) * SPX[f].bonus; }); it.attr *= 1 + b; return; }
+    const q = SPX[pFamOf(it.k)]; if (q && q.shops.some(c => shelfOk(c, it.k))) it.attr *= 1 + q.bonus;
+  });
+}
+function specTrack(pk, car, key, got) {   // part des ventes du produit faites chez un spécialiste (moyenne glissante, champ optionnel ps.sps)
+  const ps = S.prod[pk]; let s = 0; car.forEach(c => { if (specOf(c)) s += (c.sales && c.sales[key]) || 0; }); const r = got > 1e-9 ? clamp(s / got, 0, 1) : 0;
+  if (r <= 0 && !ps.sps) return; ps.sps = Math.round(((ps.sps || 0) * 0.9 + 0.1 * r) * 1e4) / 1e4;
+}
+function specBcT(pk, ps) { const f = pFamOf(pk), k = f && SPEC_BY_FAM[f]; return k && ps && ps.sps > 0 ? SPEC_T[k].bc * ps.sps * bcMkt() : 0; }   // vitrine : capital de marque visé en plus
+function specStats(c) {   // fiche : famille, avantages chiffrés, part de marché de la famille, panier moyen
+  const D = specOf(c); if (!D) return null; const f = D.fam, X = (S._spec || {})[f] || { cov: 0, bonus: 0, n: 0, D: 0 };
+  let fam = 0, famAll = 0, gen = 0, pr = 0; Object.keys(c.sales || {}).forEach(k => { const v = c.sales[k] || 0; if (k.indexOf('g_') === 0) gen += v; else pr += v; });
+  PKEYS.forEach(pk => { if (pFamOf(pk) === f && S.prod[pk] && S.prod[pk].st === 'on') fam += S.prod[pk].sold || 0; });
+  const dw = S._dw || {}, cls = TYPES[c.t].ret.sells; cls.forEach(cl => { famAll += ((dw.cls && dw.cls[cl] && dw.cls[cl].Dc) || 0) * specShare(f, cl); });
+  const gSold = {}; eachBuilding(b => { if (!TYPES[b.t].ret || !b.sales) return; cls.forEach(cl => { gSold[cl] = (gSold[cl] || 0) + (b.sales['g_' + cl] || 0); }); });
+  const mine = fam + cls.reduce((a, cl) => a + (gSold[cl] || 0) * specShare(f, cl), 0);   // tes ventes de la famille : tes produits + la part de la famille dans ton panier de classe
+  const share = famAll > 0 ? clamp(mine / famAll, 0, 1) : 0, tx = gen + pr, basket = tx > 0.01 ? (c._rev || 0) / tx : 0;
+  return { D, f, n: SPEC_FAM[f].n, cov: X.cov || 0, bonus: X.bonus || 0, nShops: X.n || 0, share, famShare: specFamShare(f), basket, tx, gen, pr };
+}
+function specCard(c) {
+  const s = specStats(c); if (!s) return ''; const D = s.D, pc = v => Math.round(v * 100) + ' %';
+  const others = PKEYS.filter(pk => pFamOf(pk) === s.f && S.prod[pk] && S.prod[pk].st === 'on').length;
+  return `<div class="lever wide specc" style="margin:8px 0"><h4>Magasin spécialisé · ${s.n} <span class="pip">${s.nShops} spécialiste${s.nShops > 1 ? 's' : ''} de la famille</span></h4>
+   <div class="finrow"><span>Famille vendue</span><b>${s.n} uniquement (${PRODUCT_FAMILY[s.f].length} produits possibles${others ? ', dont ' + others + ' à toi' : ''})</b></div>
+   <div class="finrow" title="Attrait en plus sur les produits de la famille présentés ici, à pleine couverture de la demande de la famille"><span>Attrait des produits de la famille</span><b class="pos">+${pc(s.bonus)} <small>(maximum +${pc(D.att)}, couverture ${pc(s.cov)})</small></b></div>
+   <div class="finrow"><span>Priorité sur la demande de la famille</span><b class="pos">×${SPEC_PRI} face aux généralistes</b></div>
+   <div class="finrow"><span>Zone de chalandise</span><b class="pos">${pc(D.zone)} de l'emplacement sans dépendre du passage</b></div>
+   <div class="finrow"><span>Marge propre à la famille</span><b class="pos">+${pc(D.mk)} sur le prix de rayon</b></div>
+   <div class="finrow"><span>Vitrine de marque</span><b class="pos">+${D.bc} points de capital visé (produit vendu ici à 100 %)</b></div>
+   <div class="finrow"><span>Inconvénients</span><b class="neg">famille seule · passage −${pc(1 - SPEC_PASS)} · coût élevé</b></div>
+   <div class="finrow"><span>Part de marché de la famille (toi)</span><b>${pc(s.share)} <small>· la famille pèse ${pc(s.famShare)} de la consommation</small></b></div>
+   <div class="finrow"><span>Panier moyen</span><b>${s.basket > 0 ? money(Math.round(s.basket)) : '—'}</b></div>
+   <p class="note" style="margin:4px 0 0">Conseil : ${D.tip}</p></div>`;
+}
+function specMallLine() { const by = {}; eachBuilding(b => { const D = specOf(b); if (D) by[D.fam] = (by[D.fam] || 0) + 1; }); const ks = Object.keys(by); return ks.length ? ks.map(f => `${TYPES[SPEC_BY_FAM[f]].name} ×${by[f]}`).join(' · ') : 'aucun'; }
 function residentsNear(x, y, r) { let s = 0; eachBuilding(b => { if (Math.abs(b.x - x) + Math.abs(b.y - y) > r) return; if (b.t === 'npc') { if (b.k === 'res') s += 5 * b.floors; else if (b.k === 'house') s += 5; } else if (b.t === 'res') s += 6 + 4 * b.floors; }); return s * K_POP; }
 /* ---------- Ressources naturelles : prime du site, sites neufs, ressources illimitées ---------- */
 const MINE_K = { oil: 1, iron: 1, coal: 1, copper: 1, gold: 1, gravel: 1, sand: 1, limestone: 1, nickel: 1, chrome: 1, bauxite: 1, lithium: 1, silica: 1, salt: 1, sulfur: 1, phosphate: 1, gas: 1, rare: 1, zinc: 1, clay: 1, potash: 1, graphite: 1 };   // gisements non renouvelables
@@ -5403,7 +5524,8 @@ function step() {
   const nCls = {}; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) R.sells.forEach(k => { nCls[k] = (nCls[k] || 0) + 1; }); });
   buildings.forEach(c => { const R = TYPES[c.t].ret; if (R) { const u = unitsOf(c); c._capNom = R.cap * u * (0.4 + 0.6 * fillOf(c)) * deptMult(c).stock * TM.retail; c._cap = c._capNom; retUnits += R.cap * u; const df = clamp((0.45 + 0.9 * (c.ci == null ? 0.5 : c.ci)) * 0.8, 0.1, 1); c._cap *= df; c._df = df;
     const pf0 = pfOf(c); if (c._pfP == null) { c._pfP = pf0; c._pfd = 99; } else if (Math.abs(c._pfP - pf0) > 1e-3) { c._pfP = pf0; c._pfd = 0; } else c._pfd = Math.min(999, (c._pfd || 0) + 1);   // jours depuis le dernier changement de prix de rayon
-    const SH = { s1: { basic: 1 }, s2: { basic: 0.62, std: 0.38 }, s3: { basic: 0.45, std: 0.35, lux: 0.2 }, s4: { basic: 0.45, std: 0.35, lux: 0.2 }, immo: { estate: 1 } }[c.t] || null; c._lc = {};
+    if (R.fam) c._cap *= SPEC_PASS;   // passe 46 : spécialiste, moins de clients de passage
+    const SH = { s1: { basic: 1 }, s2: { basic: 0.62, std: 0.38 }, s3: { basic: 0.45, std: 0.35, lux: 0.2 }, s4: { basic: 0.45, std: 0.35, lux: 0.2 }, immo: { estate: 1 } }[c.t] || (R.fam ? specTab().mix[R.fam] : null) || null; c._lc = {};
     R.sells.forEach(k2 => { c._lc[k2] = c._cap * (SH ? (SH[k2] || 0) : 1 / R.sells.length) * (k2 === 'estate' ? 1 : clamp(elF(k2, pf0, c._pfd, (nCls[k2] || 1) <= 1), 0.05, 1.15)); });   // le prix de rayon agit une fois sur le volume du magasin (court/long terme)
     c._lcI = Object.assign({}, c._lc);
     c._left = c._cap; c._sold = 0; c._rev = 0; c._cogs = 0; c._cl = 0; c._imp = 0; c.sales = {}; } });
@@ -5416,6 +5538,7 @@ function step() {
     if (st === 'corp') { const bo = S._brandAvg; if (bo) { c.rt = 0.8 * c.rt + 0.2 * bo.rt; } }
     c.bq = (0.8 + 0.4 * clamp((0.55 * c.rt + 0.45 * c.loy) / 100, 0, 1)); c.pw *= c.bq; } });
   S._brandAvg = brandOf();
+  const SPX = specDay(buildings, dem); S._spec = SPX;   // passe 46 : couverture et bonus des magasins spécialisés, par famille
   const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF * c.pw; } }); return w > 0 ? s / w : 1; };
   let importCost = indImport, importUnits = 0;
   const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
@@ -5425,6 +5548,7 @@ function step() {
     const items = cls === 'estate' ? [] : [{ k: 'g', attr: 0.5, stock: S.stock[cls], price: S.price[cls] }];
     const mine = PKEYS.filter(pk => PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on');
     mine.forEach(pk => items.push({ k: pk, attr: attractiveness(pk), stock: S.prod[pk].stock, price: prodPrice(pk) }));
+    specAttr(items, cls, SPX, buildings);   // passe 46 : attrait du spécialiste sur sa famille
     const adC = adAvg(cls); items.forEach(it => { it.attr *= adC; });
     const RIVAL = rivalAttr(cls), totalAttr = Math.max(0.001, items.reduce((a, i) => a + i.attr, 0) + RIVAL);
     const sh0 = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0; }), cw = sh0.reduce((a, c) => a + (c._cap || 1), 0) || 1, pfAvg = sh0.reduce((a, c) => a + (c._cap || 1) * pfOf(c), 0) / cw;
@@ -5443,25 +5567,26 @@ function step() {
       const bsh = gen ? 0 : brandShield(it.k, S.prod[it.k]);
       let need = wi * clamp(shEl(elF(cls, pfk / Math.max(0.5, car.length ? car.reduce((a, c) => a + pfOf(c), 0) / car.length : 1), dAvg, soleAll, nec, !gen && isPh(it.k)), bsh), gen || !isPh(it.k) ? 0.3 : 0.02, 1.8), got = 0, stockLeft = it.stock, fromStock = 0;
       if (!gen) S._dw.pd[it.k] = need;
-      let pcap = 0;
+      let pcap = 0; const pool = {}; if (gen) Object.keys(SPX).forEach(f => { pool[f] = need * specShare(f, cls); });   // passe 46 : un spécialiste ne vend du panier de classe que la part de sa famille
       for (let pass = 0; pass < 2 && need > 1e-6; pass++) {
-        const ws = car.reduce((a, c) => a + ((c._lc[cls] || 0) > 0.01 ? c._cap * c.adF * c.pw : 0), 0); if (ws <= 0) break;
+        const ws = car.reduce((a, c) => a + ((c._lc[cls] || 0) > 0.01 ? c._cap * c.adF * c.pw * specW(c) : 0), 0); if (ws <= 0) break;
         const n0 = need;
         car.forEach(c => {
           if ((c._lc[cls] || 0) <= 0.01) return;
-          const share = n0 * c._cap * c.adF * c.pw / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * shEl(elF(cls, Math.max(0.4, pkOf(c, key)), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1, nec, !gen && isPh(it.k)), bsh) - (c.sales[key] || 0); if (pass === 0 && !gen) pcap += Math.max(0, Math.min(capItem, c._lcI[cls] || 0)); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem));
+          const share = n0 * c._cap * c.adF * c.pw * specW(c) / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * shEl(elF(cls, Math.max(0.4, pkOf(c, key)), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1, nec, !gen && isPh(it.k)), bsh) - (c.sales[key] || 0); if (pass === 0 && !gen) pcap += Math.max(0, Math.min(capItem, c._lcI[cls] || 0)); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem)); const sD = gen ? specOf(c) : null; if (sD) q = Math.min(q, Math.max(0, pool[sD.fam] || 0));
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * PNJ_MK / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
           if (FGD && fs > 1e-9) fDraw(c, gen ? cls : it.k, fs);
-          stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key); c._cl += fs * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
+          if (sD) pool[sD.fam] -= q;
+          stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key) * specMk(c); c._cl += fs * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
         });
       }
-      if (!gen) S._dw.pc[it.k] = pcap;
+      if (!gen) { S._dw.pc[it.k] = pcap; specTrack(it.k, car, key, got); }
       addressed[cls] += wi;
       if (gen) { S.stock[cls] -= fromStock; want[cls] += fromStock; }   // les ventes en magasin sont de la demande servie
       else { const ps = S.prod[it.k]; ps.stock -= got; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
       fFlush(gen ? cls : it.k);
-      sold[cls] += got; revRetVal += got * it.price * retailMk(cls) * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOfK(c, key), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
+      sold[cls] += got; revRetVal += got * it.price * retailMk(cls) * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOfK(c, key) * specMk(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
     });
     if (cls !== 'estate') { want[cls] += dem[cls] * 0.5; made[cls] += dem[cls] * 0.47; }   // fournisseurs extérieurs : la ville n'est jamais en pénurie permanente
   });
@@ -5716,10 +5841,10 @@ function checkMissions() {
 const tierNow = () => (S && S.unlockAll) ? 9 : tierOf(S.stats.worth || 0);
 function toolLocked(k) {
   const T = TYPES[k];
-  return !!(T && ((T.tier && tierNow() < T.tier) || modeLocked(k)));
+  return !!(T && ((T.tier && tierNow() < T.tier) || modeLocked(k) || specLocked(k)));   // passe 46 : un magasin spécialisé suppose de connaître sa famille de produits
 }
 const ZONE_NEED = { tv: 1, off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
-ZONE_NEED.crush = 2; ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
+SPEC_KEYS.forEach(k => { ZONE_NEED[k] = 1; }); ZONE_NEED.crush = 2; ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
 const zoneOk = (key, z) => (key === 'pylon' || key === 'cable') ? (z === 0 || z === 2 || z === 4) : key === 'crush' ? (z === 0 || z === 2) : z === ZONE_NEED[key] || (ZONE_NEED[key] === 2 && z === 0);   // passe 48 : l'industrie peut aussi s'installer en campagne (terrain bon marché, sans subvention, transport plus long), jamais en ville
 const indRural = (key, x, y) => ZONE_NEED[key] === 2 && ZONE[idx(x, y)] === 0;   // placements automatiques : la zone industrielle du port d'abord
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Pas d\'usine en ville : construis-la en zone industrielle du port (subventionnée) ou en campagne (terrain moins cher, transport plus long).', 4: 'Les terminaux portuaires se construisent sur le quai.' };
@@ -6009,7 +6134,7 @@ function place(x, y, key) {
   const T = TYPES[key];
   if (!T) return false;
   if (key === 'hq' && hqOf()) { say('Tu as déjà un siège social : ouvre-le avec l\'outil Main pour gérer ta direction.', 'info'); return false; }
-  if (toolLocked(key)) { say(`${T.name} se débloque ${modeLocked(key) ? 'au scénario ' + unlockScn(key) : 'au palier ' + TIERS[T.tier].n}.`, 'warn'); return false; }
+  if (toolLocked(key)) { say(`${T.name} se débloque ${modeLocked(key) ? 'au scénario ' + unlockScn(key) : (T.tier && tierNow() < T.tier) || !specLocked(key) ? 'au palier ' + TIERS[T.tier].n : 'quand tu sais vendre sa famille : ' + specNeedTxt(key)}.`, 'warn'); return false; }
   const err = key === 'road' ? roadError(x, y) : footprintError(x, y, key);
   if (err && key !== 'road') { const ap = acqPlan(x, y, key); if (ap) { acqOpen(ap); return false; } }
   if (err && key === 'hq') { say(err + ' ' + hqSiteMsg(hqSite(true)), 'warn'); return false; }
@@ -7884,7 +8009,7 @@ function mkCache() { const key = S.day + '|' + (S.rivals || []).length + '|' + (
 function mkInv() { _mk = { key: '' }; }
 const mkBase = (pk, tier) => PRODUCTS[pk].ref * QTIER[tier].ref * cpi();   // prix de gros unique du marché pour la gamme (même formule que prodPrice à 100 %)
 const rpOf = (pk, tier) => mkBase(pk, tier) * retailMk(PRODUCTS[pk].cls);   // prix en rayon à 100 %
-function mkShops(cls) { const a = []; eachBuilding(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0 && c.conn !== false) a.push(c); }); return a; }
+function mkShops(cls, pk) { const a = []; eachBuilding(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0 && c.conn !== false && (!R.fam || (pk && pFamOf(pk) === R.fam))) a.push(c); }); return a; }   // passe 46 : un spécialiste ne compte que pour un produit de sa famille
 const SHOP_OF = { basic: 's1', std: 's2', lux: 's3', estate: 'immo' };
 // Demande du produit sur toute la ville (unités/jour) : part de la demande de la classe selon le poids du produit (au plus 8 produits de poids moyen se partagent la classe)
 function mkDemandDay(pk) {
@@ -7975,7 +8100,7 @@ function mkSim(pk, mode, oid) {
   const cw = S._dw && S._dw.cls && S._dw.cls[cls], Dc = cw ? cw.Dc : popE() * (cls === 'estate' ? 0.00032 : DEM_PER_POP[cls] || 0.005);
   const Vd = Dc * share * affordOf(pk) * recF(pk);
   // magasins et capacité d'approvisionnement
-  const shops = mkShops(cls); let shopCap = 0; shops.forEach(c => { shopCap += TYPES[c.t].ret.cap * unitsOf(c) * 0.45; });
+  const shops = mkShops(cls, pk); let shopCap = 0; shops.forEach(c => { shopCap += TYPES[c.t].ret.cap * unitsOf(c) * 0.45; });
   const shopKey = SHOP_OF[cls], noShop = !shops.length; if (noShop) shopCap = TYPES[shopKey].ret.cap * 0.45;
   let supCap, mc = null;
   if (mode === 'make') {
@@ -8045,7 +8170,7 @@ function mkSuggest() {
 // ---- Actions
 function mkShelve(pk, only) {   // met le produit en rayon (dans tous les magasins qui vendent sa classe, ou dans un seul pour un essai)
   const cls = PRODUCTS[pk].cls; let done = null;
-  mkShops(cls).forEach(c => {
+  mkShops(cls, pk).forEach(c => {
     if (only && c !== only) { if (!c.slots) (c.shelf || (c.shelf = {}))[pk] = false; return; }
     const N = slotsN(c), keys = c.slots ? c.slots.slice(0, N) : shelfKeys(c).concat(Array(N).fill(null)).slice(0, N);
     if (keys.indexOf(pk) < 0) { let i = keys.indexOf(null); if (i < 0) i = keys.findIndex(k => k && k.indexOf('g_') === 0); if (i < 0) return; keys[i] = pk; }
@@ -8055,7 +8180,7 @@ function mkShelve(pk, only) {   // met le produit en rayon (dans tous les magasi
 }
 function mkUnshelve(pk) { eachBuilding(c => { if (c.slots) { const i = c.slots.indexOf(pk); if (i >= 0) c.slots[i] = null; } if (c.shelf) delete c.shelf[pk]; }); }
 function mkEnsureShop(pk) {
-  const cls = PRODUCTS[pk].cls; if (mkShops(cls).length) return true;
+  const cls = PRODUCTS[pk].cls; if (mkShops(cls, pk).length) return true;
   const key = SHOP_OF[cls], c = placeAuto(key); if (!c) { say('Aucun magasin ne peut vendre ce produit et je n\'ai pas pu en poser un (argent ou place).', 'warn'); return false; }
   try { autoConnect(c.x, c.y); } catch (e) {} say(`${TYPES[key].name} posé automatiquement pour vendre ce produit.`, 'info'); return true;
 }
@@ -8093,7 +8218,7 @@ function trialPlan(pk, mode, oid) {
   if ((S.trials || []).some(t => t.pk === pk && t.status !== 'closed')) { r.why = 'Un essai est déjà en cours pour ce produit.'; return r; }
   if ((S.trials || []).filter(t => t.status === 'run').length >= TRIAL_MAX) { r.why = `Déjà ${TRIAL_MAX} essais en cours : attends la fin de l'un d'eux.`; return r; }
   const sim = mkSim(pk, mode, oid); if (mode === 'buy' && !sim.o) { r.why = 'Personne ne vend ce produit.'; return r; }
-  const shop = mkShops(pr.cls)[0]; if (!shop) { r.why = 'Il te faut un magasin qui vend ce type de produit (pose-en un d\'abord).'; return r; }
+  const shop = mkShops(pr.cls, pk)[0]; if (!shop) { r.why = 'Il te faut un magasin qui vend ce type de produit (pose-en un d\'abord).'; return r; }
   if (mode === 'make' && !sim.freeFac) { r.why = 'Il te faut une usine libre du bon niveau pour la petite série.'; return r; }
   if (mode === 'make' && sim.mc.locked) { r.why = 'L\'usine nécessaire n\'est pas encore débloquée.'; return r; }
   const unit = sim.unitBase, cap = trialCap(), v1 = Math.min(sim.V, TYPES[shop.t].ret.cap * unitsOf(shop) * 0.2), L = clamp(Math.min(Math.floor(cap / Math.max(0.01, unit)), Math.ceil(Math.max(1, v1) * TRIAL_DAYS * 1.15)), 1, 600), cost = Math.round(L * unit);   // le lot se vend dans UN magasin : dimensionné sur sa capacité
@@ -9093,7 +9218,7 @@ function renderBuilding(force) {
     inHtml = `<div class="bn"><b>Aucun intrant</b><small>${rd ? 'R&D de ' + pk.name.toLowerCase() + ' : ' + S.prod[c.prod].rnd + ' jour(s) restant(s)' : 'Choisis un produit à fabriquer : les fournisseurs sont ensuite choisis automatiquement.'}</small></div>`;
     outHtml = `<div class="bn"><b>Aucune production</b><small>${rd ? 'L\'usine démarre dès la fin du développement.' : 'Une usine vide ne fabrique rien et n\'emploie qu\'un effectif réduit.'}</small></div>`;
   } else if (T.ret) {
-    inHtml = `<div class="bn"><b>Marchandises vendues</b><small>${T.ret.sells.map(s => s === 'estate' ? 'maisons' : GOODS[s].name.toLowerCase()).join(', ')}</small></div>`;
+    inHtml = `<div class="bn"><b>Marchandises vendues</b><small>${T.ret.fam ? 'famille ' + SPEC_FAM[T.ret.fam].n.toLowerCase() + ' (' + T.ret.sells.map(s => GOODS[s].name.toLowerCase()).join(', ') + ')' : T.ret.sells.map(s => s === 'estate' ? 'maisons' : GOODS[s].name.toLowerCase()).join(', ')}</small></div>`;
     { const pt = POLE_SHOPS[c.t] ? poleTxt(c) : null; if (pt) inHtml += pt.on ? `<div class="bn polebn"><b><span class="polepip">Pôle commercial</span></b><small>${pt.t.join(' · ')}</small></div>` : `<div class="bn"><b>Pôle commercial : non</b><small>Rapproche-toi du Mall central (moins de ${MALL_R} cases : +${Math.round(MALL_TRF * 100)} %) ou groupe ${POLE_N} boutiques voisines (+${Math.round(POLE_TRF * 100)} %, frais fixes −${Math.round(POLE_UPK * 100)} %).</small></div>`; }   // passe 44
     outHtml = `<div class="bn"><b>Ventes</b><small>${f1(c.out)} articles/jour · capacité ${f1(c._cap || 0)}</small></div>`;
   } else {
@@ -9128,7 +9253,7 @@ function renderBuilding(force) {
   })();
   const kpiHtml = `<div class="kpis bk">${kpis}</div>${srcLine}`;
   const htmlInt = `
-  ${FLEVEL[c.t] ? prodHeader(c) + planCard(c) : ''}${T.ret ? auditCard(c) + roiCard(c) + shelfCard(c) : ''}
+  ${FLEVEL[c.t] ? prodHeader(c) + planCard(c) : ''}${T.ret ? auditCard(c) + specCard(c) + roiCard(c) + shelfCard(c) : ''}
   <div class="bnbanner ${bn.sev}"><b>${bn.t}</b><span>${bn.d}</span><div class="acts">${acts}</div></div>
   ${znCardTxt(c) ? `<div class="bnbanner ok"><b>Subvention de zone</b><span>${znCardTxt(c)}</span></div>` : ''}
   ${line}
@@ -12332,7 +12457,7 @@ function renderCatalog(force) {
     list += `<button class="crow ${i.key === it.key ? 'sel' : ''} ${i.key === cur ? 'cur' : ''}" data-cat="sel:${i.key}"><span class="rth">${itemThumb(i)}</span><span><b>${i.name}${best && best.key === i.key ? ' ★' : ''}</b><small>${status} · ${f1(i.price)} $</small></span><span class="mg ${i.margin >= 0 ? 'pos' : 'neg'}" title="Marge par cycle de production = prix de vente de ${f1(i.out)} unité(s) (${money(i.rev)}) − coût des intrants (${money(i.cost)}). Elle ne compte ni les salaires ni l'entretien. ${i.margin >= 0 ? 'Positive : fabriquer ce bien rapporte.' : 'Négative : fabriquer ce bien coûte plus cher que sa vente aux cours actuels.'}">${i.margin >= 0 ? '+' : '−'}${money(Math.abs(i.margin))}<small style="display:block;font-size:9px;opacity:.75;font-weight:400">par cycle</small></span></button>`; });
   const isProd = it.kind === 'prod', pr = isProd ? PRODUCTS[it.key] : null, ps = isProd ? S.prod[it.key] : null, fresh = isProd && it.st === 'locked';
   const rows = it.chips.map(x => { const label = x.g === 'pack' && isProd ? `Emballages <small>(${PACK[ps.pack].n})</small>` : gName(x.g); return `<tr><td>${label}</td><td>×${f1(x.need)}</td><td>${f1(gPriceAny(x.g))} $</td><td>${money(x.need * gPriceAny(x.g))}</td><td class="${x.lvl === 'g' ? 'pos' : x.lvl === 'o' ? '' : 'neg'}">${fmt(x.st)}${x.lvl === 'r' ? ' · aucune source' : ''}</td></tr>`; }).join('');
-  const sellers = isProd ? ({ basic: ['s1', 's2', 's3', 's4'], std: ['s2', 's3', 's4'], lux: ['s3', 's4'], estate: ['immo'] })[pr.cls].map(k => { let n = 0; eachBuilding(b => { if (b.t === k && b.conn) n++; }); return `${TYPES[k].name.toLowerCase()} (${n})`; }).join(', ') : '';
+  const sellers = isProd ? ({ basic: ['s1', 's2', 's3', 's4'], std: ['s2', 's3', 's4'], lux: ['s3', 's4'], estate: ['immo'] })[pr.cls].concat(SPEC_BY_FAM[pFamOf(it.key)] ? [SPEC_BY_FAM[pFamOf(it.key)]] : []).map(k => { let n = 0; eachBuilding(b => { if (b.t === k && b.conn) n++; }); return `${TYPES[k].name.toLowerCase()} (${n})`; }).join(', ') : '';
   let btns;
   if (it.lvl > lv) btns = `<button class="btn sec" disabled>${LVL_NAME[it.lvl]} requise</button>`;
   else if (cur === it.key) btns = `<button class="btn" disabled>Fabriqué dans cette usine</button>`;
@@ -12415,7 +12540,7 @@ function shelfItems(c) {
   if (!R) return out;
   R.sells.forEach(cls => {
     if (cls !== 'estate') out.push({ key: 'g_' + cls, name: GOODS[cls].name + ' (marché local)', stock: S.stock[cls], price: S.price[cls], gen: true });
-    PKEYS.forEach(pk => { if (PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on') out.push({ key: pk, name: PRODUCTS[pk].name, stock: S.prod[pk].stock, price: prodPrice(pk), gen: false }); });
+    PKEYS.forEach(pk => { if (PRODUCTS[pk].cls === cls && S.prod[pk].st === 'on' && (!R.fam || pFamOf(pk) === R.fam)) out.push({ key: pk, name: PRODUCTS[pk].name, stock: S.prod[pk].stock, price: prodPrice(pk), gen: false }); });   // passe 46 : un spécialiste ne présente que sa famille
   });
   out.sort((a, b) => (a.gen ? 1 : 0) - (b.gen ? 1 : 0));   // tes produits avant les marchandises du marché local
   return out;
@@ -12511,7 +12636,7 @@ function renderSlotPick() {
   // Produits du marché, proposés par d'autres sociétés : choisis le produit ET l'offreur ; un clic l'achète et le met sur cet emplacement
   let mkCards = '';
   if (mkOn()) {
-    const R0 = TYPES[c.t].ret, cand = PKEYS.filter(pk => R0 && R0.sells.indexOf(PRODUCTS[pk].cls) >= 0 && placed.indexOf(pk) < 0 && S.prod[pk].st !== 'rnd' && mkOffers(pk).length && mkBest(pk))
+    const R0 = TYPES[c.t].ret, cand = PKEYS.filter(pk => R0 && R0.sells.indexOf(PRODUCTS[pk].cls) >= 0 && (!R0.fam || pFamOf(pk) === R0.fam) && placed.indexOf(pk) < 0 && S.prod[pk].st !== 'rnd' && mkOffers(pk).length && mkBest(pk))
       .map(pk => { const offs = mkOffers(pk).map(o => offerAt(pk, o)).sort((a, b) => a.total - b.total), mkp = retailMk(PRODUCTS[pk].cls); return { pk, offs, best: offs[0], rp: offs[0].total * mkp }; })
       .sort((a, b) => a.rp - b.rp).slice(0, 30);
     mkCards = cand.length ? `<div class="sh" style="margin-top:6px"><span>PRODUITS PROPOSÉS PAR D'AUTRES SOCIÉTÉS (${cand.length})</span></div>` + cand.map(x => `<div class="sc" style="cursor:default;grid-template-columns:84px 1fr 118px"><div style="width:84px;height:84px;background:#fff;border-radius:6px;overflow:hidden;display:grid;place-items:center">${slotThumb(x.pk)}</div><div><h5>${PRODUCTS[x.pk].name}</h5><div class="sg"><span>Prix livré<b>${f(x.best.total)} $</b></span><span>Prix en rayon<b>${f(x.rp)} $</b></span><span>Offreurs<b>${x.offs.length}</b></span></div><select data-spo="${x.pk}" style="margin-top:4px;width:100%">${x.offs.map(o => `<option value="${o.id}">${o.name} · ${f(o.total)} $ livré · délai ${o.delay} j</option>`).join('')}</select></div><button class="btn" data-s="mkput:${x.pk}" style="white-space:normal;line-height:1.2;padding:6px 8px">Acheter et mettre ici</button></div>`).join('') : '';
@@ -12746,7 +12871,7 @@ function buildTools() {
 }
 document.addEventListener('click', e => { if (famOpen >= 0 && !e.target.closest('#bar')) { famOpen = -1; buildTools(); } });
 function setTool(k) {
-  if (TYPES[k] && toolLocked(k)) { say(`${TYPES[k].name} se débloque au palier ${TIERS[TYPES[k].tier].n}.`, 'warn'); return; }
+  if (TYPES[k] && toolLocked(k)) { const T = TYPES[k]; say(`${T.name} se débloque ${modeLocked(k) ? 'au scénario ' + unlockScn(k) : (T.tier && tierNow() < T.tier) || !specLocked(k) ? 'au palier ' + TIERS[T.tier].n : 'quand tu sais vendre sa famille : ' + specNeedTxt(k)}.`, 'warn'); return; }
   tool = k; famOpen = -1; renderZnBan();
   const owner = CATS.find(c => c.tools.indexOf(k) >= 0);
   if (owner && owner.id !== cat) cat = owner.id;
@@ -13276,6 +13401,82 @@ function pCyl(cx, cy, r, z0, z1, col, topCol) {
 function smoke(sx, sy, now, active, seed) {
   if (!active) return;
   for (let i = 0; i < 5; i++) { const age = ((now / 1600) + i * 0.2 + seed) % 1; ctx.fillStyle = `rgba(214,218,236,${(1 - age) * 0.45})`; ctx.beginPath(); ctx.arc(sx + age * 26, sy - age * 80, 7 + age * 14, 0, 7); ctx.fill(); }
+}
+/* ---------- Passe 46 : magasins spécialisés dessinés avec les primitives iso (provisoire, en attendant les sprites HD commandés au Mac) ----------
+   Palette sobre : verre bleu-gris, acier, pierre claire ; accents dorés pour le luxe ; aucune couleur vive. */
+const SPG = 'rgba(96,128,152,.78)', SPG2 = 'rgba(70,98,122,.82)', SPST = '#aab3bf', SPDK = '#30363f', SPGD = '#c9a24a';
+function spGlassL(x0, x1, yf, z0, z1, n, col) {   // vitrage de la face avant gauche (v = yf) avec meneaux et reflet
+  pQuad([PP(x0, yf, z1), PP(x1, yf, z1), PP(x1, yf, z0), PP(x0, yf, z0)], col || SPG);
+  ctx.strokeStyle = 'rgba(225,233,240,.6)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 0; i <= n; i++) { const u = x0 + (x1 - x0) * i / n, A = PP(u, yf, z0), B = PP(u, yf, z1); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); } ctx.stroke();
+  const r0 = x0 + (x1 - x0) * 0.15, r1 = x0 + (x1 - x0) * 0.32; pQuad([PP(r0, yf, z1), PP(r1, yf, z1), PP(r1 - 0.06, yf, z0), PP(r0 - 0.06, yf, z0)], 'rgba(255,255,255,.13)');
+}
+function spGlassR(xf, y0, y1, z0, z1, n, col) {   // vitrage de la face avant droite (u = xf)
+  pQuad([PP(xf, y0, z1), PP(xf, y1, z1), PP(xf, y1, z0), PP(xf, y0, z0)], col || SPG2);
+  ctx.strokeStyle = 'rgba(225,233,240,.5)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 0; i <= n; i++) { const v = y0 + (y1 - y0) * i / n, A = PP(xf, v, z0), B = PP(xf, v, z1); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); } ctx.stroke();
+}
+function spSign(u, v, z, txt, fg, bg, fs) {   // enseigne texte sobre (bandeau sombre, lettres claires ou dorées)
+  const q = PP(u, v, z); ctx.font = `700 ${fs || 11}px "IBM Plex Sans", Arial`; const w = ctx.measureText(txt).width + 12;
+  ctx.fillStyle = bg || 'rgba(32,37,45,.94)'; ctx.fillRect(q[0] - w / 2, q[1] - 8, w, 16); ctx.strokeStyle = fg || '#e8ecf0'; ctx.lineWidth = 1; ctx.strokeRect(q[0] - w / 2 + 0.5, q[1] - 7.5, w - 1, 15);
+  ctx.fillStyle = fg || '#e8ecf0'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, q[0], q[1] + 0.5);
+}
+function spCar(name, u, v, z, wpx, fb) {   // voiture HD (assets) posée par le milieu de ses roues ; repli : petite boîte
+  const e = P2_IMG[name], d = P2DIM[name], q = PP(u, v, z || 0.5);
+  if (e && e.ok && d) { const h = wpx * d[1] / d[0]; ctx.drawImage(e.im, q[0] - wpx / 2, q[1] - h * 0.78, wpx, h); return; }
+  pPrism(u - 0.13, v - 0.07, 0.26, 0.14, 0, 7, fb || '#5a6470');
+}
+function drawSpecShop(a, now, grow) {
+  const x = a.x, y = a.y, gg = grow == null ? 1 : grow, LV = a.lvl || 0, ex = LV * 10 * gg, lit = (a.util || 0) > 0.05 && a.conn, t = a.t; let zTop = 50;
+  const slab = (w, h, col) => pQuad([PP(x + 0.03, y + 0.03, 0.4), PP(x + w - 0.03, y + 0.03, 0.4), PP(x + w - 0.03, y + h - 0.03, 0.4), PP(x + 0.03, y + h - 0.03, 0.4)], col);
+  const inner = lit ? 'rgba(255,240,205,.55)' : 'rgba(210,220,230,.35)';
+  if (t === 'sauto') {   // concession 2×2 : parvis pavé, grand showroom vitré, voitures exposées dedans et devant, totem
+    slab(2, 2, '#c9ccd2'); for (let i = 0; i < 5; i++) { const A = PP(x + 1.55 + 0.0, y + 0.3 + i * 0.36, 0.6), B = PP(x + 1.95, y + 0.3 + i * 0.36, 0.6); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); }
+    const H = 34 * gg + ex; pQuad([PP(x + 0.1, y + 0.1, 0.6), PP(x + 1.4, y + 0.1, 0.6), PP(x + 1.4, y + 1.35, 0.6), PP(x + 0.1, y + 1.35, 0.6)], '#e6e8eb');
+    pPrism(x + 0.1, y + 0.1, 0.12, 1.25, 0, H, '#d6dade'); pPrism(x + 0.1, y + 0.1, 1.3, 0.12, 0, H, '#d6dade');   // murs du fond
+    spCar('veh_noir', x + 0.6, y + 0.75, 1, 30, '#24272c'); spCar('veh_argent', x + 1.05, y + 1.05, 1, 30, '#b9bec6');
+    spGlassL(x + 0.1, x + 1.4, y + 1.35, 1, H, 6, 'rgba(110,140,165,.42)'); spGlassR(x + 1.4, y + 0.1, y + 1.35, 1, H, 5, 'rgba(90,120,145,.5)');
+    pPrism(x + 0.05, y + 0.05, 1.42, 1.38, H, H + 5, '#9aa3ad'); pQuad([PP(x + 0.05, y + 1.43, H + 5), PP(x + 1.47, y + 1.43, H + 5), PP(x + 1.47, y + 1.43, H + 2), PP(x + 0.05, y + 1.43, H + 2)], SPGD);
+    pPrism(x + 1.74, y + 0.12, 0.14, 0.1, 0, 72 * gg, SPDK); spSign(x + 1.81, y + 0.17, 62 * gg, 'AUTOMOBILES', '#e8ecf0', null, 10);
+    spCar('veh_blanc', x + 1.72, y + 0.9, 0.5, 32, '#eef0f3'); spCar('veh_rouge', x + 0.55, y + 1.72, 0.5, 32, '#8a2f32'); spCar('voiture_ville_b', x + 1.15, y + 1.72, 0.5, 30, '#5a6f8a'); spCar('voiture_ville_a', x + 1.72, y + 1.6, 0.5, 30, '#9a3a3a');
+    spSign(x + 0.75, y + 1.4, H + 12, 'CONCESSION', SPGD, null, 10); zTop = Math.max(72 * gg, H + 20);
+  } else if (t === 'stech') {   // Maison du Numérique 2×1 : cube clair, façade entièrement vitrée, tables lumineuses, toit plat
+    slab(2, 1, '#d4d8dc'); const H = 42 * gg + ex;
+    pPrism(x + 0.1, y + 0.1, 1.8, 0.78, 0, H, '#e7eaed');
+    pQuad([PP(x + 0.22, y + 0.88, H - 6), PP(x + 1.78, y + 0.88, H - 6), PP(x + 1.78, y + 0.88, 1), PP(x + 0.22, y + 0.88, 1)], inner);
+    for (let i = 0; i < 3; i++) { const u = x + 0.4 + i * 0.5; pQuad([PP(u, y + 0.88, 10), PP(u + 0.3, y + 0.88, 10), PP(u + 0.3, y + 0.88, 8), PP(u, y + 0.88, 8)], 'rgba(250,250,250,.9)'); }
+    spGlassL(x + 0.22, x + 1.78, y + 0.88, 1, H - 6, 5, 'rgba(120,150,172,.5)'); spGlassR(x + 1.9, y + 0.25, y + 0.75, 1, H - 6, 2);
+    pPrism(x + 0.08, y + 0.08, 1.84, 0.82, H, H + 3, '#c9ced3'); spSign(x + 1.0, y + 0.9, H - 2, 'MAISON DU NUMÉRIQUE', '#e8ecf0', 'rgba(40,46,54,.92)', 9);
+    zTop = H + 8;
+  } else if (t === 'slux') {   // maison de luxe 1×1 : pierre claire, vitrines sombres encadrées d'or, auvent noir, corniche
+    slab(1, 1, '#ddd6c8'); const H = 46 * gg + ex;
+    pPrism(x + 0.1, y + 0.12, 0.8, 0.76, 0, H, '#ece6da'); pPrism(x + 0.1, y + 0.12, 0.8, 0.76, 0, 5, '#7b746a');
+    [[0.18, 0.44], [0.56, 0.82]].forEach(([u0, u1]) => { pQuad([PP(x + u0, y + 0.88, 30), PP(x + u1, y + 0.88, 30), PP(x + u1, y + 0.88, 6), PP(x + u0, y + 0.88, 6)], '#22262c'); ctx.strokeStyle = SPGD; ctx.lineWidth = 1.5; const A = PP(x + u0, y + 0.88, 30), B = PP(x + u1, y + 0.88, 30), C = PP(x + u1, y + 0.88, 6), D = PP(x + u0, y + 0.88, 6); ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.closePath(); ctx.stroke(); if (lit) { const m = PP(x + (u0 + u1) / 2, y + 0.88, 16); ctx.fillStyle = 'rgba(255,226,150,.8)'; ctx.beginPath(); ctx.arc(m[0], m[1], 2, 0, 7); ctx.fill(); } });
+    pQuad([PP(x + 0.9, y + 0.3, 28), PP(x + 0.9, y + 0.7, 28), PP(x + 0.9, y + 0.7, 6), PP(x + 0.9, y + 0.3, 6)], '#1c2026');
+    pQuad([PP(x + 0.12, y + 0.88, 34), PP(x + 0.88, y + 0.88, 34), PP(x + 0.88, y + 1.0, 30), PP(x + 0.12, y + 1.0, 30)], '#23252a'); pQuad([PP(x + 0.12, y + 1.0, 30), PP(x + 0.88, y + 1.0, 30), PP(x + 0.88, y + 1.0, 28.5), PP(x + 0.12, y + 1.0, 28.5)], SPGD);
+    pPrism(x + 0.06, y + 0.08, 0.88, 0.84, H, H + 4, '#d8cfbe'); spSign(x + 0.5, y + 0.9, H - 5, 'MAISON', SPGD, 'rgba(25,27,31,.95)', 10);
+    zTop = H + 10;
+  } else if (t === 'shome' || t === 'ssport' || t === 'sbrico') {   // grandes surfaces spécialisées 2×1 : volume sobre, bandeau de façade, vitrine d'entrée
+    const P = { shome: { w: '#efe9df', band: '#9c7b5e', txt: 'MAISON & DÉCO', door: '#7f6a58' }, ssport: { w: '#d4dade', band: '#4e7d68', txt: 'SPORT & LOISIRS', door: '#3d5f50' }, sbrico: { w: '#d9dde2', band: '#a56a3c', txt: 'BRICO', door: '#6c7480' } }[t];
+    slab(2, 1, '#c9ccd2'); const H = 36 * gg + ex;
+    pPrism(x + 0.08, y + 0.1, 1.84, 0.8, 0, H, P.w); pQuad([PP(x + 0.08, y + 0.9, H), PP(x + 1.92, y + 0.9, H), PP(x + 1.92, y + 0.9, H - 8), PP(x + 0.08, y + 0.9, H - 8)], P.band);
+    if (t === 'shome') { ctx.strokeStyle = 'rgba(80,60,40,.35)'; ctx.lineWidth = 1; ctx.beginPath(); for (let i = 1; i < 14; i++) { const A = PP(x + 1.3 + i * 0.045, y + 0.9, H - 9), B = PP(x + 1.3 + i * 0.045, y + 0.9, 2); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); } ctx.stroke(); spGlassL(x + 0.2, x + 1.2, y + 0.9, 2, H - 11, 4); }
+    else if (t === 'ssport') { spGlassL(x + 0.2, x + 1.4, y + 0.9, 2, H - 11, 5); pQuad([PP(x + 1.5, y + 0.9, H - 10), PP(x + 1.85, y + 0.9, H - 10), PP(x + 1.85, y + 0.9, 2), PP(x + 1.5, y + 0.9, 2)], '#bfc7cc'); }
+    else { pQuad([PP(x + 1.3, y + 0.9, 22), PP(x + 1.8, y + 0.9, 22), PP(x + 1.8, y + 0.9, 1), PP(x + 1.3, y + 0.9, 1)], '#8b939d'); ctx.strokeStyle = 'rgba(0,0,0,.18)'; for (let k = 1; k < 6; k++) { const A = PP(x + 1.3, y + 0.9, k * 3.6), B = PP(x + 1.8, y + 0.9, k * 3.6); ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); } spGlassL(x + 0.25, x + 1.1, y + 0.9, 2, H - 11, 3); for (let i = 0; i < 2; i++) pPrism(x + 1.96, y + 0.2 + i * 0.3, 0.02, 0.2, 0, 6, '#b08a5a'); }
+    pQuad([PP(x + 0.5, y + 0.9, 2), PP(x + 0.75, y + 0.9, 2), PP(x + 0.75, y + 0.9, 18), PP(x + 0.5, y + 0.9, 18)], P.door);
+    spGlassR(x + 1.92, y + 0.3, y + 0.7, 2, H - 12, 2); pPrism(x + 0.06, y + 0.08, 1.88, 0.84, H, H + 3, '#a8b0ba');
+    spSign(x + 1.0, y + 0.9, H - 4, P.txt, '#f2f4f6', 'rgba(36,40,47,.0)', 10);
+    spCar(hash(a.x, a.y, 7) > 0.5 ? 'voiture_ville_a' : 'voiture_ville_b', x + 1.6, y + 0.97, 0.5, 26);
+    zTop = H + 8;
+  } else {   // repli de la boutique de mode et de la pharmacie (avant le chargement de leurs sprites HD)
+    const mode = t === 'smode', H = 40 * gg + ex; slab(1, 1, '#d2d5da');
+    pPrism(x + 0.12, y + 0.12, 0.76, 0.76, 0, H, mode ? '#eeeae6' : '#f2f4f2'); spGlassL(x + 0.2, x + 0.8, y + 0.88, 2, 28, 3);
+    pQuad([PP(x + 0.16, y + 0.88, 32), PP(x + 0.84, y + 0.88, 32), PP(x + 0.84, y + 1.0, 28), PP(x + 0.16, y + 1.0, 28)], mode ? '#b99aa4' : '#4e9a6a');
+    pPrism(x + 0.08, y + 0.08, 0.84, 0.84, H, H + 3, '#b8bec6');
+    if (!mode) { const q = PP(x + 0.5, y + 0.88, H - 6); ctx.fillStyle = '#3f9a5e'; ctx.fillRect(q[0] - 2.5, q[1] - 7, 5, 14); ctx.fillRect(q[0] - 7, q[1] - 2.5, 14, 5); } else spSign(x + 0.5, y + 0.9, H - 6, 'MODE', '#f2f4f6', 'rgba(60,52,56,.9)', 10);
+    zTop = H + 6;
+  }
+  const p = iso(a.x + a.w - 1, a.y + a.h - 1); a._top = p.y - zTop + 40;
 }
 function drawIndustrial(a, now, grow) {
   if (a.t === 'pylon' || a.t === 'cable') {
@@ -13931,6 +14132,8 @@ function drawTileOf(a, x, y, ox, oy, o) {
     if (ox === a.w - 1 && oy === a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), n = vvHq(a); a._top = vvDraw(n, p, n === 'siege_hq_n1' ? 1.15 : Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }); }   // siège social : 3 niveaux HD (le niveau 1, sans parvis, est posé au centre de l'emprise à l'échelle d'une case : sinon ses 3 étages seraient géants)
   } else if (PROC_IND[a.t]) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
+  } else if (SPEC_T[a.t]) {   // passe 46 : magasin spécialisé composé en primitives iso
+    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawSpecShop(a, o.now, grow);
   } else if (a.t === 'npc' && a.k === 'mon' && a.m === 'mall') {
     { const MP = mallPos(); if (MP && MP.w >= 10) drawMallBig(a, x, y, o.now); else drawMall(a, x, y, p, o.now); }   // passe 45 : grand mall 10×10 (dessiné une fois, depuis la case avant)
   } else if (a.t === 'npc' && a.k === 'mon') {
@@ -14347,6 +14550,7 @@ function frame(now) {
 const mmOff = document.createElement('canvas'); mmOff.width = N; mmOff.height = N;
 const mmOffCtx = mmOff.getContext('2d');
 const MM_COL = { mnicr: [159, 216, 200], mbauxite: [199, 121, 74], mlithium: [195, 180, 255], mzinc: [155, 176, 201], mgraphite: [91, 97, 120], gwell: [143, 212, 255], qsilica: [207, 234, 244], qclay: [201, 143, 106], qsalt: [241, 244, 255], mphos: [176, 138, 90], mpotash: [232, 132, 122], hq: [255, 215, 106], road: [120, 128, 170], res: [127, 150, 255], tech: [63, 216, 255], bank: [242, 184, 75], well: [255, 138, 61], miron: [196, 102, 74], mcoal: [143, 154, 203], mcopper: [63, 216, 192], mgold: [242, 184, 75], logging: [110, 170, 90], qgravel: [154, 154, 165], qsand: [230, 207, 143], qlime: [232, 228, 216], btp: [255, 179, 71], immo: [255, 179, 71], foundry: [255, 215, 106], f1: [70, 211, 154], f2: [127, 150, 255], f3: [255, 79, 163], f4: [255, 122, 208], s4: [255, 122, 208], s1: [70, 211, 154], s2: [127, 150, 255], s3: [255, 79, 163], port: [95, 176, 255] };
+SPEC_KEYS.forEach(k => { const h = SPEC_T[k].color; MM_COL[k] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); });   // passe 46
 const DEP_COL = { nickel: [120, 190, 170], chrome: [100, 130, 180], bauxite: [170, 100, 60], lithium: [170, 150, 235], silica: [190, 225, 240], salt: [235, 238, 250], sulfur: [235, 215, 40], phosphate: [150, 115, 70], gas: [110, 190, 240], rare: [200, 90, 240], zinc: [140, 160, 185], clay: [185, 120, 85], potash: [220, 110, 100], graphite: [75, 80, 100], wheat: [217, 194, 90], sugar: [127, 207, 106], cotton: [160, 196, 140], rubber: [47, 138, 74], grapes: [138, 74, 154], corn: [232, 178, 58], rapeseed: [230, 220, 58], oil: [60, 40, 110], iron: [150, 80, 55], coal: [60, 62, 80], copper: [40, 150, 130], gold: [220, 170, 50], wood: [40, 100, 55], gravel: [120, 120, 130], sand: [210, 190, 120], limestone: [215, 212, 200] };
 function drawMinimap() {
   if (!S) return;
@@ -14521,12 +14725,12 @@ const stakeOf = id => { const h = (S.port || {})[id]; return h ? h.n / RSH : 0; 
 // Verrous de scénario : les bâtiments absents de la liste sont verrouillés (déblocage progressif)
 const L1 = ['road', 'res', 's1', 's2', 's3', 'sport'];
 const L2 = L1.concat(['off', 'tv', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'qgravel', 'qsand', 'qlime', 'gwell', 'qsilica', 'qclay', 'qsalt', 'mbauxite', 'mzinc', 'mphos', 'mpotash', 'fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcorn', 'frapeseed', 'fcattle', 'fchicken', 'fpig', 'fsheep', 'f1', 'f2', 'f3', 'foundry', 'btp', 'immo', 'pipeline', 'pylon', 'plant', 'wh', 'port']);   // le port s'ouvre dès le scénario 2 : sans exportation, les mines n'ont pas de débouché
-const L3 = L2.concat(['solar', 'wind', 'cable', 'nuclear', 'dc', 'tech', 'rd', 'f4', 's4', 'mnicr', 'mlithium', 'mgraphite']);
+const L3 = L2.concat(['sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico', 'solar', 'wind', 'cable', 'nuclear', 'dc', 'tech', 'rd', 'f4', 's4', 'mnicr', 'mlithium', 'mgraphite']);
 const L4 = L3.concat(['bank', 'hq']);
 const SCN_LOCK = { s1: L1, s2: L2, s3: L3, s4: L4, s5: null };
 const modeLocked = k => { if (!isScn()) return false; const L = SCN_LOCK[modeK()]; return !!L && TYPES[k] && L.indexOf(k) < 0; };
 const unlockScn = k => { for (let i = 1; i <= 5; i++) { const L = SCN_LOCK['s' + i]; if (!L || L.indexOf(k) >= 0) return i; } return 5; };
-const lockLabel = k => modeLocked(k) ? 'Scénario ' + unlockScn(k) : (TYPES[k] && TIERS[TYPES[k].tier] ? TIERS[TYPES[k].tier].n : '');
+const lockLabel = k => modeLocked(k) ? 'Scénario ' + unlockScn(k) : (TYPES[k] && TYPES[k].tier && tierNow() < TYPES[k].tier && TIERS[TYPES[k].tier]) ? TIERS[TYPES[k].tier].n : specLocked(k) ? 'Famille à vendre' : (TYPES[k] && TIERS[TYPES[k].tier] ? TIERS[TYPES[k].tier].n : '');
 // Tutoriels guidés : chaque étape a un texte, une détection (ok), l'outil concerné (tool) et le prochain élément d'interface à cliquer (hl : sélecteur ou null)
 const anyShop = () => cnOf('s1') + cnOf('s2') + cnOf('s3') + cnOf('s4');
 const tutoNavTool = k => {   // chemin de clics vers un outil : catégorie, puis famille, puis bouton
@@ -15728,6 +15932,23 @@ function eduScHTML(pk) {
   <div class="edlearn"><b>Ce que tu apprends</b>${eduLearnSc(sc, lim, ahP)}</div>
   <p class="note">Définitions : niveau de service = ventes ÷ demande ; jours de stock = stock ÷ ventes moyennes ; rotation = ventes annuelles ÷ stock moyen ; stock de sécurité = 1,65 × écart-type de la demande × √délai ; coup de fouet = variance de la production ÷ variance de la demande (au-dessus de 1, les variations s'amplifient en amont).</p>`;
 }
+function eduSpecHTML() {   // passe 46 : chapitre « Généraliste ou spécialiste ? »
+  const pc = v => Math.round(v * 100) + ' %', rows = [];
+  eachBuilding(b => { const T = TYPES[b.t]; if (!T || !T.ret || b.t === 'immo' || !b.conn) return; const tx = Object.keys(b.sales || {}).reduce((a, k) => a + (b.sales[k] || 0), 0); rows.push({ n: T.name, sp: !!specOf(b), tx, rev: b._rev || 0, eb: (b.pRev || 0) - (b.cost || 0), pRev: b.pRev || 0 }); });
+  const agg = sp => { const L = rows.filter(r => r.sp === sp), tx = L.reduce((a, r) => a + r.tx, 0), rev = L.reduce((a, r) => a + r.rev, 0), pr = L.reduce((a, r) => a + r.pRev, 0), eb = L.reduce((a, r) => a + r.eb, 0); return { n: L.length, basket: tx > 0.01 ? rev / tx : 0, mg: pr > 0 ? eb / pr : null }; };
+  const G = agg(false), P = agg(true);
+  const tab = SPEC_KEYS.map(k => { const D = SPEC_T[k]; return `<tr><td>${TYPES[k].name}</td><td>${SPEC_FAM[D.fam].n}</td><td>+${pc(D.att)}</td><td>${pc(D.zone)}</td><td>+${pc(D.mk)}</td><td>+${D.bc}</td><td>${money(TYPES[k].cost)}</td></tr>`; }).join('');
+  return `<p class="note">Un <b>généraliste</b> (supermarché, hypermarché) vend de tout : beaucoup de clients de passage, un panier moyen modeste, du volume. Un <b>spécialiste</b> (concession, high-tech, luxe, mode, pharmacie, maison, sport, bricolage) ne vend qu'une famille de produits, mais il la vend mieux. Comme dans Capitalism Lab, les deux se complètent : le généraliste fait le volume, le spécialiste la marge et la marque.</p>
+  <div class="edk">${eduK('Tes généralistes', G.n, G.basket ? 'panier moyen ' + money(Math.round(G.basket)) : 'aucune vente encore')}${eduK('Tes spécialistes', P.n, P.basket ? 'panier moyen ' + money(Math.round(P.basket)) : 'ouvre-en un (Commerce > Magasins spécialisés)')}${eduK('Marge EBE des généralistes', G.mg == null ? '—' : pc(G.mg), 'EBE ÷ recettes')}${eduK('Marge EBE des spécialistes', P.mg == null ? '—' : pc(P.mg), 'EBE ÷ recettes')}</div>
+  <h3>LES QUATRE DIFFÉRENCES</h3>
+  <div class="edlearn"><b>Panier moyen</b>Une concession vend peu de voitures, mais chacune vaut des centaines de fois une baguette : peu de transactions, un gros panier. Un supermarché fait l'inverse.</div>
+  <div class="edlearn"><b>Marge</b>Le spécialiste conseille, présente et rassure : il prend une marge propre à sa famille (de +3 % en pharmacie à +8 % dans le luxe) et sa vitrine augmente l'attrait des produits de sa famille (+15 à +30 % quand il couvre la demande de la famille).</div>
+  <div class="edlearn"><b>Zone de chalandise</b>On ne traverse pas la ville pour du pain, mais pour une voiture, oui : pour les achats rares et chers (concession, luxe, high-tech) une grande part de l'emplacement ne dépend plus du passage. En échange, le spécialiste reçoit 15 % de clients de passage en moins que le généraliste.</div>
+  <div class="edlearn"><b>Effet sur la marque</b>Un produit vendu dans un magasin spécialisé de sa famille gagne du capital de marque, à proportion de la part de ses ventes faites là (jusqu'à +15 à +35 points de capital visé). La marque s'installe sans publicité supplémentaire.</div>
+  <h3>LES MAGASINS SPÉCIALISÉS</h3>
+  <div style="overflow-x:auto"><table class="fint"><tr><th>Magasin</th><th>Famille</th><th>Attrait</th><th>Chalandise</th><th>Marge</th><th>Marque</th><th>Coût</th></tr>${tab}</table></div>
+  <p class="note">Règles du jeu : un spécialiste ne présente que les produits de sa famille et n'écoule du panier de classe que la part de sa famille dans la demande ; il passe avant les généralistes (priorité ×${SPEC_PRI}) sur cette demande, sans jamais la dépasser. Il se débloque quand tu sais vendre sa famille : un produit de la famille lancé ou acheté, ou un généraliste qui vend déjà sa classe principale.</p>`;
+}
 function eduDebHTML() {
   const R = eduReport(), cc = eduConcepts(R), pic = (q, l) => q ? `<div class="finrow"><span>${l} : ${q.type} · ${q.produit}, jour ${dateParts(q.jour_debut).j}</span><b class="${q.tenu ? 'pos' : 'neg'}">${q.tenu ? 'tenu' : q.jours_rupture ? q.jours_rupture + ' j de rupture' : 'rayons saturés'} · ${Math.round(q.niveau_service * 100)} % servis (×${f1(q.demande_x)})</b></div>` : '';
   return `<p class="note">Bilan de ta gestion depuis ${R.jours_suivis} jour${R.jours_suivis > 1 ? 's' : ''} : à présenter à ton enseignant. Les chiffres viennent de la simulation.</p>
@@ -15749,7 +15970,7 @@ function renderEdu(force) {
   const ae = document.activeElement; if (!force && ae && ae.id === 'eduPk') return;
   const det = box.querySelector('details.eddet'), wasOpen = det && det.open;
   box.dataset.h = sig;
-  box.innerHTML = tab === 'pat' ? patEduHTML() : tab === 'deb' ? eduDebHTML() : !pk ? '<p class="note">Aucun produit lancé. Lance un produit (Menu > Guide ou catalogue d\'une usine) pour ouvrir l\'atelier marque et le tableau supply chain.</p>' : tab === 'scm' ? eduScHTML(pk) : eduBrandHTML(pk) + mpEduHTML(pk);
+  box.innerHTML = tab === 'spec' ? eduSpecHTML() : tab === 'pat' ? patEduHTML() : tab === 'deb' ? eduDebHTML() : !pk ? '<p class="note">Aucun produit lancé. Lance un produit (Menu > Guide ou catalogue d\'une usine) pour ouvrir l\'atelier marque et le tableau supply chain.</p>' : tab === 'scm' ? eduScHTML(pk) : eduBrandHTML(pk) + mpEduHTML(pk);
   if (wasOpen) { const d2 = box.querySelector('details.eddet'); if (d2) d2.open = true; }
 }
 function eduCopy() {
@@ -16128,6 +16349,8 @@ function citySpr(a, grp, fl) {   // sprite HD pour un immeuble (choix détermini
 const P2HD = __P2HD_JSON__, P2DIM = __P2DIM_JSON__, P2_IMG = {};   // sprites de la phase 2 (gisements, mines, puits, carrières) ; dim = [largeur, hauteur, x0, y0, x1, y1] de l'image d'origine, la parcelle est calée sur le losange de la case
 const P2_DEP = { oil: 'gisement_petrole', iron: 'gisement_fer', coal: 'gisement_charbon', gas: 'gisement_gaz', copper: 'gisement_cuivre', nickel: 'gisement_nickel_chrome', chrome: 'gisement_nickel_chrome', bauxite: 'gisement_bauxite', lithium: 'gisement_lithium', zinc: 'gisement_zinc', graphite: 'gisement_graphite', phosphate: 'gisement_phosphate', potash: 'gisement_potasse', salt: 'gisement_sel', silica: 'gisement_silice', clay: 'gisement_argile' };
 const P2_TYPE = { fwheat: 'fwheat', fsugar: 'fsugar', fcotton: 'fcotton', frubber: 'frubber', fvine: 'fvine', fcorn: 'fcorn', frapeseed: 'frapeseed', fcattle: 'fcattle', fchicken: 'fchicken', fpig: 'fpig', fsheep: 'fsheep', wh: 'entrepot', solar: 'centrale_solaire', wind: 'eolienne', plant: 'centrale_charbon', nuclear: 'centrale_nucleaire', pylon: 'pylone_electrique', rd: 'centre_rd', dc: 'data_center', btp: 'chantier_moyen', immo: 'agence_immo', foundry: 'fonderie', f1: 'usine_petite_f1', f2: 'usine_moyenne_f2', f3: 'usine_grande_f3', f4: 'usine_f4_mega', s1: 'petit_marche_n1', s2: 'supermarche', s3: 'hypermarche', s4: 'mega_centre_commercial', port: 'terminal_portuaire', tv: 'station_tv', sport: 'stade_sport' };
+{ const SPEC_SPR = { sauto: ['concession_auto'], stech: ['boutique_high_tech'], slux: ['boutique_luxe'], smode: ['boutique_mode_luxe', 'boutique_mode'], spharma: ['pharmacie', 'drugstore'], shome: ['maison_deco'], ssport: ['sport_loisirs'], sbrico: ['brico_outillage'] };   // passe 46 : sprite HD commandé (n° 9) s'il est livré, sinon sprite existant (assets/factory_hd), sinon composition en primitives (drawSpecShop)
+  Object.keys(SPEC_SPR).forEach(k => { const n = SPEC_SPR[k].find(x => P2HD[x]); if (n) P2_TYPE[k] = n; }); }
 const p2Ready = t => { const n = P2_TYPE[t] || P2_EXT[t]; return !!(n && P2_IMG[n] && P2_IMG[n].ok); };
 const P2_EXT = { well: 'puits_petrole', gwell: 'puits_gaz', miron: 'mine_fer', mcoal: 'mine_charbon', mcopper: 'mine_cuivre', mgold: 'mine_or', mnicr: 'mine_nickel_chrome', mbauxite: 'mine_bauxite', mlithium: 'mine_lithium', mzinc: 'mine_zinc', mgraphite: 'mine_graphite', qsilica: 'carriere_silice', qclay: 'carriere_argile', qsalt: 'mine_sel', mphos: 'mine_phosphate', mpotash: 'mine_potasse', qgravel: 'carriere', qsand: 'carriere', qlime: 'carriere', logging: 'camp_bucherons' };
 Object.keys(P2HD).forEach(n => { const im = new Image(), e = P2_IMG[n] = { im, ok: false }; im.onload = () => { e.ok = true; }; im.src = P2HD[n]; });
@@ -16418,6 +16641,7 @@ function mallHTML() {
   h += `<h4>Les plus demandés</h4>` + MALL_CLS.map(c => d.top[c].length ? `<div class="mtop"><small>${CLS_S[c]}</small>${d.top[c].map(x => `<span>${x.name} <b>${px$(x.price)}</b> <em>${fmt(x.d * DM)} u/mois</em></span>`).join('')}</div>` : '').join('');
   h += `<h4>Pôle commercial</h4><p class="mnote">Boutique à moins de ${MALL_R} cases du mall : +${Math.round(MALL_TRF * 100)} % de fréquentation. ${POLE_N} boutiques voisines ou plus (adjacentes ou à une case, avenue comprise) : pôle commercial, +${Math.round(POLE_TRF * 100)} % de fréquentation et frais fixes partagés −${Math.round(POLE_UPK * 100)} %. Cumul ×${f2((1 + MALL_TRF) * (1 + POLE_TRF))} au plus ; la fréquentation reste plafonnée à 100.</p>`;
   h += vvSvcHTML();   // ville vivante : commerces de quartier
+  h += `<div class="r"><span>Magasins spécialisés présents</span><span>${specMallLine()}</span></div><p class="mnote">Concession, high-tech, luxe, mode, pharmacie, maison, sport, bricolage : un spécialiste ne vend que sa famille, mais la vend mieux (attrait, marge, marque). Près du mall, il profite aussi du bonus de fréquentation.</p>`;
   h += `<div class="acts"><button class="btn" data-mall="shop">Ouvrir ma boutique près du mall</button><button class="btn" data-mall="prod">Voir les produits</button><button class="btn" data-mall="port">Importer depuis le port</button></div>`;
   return h;
 }
@@ -16516,6 +16740,7 @@ Object.assign(window.WSE, { coach: { st: coachSt, pick: coachPick, view: coachVi
 Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDaily, obs: netObs, render: renderNet, tab: setNetTab, unread: netUnread, badge: netBadge, save: netSave, san: netSan, reply: netReply, TPL: NET_TPL, CHAT: NET_CHAT, BOTS: NET_BOTS, reset: sd => { S.net = null; const n = netS(); if (sd != null) { n.sd = sd | 0; n.posts = []; n.chat = []; n.id = 0; netSeedContent(); n.seen = n.id; n.o = netSnap(); } NET._t = 0; return n; }, setGap: ms => { NET._t = ms ? NET._t : 0; } } });   // passe 42 : Réseau Wall Street
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
+window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMILY, famOf: pFamOf, byFam: SPEC_BY_FAM, of: specOf, tab: specTab, share: specShare, famShare: specFamShare, mk: specMk, known: specKnown, locked: specLocked, need: specNeedTxt, shelfOk: specShelfOk, bcT: specBcT, stats: specStats, card: specCard, mall: specMallLine, edu: eduSpecHTML, PASS: SPEC_PASS, PRI: SPEC_PRI, day: () => S._spec || {} };   // passe 46 : magasins spécialisés
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.rd = { patentHeld, held: patentHeld, mine: patMine, block: patBlock, blockMsg: patBlockMsg, grant: patGrant, value: patValue, incDay: patIncDay, licDay: patLicDay, revDay: patRevDay, licFee: patLicFee, buyLicence: patBuyLicence, opps: patOpps, develop: patDevelop, answer: patOfferAnswer, step: patStep, years: patYears, comp: patCompF, top: mkTopRaw, save: patSave, load: patLoad, st: rdxS, pat: () => S.pat || {}, list: accList, info: accInfo, quote: accQuote, accelerate, gemCost, gemAdd, render: renderRdp, edu: patEduHTML, advice: rdpAdvice, iap: { LIVE: IAP_LIVE, PACKS: IAP_PACKS, purchase: iapPurchase, log: IAP }, K: { PAT_Y, PAT_NIV_Y, PAT_ROY, PAT_LIC_SH, PAT_LIC_MAX, PAT_RIV_FROM, PAT_RIV_EVERY, PAT_OFF_EVERY, PAT_WARN_D, PAT_DISC, PAT_MONO, GEM_N, GEM_START, GEM_TIER, GEM_JAL, ACC_TOT, ACC_DAY_MAX, ACC_CASH_K, ACC_LAB_MAX, ACC_LAB_GAIN } };   // passe 47 : brevets de produit, R&D, accélération (aucun paiement réel)
