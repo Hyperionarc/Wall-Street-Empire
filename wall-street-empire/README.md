@@ -1150,6 +1150,22 @@ Castes du joueur : industriel, négociant et banquier (profils « bon » et « i
 ### Test
 `tools/tests/t66_negociant_banquier.js` (26 contrôles) : stocks, offre fournisseur (prix, capacité, délai), livraison au joueur, amortisseur dans les deux sens, variation journalière ≤ 4 %, épisode borné, électricité au réseau, appoint d'un data center (bouton et sauvegarde), cartel proposé et accepté, embargo à moitié prix, cartel du joueur rejoint, cotation selon le cycle et le risque, refus, prêt au joueur, prêt à un rival et refus, marge d'intérêt, posture bornée, pas de resserrement en récession, tour de table, offre de prêt acceptée, panneau, faillite du négociant avec perte du banquier, sauvegarde aller-retour, ancienne sauvegarde.
 
+## Passe 67 : bots de caste qui jouent leur rôle à fond (baron, banquier, négociant, agriculteur)
+
+`tools/bot_lib.js` reçoit des **playbooks de caste** (`P.play`), joués par les profils `baron`, `banque`, `negoce` et `agri` de `tools/sim_batch.js` ; `--native` les
+utilise (promoteur et innovateur : bot « bon joueur », leurs playbooks relèvent d'autres passes), `--native --old` rejoue les bots d'avant. Chaque action emblématique est
+comptée dans `BOT.CP.n` (relevée en fin de partie par `sim_batch`, champ `cp`).
+- **Banquier** (modèle holding) : coussin de liquidité pour le LCR (1 $ de trésorerie porte 12,5 $ de crédits), prêts jusqu'à la contrainte la plus étroite, portefeuille
+  adapté au cycle (entreprises, immobilier, souverain ; rappel des crédits risqués en récession), niveau Monopole, tours de table et participations durables dans les rivaux qui composent.
+- **Négociant** : centrales à charbon alimentées par ses mines et raccordées par pylône (électricité +30 %), éoliennes faute de charbon, sans noyer le réseau (prix visé ≥ 24 $/MWh),
+  pipelines des puits et mines de charbon, cartel de 20 jours sur sa matière quand il paie (effet mesuré ≈ 3 jours de recettes), embargo seulement en riposte à une guerre des prix.
+- **Baron industriel** : chaînes verticales, catalogue haut de gamme, rachat des actifs d'un rival en faillite, participation de 10 % (seuil d'OPA de la caste) puis contrôle à 51 %, une OPA tardive.
+- **Agriculteur** : irrigation au maximum de chaque ferme dès sa pose (le reste inchangé).
+
+Deux corrections de jeu : le marché local ne vend plus le charbon dont les centrales du joueur ont besoin le lendemain (une centrale sur deux restait sans combustible selon
+l'ordre des cases) ; une filiale acquise (OPA, rachat d'un failli) compte au coût amorti dans la valorisation (`subsBook`, champ optionnel `v` de `S.subs`, anciennes sauvegardes
+inchangées). Mesures avant/après, test A/B « somme positive » et limites : `docs/EQUILIBRE_ECONOMIE.md` (passe 67). Test : `tools/tests/t68_bots_castes.js`.
+
 ## Passe : chômage plancher, humeur fluctuante, cycle irrégulier et chocs
 Voir « Macroéconomie » ci-dessus. Test `tools/tests/t25_macro_humeur.js` : chômage ≥ 3 % sur 3 000 jours et 3 graines, humeur d'écart-type > 6 et corrélée au PIB, cycle irrégulier, chaque choc via sa carte d'événement (toast, bandeau, PIB, humeur, chômage), transmission du taux, ancienne sauvegarde. Sauvegarde `wse-city-v8` inchangée : `S.macro` (déjà enregistré) porte les nouveaux champs (`v1, amp, ar, bEnd, nairu, uL, sk, sh, shLast`), `mev` = coups d'humeur ; une ancienne sauvegarde sans ces champs est complétée au chargement. Le robot de test (`tools/bot_lib.js`) construit des logements sous 4,5 % de chômage (et non plus 2 %).
 

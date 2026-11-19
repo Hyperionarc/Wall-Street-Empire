@@ -146,3 +146,123 @@ Paliers inchangés (Entrepreneur au jour médian 500, Industriel 1 296).
 - **Pistes non faites** : (1) limiter l'expansion à crédit des IA aventureuses dans les classes où le joueur est faible (R14) si la baisse des castes de ville se confirme sur
   10 graines ; (2) recaler `CURVE` (courbe attendue du Round) sur la ville qui grandit plus vite : les bots sont 2 à 5 fois au-dessus dès le jour 1 800 et paient la surchauffe ;
   (3) campagne de 10 graines (`--native --seeds 10`, environ 4 h avec 1 travailleur sur une machine libre) pour réduire l'incertitude par caste.
+
+---
+
+# Passe 67 : chaque caste jouée à fond (playbooks de bot)
+
+Demande de Rémy : refaire jouer les castes en apprenant aux bots à jouer **100 % leur rôle**, puis mesurer. Périmètre : baron industriel, banquier, négociant, agriculteur
+(promoteur et innovateur, bot et mécanique, sont confiés à d'autres agents : leur profil `--native` reste le bot « bon joueur »). Code : `tools/bot_lib.js` (`P.play`,
+compteurs d'actions emblématiques `BOT.CP.n`, journal `BOT.CP.log`) ; profils `baron`, `banque`, `negoce`, `agri` de `tools/sim_batch.js` ; `--native` les utilise,
+`--native --old` rejoue les bots d'avant (`industriel`, `banquier`, `fermier`). Test : `tools/tests/t68_bots_castes.js`.
+
+## 1. Les playbooks (ce que ferait un joueur expert, chiffres du jeu)
+
+**Banquier d'affaires (`banque`), modèle holding.** La banque (100 M$ de CET1) est le moteur de capital.
+- Le LCR impose une trésorerie ≥ 8 % de l'encours × stress : **1 $ de trésorerie porte 12,5 $ de crédits**, qui rapportent taux + 3 points − 1,5 point de pertes
+  (entreprises), soit ≈ 56 %/an sur la trésorerie immobilisée, plus que n'importe quel magasin. Le bot garde un coussin (`P.keep` : LCR visé 115 % sur l'encours et sa
+  croissance possible), emprunté au besoin (intérêts −40 % pour la caste), et n'investit en magasins que l'excédent.
+- Tous les 5 jours, il prête jusqu'à la contrainte la plus étroite (demande ≈ 3 000 $ par habitant, CET1 ≥ 10,5 %, levier ×10, LCR). Croissance ≥ 1,5 % : entreprises ;
+  croissance molle : immobilier (pondéré 50 %) ; récession ou crise du crédit (pertes ×3 à ×7) : rappel des crédits risqués, prêts au souverain (pondéré 0 %).
+- Niveau « Monopole » dès 12 M$ d'encours en croissance (+1 point de marge entreprises).
+- Participations : souscrit aux tours de table des rivaux (10 à 18 % sous le cours) et garde des participations durables dans les rivaux qui composent le plus vite
+  (valeur +8 % ou plus sur 180 jours), vendues s'ils déclinent, dans la limite prudentielle de 20 % des fonds propres. Pas d'OPA (elle retire la cible du marché).
+- **Compounding** : 80 % des intérêts nets restent en réserve, les fonds propres croissent, donc le levier ×10 et la limite de participations aussi. Mesuré (graine 6000) :
+  encours 1,15 Md$ et fonds propres 154 M$ au jour 900. La mécanique compose déjà : aucun ajustement de jeu n'a été nécessaire pour le banquier.
+
+**Négociant en matières (`negoce`).** Base : mines, chaînes et exports du bot industriel (exports +15 %, intrants −4 %), plus :
+- **Énergie** : centrales à charbon (1,6 M$ pour la caste, 500 t/j -> 286 MWh/j) brûlant le charbon de ses propres mines (une mine de 1 750 t/j en alimente trois),
+  raccordées à la ville par un pylône ; éolienne faute de charbon. Il couvre la demande du réseau sans la noyer (prix après ajout ≥ 24 $/MWh pour une centrale,
+  30 $/MWh pour une éolienne) et s'arrête si sa dernière centrale rapporte moins de 25 %/an (compte réel). Mesuré : centrale approvisionnée, prix 47 $ :
+  EBE 10 600 $/j (≈ 3,8 M$/an pour 1,6 M$). Première version (offre du réseau lue dans l'instantané `S.power`, parfois nul) : 9 centrales et 6 éoliennes, prix tombé à
+  15 $/MWh, toutes à perte ; corrigé en comptant la production réelle de ses centrales.
+- **Pipelines** (−40 %) de chaque puits et mine de charbon vers un terminal (zone portuaire, centrale, port) : transport ÷ 5.
+- **Cartel** de 20 jours (60 000 $ pour la caste) sur la matière qu'il produit le plus. Effet mesuré : cours réel +5 % à J+3, +15 % à J+15, encore +7 % dix jours
+  après, soit ≈ 3 jours de recettes de la matière : il signe si ce gain dépasse 1,2 fois le coût (le charbon brûlé par ses centrales est exclu).
+- **Embargo** : seulement en riposte à une guerre des prix qu'un rival lui mène (principe du jeu à somme positive : pas d'embargo gratuit).
+
+**Baron industriel (`baron`).** Chaînes verticales du bot industriel (mine/ferme -> composants f1-f3 -> usine du produit -> magasins, agrandies tant que les ventes absorbent
+la production) avec un catalogue élargi au haut de gamme (montre, parfum, soins, bijoux, sac, téléviseur, électroménager, voiture), plus :
+- rachat des actifs d'un rival en faillite (−15 % pour la caste) si le revenu de la filiale (12 % de son chiffre d'affaires) rembourse le prix en moins de 5 ans ;
+- participation de 10 % (seuil d'OPA de la caste) dans le rival le moins cher dès le jour 450, jamais sur l'épargne réservée à une chaîne (première version dès le jour 300 :
+  elle mangeait l'épargne des chaînes, 182 M$ au lieu de 218 M$ sur la graine 6000), contrôle à 51 % (filiale gérée par l'IA, 60 % de son résultat en dividendes) quand
+  la valeur dépasse 60 M$ et que la trésorerie oisive couvre la cible ; une seule OPA (prime 20 %), tard (jour ≥ 1 200), si la trésorerie oisive couvre deux fois l'offre.
+
+**Exploitant agricole (`agri`).** Mécanique et bonus inchangés (décision de Rémy). Le bot fermier, plus l'irrigation au maximum de chaque ferme dès sa pose
+(840 / 1 820 / 2 940 $ pour la caste, +10 % de récolte par niveau et protection contre la sécheresse). Essai écarté (`P.foodChain`) : une chaîne de 14 produits
+alimentaires (pâtes, lait, œufs, viandes, vin, yaourt, bière, huile, fromage...) dimensionnée sur vigne, maïs, colza et élevages : 175 et 195 M$ au lieu de 267 et 249 M$
+(graines 6000, 7000) : de petites usines alimentaires peu chargées coûtent plus qu'elles ne rapportent. Le bot garde la chaîne du pain du bot fermier.
+
+## 2. Ajustements de jeu (minimaux)
+
+| Ajustement | Pourquoi | Effet |
+|---|---|---|
+| **Charbon des centrales réservé** : le marché local ne vend plus le charbon dont les centrales du joueur ont besoin le lendemain (`stepLocalMarket`, réserve `PLANT_COAL ×` nombre de centrales) | selon l'ordre des cases, une centrale sur deux restait sans combustible alors que les mines du joueur en produisaient assez (mesuré : 3 centrales sur 6 à 0 MWh, EBE −2 906 $/j chacune) | les centrales tournent sur le charbon du joueur ; aucun effet sans centrale |
+| **Filiales acquises au bilan** : une OPA réussie ou le rachat des actifs d'un rival en faillite compte au coût amorti (0,9 × prix payé, `subsBook`, champ optionnel `v` de `S.subs`) | avant, le prix sortait de la trésorerie sans contrepartie : racheter une société, même rentable, détruisait la valorisation (incohérent avec « actifs au coût amorti ») | une acquisition ne crée ni ne détruit de valeur le jour du rachat ; anciennes sauvegardes (sans `v`) : comme avant |
+
+Contrôle : promoteur et innovateur (bot inchangé) donnent exactement les mêmes valeurs avant et après sur les graines 6000 et 7000 : les deux ajustements n'agissent
+que là où ils doivent.
+
+## 3. Mesures (`--native`, 1 800 jours, Round Normal, événements, graines 6000 / 7000 / 8000, 1 travailleur, machine partagée)
+
+Avant : `--native --old` (version `217e497`). Après : playbooks et ajustements de cette passe. Valeur finale (M$), moyenne géométrique des 3 graines.
+
+| Caste | Bot avant | Avant (M$) | / moy. | Bot après | Après (M$) | / moy. | Après / avant (par graine) |
+|---|---|---:|---:|---|---:|---:|---|
+| agriculteur | fermier | 240,6 | 1,41 | agri | 295,6 | 1,38 | 1,23 (1,11 / 1,23 / 1,35) |
+| banquier | prête 50 % tous les 30 j | 161,6 | 0,94 | banque | 300,3 | 1,40 | 1,86 (1,72 / 1,67 / 2,24) |
+| négociant | industriel | 168,9 | 0,99 | negoce | 251,5 | 1,17 | 1,49 (1,62 / 1,40 / 1,46) |
+| industriel | industriel | 178,0 | 1,04 | baron | 204,5 | 0,95 | 1,15 (1,21 / 1,24 / 1,01) |
+| promoteur | bon | 151,0 | 0,88 | bon (inchangé) | 151,0 | 0,70 | 1,00 |
+| innovateur | bon | 142,3 | 0,83 | bon (inchangé) | 142,3 | 0,66 | 1,00 |
+| toutes | | 171,1 | 1 | | 214,8 | 1 | 1,26 |
+
+Parmi les quatre castes jouées à fond, rapport à leur moyenne (260 M$) : banquier 1,16, agriculteur 1,14, négociant 0,97, baron 0,79. Toutes dans la bande visée
+(~0,8-1,3), le baron à la limite basse. Le promoteur et l'innovateur tombent à 0,66-0,70 de la moyenne des six **parce qu'ils sont encore joués par le bot de commerce** :
+leurs playbooks (autres agents) doivent être mesurés avec cette même campagne avant toute conclusion sur leur équilibre.
+
+Styles distincts (actions comptées sur 1 800 jours, `cp` de `sim_batch`) : banquier 260 à 290 décisions de prêt, 3 à 6 tours de table, 1 à 3 participations durables,
+3 à 5 rappels de crédits en récession ; négociant 25 à 31 centrales, 3 à 6 éoliennes, 5 à 9 mines de charbon, 16 pipelines, 52 à 61 cartels, 8 à 28 embargos de riposte ;
+agriculteur 186 à 198 niveaux d'irrigation ; baron 0 à 3 participations de 10 %, 1 rachat de failli (graine 6000), jamais de contrôle à 51 % ni d'OPA avant le jour 1 800
+(la condition « valeur > 60 M$ et trésorerie oisive > valeur de la cible » n'est pas remplie : ses chaînes absorbent tout).
+
+**Lecture.** Les écarts de cette campagne sont très au-dessus du bruit (banquier ×1,67 à ×2,24, négociant ×1,40 à ×1,62 sur chaque graine) : le classement d'avant
+mesurait surtout la faiblesse des bots du banquier et du négociant. Le gain du baron (×1,01 à ×1,24) et de l'agriculteur (×1,11 à ×1,35) est réel mais, à 3 graines,
+un écart de 10 à 15 % entre deux castes reste non significatif. Aucun ajustement d'équilibre n'a été appliqué aux bonus de caste : aucune caste jouée à fond n'est hors bande.
+
+## 4. Test A/B « somme positive » (docs/PRINCIPE_JEU_POSITIF.md)
+
+Même graine (6000, 7000), mêmes bots (version de la campagne « après », chaîne alimentaire et participation précoce du baron comprises), **castes isolées** : le joueur seul,
+sans aucune IA (`SIM_NRIV=0`), contre **six castes actives** (le joueur et les 5 IA de caste). 11 parties appariées (l'innovateur 7000 manque).
+
+| | 6 castes ensemble | Joueur seul |
+|---|---:|---:|
+| Population au jour 1 800 | 290 000 à 625 000 (≈ 350 000) | 154 000 à 253 000 (≈ 165 000) |
+| Chômage | 3,8 à 7,7 % | 9,8 à 10,5 % |
+| Valeur du joueur (moy.) | 212 M$ | 384 M$ |
+| Valeur de toutes les entreprises du monde (moy.) | 470 M$ | 384 M$ |
+
+Par caste, valeur du joueur avec les 5 autres / seul : agriculteur **1,41 et 1,68** (il vend ses récoltes à la ville plus peuplée et aux usines rivales : synergie nette),
+négociant 0,71 et 0,75, industriel 0,61 et 0,72, banquier 0,47 et 0,53, innovateur 0,40, promoteur (bot de commerce) 0,26 et 0,30.
+Trajectoire du monde à six castes (moyenne, M$) : 161 (j 300), 190, 245, 293, 383, 488 (j 1 800) : convexe.
+
+**Lecture honnête.** La somme est positive pour l'économie (population doublée, chômage divisé par deux, valeur totale +23 % par rapport au joueur seul) et l'agriculteur
+gagne à la présence des autres. Mais pour les castes de commerce et de services, l'arrivée de cinq concurrents coûte au joueur bien plus que ce que la ville plus grande lui
+rapporte (0,26 à 0,75) : le gâteau grandit moins vite que le nombre de parts. Les mécaniques en cause ne sont pas des destructions gratuites (guerres de prix : 1 à 5 par
+partie ; embargos du négociant : ripostes seulement) mais le partage de demandes finies : parts de marché des rayons, `svcSat` (−7 % de demande de services par rival),
+`rivSvc` (la banque de Luxor et les data centers de Novatek prennent jusqu'à 12 % des recettes de services du joueur), cartels du négociant (+15 % sur le cours d'une matière
+pendant 20 jours, payés par les usines acheteuses). **Pas de correction appliquée dans cette passe** : la mesure demande d'abord les playbooks du promoteur et de l'innovateur
+(les deux castes les plus touchées), et une correction du partage de la demande toucherait toutes les castes. Pistes mesurables : (1) faire croître la demande de rayon
+et de services avec l'emploi créé par chaque entreprise (la demande suivrait la population déjà doublée) ; (2) borner `rivSvc` quand la ville grandit grâce au joueur ;
+(3) cartel du négociant : partager une partie du gain avec les usines clientes (contrats d'approvisionnement à prix garanti) plutôt qu'un pur transfert.
+
+## 5. Limites
+
+- 3 graines par caste (2 pour l'A/B) ; machine partagée par plusieurs agents (charge 15 à 22 sur 4 cœurs) : les durées par partie (100 à 300 s) ne sont pas des mesures de
+  performance. Écarts < 10-15 % entre castes non significatifs.
+- Promoteur et innovateur non joués à fond ici (autres agents) : leur rang (0,66-0,70) ne dit rien de leur équilibre.
+- Le négociant ne fait pas de portage spéculatif de stocks (acheter en surplus, revendre en pénurie) : l'outil existe pour l'IA (`trMarket`), pas d'interface joueur
+  simple pour stocker une matière achetée au marché. Ses contrats d'approvisionnement et l'agence immobilière du promoteur ne sont pas joués.
+- Le baron ne prend jamais le contrôle d'un rival en 1 800 jours : l'OPA reste peu rentable (revenu de filiale = 12 % du chiffre d'affaires de la cible, ≈ 5 %/an du prix) ;
+  c'est désormais neutre au bilan (filiale au coût amorti) mais pas créateur de valeur.
+- `t65` garde les bots d'avant (`--native --old`) ; `t68` vérifie les actions emblématiques des nouveaux.

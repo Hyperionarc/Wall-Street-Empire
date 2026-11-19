@@ -6,7 +6,7 @@ const PRESET = { bon: { lev: 0.45, every: 4, p: { hurdle: 0.05 } },
   industriel: { lev: 0.5, every: 3, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.6, bourse: false, fam: ['s1', 's2', 's3', 's4', 'off', 'miron', 'mcopper', 'mcoal', 'mgold', 'well'] } },
   fermier: { lev: 0.4, every: 3, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.5, bourse: false, fam: ['fwheat', 'fsugar', 'fcotton', 'fvine', 'fcattle', 'fchicken', 'fpig', 'fsheep', 's1', 's2', 's3'] } },
   banquier: { lev: 0.45, every: 4, p: { hurdle: 0.05, bank: true } } };
-const NAT = { agriculteur: 'fermier', industriel: 'industriel', negociant: 'industriel', banquier: 'banquier' };   // même correspondance que tools/sim_batch.js --native
+const NAT = { agriculteur: 'fermier', industriel: 'industriel', negociant: 'industriel', banquier: 'banquier' };   // même correspondance que tools/sim_batch.js --native --old (bots d'avant la passe 67 ; les playbooks de caste sont testés par t68)
 const CASTES = ['agriculteur', 'banquier', 'negociant', 'industriel', 'promoteur', 'innovateur'];
 const DAYS = 1080, SEED = 6000;
 exports.run = async (t, L) => {

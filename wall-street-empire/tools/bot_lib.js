@@ -126,13 +126,13 @@ window.BOT = (function () {
       let roi = R.roi; if (EXT[k]) roi = roi * R.capex / (R.capex + Math.max(0, extra));
       const net = roi * (1 - (s.tax || 0.2));
       if (net < hurdle) return;
-      all.push({ k, roi: net, cost, afford: cost <= s.cash + room });
+      all.push({ k, roi: net, cost, afford: cost <= s.cash - (P.keep || 0) + room });
     });
     all.sort((a, b) => b.roi - a.roi);
     const aff = all.find(x => x.afford);
     // épargne : si un projet bien plus rentable (≥ 1,5 ×) est hors de portée mais atteignable en 2 ans de profits, on met de côté au lieu de multiplier les petits projets
     const top = all[0];
-    if (top && !top.afford && (!aff || top.roi > 1.5 * aff.roi) && top.cost - (s.cash + room) < 500 * Math.max(0, (s.fin && s.fin.net) || 0)) return null;
+    if (top && !top.afford && (!aff || top.roi > 1.5 * aff.roi) && top.cost - (s.cash - (P.keep || 0) + room) < 500 * Math.max(0, (s.fin && s.fin.net) || 0)) return null;
     return aff || null;
   }
   function bourse() {
@@ -280,20 +280,166 @@ window.BOT = (function () {
     if (L.lostSite > 0.08 * L.O && K.eb > 0) { if (add('dc')) EC.lastAdd = s.day; return; }
     if (L.U >= 0.9 * L.scap && K.eb > 0 && list.length < (P.ecMax || 6)) { if (add('ewh')) EC.lastAdd = s.day; }
   }
+  // ===================================================================================================================
+  // Passe 67 : playbooks de caste (P.play = 'banquier' | 'negociant' | 'industriel' | 'agriculteur').
+  // Chaque playbook joue ce qu'un joueur EXPERT de la caste ferait avec les outils de sa caste, dans l'ordre, chiffres du jeu à l'appui ;
+  // il ne triche pas : uniquement les fonctions du jeu (place, outils BTP, banque, terminal financier, fiche de ferme...). CP.n compte les actions emblématiques (test t68).
+  const CP = { n: {}, log: [], bk: { last: -99, inv: -99 }, tr: { last: -99, car: -99, emb: -99, pl: -99, pipe: -99 }, ag: { last: -99 }, ba: { last: -99 } };
+  const nb4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const roadAdj = (x, y) => nb4.some(d => isRoad(x + d[0], y + d[1]));
+  function note(k, info) { CP.n[k] = (CP.n[k] || 0) + 1; if (CP.log.length < 400) CP.log.push([S().day, k, info == null ? '' : info]); }
+  function roomOf(levK) { const s = S(); return Math.max(0, Math.min((levK || P.lev) * s.stats.worth, W.creditLimit()) - (s.loan || 0)); }
+  function fund(need) { if (S().cash < need) borrow(need + 1e5); return S().cash >= need; }
+
+  // ----- Banquier d'affaires : la banque (100 M$ de CET1) prête autant que le permettent la demande de crédit de la ville (≈ 3 000 $ par habitant),
+  // le ratio CET1 (≥ 10,5 % des actifs pondérés), le levier ×10 et surtout le LCR : sorties stressées de 30 jours = 8 % de l'encours × stress, couvertes par la trésorerie
+  // du banquier. Un dollar de trésorerie porte donc 12,5 $ de crédits, qui rapportent taux + 3 points − 1,5 point de pertes (entreprises) : l'expert garde un coussin de liquidité
+  // (financé au besoin par l'emprunt de la banque, à −40 % d'intérêt) au lieu de tout dépenser en magasins, et adapte le portefeuille au cycle :
+  //  croissance ≥ 1,5 % : entreprises (meilleure marge nette) ; croissance molle : immobilier (pondéré 50 %) ; récession ou crise du crédit (pertes ×3 à ×7) : il rappelle
+  //  les crédits risqués et prête au souverain (pondéré 0 %, perte 0,1 %/an). Il souscrit aux tours de table des rivaux (10 à 18 % sous le cours) dans la limite des 20 %
+  //  de fonds propres tradables, et passe la banque au niveau « Monopole » (+1 point de marge entreprises) quand l'encours dépasse 12 M$ en période de croissance.
+  function portVal() { const s = S(); let v = 0; Object.keys(s.port || {}).forEach(id => { const r = (s.rivals || []).find(x => x.id === id); if (r) v += s.port[id].n * W.riv.value(r) / 5000 * (1 + (r.mood || 0)); }); return v; }
+  function banker() {
+    const s = S(), B = W.bank, R = CP.bk; if (!B || s.caste !== 'banquier' || s.day - R.last < (P.bkEvery || 5)) return; R.last = s.day;
+    const b = B.init(); if (b.fail) return;
+    const M = s.macro || {}, gdp = M.gdp == null ? 0.03 : M.gdp, shock = W.macro ? W.macro.shockI('credit') : 0, stress = 1 + 1.5 * shock + (gdp < 0 ? 0.5 : 0);
+    const bad = gdp < 0 || shock > 0.05, soft = !bad && gdp < 0.015;
+    // 1) cycle : en récession / crise, rappel des crédits risqués (entreprises puis immobilier), au pair
+    if (bad && (b.lt.corp + b.lt.immo) > 0) { const q = b.lt.corp + (gdp < 0 ? b.lt.immo : 0); if (q > 0) { B.repay(q); note('bk_recall', Math.round(q / 1e6) + ' M$'); } }
+    // 2) coussin de liquidité : LCR visé 115 % sur l'encours actuel + la croissance possible (demande, CET1, levier)
+    const L = B.limits(bad ? 'sov' : soft ? 'immo' : 'corp'), grow = Math.max(0, Math.min(L.dem, L.lev, L.cet));
+    const want = Math.min(b.loans + grow, b.loans * 1.5 + 20e6);
+    P.keep = 0.08 * stress * want * 1.15 + 0.05 * (s.loan || 0);
+    if (s.cash < P.keep) borrow(P.keep + 1e5);
+    // 3) prêter jusqu'à la contrainte la plus étroite, au type adapté au cycle
+    const types = bad ? ['sov'] : soft ? ['immo', 'sov'] : ['corp', 'immo', 'sov'];
+    for (const t of types) { const q = 0.97 * B.cap(t); if (q > 2e5 && B.lend(q, t)) note('bk_lend_' + t, Math.round(q / 1e6) + ' M$'); }
+    // 4) niveau Monopole
+    if (b.lvl === 0 && b.loans >= 12e6 && gdp >= 0.02 && W.bkUp) { W.bkUp(); if (B.init().lvl > 0) note('bk_up'); }
+    // 5) participations : tours de table des rivaux (décote 10-18 %), dans la limite prudentielle (20 % des fonds propres)
+    // 6) modèle « holding » : participations durables dans les rivaux qui composent le plus vite (croissance de valeur sur 180 jours), vendues s'ils déclinent ; la valeur
+    //    des actions suit celle des sociétés : le banquier capte leur croissance sans la leur prendre (somme positive)
+    R.h = R.h || {}; if (s.day % 30 < (P.bkEvery || 5)) (s.rivals || []).forEach(r => { (R.h[r.id] = R.h[r.id] || []).push([s.day, W.riv.value(r)]); if (R.h[r.id].length > 12) R.h[r.id].shift(); });
+    const gr = r => { const h = R.h[r.id] || []; if (h.length < 7) return null; const a = h[h.length - 7][1], z = h[h.length - 1][1]; return a > 0 ? z / a - 1 : null; };
+    if (s.day - (R.hold || -99) >= 30) { R.hold = s.day; const lim = 0.2 * b.res, pv = portVal(), rs = (s.rivals || []).filter(r => !r.sub && gr(r) != null).sort((a, c) => gr(c) - gr(a));
+      const bad = rs.filter(r => gr(r) < -0.05 && ((s.port || {})[r.id] || { n: 0 }).n > 0); bad.forEach(r => { if (W.tradeShares(r.id, s.port[r.id].n, false)) note('bk_sell', r.name); });
+      const top = rs[0]; if (top && gr(top) > 0.08) { const px = W.riv.value(top) / 5000 * (1 + (top.mood || 0)), room = Math.min(lim * 0.95 - pv, s.cash - P.keep), q = Math.min(250, Math.floor(room / (px * 1.08))); if (q >= 50 && W.tradeShares(top.id, q, true)) note('bk_hold', top.name + ' +' + Math.round(gr(top) * 100) + ' %/6 mois'); } }
+    (s.inv || []).slice().forEach(q => { const i = s.inv.indexOf(q), cost = q.qty * q.px, lim = 0.2 * b.res; if (i < 0) return; if (portVal() + cost > lim) return; if (!fund(cost + P.keep)) return; if (W.inv.sub(i)) note('bk_stake', q.id); });
+  }
+
+  // ----- Négociant en matières : extraction exportée (+15 %), énergie (+30 % sur l'électricité, centrales −20 %), pipelines (−40 %), cartels (−50 %).
+  // Chiffres du jeu : une centrale à charbon (1,6 M$ pour la caste) brûle 500 t/j et livre 300 MWh/j ; une mine de charbon (1 750 t/j) en alimente trois ;
+  // le réseau paie 30 $/MWh × cpi (jusqu'à ×2,6 en pénurie, ×0,45 en surplus). Mesuré : centrale + mine, prix 22 $ : EBE ≈ 2 000 $/j (≈ 47 %/an) ;
+  // éolienne (1,75 M$, sans combustible) ≈ 3 300-4 500 $/j de recettes. L'expert couvre la demande du réseau (sans la noyer : prix visé ≥ 24 $/MWh),
+  // brûle son propre charbon (achemine charbon et pétrole par pipeline : transport ÷ 5), et forme un cartel de 20 jours (60 000 $ pour la caste) sur la matière
+  // qu'il produit le plus quand ~3 jours de recettes de cette matière (effet mesuré du cartel) dépassent 1,2 fois le coût. Pas d'embargo gratuit : il ne s'en sert que pour riposter
+  // à une guerre des prix qu'un rival lui mène (principe du jeu à somme positive).
+  function extRev(g) { let v = 0; for (let i = 0; i < N * N; i++) { const c = S().grid[i]; if (!c || c.x + c.y * N !== i || !W.TYPES[c.t] || W.TYPES[c.t].ext !== g) continue; v += c.pRev || 0; } return v; }
+  function ringCells(x, y, w, h) { const o = []; for (let ox = -1; ox <= w; ox++) for (let oy = -1; oy <= h; oy++) { if (ox >= 0 && ox < w && oy >= 0 && oy < h) continue; if ((ox < 0 || ox >= w) && (oy < 0 || oy >= h)) continue; o.push([x + ox, y + oy]); } return o; }
+  function powerSite(key) {   // emplacement touchant une rue, avec une case de pylône raccordable à la ville (voisine d'une case urbaine)
+    const T = W.TYPES[key], w = T.w || 1, h = T.h || 1; let best = null;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (W.footprintError(x, y, key)) continue; const ring = ringCells(x, y, w, h); if (!ring.some(p => isRoad(p[0], p[1]))) continue;
+      const py = ring.find(p => !cell(p[0], p[1]) && !W.footprintError(p[0], p[1], 'pylon') && [-1, 0, 1].some(a => [-1, 0, 1].some(b => { const X = p[0] + a, Y = p[1] + b; return X >= 0 && Y >= 0 && X < N && Y < N && W.ZONE[Y * N + X] === 1; })));
+      if (!py) continue; const d = Math.abs(x - 30) + Math.abs(y - 30) + (W.ZONE[y * N + x] === 1 ? 40 : 0); if (!best || d < best.d) best = { x, y, py, d };
+    }
+    return best;
+  }
+  function powerBuild(key) {
+    const sp = powerSite(key); if (!sp) return false; const b4 = S().cash;
+    if (!W.place(sp.x, sp.y, key)) return false; if (!W.place(sp.py[0], sp.py[1], 'pylon')) { W.place(sp.x, sp.y, 'bull'); return false; }
+    noteBuilt(key, sp.x, sp.y, b4 - S().cash); return b4 - S().cash;
+  }
+  function pipeTo(c) {   // pipeline de la mine (ou du puits) vers un terminal (zone portuaire, quai, centrale, port, fonderie, entrepôt) ; une rue se franchit d'un saut
+    const s = S(), T = W.TYPES[c.t], term = (x, y) => [-1, 0, 1].some(a => [-1, 0, 1].some(b => { const X = x + a, Y = y + b; if (X < 0 || Y < 0 || X >= N || Y >= N) return false; const z = W.ZONE[Y * N + X], o = cell(X, Y); return z === 2 || z === 4 || (o && (o.t === 'plant' || o.t === 'port' || o.t === 'foundry' || o.t === 'wh')); }));
+    const prev = new Map(), q = [];
+    ringCells(c.x, c.y, T.w || 1, T.h || 1).forEach(p => { if (p[0] < 0 || p[1] < 0 || p[0] >= N || p[1] >= N) return; const k = p[1] * N + p[0]; if (!s.grid[k] && !W.footprintError(p[0], p[1], 'pipeline') && Math.abs(p[0] - c.x) + Math.abs(p[1] - c.y) > 0) { prev.set(k, -1); q.push(k); } });
+    let end = -1;
+    for (let h = 0; h < q.length && q.length < 6000; h++) {
+      const k = q[h], x = k % N, y = (k / N) | 0; if (term(x, y)) { end = k; break; }
+      if (prev.size > 4000) break;
+      nb4.forEach(d => { for (let st = 1; st <= 2; st++) { const X = x + d[0] * st, Y = y + d[1] * st; if (X < 0 || Y < 0 || X >= N || Y >= N) return; const j = Y * N + X, o = s.grid[j]; if (o && o.t === 'road' && st === 1) continue; if (o || W.footprintError(X, Y, 'pipeline')) return; if (!prev.has(j)) { prev.set(j, k); q.push(j); } return; } });
+    }
+    if (end < 0) return 0; const path = []; for (let k = end; k >= 0; k = prev.get(k)) path.push(k); if (path.length > 60) return 0;
+    let n = 0; path.forEach(k => { if (W.place(k % N, (k / N) | 0, 'pipeline')) n++; }); return n;
+  }
+  function trader() {
+    const s = S(), R = CP.tr; if (s.caste !== 'negociant' || s.day - R.last < 8) return; R.last = s.day; const cp = Math.max(1, s.cpi || 1);
+    // 1) énergie : couvrir la demande du réseau tant que le prix après ajout reste ≥ 24 $/MWh (×cpi)
+    const pw = s.power; if (pw && s.day - R.pl >= 30 && tierOk('plant')) {
+      const nCoal = (born.mcoal || []).length, nPlant = (born.plant || []).length, fuel = nCoal * 1750 * 0.8 - 500 * nPlant;
+      let sup = 0; ['plant', 'wind'].forEach(k => (born[k] || []).forEach(b => { const c = cell(b.x, b.y); if (c && c.t === k) sup += c._mwh || (k === 'plant' ? 286 : 87); }));   // offre réelle de ses centrales (l'instantané S.power peut dater d'avant la production du jour)
+      const key = fuel >= 500 ? 'plant' : 'wind', add = key === 'plant' ? 286 : 87, r1 = (pw.B + sup + add) / Math.max(1, pw.D);
+      const px1 = 30 * cp * (r1 < 1 ? 1 + 1.6 * (1 - r1) : Math.max(0.45, 1 / r1)), cost = W.TYPES[key].cost * cp * (key === 'plant' ? 0.8 : 1) * 1.05;
+      const lastP = (born[key] || []).filter(b => s.day - b.day >= 40).slice(-1)[0], lc = lastP && cell(lastP.x, lastP.y), lh = lc && lc.hist ? lc.hist.slice(-20) : null;
+      const okR = !lh || lh.length < 10 || lh.reduce((a, v) => a + v, 0) / lh.length * 360 >= 0.25 * lastP.paid;   // l'expert regarde le compte de la dernière centrale : moins de 25 %/an, il arrête
+      if (okR && px1 >= (key === 'plant' ? 24 : 30) * cp && fund(cost + 2e5)) { const r = powerBuild(key); if (r > 0) { R.pl = s.day; note('tr_' + key, Math.round(px1) + ' $/MWh'); } else R.pl = s.day - 20; }
+      if (fuel < 500 && nPlant + 1 > 0 && px1 >= 26 * cp && s.day - (R.coal || -99) > 60) {   // une mine de charbon pour brûler son propre charbon (et l'exporter le reste du temps)
+        const q = depQuote('mcoal'); if (q.length && fund(q[0].tot * 1.1)) { const r = depBuild('mcoal'); if (r > 0) { R.coal = s.day; note('tr_mcoal'); } }
+      }
+    }
+    // 2) pipelines : puits de pétrole et mines de charbon non raccordés
+    if (s.day - R.pipe >= 24) { R.pipe = s.day; ['well', 'mcoal'].forEach(k => (born[k] || []).forEach(b => { const c = cell(b.x, b.y); if (!c || c.t !== k || c.piped || b.pt) return; b.pt = 1; const n = pipeTo(c); if (n) note('tr_pipeline', k + ' ' + n + ' cases'); })); }
+    // 3) cartel sur la matière la plus produite
+    if (s.day - R.car >= 21) {
+      const cost = 6000 * 20 * 0.5 * cp; let best = null;
+      // mesuré (graine 6000) : cours visé +18 % -> cours réel +5 % à J+3, +15 % à J+15, encore +7 % dix jours après : ≈ 3 jours de recettes de la matière en plus.
+      // Le charbon brûlé par ses propres centrales ne compte pas (le cartel le renchérirait pour lui-même).
+      ['iron', 'coal', 'copper', 'gold', 'oil'].forEach(g => { const v = extRev(g) - (g === 'coal' ? 500 * (born.plant || []).length * (s.price.coal || 0) : 0); if (v > 0 && (!best || v > best.v)) best = { g, v }; });
+      if (best && 3.0 * best.v >= 1.2 * cost && s.cash > 3 * cost && W.cartelOn(best.g)) { R.car = s.day; note('tr_cartel', best.g); }
+    }
+    // 4) embargo défensif : seulement contre le rival qui mène une guerre des prix contre toi
+    const RV = s.rv || {}; if (RV.war && RV.war.rid && s.day - R.emb >= 7) { const r = (s.rivals || []).find(x => x.id === RV.war.rid); if (r && (r.emb || 0) < s.day && s.cash > 2e6 && W.embargoOn(r.id)) { R.emb = s.day; note('tr_embargo', r.name); } }
+  }
+
+  // ----- Baron industriel : chaînes verticales complètes (bot industriel : extraction -> composants f1-f3 -> usine du produit -> magasins), plus de ports quand
+  // les gisements s'épuisent (import moins cher), catalogue élargi au haut de gamme (f3/f4), rachat des actifs d'un rival en faillite (−15 % pour la caste, la filiale
+  // continue de vendre : rien n'est détruit), participation de 10 % dans un rival (dès le jour 450, hors épargne d'une chaîne) puis contrôle à 51 % (filiale gérée par l'IA, dividendes 60 % du résultat),
+  // quand les chaînes n'absorbent plus la trésorerie. L'OPA totale (dès 10 %, prime 20 %) fait disparaître la société cible du marché : l'expert ne la lance pas
+  // tant qu'une participation majoritaire rapporte davantage (voir docs/EQUILIBRE_ECONOMIE.md).
+  function baron() {
+    const s = S(), R = CP.ba; if (s.caste !== 'industriel' || s.day - R.last < 16) return; R.last = s.day;
+    const RV = s.rv || {};
+    if (RV.sale && W.riv.buySale) { const sl = RV.sale, inc = Math.max(40, (sl.rev || 0) * 0.12) * Math.max(1, s.cpi || 1); if (sl.price < inc * 360 * 5 && fund(sl.price + 1e6) && W.riv.buySale()) note('ba_rescue', sl.name); }
+    const worth = s.stats.worth || 0, idle = s.cash - 0.1 * worth; if (s.day < 450 || (IND.save != null && s.day - IND.save < 40)) return;   // jamais sur l'épargne réservée à une chaîne
+    const rs = (s.rivals || []).filter(r => !r.sub).sort((a, b) => W.riv.value(a) - W.riv.value(b)), r = rs[0]; if (!r) return;
+    const h = (s.port || {})[r.id], have = h ? h.n : 0, px = W.riv.value(r) / 5000 * (1 + (r.mood || 0));
+    const tgt = worth > 60e6 && idle > W.riv.value(r) && !IND.save ? 2600 : idle > 3 * 500 * px ? 500 : 0, need = tgt - have;
+    if (need > 0) { const q = Math.min(need, Math.floor(Math.max(0, idle) / (px * 1.05))); if (q >= 50 && W.tradeShares(r.id, q, true)) note(have + q > 2500 ? 'ba_control' : 'ba_stake', r.name + ' ' + Math.round((have + q) / 50) + ' %'); }
+    // OPA (dès 10 %, prime 20 %) : une seule, tard, quand la trésorerie oisive couvre deux fois l'offre ; la cible devient une filiale (revenu de 12 % de son chiffre d'affaires, comptée au coût amorti)
+    const rh = rs.find(x => ((s.port || {})[x.id] || { n: 0 }).n >= 500 && ((s.port || {})[x.id] || { n: 0 }).n <= 2500);
+    if (rh && !CP.n.ba_opa && s.day >= 1200 && !IND.save) { const st = s.port[rh.id].n / 5000, pxh = W.riv.value(rh) / 5000 * (1 + (rh.mood || 0)), cost = (1 - st) * 5000 * pxh * 1.2; if (idle > 2 * cost && W.launchOpa(rh.id)) note((s.rivals || []).indexOf(rh) < 0 ? 'ba_opa' : 'ba_opa_fail', rh.name); }
+  }
+
+  // ----- Exploitant agricole : fermes (−25 %, cultures +15 %) et élevages, irrigation au maximum dès la pose (3 niveaux : 840 / 1 820 / 2 940 $ pour la caste,
+  // +10 % de récolte par niveau et protection contre la sécheresse : rentabilisé en quelques jours sur une ferme de 1,5 M$), puis chaîne alimentaire
+  // (pain d'abord) qui transforme ses propres récoltes ; le surplus part à l'export par le port. P.foodChain (essai mesuré, écarté) : chaîne de 14 produits alimentaires
+  // dimensionnée aussi sur vigne, maïs, colza et élevages : 175 M$ au jour 1 800 contre 267 M$ (graine 6000) : de petites usines alimentaires peu chargées coûtent plus qu'elles ne rapportent.
+  function farmer() {
+    const s = S(), R = CP.ag; if (s.caste !== 'agriculteur' || s.day - R.last < 5) return; R.last = s.day;
+    if (P.foodChain && !R.rawk) { R.rawk = 1; Object.assign(RAWK, { grapes: 'fvine', corn: 'fcorn', rapeseed: 'frapeseed', milk: 'fcattle', egg: 'fchicken', pork: 'fpig', wool: 'fsheep' }); ['fvine', 'fcorn', 'frapeseed', 'fcattle', 'fchicken', 'fpig', 'fsheep'].forEach(k => { if (W.TYPES[k]) EXT[k] = W.TYPES[k].ext; }); }   // la chaîne alimentaire se dimensionne aussi sur la vigne, le maïs, le colza et les élevages
+    for (let i = 0; i < N * N; i++) { const c = s.grid[i]; if (!c || c.x + c.y * N !== i || !W.TYPES[c.t] || !W.TYPES[c.t].ext || !W.CROPS || !(W.CROPS[W.TYPES[c.t].ext] || W.TYPES[c.t].live)) continue;
+      if ((c.irr | 0) >= 3 || s.cash < 2e4) continue; W.openBuilding(c.x, c.y); let n = 0; while ((c.irr | 0) < 3 && n++ < 3) { const l = c.irr | 0; W.bAct('irr'); if ((c.irr | 0) === l) break; note('ag_irr', c.t); } W.closeBuilding(); }
+  }
+
   function tick() {
     const s = S(); let did = 0, spent = 0;
     if (s.day % 20 === 0) prune();
     if (s.day % 8 === 0) missions();
     if (P.industry) industry();
     if (P.ecom) ecom();
-    if (P.bank) bank();
+    if (P.bank && P.play !== 'banquier') bank();
+    if (P.play === 'banquier') banker();
+    if (P.play === 'negociant') trader();
+    if (P.play === 'industriel') baron();
+    if (P.play === 'agriculteur') farmer();
     if (P.idle > 0 && ((s.day * 2654435761) >>> 0) % 1000 < P.idle * 1000) return { did: 0, spent: 0 };
     if (s.stats.unemp < 0.045 && s.cash > 1.5e6 && (cnt.res || 0) < P.resCap) { for (let i = 0; i < 3; i++) { const r = tryBuild('res'); if (r) { spent += r; did++; } } }
     for (let n = 0; n < P.maxPerTick; n++) {
       if (P.industry && IND.save != null && s.day - IND.save < 40) break;   // épargne pour une chaîne
       const b = pick(); if (!b) break;
-      if (s.cash < b.cost) borrow(b.cost + 1e5);
-      if (s.cash < b.cost) break;
+      if (s.cash - (P.keep || 0) < b.cost) borrow(b.cost + (P.keep || 0) + 1e5);
+      if (s.cash - (P.keep || 0) < b.cost) break;
       const r = EXT[b.k] ? depBuild(b.k) : b.k === 'dc' ? tryBuildAny('dc') : tryBuild(b.k);
       if (r === -1) { P.lim = P.lim || {}; P.lim[b.k] = cnt[b.k] || 0; continue; }
       if (!r) { cnt['x_' + b.k] = s.day + 20; (window.__blog || (window.__blog = [])).push(['fail', b.k, s.day, Math.round(s.cash), Math.round(b.cost)]); continue; }
@@ -302,5 +448,5 @@ window.BOT = (function () {
     if (P.bourse && s.day % 8 === 0) bourse();
     return { did, spent };
   }
-  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC };
+  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC, CP };
 })();
