@@ -3158,7 +3158,7 @@ function cityBuild(kind, sc) {   // un chantier : construit sur un lot libre ou 
     const id = cityPickWeighted(sc.freeL, freeW); if (id < 0 || S.grid[id]) return 0;
     const x = id % N, y = (id / N) | 0, tf = cityTarget(x, y, kind, R, Fm); let k = kind, f = 1;
     if (kind === 'off') f = clamp(Math.round(tf * 0.5), 2, Math.max(2, tf)); else if (tf >= 2) { k = 'res'; f = clamp(Math.round(tf * 0.5), 2, tf); } else k = 'house';
-    const c = npcCellOf(x, y, k, f); c.born = now; S.grid[id] = c; sc.freeL.splice(sc.freeL.indexOf(id), 1); sc.free--; return k === 'house' ? 1 : f;
+    const c = npcCellOf(x, y, k, f); c.born = now; c.cd = S.day; S.grid[id] = c; sc.freeL.splice(sc.freeL.indexOf(id), 1); sc.free--; return k === 'house' ? 1 : f;
   }
   if (!list.length) return 0;
   const own = c => S.npcOwn && S.npcOwn[c.x + ',' + c.y], id = cityPickWeighted(list, i => { const c = S.grid[i], tf = cityTarget(c.x, c.y, kind === 'off' ? 'off' : 'res', R, Fm); return (tf - c.floors) / tf * (own(c) ? 3 : 1); });
@@ -3167,7 +3167,8 @@ function cityBuild(kind, sc) {   // un chantier : construit sur un lot libre ou 
   const tf = cityTarget(c.x, c.y, kind === 'off' ? 'off' : 'res', R, Fm), f0 = c.floors, k0 = c.k;
   let f1; if (k0 === 'house') { f1 = Math.min(tf, 2 + Math.floor(crnd() * 3)); c.k = 'res'; } else f1 = Math.min(tf, f0 + Math.max(1, Math.round(f0 * 0.3) + Math.floor(crnd() * 2)));
   if (f1 <= (k0 === 'house' ? 1 : f0)) { c.k = k0; return 0; }
-  c.floors = f1; c.born = now - 300; if (f1 >= tf) { const q = list.indexOf(id); if (q >= 0) list.splice(q, 1); }
+  c.floors = f1; c.born = now - 300; c.cd = S.day;   // cd : jour du chantier (ville vivante, non sauvegardé)
+  if (f1 >= tf) { const q = list.indexOf(id); if (q >= 0) list.splice(q, 1); }
   const o = own(c), rv = o && rivalById(o);
   if (rv && crnd() < 0.3) say(`${rv.name} rase et reconstruit plus haut : ${kindFr(c.k, 1)} de ${f1} étages en (${c.x + 1}, ${c.y + 1}).`, 'info');
   if (f1 >= 10) cityFirst('t10', `Premier immeuble de ${f1} étages en (${c.x + 1}, ${c.y + 1}) : la ville prend de la hauteur.`);
@@ -12731,6 +12732,7 @@ function mixC(a, b, t) {
 
 // gisements dessinés sur le sol
 function drawField(p, d, x, y) {
+  if (d.k === 'wheat') { const n = d.r > DEPOSITS.wheat.res * 0.5 ? 'champ_ble_mur' : 'champ_ble_vert'; if (vvOk(n) && vvDraw(n, p, 1) != null) return; }   // ville vivante : champ de blé HD (mûr tant que la parcelle est riche, vert après les récoltes)
   const col = CROP_COL[d.k];
   ctx.fillStyle = col; ctx.globalAlpha *= 0.72; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill(); ctx.globalAlpha /= 0.72;
   ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 2; for (let k = 1; k < 4; k++) { const a = iso(x, y + k / 4), b = iso(x + 1, y + k / 4); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
@@ -12899,6 +12901,12 @@ function isoBox(cx, cy, lx, ly, h, cTop, cL, cR) {
 const CONT_COL = ['#ff5a5f', '#3fd8ff', '#f2b84b', '#46d39a', '#7f96ff', '#ff8a3d', '#e9edff'];
 function drawContainers(p, seed, tall) {
   const cx = p.x, cy = p.y + 33;
+  if (vvOk('conteneur_pile') && vvOk('conteneur_bleu') && vvOk('conteneur_rouge')) {   // ville vivante : conteneurs HD (pile de trois, ou un bleu et un rouge côte à côte)
+    const r = hash(seed, 1, 13);
+    if (tall || r < 0.45) vvSpr('conteneur_pile', cx + (r - 0.2) * 20, cy + 14, 56, r < 0.22);
+    else { const f = r < 0.72; vvSpr(f ? 'conteneur_rouge' : 'conteneur_bleu', cx - 16, cy + 4, 46, f); vvSpr(f ? 'conteneur_bleu' : 'conteneur_rouge', cx + 14, cy + 18, 46, f); }
+    return;
+  }
   for (let k = 0; k < 3; k++) {
     const ox = (k - 1) * 30, oy = (k % 2 ? 10 : -6);
     const levels = 1 + Math.floor(hash(seed, k, 3) * 3) + (tall ? 1 : 0);
@@ -12909,6 +12917,7 @@ function drawContainers(p, seed, tall) {
   }
 }
 function drawCrane(cx, cy, seed, now) {
+  if (vvSpr('grue_portique', cx, cy, 64, hash(seed, 1, 7) < 0.5) != null) return;   // ville vivante : grue HD
   ctx.strokeStyle = '#ff5a5f'; ctx.lineWidth = 6; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(cx - 14, cy); ctx.lineTo(cx - 14, cy - 100); ctx.moveTo(cx + 14, cy + 8); ctx.lineTo(cx + 14, cy - 92); ctx.stroke();
   ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 7;
@@ -12920,6 +12929,7 @@ function drawCrane(cx, cy, seed, now) {
   ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.arc(cx - 14, cy - 104, 4, 0, 7); ctx.fill();
 }
 function drawShip(px, py, seed) {
+  if (vvSpr('navire_cargo', px - 20, py - 8, 250, false) != null) return;   // ville vivante : porte-conteneurs HD (proue vers le bas à gauche, dans l'axe y de la carte)
   // coque le long de l'axe y de la carte (vers le bas à gauche à l'écran)
   isoBox(px, py, 0.95, 3.1, 16, '#3a456f', '#202a50', '#161d3b');
   isoBox(px, py - 16, 0.8, 2.9, 3, '#c0392b', '#a93226', '#7b241c');
@@ -12945,8 +12955,9 @@ function drawWater(p, now, x, y) {
   }
 }
 function drawQuayDecor(p, x, y, now) {
-  drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35);
-  if (y % 6 === 3) drawCrane(p.x + 20, p.y + 40, y, now);
+  const gn = VV_GOODS[Math.floor(hash(x, y, 24) * VV_GOODS.length)];   // ville vivante : un quai sur quatre porte des marchandises (bacs de matières, lingots, sacs, barres)
+  if (!(hash(x, y, 23) < 0.25 && vvSpr(gn, p.x + (hash(x, y, 26) - 0.5) * 30, p.y + 40, 50, hash(x, y, 25) < 0.5) != null)) drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35);
+  if (y % 6 === 3 && (x % 2 === 0 || !vvOk('grue_portique'))) drawCrane(p.x + 20, p.y + 40, y, now);   // grues HD : une case sur deux de la rangée (sinon elles se chevauchent)
 }
 const ships = [];
 for (let i = 0; i < 5; i++) ships.push({ x: 91 + (i % 2) * 2.4, y: 8 + i * 17, v: (i % 2 ? 1 : -1) * (0.22 + 0.06 * i), seed: i });
@@ -13676,7 +13687,11 @@ function drawTileOf(a, x, y, ox, oy, o) {
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
   if (P2_TYPE[a.t] && p2Ready(a.t)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
-    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = p2Draw(P2_TYPE[a.t], p, Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }); a._top = ty == null ? p.y - 40 : ty; }
+    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }); a._top = ty == null ? p.y - 40 : ty; if (VV_FARM[a.t]) vvFarm(a); }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes
+  } else if (a.t === 'npc' && vvNpc(a, p)) {
+    // ville vivante : équipement, parc, chantier, service de quartier ou tour en HD (dessiné par vvNpc)
+  } else if (a.t === 'hq' && vvHq(a)) {
+    if (ox === a.w - 1 && oy === a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), n = vvHq(a); a._top = vvDraw(n, p, n === 'siege_hq_n1' ? 1.15 : Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }); }   // siège social : 3 niveaux HD (le niveau 1, sans parvis, est posé au centre de l'emprise à l'échelle d'une case : sinon ses 3 étages seraient géants)
   } else if (PROC_IND[a.t]) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
   } else if (a.t === 'npc' && a.k === 'mon' && a.m === 'mall') {
@@ -13723,11 +13738,13 @@ function drawTileOf(a, x, y, ox, oy, o) {
     const name = a.t === 'res' ? 'res' + (k % 9) : a.t === 'tech' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' ? 'tech' + (k % 2) : a.t === 'sport' ? 'res' + (k % 9) : 'bank' + (k % 2);
     const floors = Math.max(1, Math.round(lvFloors(a) * (a.t === 'res' ? 1 : grow)));
     const bx = p.x - 50, by = p.y - 27;
-    if (a.works && a.works.k === 'new') ctx.globalAlpha *= 0.45;
-    const hs = a.t === 'hq' || a.t === 'sport' || a.t === 'tv' ? null : citySpr(a, a.t === 'res' ? 'res' : a.t === 'bank' ? 'bank' : 'tech', floors);   // sprite HD de la ville pour les immeubles du joueur
-    if (hs) { const q = cityBox(hs, p); ctx.drawImage(hs.im, q.x, q.y + (1 - grow) * 30, q.w, q.h * grow); a._top = q.y; }
+    const vw = a.works && a.works.k === 'new' && vvOk('chantier_petit'), vl = vw ? null : vvLvl(a, floors);   // ville vivante : chantier HD pendant la construction, sprite de niveau (logements par étages, tours)
+    if (a.works && a.works.k === 'new' && !vw) ctx.globalAlpha *= 0.45;
+    const hs = vw || vl || a.t === 'hq' || a.t === 'sport' || a.t === 'tv' ? null : citySpr(a, a.t === 'res' ? 'res' : a.t === 'bank' ? 'bank' : 'tech', floors);   // sprite HD de la ville pour les immeubles du joueur
+    if (vw || vl) a._top = vvDraw(vw ? 'chantier_petit' : vl, p, 1);
+    else if (hs) { const q = cityBox(hs, p); ctx.drawImage(hs.im, q.x, q.y + (1 - grow) * 30, q.w, q.h * grow); a._top = q.y; }
     else { for (let i = 0; i < floors; i++) blit(name, bx, by - i * FH); a._top = by - (floors - 1) * FH; }
-    roofTop(a, p, o.now);
+    if (!vw && !vl) roofTop(a, p, o.now);
     if (a.works) drawWorksOver(a, p, bx, by, floors, o.now);
   } else {
     const name = tileSprite(a, ox, oy), s = name && SP[name];
@@ -13848,6 +13865,7 @@ function drawCar(c) {
   const t = clamp(c.t, 0, 1);
   const lane = { SE: [-9, 4], NW: [9, -4], SW: [9, 4], NE: [-9, -4] }[dir];
   const px = lerp(a.x, b.x, t) + lane[0], py = lerp(a.y, b.y, t) + TH / 2 + lane[1];
+  if (vvCar(c, dir, px, py)) return;   // ville vivante : voitures, utilitaires et camions HD
   const s = SP['veh_' + c.m + '_' + dir];
   if (s) ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], px - s[2] / 2, py - s[3] + 6, s[2], s[3]);
 }
@@ -14046,6 +14064,8 @@ function frame(now) {
       } else if (decor[i] && !S.dep[i]) {
         const dc = decor[i];
         ctx.globalAlpha = treeCol; { const tn = P2_TREES[Math.floor(hash(x, y, 17) * P2_TREES.length)], te = P2_IMG[tn]; if (te && te.ok) { const k = 54 / 212, cy2 = p.y + 33 + dc.dy + 4; ctx.drawImage(te.im, p.x + dc.dx - 27, cy2 - 312 * k, 54, 312 * k); } else blit('tree', p.x - 16 + dc.dx, p.y + 33 - 42 + dc.dy); } ctx.globalAlpha = 1;
+      } else if (ZONE[i] === 0 && !S.dep[i] && !isRoadPos(x, y) && hash(x, y, 71) < 0.022) {
+        vvRock(p, x, y);   // ville vivante : rochers épars sur la campagne non bâtie
       }
       if (ghost && x === ghost.x + ghost.w - 1 && y === ghost.y + ghost.h - 1) {
         for (let gx = 0; gx < ghost.w; gx++) for (let gy = 0; gy < ghost.h; gy++) drawTileOf(ghost, ghost.x + gx, ghost.y + gy, gx, gy, { now, alpha: 0.65, ghost: true });
@@ -15537,6 +15557,90 @@ function p2Draw(name, p, cells, c) {   // dessine le sprite : le centre de sa da
   const dm = d.length >= 9 ? [d[6], d[7], d[8]] : [d[2], d[4], d[5] - (d[4] - d[2]) / 4], sy = d[9] || 1, k = TW * (cells || 1) / (dm[1] - dm[0]), w = d[0] * k, h = d[1] * k * sy, cx = c ? c.x : p.x, cy = c ? c.y : p.y + TH / 2, x = cx - (dm[0] + dm[1]) / 2 * k, y = cy - dm[2] * k * sy;
   ctx.drawImage(e.im, x, y, w, h); return y;
 }
+/* ---------- Ville vivante (intégrateur n° 9) : services de quartier, véhicules et navires HD, décor du port, détails des fermes, niveaux, parcs, rochers, chantiers ----------
+   Tout est visuel et déterministe (hash) : l'économie d'une case PNJ ne change pas (un café reste, pour l'emploi et les loyers, l'immeuble de bureaux ou de logements qu'il était),
+   rien n'est sauvegardé (les services sont recalculés chaque jour à partir de la grille : une ancienne sauvegarde a aussi les siens). Sprite absent = dessin d'origine. */
+const vvOk = n => !!(P2_IMG[n] && P2_IMG[n].ok && P2DIM[n]);
+const VV_BOX = { maison_n3: 1, immeuble_n1: 1, immeuble_n2: 1, tour_bureaux: 1, tour_logements: 1, tour_tech: 1, tour_pnj_a: 1, tour_pnj_b: 1, siege_hq_n1: 1, batiment_abandonne: 1 };   // bâtiments sans dalle (boîte posée) : le sommet bas de la silhouette est posé sur le sommet bas de l'emprise
+function p2DrawBox(name, p, cells, c) {
+  const e = P2_IMG[name], d = P2DIM[name]; if (!e || !e.ok || !d) return null;
+  const n = cells || 1, k = TW * n / Math.max(1, d[4] - d[2]), cx = c ? c.x : p.x, cy = (c ? c.y : p.y + TH / 2) + TH * n / 2, x = cx - (d[2] + d[4]) / 2 * k, y = cy - d[5] * k;
+  ctx.drawImage(e.im, x, y, d[0] * k, d[1] * k); return y + d[3] * k;
+}
+const vvDraw = (name, p, cells, c) => VV_BOX[name] ? p2DrawBox(name, p, cells, c) : p2Draw(name, p, cells, c);
+function vvSpr(n, x, y, w, flip) {   // objet posé (véhicule, animal, personnage, grue, navire, marchandise) : ancre d'ancres.json (sinon bas de la silhouette) en (x, y), silhouette opaque large de w px monde ; flip = miroir horizontal
+  const e = P2_IMG[n], d = P2DIM[n]; if (!e || !e.ok || !d) return null;
+  const k = w / Math.max(1, d[4] - d[2]), ax = d[10] >= 0 ? d[10] : (d[2] + d[4]) / 2, ay = d[11] >= 0 ? d[11] : d[5], dw = d[0] * k, dh = d[1] * k;
+  if (flip) { ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.drawImage(e.im, -ax * k, -ay * k, dw, dh); ctx.restore(); } else ctx.drawImage(e.im, x - ax * k, y - ay * k, dw, dh);
+  VV.n++; return y - (ay - d[3]) * k;
+}
+const VV = { n: 0, day: -1, g: null, svc: {}, list: [] };
+// Services de quartier : [libellé, couronne (c centre, m entre-deux, p périphérie), nombre visé, règle]
+const VV_SVC = {
+  restaurant_terrasse: ['Restaurant en terrasse', 'c', 3], cafe_de_quartier: ['Café de quartier', 'c', 3], boulangerie: ['Boulangerie', 'c', 3], boutique_mode: ['Boutique de mode', 'c', 3],
+  drugstore: ['Drugstore', 'm', 2], barre_hlm: ['Barre HLM', 'm', 4, 'hlm'], immeuble_en_construction: ['Immeuble en construction', 'm', 2, 'up'],
+  eglise_de_village: ['Église', 'p', 2], gare_ferroviaire: ['Gare ferroviaire', 'p', 1, 'far'], station_service: ['Station-service', 'p', 3, 'road'], station_recharge_electrique: ['Station de recharge électrique', 'p', 2, 'road'], batiment_abandonne: ['Immeuble abandonné (friche)', 'p', 1]
+};
+const VV_MON = { hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport' };   // équipements publics existants : sprite HD
+P2_DEP.gold = 'gisement_or';   // gisement d'or HD (les effets de brillance depFx restent dessinés par-dessus)
+function vvRing(x, y) { const dc = Math.hypot(x - CBD.x, y - CBD.y); return MALLB ? Math.max(0, dc - MALL_SH) : dc; }
+function vvSvcMap() {   // une passe par jour de jeu : chaque service va aux cases PNJ les plus adaptées (hash), espacées d'au moins 4 cases entre services du même type
+  if (!S || !S.grid) return VV.svc; if (VV.day === S.day && VV.g === S.grid) return VV.svc;
+  VV.day = S.day; VV.g = S.grid; const out = {}, list = [], used = new Set(), cand = [];
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!c || c.t !== 'npc') continue; c._sv = null; if (c.k === 'mon' || c.k === 'park' || c.lm) continue; cand.push(c); }
+  const roadAdj = c => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(d => inb(c.x + d[0], c.y + d[1]) && isRoad(c.x + d[0], c.y + d[1]));
+  Object.keys(VV_SVC).forEach(n => {
+    const [, ring, want, rule] = VV_SVC[n], picked = [];
+    const ok = c => { const d = vvRing(c.x, c.y); if (rule === 'hlm') return c.k === 'res' && c.floors >= 3 && c.floors <= 10 && d >= 5 && d < 14; if (rule === 'up') return c.k !== 'house' && c.floors >= 2 && c.floors <= 9 && d >= 5 && d < 14;
+      if (c.floors > 7) return false; if (ring === 'c') return d < 9; if (ring === 'm') return d >= 5 && d < 14; return d >= 9 && (rule !== 'road' || roadAdj(c)) && (rule !== 'far' || roadAdj(c)); };
+    const sc = c => rule === 'far' ? -vvRing(c.x, c.y) + hash(c.x, c.y, 81) * 2 : hash(c.x, c.y, 80 + n.length);
+    cand.filter(c => !used.has(c) && ok(c)).sort((a, b) => sc(a) - sc(b) || a.x - b.x || a.y - b.y).forEach(c => { if (picked.length >= want || picked.some(q => Math.abs(q.x - c.x) + Math.abs(q.y - c.y) < 4)) return; picked.push(c); used.add(c); c._sv = n; list.push([c.x, c.y, n]); });
+    out[n] = picked.length;
+  });
+  VV.svc = out; VV.list = list; return out;
+}
+function vvNpc(a, p) {   // bâtiment PNJ en HD (équipement, parc, chantier de la croissance, service de quartier, tour) ; true si dessiné
+  if (a.k === 'mon') { const n = VV_MON[a.m]; if (!n || !vvOk(n)) return false; a._top = vvDraw(n, p, 1); return true; }
+  if (a.k === 'park') { if (!vvOk('parc_urbain')) return false; a._top = vvDraw('parc_urbain', p, 1); return true; }
+  if (!a.lm && a.cd != null && S.day - a.cd < 6) { const n = a.k === 'house' ? 'chantier_petit' : 'immeuble_en_construction'; if (vvOk(n)) { a._top = vvDraw(n, p, 1); return true; } }   // chantier : 6 jours après une construction ou une surélévation par la ville
+  vvSvcMap(); if (a._sv && vvOk(a._sv)) { a._top = vvDraw(a._sv, p, 1); return true; }
+  if (a.k === 'house' && hash(a.x, a.y, 84) < 0.3) { const n = ['maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c'][Math.floor(hash(a.x, a.y, 85) * 3)]; if (vvOk(n)) { a._top = vvDraw(n, p, 1); return true; } }   // maisons et petits immeubles PNJ de la phase 2 mêlés aux autres
+  if (a.k !== 'house' && !a.lm && a.floors >= 3 && a.floors <= 8 && hash(a.x, a.y, 86) < 0.3) { const n = a.k === 'off' || hash(a.x, a.y, 87) < 0.5 ? 'immeuble_pnj_b' : 'immeuble_pnj_a'; if (vvOk(n)) { a._top = vvDraw(n, p, 1); return true; } }
+  if (a.k !== 'house' && !a.lm && a.floors >= 12 && a.floors <= 30 && hash(a.x, a.y, 77) < 0.35) { const n = hash(a.x, a.y, 78) < 0.5 ? 'tour_pnj_a' : 'tour_pnj_b'; if (vvOk(n)) { a._top = vvDraw(n, p, 1); return true; } }
+  return false;
+}
+const vvSvcName = c => { if (!c || c.t !== 'npc') return ''; vvSvcMap(); return c._sv && VV_SVC[c._sv] ? VV_SVC[c._sv][0] : ''; };
+function vvSvcHTML() {   // panneau du Mall : commerces et services de quartier de la ville
+  vvSvcMap(); const by = {}; VV.list.forEach(q => { (by[q[2]] = by[q[2]] || []).push(q); }); const ks = Object.keys(by).filter(n => VV_SVC[n][1] !== 'p' && n !== 'barre_hlm' && n !== 'immeuble_en_construction'); if (!ks.length) return '';
+  return `<h4>Commerces de quartier autour du mall</h4><p class="mnote">${ks.map(n => `${VV_SVC[n][0]} ×${by[n].length}`).join(' · ')}. Ce sont les commerces indépendants de la ville : ils animent les rues et attirent les passants.</p>`;
+}
+// Niveaux des bâtiments du joueur : logements (étages), tours, siège, supermarché et hypermarché (niveau d'amélioration)
+const VV_LVL = { s2: ['supermarche', 'supermarche', 'supermarche_n2', 'supermarche_n2', 'supermarche_n3'], s3: ['hypermarche', 'hypermarche', 'hypermarche_n2', 'hypermarche_n2', 'hypermarche_n3'] };
+function vvP2Name(a) { const L = VV_LVL[a.t]; if (L) { const n = L[Math.min(L.length - 1, a.lvl || 0)]; if (vvOk(n)) return n; } return P2_TYPE[a.t]; }
+function vvHq(a) { const n = ['siege_hq_n1', 'siege_hq_n1', 'siege_hq_n2', 'siege_hq_n2', 'siege_hq_n3'][Math.min(4, a.lvl || 0)]; return vvOk(n) ? n : null; }
+function vvLvl(a, fl) {   // sprite de niveau d'un immeuble du joueur, ou null
+  let n = null;
+  if (a.t === 'res') n = fl <= 1 ? 'maison_n1' : fl === 2 ? 'maison_n2' : fl === 3 ? 'maison_n3' : fl <= 6 ? 'immeuble_n1' : fl <= 12 ? 'immeuble_n2' : 'tour_logements';
+  else if (a.t === 'tech') n = (a.lvl || 0) >= 2 ? 'tour_tech' : null;
+  else if (a.t === 'off') n = 'tour_bureaux';
+  return n && vvOk(n) ? n : null;
+}
+// Fermes 2×2 : détails dans l'emprise (u, v en cases depuis le coin nord de la ferme ; tous dans la moitié avant gauche, hors des bâtiments du sprite)
+const VV_SPOT = [[0.38, 1.12], [0.62, 1.52], [0.98, 1.68], [1.32, 1.8]];
+const VV_FARM = { fcattle: [['animal_vache', 14], ['auge_foin', 16], ['animal_vache', 14], ['fermier_seau', 5]], fsheep: [['animal_mouton', 11], ['balles_foin', 15], ['animal_mouton', 11], ['fermier_seau', 5]],
+  fpig: [['animal_cochon', 11], ['auge_foin', 16], ['animal_cochon', 11], ['fermier_seau', 5]], fchicken: [['animal_poule', 6], ['animal_poule', 6], ['animal_poule', 6], ['fermier_seau', 5]],
+  fwheat: [['meule_foin', 16], ['balles_foin', 17], null, ['fermier_seau', 5]], fvine: [null, ['vendangeur', 6], ['vigneron_hotte', 5], null] };
+function vvFarm(a) { const L = VV_FARM[a.t]; if (!L || a.w < 2 || a.h < 2) return; L.forEach((it, i) => { if (!it) return; const s = VV_SPOT[i], q = iso(a.x + s[0], a.y + s[1]); vvSpr(it[0], q.x, q.y, it[1], hash(a.x + i, a.y, 83) < 0.5); }); }
+// Circulation : [sprite, avant vers le bas à gauche (1) ou à droite (0), utilitaire]
+const VV_CARS = [['veh_argent', 0], ['veh_blanc', 0], ['veh_bleu', 0], ['veh_jaune', 0], ['veh_noir', 0], ['veh_orange', 1], ['veh_rouge', 1], ['veh_vert', 0], ['voiture_ville_a', 1], ['voiture_ville_b', 1], ['veh_pickup', 0], ['veh_camionnette', 0, 1], ['camion_ville', 1, 1]];
+let vvCarN = 0;
+function vvCar(c, dir, px, py) {   // une seule vue (de trois quarts avant) : l'axe de la route choisit le miroir, la voiture garde sa silhouette dans l'axe
+  if (c.hv == null) c.hv = Math.floor(hash(vvCarN++, 3, 91) * VV_CARS.length);
+  const m = VV_CARS[c.hv]; if (!m || !vvOk(m[0])) return false;
+  return vvSpr(m[0], px, py + 3, m[2] ? 44 : 36, (dir === 'SE' || dir === 'NW') ? m[1] === 1 : m[1] === 0) != null;
+}
+const VV_GOODS = ['bac_argile', 'bac_bauxite', 'bac_chrome', 'bac_graphite', 'bac_lithium', 'bac_nickel', 'bac_phosphate', 'bac_potasse', 'bac_sel', 'bac_silice', 'bac_soufre', 'bac_terres_rares', 'bac_zinc', 'lingots_aluminium', 'lingots_laiton', 'sacs_alumine', 'sacs_engrais', 'barres_galva', 'barres_inox', 'briques_palette', 'futs_gaz', 'porcelaine_caisses', 'chassis_aluminium', 'aimants_terres_rares'];
+function vvRock(p, x, y) { const n = hash(x, y, 72) < 0.5 ? 'rochers_a' : 'rochers_b'; if (!vvOk(n)) return; vvSpr(n, p.x + (hash(x, y, 74) - 0.5) * 40, p.y + TH / 2 + (hash(x, y, 75) - 0.5) * 16, 24 + 14 * hash(x, y, 76), hash(x, y, 79) < 0.5); }
 const PRODHD = __PRODHD_JSON__, GUIDEHD = __GUIDEHD_JSON__;   // GUIDEHD : photos des cartes du Guide du fabricant (clé de bien ou de produit)
 const CINE = { on: false, q: [], pk: null, t0: 0, raf: 0, dur: 5400, heroes: {}, hero: 'svg', seen: {}, snap: null, day: -1, test: false, facts: null, cv: null, refl: null, reflKey: '', grain: null, motes: null, frames: 0, shown: 0, last: null };
 const cineOpt = () => { try { return localStorage.getItem('wse-cine') !== '0'; } catch (e) { return true; } };
@@ -15642,7 +15746,7 @@ const pfSign = v => (v >= 0 ? '+' : '−') + money(Math.abs(v));
 function proOpen(x, y) { pfSel = { x, y }; renderFiche(); }
 function proCloseFiche() { pfSel = null; const b = el('pfiche'); if (b) b.hidden = true; }
 const proOwnerTxt = c => c.t === 'res' ? 'à toi' : ({ npc: 'la ville', me: 'à toi' }[ownerOf(c)] || ownerName(ownerOf(c)));
-const proKindTxt = c => c.t === 'res' ? 'Logements' : ({ house: 'Maison', res: 'Immeuble de logements', off: 'Immeuble de bureaux', park: 'Parc' }[c.k] || 'Bâtiment');
+const proKindTxt = c => c.t === 'res' ? 'Logements' : (vvSvcName(c) ? vvSvcName(c) + ' · ' : '') + ({ house: 'Maison', res: 'Immeuble de logements', off: 'Immeuble de bureaux', park: 'Parc' }[c.k] || 'Bâtiment');   // ville vivante : nom du service de quartier
 const proMood = () => { const h = PR().hype || 0; return h > 0.45 ? 'euphorie (prix tirés par la demande)' : h > 0.15 ? 'marché porteur' : h < -0.45 ? 'retournement (prix en baisse)' : h < -0.15 ? 'marché morose' : 'marché équilibré'; };
 function proFicheHTML(c) {
   const F = proFiche(c), v = F.v, row = (a, b, cl, t) => `<div class="r"${t ? ' title="' + t + '"' : ''}><span>${a}</span><span class="${cl || ''}">${b}</span></div>`;
@@ -15734,6 +15838,7 @@ function mallHTML() {
     + `<div class="mrr">${r.cls.length ? r.cls.map(c => `<span>${CLS_S[c]} <b>${pc(r.byCls[c])}</b> · prix ×${f2(r.px[c])} (${rel(r.rel[c])})</span>`).join('') : '<span>Aucun rayon grand public</span>'}${r.fl ? `<span>Produit phare : ${r.fl.name} <b>${px$(r.fl.price)}</b></span>` : ''}</div></div>`).join('') : '<p class="mnote">Aucun rival en ville : le marché est à toi.</p>');
   h += `<h4>Les plus demandés</h4>` + MALL_CLS.map(c => d.top[c].length ? `<div class="mtop"><small>${CLS_S[c]}</small>${d.top[c].map(x => `<span>${x.name} <b>${px$(x.price)}</b> <em>${fmt(x.d * DM)} u/mois</em></span>`).join('')}</div>` : '').join('');
   h += `<h4>Pôle commercial</h4><p class="mnote">Boutique à moins de ${MALL_R} cases du mall : +${Math.round(MALL_TRF * 100)} % de fréquentation. ${POLE_N} boutiques voisines ou plus (adjacentes ou à une case, avenue comprise) : pôle commercial, +${Math.round(POLE_TRF * 100)} % de fréquentation et frais fixes partagés −${Math.round(POLE_UPK * 100)} %. Cumul ×${f2((1 + MALL_TRF) * (1 + POLE_TRF))} au plus ; la fréquentation reste plafonnée à 100.</p>`;
+  h += vvSvcHTML();   // ville vivante : commerces de quartier
   h += `<div class="acts"><button class="btn" data-mall="shop">Ouvrir ma boutique près du mall</button><button class="btn" data-mall="prod">Voir les produits</button><button class="btn" data-mall="port">Importer depuis le port</button></div>`;
   return h;
 }
@@ -15833,6 +15938,7 @@ Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDail
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
+window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 Object.defineProperty(window.WSE, 'imm', { get() { return { on: immOn, tr: imm.tr, from: imm.from, idle: imm.idle, panel: immPanel, ang: planAng, yaw: planYaw, cam: { z: scam.z, x: scam.x, y: scam.y, bs: scam.bs }, W: imm.W, H: imm.H }; } });
 })();
 </script>
