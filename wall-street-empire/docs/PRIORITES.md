@@ -1,5 +1,7 @@
 # Priorités (règle de Rémy : l'impact joueur d'abord, pas le détail)
 
+**Principe transversal : jeu à effet exponentiel, pas à somme nulle (docs/PRINCIPE_JEU_POSITIF.md) : aucune caste ne doit se nuire ou s'annuler ; les castes sont complémentaires.**
+
 Ordre de travail permanent, du plus important au moins important. On ne passe au niveau suivant que si le précédent est sain.
 1. **Jouable sans bug** : suite de tests verte, parcours joueur de bout en bout, mobile utilisable, pas de blocage.
 2. **Réalisme et profondeur économique** : chaîne d'approvisionnement, prix/demande, marque, R&D, concurrence IA (en cours, voir docs/CAPLAB_*.md), énergie, finance, négociant/banquier IA.
