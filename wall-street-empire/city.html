@@ -4528,9 +4528,10 @@ function landPole() { const R = mallRect(); return R || { x0: CBD.x, y0: CBD.y, 
 const DISTRICTS = ['Midtown', 'Parktown', 'Uptown', 'Eastside', 'Southside', 'Westend', 'Faubourg', 'Harborside', 'Zone industrielle', 'Ceinture verte', 'La Côte', 'Campagne'];
 function landCache() {   // champs partagés (vue sur la mer, parcs, hauteurs, quartiers) : recalculés seulement quand la ville ou les bâtiments changent
   if (!S || !S.grid) return null;
+  if (LMC && !trfDirty && trf && LMC.g === S.grid && LMC.day === S.day && LMC.pcv === (S._pcv | 0)) return LMC;   // chemin rapide (rendu : une consultation par case visible)
   if (trfDirty || !trf) rebuildTraffic();
   const M = mallPos(), key = trfGen + '|' + (S.cityExt ? S.cityExt.length : 0) + '|' + (S.pzm ? Object.keys(S.pzm).length : 0) + '|' + (M ? M.x + ',' + M.y + ',' + M.w : '-') + '|' + (S._pcv | 0) + '|' + ((S.day / 30) | 0);
-  if (LMC && LMC.key === key && LMC.g === S.grid) return LMC;
+  if (LMC && LMC.key === key && LMC.g === S.grid) { LMC.day = S.day; LMC.pcv = S._pcv | 0; return LMC; }
   const W1 = N + 1, PK = new Float32Array(W1 * W1), TL = new Float32Array(W1 * W1), pk = new Float32Array(N * N), tl = new Float32Array(N * N), rd = new Uint8Array(N * N);
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!c) continue; if (c.t === 'road') { rd[i] = 1; continue; } const a = c.t === 'part' ? S.grid[c.ai] : c; if (!a) continue;
     if (a.t === 'npc' && (a.k === 'park' || (a.k === 'mon' && a.m !== 'mall'))) pk[i] = 1; else if (a.t === 'sport') pk[i] = 1;
@@ -4556,7 +4557,7 @@ function landCache() {   // champs partagés (vue sur la mer, parcs, hauteurs, q
   for (let i = 0; i < N * N; i++) if (q[i] === best) q[i] = 1;
   const cen = {}; for (let i = 0; i < N * N; i++) { const k = q[i]; if (k === 255) continue; const o = cen[k] || (cen[k] = { n: 0, x: 0, y: 0 }); o.n++; o.x += i % N; o.y += (i / N) | 0; }
   C.q = q; C.labels = Object.keys(cen).map(k => { const o = cen[k], mx = o.x / o.n, my = o.y / o.n; let b = null, bd = 1e9; for (let i = 0; i < N * N; i++) { if (q[i] !== +k || (rd[i] && o.n > 40)) continue; const d = Math.hypot(i % N - mx, ((i / N) | 0) - my); if (d < bd) { bd = d; b = i; } } return { k: +k, name: DISTRICTS[k], x: b % N, y: (b / N) | 0, n: o.n }; });
-  C.dC = dCo; LMC = C; return C;
+  C.dC = dCo; C.day = S.day; C.pcv = S._pcv | 0; LMC = C; return C;
 }
 function lmCalc(C, x, y, use) {   // composantes ($/case, avant inflation) de la valeur du terrain d'une case pour un usage
   const i = idx(x, y), z = ZONE[i], p = {};
@@ -4601,7 +4602,7 @@ function siteIndex() {
   return siteC;
 }
 function nearestOf(list, x, y) { let b = null; (list || []).forEach(q => { const d = Math.abs(q[0] - x) + Math.abs(q[1] - y); if (b == null || d < b) b = d; }); return b; }
-function marketDist(x, y) { const si = siteIndex(), d = nearestOf(si.stores, x, y), P = landPole(), dc = Math.abs(x - Math.round((P.x0 + P.x1) / 2)) + Math.abs(y - Math.round((P.y0 + P.y1) / 2)), dp = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); return Math.min(d == null ? 99 : d, dc, dp); }
+function marketDist(x, y) { const si = siteIndex(), d = nearestOf(si.stores, x, y), P = landPole(), dc = Math.abs(x - Math.floor((P.x0 + P.x1) / 2)) + Math.abs(y - Math.floor((P.y0 + P.y1) / 2)),   /* passe 48 : pôle de la ville (mall), (30, 30) avec le grand mall */ dp = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y); return Math.min(d == null ? 99 : d, dc, dp); }
 function facHaul(x, y, rec) {
   const si = siteIndex(), dPort = Math.abs(x - PORT_HUB.x) + Math.abs(y - PORT_HUB.y), ins = Object.keys(rec.in || {});
   let s = 0; ins.forEach(g => { const d = nearestOf(si.ext[g], x, y); s += d == null ? dPort : Math.min(d, dPort + 6); });
@@ -13794,7 +13795,7 @@ function drawSatellite(now) {
 let _apK = '', _apV = null;
 function acqPlanC(x, y, key) { const k = x + ',' + y + ',' + key + ',' + S.day + ',' + (S.npcMods || []).length; if (k !== _apK) { _apK = k; _apV = acqPlan(x, y, key); } return _apV; }
 // Passe 48 : calques de la valeur du terrain, quartiers nommés
-function curLayer() { const T0 = TYPES[tool]; return layer === 'auto' ? (T0 && T0.ret ? 'traffic' : tool === 'res' ? 'landr' : (T0 && (FLEVEL[tool] || tool === 'foundry' || tool === 'wh')) ? 'logi' : 'none') : layer; }
+function curLayer() { const T0 = TYPES[tool]; return layer === 'auto' ? (T0 && T0.ret ? 'traffic' : (T0 && (FLEVEL[tool] || tool === 'foundry' || tool === 'wh')) ? 'logi' : 'none') : layer; }
 const layUse = lay => lay === 'landc' ? 'com' : lay === 'landr' ? 'res' : lay === 'land' ? (landUseOf(tool) || 'com') : null;
 function landNorm(u, raw) { const r = landRange(u), v = Math.max(1, raw * cpi()); return clamp(Math.log(v / r[0]) / Math.log(r[1] / r[0]), 0, 1); }
 function drawDistricts(vr) {
