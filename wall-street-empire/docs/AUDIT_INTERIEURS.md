@@ -67,7 +67,7 @@ Scénario de bout en bout (t60 + parcours joueur) : ferme de blé → petite usi
 
 ## Reste à faire (priorisé)
 
-1. **Mobile : la carte visible est réduite** (tableau de bord + carte Round + toasts couvrent ≈ 55 % de la hauteur en 390×844) ; un tap au centre de l'écran tombe souvent sur un toast. Prévoir un tableau de bord repliable et des toasts plus bas/plus courts.
+1. ~~**Mobile : la carte visible est réduite**~~ **fait (passe 64)** : HUD compact sur téléphone (portrait < 600 px, paysage < 520 px de haut) : une rangée de commandes 44 px, trésorerie · capitalisation · date sur une ligne, barre du Round sur une ligne + jalon (classement, rattrapage, calque, reset, zoom derrière le bouton ▾), une seule notification courte en bas au-dessus de la barre d'outils (4,5 s, jamais au centre, non cliquable), catégories et outils ≥ 44 px, boutons Fermer 44 px, au doigt : tap = pose, glisser = déplacer la carte, pincer = zoom sans rien poser. Carte visible : 390×844 de 40 % à 65 %, paysage 844×390 de 6 % à 56 %, tablette 820×1180 63 %. Test : `t64_mobile.js`.
 2. **Agriculteur faible** : une graine sans événements finit 6/6 à 21 M$ (les deux autres castes ≈ 40 M$). À rééquilibrer (sujet produits + fermes, autre agent).
 3. **Intérieur des usines indépendant de la taille** (f1 à f4 : même plan 3×2) et méga-centre identique à l'hypermarché : sujet « tailles + grille ».
 4. **Images/s de la carte en 1280×720** proches de 25 sans GPU : à mesurer sur la machine de Rémy ; si < 40, alléger le rendu de la ville (enseignes, passants) à vitesse ×1.

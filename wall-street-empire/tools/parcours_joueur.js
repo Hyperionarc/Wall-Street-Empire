@@ -7,7 +7,7 @@ const path = require('path'), fs = require('fs');
 const L = require('./tests/lib.js');
 
 async function parcours(o = {}) {
-  const shots = o.shots || '', W0 = o.w || 1280, H0 = o.h || 720, steps = [], tag = W0 < 600 ? 'mob' : 'pc';
+  const shots = o.shots || '', W0 = o.w || 1280, H0 = o.h || 720, steps = [], tag = o.tag || (W0 < 600 ? 'mob' : 'pc');
   if (shots) fs.mkdirSync(shots, { recursive: true });
   const pg = await L.newPage({ w: W0, h: H0, wait: 3000 });
   const snap = async n => { if (shots) await pg.screenshot({ path: path.join(shots, `parcours_${tag}_${n}.png`) }); };
@@ -35,6 +35,8 @@ async function parcours(o = {}) {
       W.centerOn(x + 0.5 + kx, y + 0.5 + ky); p = W.tileToScreen(x, y); if (!hit(p.x, p.y)) { const e = document.elementFromPoint(p.x, p.y); p.hit = e ? (e.id || e.tagName.toLowerCase() + '.' + e.className) : 'rien'; } return p; }, [x, y]);
     if (q.hit) tileClick.cover = (tileClick.cover || []).concat(q.hit);
     await pg.waitForTimeout(250); await pg.mouse.click(q.x, q.y); await pg.waitForTimeout(400); return q; };
+  // le simple clic sur une usine ouvre sa fiche après un court délai (double-clic = entrer) : attendre la fiche, et la fin d'une éventuelle animation d'entrée
+  const openWait = async () => { await pg.waitForFunction(() => !document.getElementById('bview').hidden && !window.WSE.imm.tr, null, { timeout: 15000 }).catch(() => {}); await pg.mouse.move(W0 / 2 + 3, H0 / 2 + 3); await pg.waitForTimeout(300); };   // le joueur bouge : les commandes de l'usine plein écran réapparaissent (elles s'estompent après un temps d'inactivité)
   const fps = async ms => pg.evaluate(ms => new Promise(res => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < ms) requestAnimationFrame(f); else res(Math.round(n * 1000 / (performance.now() - t0))); }; requestAnimationFrame(f); }), ms);
   const days = n => pg.evaluate(n => { const W = window.WSE; for (let i = 0; i < n; i++) W.step(); W.refreshStats && W.refreshStats(); return W.S.day; }, n);
 
@@ -101,7 +103,7 @@ async function parcours(o = {}) {
     if (!farm || !mill || !bak) return false;
   });
   await step('boulangerie : « Choisir la production » -> catalogue -> Pain -> « Tout lancer automatiquement »', async r => {
-    await tileClick(bak.x, bak.y);
+    await tileClick(bak.x, bak.y); await openWait();
     const cb = await pg.$('#bview [data-act="catalog"]:visible'); if (!cb) { r.notes.push('bouton catalogue absent'); return false; } await cb.click(); await pg.waitForTimeout(500);
     await click('#cview [data-cat="sel:bread"]');
     const btn = await pg.evaluate(() => { const b = document.querySelector('#cview [data-cat="easy:bread"], #cview [data-cat="make:bread"]'); return b ? b.textContent.trim().slice(0, 60) : null; }); r.notes.push('bouton : ' + btn); if (!btn) return false;
@@ -112,12 +114,14 @@ async function parcours(o = {}) {
     r.notes.push(JSON.stringify(st)); if (st.bak !== 'bread' || st.bread !== 'on') return false;
   });
   await step('entrer dans l\'usine (plein écran), images/s, sortie par Échap', async r => {
-    await tileClick(bak.x, bak.y);
+    await tileClick(bak.x, bak.y); await openWait();
     const e = await pg.$('#bview [data-imm="enter"]'); if (e && await e.isVisible()) { await e.click(); await pg.waitForTimeout(1400); } else r.notes.push('bouton « Entrer » non visible');
     const imm = await pg.evaluate(() => window.WSE.imm.on); r.notes.push('plein écran : ' + imm);
     const f = await fps(2500); r.notes.push(`${f} images/s dans l'usine`); r.fps = f;
-    if (W0 < 600) { await click('#bexit'); await pg.waitForTimeout(1100); } else { await pg.keyboard.press('Escape'); await pg.waitForTimeout(1100); }
-    const imm2 = await pg.evaluate(() => window.WSE.imm.on); r.notes.push((W0 < 600 ? 'bouton Sortir' : 'Échap') + ' : sortie ' + !imm2 + (W0 < 600 ? ' (sur mobile, l\'usine s\'ouvre directement en plein écran)' : '')); if (imm2 || !imm) return false;
+    await pg.waitForFunction(() => !window.WSE.imm.tr, null, { timeout: 15000 }).catch(() => {}); await pg.mouse.move(W0 / 2, H0 / 2); await pg.waitForTimeout(200);   // fin de l'animation d'entrée (machine chargée)
+    const tel = W0 < 600 || H0 < 520;   // téléphone (portrait ou paysage) : pas de clavier, on touche « Sortir »
+    if (tel) { await click('#bexit'); await pg.waitForTimeout(1100); } else { await pg.keyboard.press('Escape'); await pg.waitForTimeout(1100); }
+    const imm2 = await pg.evaluate(() => window.WSE.imm.on); r.notes.push((tel ? 'bouton Sortir' : 'Échap') + ' : sortie ' + !imm2 + (tel ? ' (sur téléphone, l\'usine s\'ouvre directement en plein écran)' : '')); if (imm2 || !imm) return false;
     await pg.evaluate(() => window.WSE.closeBuilding());
   });
   await step('le magasin vend le pain ; le surplus part à l\'export ; aucun stock négatif', async r => {
@@ -144,7 +148,10 @@ let r_fps = 0;
 if (require.main === module) {
   (async () => {
     const shots = process.argv[2] || '';
-    const a = await parcours({ shots, log: 1 }); console.log('--- mobile 390×844'); const b = await parcours({ shots, log: 1, w: 390, h: 844 }); await L.closeBrowser();
-    const all = a.concat(b); console.log(`\n${all.filter(s => s.ok).length}/${all.length} étapes sans problème`);
+    const a = await parcours({ shots, log: 1 }); console.log('--- mobile 390×844'); const b = await parcours({ shots, log: 1, w: 390, h: 844 });
+    // passe 64 : téléphone en paysage et tablette
+    console.log('--- paysage 844×390'); const c = await parcours({ shots, log: 1, w: 844, h: 390, tag: 'pay' });
+    console.log('--- tablette 820×1180'); const d = await parcours({ shots, log: 1, w: 820, h: 1180, tag: 'tab' }); await L.closeBrowser();
+    const all = a.concat(b, c, d); console.log(`\n${all.filter(s => s.ok).length}/${all.length} étapes sans problème`);
   })();
 }
