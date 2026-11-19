@@ -245,6 +245,8 @@ for _n in CITY_NAMES:   # les bâtiments produits par le Mac sont dans assets/fa
 print('batiments HD de la ville :', len(cityhd))
 # Gisements et extracteurs HD (phase 2) : assets/phase2_hd/<nom>.png ; réduits de moitié et passés en palette 256 couleurs pour limiter le poids ; l'ancre est le sommet bas de la parcelle (bas de l'image), la largeur d'origine donne l'emprise (396 px par case)
 P2_NAMES = ['gisement_argile', 'gisement_bauxite', 'gisement_charbon', 'gisement_cuivre', 'gisement_fer', 'gisement_gaz', 'gisement_graphite', 'gisement_lithium', 'gisement_nickel_chrome', 'gisement_petrole', 'gisement_phosphate', 'gisement_potasse', 'gisement_sel', 'gisement_silice', 'gisement_zinc',
+            'herbe_a', 'herbe_b', 'herbe_c', 'herbe_d', 'terre_a', 'terre_b', 'terre_c', 'terre_d', 'sol_ville_pave', 'sol_port_asphalte', 'sol_quai_beton_a', 'sol_quai_beton_b', 'eau_calme', 'eau_rivage_quai', 'rivage_sable',
+            'route_droite_ne', 'route_droite_nw', 'route_croix', 'route_t_ne', 'route_t_nw', 'route_t_se', 'route_t_sw', 'route_coude_ne_nw', 'route_coude_ne_se', 'route_coude_se_sw', 'route_coude_sw_nw', 'route_bout_ne', 'route_bout_nw', 'route_bout_se', 'route_bout_sw', 'route_isolee',
             'mine_bauxite', 'mine_charbon', 'mine_cuivre', 'mine_cuivre_niveau3', 'mine_fer', 'mine_graphite', 'mine_lithium', 'mine_nickel_chrome', 'mine_or', 'mine_phosphate', 'mine_potasse', 'mine_sel', 'mine_zinc', 'puits_gaz', 'puits_petrole', 'carriere', 'carriere_argile', 'carriere_silice', 'camp_bucherons',
             'fcorn', 'frapeseed', 'entrepot', 'centrale_solaire', 'eolienne', 'centrale_charbon', 'centrale_nucleaire', 'pylone_electrique', 'centre_rd', 'data_center', 'chantier_moyen', 'agence_immo', 'fonderie', 'usine_petite_f1', 'usine_moyenne_f2', 'usine_grande_f3', 'usine_f4_mega', 'petit_marche_n1', 'petit_marche_n2', 'mega_centre_commercial', 'terminal_portuaire', 'station_tv', 'stade_sport', 'supermarche', 'hypermarche', 'fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcattle', 'fchicken', 'fpig', 'fsheep', 'foret_dense_a', 'foret_dense_b', 'foret_dense_c', 'foret_sapins_a', 'foret_sapins_b', 'arbre_isole_a', 'arbre_isole_b', 'arbre_isole_c', 'arbre_isole_d', 'buisson_a', 'buisson_b', 'arbre_ville',
             # passe 46 : magasins spécialisés (boutique de mode, pharmacie-drugstore) et voitures exposées par la concession et garées devant les boutiques
@@ -258,6 +260,54 @@ VV_NAMES = ['boulangerie', 'boutique_mode', 'cafe_de_quartier', 'restaurant_terr
             'parc_urbain', 'rochers_a', 'rochers_b', 'gisement_or', 'batiment_abandonne', 'chantier_petit']
 P2_NAMES += [_n for _n in VV_NAMES if _n not in P2_NAMES]
 p2hd = {}; p2dim = {}
+# Sol et routes (losanges 396x198 sans couture) : pas de palette 256 couleurs (bandes visibles sur l'herbe) mais un JPEG de qualité ;
+# le pourtour transparent est rempli par extension des couleurs du bord (aucun liseré sombre quand le jeu découpe le losange avec 1 px de recouvrement).
+GROUND_TILES = set(n for n in P2_NAMES if n.startswith(('herbe_', 'terre_', 'sol_', 'eau_', 'rivage_', 'route_')))
+GROUND_PX = (264, 132)
+def _ground_tile(name, im, path=None):
+    import numpy as np
+    from PIL import ImageFilter as _F
+    a = np.asarray(im, dtype=np.float32) / 255.0
+    rgb, al = a[..., :3], a[..., 3:4]
+    fill = np.zeros_like(rgb); have = np.zeros(al.shape, bool)
+    for r in (1, 3, 8, 20):   # extension des couleurs du bord vers l'extérieur du losange (push-pull)
+        pm = Image.fromarray(np.uint8(np.clip(rgb * al * 255, 0, 255))).filter(_F.GaussianBlur(r))
+        pa = np.asarray(Image.fromarray(np.uint8(np.clip(al[..., 0] * 255, 0, 255))).filter(_F.GaussianBlur(r)), dtype=np.float32)[..., None] / 255.0
+        f = np.clip(np.asarray(pm, dtype=np.float32) / 255.0 / np.maximum(pa, 1e-3), 0, 1)
+        m = (~have) & (pa > 0.02); fill = np.where(m, f, fill); have |= m
+    out = rgb * al + fill * (1 - al)
+    img = Image.fromarray(np.uint8(np.clip(out * 255, 0, 255)), 'RGB')
+    if name in ('eau_calme', 'rivage_sable', 'sol_port_asphalte', 'sol_ville_pave'):   # éclairage propre à chaque tuile (dégradé, vignette) : coutures visibles en mosaïque ; on retire la basse fréquence (filtre passe-haut) et on garde les vaguelettes
+        lo = np.asarray(img.filter(_F.GaussianBlur(28)), dtype=np.float32); hi = np.asarray(img, dtype=np.float32)
+        m = (al[..., 0] > 0.5); mean = hi[m].mean(axis=0)
+        img = Image.fromarray(np.uint8(np.clip(hi - lo + mean, 0, 255)), 'RGB')
+    if name == 'eau_calme':   # l'eau livrée n'est pas périodique : décalage d'une demi-case et fondu (au bord seule la copie décalée reste) -> raccord exact entre cases
+        t = np.asarray(img, dtype=np.float32); H, W = t.shape[:2]
+        yy, xx = np.mgrid[0:H, 0:W].astype(np.float32); s = (yy + 0.5) / (H / 2); d = (xx + 0.5 - W / 2) / (W / 2); u = (s + d) / 2; v = (s - d) / 2
+        u2, v2 = (u + 0.5) % 1.0, (v + 0.5) % 1.0
+        sx = np.clip(W / 2 + (u2 - v2) * W / 2, 0, W - 1).astype(int); sy = np.clip((u2 + v2) * H / 2, 0, H - 1).astype(int)
+        wgt = np.clip(np.sin(np.pi * np.clip(u, 0, 1)) * np.sin(np.pi * np.clip(v, 0, 1)), 0, 1)[..., None] ** 0.7
+        img = Image.fromarray(np.uint8(np.clip(t * wgt + t[sy, sx] * (1 - wgt), 0, 255)), 'RGB')
+    if name == 'eau_rivage_quai':   # l'eau de cette tuile est plus foncée et plus bleue que eau_calme : on ramène les pixels d'eau (bleu dominant) à la moyenne et à l'écart type de eau_calme
+        try:
+            ref = np.asarray(Image.open(os.path.join(os.path.dirname(path), 'eau_calme.png')).convert('RGB'), dtype=np.float32) if path else None
+        except Exception: ref = None
+        if ref is not None:
+            t = np.asarray(img, dtype=np.float32); wm = (t[..., 2] > t[..., 0] + 25) & (al[..., 0] > 0.5); rm = ref[(ref[..., 2] > ref[..., 0] + 25)]
+            if wm.sum() > 100 and len(rm) > 100:
+                mu, sd, mr, sr = t[wm].mean(0), t[wm].std(0) + 1e-3, rm.mean(0), rm.std(0)
+                t2 = t.copy(); t2[wm] = (t[wm] - mu) / sd * sr + mr; img = Image.fromarray(np.uint8(np.clip(t2, 0, 255)), 'RGB')
+    if name in ('eau_calme', 'eau_rivage_quai'):   # charte : eau bleu-gris profond, pas de cyan vif (teinte vers le bleu, saturation -28 %, luminosité -22 %) ; sur le quai, seuls les pixels d'eau changent
+        t = np.asarray(img, dtype=np.float32); hsv = np.asarray(img.convert('HSV'), dtype=np.float32)
+        hsv[..., 0] = np.clip(hsv[..., 0] + 14, 0, 255); hsv[..., 1] *= 0.72; hsv[..., 2] *= 0.78
+        g = np.asarray(Image.fromarray(np.uint8(np.clip(hsv, 0, 255)), 'HSV').convert('RGB'), dtype=np.float32)
+        wm = (t[..., 2] > t[..., 0] + 25)[..., None] if name == 'eau_rivage_quai' else np.ones(t.shape[:2] + (1,), bool)
+        img = Image.fromarray(np.uint8(np.where(wm, g, t)), 'RGB')
+    if name.startswith('herbe_'):   # charte : herbe moins saturée (-25 %) et teinte décalée vers le jaune-vert doux
+        h, s, v = img.convert('HSV').split()
+        h = h.point(lambda x: max(0, x - 3)); s = s.point(lambda x: int(x * 0.75))
+        img = Image.merge('HSV', (h, s, v)).convert('RGB')
+    return img.resize(GROUND_PX, Image.LANCZOS)
 for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'factory_hd')):
     _aj = os.path.join(_d, 'ancres.json'); _anc = json.load(open(_aj)) if os.path.exists(_aj) else {}
     for _n in P2_NAMES:
@@ -268,6 +318,8 @@ for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', '
             _im = _I.open(_f).convert('RGBA'); p2dim[_n] = [_im.width, _im.height] + list(_im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox() or (0, 0, _im.width, _im.height)) + _diamond(_im) + [_sy(_f)]
             _a = _anc.get(_n + '.png')   # indices 10 et 11 : ancre (pieds, contact au sol) d'ancres.json, -1 si absente ; sert aux objets posés (véhicules, animaux, personnages, grue, navire)
             p2dim[_n] += [_a['ancre_x'], _a['ancre_y']] if _a and 'ancre_x' in _a and 'ancre_y' in _a else [-1, -1]
+            if _n in GROUND_TILES:   # tuiles de sol et de route : JPEG 264x132 (2 px par px du jeu à zoom 1), le jeu les découpe sur le losange
+                _bf = io.BytesIO(); _ground_tile(_n, _im, _f).save(_bf, 'JPEG', quality=88, optimize=True, subsampling=0); p2hd[_n] = 'data:image/jpeg;base64,' + base64.b64encode(_bf.getvalue()).decode(); continue
             _sm = _im.resize((max(1, _im.width // 2), max(1, _im.height // 2)), _I.LANCZOS).quantize(colors=256, method=_I.FASTOCTREE, dither=_I.NONE)
             _bf = io.BytesIO(); _sm.save(_bf, 'PNG', optimize=True); p2hd[_n] = 'data:image/png;base64,' + base64.b64encode(_bf.getvalue()).decode()
         except Exception as _e: print('phase2 ignoré', _n, _e)

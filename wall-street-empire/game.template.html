@@ -13338,6 +13338,128 @@ function drawQuayDecor(p, x, y, now) {
   if (!(hash(x, y, 23) < 0.25 && vvSpr(gn, p.x + (hash(x, y, 26) - 0.5) * 30, p.y + 40, 50, hash(x, y, 25) < 0.5) != null)) drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35);
   if (y % 6 === 3 && (x % 2 === 0 || !vvOk('grue_portique'))) drawCrane(p.x + 20, p.y + 40, y, now);   // grues HD : une case sur deux de la rangée (sinon elles se chevauchent)
 }
+/* ---------- Sol texturé et routes en sprites (losanges 396x198 de assets/phase2_hd) ----------
+   Chaque case reçoit une tuile choisie par un aléa déterministe hash(x, y) : herbe (4 variantes) en campagne avec des clairières de terre,
+   pavé en ville, asphalte dans la zone portuaire, béton sur les quais, eau texturée et rivage de sable sur la côte ; les routes prennent
+   le sprite route_* donné par leurs voisins (masque SE=1 NW=2 SW=4 NE=8, comme roadMask). Le tout est cuit dans des blocs de 8x8 cases
+   (canevas hors écran, une résolution par palier de zoom, cache LRU borné) : une image par bloc et par image au lieu d'une par case.
+   Repli : une tuile dont le sprite ne charge pas est dessinée en aplat (sol) ou avec l'atlas Kenney (route). */
+const GT = { off: false, CH: 8, cache: new Map(), px: 0, bg: '#8f9a5c', ready: 0, used: 0, stat: { baked: 0, direct: 0, drawn: 0 }, ft: 0 };
+const GT_GRASS = ['herbe_a', 'herbe_b', 'herbe_c', 'herbe_d'], GT_DIRT = ['terre_a', 'terre_b', 'terre_c', 'terre_d'], GT_QUAI = ['sol_quai_beton_a', 'sol_quai_beton_b'];
+// index = masque de connexion (x+1 : SE, x-1 : NW, y+1 : SW, y-1 : NE) ; à l'écran x va vers le bas-droite, y vers le bas-gauche
+const ROAD_SPR = ['route_isolee', 'route_bout_se', 'route_bout_nw', 'route_droite_nw', 'route_bout_sw', 'route_coude_se_sw', 'route_coude_sw_nw', 'route_t_ne',
+  'route_bout_ne', 'route_coude_ne_se', 'route_coude_ne_nw', 'route_t_sw', 'route_droite_ne', 'route_t_nw', 'route_t_se', 'route_croix'];
+const GT_NAMES = GT_GRASS.concat(GT_DIRT, GT_QUAI, ['sol_ville_pave', 'sol_port_asphalte', 'eau_calme', 'eau_rivage_quai', 'rivage_sable'], ROAD_SPR);
+const GT_FLAT = { herbe: '#8f9a5c', terre: '#8a6a48', sol_ville_pave: '#a9abae', sol_port_asphalte: '#4a4e55', sol_quai_beton: '#c9cbcc', eau_calme: '#3f8fb0', eau_rivage_quai: '#3f7f98', rivage_sable: '#cdbb94', route: '#8d8e8c' };
+const GT_MK = {};
+const gtFlatOf = n => GT_FLAT[n] || GT_FLAT[n.replace(/_[a-d]$/, '')] || (n.startsWith('route_') ? GT_FLAT.route : GT_FLAT.herbe);
+const gtDia = (g, p, o) => { g.beginPath(); g.moveTo(p.x, p.y - o / 2); g.lineTo(p.x + 66 + o, p.y + 33); g.lineTo(p.x, p.y + 66 + o / 2); g.lineTo(p.x - 66 - o, p.y + 33); g.closePath(); };
+function gtTex(n, rot) {   // tuile découpée sur son losange (1 px de recouvrement), éventuellement tournée de 180° ; null tant que le sprite n'est pas chargé
+  const k = rot ? n + '@' : n, c0 = GT_MK[k]; if (c0) return c0;
+  const e = typeof P2_IMG !== 'undefined' && P2_IMG[n]; if (!e || !e.ok || !e.im.naturalWidth) return null;
+  const w = e.im.naturalWidth, h = e.im.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'), ex = 1.5 * w / 264; g.beginPath(); g.moveTo(w / 2, -ex / 2); g.lineTo(w + ex, h / 2); g.lineTo(w / 2, h + ex / 2); g.lineTo(-ex, h / 2); g.closePath(); g.clip();
+  if (rot) { g.translate(w, h); g.rotate(Math.PI); } g.drawImage(e.im, 0, 0, w, h);
+  try { const q = document.createElement('canvas'); q.width = 8; q.height = 4; const qg = q.getContext('2d'); qg.drawImage(e.im, w * 0.3, h * 0.3, w * 0.4, h * 0.4, 0, 0, 8, 4); const d = qg.getImageData(0, 0, 8, 4).data; let r = 0, gg = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; } c.avg = `rgb(${r / 32 | 0},${gg / 32 | 0},${b / 32 | 0})`; } catch (er) { c.avg = gtFlatOf(n); }
+  return GT_MK[k] = c;
+}
+function gtWaterTex(n, rot, k) {   // eau assombrie vers le large : dégradé de profondeur posé DANS la tuile (même découpe, aucun liseré entre cases) ; k = distance à la côte
+  k = clamp(Math.round(k), 0, 7); const key = n + (rot ? '@' : '') + '#' + k; if (GT_MK[key]) return GT_MK[key];
+  const t = gtTex(n, rot); if (!t) return null;
+  const c = document.createElement('canvas'), w = c.width = t.width, h = c.height = t.height, g = c.getContext('2d'), a = u => (0.12 + 0.42 * clamp(u / 6, 0, 1)).toFixed(3);
+  g.drawImage(t, 0, 0); g.globalCompositeOperation = 'source-atop'; const gr = g.createLinearGradient(w / 4, h / 4, 3 * w / 4, 3 * h / 4);
+  gr.addColorStop(0, `rgba(16,52,104,${a(k - 0.5)})`); gr.addColorStop(1, `rgba(16,52,104,${a(k + 0.5)})`); g.fillStyle = gr; g.fillRect(0, 0, w, h); c.avg = t.avg;
+  return GT_MK[key] = c;
+}
+function gtPatch(n) {   // terre aux bords fondus (clairières) : dessinée plus grande que la case, elle déborde en douceur sur l'herbe voisine
+  const k = n + '~'; if (GT_MK[k]) return GT_MK[k];
+  const e = typeof P2_IMG !== 'undefined' && P2_IMG[n]; if (!e || !e.ok || !e.im.naturalWidth) return null;
+  const w = e.im.naturalWidth, h = e.im.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  g.drawImage(e.im, 0, 0, w, h); g.globalCompositeOperation = 'destination-in'; g.setTransform(1, 0, 0, 0.5, 0, 0);
+  const gr = g.createRadialGradient(w / 2, h, 0, w / 2, h, w / 2); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.5, 'rgba(0,0,0,.9)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h * 2); return GT_MK[k] = c;
+}
+function gtNoise(x, y) { const G = 5, gx = x / G, gy = y / G, ix = Math.floor(gx), iy = Math.floor(gy), fx = gx - ix, fy = gy - iy, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy), h = (a, b) => hash(a, b, 91); return lerp(lerp(h(ix, iy), h(ix + 1, iy), sx), lerp(h(ix, iy + 1), h(ix + 1, iy + 1), sx), sy); }
+const gtWater = (x, y) => inb(x, y) && ZONE[idx(x, y)] === 3;
+function gtClearing(x, y) {   // clairière de terre : bruit lisse déterministe en campagne, et sous les gisements (hors bois et cultures)
+  if (!inb(x, y) || ZONE[idx(x, y)] !== 0 || isRoad(x, y)) return false; const d = S.dep && S.dep[idx(x, y)];
+  if (d && d.k !== 'wood' && !CROPS[d.k]) return true;
+  return gtNoise(x, y) > 0.78 && hash(x, y, 93) > 0.25;
+}
+function gtKind(x, y) {   // [nom du sprite, tourné de 180°] de la case
+  const i = idx(x, y), zn = ZONE[i];
+  if (isRoad(x, y)) return [ROAD_SPR[roadMask(x, y)], false];
+  if (zn === 3) return inb(x - 1, y) && ZONE[idx(x - 1, y)] === 4 ? ['eau_rivage_quai', true] : ['eau_calme', false];
+  if (zn === 4) return [GT_QUAI[Math.floor(hash(x, y, 71) * 2)], false];
+  if (zn === 2) return ['sol_port_asphalte', false];
+  if (zn === 1) return ['sol_ville_pave', false];
+  if (gtWater(x + 1, y) || gtWater(x, y + 1) || gtWater(x, y - 1)) return ['rivage_sable', true];
+  return [GT_GRASS[Math.floor(hash(x, y, 77) * 4)], false];
+}
+function gtTile(g, x, y, o, flat) {   // dessine la case (x, y) dans g (repère monde) ; o = recouvrement en px monde
+  const p = iso(x, y), kd = gtKind(x, y), n = kd[0], road = n.startsWith('route_'), wat = n === 'eau_calme' || n === 'eau_rivage_quai', t = wat ? gtWaterTex(n, kd[1], x - coastX(y)) : gtTex(n, kd[1]);
+  if (road) { g.fillStyle = '#50545b'; gtDia(g, p, o); g.fill(); }   // sous-couche d'asphalte : jamais de trou sous la chaussée
+  if (t && !flat) g.drawImage(t, p.x - 66 - o, p.y - o / 2, 132 + 2 * o, 66 + o);
+  else if (road && !t && !flat) { const s = SP['road' + roadMask(x, y)]; if (s) g.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - 66, p.y, s[2], s[3]); }
+  else { g.fillStyle = t ? t.avg : gtFlatOf(n); gtDia(g, p, o); g.fill(); }
+  if (wat) {   // écume le long de la plage (la profondeur est déjà dans la tuile, voir gtWaterTex)
+    if (inb(x - 1, y) && ZONE[idx(x - 1, y)] !== 3 && ZONE[idx(x - 1, y)] !== 4) { g.strokeStyle = 'rgba(244,240,226,.7)'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(p.x - 64, p.y + 34); g.lineTo(p.x + 1, p.y + 1.5); g.stroke(); }
+  }
+}
+const GT_LV = [0.25, 0.354, 0.5, 0.707, 1, 1.414, 2], GT_W = 2 * 8 * 66 + 8, GT_H = 2 * 8 * 33 + 8;
+function gtSig(cx, cy) {   // empreinte des cases du bloc et de leur bordure : routes, zones, gisements (une route posée ou détruite rebâtit le bloc)
+  const CH = GT.CH, x0 = cx * CH - 1, y0 = cy * CH - 1; let h = 7 + GT.ready * 131;
+  for (let y = y0; y <= y0 + CH + 1; y++) for (let x = x0; x <= x0 + CH + 1; x++) { let v = 31; if (inb(x, y)) { const i = idx(x, y), c = S.grid[i], d = S.dep && S.dep[i]; v = ZONE[i] * 4 + (c && c.t === 'road' ? 1 : 0) + (d && d.k !== 'wood' && !CROPS[d.k] ? 2 : 0); } h = (Math.imul(h, 33) + v) | 0; }
+  return h;
+}
+function gtBake(cx, cy, lv, flat, sig, old) {
+  const CH = GT.CH, x0 = cx * CH, y0 = cy * CH, bx = (x0 - y0 - CH) * 66 - 4, by = (x0 + y0) * 33 - 4;
+  const cv = old || document.createElement('canvas'); if (!old) { cv.width = Math.ceil(GT_W * lv); cv.height = Math.ceil(GT_H * lv); }
+  const g = cv.getContext('2d'), kx = cv.width / GT_W, ky = cv.height / GT_H, o = 1.2 / lv;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.setTransform(kx, 0, 0, ky, -bx * kx, -by * ky);
+  const A = iso(x0, y0), B = iso(x0 + CH, y0), C = iso(x0 + CH, y0 + CH), D = iso(x0, y0 + CH), e = o;   // découpe sur le losange du bloc (+ recouvrement)
+  g.save(); g.beginPath(); g.moveTo(A.x, A.y - e); g.lineTo(B.x + 2 * e, B.y); g.lineTo(C.x, C.y + e); g.lineTo(D.x - 2 * e, D.y); g.closePath(); g.clip();
+  for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) if (inb(x, y) && !isRoad(x, y)) gtTile(g, x, y, o, flat);
+  for (let y = y0 - 1; y <= y0 + CH; y++) for (let x = x0 - 1; x <= x0 + CH; x++) if (gtClearing(x, y)) {   // clairières (y compris celles des cases voisines qui débordent dans ce bloc)
+    const pt = gtPatch(GT_DIRT[Math.floor(hash(x, y, 79) * 4)]), p = iso(x, y), k = 0.85 + 0.35 * hash(x, y, 81);
+    if (flat || !pt) { g.globalAlpha = 0.55; g.fillStyle = GT_FLAT.terre; g.beginPath(); g.ellipse(p.x, p.y + 33, 58 * k, 29 * k, 0, 0, 7); g.fill(); g.globalAlpha = 1; }
+    else g.drawImage(pt, p.x - 99 * k, p.y + 33 - 49.5 * k, 198 * k, 99 * k);
+  }
+  for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) if (inb(x, y) && isRoad(x, y)) gtTile(g, x, y, o, flat);
+  g.restore(); GT.stat.baked++;
+  return { cv, bx, by, sig, lv, flat, px: cv.width * cv.height, cx, cy };
+}
+function gtActive() {
+  if (GT.off) return false;
+  let r = 0; for (const n of GT_NAMES) { const e = typeof P2_IMG !== 'undefined' && P2_IMG[n]; if (e && e.ok) r++; }
+  GT.ready = r; return r > 0;   // dès qu'un sprite de sol est chargé ; les autres cases passent en aplat ou par l'atlas
+}
+function gtDraw(vr) {
+  const t0 = performance.now(), CH = GT.CH, eff = z * dpr, lvi = GT_LV.findIndex(l => l >= eff * 0.95), lv = GT_LV[lvi < 0 ? GT_LV.length - 1 : lvi], flat = eff < 0.2;
+  const cx0 = Math.floor(vr.x0 / CH), cx1 = Math.floor(vr.x1 / CH), cy0 = Math.floor(vr.y0 / CH), cy1 = Math.floor(vr.y1 / CH), used = new Set(), budget = Math.max(8e6, Math.min(24e6, W * H * dpr * dpr * 7));
+  let baked = 0; GT.stat.drawn = 0; const q0 = ctx.imageSmoothingQuality; ctx.imageSmoothingQuality = 'low';   // bloc déjà cuit à la résolution de l'écran (rapport 0,7 à 1) : filtrage bilinéaire suffisant, bien moins coûteux
+  for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+    const x0 = cx * CH, y0 = cy * CH, bx = (x0 - y0 - CH) * 66 - 4, by = (x0 + y0) * 33 - 4;
+    const sx0 = (bx - cam.x) * z + vx, sy0 = (by - cam.y) * z + vy; if (sx0 > W || sy0 > H || sx0 + GT_W * z < 0 || sy0 + GT_H * z < 0) continue;
+    const sig = gtSig(cx, cy), key = cx + ',' + cy + ',' + lv + (flat ? 'f' : ''); let c = GT.cache.get(key);
+    if (!c || c.sig !== sig) {
+      if (baked < 1 || performance.now() - t0 < 9) { const nc = gtBake(cx, cy, lv, flat, sig, c && c.cv); if (c) GT.px -= c.px; c = nc; GT.px += c.px; baked++; GT.cache.delete(key); GT.cache.set(key, c); }
+      else {   // budget de cuisson épuisé pour cette image : autre résolution déjà prête, sinon aplat direct (une image, le bloc sera cuit à la suivante)
+        let alt = null; for (const l of GT_LV) for (const f of ['', 'f']) { const a = GT.cache.get(cx + ',' + cy + ',' + l + f); if (a && a.sig === sig) alt = a; }
+        if (alt) c = alt;
+        else { c = null; GT.stat.direct++; ctx.save(); const A = iso(x0, y0), B = iso(x0 + CH, y0), C2 = iso(x0 + CH, y0 + CH), D = iso(x0, y0 + CH); ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.lineTo(C2.x, C2.y); ctx.lineTo(D.x, D.y); ctx.closePath(); ctx.clip(); for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) if (inb(x, y)) gtTile(ctx, x, y, 1, true); ctx.restore(); }
+      }
+    } else { GT.cache.delete(key); GT.cache.set(key, c); }
+    if (c) { ctx.drawImage(c.cv, c.bx, c.by, GT_W, GT_H); used.add(c); GT.stat.drawn++; }
+  }
+  for (const [k, c] of GT.cache) { if (GT.px <= budget) break; if (used.has(c)) continue; GT.cache.delete(k); GT.px -= c.px; }   // LRU : les blocs les plus anciens partent d'abord
+  ctx.imageSmoothingQuality = q0; GT.used = used.size; GT.ft = performance.now() - t0;
+}
+function gtWaves(p, now, x, y) {   // vaguelettes animées par-dessus l'eau texturée (discrètes)
+  const cx = p.x, cy = p.y + 33; ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  for (let k = 0; k < 2; k++) { const ph = now / 900 + x * 0.7 + y * 0.5 + k * 2.1, ox = Math.sin(ph) * 10, oy = (k - 0.5) * 18; ctx.beginPath(); ctx.moveTo(cx - 24 + ox, cy + oy); ctx.quadraticCurveTo(cx + ox, cy + oy - 5 + Math.cos(ph) * 2, cx + 24 + ox, cy + oy); ctx.stroke(); }
+}
 const ships = [];
 for (let i = 0; i < 5; i++) ships.push({ x: 91 + (i % 2) * 2.4, y: 8 + i * 17, v: (i % 2 ? 1 : -1) * (0.22 + 0.06 * i), seed: i });
 function updateShips(dt) { ships.forEach(s => { s.y += s.v * dt * speedFactor(); if (s.y > N + 6) s.y = -6; if (s.y < -6) s.y = N + 6; }); }
@@ -14441,19 +14563,20 @@ function frame(now) {
 
   if (atlasReady && z < SAT_Z) drawSatellite(now);
   else if (atlasReady) {
-    poly([iso(0, 0), iso(N, 0), iso(N, N), iso(0, N)], '#a9b98c');
+    const gtOn = gtActive();
+    poly([iso(0, 0), iso(N, 0), iso(N, N), iso(0, N)], gtOn ? GT.bg : '#a9b98c');
     const vr = visibleRange();
     const pulse = 0.5 + 0.5 * Math.sin(now / 300);
     const wantDep = TYPES[tool] && TYPES[tool].ext;
+    if (gtOn) gtDraw(vr);   // sol texturé et routes en sprites, mis en cache par blocs de 8x8 cases (passe sol et routes)
     // passe 1 : sol, routes, gisements
     eachVisible(vr, (x, y) => {
       const p = iso(x, y), rc = S.grid[idx(x, y)], zn = ZONE[idx(x, y)];
-      if (zn === 3) { drawWater(p, now, x, y); return; }
-      if (rc && rc.t === 'road') blit('road' + roadMask(x, y), p.x - 66, p.y);
-      else blit('ground', p.x - 66, p.y);
+      if (zn === 3) { if (gtOn) gtWaves(p, now, x, y); else drawWater(p, now, x, y); return; }
+      if (!gtOn) { if (rc && rc.t === 'road') blit('road' + roadMask(x, y), p.x - 66, p.y); else blit('ground', p.x - 66, p.y); }
       if (!(rc && rc.t === 'road')) {
-        ctx.fillStyle = ZONE_TINT[zn];
-        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath();
+        if (!gtOn) { ctx.fillStyle = ZONE_TINT[zn]; ctx.fill(); }
         { const zc = S.pzn && !rc && ZN[S.pzn[idx(x, y)]]; if (zc) { ctx.fillStyle = zc.col; ctx.fill(); } else if (ZEXT[idx(x, y)] && !rc) { ctx.fillStyle = 'rgba(70,211,211,.16)'; ctx.fill(); } }   // passe 34 : cases zonées et terrains créés
         if (S.pro && S.pro.terr.length && terrSet().has(idx(x, y))) { ctx.fillStyle = 'rgba(255,170,40,.38)'; ctx.fill(); ctx.lineWidth = 3; poly(tilePts(p, 0.84), null, 'rgba(255,170,40,.9)'); }
       }
@@ -16978,6 +17101,7 @@ Object.assign(window.WSE, { coach: { st: coachSt, pick: coachPick, view: coachVi
 Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDaily, obs: netObs, render: renderNet, tab: setNetTab, unread: netUnread, badge: netBadge, save: netSave, san: netSan, reply: netReply, TPL: NET_TPL, CHAT: NET_CHAT, BOTS: NET_BOTS, reset: sd => { S.net = null; const n = netS(); if (sd != null) { n.sd = sd | 0; n.posts = []; n.chat = []; n.id = 0; netSeedContent(); n.seen = n.id; n.o = netSnap(); } NET._t = 0; return n; }, setGap: ms => { NET._t = ms ? NET._t : 0; } } });   // passe 42 : Réseau Wall Street
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ecomStep, list: ewhList, site: ecSite, cat: ecCatalog, delay: ecDelay, attract: ecAttract, pool: ecPool, val: ecVal, tier: () => tierOf((S.stats && S.stats.worth) || 0), raise: ecRaise, set: ecSet, kpi: ecKpi, advice: ecAdvice, save: ecSave, san: ecSan, render: renderEcom, show: ecShow, html: ecomHTML, edu: ecEduHTML, shipCap: ecShipCap, storeCap: ecStoreCap, used: ecUsed, CLS: EC_CLS, MIX: EC_MIX, RET: EC_RET, WORLD: EC_WORLD, FREQ: EC_FREQ, BASKET: EC_BASKET, EL: EC_EL, SHIP: EC_SHIP, STORE: EC_STORE, HOST: EC_HOST, DC: EC_DC, RESV: EC_RESV, LAUNCH: EC_LAUNCH } });   // passe 46 : commerce en ligne
+Object.assign(window.WSE, { ground: { GT, ROAD_SPR, GT_NAMES, kind: gtKind, active: gtActive, roadSpr: (x, y) => ROAD_SPR[roadMask(x, y)], clearing: gtClearing, tex: gtTex }, view: { get z() { return z; }, setZ: v => { fitted = true; z = clamp(v, 0.03, 1.8); }, centerOn, get dpr() { return dpr; } } });   // passe sol et routes
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
 window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMILY, famOf: pFamOf, byFam: SPEC_BY_FAM, of: specOf, tab: specTab, share: specShare, famShare: specFamShare, mk: specMk, known: specKnown, locked: specLocked, need: specNeedTxt, shelfOk: specShelfOk, bcT: specBcT, stats: specStats, card: specCard, mall: specMallLine, edu: eduSpecHTML, PASS: SPEC_PASS, PRI: SPEC_PRI, day: () => S._spec || {} };   // passe 46 : magasins spécialisés
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
