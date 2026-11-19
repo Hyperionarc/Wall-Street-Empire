@@ -34,7 +34,7 @@ Colonnes : clé du type, nom, emprise avant → après (largeur × profondeur), 
 | `off` | Tour de location | 1 × 1 | 1 × 1 | 1 | tour : 1 lot |
 | `bank` | Banque | 1 × 1 | 1 × 1 | 1 | immeuble de bureaux |
 | `rd` | Centre de R&D | 1 × 1 | 1 × 1 | 1 | immeuble de bureaux et labos |
-| `dc` | Data center | 1 × 1 | 1 × 1 | 1 | inchangé (sujet d'un autre chantier) |
+| `dc` | Data center | 1 × 1 | 5 × 4 | 20 | campus (passe 58) : interdit en ville, alimentation électrique obligatoire |
 | `tv` | Station média | 1 × 1 | 1 × 1 | 1 | immeuble |
 | `sport` | Équipement sportif | 1 × 1 | 1 × 1 | 1 | gymnase de quartier |
 | `hq` | Siège social | 2 × 2 | 2 × 2 | 4 | inchangé |
