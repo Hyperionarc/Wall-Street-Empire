@@ -369,3 +369,34 @@ Merci de refaire d'abord la pharmacie selon ce plan en croix, puis l'hôpital en
 - Là où il faut une enseigne : **bandeau, caisson ou panneau UNI** (couleur sobre, léger éclairage), sans glyphes, ni pseudo-lettres, ni symboles inventés.
 - Les **statues et emblèmes** restent permis (mannequin, voiture sur le toit, croix, silhouette de vélo, lustre…) : ce sont des formes, pas du texte.
 - Les sprites déjà livrés avec du texte (mall moderne, high-tech, sport/loisirs, hôpital « HOSPITAL », supermarché/hypermarché, etc.) sont à régénérer sans texte ; en attendant, le jeu masquera/recouvrira leurs enseignes.
+
+## COMMANDE DE L'INTÉGRATEUR AU PRODUCTEUR n° 11 (19 nov.) : photos de produits manquantes ou fausses, fermes vivantes
+Audit réel (passe 59, `docs/AUDIT_PRODUITS.md`, planches de `wall-street-empire/tools/audit_produits.js` regardées une à une) : 95 produits et 95 biens ; 20 sans photo, 14 photos à refaire, 8 provisoires. **Règles communes (comme `photos_guide.json`)** : photo produit de studio, un seul sujet centré, fond gris clair uni sans couture, lumière douce du haut à gauche, ombre légère au sol, matières réalistes, **aucun texte, aucune lettre, aucun chiffre, aucun logo, aucune marque** (étiquettes et emballages **unis** ou à motifs simples), carré **512×512 JPEG**, déposé dans `assets/guide_hd/<clé>.jpg` (le build les prend tout seul, le repli vectoriel disparaît). Joindre une planche de contact.
+**1. Manquantes (priorité 1)** :
+- `eggs.jpg` : boîte de 6 œufs en carton moulé ouverte, œufs bruns, vue trois quarts haute.
+- `chicken.jpg` : poulet entier cru prêt à cuire sur une barquette noire, peau claire, cuisses ficelées.
+- `porkmeat.jpg` : deux côtes de porc crues avec os, sur planche en bois.
+- `lambmeat.jpg` : carré d'agneau cru, os manchonnés bien blancs, sur planche.
+- `sausage.jpg` : saucisson sec à fleur blanche ficelé, quelques rondelles coupées devant.
+- `tablewine.jpg` : **vin de table** : bouteille d'un litre en verre vert, simple, bouchon à vis, étiquette unie crème **sans texte**, un verre à eau rempli de rouge à côté. Rien de luxueux.
+- `grandcru.jpg` : **grand cru** : bouteille bordelaise en verre très sombre, longue capsule dorée, **étiquette sobre crème avec un fin filet doré et une gravure de château (dessin, pas de texte)**, posée devant une caisse en bois ouverte avec paille, un verre à pied en cristal. Rien d'écrit nulle part (ni millésime, ni nom).
+- `tableoil.jpg`, `cornchips.jpg`, `biofuel.jpg`, `corn.jpg`, `rapeseed.jpg`, `cookoil.jpg`, `biodiesel.jpg` : sujets déjà écrits dans `photos_guide.json` (sachet de chips **uni**, jerrican sans inscription).
+- `grapes.jpg` : deux grappes de raisin noir avec quelques feuilles de vigne, dans une cagette de vendange en bois.
+- `egg.jpg` : œufs en vrac : plateau alvéolé de 30 œufs bruns (matière agricole, pas de boîte de vente).
+- `wine.jpg` : vin en vrac : tonneau de chêne cerclé couché sur un chantier, une carafe de rouge devant.
+**2. À refaire (photo existante fausse ou couverte de pseudo-texte)** :
+- `whisky.jpg` : bouteille de whisky de luxe (verre épais, liquide ambré, bouchon bois), étiquette **unie**, verre tumbler. (L'actuelle porte « LOQALS » : le jeu montre en attendant la carafe `spirit.jpg`.)
+- `spirits.jpg` : bouteille de spiritueux courante, étiquette unie (l'actuelle a des pseudo-lettres).
+- `obesity.jpg` : pilulier blanc et gélules, **sans boîte écrite ni seringue** (l'actuelle : « WEIGHT LOSS »).
+- `antibio.jpg` : plaquette de gélules bicolores et petit flacon de comprimés, boîte unie (l'actuelle : boîte blanche vide).
+- `hygiene.jpg` : paquet de couches **uni**, une couche dépliée devant. `lube.jpg` : bidon d'huile moteur uni avec bec verseur et jerrican de carburant (l'actuel : « MOTFARH »).
+- `jacket.jpg` : une **veste** (blouson en toile ou veste de ville) sur cintre (l'actuelle est un pull plié ; elle sert désormais au pull).
+- `tv.jpg` : téléviseur écran **allumé** (paysage abstrait coloré). `ebike.jpg` : vélo électrique avec **batterie visible** sur le cadre et moteur au moyeu.
+- `screen.jpg` : dalle d'écran nue (verre noir brillant, nappe de connexion), pas un carré blanc. `silicon.jpg` : plaquette de silicium gris miroir à reflets irisés. `ingot.jpg` : lingot d'or trapézoïdal (sans poinçon écrit). `rubber.jpg` : feuilles de latex crêpe et balles de caoutchouc naturel.
+- Facultatif : `petfood.jpg` (sachet uni), `chrome.jpg` (chromite gris métallique), `sugar.jpg` (tronçons de canne coupés).
+**3. Provisoires (le jeu réutilise une autre image)** : `sweater.jpg` (pull en grosse maille torsadée, laine écrue ; aujourd'hui la photo « jacket »), `drinkmilk.jpg` (brique et bouteille de lait unies ; aujourd'hui le pichet du lait cru), `beefmeat.jpg` (barquette de deux steaks ; aujourd'hui la photo des viandes d'abattoir), `beef.jpg` / `pork.jpg` / `lamb.jpg` / `poultry.jpg` (demi-carcasse ou quartier sur crochet, chambre froide claire ; aujourd'hui l'animal vivant posé sur fond studio), `wool.jpg` (toison roulée et écheveaux de laine brute ; aujourd'hui le mouton).
+**4. Visuels de lancement (facultatif)** : le cinéma de lancement n'a un visuel 16:9 que pour 10 produits (`assets/products_hd/<clé>.jpg`, 1280×720) ; les 85 autres montrent la photo carrée. Si possible, `grandcru`, `whisky`, `perfume`… en 16:9 même charte (fond sombre, produit seul, sans texte).
+**5. Fermes vivantes** : le jeu dessine maintenant par le code, par-dessus le sprite HD, le blé doré dense qui ondule, le colza en fleurs, le maïs et la canne en rangées, la vigne palissée (grappes en saison) et des troupeaux animés. Ce qui reste à la source :
+- **Sprites de champ sans culture peinte** : `fwheat_sol.png`, `fcorn_sol.png`, `frapeseed_sol.png`, `fsugar_sol.png`, `fvine_sol.png` (même caméra, même parcelle 2×2, même grange/chai), la zone cultivée en **terre labourée nue** et **sans personnages ni tracteur au milieu** (aujourd'hui le petit groupe de figurines et le tracteur sont recouverts par les épis).
+- **Prés sans bêtes peintes** : `fcattle_pre.png`, `fsheep_pre.png`, `fpig_pre.png`, `fchicken_pre.png` : mêmes bâtiments et clôtures, pré vide (les bêtes peintes, plus petites, se mélangent aux bêtes animées).
+- **Bêtes en mouvement** : pour chaque `animal_vache`, `animal_mouton`, `animal_cochon`, `animal_poule` : 4 images de marche (`animal_vache_marche_1..4.png`), 1 broutant tête basse (`animal_vache_broute.png`) et une vue de dos (`animal_vache_ar.png`), même échelle et même ancre que l'actuel, fond transparent.
