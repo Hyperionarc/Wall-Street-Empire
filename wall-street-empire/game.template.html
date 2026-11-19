@@ -1237,6 +1237,7 @@ body.vopen #feed{z-index:9}
     <p class="note" id="polNote"></p>
     <div class="seg2" style="margin:6px 0;flex-wrap:wrap"><button class="btn sec" id="polAlert" aria-pressed="true">Alertes de stock bas : oui</button><button class="btn sec" id="polNoLoss" aria-pressed="false">Ne jamais vendre sous le coût : non</button><button class="btn sec" id="polSeek" aria-pressed="false">Chercher de meilleurs fournisseurs : non</button></div>
     <div class="taxrow"><span>Poids du fret</span><input type="range" id="polFr" min="0" max="100" step="25" value="50" aria-label="Poids du fret dans le choix des fournisseurs"><b id="polFrV">50 %</b></div>
+    <div class="taxrow"><span>Poids de la qualité</span><input type="range" id="polQw" min="0" max="100" step="25" value="50" aria-label="Poids de la qualité des intrants dans le choix des fournisseurs"><b id="polQwV">50 %</b></div>
     <div class="taxrow"><span>Tolérance de rupture</span><input type="range" id="polTol" min="0" max="30" step="1" value="7" aria-label="Jours de rupture tolérés avant de changer de fournisseur"><b id="polTolV">7 jours</b></div>
     <p class="note" id="polNote2"></p>
     <h3>OPTIONS DU PDG (CEO)</h3>
@@ -1898,10 +1899,12 @@ function stdPrice(pk) { const wf = clamp(Math.pow(((S && S.rw) || 1) * wageMkt()
 const PACK = [{ n: 'Vrac', per: 0, attr: 0.85, tag: 'Sans emballage' }, { n: 'Carton', per: 1, attr: 1, tag: 'Carton standard' }, { n: 'Coffret premium', per: 2, attr: 1.15, tag: 'Coffret soigné' }];
 // Concurrents IA : chacun a une part d'attractivité par catégorie, une trésorerie, et investit ou fait faillite selon ses ventes
 // Fournisseurs : sociétés productrices de chaque bien (réseau local, compagnies externes, import par le port)
+const SUP_QE = 0.5, IMP_Q = 55, MKT_Q = 50;   // élasticité prix-qualité des fournisseurs ; qualité moyenne de l'import et du marché local (producteurs PNJ)
 const SUP_POOL = ['Gulf Petroleum', 'Nordic Resources', 'Atlas Mining', 'Pacific Supply', 'Rhine Industries', 'Sahara Energy', 'Andes Metals', 'Baltic Trading', 'Meridian Materials', 'Orient Commodities', 'Helvetia Commodities', 'Cascade Industries'];
 function supplierList(g) {
   const a = g.charCodeAt(0), b = g.charCodeAt(g.length - 1), out = [];
-  for (let i = 0; i < 5; i++) out.push({ id: 's' + i, name: SUP_POOL[(Math.floor(hash(a, b, 11) * 12) + i * 5) % 12], pf: +(0.86 + 0.3 * hash(i, a, 7)).toFixed(2), q: 40 + Math.round(50 * hash(i, b, 13)), dist: 8 + Math.round(60 * hash(i, a, 17)) });
+  // CapLab (règle 4.2 de docs/CAPLAB_CHAINE_PRIX_DEMANDE.md) : la qualité se paie. Prix fournisseur ≈ cours × (qualité / 65)^0,5 × écart propre (±6 %) : un intrant de qualité 90 coûte ≈ +18 %, de qualité 40 ≈ −22 %
+  for (let i = 0; i < 5; i++) { const q = 40 + Math.round(50 * hash(i, b, 13)); out.push({ id: 's' + i, name: SUP_POOL[(Math.floor(hash(a, b, 11) * 12) + i * 5) % 12], pf: +((0.94 + 0.12 * hash(i, a, 7)) * Math.pow(q / 65, SUP_QE)).toFixed(2), q, dist: 8 + Math.round(60 * hash(i, a, 17)) }); }
   const fp = fgnOf(g); if (fp) { out[0].name = fp.name + ' (' + fp.city + ')'; out[0].pf = +(fp.stance === 'dump' ? 0.78 : fp.stance === 'squeeze' ? 1.2 : 0.9).toFixed(2); out[0].q = 85; }
   return out;
 }
@@ -2586,7 +2589,16 @@ function trueQ(pk) {
   const ps = S.prod[pk], base = QTIER[ps.q].q, ts = TECH_SHARE[pk] == null ? 15 : TECH_SHARE[pk], fi = ps._fi == null ? 1 : ps._fi, tp = ptech(ps) / techFront() * techComp(pk);
   return clamp(base * ((100 - ts) * fi + ts * tp) / 100, 0, 100);
 }
-function updInputQ(pk) { const ps = S.prod[pk], w = iqua(pk).w, ks = Object.keys(w), tot = ks.reduce((a, g) => a + w[g], 0); if (!tot) { ps._fi = 1; return; } const iq = ks.reduce((a, g) => a + w[g] * (suppliersOf(g).length ? gQual(g) : 50), 0) / tot; ps._fi = 0.85 + 0.3 * clamp(iq / 100, 0, 1); }
+// Qualité livrée d'un intrant selon la source réellement choisie (CapLab, règle 4.1 : la qualité d'un produit fabriqué vient des intrants ACHETÉS) :
+// fournisseur nommé = sa qualité ; import = IMP_Q ; stock local = ta propre production si tu en as, sinon le marché local (MKT_Q)
+function srcQ(g, mode) {
+  const m = mode || 'auto';
+  if (m.indexOf('co:') === 0) { const s = supplierList(g).find(x => x.id === m.slice(3)); return s ? s.q : MKT_Q; }
+  if (m === 'port' || m === 'import') return IMP_Q;
+  return suppliersOf(g).length ? gQual(g) : MKT_Q;
+}
+function inputQ(pk, g) { let a = 0, n = 0; eachBuilding(b => { if (b.conn && b.prod === pk && FLEVEL[b.t]) { a += srcQ(g, b.src && b.src[g]); n++; } }); return n ? a / n : srcQ(g, 'auto'); }
+function updInputQ(pk) { const ps = S.prod[pk], w = iqua(pk).w, ks = Object.keys(w), tot = ks.reduce((a, g) => a + w[g], 0); if (!tot) { ps._fi = 1; return; } const iq = ks.reduce((a, g) => a + w[g] * inputQ(pk, g), 0) / tot; ps._iq = Math.round(iq); ps._fi = 0.85 + 0.3 * clamp(iq / 100, 0, 1); }
 // Technologie de chaque produit : -10 %/an sans R&D ; la R&D (centres de R&D, expertise de la méga-classe) l'entretient, davantage quand la pointe du marché dépasse 100
 function stepProdTech() {
   const front = techFront(), on = PKEYS.filter(pk => S.prod[pk].st === 'on'), n = Math.max(1, on.length / 3);
@@ -2615,7 +2627,7 @@ function prodModelHTML(pk) {
    <div class="qr"><span>Demande moyenne</span><span>${f(DEMAND_PC[pk] || 0)} u/an/habitant ≈ ${fmt(Math.round(popE() * (DEMAND_PC[pk] || 0) / 360))} u/jour</span></div>
    <div class="qr"><span>Salaire réel requis · actuel</span><span>${Math.round(reqRW(pk) * 100)} · ${Math.round(((S.rw || 1)) * 100)}${affordOf(pk) < 0.99 ? ' (acheteurs à ' + Math.round(affordOf(pk) * 100) + ' %)' : ''}</span></div>
    <div class="qr"><span>Prix standard (base + prime R&D)</span><span>${f(stdPrice(pk))} $ (dont prime R&D ${f(rdPrem(pk))} $, non indexée)</span></div>
-   <div class="qr"><span>Qualité réelle ${Math.round(trueQ(pk))} %</span><span>intrants ${100 - iq.tech} % · technologie ${iq.tech} %</span></div>
+   <div class="qr"><span>Qualité réelle ${Math.round(trueQ(pk))} %</span><span>intrants ${100 - iq.tech} % (qualité livrée ${ps._iq == null ? MKT_Q : ps._iq}) · technologie ${iq.tech} %</span></div>
    <div class="qr"><span>Intrants (poids IQUA)</span><span>${inRows}</span></div>
    <div class="qr"><span>Technologies (max. 3)</span><span>${techRows}</span></div>
    <div class="qr"><span>Niveau techno · pointe du marché · expertise</span><span>${Math.round(ptech(ps))} · ${Math.round(front)} · ${Math.round(expOf(pk))}</span></div>
@@ -4554,15 +4566,20 @@ function stepPolicy() {
     c._rup = sg ? (c._rup | 0) + 1 : 0; c._rupG = sg; });
   if (p.seek && S.day % 5 === 0) stepProcure();
 }
-const offerScore = o => o.unit + o.freight * (0.2 + 1.6 * polFr());
-function bestOffer(g, haul) { let best = null; supplierList(g).forEach(s => { const o = supOffer(g, s.id, haul), sc = offerScore(o); if (!best || sc < best.sc) best = { id: 'co:' + s.id, o, sc }; }); const im = supOffer(g, 'import', haul); if (!best || offerScore(im) < best.sc) best = { id: 'import', o: im, sc: offerScore(im) }; return best; }
+// Choix d'un fournisseur (CapLab, règle 4.3) : coût livré pondéré par le fret, corrigé de la qualité livrée. qw = poids de la qualité pour CET acheteur
+// (politique « Poids de la qualité » × part des intrants dans la qualité de son produit) : coût équivalent = coût × (1 + qw × (60 − qualité) / 50), jamais sous 30 %.
+const polQw = () => (S && S.pol && S.pol.qw != null) ? clamp(S.pol.qw, 0, 1) : 0.5;
+const offerScore = (o, qw) => (o.unit + o.freight * (0.2 + 1.6 * polFr())) * Math.max(0.3, 1 + (qw == null ? 0 : qw) * (60 - (o.q == null ? MKT_Q : o.q)) / 50);
+// Poids de la qualité d'un acheteur : usine d'un produit fini = politique × part des intrants dans sa qualité (100 − part technologique) ; composant ou magasin : la qualité des intrants ne change presque rien à ce qu'il vend
+function buyerQw(c) { if (!c) return 0; const pk = c.prod; if (pk && PRODUCTS[pk] && (FLEVEL[c.t] || 0)) return polQw() * (100 - (TECH_SHARE[pk] == null ? 15 : TECH_SHARE[pk])) / 100; return 0.1 * polQw(); }
+function bestOffer(g, haul, qw) { let best = null; supplierList(g).forEach(s => { const o = supOffer(g, s.id, haul), sc = offerScore(o, qw); if (!best || sc < best.sc) best = { id: 'co:' + s.id, o, sc }; }); const im = supOffer(g, 'import', haul), si = offerScore(im, qw); if (!best || si < best.sc) best = { id: 'import', o: im, sc: si }; return best; }
 function stepProcure() {
   let n = 0;
   eachBuilding(c => { const T = TYPES[c.t]; if (!c.conn || c.t === 'npc' || n >= 3) return;
     const ins = (FLEVEL[c.t] || c.t === 'foundry') && recOf(c) ? Object.keys(recOf(c).in) : T.ret ? T.ret.sells.filter(x => x !== 'estate') : []; if (!ins.length) return;
-    ins.forEach(g => { if (!GOODS[g]) return; const mode = (c.src && c.src[g]) || 'auto', best = bestOffer(g, c.haul); if (!best) return;
-      if (mode === 'auto') { if ((c._rup | 0) >= polTol() && c._rupG === g) { c.src = c.src || {}; c.src[g] = best.id; n++; say(`Rupture de ${GOODS[g].name.toLowerCase()} depuis ${c._rup} jours : ${T.name.toLowerCase()} se tourne vers ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré).`, 'info'); } }
-      else if (mode.indexOf('co:') === 0) { const cur = supOffer(g, mode.slice(3), c.haul); if (best.sc < offerScore(cur) * 0.95 && best.id !== mode) { c.src[g] = best.id; n++; say(`Meilleur fournisseur trouvé pour ${GOODS[g].name.toLowerCase()} : ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré au lieu de ${cur.total.toFixed(2).replace('.', ',')}).`, 'info'); } } }); });
+    ins.forEach(g => { if (!GOODS[g]) return; const mode = (c.src && c.src[g]) || 'auto', qw = buyerQw(c), best = bestOffer(g, c.haul, qw); if (!best) return;
+      if (mode === 'auto') { if ((c._rup | 0) >= polTol() && c._rupG === g) { c.src = c.src || {}; c.src[g] = best.id; n++; say(`Rupture de ${GOODS[g].name.toLowerCase()} depuis ${c._rup} jours : ${T.name.toLowerCase()} se tourne vers ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré, qualité ${best.o.q}).`, 'info'); } }
+      else if (mode.indexOf('co:') === 0) { const cur = supOffer(g, mode.slice(3), c.haul); if (best.sc < offerScore(cur, qw) * 0.95 && best.id !== mode) { c.src[g] = best.id; n++; say(`Meilleur fournisseur trouvé pour ${GOODS[g].name.toLowerCase()} : ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré au lieu de ${cur.total.toFixed(2).replace('.', ',')}).`, 'info'); } } }); });
 }
 // Indice de fréquentation (Customer Index) : six facteurs pondérés, 0 à 100, qui pilote directement l'affluence du magasin
 function custIndex(c) {
@@ -6699,8 +6716,8 @@ function updateHUD() {
       el('loanNote').textContent = `${casteIs('promoteur') ? `Financement immobilier : dette ≤ 80 % de tes actifs gageables (${money(promoAssets())} : trésorerie, stocks, immobilier expertisé × indice ${immoIdx().toFixed(2).replace('.', ',')}), soit 4 × tes fonds propres (levier ×5). LTV actuelle ${Math.round(promoLtv() * 100)} %${S.mc ? ' : APPEL DE MARGE, vente forcée au jour ' + S.mc.until : ' (appel de marge au-delà de 90 %)'}.` : casteIs('banquier') ? `Emprunt de la banque limité à 9 × ses fonds propres CET1 (levier total ×10), jamais sur son portefeuille de crédits. Trésorerie jamais négative : le découvert est limité à ${money(odLimit())}, puis taxé à taux + 12 pts.` : `Plafond = 100 % des actifs courants (${money(ca)} : trésorerie propre + stocks).`} Taux ${(rate * 100).toFixed(1).replace('.', ',')} % · intérêts ${mj((S.loan || 0) * rate / 360)}/mois. ${casteIs('promoteur') || casteIs('banquier') ? '' : 'Plafond limité à 3 ans d\'EBE (dette graduée), '}prime de levier incluse dans le taux${catchUp().on ? ', rattrapage −' + Math.round(catchUp().disc * 100) + ' %' : ''}. Le principal n'est jamais exigible, et l'inflation l'érode : ta dette vaut ${money((S.loan || 0) / cpi())} en dollars d'origine.`; }
     { const pp = (S.pol && S.pol.price) || 0; if (document.activeElement !== el('polPrice')) el('polPrice').value = -pp; el('polPriceV').textContent = POL_N[String(pp)] || 'Équilibré'; el('polNote').textContent = pp > 0 ? 'Prix plus bas : plus de clients, marges plus fines.' : pp < 0 ? 'Prix plus hauts : meilleure marge, moins de clients.' : 'Prix du marché sur tes magasins.'; el('polAlert').textContent = 'Alertes de stock bas : ' + (S.pol && S.pol.noAlert ? 'non' : 'oui'); el('polAlert').setAttribute('aria-pressed', S.pol && S.pol.noAlert ? 'false' : 'true');
       [['polNoLoss', 'noLoss', 'Ne jamais vendre sous le coût', 0], ['polSeek', 'seek', 'Chercher de meilleurs fournisseurs', 0], ['polInfP', 'noInfP', 'Prix selon l\'inflation', 1], ['polInfA', 'noInfA', 'Publicité selon l\'inflation', 1]].forEach(([id, k, lab, inv]) => { const on = inv ? !polOn(k) : polOn(k); el(id).textContent = lab + ' : ' + (on ? 'oui' : 'non'); el(id).setAttribute('aria-pressed', on ? 'true' : 'false'); });
-      if (document.activeElement !== el('polFr')) el('polFr').value = Math.round(polFr() * 100); el('polFrV').textContent = Math.round(polFr() * 100) + ' %'; if (document.activeElement !== el('polTol')) el('polTol').value = polTol(); el('polTolV').textContent = polTol() + ' jour' + (polTol() > 1 ? 's' : '');
-      el('polNote2').textContent = (polOn('seek') ? 'Les usines et magasins en rupture depuis plus de ' + polTol() + ' jours, et ceux qui paient trop cher, changent de fournisseur ; le fret pèse ' + Math.round(polFr() * 100) + ' % dans le choix (plus il pèse, plus on achète près).' : 'Recherche de fournisseurs désactivée : tes choix manuels restent en place.') + (polOn('noLoss') ? ' Un magasin dont le coût d\'achat dépasse le CA relève son prix de rayon.' : '');
+      if (document.activeElement !== el('polFr')) el('polFr').value = Math.round(polFr() * 100); el('polFrV').textContent = Math.round(polFr() * 100) + ' %'; if (document.activeElement !== el('polTol')) el('polTol').value = polTol(); el('polTolV').textContent = polTol() + ' jour' + (polTol() > 1 ? 's' : ''); if (document.activeElement !== el('polQw')) el('polQw').value = Math.round(polQw() * 100); el('polQwV').textContent = Math.round(polQw() * 100) + ' %';
+      el('polNote2').textContent = (polOn('seek') ? 'Les usines et magasins en rupture depuis plus de ' + polTol() + ' jours, et ceux qui paient trop cher, changent de fournisseur ; le fret pèse ' + Math.round(polFr() * 100) + ' % dans le choix (plus il pèse, plus on achète près) ; la qualité livrée pèse ' + Math.round(polQw() * 100) + ' % (une qualité 90 coûte ≈ 18 % de plus, une qualité 40 ≈ 22 % de moins, et elle passe dans la qualité de tes produits).' : 'Recherche de fournisseurs désactivée : tes choix manuels restent en place.') + (polOn('noLoss') ? ' Un magasin dont le coût d\'achat dépasse le CA relève son prix de rayon.' : '');
       el('polNote3').textContent = 'Sans ajustement, tes prix de rayon et ton budget publicitaire perdent du terrain à chaque point d\'inflation (' + Math.round((cpi() - 1) * 1000) / 10 + ' % depuis le début). Les options automatiques réalignent tout tous les 30 jours.'; }
     el('tax').value = Math.round(S.tax * 100);
     el('taxV').textContent = Math.round(S.tax * 100) + ' %';
@@ -7248,6 +7265,7 @@ el('polAlert').onclick = () => { S.pol = S.pol || {}; S.pol.noAlert = !S.pol.noA
 el('polAdjNow').onclick = () => { adjustInfl(); say('Prix de rayon et budgets publicitaires réalignés sur l\'inflation.', 'info'); updateHUD(); save(); };
 el('polFr').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.fr = +e.target.value / 100; updateHUD(); });
 el('polTol').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.tol = +e.target.value; updateHUD(); });
+el('polQw').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.qw = +e.target.value / 100; updateHUD(); });
 const LOAN_STEPS = [20000, 50000, 100000, 250000, 500000, 1e6, 2.5e6, 5e6, 1e7, 2.5e7, 5e7, 1e8];
 function loanStep() { const lim = creditLimit(), t = lim / 12; let st = LOAN_STEPS[0]; LOAN_STEPS.forEach(v => { if (v <= t) st = v; }); return st; }
 const curAssetsCL = () => Math.max(0, S.cash - (S.loan || 0)) + stockValue();   // actifs courants : trésorerie propre + stocks
@@ -13020,7 +13038,7 @@ function supCards(c, g) {
     const city = x.type === 'grp' ? 'Groupe' : x.id === 'local' ? 'Ton réseau' : x.id === 'import' ? 'Port' : SUP_CITY[Math.floor(hash(g.length, (s ? s.name.length : 3) + i, 31) * 12)];
     const dist = x.type === 'grp' ? o.dist : x.id === 'local' ? (c.haul || 0) : x.id === 'import' ? 45 + (c.haul || 0) * 0.3 : s.dist;
     const supply = x.type === 'grp' ? o.supply : x.id === 'local' ? clamp(S.stock[g] / 400, 0, 1) : 0.35 + 0.6 * hash(g.length, i, 41), demand = clamp(need / Math.max(1, supply * 300), 0, 1);
-    const overall = Math.round(100 * clamp(0.45 * o.q / 100 + 0.55 * clamp(base / Math.max(0.1, o.total), 0, 1.3) / 1.3 + (o.deal ? 0.03 : 0), 0, 1));
+    const overall = Math.round(100 * clamp(base / Math.max(0.01, offerScore(o, buyerQw(c))) / 1.4, 0, 1));   // même note que le choix automatique (coût livré corrigé de la qualité, poids de la qualité de CET acheteur)
     return { id: x.id, type: x.type, o, city, dist: Math.round(dist), supply, demand, overall, name: o.name, delay: x.type === 'grp' || x.id === 'local' ? 0 : x.id === 'import' ? 3 : Math.max(1, Math.ceil(dist / 20)) };
   });
 }
@@ -13076,7 +13094,7 @@ el('supview').addEventListener('click', e => {
   if (a.indexOf('slotput:') === 0) { const key = a.slice(8), N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[spI] = key; el('supview').hidden = true; supMode = 'sup'; bPick = -1; renderBuilding(true); save(); return; }
   const ins = supIns(c);
   if (a === 'cancel') { el('supview').hidden = true; return; }
-  if (a === 'ok') { c.src = c.src || {}; if (supSel) c.src[supG] = supSel; el('supview').hidden = true; renderBuilding(true); save(); return; }
+  if (a === 'ok') { c.src = c.src || {}; if (supSel) c.src[supG] = supSel; if (c.prod && PRODUCTS[c.prod] && S.prod[c.prod].st === 'on') updInputQ(c.prod); el('supview').hidden = true; renderBuilding(true); save(); return; }
   if (a === 'auto') { c.src = c.src || {}; c.src[supG] = 'auto'; supSel = 'auto'; el('supview').hidden = true; renderBuilding(true); return; }
   if (a.indexOf('pick:') === 0) { supSel = a.slice(5); supNeg = false; }
   else if (a === 'prev' || a === 'next') { const i = ins.indexOf(supG); supG = ins[(i + (a === 'next' ? 1 : -1) + ins.length) % ins.length]; supSel = null; }
@@ -18010,6 +18028,7 @@ window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAu
 window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.rd = { patentHeld, held: patentHeld, mine: patMine, block: patBlock, blockMsg: patBlockMsg, grant: patGrant, value: patValue, incDay: patIncDay, licDay: patLicDay, revDay: patRevDay, licFee: patLicFee, buyLicence: patBuyLicence, opps: patOpps, develop: patDevelop, answer: patOfferAnswer, step: patStep, years: patYears, comp: patCompF, top: mkTopRaw, save: patSave, load: patLoad, st: rdxS, pat: () => S.pat || {}, list: accList, info: accInfo, quote: accQuote, accelerate, gemCost, gemAdd, render: renderRdp, edu: patEduHTML, advice: rdpAdvice, iap: { LIVE: IAP_LIVE, PACKS: IAP_PACKS, purchase: iapPurchase, log: IAP }, K: { PAT_Y, PAT_NIV_Y, PAT_ROY, PAT_LIC_SH, PAT_LIC_MAX, PAT_RIV_FROM, PAT_RIV_EVERY, PAT_OFF_EVERY, PAT_WARN_D, PAT_DISC, PAT_MONO, GEM_N, GEM_START, GEM_TIER, GEM_JAL, ACC_TOT, ACC_DAY_MAX, ACC_CASH_K, ACC_LAB_MAX, ACC_LAB_GAIN } };   // passe 47 : brevets de produit, R&D, accélération (aucun paiement réel)
 window.WSE.land = { model: landModel, price: landPrice, raw: landRaw, map: landMap, range: landRange, norm: landNorm, useOf: landUseOf, natUse: landNatUse, district: districtAt, cache: landCache, pole: landPole, foot: landFoot, costFor: landCostFor, val: c => landVal(c), assets: () => proLandAssets(), tip: landTipHTML, setLayer, layer: () => layer, cur: () => curLayer(), LAYER_N, LAYER_F, LEG, USES: LAND_USES, PARTS: LM_PART, K: LM_K, DISTRICTS, zoneOk, autoSpot };   // passe 48 : valeur du terrain par usage
+Object.assign(window.WSE, { cl: { offerScore, buyerQw, bestOffer, srcQ, inputQ, updInputQ, supplierList, trueQ, SUP_QE, IMP_Q, MKT_Q } });   // CapLab : chaîne, prix, demande (docs/CAPLAB_CHAINE_PRIX_DEMANDE.md)
 Object.assign(window.WSE, { mp: { good: mpGood, prod: mpProd, prodOf: mpProdOf, m: mpM, k: mpK, prime: mpPrime, Pg: mpPg, on: mpOn, vol: mpVol, entry: mpEntry, prodEntry: mpProdEntry, retail: mpRetail, rt: rtPow, txt: mpTxt, S0: MP_S0, IMP: MP_IMP, SUB: MP_SUB, HOT: MP_HOT, KMAX: MP_KMAX, PCLS: MP_PCLS, RP_R, RETAIL_MK } });   // passe 46 : pouvoir de marché
 Object.defineProperty(window.WSE, 'imm', { get() { return { on: immOn, tr: imm.tr, from: imm.from, idle: imm.idle, panel: immPanel, ang: planAng, yaw: planYaw, cam: { z: scam.z, x: scam.x, y: scam.y, bs: scam.bs }, W: imm.W, H: imm.H }; } });
 })();
