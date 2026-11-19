@@ -1,5 +1,5 @@
 // Ville vivante (intégrateur n° 9) : sprites livrés par le Mac branchés dans le jeu.
-// Services de quartier dans la ville de départ (centre : restaurants, cafés, boulangeries, boutiques ; périphérie : gare, église, stations), équipements publics en HD,
+// Services de quartier dans la ville de départ (centre : restaurants, cafés, boulangeries, boutiques ; périphérie : église, stations ; plus de gare), équipements publics en HD,
 // fiche au clic, panneau du Mall ; voitures, utilitaires, camions et porte-conteneurs HD ; grues, conteneurs et marchandises sur les quais ; détails des fermes dans l'emprise ;
 // niveaux des bâtiments du joueur ; déterminisme, ancienne sauvegarde, aucune erreur de page.
 exports.name = 'Ville vivante : services, véhicules, port, fermes, niveaux (intégrateur n° 9)';
@@ -29,11 +29,11 @@ exports.run = async (t, L) => {
 
   // ---- 2. Services dans la ville de départ, aux endroits cohérents, densité clairsemée gardée
   const a = await pg.evaluate(SCAN), C = a.cells;
-  const want = ['restaurant_terrasse', 'cafe_de_quartier', 'boulangerie', 'boutique_mode', 'drugstore', 'barre_hlm', 'immeuble_en_construction', 'eglise_de_village', 'gare_ferroviaire', 'station_service', 'station_recharge_electrique', 'batiment_abandonne'];
+  const want = ['restaurant_terrasse', 'cafe_de_quartier', 'boulangerie', 'boutique_mode', 'drugstore', 'barre_hlm', 'immeuble_en_construction', 'eglise_de_village', 'station_service', 'station_recharge_electrique', 'batiment_abandonne'];   // plus de gare pour l'instant
   t.check('chaque service de quartier est présent dans la ville de départ', want.every(n => a.cnt[n] >= 1), JSON.stringify(a.cnt));
   const cen = C.filter(c => c.zone === 'c'), per = C.filter(c => c.zone === 'p');
   t.check('centre : restaurants, cafés, boulangeries, boutiques à moins de 9 cases du bord du mall', cen.length >= 8 && cen.every(c => c.ring < 9), cen.map(c => c.n.slice(0, 4) + ':' + c.ring.toFixed(1)).join(' '));
-  t.check('périphérie : gare, églises, stations à 9 cases ou plus ; stations et gare au bord d\'une rue', per.length >= 6 && per.every(c => c.ring >= 9) && per.filter(c => /station|gare/.test(c.n)).every(c => c.road), per.map(c => c.n.slice(0, 6) + ':' + c.ring.toFixed(1) + (c.road ? 'r' : '')).join(' '));
+  t.check('périphérie : églises, stations à 9 cases ou plus ; stations au bord d\'une rue ; aucune gare', per.length >= 6 && per.every(c => c.ring >= 9) && per.filter(c => /station/.test(c.n)).every(c => c.road) && !C.some(c => /gare/.test(c.n)), per.map(c => c.n.slice(0, 6) + ':' + c.ring.toFixed(1) + (c.road ? 'r' : '')).join(' '));
   t.check('équipements publics en HD : hôpital, écoles, hôtel de ville, stades', ['hospital', 'lycee', 'hall', 'stadium'].every(m => a.mons.includes(m)) && a.monOk, a.mons.join(',') + ' · sprites ' + a.monOk);
   t.check('les services habillent des immeubles existants (maison, logements, bureaux) : densité de la ville inchangée, moins de 12 % du bâti', C.every(c => /^(house|res|off)$/.test(c.k)) && C.length <= 0.12 * a.npc, `${C.length} services sur ${a.npc} bâtiments PNJ`);
 

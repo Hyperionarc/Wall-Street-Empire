@@ -101,9 +101,9 @@ exports.run = async (t, L) => {
   const U = await pg.evaluate(() => {
     const W = window.WSE, S = W.S, N = W.N, o = {};
     S.neg = {}; S.reqs = []; S.cash = 5e7;
-    const c = S.grid.find(c => c && c.t === 'npc' && W.acq.ownerOf(c) === 'r3' && !W.footprintError(c.x, c.y, 's4', true));
+    let A = null; const c = S.grid.find(c => { if (!(c && c.t === 'npc' && W.acq.ownerOf(c) === 'r3')) return false; for (let oy = 0; oy < 3; oy++) for (let ox = 0; ox < 3; ox++) { const p = W.acq.plan(c.x - ox, c.y - oy, 's4'); if (p && Object.keys(p.groups).join() === 'r3') { A = { x: c.x - ox, y: c.y - oy }; return true; } } return false; });   // barème des tailles : méga-centre 3×3 en périphérie, emprise dont r3 est le seul propriétaire rival
     o.pos = [c.x, c.y]; const r3 = S.rivals.find(r => r.id === 'r3'), cash0 = S.cash, rc0 = r3.cash;
-    W.place(c.x, c.y, 's4'); o.bubble = document.getElementById('acq').textContent;
+    W.place(A.x, A.y, 's4'); o.bubble = document.getElementById('acq').textContent;
     o.noConfirm = !document.querySelector('#acq [data-ac=ok]');
     document.querySelector('#acq [data-ac=neg]').click();
     o.neg = document.getElementById('neg').textContent; o.negShown = !document.getElementById('neg').hidden;
@@ -112,7 +112,7 @@ exports.run = async (t, L) => {
     o.acc = document.getElementById('neg').textContent; document.querySelector('#neg [data-ac=nok]').click();
     o.total = document.getElementById('acq').textContent;
     document.querySelector('#acq [data-ac=ok]').click();
-    o.built = S.grid[c.y * N + c.x].t === 's4'; o.paid = Math.round(cash0 - S.cash); o.rivGain = Math.round(r3.cash - rc0);
+    o.built = S.grid[A.y * N + A.x].t === 's4'; o.paid = Math.round(cash0 - S.cash); o.rivGain = Math.round(r3.cash - rc0);
     o.price = Math.round(R * 1.1 / 10) * 10; o.relUp = (S.rel.r3 || 0) > 0;
     return o;
   });
