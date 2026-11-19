@@ -195,7 +195,7 @@ Gravité : **5** = change la façon de jouer contre l'IA ; **1** = détail.
 - **Unités** : le rival vend des « unités de classe » au cours de la classe ; la conversion en unités physiques passe par la valeur (`P_c / stdPrice(pk)`). C'est cohérent en valeur, pas en pièces (une usine IA de « jeans » vend en réalité un panier manufacturé).
 - **Pas de qualité ni de technologie par usine IA** : la qualité IA reste celle de l'attrait. Ni avance technologique IA (réglage « AI Tech Head Start »), ni R&D ciblée (R7).
 - **Pas de fusions entre IA, pas d'émission d'actions IA, pas d'IPO IA.**
-- **Les usines IA ne vendent pas au joueur** (R2 : l'IA comme fournisseur) ; le joueur leur vend, elles ne lui vendent pas encore.
+- **Les usines IA ne vendent pas au joueur** (R2 : l'IA comme fournisseur) ; le joueur leur vend, elles ne lui vendent pas encore. Depuis la passe 66, le **négociant IA** est en revanche un fournisseur du joueur (matières premières sur stock, électricité) et le **banquier IA** son prêteur possible (§5 bis).
 - Les tours des usines sont des marqueurs `off` (bureaux à la couleur du rival), plafonnés à 8 bâtiments par rival ; au-delà l'usine existe sans tour.
 
 ---
@@ -249,6 +249,40 @@ Gravité : **5** = change la façon de jouer contre l'IA ; **1** = détail.
 - **Historique des réglages** (mêmes 12 parties, campagne arrêtée plus tôt pour les deux premières) : première version (usines à 40 % des ventes, `FAB_LAB` 0,12, jusqu'à 4 usines, pas de distribution) : −3 à −9 % sur les 4 premières parties ; usines à 30 % et 3 au plus : −3 à −11 % sur 3 parties ; distribution à 60 % : médiane 0,945 sur 8 parties ; version finale (distribution à 80 %, cours neutre des intrants, aucune usine la première année) : médiane 0,963.
 
 **Tests ciblés** (version finale) : `t63_concurrence_ia` 21/21, `t27_rivaux` 46/46, `t25_macro_humeur` 44/44, `t30_gisements` 78/78, `t45_pouvoir_de_marche` 15/15, `t46_ecommerce` 21/21, `t09_plan_usine` 36/36, `t02_marges` 40/40 (la version intermédiaire échouait sur l'hévéa, corrigé par le seuil d'un an), `t01_erreurs` 7/7, `t05_sauvegarde` 6/6.
+
+---
+
+## 5 bis. Passe 66 : négociant et banquier IA actifs (conception WSE, confiance C)
+
+Capitalism Lab a des entreprises IA « banque » (focus réglable) et des marchés de matières premières avec importateurs. Nous en tirons deux acteurs propres à WSE, entièrement conçus par nous (règles détaillées dans le README, section « Passe 66 ») :
+- **Négociant (DiscountCo)** : importateur avec stocks au port, fournisseur du joueur et des usines rivales, amortisseur des cours (achète sous sa moyenne mobile, revend au-dessus, flux bornés à 6 % de la demande), épisodes mondiaux bornés (±6 % au plus sur le cours visé, ±0,25 %/jour ; cours ±4 %/jour au plus), électricité (réseau en pénurie, appoint de data center), cartels et embargos à moitié prix, caisse séparée, faillite possible.
+- **Banquier (Luxor & Fils)** : prêts cotés (taux directeur + 2 pts + prime du cycle + risque du levier), refus au-delà de 55 % de levier, prêts aux usines et aux stocks des rivaux, prêt proposé au joueur dont la ligne bancaire est pleine, tours de table des rivaux illiquides mais rentables, posture bornée qui entre dans `riskPrem` (±0,4 pt) et `credCycle` (±6 %), pas de resserrement en récession.
+
+**Mesures** (`tools/sim_batch.js`, 1 800 jours, 1 travailleur, 2 graines, 24 parties rejouées avant / après avec `--like`)
+Castes du joueur : industriel, négociant et banquier (profils « bon » et « industriel »), agriculteur, innovateur et promoteur (profils « bon » et « fermier »). Valorisation finale du joueur, rapport après / avant :
+
+| Caste | Profil | Graine 1 | Graine 2 |
+|---|---|---|---|
+| industriel | bon | 116,5 → 115,8 M$ (0,99) | 118,9 → 118,7 (1,00) |
+| industriel | industriel | 163,6 → 200,5 (1,23) | 186,8 → 174,6 (0,93) |
+| banquier | bon | 139,3 → 167,1 (1,20) | 139,5 → 138,0 (0,99) |
+| banquier | industriel | 165,2 → 160,3 (0,97) | 173,4 → 170,7 (0,98) |
+| négociant | bon | 120,0 → 115,2 (0,96) | 113,3 → 112,1 (0,99) |
+| négociant | industriel | 179,6 → 198,8 (1,11) | 193,1 → 186,2 (0,96) |
+| agriculteur | bon | 108,0 → 109,7 (1,02) | 113,4 → 115,1 (1,02) |
+| agriculteur | fermier | 234,4 → 261,5 (1,12) | 266,4 → 278,2 (1,04) |
+| innovateur | bon | 146,8 → 170,2 (1,16) | 135,0 → 137,3 (1,02) |
+| innovateur | fermier | 166,2 → 172,6 (1,04) | 198,6 → 216,8 (1,09) |
+| promoteur | bon | 168,1 → 144,5 (0,86) | 172,1 → 143,0 (0,83) |
+| promoteur | fermier | 204,9 → 220,8 (1,08) | 200,0 → 208,5 (1,04) |
+
+- **Ensemble** : rapport médian 1,016, moyenne géométrique 1,022 ; aux jours 1 200 et 1 500, médiane 1,005 et 1,008. 3 parties sur 24 sous 0,95. Aucune erreur, aucune faillite.
+- **Bot industriel** (profil « industriel », 6 parties) : 0,93 à 1,23, médiane 0,975 ; il finit entre 160 et 200 M$. Il n'est plus « ruiné » : aucun cours ne monte de plus de 4 % par jour et le négociant lui vend ses intrants moins cher que le port.
+- **Agriculture** (profil « fermier », 6 parties) : 1,04 à 1,12, non dégradée.
+- **Promoteur, profil « bon »** : −14 et −17 % en fin de partie, mais −2 et −3 % au jour 1 500. Les parties « avant » font un saut tardif (de 112 à 168 M$, deux fois plus de bâtiments entre les jours 1 500 et 1 800) que les parties « après » ne refont pas dans l'horizon. Les essais sur la graine 1037 donnent le même 0,84 à 0,86 sans le négociant, sans la posture du banquier, sans le banquier ou sans le plafond journalier. Ce n'est donc pas un mécanisme isolé. Le plus probable est la sensibilité du bot à ses premières décisions d'emprunt (dette de 15 M$ au lieu de 20 M$ au jour 600). C'est un point à surveiller avec plus de graines.
+- **Rivaux** : la valeur médiane du négociant passe de 43 à 67 M$. Elle monte jusqu'à 128 M$ dans les parties où le joueur importe beaucoup (profils « industriel » et « fermier »), car il y vend des intrants et du courant. Elle reste sous celle du joueur. Les gains du négoce restent dans la caisse du pupitre et ne financent pas de magasins. Le banquier est stable (médiane 42 M$).
+- **Note de méthode** : une première version tirait ses aléas dans le flux des rivaux. Cela décalait toutes leurs décisions (le commerce s'est ainsi retrouvé 20 % sous son niveau dans un banc de `t02`). Les épisodes utilisent désormais un aléa dédié, et les actions de caste consomment les mêmes tirages qu'avant.
+- **Tests** : t01 7/7, t02 40/40, t05 6/6, t09 36/36, t25 44/44, t27 46/46, t30 78/78, t40 4/4, t45 15/15, t56 25/25, t63 21/21, t66 26/26.
 
 ---
 
