@@ -2246,7 +2246,7 @@ const rivPm = (r, cls) => { if (!r.px) return 1; const x = rivPxRel(r, cls) * (r
 const rivalAttr = cls => optV('price', OPT_PRICE) * (S.rivals || []).reduce((a, r) => a + rivEff(r, cls) * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
 // Valeur d'un rival : trésorerie + magasins (≈ 27 M$ par point d'attrait à K_SIZE = 5) + actifs hors magasins (usines, brevets, participations, fermes) + immobilier
 const rivalValue = r => Math.round((Math.max(0, r.cash) + RIV_ASSET * rivalSum(r) + (r.as || 0) + (r.re || 0) + (r.fab ? fabVal(r) : 0) - (r.debt || 0)) *(casteIs('industriel') ? 0.85 : 1) / 5000) * 5000;
-const rvLog = (r, t) => { const L = rvS().log || (rvS().log = []); L.push({ d: S.day, id: r ? r.id : '', n: r ? r.name : '', t }); if (L.length > 40) L.shift(); try { netRivLog(r, t); } catch (e) { /* réseau facultatif */ } };
+const rvLog = (r, t, quiet) => { const L = rvS().log || (rvS().log = []); L.push({ d: S.day, id: r ? r.id : '', n: r ? r.name : '', t }); if (L.length > 40) L.shift(); if (!quiet) try { netRivLog(r, t); } catch (e) { /* réseau facultatif */ } };   // quiet : journal seul (prix, usines), sans message sur le réseau social simulé (ses publications nourrissent d'autres mécaniques)
 const rvCartelK = cls => (S && S.rv && S.rv.cartel && S.rv.cartel.cls === cls) ? 1.08 : 1;   // entente acceptée : tes prix de rayon montent de 8 % dans la classe
 // Services disputés : la banque de l'IA banquier et les data centers de l'IA innovateur prennent jusqu'à 12 % des recettes de services du joueur à mesure que leurs actifs grandissent
 const rivSvc = k => { const r = (S.rivals || []).find(x => x.caste === (k === 'bank' ? 'banquier' : 'innovateur')); return r ? 0.12 * Math.min(1, (r.as || 0) / (1.5 * Math.max(1e6, r.v0 || 2e7))) : 0; };
@@ -2281,7 +2281,7 @@ function rivPrice(r) {
     const dv = r.px[cls] / r.pxL[cls] - 1;
     if (Math.abs(dv) >= 0.06 && r.att[cls] > 0.02 && S.day - (r.pxD || -99) >= 30) { r.pxL[cls] = r.px[cls]; r.pxD = S.day; const w = why.sort((x, y) => Math.abs(Math.log(y[1])) - Math.abs(Math.log(x[1])))[0];
       const RS = { part: 'ses parts reculent', cash: cr < 0.04 ? 'sa trésorerie est tendue' : 'sa trésorerie est abondante', toi: `il s'aligne sur tes prix (indice ${playerPx(cls).toFixed(2).replace('.', ',')})`, guerre: 'guerre des prix contre toi', limite: 'prix limite pour freiner ta progression', entente: 'entente sur les prix', 'coût': `il ne vend pas sous son coût de revient (${Math.round(cb * 100)} % du cours)` };
-      rvLog(r, `${dv < 0 ? 'baisse' : 'monte'} ses prix de ${Math.round(Math.abs(dv) * 100)} % sur ${CLS_FR[cls]} (×${r.px[cls].toFixed(2).replace('.', ',')}) : ${w ? RS[w[0]] : 'retour à son positionnement habituel'}.`); }
+      rvLog(r, `${dv < 0 ? 'baisse' : 'monte'} ses prix de ${Math.round(Math.abs(dv) * 100)} % sur ${CLS_FR[cls]} (×${r.px[cls].toFixed(2).replace('.', ',')}) : ${w ? RS[w[0]] : 'retour à son positionnement habituel'}.`, 1); }
   });
   if (r.fl) { const ft = st.k === 'war' && st.cls === r.fl.cls ? 0.9 : cr < 0.04 ? 1.05 : 1; r.fl.d = +(r.fl.d + clamp(ft - r.fl.d, -0.03, 0.015)).toFixed(4); }   // produit phare : produit d'appel en guerre des prix
 }
@@ -2348,14 +2348,14 @@ function fabBuild(r, pl) {
   const f = { pk: pl.pk, cls: pl.cls, cap: pl.cap, stk: 0, uc: 1 - pl.mo, bv: pl.capex, on: true, d0: S.day, lo: 0, ok: 0, fill: 1 }; if (b) { f.x = b[0]; f.y = b[1]; }
   (r.fab = r.fab || []).push(f); const RV = rvS(); RV.fabs = (RV.fabs || 0) + 1;
   const pc = v => Math.round(v * 100) + ' %', t = `ouvre une usine de ${fabTxt(f)} : marge fabriquée ${pc(pl.mo)} contre ${pc(pl.mr)} en négoce, ${money(pl.capex)} investis${loan > 0 ? ' dont ' + money(loan) + ' empruntés' : ''}, retour en ${(1 / Math.max(0.01, pl.roi)).toFixed(1).replace('.', ',')} ans. Ses intrants s'achètent au marché local${pl.kin > 0 ? ' (' + Object.keys(PRODUCTS[pl.pk].in).map(g => GOODS[g].name.toLowerCase()).join(', ') + ')' : ''}.`;
-  say(`${r.name} ${t}`, 'warn'); rvLog(r, t); return true;
+  say(`${r.name} ${t}`, 'warn'); rvLog(r, t, 1); return true;
 }
 // décision mensuelle (déterministe) : construire, mettre en sommeil une usine qui perd de l'argent, la rouvrir quand ses intrants redeviennent abordables
 function rivFabDecide(r) {
   const mr = rivMr(r);
   (r.fab || []).forEach(f => { const m = 1 - (1 - mr) * (fabKin(f.pk) * fabFill(f.pk).imp + FAB_LAB);
-    if (f.on !== false) { f.lo = m < mr - 0.02 ? (f.lo || 0) + 30 : 0; if (f.lo >= 60) { f.on = false; f.lo = 0; const g = Object.keys(PRODUCTS[f.pk].in).sort((a, b) => (S.price[b] / GOODS[b].base) - (S.price[a] / GOODS[a].base))[0]; rvLog(r, `met en sommeil son usine de ${fabTxt(f)} : ${GOODS[g].name.toLowerCase()} trop cher (${Math.round((S.price[g] / (GOODS[g].base * cpi()) - 1) * 100)} % au-dessus du cours de base), marge fabriquée ${Math.round(m * 100)} % sous la marge de négoce ; elle revend des marchandises achetées.`); } }
-    else { f.ok = m > mr + 0.04 ? (f.ok || 0) + 30 : 0; if (f.ok >= 30) { f.on = true; f.ok = 0; rvLog(r, `rouvre son usine de ${fabTxt(f)} : ses intrants sont redevenus abordables (marge fabriquée ${Math.round(m * 100)} %).`); } } });
+    if (f.on !== false) { f.lo = m < mr - 0.02 ? (f.lo || 0) + 30 : 0; if (f.lo >= 60) { f.on = false; f.lo = 0; const g = Object.keys(PRODUCTS[f.pk].in).sort((a, b) => (S.price[b] / GOODS[b].base) - (S.price[a] / GOODS[a].base))[0]; rvLog(r, `met en sommeil son usine de ${fabTxt(f)} : ${GOODS[g].name.toLowerCase()} trop cher (${Math.round((S.price[g] / (GOODS[g].base * cpi()) - 1) * 100)} % au-dessus du cours de base), marge fabriquée ${Math.round(m * 100)} % sous la marge de négoce ; elle revend des marchandises achetées.`, 1); } }
+    else { f.ok = m > mr + 0.04 ? (f.ok || 0) + 30 : 0; if (f.ok >= 30) { f.on = true; f.ok = 0; rvLog(r, `rouvre son usine de ${fabTxt(f)} : ses intrants sont redevenus abordables (marge fabriquée ${Math.round(m * 100)} %).`, 1); } } });
   if (fabOn(r).length >= fabMax(r) || (r.cash < 0)) return;
   const pl = fabPlan(r); if (pl && pl.roi >= FAB_HURDLE / Math.max(0.3, optV('exp', OPT_EXP))) fabBuild(r, pl);
 }
@@ -2490,7 +2490,7 @@ function stepRivalsAI(rivalPart) {
     }
     if (r.cash < 0) {   // vente forcée : d'abord les actifs hors magasins, puis les magasins ; la trésorerie ne reste jamais négative durablement
       if ((r.as || 0) > 0) { const s = Math.min(r.as, -r.cash / 0.7 + 1); r.as -= s; r.cash += s * 0.7; }
-      if (r.cash < 0 && fabOn(r).length) { const f = r.fab.filter(x => x.on !== false).sort((a, b) => (a.bv || 0) - (b.bv || 0))[0], got = 0.5 * ((f.bv || 0) + f.stk * f.uc * (S.price[f.cls] || 0)); r.cash += got; r.fab.splice(r.fab.indexOf(f), 1); if (f.x != null && S.npcOwn) delete S.npcOwn[f.x + ',' + f.y]; rvLog(r, `vend son usine de ${fabTxt(f)} pour ${money(got)} (trésorerie à sec${(r.debt || 0) > 0 ? ', dette ' + money(r.debt) : ''}).`); }
+      if (r.cash < 0 && fabOn(r).length) { const f = r.fab.filter(x => x.on !== false).sort((a, b) => (a.bv || 0) - (b.bv || 0))[0], got = 0.5 * ((f.bv || 0) + f.stk * f.uc * (S.price[f.cls] || 0)); r.cash += got; r.fab.splice(r.fab.indexOf(f), 1); if (f.x != null && S.npcOwn) delete S.npcOwn[f.x + ',' + f.y]; rvLog(r, `vend son usine de ${fabTxt(f)} pour ${money(got)} (trésorerie à sec${(r.debt || 0) > 0 ? ', dette ' + money(r.debt) : ''}).`, 1); }
       if (r.cash < 0) { const b4 = rivalSum(r); RIV_CLS.forEach(k => { r.att[k] *= 0.95; }); r.cash += (b4 - rivalSum(r)) * RIV_ASSET * 0.6; r.red = (r.red || 0) + 1; }
     }
     r.mood = clamp((r.mood || 0) * 0.95 + (rnd() - 0.5) * 0.04, -0.2, 0.2);
