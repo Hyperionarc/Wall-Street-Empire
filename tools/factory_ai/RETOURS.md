@@ -363,3 +363,9 @@ Rappel palette : sobre, une couleur d'accent par sprite (docs/CHARTE_VISUELLE.md
 - Palette sobre : blanc cassé, un seul vert pharmacie net, pas de fluo.
 **Règle générale pour tous les magasins spécialisés** : silhouette propre à leur métier lisible de loin (voir revue n°3 : mannequin, voiture sur le toit, etc.), vitrines ouvertes, clients visibles, jamais de motif industriel.
 Merci de refaire d'abord la pharmacie selon ce plan en croix, puis l'hôpital en H, et de corriger les autres magasins qui ont le même défaut « machine ».
+
+## INSTRUCTION PERMANENTE (Rémy, 19 nov.) : plus AUCUN texte dans les assets
+**Tous les assets, sans exception** (bâtiments, magasins, mall, aéroport, hôpital, véhicules, panneaux, caisses, palettes, produits, scènes, logos) : **n'écrivez plus jamais aucune lettre, mot, chiffre ou logo de marque dans une image.** Le texte généré est systématiquement déformé et illisible. Le jeu affiche lui-même tous les titres et noms **par le code** (texte net, police du jeu, langue du joueur).
+- Là où il faut une enseigne : **bandeau, caisson ou panneau UNI** (couleur sobre, léger éclairage), sans glyphes, ni pseudo-lettres, ni symboles inventés.
+- Les **statues et emblèmes** restent permis (mannequin, voiture sur le toit, croix, silhouette de vélo, lustre…) : ce sont des formes, pas du texte.
+- Les sprites déjà livrés avec du texte (mall moderne, high-tech, sport/loisirs, hôpital « HOSPITAL », supermarché/hypermarché, etc.) sont à régénérer sans texte ; en attendant, le jeu masquera/recouvrira leurs enseignes.
