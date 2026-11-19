@@ -1235,6 +1235,8 @@ body.vopen #feed{z-index:9}
     <p class="note">Réglages par défaut appliqués à toute l'entreprise, comme le COO de Capitalism Lab.</p>
     <div class="taxrow"><span>Prix</span><input type="range" id="polPrice" min="-1" max="1" step="0.25" value="0" aria-label="Marge contre parts de marché"><b id="polPriceV">Équilibré</b></div>
     <p class="note" id="polNote"></p>
+    <div class="taxrow"><span>Prix des produits (COO)</span><span class="seg2" id="polPx" style="flex-wrap:wrap"><button class="btn sec" data-px="man" style="min-height:26px;padding:2px 8px;font-size:11px">Manuel</button><button class="btn sec" data-px="norm" style="min-height:26px;padding:2px 8px;font-size:11px">Normal</button><button class="btn sec" data-px="agr" style="min-height:26px;padding:2px 8px;font-size:11px">Agressif</button><button class="btn sec" data-px="tagr" style="min-height:26px;padding:2px 8px;font-size:11px">Très agressif</button></span></div>
+    <p class="note" id="polPxNote"></p>
     <div class="seg2" style="margin:6px 0;flex-wrap:wrap"><button class="btn sec" id="polAlert" aria-pressed="true">Alertes de stock bas : oui</button><button class="btn sec" id="polNoLoss" aria-pressed="false">Ne jamais vendre sous le coût : non</button><button class="btn sec" id="polSeek" aria-pressed="false">Chercher de meilleurs fournisseurs : non</button></div>
     <div class="taxrow"><span>Poids du fret</span><input type="range" id="polFr" min="0" max="100" step="25" value="50" aria-label="Poids du fret dans le choix des fournisseurs"><b id="polFrV">50 %</b></div>
     <div class="taxrow"><span>Poids de la qualité</span><input type="range" id="polQw" min="0" max="100" step="25" value="50" aria-label="Poids de la qualité des intrants dans le choix des fournisseurs"><b id="polQwV">50 %</b></div>
@@ -2543,6 +2545,46 @@ function productScore(pk, ps0, pm) {   // pm : multiplicateur de prix propre à 
   // marque PROPRE du produit : notoriété (publicité du produit) et fidélité ; qualité = perception (gamme, presse, influenceurs)
   const price = clamp(50 * Math.pow(avgP / myP, pe), 0, 100), quality = clamp(ps.rt == null ? QTIER[ps.q].q : ps.rt, 0, 100), brand = clamp(0.65 * ps.brand + 0.35 * (ps.loy || 0) + (brandStrat() === 'corp' && S._brandAvg ? 0.25 * clamp(S._brandAvg.aw || 0, 0, 100) / Math.pow(megaCount(), 0.8) : 0), 0, 100);
   return { price, quality, brand, overall: w.price * price + w.quality * quality + w.brand * brand, w };
+}
+/* ---------- Note de la concurrence et directeur des prix (CapLab, règles 3.4 et 5.2 de docs/CAPLAB_CHAINE_PRIX_DEMANDE.md) ----------
+   Note moyenne des concurrents d'un produit, sur la même échelle que productScore : producteurs locaux sans marque (« marque blanche » : prix standard, qualité moyenne de la ville,
+   marque nulle) et rivaux présents dans la catégorie (prix relatif r.px, capital de marque r.bk), pondérés par leur attrait. Le COO règle le prix pour viser cette note + 0, +10 ou +20 points
+   (Normal, Agressif, Très agressif) ; quand la demande dépasse ce que tu peux livrer, il relève le prix quelle que soit la politique (baisser ne vendrait pas plus). */
+const COO_GAP = { norm: 0, agr: 10, tagr: 20 }, COO_UP = 0.01, COO_STEP = 0.02, CITY_Q = { basic: 45, std: 55, lux: 70, estate: 60 };
+function compOv(pk) {
+  const pr = PRODUCTS[pk], cls = pr.cls, w = scoreW(cls, pk), cq = CITY_Q[cls] || 50, ps = (pS, q, b) => w.price * clamp(50 * Math.pow(1 / Math.max(0.3, pS), 1.2), 0, 100) + w.quality * q + w.brand * b;
+  let a = 0.5, s = 0.5 * ps(1, cq, 0);   // producteurs locaux : poids fixe d'une marchandise sans marque (attr 0,5)
+  (S.rivals || []).forEach(r => { if (r.sub || !r.att || !(r.att[cls] > 0.01)) return; const wt = rivEff(r, cls), px = (r.px && r.px[cls]) || 1, b = clamp(100 * bcSig(r.bk == null ? 100 * rivProf(r) : r.bk), 0, 100) * 0.6;
+    a += wt; s += wt * ps(px, cq + 10 * ((r.mq || 1) - 1), b); });
+  return s / Math.max(1e-9, a);
+}
+const cooPol = () => (S && S.pol && COO_GAP[S.pol.px] != null) ? S.pol.px : 'man';
+// Prix qui donne la note visée (bissection sur ps.pf, bornes du curseur 60-160 %)
+function cooTargetPf(pk, target) {
+  const ps = S.prod[pk]; let lo = 0.6, hi = 1.6; const ov = pf => productScore(pk, Object.assign({}, ps, { pf })).overall;
+  if (ov(lo) <= target) return lo; if (ov(hi) >= target) return hi;
+  for (let i = 0; i < 18; i++) { const m = (lo + hi) / 2; if (ov(m) >= target) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+function cooUnitFloor(pk) { const pr = PRODUCTS[pk], inp = productInputs(pk); let u = 0; Object.keys(inp).forEach(g => { u += inp[g] * (S.price[g] || 0); }); return u / Math.max(1e-9, pr.out) * 1.05 / Math.max(1e-9, pr.ref * QTIER[S.prod[pk].q].ref * cpi() * mpProd(pk).m); }
+const COO_N = { man: 'Manuel', norm: 'Normal', agr: 'Agressif', tagr: 'Très agressif' };
+function cooLineHTML(pk) {
+  const k = cooPol(), ps = S.prod[pk]; if (!ps || ps.st !== 'on') return '';
+  const my = Math.round(productScore(pk).overall), cmp = Math.round(compOv(pk));
+  if (k === 'man') return `<p class="note">Note globale ${my} contre ${cmp} pour la concurrence (marque blanche locale et rivaux). Prix réglé à la main ; Finances &gt; Politique de gestion peut confier les prix au COO.</p>`;
+  if (ps.pxm) return `<p class="note">Prix réglé à la main : le COO (${COO_N[k]}) ne touche plus ce produit. <button class="btn sec" data-act="coo" style="min-height:26px;padding:2px 8px">Rendre au COO</button></p>`;
+  const c = ps._coo || {};
+  return `<p class="note">Prix piloté par le COO (${COO_N[k]}) : note ${my} visée à ${cmp}${COO_GAP[k] ? ' + ' + COO_GAP[k] : ''}${c.short ? ' · demande supérieure à ce que tu livres : le COO relève le prix (baisser ne vendrait pas plus)' : ''}.</p>`;
+}
+function stepCooPrice() {
+  const k = cooPol(); if (k === 'man') return; const gap = COO_GAP[k], pd = (S._dw && S._dw.pd) || {};
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps.st !== 'on' || ps.pxm) return;
+    const need = pd[pk] || 0, sold = ps.sold || 0, short = need > 0.5 && sold > 0.05 * need && sold < 0.9 * need && (ps.stock || 0) < 2 * need;   // goulot : tu vends tout ce que tu livres et des clients repartent (sans production, rien à relever)
+    let t = short ? Math.min(1.6, ps.pf * (1 + COO_UP)) : cooTargetPf(pk, compOv(pk) + gap);
+    const fl = cooUnitFloor(pk); t = Math.max(t, Math.min(1.6, polOn('noLoss') ? fl : fl / 1.05));   // le COO ne vend jamais sous le coût des intrants (+5 % avec « Ne jamais vendre sous le coût »)
+    const pf = clamp(ps.pf + clamp(t - ps.pf, -COO_STEP, COO_STEP), 0.6, 1.6);
+    ps._coo = { d: S.day, short: short ? 1 : 0, t: +t.toFixed(3), cmp: Math.round(compOv(pk)), gap };
+    if (Math.abs(pf - ps.pf) > 1e-4) ps.pf = +pf.toFixed(4); });
 }
 // Dynamique d'adoption (modèle de Bass) : innovateurs (p, tirés par la notoriété) et imitateurs (q, bouche-à-oreille tiré par la perception de qualité)
 const adoptOf = ps => ps.A == null ? 1 : ps.A;
@@ -4565,6 +4607,7 @@ function stepPolicy() {
     if ((FLEVEL[c.t] || c.t === 'foundry') && c.limit && GOODS[c.limit]) sg = c.limit; else if (T.ret && c.limit === 'stock') sg = (T.ret.sells.filter(x => x !== 'estate' && S.stock[x] < 5)[0]) || null;
     c._rup = sg ? (c._rup | 0) + 1 : 0; c._rupG = sg; });
   if (p.seek && S.day % 5 === 0) stepProcure();
+  stepCooPrice();   // directeur des prix (politique « Prix des produits » ; Manuel par défaut : aucun effet)
 }
 // Choix d'un fournisseur (CapLab, règle 4.3) : coût livré pondéré par le fret, corrigé de la qualité livrée. qw = poids de la qualité pour CET acheteur
 // (politique « Poids de la qualité » × part des intrants dans la qualité de son produit) : coût équivalent = coût × (1 + qw × (60 − qualité) / 50), jamais sous 30 %.
@@ -6716,7 +6759,7 @@ function updateHUD() {
       el('loanNote').textContent = `${casteIs('promoteur') ? `Financement immobilier : dette ≤ 80 % de tes actifs gageables (${money(promoAssets())} : trésorerie, stocks, immobilier expertisé × indice ${immoIdx().toFixed(2).replace('.', ',')}), soit 4 × tes fonds propres (levier ×5). LTV actuelle ${Math.round(promoLtv() * 100)} %${S.mc ? ' : APPEL DE MARGE, vente forcée au jour ' + S.mc.until : ' (appel de marge au-delà de 90 %)'}.` : casteIs('banquier') ? `Emprunt de la banque limité à 9 × ses fonds propres CET1 (levier total ×10), jamais sur son portefeuille de crédits. Trésorerie jamais négative : le découvert est limité à ${money(odLimit())}, puis taxé à taux + 12 pts.` : `Plafond = 100 % des actifs courants (${money(ca)} : trésorerie propre + stocks).`} Taux ${(rate * 100).toFixed(1).replace('.', ',')} % · intérêts ${mj((S.loan || 0) * rate / 360)}/mois. ${casteIs('promoteur') || casteIs('banquier') ? '' : 'Plafond limité à 3 ans d\'EBE (dette graduée), '}prime de levier incluse dans le taux${catchUp().on ? ', rattrapage −' + Math.round(catchUp().disc * 100) + ' %' : ''}. Le principal n'est jamais exigible, et l'inflation l'érode : ta dette vaut ${money((S.loan || 0) / cpi())} en dollars d'origine.`; }
     { const pp = (S.pol && S.pol.price) || 0; if (document.activeElement !== el('polPrice')) el('polPrice').value = -pp; el('polPriceV').textContent = POL_N[String(pp)] || 'Équilibré'; el('polNote').textContent = pp > 0 ? 'Prix plus bas : plus de clients, marges plus fines.' : pp < 0 ? 'Prix plus hauts : meilleure marge, moins de clients.' : 'Prix du marché sur tes magasins.'; el('polAlert').textContent = 'Alertes de stock bas : ' + (S.pol && S.pol.noAlert ? 'non' : 'oui'); el('polAlert').setAttribute('aria-pressed', S.pol && S.pol.noAlert ? 'false' : 'true');
       [['polNoLoss', 'noLoss', 'Ne jamais vendre sous le coût', 0], ['polSeek', 'seek', 'Chercher de meilleurs fournisseurs', 0], ['polInfP', 'noInfP', 'Prix selon l\'inflation', 1], ['polInfA', 'noInfA', 'Publicité selon l\'inflation', 1]].forEach(([id, k, lab, inv]) => { const on = inv ? !polOn(k) : polOn(k); el(id).textContent = lab + ' : ' + (on ? 'oui' : 'non'); el(id).setAttribute('aria-pressed', on ? 'true' : 'false'); });
-      if (document.activeElement !== el('polFr')) el('polFr').value = Math.round(polFr() * 100); el('polFrV').textContent = Math.round(polFr() * 100) + ' %'; if (document.activeElement !== el('polTol')) el('polTol').value = polTol(); el('polTolV').textContent = polTol() + ' jour' + (polTol() > 1 ? 's' : ''); if (document.activeElement !== el('polQw')) el('polQw').value = Math.round(polQw() * 100); el('polQwV').textContent = Math.round(polQw() * 100) + ' %';
+      if (document.activeElement !== el('polFr')) el('polFr').value = Math.round(polFr() * 100); el('polFrV').textContent = Math.round(polFr() * 100) + ' %'; if (document.activeElement !== el('polTol')) el('polTol').value = polTol(); el('polTolV').textContent = polTol() + ' jour' + (polTol() > 1 ? 's' : ''); { const k = cooPol(); el('polPx').querySelectorAll('[data-px]').forEach(x => { x.className = 'btn' + (x.dataset.px === k ? '' : ' sec'); x.setAttribute('aria-pressed', x.dataset.px === k ? 'true' : 'false'); }); el('polPxNote').textContent = k === 'man' ? 'Tu règles le prix de chaque produit (vue Produits).' : `Le COO ajuste chaque jour le prix de tes produits pour que leur note globale ${COO_GAP[k] ? 'dépasse de ' + COO_GAP[k] + ' points' : 'égale'} celle de la concurrence ; si la demande dépasse ce que tu livres, il relève le prix. ${k === 'man' ? '' : COO_GAP[k] ? 'Une politique agressive peut déclencher une guerre des prix : elle ne paie que si les rivaux quittent le marché.' : ''} Un produit dont tu bouges le curseur reste en manuel.`; } if (document.activeElement !== el('polQw')) el('polQw').value = Math.round(polQw() * 100); el('polQwV').textContent = Math.round(polQw() * 100) + ' %';
       el('polNote2').textContent = (polOn('seek') ? 'Les usines et magasins en rupture depuis plus de ' + polTol() + ' jours, et ceux qui paient trop cher, changent de fournisseur ; le fret pèse ' + Math.round(polFr() * 100) + ' % dans le choix (plus il pèse, plus on achète près) ; la qualité livrée pèse ' + Math.round(polQw() * 100) + ' % (une qualité 90 coûte ≈ 18 % de plus, une qualité 40 ≈ 22 % de moins, et elle passe dans la qualité de tes produits).' : 'Recherche de fournisseurs désactivée : tes choix manuels restent en place.') + (polOn('noLoss') ? ' Un magasin dont le coût d\'achat dépasse le CA relève son prix de rayon.' : '');
       el('polNote3').textContent = 'Sans ajustement, tes prix de rayon et ton budget publicitaire perdent du terrain à chaque point d\'inflation (' + Math.round((cpi() - 1) * 1000) / 10 + ' % depuis le début). Les options automatiques réalignent tout tous les 30 jours.'; }
     el('tax').value = Math.round(S.tax * 100);
@@ -7265,6 +7308,7 @@ el('polAlert').onclick = () => { S.pol = S.pol || {}; S.pol.noAlert = !S.pol.noA
 el('polAdjNow').onclick = () => { adjustInfl(); say('Prix de rayon et budgets publicitaires réalignés sur l\'inflation.', 'info'); updateHUD(); save(); };
 el('polFr').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.fr = +e.target.value / 100; updateHUD(); });
 el('polTol').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.tol = +e.target.value; updateHUD(); });
+el('polPx').addEventListener('click', e => { const b = e.target.closest('[data-px]'); if (!b) return; S.pol = S.pol || {}; S.pol.px = b.dataset.px; updateHUD(); save(); });
 el('polQw').addEventListener('input', e => { S.pol = S.pol || {}; S.pol.qw = +e.target.value / 100; updateHUD(); });
 const LOAN_STEPS = [20000, 50000, 100000, 250000, 500000, 1e6, 2.5e6, 5e6, 1e7, 2.5e7, 5e7, 1e8];
 function loanStep() { const lim = creditLimit(), t = lim / 12; let st = LOAN_STEPS[0]; LOAN_STEPS.forEach(v => { if (v <= t) st = v; }); return st; }
@@ -8750,6 +8794,7 @@ function sheetHTML(pk) {
       <div class="kv2"><div><small>Source</small><b>${mkSrcTxt(pk) || '—'}</b></div><div><small>Redevance de licence</small><b>${ps.lic ? mj(ps.rev * ROY) + ' /mois' : 'aucune'}</b></div></div>${nOf ? offBtn : ''}
       <span class="lbl">Prix : ${Math.round(ps.pf * 100)} % de ${money(pr.ref * T.ref)}</span>
       <input type="range" id="pd-pf" min="60" max="160" step="5" value="${Math.round(ps.pf * 100)}" aria-label="Prix du produit">
+      ${cooLineHTML(pk)}
       ${padHtml(pk)}
       <canvas id="pd-spark" width="480" height="92"></canvas>
       <div class="actions"><button class="btn" data-act="assign" ${fc.free ? '' : 'disabled'}>Affecter les usines libres (${fc.free})</button>
@@ -8845,12 +8890,13 @@ el('pdetail').addEventListener('click', e => {
     case 'stop': stopProduct(selProd); break;
     case 'auto': autoChain(selProd); break;
     case 'cine': cineShow(selProd, 'fiche', true); break;
+    case 'coo': if (ps) delete ps.pxm; break;
   }
   updateHUD(); renderProducts();
 });
 el('pdetail').addEventListener('input', e => {
   if (e.target.id !== 'pd-pf') return;
-  S.prod[selProd].pf = +e.target.value / 100;
+  S.prod[selProd].pf = +e.target.value / 100; if (cooPol() !== 'man') S.prod[selProd].pxm = 1;   // le joueur reprend la main sur ce produit (le COO n'y touche plus)
   e.target.previousElementSibling.textContent = 'Prix : ' + e.target.value + ' % de ' + money(PRODUCTS[selProd].ref * QTIER[S.prod[selProd].q].ref);
   const pb = el('pdetail').querySelector('.pricebig'); if (pb) pb.textContent = money(prodPrice(selProd));
 });
@@ -18028,7 +18074,7 @@ window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAu
 window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.rd = { patentHeld, held: patentHeld, mine: patMine, block: patBlock, blockMsg: patBlockMsg, grant: patGrant, value: patValue, incDay: patIncDay, licDay: patLicDay, revDay: patRevDay, licFee: patLicFee, buyLicence: patBuyLicence, opps: patOpps, develop: patDevelop, answer: patOfferAnswer, step: patStep, years: patYears, comp: patCompF, top: mkTopRaw, save: patSave, load: patLoad, st: rdxS, pat: () => S.pat || {}, list: accList, info: accInfo, quote: accQuote, accelerate, gemCost, gemAdd, render: renderRdp, edu: patEduHTML, advice: rdpAdvice, iap: { LIVE: IAP_LIVE, PACKS: IAP_PACKS, purchase: iapPurchase, log: IAP }, K: { PAT_Y, PAT_NIV_Y, PAT_ROY, PAT_LIC_SH, PAT_LIC_MAX, PAT_RIV_FROM, PAT_RIV_EVERY, PAT_OFF_EVERY, PAT_WARN_D, PAT_DISC, PAT_MONO, GEM_N, GEM_START, GEM_TIER, GEM_JAL, ACC_TOT, ACC_DAY_MAX, ACC_CASH_K, ACC_LAB_MAX, ACC_LAB_GAIN } };   // passe 47 : brevets de produit, R&D, accélération (aucun paiement réel)
 window.WSE.land = { model: landModel, price: landPrice, raw: landRaw, map: landMap, range: landRange, norm: landNorm, useOf: landUseOf, natUse: landNatUse, district: districtAt, cache: landCache, pole: landPole, foot: landFoot, costFor: landCostFor, val: c => landVal(c), assets: () => proLandAssets(), tip: landTipHTML, setLayer, layer: () => layer, cur: () => curLayer(), LAYER_N, LAYER_F, LEG, USES: LAND_USES, PARTS: LM_PART, K: LM_K, DISTRICTS, zoneOk, autoSpot };   // passe 48 : valeur du terrain par usage
-Object.assign(window.WSE, { cl: { offerScore, buyerQw, bestOffer, srcQ, inputQ, updInputQ, supplierList, trueQ, SUP_QE, IMP_Q, MKT_Q } });   // CapLab : chaîne, prix, demande (docs/CAPLAB_CHAINE_PRIX_DEMANDE.md)
+Object.assign(window.WSE, { cl: { compOv, cooTargetPf, stepCooPrice, cooPol, offerScore, buyerQw, bestOffer, srcQ, inputQ, updInputQ, supplierList, trueQ, COO_GAP, SUP_QE, IMP_Q, MKT_Q } });   // CapLab : chaîne, prix, demande (docs/CAPLAB_CHAINE_PRIX_DEMANDE.md)
 Object.assign(window.WSE, { mp: { good: mpGood, prod: mpProd, prodOf: mpProdOf, m: mpM, k: mpK, prime: mpPrime, Pg: mpPg, on: mpOn, vol: mpVol, entry: mpEntry, prodEntry: mpProdEntry, retail: mpRetail, rt: rtPow, txt: mpTxt, S0: MP_S0, IMP: MP_IMP, SUB: MP_SUB, HOT: MP_HOT, KMAX: MP_KMAX, PCLS: MP_PCLS, RP_R, RETAIL_MK } });   // passe 46 : pouvoir de marché
 Object.defineProperty(window.WSE, 'imm', { get() { return { on: immOn, tr: imm.tr, from: imm.from, idle: imm.idle, panel: immPanel, ang: planAng, yaw: planYaw, cam: { z: scam.z, x: scam.x, y: scam.y, bs: scam.bs }, W: imm.W, H: imm.H }; } });
 })();
