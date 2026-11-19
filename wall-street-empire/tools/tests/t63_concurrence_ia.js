@@ -73,7 +73,7 @@ exports.run = async (t, L) => {
   t.check('en guerre des prix, il peut vendre jusqu\'à 4 % sous son coût, pas au-delà', c.warPx >= c.cbW - 0.05 && c.warPx < c.cbW + 0.01 && c.warPx > 0.76, `coût ${c.cbW.toFixed(3)}, prix ×${c.warPx.toFixed(3)} (une guerre à −25 % sans plancher donnerait ×0,75)`);
   t.check('investissement financé en partie par emprunt (dette bornée), annoncé au journal', c.pl2 && c.debt > 0 && c.debt <= 0.3 * (c.capex + 1e9) && /empruntés/.test(c.logDebt) && c.company === c.debt, `dette ${Math.round(c.debt)} sur ${c.capex}`);
   t.check('la valeur d\'un rival compte ses usines et retranche sa dette (investir ne crée pas de valeur fictive)', Math.abs(c.dv) <= 0.02 * Math.max(1, c.capex) + 10000, `écart ${Math.round(c.dv)}`);
-  t.check('distribution : 60 % du surplus des usines rembourse la dette puis part en dividendes', c.dist.debt === 0 && c.dist.div > 100000, JSON.stringify(c.dist));
+  t.check('distribution : 80 % du surplus des usines rembourse la dette puis part en dividendes', c.dist.debt === 0 && c.dist.div > 100000, JSON.stringify(c.dist));
   t.check('difficulté : plus d\'usines IA permises et note plus haute quand le joueur monte de palier', c.mx[1] > c.mx[0] && c.rt[1] > c.rt[0], `usines ${c.mx.join('→')}, note ${c.rt.join('→')} %`);
 
   // --- sauvegarde : aller-retour des usines ; ancienne sauvegarde sans usines ---

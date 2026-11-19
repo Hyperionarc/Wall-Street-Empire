@@ -1977,13 +1977,13 @@ function stepLocalMarket(made, want) {
     mpEntry(g, n, Dl);   // passe 46 : appel d'air (déterministe)
     if (!n.cap && n.days > 18 && rnd() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * ROOM * 0.15; if (n.k != null) n.k = Math.max(1, n.k); if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
     const myCap = Math.max(1, made[g] + Math.max(0, S.stock[g] - 750) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1;
-    const Dr = (S.rv && S.rv.inD && S.rv.inD[g]) || 0;   // achats d'intrants des usines rivales (de la veille) : clients du marché local, donc aussi du joueur ; les importateurs en couvrent 90 %
-    want[g] += Dl * ROOM + Dr; made[g] += n.cap + NPC_IMP * Dl * ROOM + 0.9 * Dr;
+    const Dr = (S.rv && S.rv.inD && S.rv.inD[g]) || 0;   // achats d'intrants des usines rivales : clients du marché local, donc aussi du joueur ; les importateurs suivent au rapport offre / demande du jour (cours inchangé)
+    want[g] += Dl * ROOM; made[g] += n.cap + NPC_IMP * Dl * ROOM; if (Dr > 0) { const k = made[g] / Math.max(1e-6, want[g]); want[g] += Dr; made[g] += Dr * k; }
     const avail = Math.max(0, S.stock[g] - Math.max(ROBOTS[g] ? 2 : 750, FGD ? ledRes(g) : 0)), q = Math.min(avail, (Dl * ROOM + Dr) * share);   // passe 32 : le stock réservé à la vente interne n'est jamais vendu au marché
     S.locSold[g] = q; (S._lm || (S._lm = {}))[g] = { D: Dl * ROOM + Dr, npc: n.cap + NPC_IMP * Dl * ROOM, sh: share, riv: Dr, rivMe: Dr > 0 ? q * Dr / (Dl * ROOM + Dr) : 0 };   // relevé pour le bureau de l'usine (aucun effet) ; rivMe : ventes du joueur aux usines rivales
     if (q > 0.01) { fSellExt(g, q, q * S.price[g] * 0.97); S.stock[g] -= q; v += q * S.price[g] * 0.97; }
   });
-  if (S.rv && S.rv.inD) Object.keys(S.rv.inD).forEach(g => { if (!LOCAL_D[g] && GOODS[g]) { want[g] += S.rv.inD[g]; made[g] += 0.9 * S.rv.inD[g]; } });   // intrants sans marché local : pèsent sur le cours
+  if (S.rv && S.rv.inD) Object.keys(S.rv.inD).forEach(g => { if (!LOCAL_D[g] && GOODS[g]) { const k = (made[g] || 0) / Math.max(1e-6, want[g] || 0) || 1; want[g] = (want[g] || 0) + S.rv.inD[g]; made[g] = (made[g] || 0) + k * S.rv.inD[g]; } });   // intrants sans marché local : même règle (cours inchangé)
   return v;
 }
 // Options de partie (inspirées de l'écran « Competitors » de Capitalism Lab) : niveaux 0..4 = Très bas, Bas, Modéré, Élevé, Très élevé
@@ -2317,14 +2317,14 @@ function rivCasteAct(r) {
 const RIV_FABF = { industriel: ['Auto et outils', 'Électroménager', 'Maison et meubles', 'Jouets et sport'], innovateur: ['Électronique', 'Santé et beauté'], agriculteur: ['Alimentation', 'Boissons'], negociant: ['Alimentation', 'Mode', 'Maison et meubles'], banquier: ['Mode', 'Boissons'], promoteur: ['Immobilier'] };   // familles que chaque caste sait fabriquer (spécialisation de l'IA, comme l'expertise produit de Capitalism Lab)
 const RIV_FABC = {}; Object.keys(RIV_FABF).forEach(k => { const c = new Set(); RIV_FABF[k].forEach(f => (FAM[f] || []).forEach(pk => { if (PRODUCTS[pk]) c.add(PRODUCTS[pk].cls); })); RIV_FABC[k] = RIV_CLS.filter(x => c.has(x)); });
 const fabFamOk = (r, pk) => (RIV_FABF[r.caste] || []).some(f => (FAM[f] || []).indexOf(pk) >= 0);
-const FAB_LAB = 0.18, FAB_GAIN = 0.04, FAB_HURDLE = 0.22, FAB_CAPEX = 150, FAB_DAYS = 12, FAB_SHARE = 0.3, FAB_PAY = 0.6, FAB_DEP = 0.06 / 360, RIV_DEBT_MAX = 0.3;
+const FAB_LAB = 0.18, FAB_GAIN = 0.04, FAB_HURDLE = 0.22, FAB_CAPEX = 150, FAB_DAYS = 12, FAB_SHARE = 0.3, FAB_PAY = 0.8, FAB_DEP = 0.06 / 360, RIV_DEBT_MAX = 0.3;
 // part des intrants dans le prix de gros d'un produit, aux cours du jour (mêmes recettes que le joueur)
 function fabKin(pk) { const pr = PRODUCTS[pk]; if (!pr || !pr.in) return 1; let c = 0; Object.keys(pr.in).forEach(g => { c += pr.in[g] * (S.price[g] || (GOODS[g] ? GOODS[g].base : 0)); }); return c / Math.max(1, pr.out || 1) / Math.max(1e-6, stdPrice(pk)); }
 // taux de service des intrants : 1 si le marché est équilibré ; en pénurie (demande / offre > 1), l'usine tourne au ralenti
 // pénurie = cours proche du plafond ; le marché local sert d'abord ; le port importe jusqu'à 60 % du manque, 35 % plus cher (prime répercutée dans le coût : imp)
 function fabFill(pk) { const pr = PRODUCTS[pk]; let f = 1, why = null; Object.keys(pr.in || {}).forEach(g => { if (!GOODS[g]) return; const mb = marketBounds(g), p = S.price[g] || GOODS[g].base, x = mb.cap > mb.fl * 1.05 ? clamp(1 - 2.5 * (p / mb.cap - 0.8), 0.35, 1) : 1; if (x < f) { f = x; why = g; } }); const fill = f + 0.6 * (1 - f); return { f: fill, why, imp: 1 + 0.35 * 0.6 * (1 - f) / Math.max(0.01, fill) }; }
 const rivMr = r => clamp(rivP(r).m * (r.mq || 1) * rivDiff().m, 0.05, 0.4);   // marge de négoce (revente de marchandises achetées)
-const fabMax = r => { if (!r || !r.caste || !RIV_FABC[r.caste] || r.ctrl === 'human' || r.sub || (S.mode && /^s[1-5]$/.test(S.mode.k || ''))) return 0; const k = compNow(); return clamp(k.t + (S.day >= 540 ? 1 : 0) - (S.mode && S.mode.easy ? 1 : 0), 0, 3); };   // difficulté : 0 usine au départ, puis une de plus par palier de fortune du joueur et avec le temps
+const fabMax = r => { if (!r || !r.caste || !RIV_FABC[r.caste] || r.ctrl === 'human' || r.sub || (S.mode && /^s[1-5]$/.test(S.mode.k || '')) || S.day < 360) return 0; const k = compNow(); return clamp(k.t + (S.day >= 540 ? 1 : 0) - (S.mode && S.mode.easy ? 1 : 0), 0, 3); };   // difficulté : aucune usine IA la première année (les IA s'industrialisent au fil de la partie), puis palier du joueur + 1 après le jour 540
 const fabOn = r => (r.fab || []).filter(f => f.on !== false);
 const fabVal = r => (r.fab || []).reduce((a, f) => a + (f.bv || 0) + (f.stk || 0) * (f.uc || 0) * (S.price[f.cls] || 0), 0);
 // meilleur projet d'usine d'un rival (lisible : marge fabriquée, marge de négoce, gain annuel, investissement, rendement)
