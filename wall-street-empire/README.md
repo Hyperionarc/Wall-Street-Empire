@@ -1449,3 +1449,52 @@ Prêt maximal au jour 1 borné, CET1 au-dessus du seuil sur 360 jours, encours �
 
 ### Limites
 - La zone portuaire à vide reste légèrement déficitaire (salaires couverts à 80 %) : volontaire, un port sans trafic ne doit pas être gratuit. Les démolitions de la spéculation immobilière (autre agent) devront appeler `WSE.rub.add`.
+
+## Passe 48 : valeur du terrain par usage, quartiers et cartes de chaleur (à la Capitalism Lab)
+
+Le terrain n'a plus un prix unique : chaque case a une valeur en $/case **propre à l'usage visé**, comme dans Capitalism Lab et Capitalism II (Midtown très courtisé, port subventionné, campagne bon marché).
+
+### Modèle (`landModel(x, y, use)`, `landPrice(x, y, use)`, `landCostFor`)
+- **Pôle de la ville** : le Mall central (`mallRect`), sinon le centre de la ville PNJ (`CBD`) ; plus aucun centre codé en dur (`marketDist` aussi). `dC` = distance au bord du mall, `dP` = distance au hub du port.
+- **Somme de composantes** (décomposition exacte, avant inflation `cpi`) : base 110 $ + **distance** 2 300 × acc^1,6 avec acc = max(e^(−dC/22), 0,75 e^(−dP/18)) : plus on s'éloigne à la fois de la ville et du port, moins le sol coûte, pour tous les usages.
+  - **commerce** : 25 000 × (0,62 c^1,5 + 0,38 t)^1,25 réparti entre centralité et trafic (c = e^(−(dC/13)^1,3), t = fréquentation brute de `rebuildTraffic`), + 8 % sur une avenue ;
+  - **résidentiel** : 26 000 × (0,62 c^1,3 + 0,2 parcs + 0,18 calme × e^(−dC/20)) + 12 000 × **vue sur la mer** (cases de mer à 10 cases, pondérées par 1/distance) × dégagement (pas de mur de voisins de 3 étages ou plus) ;
+  - **bureaux** : 32 000 × c^1,4 + 3 000 × t ; **industrie** : 9 000 × e^(−dP/12) × (0,75 + 0,25 accès routier) + pression urbaine ;
+  - **agricole, extraction et stockage** : pression urbaine seulement (6 000 × c^1,5, et 9 000 × e^(−dBord/6) en campagne près de la ville) ; la valeur d'usage (fertilité, gisement) est payée à part (`sitePremium`, inchangé) ; l'extraction garde le facteur ×0,3.
+- **Usage d'un bâtiment** : `landUseOf` (boutiques → commerce, logements → résidentiel, tours et services → bureaux, usines, entrepôts, centrales → industrie, fermes et élevages → agricole, mines et puits → extraction).
+- **Industrie hors du port** : une usine peut désormais s'installer en **campagne** (jamais en ville) : sol bon marché, aucune subvention, transport plus long (`facHaul`, `TRANS`) ; les placements automatiques (`autoSpot`, `placeAuto`, `chSpot`) prennent la zone du port d'abord. La subvention de zone (port, zone industrielle ; industrie et logistique seulement) est inchangée.
+- **Cohérence achat / revalorisation** : terrain payé (`c.lp`) = coût annoncé ; `c.lpv` note la valeur de l'emprise le jour de l'achat et `landVal` revalorise sur le même modèle (borné ×0,6 à ×5). `proValue` évalue le lot pour l'usage du bien (logement, bureaux) et `proAttr` compte la vue sur la mer. Les terrains nus (`S.pland`) gardent leur prix payé et se revalorisent quand la valeur d'achat est notée (`S.plv`, facultatif).
+- **Cache** (`landCache`) : vue sur la mer, parcs, hauteurs voisines et quartiers recalculés seulement quand la fréquentation est recalculée (ville ou bâtiments modifiés), au plus une fois par mois sinon ; valeurs par case calculées à la demande.
+
+### Quartiers et calques
+- **Quartiers nommés par la géométrie** : Midtown (7 cases autour du mall), quatre quartiers en couronne (Uptown, Eastside, Southside, Westend ; le plus riche en parcs devient **Parktown**), Faubourg au-delà, Harborside (quai et bord de mer du port), Zone industrielle, Ceinture verte (campagne à 10 cases de la ville), La Côte (vue sur la mer), Campagne.
+- **Calques** (bouton Calque) : Fréquentation, **Commerce $** (« Valeur du terrain (commerce) »), **Résidentiel $** (« Valeur résidentielle (vue, calme) »), **Terrain $** (usage de l'outil choisi) ; dégradé froid (bleu, bon marché) → chaud (rouge, cher) en échelle logarithmique, légende en $/case, noms des quartiers sur la carte. Le calque Auto reste inchangé (fréquentation pour une boutique, logistique pour une usine).
+- **Info-bulle de construction** : valeur du terrain pour l'usage de l'outil ($/case, de bon marché à très cher), quartier, décomposition (centralité, trafic, avenue, vue, parcs, calme, port, pression urbaine, distance).
+- **API** : `window.WSE.land` (`model`, `price`, `costFor`, `useOf`, `district`, `cache`, `setLayer`…).
+
+### Repères (départ, inflation 1)
+| Case | Commerce | Résidentiel | Industrie | Ferme 2×2 |
+|---|---|---|---|---|
+| Bord du mall (Midtown) | ≈ 26 500 $ | ≈ 18 000 $ | ≈ 7 500 $ | – |
+| Périphérie de la ville (14, 14) | ≈ 2 800 $ | ≈ 5 000 $ | – | – |
+| Zone portuaire (70, 60) | – | – | ≈ 4 500 $ | – |
+| Côte, vue sur la mer (86, 20) | – | ≈ 9 800 $ | – | – |
+| Intérieur des terres (30, 86), (40, 70), (10, 80) | – | ≈ 540 $ | ≈ 900 $ | ≈ 900 $ (≈ 30 000 $ au bord de la ville) |
+
+Premier petit marché près du mall : 110 000 $ de construction + ≈ 26 500 $ de terrain (≈ 136 500 $, contre 136 800 $ avant).
+
+### Équilibre (sim_batch, 24 parties de `sim_v2.jsonl`, 1 800 jours)
+Mêmes 24 parties (6 castes × 4 profils, graines de `sim_v2.jsonl`), valeur de l'entreprise à 11 min (jour 880) et 22 min (jour 1 760), avant / après :
+| | Médiane avant | Médiane après | Moyenne | Ratio par partie (médian, min, max) |
+|---|---|---|---|---|
+| 11 min | 26,7 M$ | 26,9 M$ | +0,1 % | 0,999 · 0,972 · 1,066 |
+| 22 min | 36,7 M$ | 36,5 M$ | +0,5 % | 0,999 · 0,956 · 1,062 |
+
+Par caste à 22 min : agriculteur ×1,001, banquier ×1,014, industriel ×1,000, innovateur ×1,015, négociant ×0,989, promoteur ×0,987. Aucune partie ne perd plus de 4,4 % ; aucune erreur. Règles de marges et de prix inchangées.
+
+### Tests (`tools/tests/t48_valeur_terrain.js`)
+Centre plus cher que la périphérie (commerce), vue sur la mer (résidentiel), zone portuaire subventionnée et moins chère au total pour une usine, usine en campagne au terrain moins cher mais au transport plus long, ferme moins chère loin de la ville, calques et légende en $/case, quartiers nommés et dessinés, achat cohérent avec la valeur et la revalorisation, déterminisme, ancienne sauvegarde (prix payés gardés), aucune erreur, mobile 390×844.
+
+### Limites
+- La pollution, la criminalité et les services publics n'entrent pas encore dans la valeur du terrain ; la croissance de la ville PNJ (`cityGrow`) garde sa propre valeur relative (`cityLV`).
+- La vue sur la mer ne concerne que la côte est (polders du promoteur, campagne côtière) : la ville est à plus de 40 cases de la mer.
