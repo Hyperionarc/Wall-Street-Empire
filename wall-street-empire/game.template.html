@@ -1505,7 +1505,7 @@ const TYPES = {
   cable:   { name: 'Câble enterré', sub: 'R&D · sans pertes ni tempêtes', cost: 1800, color: '#ffd43b', jobs: 0, upkeep: 0.3, tech: 'cables' },
   pipeline: { name: 'Pipeline', sub: 'Pétrole, gaz et charbon', cost: 140, color: '#ffd43b', jobs: 0, upkeep: 0.3 },
   rd:      { name: 'Centre de R&D', sub: 'Recherche, brevets', cost: 12000, color: '#b78cff', jobs: 20, upkeep: 8 },
-  dc:      { name: 'Data center', sub: 'Calcul et IA', cost: 22000, color: '#3fd8ff', jobs: 12, upkeep: 12 },
+  dc:      { name: 'Data center', sub: 'Campus cloud et IA · 5×4 · très gourmand en électricité', cost: 22000, color: '#3fd8ff', jobs: 12, upkeep: 12, w: 5, h: 4 },   // passe 55 : campus hyperscale (20 cases), hors de la ville, alimentation électrique obligatoire
   hq:      { name: 'Siège social', sub: 'Direction du groupe', cost: 25000, color: '#ffd76a', jobs: 20, upkeep: 8, tier: 1, w: 2, h: 2 },
   bank:    { name: 'Banque',        sub: 'London Gold',     cost: 6000,  color: '#f2b84b', jobs: 12, upkeep: 6,  tier: 2 },
   well:    { name: 'Puits pétrole', sub: 'NYMEX Oil',       cost: 150000, color: '#ff8a3d', jobs: 14, upkeep: 160, ext: 'oil',    rate: 150 },
@@ -2685,8 +2685,8 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   // Énergie : centrale à charbon ≈ 300 MWh/j (coût du combustible ≈ 33 % du CA, EBITDA ≈ 35 %), nucléaire ≈ 1 000 MWh/j (EBITDA ≈ 45 %), solaire et éolien ≈ 55 %
   TYPES.plant.jobs = 10; TYPES.nuclear.jobs = 25; TYPES.solar.jobs = 4; TYPES.wind.jobs = 2; TYPES.solar.upkeep = 2270; TYPES.wind.upkeep = 1340;   // EBITDA ≈ 55 % au prix de base du réseau (30 $/MWh) : maintenance, onduleurs et pales, sans l'effet d'aubaine d'avant (65-69 %)
   // Services : CA par employé et par jour (banque ≈ 1 500, tech ≈ 1 100, data center ≈ 1 000 ≈ OVHcloud) et EBITDA 40-45 %
-  setC('bank', 30000000, 48000); setC('tech', 22000000, 52000); setC('dc', 19000000, 42000); setC('rd', 15000000, 8000);   // capex −12 % (passe 17) : la 1re tour reste très rentable, mais le plafond de demande par type (svcSat) borne désormais le parc de services
-  TYPES.bank.jobs = 60; TYPES.tech.jobs = 70; TYPES.dc.jobs = 60; TYPES.rd.jobs = 40;
+  setC('bank', 30000000, 48000); setC('tech', 22000000, 52000); setC('dc', 80000000, 80000); setC('rd', 15000000, 8000);   // capex −12 % (passe 17) : la 1re tour reste très rentable, mais le plafond de demande par type (svcSat) borne désormais le parc de services
+  TYPES.bank.jobs = 60; TYPES.tech.jobs = 70; TYPES.dc.jobs = 200; TYPES.rd.jobs = 40;   // passe 55 : campus data center = 4 anciens data centers (CA, effectif) ; capex 80 M$ (au lieu de 4 × 19), entretien 80 000 $/j, plus l'électricité (DC_MWH)
   Object.keys(LOCAL_D).forEach(k => { LOCAL_D[k] *= K_SIZE; });
   // Calibrage par l'EBITDA du secteur (SECTOR_REF) : prix d'équilibre = (intrants + coûts fixes par cycle) / (production × (1 - EBITDA - transport))
   const CAL = { wf: 1.2, uf: 0.85, tr: 0.03 };   // coefficient salarial effectif, taux d'utilisation effectif des usines, transport
@@ -2817,20 +2817,20 @@ const TOOL_META = {
   bull: { name: 'Démolir', sub: 'Gratuit', color: '#ff5a5f' }
 };
 const CATS = [
-  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'off', 'bank', 'sport', 'tv', 'hq', 'rd', 'dc'] },
+  { id: 'ville', name: 'Ville',      tools: ['res', 'tech', 'off', 'bank', 'sport', 'tv', 'hq', 'rd'] },
   { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcorn', 'frapeseed', 'fcattle', 'fchicken', 'fpig', 'fsheep', 'road', 'link'] },
   { id: 'extr',  name: 'Extraction', tools: ['well', 'gwell', 'mcoal', 'miron', 'mcopper', 'mgold', 'mnicr', 'mbauxite', 'mzinc', 'mlithium', 'mgraphite', 'qsilica', 'qclay', 'qsalt', 'mphos', 'mpotash', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'crush', 'btp', 'buyout', 'keep', 'terra', 'zone', 'road'] },
-  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'f4', 'plant', 'solar', 'wind', 'nuclear', 'pylon', 'cable', 'wh', 'port', 'pipeline'] },
+  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'f4', 'plant', 'solar', 'wind', 'nuclear', 'pylon', 'cable', 'dc', 'wh', 'port', 'pipeline'] },
   { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 's4', 'sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico', 'immo', 'ewh', 'ecom'] }
 ];
 // Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
 const FAMS = {
-  ville: [['Habitat', ['res', 'sport']], ['Médias', ['tv']], ['Bureaux', ['tech', 'off', 'bank']], ['Direction', ['hq', 'rd', 'dc']]],
+  ville: [['Habitat', ['res', 'sport']], ['Médias', ['tv']], ['Bureaux', ['tech', 'off', 'bank']], ['Direction', ['hq', 'rd']]],
   agri: [['Cultures', ['fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcorn', 'frapeseed']], ['Élevages', ['fcattle', 'fchicken', 'fpig', 'fsheep']], ['Accès', ['road', 'link']]],
   extr: [['Énergie', ['well', 'gwell', 'mcoal', 'pipeline']], ['Métaux', ['miron', 'mcopper', 'mgold', 'mnicr', 'mbauxite', 'mzinc', 'mlithium', 'mgraphite']], ['Minéraux industriels', ['qsilica', 'qclay']], ['Chimie de base', ['qsalt', 'mphos', 'mpotash']], ['Bois', ['logging']], ['Accès', ['road', 'link']]],
   btp: [['Carrières', ['qgravel', 'qsand', 'qlime']], ['Recyclage', ['crush']], ['Chantiers', ['btp']], ['Acquisition', ['buyout', 'keep']], ['Urbanisme', ['zone', 'terra', 'road']]],
-  indus: [['Usines', ['f1', 'f2', 'f3', 'f4']], ['Fonderie', ['foundry']], ['Centrales', ['plant', 'wind', 'solar', 'nuclear']], ['Réseau', ['pylon', 'cable', 'pipeline']], ['Logistique', ['wh', 'port']]],
+  indus: [['Usines', ['f1', 'f2', 'f3', 'f4']], ['Fonderie', ['foundry']], ['Centrales', ['plant', 'wind', 'solar', 'nuclear']], ['Réseau', ['pylon', 'cable', 'pipeline']], ['Numérique', ['dc']], ['Logistique', ['wh', 'port']]],
   com: [['Magasins', ['s1', 's2', 's3', 's4']], ['Magasins spécialisés', ['sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico']], ['Immobilier', ['immo']], ['En ligne', ['ewh', 'ecom']]]
 };
 let famOpen = -1;
@@ -3546,6 +3546,7 @@ function cellExtra(c) {
   if (c.mr != null && Math.abs(c.mr - 1) > 1e-3) o.mb = +c.mr.toFixed(3); if (c.adp != null && Math.abs(c.adp - 1) > 1e-3) o.ap = +c.adp.toFixed(3);
   if (c.lp) { o.lp = Math.round(c.lp); o.lpm = +(c.lpm || 1).toFixed(4); if (c.lpv > 0) o.lv = Math.round(c.lpv); }
   if (c.acq) o.aq = Math.round(c.acq);
+  if (c.t === 'dc' && (c.bat || c.gb === 0 || c.soc > 0 || c.ct != null || (c.uph && c.uph.length))) o.dcp = [c.bat | 0, c.gb === 0 ? 0 : 1, Math.round(c.soc || 0), +dcCt(c).toFixed(3), (c.uph || []).slice(-30).map(v => Math.round(v * 1000))];   // passe 55 : batteries, appoint réseau, charge, contrats, uptime
   if (c.bday != null) o.bd = c.bday; if (c.fcap != null) o.fc = Math.round(c.fcap); if (c.works) o.wk = [c.works.k === 'new' ? 1 : 0, c.works.to, c.works.due, c.works.cost, c.works.t0];   // passe 34 : logements (achat, travaux)
   if (c.plan && PLAN_DIM[c.t]) { o.pl = c.plan.join(','); if (c.rb) { const rb = {}; Object.keys(c.rb).forEach(i => { rb[i] = [c.rb[i].k, +c.rb[i].w.toFixed(4)]; }); o.rb = rb; } }   // plan d'usine (absent = plan par défaut)
   if (c.fx) { const f = c.fx; o.fx = { s: f.s, w: f.w.map(v => v | 0), g: f.g, tot: Math.round(f.tot), run: Math.round(f.run), brk: f.brk | 0, bn: f.bn | 0, ok: f.ok | 0, ins: f.ins | 0, ir: f.ir || '', st: f.st | 0, rep: f.rep | 0 }; }   // passe 28 : atelier visité en vue immersive
@@ -3582,10 +3583,12 @@ function load() {
       if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3); if (r[19] && typeof r[19] === 'object') c.src = r[19];
       if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.mb != null) c.mr = clamp(+e.mb, 0, 3); if (e.ap != null) c.adp = clamp(+e.ap || 1, 0.4, 2); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; if (e.lv > 0) c.lpv = +e.lv; } if (e.aq > 0) c.acq = +e.aq; if (e.fx && typeof e.fx === 'object' && PLAN_DIM[r[0]]) { const x = e.fx, f = fxMake(c); if (Array.isArray(x.s) && x.s.length === 3) f.s = x.s.map(v => clamp(+v || 0, 0, 100)); if (Array.isArray(x.w)) f.w = x.w.slice(0, 9).map(v => clamp(v | 0, 0, FX_TMAX)); if (x.g && typeof x.g === 'object') FX_GOALS.forEach(g => { if (x.g[g.id]) f.g[g.id] = +x.g[g.id] || 1; }); f.tot = Math.max(0, +x.tot || 0); f.run = Math.max(0, +x.run || 0); f.brk = Math.max(0, x.brk | 0); f.bn = x.bn | 0; f.ok = x.ok | 0; f.ins = x.ins | 0; f.ir = x.ir === 'ok' || x.ir === 'warn' ? x.ir : ''; f.st = x.st | 0; f.rep = x.rep | 0; } if (typeof e.pl === 'string' && PLAN_DIM[r[0]]) { const pa = e.pl.split(','), dm = PLAN_LEG[r[0]]; if ((pa.length === PLAN_N || pa.length === dm[0] * dm[1]) && pa.every(k => k === '' || PLAN_KEYS.indexOf(k) >= 0)) { c.plan = pa; if (e.rb && typeof e.rb === 'object') { c.rb = {}; Object.keys(e.rb).forEach(i => { const v = e.rb[i]; if (pa[i] === 'robot' && Array.isArray(v) && ROBOTS[v[0]]) c.rb[i] = { k: v[0], w: clamp(+v[1] || 0, 0, 1) }; }); } } } }
       if (r[20] && typeof r[20] === 'object') { const e2 = r[20]; if (e2.bd != null) c.bday = e2.bd | 0; if (e2.fc != null) c.fcap = +e2.fc; if (Array.isArray(e2.wk)) c.works = { k: e2.wk[0] ? 'new' : 'up', to: e2.wk[1] | 0, due: e2.wk[2] | 0, cost: +e2.wk[3] || 0, t0: e2.wk[4] | 0 }; }
+      if (r[20] && typeof r[20] === 'object' && Array.isArray(r[20].dcp) && r[0] === 'dc') { const q = r[20].dcp; c.bat = clamp(q[0] | 0, 0, 3); if (q[1] === 0) c.gb = 0; c.soc = Math.max(0, +q[2] || 0); c.ct = clamp(+q[3] || 1, DC_CT_MIN, 1); if (Array.isArray(q[4])) c.uph = q[4].slice(-30).map(v => clamp((+v || 0) / 1000, 0, 1)); }
       if (r[20] && typeof r[20] === 'object') { if (r[20].fm > 0) c.firm = r[20].fm | 0; if (r[20].is != null) c.isale = r[20].is ? 1 : 0; if (r[20].fe) c.fert = 1; if (r[20].hd != null) c.hd = clamp(+r[20].hd || 0.2, 0.2, 1); if (r[20].sk > 0) c.sickUntil = r[20].sk | 0; }
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
+    dcMigrate(grid);   // passe 55 : anciens data centers (1×1 ou 2×2) gardés à leur emprise d'origine, comptés pour ¼ de campus
     const cv2 = d.cv === 2;   // passe 35 : ville de départ « petite ville » + croissance ; sinon l'ancienne ville (288 000 habitants) est régénérée à l'identique
     { let nm = 0; if (cv2 && Array.isArray(d.cty)) d.cty.forEach(q => { if (Array.isArray(q) && q[2] === 'mon' && q[5] === 'mall' && q[0] >= MALL_BIG.x0 && q[0] < MALL_BIG.x0 + MALL_BIG.w && q[1] >= MALL_BIG.y0 && q[1] < MALL_BIG.y0 + MALL_BIG.w) nm++; }); mallBSet(nm >= MALL_BIG.w * MALL_BIG.w); }   // passe 45 : grand mall seulement si la sauvegarde le contient ; ancien mall 2×2 ou pas de mall : comportement d'avant
     Object.assign(CITY, CITY0); if (cv2 && Array.isArray(d.cext)) d.cext.forEach(b => { if (Array.isArray(b)) cityBlockApply(b[0] | 0, b[1] | 0); });
@@ -3629,6 +3632,11 @@ function load() {
     return S0;
   } catch (e) { return null; }
 }
+function dcMigrate(grid) {
+  const full = (TYPES.dc.w || 1) * (TYPES.dc.h || 1);
+  grid.forEach((c, i) => { if (!c || c.t !== 'dc') return; let mx = 0, my = 0, n = 0; grid.forEach(q => { if (q && q.t === 'part' && q.ai === i) { n++; mx = Math.max(mx, q.ox | 0); my = Math.max(my, q.oy | 0); } });
+    if (n + 1 < full) { c.w = Math.min(mx + 1, TYPES.dc.w); c.h = Math.min(my + 1, TYPES.dc.h); c.lg = DC_LEG; } });
+}
 function applyZm(zm) {   // passe 34 : réapplique les terrains créés (la carte d'origine est reconstruite par buildZones)
   buildZones(); if (!zm || typeof zm !== 'object') return;
   Object.keys(zm).forEach(k => { const i = +k, v = zm[k]; if (i >= 0 && i < N * N && (v === 1 || v === 2)) { ZONE[i] = v; ZEXT[i] = 1; } });
@@ -3670,7 +3678,7 @@ function eachBuilding(fn) {
 const MAX_LVL = 4, MAX_FLOORS = 6;
 const LVL_MULT = [1, 1.6, 2.4, 3.2, 4.0];            // L1 à L5 : multiplicateur de capacité et d'effectifs
 const LVL_COST = [0.7, 0.9, 1.15, 1.5];              // coût du passage Ln -> Ln+1, en part du capex
-const levelMult = c => c.t === 'res' ? 1 : LVL_MULT[Math.min(MAX_LVL, c.lvl || 0)];
+const levelMult = c => c.t === 'res' ? 1 : LVL_MULT[Math.min(MAX_LVL, c.lvl || 0)] * (c.lg || 1);   // passe 55 : c.lg = ancien data center (compact, ¼ de campus)
 const capOf = c => levelMult(c) * (TYPES[c.t].capK || 1);
 const lvTxt = c => `Niveau ${(c.lvl || 0) + 1}/${MAX_LVL + 1} · capacité ×${levelMult(c).toFixed(1).replace('.', ',')}` + ((c.lvl || 0) < MAX_LVL ? ` (suivant ×${LVL_MULT[(c.lvl || 0) + 1].toFixed(1).replace('.', ',')})` : '');
 const lvFloors = c => c.t === 'npc' ? c.floors : c.floors + (c.t === 'res' ? 0 : 2 * (c.lvl || 0));   // étages visibles : +2 par niveau pour les tours
@@ -3701,7 +3709,7 @@ function evaluate() {
     if (isPlant(c.t)) gridEval(c, gm);
     cc[c.t]++;
     upkeep += ((c.t === 'res' ? resUpk(c) + (c._ptax || 0) / cpi() : T.upkeep * m * (1 + 0.1 * (c.qual || 0)) * (FLEVEL[c.t] ? actF(c) * planUpk(c) : 1)) + phOvh(c)) * znUm(c);   // usine vide : entretien réduit à 25 % (mise sous cocon), comme l'effectif
-    { const bv = T.cost * 0.9 + upgradeSpent(c) * 0.6 + landVal(c); value += bv; if (IMMO_T.indexOf(c.t) >= 0) immo += bv; }
+    { const bv = T.cost * (c.lg || 1) * 0.9 + upgradeSpent(c) * 0.6 + landVal(c); value += bv; if (IMMO_T.indexOf(c.t) >= 0) immo += bv; }
     if (c.conn) {
       cn[c.t]++; un[c.t] += unitsOf(c); jobs += jobsOf(c); c.haul = haulOf(c);
       if (c.t === 'res' && !(c.works && c.works.k === 'new')) cap += 6 + 4 * c.floors;
@@ -4117,6 +4125,53 @@ function stepPower() {
   S.power = { sup, draw, D, B, r, price, mult: r >= 1 ? 1 : clamp(0.7 + 0.3 * r, 0.7, 1) };
 }
 const powerMult = () => (S && S.power) ? S.power.mult : 1;
+// ---- Passe 55 : le data center est un campus hyperscale (5×4) qui doit être alimenté ----
+// Besoin : DC_MWH MWh/j à pleine charge (≈ 100 MW, dix grandes usines). Sources, dans l'ordre : tes centrales raccordées au réseau (leur production n'est plus vendue),
+// les batteries du campus (chargées par le surplus de tes centrales), puis l'appoint du réseau au tarif data center (DC_TARIFF × le prix du réseau, au moins 1,6 × 30 $/MWh).
+// Modèle horaire déterministe (24 h) : le solaire suit le soleil (rien la nuit), l'éolien varie d'heure en heure autour du vent du jour, charbon et nucléaire sont constants.
+// Capacité servie = énergie reçue / besoin ; chaque heure sans courant est une heure de panne : les clients cloud partent (contrats c.ct, de 1 à 0,4) et reviennent lentement.
+const DC_MWH = 2400, DC_TARIFF = 1.6, DC_LEG = 0.25, DC_PER = 1680, DC_EFF = 0.9, DC_CT_MIN = 0.4;
+const DC_BAT = [0, 1000, 2000, 4000], DC_BATC = [0, 9e6, 9e6, 18e6];   // batteries du campus : capacité en MWh par niveau, coût de chaque niveau (≈ 9 000 $/MWh stocké)
+const dcNeed = c => DC_MWH * levelMult(c);   // MWh/j (un ancien data center compte pour ¼ de campus)
+const dcBatCap = c => DC_BAT[clamp(c.bat | 0, 0, 3)] * (c.lg || 1);
+const dcTariff = () => DC_TARIFF * Math.max(S.power ? S.power.price : ELEC_BASE * cpi(), ELEC_BASE * cpi() * shockPx('elec'));
+const dcCt = c => c.ct == null ? 1 : c.ct;
+function dcProfiles(day) {   // parts horaires (somme 1) du solaire et de l'éolien pour ce jour
+  const so = [], wi = []; let ss = 0, sw = 0; const ph = hash(day | 0, 55, 1) * 24;
+  for (let h = 0; h < 24; h++) { const v = h >= 6 && h < 18 ? Math.sin(Math.PI * (h + 0.5 - 6) / 12) : 0; so.push(v); ss += v;
+    const w = Math.max(0.05, 1 + 0.45 * Math.sin(2 * Math.PI * (h + ph) / 24) + 0.9 * (hash((day | 0) * 24 + h, 55, 2) - 0.5)); wi.push(w); sw += w; }
+  return { so: so.map(v => v / ss), wi: wi.map(v => v / sw) };
+}
+function dcDay(bl) {   // après la production des centrales : alimente les data centers, corrige les ventes d'électricité, renvoie les écarts de recettes et le coût du réseau
+  const dcs = bl.filter(c => c.t === 'dc'), out = { dRev: 0, cost: 0 }; if (!dcs.length) return out;
+  const pl = bl.filter(c => isPlant(c.t) && (c._mwh || 0) > 0), src = { base: 0, sol: 0, win: 0 };
+  pl.forEach(c => { if (c.t === 'solar') src.sol += c._mwh; else if (c.t === 'wind') src.win += c._mwh; else src.base += c._mwh; });
+  const own = src.base + src.sol + src.win, need = dcs.map(c => dcNeed(c)), Nd = need.reduce((a, v) => a + v, 0), P = dcProfiles(S.day), tar = dcTariff();
+  let used = 0;
+  dcs.forEach((c, i) => {
+    const sh = Nd > 0 ? need[i] / Nd : 0, n = need[i] / 24, cap = dcBatCap(c); let soc = clamp(+c.soc || 0, 0, cap);
+    const r = { need: need[i], own: 0, bat: 0, grid: 0, miss: 0, toBat: 0, out: 0, srcB: src.base * sh, srcS: src.sol * sh, srcW: src.win * sh };
+    for (let h = 0; h < 24; h++) {
+      const o = (src.base / 24 + src.sol * P.so[h] + src.win * P.wi[h]) * sh, u = Math.min(o, n); let def = n - u; r.own += u;
+      if (o > u && cap > soc) { const ch = Math.min(o - u, (cap - soc) / DC_EFF); soc += ch * DC_EFF; r.toBat += ch; }
+      if (def > 1e-9 && soc > 0) { const d = Math.min(def, soc); soc -= d; def -= d; r.bat += d; }
+      if (def > 1e-9 && c.gb !== 0) { r.grid += def; def = 0; }
+      if (def > n * 0.002) { r.miss += def; r.out++; } else if (def > 0) r.miss += def;
+    }
+    c.soc = soc; used += r.own + r.toBat;
+    const A = r.need > 0 ? clamp((r.need - r.miss) / r.need, 0, 1) : 0, up = 1 - r.out / 24;
+    c.ct = clamp(dcCt(c) - (r.out > 0 ? 0.15 * (1 - A) + 0.01 : -0.005), DC_CT_MIN, 1);
+    c._avail = A; c._up = up; c._pw = r; c.uph = (c.uph || []).concat([+up.toFixed(3)]).slice(-30);
+    c.util = A; c.out = 10 * unitsOf(c) * A; c.pRev = (c._rent0 || 0) * A * c.ct; out.dRev += c.pRev;
+    c.inCost = r.grid * tar; c._tar = tar; out.cost += c.inCost;
+    c.limit = A < 0.999 ? 'power' : null;
+  });
+  if (own > 0 && used > 0) {   // l'électricité consommée par tes data centers n'est plus vendue au réseau
+    const f = clamp(used / own, 0, 1); pl.forEach(c => { const dr = (c.pRev || 0) * f; c.pRev -= dr; out.dRev -= dr; c._dcMWh = c._mwh * f; }); S._pSup = Math.max(0, (S._pSup || 0) - used);
+  }
+  return out;
+}
+function dcAI() { let a = 0; eachBuilding(c => { if (c.t === 'dc' && c.conn) a += levelMult(c) * (c._avail == null ? 1 : c._avail) * dcCt(c); }); return a; }   // puissance de calcul effective (campus = 1)
 // --- Chocs exogènes (énergie, pandémie, crise du crédit) : état dans S.macro.sh[id] = { t0, d, k } ; intensité 0..1 (montée, plateau, retombée) ---
 const SHOCKS = {
   energy: { n: 'Choc énergétique', d: 70, tag: 'Énergie' },
@@ -5515,7 +5570,7 @@ function step() {
   { const d0 = S._cashEnd == null ? 0 : S.cash - S._cashEnd; if (Math.abs(d0) > 1000) { (S.cflog = S.cflog || []).push([S.day, Math.round(d0), (S._sayBuf || []).slice(-2).join(' | ')]); if (S.cflog.length > 40) S.cflog.shift(); } S._sayBuf = []; }
   if (!S.fix1 && S.cash < 0) { S.fix1 = 1; S.cash = 1e8; S.loan = 0; S._cashEnd = S.cash; S.capAdj = Math.max(0, 1e9 - (S.cash + ev.value)); say('Remise à niveau : trésorerie 100 M$, capitalisation 1 Md$.', 'gold'); }
   S.day++;
-  S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.015 * (un.dc || 0)); S.patRev = patRevDay();   // passe 47 : redevances des brevets (plus de rente fixe)
+  S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.06 * dcAI());   // passe 55 : 6 % par campus alimenté (un ancien data center : 1,5 %, comme avant) S.patRev = patRevDay();   // passe 47 : redevances des brevets (plus de rente fixe)
   stepTalent(); stepMacro(); stepInvites(); stepDifficulty(); TM = techMults(); if (!S.cityV) stepDevs(); stepReqs(); if (S.cityV) stepCity(); else stepNpcDensify(); proStep(); stepPolicy(); stepSites(); mkStepBuy();
   if (S.day % 7 === 0 && !(S.pol && S.pol.noAlert)) { const low = []; eachBuilding(c => { if (c.conn && c.limit && GOODS[c.limit] && (FLEVEL[c.t] || c.t === 'foundry') && S.stock[c.limit] < 5) low.push(GOODS[c.limit].name.toLowerCase()); }); if (low.length) say('Stock bas : ' + [...new Set(low)].slice(0, 3).join(', ') + '. Ouvre l\'onglet Achats de tes usines pour changer de fournisseur.', 'warn'); }
   if (S.day % 15 === 0 && S.day > 0 && !(S.pol && S.pol.noAlert)) { const pl = {}; eachBuilding(c => { if (c.conn && PLAN_DIM[c.t] && c.limit && c.limit.indexOf('pl_') === 0 && (c.days || 0) > 10) pl[c.limit] = (pl[c.limit] || 0) + 1; }); Object.keys(pl).slice(0, 2).forEach(k => say(`Plan d'usine : ${PL_LIM_TXT[k]} (${pl[k]} usine${pl[k] > 1 ? 's' : ''}). Ouvre l'onglet Intérieur : le goulot est en rouge dans la grille.`, 'warn')); }
@@ -5539,7 +5594,7 @@ function step() {
   OWN = {};   // production du joueur seule (made y ajoute l'offre des fournisseurs PNJ pour le rapport demande / offre)
   const buildings = [];
   stepPower(); S._pSup = 0; S._pDraw = 0;
-  eachBuilding(c => { c.out = 0; c.inCost = 0; c.limit = (!c.conn && isPlant(c.t)) ? 'road' : null; c.util = 0; c.pRev = 0; c.wages = 0; c.transport = 0; if (c.conn && c.t !== 'npc') { buildings.push(c); const T0 = TYPES[c.t]; if (T0 && T0.jobs && c.t !== 'plant') S._pDraw += (T0.jobs0 ? T0.jobs0 * K_SIZE : T0.jobs) * (FLEVEL[c.t] || c.t === 'foundry' ? 1.6 : T0.ext ? 1.2 : T0.ret ? 0.5 : 0.35); } });
+  eachBuilding(c => { c.out = 0; c.inCost = 0; c.limit = (!c.conn && isPlant(c.t)) ? 'road' : null; c.util = 0; c.pRev = 0; c.wages = 0; c.transport = 0; if (c.conn && c.t !== 'npc') { buildings.push(c); const T0 = TYPES[c.t]; if (T0 && T0.jobs && c.t !== 'plant' && c.t !== 'dc') S._pDraw += (T0.jobs0 ? T0.jobs0 * K_SIZE : T0.jobs) * (FLEVEL[c.t] || c.t === 'foundry' ? 1.6 : T0.ext ? 1.2 : T0.ret ? 0.5 : 0.35); } });
 
   FGD = firmDayStart(buildings);   // passe 32 : sociétés du groupe (null tant qu'il n'y a ni filiale ni vente interne : aucun surcoût)
   // 0. Les forêts repoussent lentement
@@ -5731,7 +5786,7 @@ function step() {
   buildings.forEach(c => {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
     if (c.t === 'rd') { c._pat = (c._pat || 0) + u * 0.4 / 30; if (c._pat >= 1) { c._pat -= 1; const X = rdxS(); X.cred = Math.min(ACC_LAB_MAX, X.cred + ACC_LAB_GAIN); say(`Ton centre de R&D boucle un dossier : +${ACC_LAB_GAIN} jours de crédits labo pour accélérer une recherche (Bureau > R&D et brevets).`, 'gold'); } c.out = u; c.util = fill; c.pRev = 0; }
-    if (c.t === 'dc') { const rent = jobsOf(c) * 1400 * fill * (casteIs('innovateur') ? 1.12 : 1) * cpi() * SAT.dc.m; c.out = 10 * u; c.util = fill; c.pRev = rent; revTech += rent; c.transport = 20 * u * cpi(); transportTotal += c.transport; }
+    if (c.t === 'dc') { c._rent0 = jobsOf(c) * DC_PER * fill * (casteIs('innovateur') ? 1.12 : 1) * cpi() * SAT.dc.m; c.out = 0; c.util = 0; c.pRev = 0; c.transport = 20 * u * cpi(); transportTotal += c.transport; }   // passe 55 : recette encaissée selon l'alimentation (dcDay)
     if (isPlant(c.t)) {
       const storm = c.gridOver && (S.storm || 0) >= S.day, live = c.gridOk && !storm, loss = 1 - (c.gridLoss || 0), sf = 0.55 + 0.45 * Math.sin((S.day - 60) / 360 * 2 * Math.PI);
       let mwh = 0; c.limit = null; c.inCost = 0;
@@ -5740,7 +5795,7 @@ function step() {
       else if (c.t === 'wind') { mwh = live ? MWH_WIND * u * (S.wind || 0.6) * fillOf(c) : 0; c.out = mwh; c.util = S.wind || 0.6; }
       else { mwh = live ? MWH_NUC * (TYPES.nuclear.ow || 1) * u * fillOf(c) : 0; c.out = mwh; c.util = live ? fillOf(c) : 0; }
       if (!c.gridOk) c.limit = 'grid'; else if (storm) c.limit = 'storm';
-      mwh *= loss; S._pSup += mwh; c.pRev = mwh * (S.power ? S.power.price : ELEC_BASE) * (casteIs('negociant') ? 1.3 : 1); revTech += c.pRev;
+      mwh *= loss; c._mwh = mwh; c._dcMWh = 0; S._pSup += mwh; c.pRev = mwh * (S.power ? S.power.price : ELEC_BASE) * (casteIs('negociant') ? 1.3 : 1); revTech += c.pRev;
     }
     if (c.t === 'off') revTech += stepRent(c);
     if (c.t === 'res') { const rr = stepRentRes(c); revTech += rr; if (S.pro) S.pro.st.rentIn = (S.pro.st.rentIn || 0) + rr; }   // passe 34 : loyers des logements
@@ -5754,6 +5809,7 @@ function step() {
     c.adCost = adSpend(c); adTotal += c.adCost;
     transportTotal += c.transport;
   });
+  { const X = dcDay(buildings); revTech += X.dRev; importCost += X.cost; }   // passe 55 : alimentation des data centers (après les centrales)
   if (S._ecDay) { transportTotal += S._ecDay.ovh || 0; adTotal += S._ecDay.adv || 0; }   // passe 46 : flotte, hébergement et publicité en ligne
   const revRetail = revRetVal * mult, revExport = revExp * mult;
   let advCost = adTotal; PKEYS.forEach(pk => { const ps = S.prod[pk]; ps.adCost = ps.st === 'on' ? padSpend(ps) + eduCampDay(pk) : 0; advCost += ps.adCost; });
@@ -5795,7 +5851,7 @@ function step() {
     const up = upkOf(c); c.zs = znOf(c) ? (upkOf0(c) - up) + ((c._wb || 0) - (c.wages || 0)) : 0;   // part prise en charge par la ville (aide de zone)
     // Séparation : production valorisée interne (mines, usines : non encaissée) / chiffre d'affaires encaissé ; intrants importés (décaissés) / prélevés sur stock local (transfert interne)
     c.pInt = (T.ext || T.rec || T.recy) ? c.pRev : 0;
-    { const ip = T.ret ? (c._inImpR || 0) : T.ext ? (c._xcost || 0) : c.t === 'ewh' ? (c._buy || 0) : c.t === 'wh' || c.t === 'tv' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
+    { const ip = T.ret ? (c._inImpR || 0) : T.ext ? (c._xcost || 0) : c.t === 'ewh' ? (c._buy || 0) : c.t === 'wh' || c.t === 'tv' || c.t === 'dc' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
     REC.pInt += c.pInt; REC.pCash += c.pRev - c.pInt; REC.inImp += c.inImp; REC.inLoc += c.inLoc; REC.wag += c.wages; REC.upk += up; REC.tra += c.transport; REC.ad += c.adCost || 0;
     c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
     c.profit = c.pRev - c.cost;
@@ -5943,10 +5999,11 @@ function toolLocked(k) {
   const T = TYPES[k];
   return !!(T && ((T.tier && tierNow() < T.tier) || modeLocked(k) || specLocked(k)));   // passe 46 : un magasin spécialisé suppose de connaître sa famille de produits
 }
-const ZONE_NEED = { tv: 1, off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
+const ZONE_NEED = { tv: 1, off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 2, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
 SPEC_KEYS.forEach(k => { ZONE_NEED[k] = 1; }); ZONE_NEED.crush = 2; ZONE_NEED.ewh = 2; ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
 const zoneOk = (key, z) => (key === 'pylon' || key === 'cable') ? (z === 0 || z === 2 || z === 4) : key === 'crush' ? (z === 0 || z === 2) : z === ZONE_NEED[key] || (ZONE_NEED[key] === 2 && z === 0);   // passe 48 : l'industrie peut aussi s'installer en campagne (terrain bon marché, sans subvention, transport plus long), jamais en ville
 const indRural = (key, x, y) => ZONE_NEED[key] === 2 && ZONE[idx(x, y)] === 0;   // placements automatiques : la zone industrielle du port d'abord
+const DC_ZMSG = 'Pas de data center en ville : un campus de 5×4 cases et ses besoins électriques ne tiennent pas dans le centre. Construis-le en zone industrielle du port ou en campagne, puis alimente-le (réseau ou tes centrales).';
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Pas d\'usine en ville : construis-la en zone industrielle du port (subventionnée) ou en campagne (terrain moins cher, transport plus long).', 4: 'Les terminaux portuaires se construisent sur le quai.' };
 // vérifie si l'emprise est libre ; renvoie un message d'erreur ou ''
 function footprintError(x, y, key, acq) {
@@ -5954,7 +6011,7 @@ function footprintError(x, y, key, acq) {
   if (T.tech && !S.unlockAll && !(S.tech && S.tech[T.tech])) return `Recherche requise : ${(TECH_BY[T.tech] || { n: T.tech }).n} (Menu > Recherche).`;
   for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
     if (!inb(x + ox, y + oy)) return 'Hors de la carte.';
-    { const z = ZONE[idx(x + ox, y + oy)]; if (z === 3) return 'Impossible de construire sur la mer.'; if (!T.ext && !zoneOk(key, z)) return key === 'crush' ? 'Le centre de concassage se construit en zone industrielle du port ou en campagne (par exemple sur une carrière épuisée).' : ZONE_MSG[ZONE_NEED[key]] || (key === 'pylon' || key === 'cable' ? 'Les lignes électriques se posent en campagne ou au port, pas dans la ville.' : 'Emplacement non constructible ici.'); }
+    { const z = ZONE[idx(x + ox, y + oy)]; if (z === 3) return 'Impossible de construire sur la mer.'; if (!T.ext && !zoneOk(key, z)) return key === 'dc' ? DC_ZMSG : key === 'crush' ? 'Le centre de concassage se construit en zone industrielle du port ou en campagne (par exemple sur une carrière épuisée).' : ZONE_MSG[ZONE_NEED[key]] || (key === 'pylon' || key === 'cable' ? 'Les lignes électriques se posent en campagne ou au port, pas dans la ville.' : 'Emplacement non constructible ici.'); }
     { const o = S.grid[idx(x + ox, y + oy)]; if (o && !(acq && o.t === 'npc' && o.k !== 'mon')) return o.t === 'road' ? 'C\'est une rue : construis dans les blocs.' : 'Case occupée.'; }
     const d = S.dep[idx(x + ox, y + oy)];
     { let nf = null; for (let oy2 = 0; oy2 < (T.h || 1) && !nf; oy2++) for (let ox2 = 0; ox2 < (T.w || 1); ox2++) { const q = S.npcFarm && S.npcFarm[idx(x + ox2, y + oy2)]; if (q) { nf = q; break; } } if (nf) return `Terre exploitée par ${nf.o} : une ferme concurrente est déjà là.`; }
@@ -9128,7 +9185,7 @@ function proRoadErr(x, y) {
   if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(d => isRoad(x + d[0], y + d[1]))) return 'Une voie nouvelle doit se raccorder à une rue existante.';
   return '';
 }
-const SVC_KIND = t => isPlant(t) ? 'power' : ({ ewh: 'ewh', tv: 'tv', off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
+const SVC_KIND = t => isPlant(t) ? 'power' : ({ ewh: 'ewh', tv: 'tv', off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'dc', port: 'port', btp: 'btp' })[t] || null;
 const svcOf = c => { const T = TYPES[c.t]; return (T.ext || T.rec || T.ret) ? null : SVC_KIND(c.t); };
 const hasBld = t => { let n = 0; eachBuilding(b => { if (b.t === t && b.conn) n++; }); return n; };
 function svcInfo(c) {
@@ -9180,8 +9237,17 @@ function svcInfo(c) {
     R.outH = nb('Marge d\'intérêt', `${mj(c.pRev || 0)} /mois`) + nb('Crédits accordés', money(bk.loans || 0));
     R.kpi = [['Marge d\'intérêt / mois', mj(c.pRev || 0), 'pos'], ['Guichets / mois', mj(base)], ['Placements / mois', mj(inc)], ['Crédits accordés', money(bk.loans || 0)]];
     R.bn = ok(`Banque en service : marge d'intérêt ${mj(c.pRev || 0)}/mois`, 'Marge = postes × 1 500 $ + 0,01 % par jour de la trésorerie hors emprunts. Les crédits sur collatéral (caste Banquier) se gèrent dans Finances.');
+  } else if (k === 'dc') {   // passe 55 : campus data center, diagnostic d'alimentation
+    const r = dcPw(c), A = c._avail == null ? 0 : c._avail, ct = dcCt(c), up = dcUp30(c), pr = c.pRev || 0, tips = dcTips(c);
+    R.inH = nb('Électricité', `besoin ${fmt(r.need)} MWh/j (≈ ${fmt(r.need / 24)} MW) · reçu ${fmt(r.need - r.miss)} MWh/j`) + nb('Sources', dcMixTxt(r));
+    R.outH = nb('Cloud et IA', `capacité servie ${pct(A)} · contrats clients ${pct(ct)} · ${mj(pr)}/mois`) + nb('Calcul', `puissance IA +${Math.round(100 * (S.aiBoost || 0))} % (tous data centers)`);
+    R.util = A; R.utilLbl = 'capacité alimentée';
+    R.kpi = [['Recettes / mois', mj(pr), 'pos'], ['Puissance reçue', pct(A), A < 0.98 ? 'neg' : ''], ['Uptime 30 jours', pct(up), up < 0.99 ? 'neg' : 'pos'], ['Électricité réseau / mois', mj(c.inCost || 0), 'neg']];
+    const sev = A < 0.5 ? 'bad' : (A < 0.98 || up < 0.97 || ct < 0.9) ? 'warn' : 'ok';
+    R.bn = { sev, t: A < 0.5 ? `Data center sous-alimenté : ${pct(A)} de la puissance requise` : A < 0.98 ? `Pannes de courant : capacité servie ${pct(A)}, uptime ${pct(up)} sur 30 jours` : `Campus alimenté : ${fmt(r.need)} MWh/j, uptime ${pct(up)} sur 30 jours`, d: tips[0] || '', acts: c.gb === 0 && A < 0.999 ? [['dcgrid', 'Activer l\'appoint réseau']] : [] };
+    return R;
   } else if (k === 'tech') {
-    const per = c.t === 'dc' ? 1000 : 1100, pr = c.pRev || 0;
+    const per = 1100, pr = c.pRev || 0;
     R.inH = nb('Locataires', `${fmt(jobs * fill)} / ${fmt(jobs)} postes occupés · ${money(per)} par poste`) + (c.t === 'dc' ? nb('Calcul', `puissance IA +${Math.round(100 * (S.aiBoost || 0))} % (tous data centers)`) : '');
     R.outH = nb('Loyers', `${mj(pr)} /mois`);
     R.utilLbl = 'taux d\'occupation';
@@ -9223,9 +9289,44 @@ function svcInfo(c) {
   if (fill < 0.97) R.bn = { sev: 'warn', t: `Manque de personnel : ${pct(fill)} des postes pourvus`, d: 'La ville manque de bras. Un salaire élevé attire plus de monde ; construis aussi des logements.', acts: [['wage2', 'Salaires élevés']] };
   return R;
 }
+// ---- Passe 55 : fiche du data center (puissance requise et reçue, uptime 30 jours, sources, coût de l'électricité, batteries, conseils)
+const dcPw = c => c._pw || { need: dcNeed(c), own: 0, bat: 0, grid: 0, miss: c.conn ? 0 : dcNeed(c), toBat: 0, out: 0, srcB: 0, srcS: 0, srcW: 0 };
+const dcUp30 = c => { const h = c.uph || []; return h.length ? h.reduce((a, v) => a + v, 0) / h.length : (c._up == null ? 1 : c._up); };
+function dcMixTxt(r) {
+  const n = Math.max(1, r.need), p = v => Math.round(100 * clamp(v / n, 0, 1)) + ' %';
+  return `tes centrales ${p(r.own)} · batteries ${p(r.bat)} · réseau ${p(r.grid)}${r.miss > 0.5 ? ' · <span class="neg">manque ' + p(r.miss) + '</span>' : ''}`;
+}
+function dcTips(c) {
+  const r = dcPw(c), A = c._avail == null ? 1 : c._avail, n = Math.max(1, r.need), prod = r.srcB + r.srcS + r.srcW, inter = prod > 0 ? (r.srcS + r.srcW) / prod : 0, t = [], tar = c._tar || dcTariff();
+  if (!c.conn) t.push('Le campus n\'est desservi par aucune route : relie-le pour qu\'il fonctionne.');
+  if (c.gb === 0 && A < 0.999) t.push(`Appoint réseau coupé : ${r.out} heure(s) sans courant hier, les clients cloud partent (contrats ${pct(dcCt(c))}). Réactive l'appoint ou ajoute de la production pilotable.`);
+  if (prod < 0.05 * n) t.push(`Tout vient du réseau au tarif data center (${f1(tar)} $/MWh, ${mj(r.grid * tar)}/mois) : construis tes centrales et relie-les au réseau (pylônes ou câbles) pour couper la facture.`);
+  else if (inter > 0.5 && (A < 0.999 || r.grid > 0.15 * n)) t.push(`Mix surtout ${r.srcS >= r.srcW ? 'solaire' : 'éolien'} (${pct(inter)}) : la nuit et les jours sans vent, la puissance manque. Batteries, centrale pilotable (charbon, nucléaire) ou appoint réseau lissent l'uptime.`);
+  if (r.srcS > 0.1 * n && dcBatCap(c) < 0.25 * n) t.push('Le solaire ne produit que le jour : des batteries stockent le surplus de midi pour la nuit.');
+  if (prod < n && prod >= 0.05 * n) t.push(`Tes centrales couvrent ${pct(prod / n)} du besoin : le reste vient ${c.gb === 0 ? 'des batteries ou manque' : 'du réseau, au prix fort'}.`);
+  if (prod > 1.3 * n) t.push('Tes centrales produisent plus que le campus ne consomme : le surplus est vendu au réseau.');
+  if (dcCt(c) < 0.95) t.push(`Contrats cloud à ${pct(dcCt(c))} après les pannes : ils remontent d'un demi-point par jour sans coupure.`);
+  if (!t.length) t.push('Mix équilibré : production pilotable, renouvelables et appoint couvrent le besoin heure par heure.');
+  return t;
+}
+function dcCard(c) {
+  const r = dcPw(c), n = Math.max(1, r.need), cap = dcBatCap(c), bl = clamp(c.bat | 0, 0, 3), nx = bl < 3 ? DC_BATC[bl + 1] * (c.lg || 1) * cpi() : 0, tar = c._tar || dcTariff(), P = S.power || {}, ownV = r.own + r.toBat;
+  const seg = (v, col, lab) => v > 0.5 ? `<i title="${lab}" style="display:block;height:100%;width:${(100 * clamp(v / n, 0, 1)).toFixed(1)}%;background:${col}"></i>` : '';
+  const bar = `<div style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:rgba(255,90,95,.35)" role="img" aria-label="Sources : ${dcMixTxt(r).replace(/<[^>]+>/g, '')}">${seg(r.own, '#c3ff6b', 'tes centrales')}${seg(r.bat, '#ffd43b', 'batteries')}${seg(r.grid, '#8fb3ff', 'réseau')}</div>`;
+  const h = (c.uph || []).slice(-30), hist = `<div style="display:flex;align-items:flex-end;gap:2px;height:34px;max-width:100%" role="img" aria-label="Uptime des 30 derniers jours : ${pct(dcUp30(c))}">${h.map(v => `<i style="flex:1;min-width:2px;height:${Math.max(6, Math.round(100 * v))}%;background:${v >= 0.999 ? '#46d39a' : v >= 0.75 ? '#ffd43b' : '#ff5a5f'}"></i>`).join('') || '<small>pas encore de mesure</small>'}</div>`;
+  return `<div class="lever wide dccard"><h4>Alimentation du campus</h4>
+    <small>Puissance requise <b>${fmt(r.need)} MWh/j</b> (≈ ${fmt(r.need / 24)} MW) · reçue <b>${fmt(r.need - r.miss)} MWh/j</b> (${pct((r.need - r.miss) / n)}) · ${r.out} h de panne hier</small>
+    ${bar}<small>${dcMixTxt(r)} · production de tes centrales : pilotable ${fmt(r.srcB)} · solaire ${fmt(r.srcS)} · éolien ${fmt(r.srcW)} MWh/j</small>
+    <small>Coût de l'électricité : réseau ${mj(c.inCost || 0)}/mois (${fmt(r.grid)} MWh/j à ${f1(tar)} $/MWh, ${String(DC_TARIFF).replace('.', ',')} × le prix du réseau ${f1(P.price || ELEC_BASE)} $) · autoconsommation ${fmt(ownV)} MWh/j, soit ${mj(ownV * (P.price || ELEC_BASE))}/mois de ventes en moins pour tes centrales</small>
+    <h4>Uptime 30 jours : ${pct(dcUp30(c))}</h4>${hist}
+    <small>Batteries : ${cap > 0 ? fmt(cap) + ' MWh, chargées à ' + pct((c.soc || 0) / cap) : 'aucune'} · rendement ${Math.round(DC_EFF * 100)} % · rechargées par le surplus de tes centrales</small>
+    <div class="seg2"><button class="btn" data-act="dcbat" ${nx && S.cash >= nx ? '' : 'disabled'}>${nx ? 'Batteries +' + fmt(DC_BAT[bl + 1] * (c.lg || 1) - cap) + ' MWh · ' + money(nx) : 'Batteries au maximum'}</button><button class="btn sec" data-act="dcgrid" aria-pressed="${c.gb !== 0}">Appoint réseau : ${c.gb === 0 ? 'coupé' : 'activé'}</button></div>
+    <h4>Conseils</h4>${dcTips(c).map(x => `<small>• ${x}</small>`).join('')}</div>`;
+}
 function bottleneck(c) {
   const T = TYPES[c.t], L = c.limit;
   if (!c.conn) return { sev: 'bad', t: 'Bâtiment non relié à une rue', d: 'Il ne produit rien tant qu\'aucune route ne le dessert.', acts: T.ext || isPlant(c.t) ? [['link', 'Relier au réseau']] : [] };
+  if (c.t === 'dc') { const sv = svcInfo(c); if (sv) return sv.bn; }   // passe 55 : diagnostic d'alimentation du campus
   if (!L && (FLEVEL[c.t] || c.t === 'foundry') && recOf(c) && (c.days || 0) > 10 && (c.profit || 0) < 0) {   // usine qui tourne mais perd de l'argent : on dit pourquoi
     const r = recOf(c), buys = Object.keys(r.in).filter(g => (c.src && c.src[g] && c.src[g] !== 'auto' && c.src[g] !== 'local') || (c._impIn || 0) > 0.01), worst = buys.sort((a, b) => gPrice(b) * r.in[b] - gPrice(a) * r.in[a])[0];
     return { sev: 'warn', t: 'Usine déficitaire : les intrants coûtent plus que la production ne rapporte', d: worst ? `Tu achètes ${gName(worst).toLowerCase()} dehors (fournisseur ou import) : c'est ce qui ruine la marge. Produis-le toi-même (mine, ferme ou usine dédiée) ou change de fournisseur.` : 'Les salaires et l\'entretien dépassent la valeur produite : l\'usine est surdimensionnée pour la demande. Ouvre des magasins ou des débouchés, ou réduis son activité.', acts: worst ? [['opensup:' + worst, 'Choisir un fournisseur']] : [] };
@@ -9362,7 +9463,7 @@ function renderBuilding(force) {
   })();
   const kpiHtml = `<div class="kpis bk">${kpis}</div>${srcLine}`;
   const htmlInt = `
-  ${FLEVEL[c.t] ? prodHeader(c) + planCard(c) : ''}${T.ret ? auditCard(c) + specCard(c) + roiCard(c) + shelfCard(c) : ''}
+  ${FLEVEL[c.t] ? prodHeader(c) + planCard(c) : ''}${T.ret ? auditCard(c) + specCard(c) + roiCard(c) + shelfCard(c) : ''}${c.t === 'dc' ? `<div class="levers">${dcCard(c)}</div>` : ''}
   <div class="bnbanner ${bn.sev}"><b>${bn.t}</b><span>${bn.d}</span><div class="acts">${acts}</div></div>
   ${znCardTxt(c) ? `<div class="bnbanner ok"><b>Subvention de zone</b><span>${znCardTxt(c)}</span></div>` : ''}
   ${line}
@@ -9404,6 +9505,8 @@ function bAct(a) {
   if (a.indexOf('tab:') === 0) { bTab = a.slice(4); document.querySelectorAll('.btabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.act === a ? 'true' : 'false')); bvHtml = ''; renderBuilding(true); if (bTab === 'int') sceneStart(); return; }
   if (a === 'up') place(c.x, c.y, 'up');
   else if (a === 'link') autoConnect(c.x, c.y);
+  else if (a === 'dcbat' && c.t === 'dc') { const b = c.bat | 0; if (b < 3 && spend(DC_BATC[b + 1] * (c.lg || 1) * cpi())) { c.bat = b + 1; say(`Batteries du campus : ${fmt(dcBatCap(c))} MWh de stockage.`, 'good'); } }
+  else if (a === 'dcgrid' && c.t === 'dc') { c.gb = c.gb === 0 ? 1 : 0; say(c.gb ? 'Appoint réseau activé : le réseau comble les heures sans production (tarif data center).' : 'Appoint réseau coupé : le campus ne vit plus que de tes centrales et de ses batteries.', c.gb ? 'info' : 'warn'); }
   else if (a === 'bull') { place(c.x, c.y, 'bull'); closeBuilding(); return; }
   else if (a === 'recycle') { recycleSite(c); bvHtml = ''; renderBuilding(true); return; }
   else if (a === 'bullref') { bullRefund(c); closeBuilding(); return; }
@@ -10448,7 +10551,7 @@ const BLD = {   // GW x GH tuiles, wh hauteur des murs, fl damier du sol, wl/wd 
   nuclear: { GW: 22, GH: 12, wh: 100, fl: ['#707a9c', '#687294'], wl: '#39426b', wd: '#2c3459', trim: '#c3ff6b', div: 3, min: 3, open: 1, top: 130, nm: 'CENTRALE NUCLÉAIRE' },
   off:     { GW: 14, GH: 3, wh: 56, fl: ['#c9ced9', '#bfc5d2'], wl: '#33417f', wd: '#27336a', trim: '#8fd0ff', div: 2, min: 2, nm: 'TOUR DE LOCATION', stack: 1 }
 };
-const BLD_ALERT = { road: 'Sans route', grid: 'Hors réseau', storm: 'Tempête', coal: 'Manque de charbon', staff: 'Manque de personnel' };
+const BLD_ALERT = { power: 'Manque d\'électricité', road: 'Sans route', grid: 'Hors réseau', storm: 'Tempête', coal: 'Manque de charbon', staff: 'Manque de personnel' };
 const BB = {};   // constructeurs par type
 const bShade = (col, a) => fshade(col, a);
 function bPanel(g, sc, a, b, z0, z1, fill, stroke) { quad(g, [isoP(sc, a[0], a[1], z1), isoP(sc, b[0], b[1], z1), isoP(sc, b[0], b[1], z0), isoP(sc, a[0], a[1], z0)], fill, stroke); }   // panneau vertical entre deux points du sol
@@ -10706,7 +10809,7 @@ BB.dc = (sc, g, c, D) => {
   wsSlot(sc, 2.6, 8.7, { col: '#2b3358', mc: 'rgba(63,216,255,.7)' }); wsSlot(sc, 4.8, 8.7, { col: '#2b3358', mc: 'rgba(70,211,154,.7)' });
   [[3.3, [[3.0, 3.35, 0.3], [6.2, 3.35, 3.5, 1, 2.3], [10, 3.35, 0.3], [12.8, 3.35, 3, 1, 2.2], [14.6, 3.35, 0.3], [3.0, 3.35, 0.3]]], [6.0, [[14.6, 6.1, 0.3], [11, 6.1, 3, 1, 2.3], [7.4, 6.1, 0.3], [4.2, 6.1, 3.5, 1, 2.2], [2.4, 6.1, 0.3], [14.6, 6.1, 0.3]]], [9.3, [[7, 9.5, 0.5], [11, 9.5, 2.5, 1, 1.6], [14.2, 9.4, 1], [8.8, 9.6, 2.5]]]].forEach((a, i) => bSlot(sc, { r: 'walk', x: a[1][0][0], y: a[1][0][1], shirt: i ? '#4dabf7' : '#e8ecff', hat: '#ffd43b', bag: i === 2 ? '#e8ecff' : null, way: a[1] }));
   it(60, g2 => { if (!sc.stall) return; const q = P(9, 0.2, 70); g2.fillStyle = Math.sin(sc.time * 7) > 0 ? '#ff5a5f' : '#7a2a30'; g2.beginPath(); g2.arc(q[0], q[1], 7, 0, 7); g2.fill(); });
-  sc.alertAt = [9, 5, 70]; sc.cap = c => `${bEmp(c)} · ${fmt(c.out || 0)} unités de calcul/j · loyer ${mj(c.pRev || 0)}/mois`;
+  sc.alertAt = [9, 5, 70]; sc.cap = c => `${bEmp(c)} · ${fmt(c.out || 0)} unités de calcul/j · puissance reçue ${pct(c._avail == null ? 0 : c._avail)} · recettes ${mj(c.pRev || 0)}/mois`;
 };
 BB.rd = (sc, g, c, D) => {
   hallBg(sc, g, D); const wh = D.wh, P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f });
@@ -13609,7 +13712,7 @@ function drawTowerCrane(cx, cy, now, seed) {
   ctx.fillStyle = '#ff5a5f'; ctx.beginPath(); ctx.arc(cx, cy - 154, 3.5, 0, 7); ctx.fill();
 }
 /* ---------- Bâtiments procéduraux : usines, entrepôts, fonderie ; toits des tours ---------- */
-const PROC_IND = { solar: 1, wind: 1, nuclear: 1, pylon: 1, cable: 1, pipeline: 1, f1: 1, f2: 1, f3: 1, f4: 1, s4: 1, wh: 1, foundry: 1, fwheat: 1, fsugar: 1, fcotton: 1, frubber: 1, fvine: 1, fcorn: 1, frapeseed: 1, fcattle: 1, fchicken: 1, fpig: 1, fsheep: 1 };
+const PROC_IND = { dc: 1, solar: 1, wind: 1, nuclear: 1, pylon: 1, cable: 1, pipeline: 1, f1: 1, f2: 1, f3: 1, f4: 1, s4: 1, wh: 1, foundry: 1, fwheat: 1, fsugar: 1, fcotton: 1, frubber: 1, fvine: 1, fcorn: 1, frapeseed: 1, fcattle: 1, fchicken: 1, fpig: 1, fsheep: 1 };
 const WALLS = { f1: ['#d8c9a8', '#c9d2dc', '#d4a98f', '#bfd0c0'], f2: ['#b9c6d6', '#c5ccb4', '#cdbba6'], f3: ['#a9b4c6', '#b9bfc9'], f4: ['#aeb9cc', '#c4c9d4', '#b5c2bb'], s4: ['#efe3d0', '#dfe6f2', '#ecd9e6'], wh: ['#c8cfd9', '#d9c6a0', '#b7c9c4'], foundry: ['#a8605a', '#9a6a52'] };
 function shade(hex, k) { const n = parseInt(hex.slice(1, 7), 16), c = v => Math.min(255, Math.max(0, v | 0)).toString(16).padStart(2, '0'); return '#' + c((n >> 16) * k) + c(((n >> 8) & 255) * k) + c((n & 255) * k); }
 function pQuad(pts, fill) { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); }
@@ -13711,7 +13814,42 @@ function drawSpecShop(a, now, grow) {
   }
   const p = iso(a.x + a.w - 1, a.y + a.h - 1); a._top = p.y - zTop + 40;
 }
+// Passe 55 : campus data center procédural (aucun texte) : halls techniques alignés, tours de refroidissement, groupes électrogènes, poste de transformation, parking de sécurité, clôture.
+// Dessiné dans le repère 5×4 du campus, mis à l'échelle de l'emprise (anciens data centers compacts) ; éléments triés par profondeur (u + v) avant d'être peints.
+function drawDcCampus(a, now, grow) {
+  const x = a.x, y = a.y, sx = a.w / 5, sy = a.h / 4, kz = Math.sqrt(Math.min(sx, sy)), gg = grow == null ? 1 : grow, on = a.conn && (a._avail == null || a._avail > 0.02), ok = on && (a._avail == null || a._avail >= 0.98), LV = a.lvl || 0;
+  const U = u => x + u * sx, V = v => y + v * sy, Z = z => z * kz * gg, box = (u, v, w, h, z0, z1, col) => pPrism(U(u), V(v), w * sx, h * sy, Z(z0), Z(z1), col);
+  const flat = (u0, v0, u1, v1, z, col) => pQuad([PP(U(u0), V(v0), z), PP(U(u1), V(v0), z), PP(U(u1), V(v1), z), PP(U(u0), V(v1), z)], col);
+  flat(0, 0, 5, 4, 0.2, '#6f8a5a'); flat(0.08, 0.08, 4.92, 3.92, 0.5, '#8c919c');   // pelouse de ceinture, dalle du site
+  flat(0.15, 2.78, 1.75, 3.86, 0.8, '#5d626e'); flat(0.15, 0.08, 4.92, 0.14, 0.9, '#c9ced8');   // parking, allée
+  for (let i = 0; i < 6; i++) flat(0.22 + i * 0.25, 2.84, 0.24 + i * 0.25, 3.8, 1, 'rgba(235,240,250,.55)');   // marquage des places
+  const it = [], add = (d, f) => it.push([d, f]);
+  for (let i = 0; i < 5; i++) for (let j = 0; j < 2; j++) { const h = hash(i * 7 + j, Math.floor(a.seed * 997), 41); if (h < 0.35) continue; const cu = 0.3 + i * 0.27, cv = 2.95 + j * 0.45, col = ['#d8dde6', '#3a4256', '#7a8296', '#9a6a52'][Math.floor(h * 13) % 4]; add(cu + cv, () => box(cu, cv, 0.17, 0.3, 1, 7, col)); }   // voitures du personnel
+  add(1.75 + 3.0, () => { box(1.5, 2.86, 0.22, 0.22, 1, 14, '#b9bfc9'); flat(1.52, 2.88, 1.7, 3.06, Z(14) + 0.1, ok ? '#46d39a' : '#ff8a5f'); });   // guérite du poste de sécurité
+  const HL = 3.25 + 0.06 * Math.min(LV, 2), HZ = 30 + 6 * LV;   // trois grands halls techniques (plus hauts à chaque niveau)
+  for (let k = 0; k < 3; k++) { const v0 = 0.25 + k * 0.82;
+    add(0.3 + HL / 2 + v0 + 0.33, () => { box(0.3, v0, HL, 0.66, 0, HZ, '#c7ccd6'); box(0.3, v0 + 0.62, HL, 0.04, HZ * 0.18, HZ * 0.72, '#5a6274');
+      for (let m = 0; m < 6; m++) { const u = 0.45 + m * (HL - 0.3) / 6; box(u, v0 + 0.12, 0.34, 0.4, HZ, HZ + 5, '#9aa2b5'); const c0 = PP(U(u + 0.17), V(v0 + 0.32), Z(HZ + 5)); ctx.fillStyle = '#3a4152'; ctx.beginPath(); ctx.ellipse(c0[0], c0[1], 7 * kz, 3.5 * kz, 0, 0, 7); ctx.fill(); }
+      for (let m = 0; m < 8; m++) { const q = PP(U(0.45 + m * (HL - 0.3) / 8), V(v0 + 0.66), Z(HZ * 0.45)); const blink = on && Math.sin(now / 260 + m * 1.7 + k) > -0.2; ctx.fillStyle = !on ? '#39404f' : ok ? (blink ? '#46d39a' : '#2a7d5a') : (blink ? '#ff5a5f' : '#7a2e33'); ctx.fillRect(q[0] - 2, q[1] - 1.5, 4, 3); } }); }
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) { const cu = 3.95 + i * 0.5, cv = 0.25 + j * 0.62;   // tours de refroidissement (aérorefroidisseurs carrés, ventilateurs au sommet)
+    add(cu + cv + 0.4, () => { box(cu, cv, 0.42, 0.5, 0, 24, '#aeb6c6'); const c0 = PP(U(cu + 0.21), V(cv + 0.25), Z(24)); ctx.fillStyle = '#2f3646'; ctx.beginPath(); ctx.ellipse(c0[0], c0[1], 9 * kz, 4.5 * kz, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#8a93a8'; ctx.lineWidth = 1.2; const an = on ? now / 140 + i + j : 0; for (let b = 0; b < 3; b++) { const t = an + b * 2.094; ctx.beginPath(); ctx.moveTo(c0[0], c0[1]); ctx.lineTo(c0[0] + Math.cos(t) * 8 * kz, c0[1] + Math.sin(t) * 4 * kz); ctx.stroke(); }
+      if (on) for (let s2 = 0; s2 < 2; s2++) { const age = ((now / 2200) + s2 * 0.5 + (i + j) * 0.17) % 1; ctx.fillStyle = `rgba(240,244,255,${((1 - age) * 0.28).toFixed(3)})`; ctx.beginPath(); ctx.arc(c0[0] + age * 6, c0[1] - age * 34 * kz, (5 + age * 9) * kz, 0, 7); ctx.fill(); } }); }
+  for (let m = 0; m < 5; m++) { const cu = 1.95 + m * 0.38, cv = 2.95;   // groupes électrogènes de secours (conteneurs, cheminées)
+    add(cu + cv + 0.3, () => { box(cu, cv, 0.3, 0.5, 0, 12, '#4f6a5a'); const q0 = PP(U(cu + 0.22), V(cv + 0.12), Z(12)), q1 = PP(U(cu + 0.22), V(cv + 0.12), Z(20)); ctx.strokeStyle = '#3a3f4c'; ctx.lineWidth = 2.5 * kz; ctx.beginPath(); ctx.moveTo(q0[0], q0[1]); ctx.lineTo(q1[0], q1[1]); ctx.stroke();
+      if (on && !ok) { const age = ((now / 1500) + m * 0.2) % 1; ctx.fillStyle = `rgba(70,74,88,${((1 - age) * 0.45).toFixed(3)})`; ctx.beginPath(); ctx.arc(q1[0] + age * 5, q1[1] - age * 20, (3 + age * 6) * kz, 0, 7); ctx.fill(); } }); }   // fumée : les groupes tournent pendant les pannes
+  add(4.4 + 3.4 + 0.4, () => {   // poste de transformation : transformateurs, portiques, ligne d'arrivée
+    flat(3.92, 2.92, 4.9, 3.9, 1, '#a7a596');
+    for (let t = 0; t < 2; t++) box(4.02 + t * 0.44, 3.05, 0.32, 0.34, 0, 14, '#8a93a8');
+    for (let t = 0; t < 2; t++) { const q0 = PP(U(4.1 + t * 0.6), V(3.75), Z(0)), q1 = PP(U(4.1 + t * 0.6), V(3.75), Z(34)); ctx.strokeStyle = '#4a5064'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q0[0], q0[1]); ctx.lineTo(q1[0], q1[1]); ctx.moveTo(q1[0] - 7, q1[1] + 3); ctx.lineTo(q1[0] + 7, q1[1] + 3); ctx.stroke(); }
+    const w0 = PP(U(4.1), V(3.75), Z(34)), w1 = PP(U(4.7), V(3.75), Z(34)); ctx.strokeStyle = 'rgba(20,24,40,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(w0[0], w0[1] + 3); ctx.quadraticCurveTo((w0[0] + w1[0]) / 2, (w0[1] + w1[1]) / 2 + 8, w1[0], w1[1] + 3); ctx.stroke(); });
+  it.sort((p1, p2) => p1[0] - p2[0]).forEach(q => q[1]());
+  ctx.strokeStyle = 'rgba(210,216,228,.75)'; ctx.lineWidth = 1;   // clôture de sécurité (côtés avant)
+  [[[0.05, 3.95], [4.95, 3.95]], [[4.95, 0.05], [4.95, 3.95]]].forEach(([p0, p1]) => { const q0 = PP(U(p0[0]), V(p0[1]), 7), q1 = PP(U(p1[0]), V(p1[1]), 7), b0 = PP(U(p0[0]), V(p0[1]), 0), b1 = PP(U(p1[0]), V(p1[1]), 0); ctx.beginPath(); ctx.moveTo(q0[0], q0[1]); ctx.lineTo(q1[0], q1[1]); ctx.moveTo(b0[0], b0[1] - 2); ctx.lineTo(b1[0], b1[1] - 2); ctx.stroke(); });
+  a._top = PP(U(2), V(1.2), Z(HZ + 10))[1];
+}
 function drawIndustrial(a, now, grow) {
+  if (a.t === 'dc') { drawDcCampus(a, now, grow); return; }
   if (a.t === 'pylon' || a.t === 'cable') {
     const x = a.x, y = a.y, isL = q => q && (q.t === 'pylon' || q.t === 'cable'), nbs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => { if (inb(x + dx, y + dy) && isL(S.grid[idx(x + dx, y + dy)])) return [dx, dy]; if (!(dx && dy) && inb(x + 2 * dx, y + 2 * dy) && S.grid[idx(x + dx, y + dy)] && S.grid[idx(x + dx, y + dy)].t === 'road' && isL(S.grid[idx(x + 2 * dx, y + 2 * dy)])) return [2 * dx, 2 * dy]; return null; }).filter(Boolean);
     if (a.t === 'cable') { ctx.strokeStyle = 'rgba(255,211,59,.9)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.beginPath(); nbs.forEach(([dx, dy]) => { const p0 = PP(x + 0.5, y + 0.5, 1), p1 = PP(x + 0.5 + dx * 0.5, y + 0.5 + dy * 0.5, 1); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }); ctx.stroke(); ctx.setLineDash([]); const c0 = PP(x + 0.5, y + 0.5, 1); ctx.fillStyle = '#ffd43b'; ctx.fillRect(c0[0] - 3, c0[1] - 2, 6, 4); return; }
@@ -13916,7 +14054,7 @@ const SIGN_SZ = { 1: [30, 14], 2: [36, 16], 3: [44, 19], 4: [54, 22] };   // [po
 const SIGN = { s1: { st: 'com', sz: 1 }, s2: { st: 'com', sz: 2 }, s3: { st: 'com', sz: 3 }, s4: { st: 'com', sz: 3 },
   sauto: { st: 'com', sz: 2, txt: 'CONCESSION AUTO' }, stech: { st: 'com', sz: 2 }, slux: { st: 'lux', sz: 1 }, smode: { st: 'com', sz: 1 }, spharma: { st: 'com', sz: 1, ac: '#4f9e6a' },
   shome: { st: 'com', sz: 2 }, ssport: { st: 'com', sz: 2 }, sbrico: { st: 'com', sz: 2 },
-  wh: { st: 'ind', sz: 1 }, ewh: { st: 'ind', sz: 2, txt: 'ENTREPÔT EN LIGNE' }, rd: { st: 'ind', sz: 1 }, dc: { st: 'ind', sz: 1 }, hq: { st: 'lux', sz: 2 }, port: { st: 'ind', sz: 2 }, tv: { st: 'svc', sz: 1 },
+  wh: { st: 'ind', sz: 1 }, ewh: { st: 'ind', sz: 2, txt: 'ENTREPÔT EN LIGNE' }, rd: { st: 'ind', sz: 1 }, dc: { st: 'ind', sz: 3 }, hq: { st: 'lux', sz: 2 }, port: { st: 'ind', sz: 2 }, tv: { st: 'svc', sz: 1 },
   'mon:hospital': { st: 'svc', sz: 2, ac: '#b8474d' }, 'mon:lycee': { st: 'svc', sz: 1 }, 'mon:college': { st: 'svc', sz: 1 }, 'mon:maternelle': { st: 'svc', sz: 1 }, 'mon:garderie': { st: 'svc', sz: 1, txt: 'CRÈCHE' },
   'mon:hall': { st: 'svc', sz: 2 }, 'mon:air': { st: 'svc', sz: 4, txt: 'AÉROPORT' },
   'sv:gare_ferroviaire': { st: 'svc', sz: 1, txt: 'GARE' }, 'sv:station_service': { st: 'svc', sz: 1 }, 'sv:station_recharge_electrique': { st: 'svc', sz: 1, txt: 'RECHARGE ÉLECTRIQUE' } };
@@ -14467,7 +14605,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
   const p = iso(x, y);
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
-  if (P2_TYPE[a.t] && p2Ready(a.t)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
+  if (P2_TYPE[a.t] && p2Ready(a.t) && !(a.t === 'dc' && !a.lg)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }); a._top = ty == null ? p.y - 40 : ty; if (VV_FARM[a.t]) vvFarm(a); }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes
   } else if (a.t === 'npc' && vvNpc(a, p)) {
     // ville vivante : équipement, parc, chantier, service de quartier ou tour en HD (dessiné par vvNpc)
@@ -14546,7 +14684,7 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
   ctx.globalAlpha = alpha;
   const T = TYPES[a.t];
   let topY = a._top == null ? p.y - 28 : a._top;
-  if (P2_TYPE[a.t] && p2Ready(a.t)) {
+  if (P2_TYPE[a.t] && p2Ready(a.t) && !(a.t === 'dc' && !a.lg)) {
     topY = a._top == null ? topY : a._top;   // sprite HD : pas de cheminée ni d'enseigne vectorielle
   } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') {
     if ((a.t === 'tech' || a.t === 'off' || a.t === 'tv') && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
@@ -16677,7 +16815,7 @@ const ecShipCap = c => c.conn ? EC_SHIP * levelMult(c) * fillOf(c) : 0;
 const ecStoreCap = c => EC_STORE * levelMult(c);
 const ecUsed = c => { let u = 0; Object.keys(c.inv || {}).forEach(k => { u += c.inv[k] || 0; }); return u; };
 function ecSite() {   // qualité du site (0-1) et capacité de trafic (commandes/jour) : hébergement externe sans data center
-  let u = 0; ecDcs().forEach(c => { u += levelMult(c) * fillOf(c); });
+  let u = 0; ecDcs().forEach(c => { u += 4 * levelMult(c) * fillOf(c) * (c._avail == null ? 1 : c._avail); });   // passe 55 : un campus = 4 anciens data centers, s'il est alimenté
   return { q: clamp(0.45 + 0.14 * u, 0.45, 1), cap: EC_HOST + EC_DC * u, dc: u };
 }
 const ecName = () => EC_NAMES[Math.floor(hash((S.rs == null ? 7 : S.rs) | 0, 46, 1) * EC_NAMES.length) % EC_NAMES.length] + '.com';
@@ -17339,7 +17477,7 @@ function drawWorksOver(a, p, bx, by, floors, now) {
   ctx.restore();
 }
 
-window.WSE = { CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; return { CG_R0, CG_P, CG_CAP, CG_REL }; }, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
 Object.assign(window.WSE, { setGuidePhoto: (k, src) => { GUIDEHD[k] = src; Object.keys(psvgCache).forEach(c => { if (c.split('|')[0] === k) delete psvgCache[c]; }); if (typeof renderGuide === 'function') renderGuide(true); }, cine: { show: (pk, why) => cineShow(pk, why || 'manuel', true), close: cineClose, get on() { return CINE.on; }, state: () => ({ on: CINE.on, pk: CINE.pk, hero: CINE.hero, frames: CINE.frames, t: CINE.last ? CINE.last.t : 0, q: CINE.q.slice(), shown: CINE.shown, opt: cineOpt(), manual: CINE.manual }), setOpt: cineSetOpt, opt: cineOpt, setHero: setProductHero, heroOf: pk => !!cineHeroOf(pk), watch: cineWatch, facts: cineFacts, setTest: v => { CINE.test = !!v; }, reset: () => { CINE.seen = {}; CINE.snap = null; CINE.q.length = 0; } } });

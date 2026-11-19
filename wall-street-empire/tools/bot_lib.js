@@ -14,10 +14,10 @@ window.BOT = (function () {
   const P = { lev: 0.45, idle: 0, reserve: 0.0, buyout: true, maxPerTick: 6, wait: 0, fam: ['s1', 's2', 's3', 's4', 'tech', 'dc', 'bank', 'off', 'miron', 'mcopper', 'mcoal', 'mgold', 'well'], hurdle: 0.10, bourse: true, subs: 0, ipo: false, ipoAt: 100e6, bourseAt: 0.55, resCap: 40, chain: false, exportTarget: 0, demC: { s1: 0.5, s2: 0.45, s3: 0.2, s4: 0.35 } };
   const cnt = {};
   const EXT = { miron: 'iron', mcopper: 'copper', mcoal: 'coal', mgold: 'gold', well: 'oil' };
-  const CITY_FAM = ['s1', 's2', 's3', 's4', 'tech', 'dc', 'bank', 'off', 'tv'];
+  const CITY_FAM = ['s1', 's2', 's3', 's4', 'tech', 'bank', 'off', 'tv'];   // passe 55 : le data center (campus 5×4) se construit hors de la ville
   // EBE/jour a priori par bâtiment (mesuré sur un exemplaire isolé, hors terrain) ; les mines : 40 %/an du capex
-  const EBE0 = { sauto: 100, stech: 2000, slux: 900, smode: 1200, spharma: 650, shome: 400, ssport: 50, sbrico: 30, s1: 80, s2: 540, s3: 3100, s4: 11500, tech: 60000, dc: 41000, bank: 49500, off: 15000, tv: 7000, miron: 6800, mcopper: 2300, mcoal: 2800, mgold: 5800, well: 6100 };
-  const REV0 = { tech: 128000, dc: 94000, bank: 114500 }, SVC_COST = { tech: 68000, dc: 53000, bank: 65000 };
+  const EBE0 = { sauto: 100, stech: 2000, slux: 900, smode: 1200, spharma: 650, shome: 400, ssport: 50, sbrico: 30, s1: 80, s2: 540, s3: 3100, s4: 11500, tech: 60000, dc: 70000, bank: 49500, off: 15000, tv: 7000, miron: 6800, mcopper: 2300, mcoal: 2800, mgold: 5800, well: 6100 };
+  const REV0 = { tech: 128000, dc: 336000, bank: 114500 }, SVC_COST = { tech: 68000, dc: 265000, bank: 65000 };   // passe 55 : campus data center alimenté par le réseau (≈ 150 000 $/j d'électricité)
   const born = {};   // famille -> liste de {x,y,paid,day}
   function spots(key) {
     const out = []; const T = W.TYPES[key], w = T.w || 1, h = T.h || 1;
@@ -265,7 +265,7 @@ window.BOT = (function () {
     const cp = Math.max(1, s.cpi || 1), wc = W.TYPES.ewh.cost * cp;
     if (!E.st()) { const need = E.LAUNCH * cp + wc * 1.1; if (s.cash < need) borrow(need + 1e5); if (s.cash < need || !ensurePort()) return; if (!E.launch()) return; E.set('disc', P.ecDisc != null ? P.ecDisc : 0.08); E.set('ad', P.ecAd != null ? P.ecAd : 1500); EC.log.push([s.day, 'launch']); }
     const list = E.list(), L = E.st().last || {}, K = E.kpi();
-    const add = k => { const c0 = k === 'dc' ? W.TYPES.dc.cost * cp : wc; if (s.cash < c0 * 1.05) borrow(c0 * 1.05 + 1e5); if (s.cash < c0 * 1.05) return false; const r = k === 'dc' ? tryBuild('dc') : tryBuildAny('ewh'); if (r > 0) { cnt[k] = (cnt[k] || 0) + 1; EC.log.push([s.day, k, Math.round(r)]); return true; } return false; };
+    const add = k => { const c0 = k === 'dc' ? W.TYPES.dc.cost * cp : wc; if (s.cash < c0 * 1.05) borrow(c0 * 1.05 + 1e5); if (s.cash < c0 * 1.05) return false; const r = k === 'dc' ? tryBuildAny('dc') : tryBuildAny('ewh'); if (r > 0) { cnt[k] = (cnt[k] || 0) + 1; EC.log.push([s.day, k, Math.round(r)]); return true; } return false; };
     if (!list.length) { add('ewh'); return; }
     if (!K || s.day - (EC.lastAdd || 0) < 60) return;
     if (L.lostSite > 0.08 * L.O && K.eb > 0) { if (add('dc')) EC.lastAdd = s.day; return; }
@@ -284,7 +284,7 @@ window.BOT = (function () {
       const b = pick(); if (!b) break;
       if (s.cash < b.cost) borrow(b.cost + 1e5);
       if (s.cash < b.cost) break;
-      const r = EXT[b.k] ? depBuild(b.k) : tryBuild(b.k);
+      const r = EXT[b.k] ? depBuild(b.k) : b.k === 'dc' ? tryBuildAny('dc') : tryBuild(b.k);
       if (r === -1) { P.lim = P.lim || {}; P.lim[b.k] = cnt[b.k] || 0; continue; }
       if (!r) { cnt['x_' + b.k] = s.day + 20; (window.__blog || (window.__blog = [])).push(['fail', b.k, s.day, Math.round(s.cash), Math.round(b.cost)]); continue; }
       cnt['x_' + b.k] = s.day + (EXT[b.k] ? 12 : 8); spent += r; did++;
