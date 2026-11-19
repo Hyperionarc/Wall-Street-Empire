@@ -172,3 +172,9 @@ Livrés, sans texte, marge 6 px, QA asset_qa : pente 0,50, débordement 0 % (mé
 - assets/factory_hd/int/ : les 19 accessoires d'intérieur de la commande n°11 (int_auto_voiture_a/b/c + comptoir, mode portant/mannequin, tech table/présentoir, luxe socle, déco canapé/table, pharma étagère/comptoir, sport vélo/rack, brico étagère, ewh convoyeur/rayonnage/robot). À noter : les calandres des voitures portent de minuscules emblèmes ; dis-moi si tu veux les gommer.
 - Hôpital en H et pharmacie en croix refaits depuis les références Gemini : en cours (img2img), livraison au prochain lot. Les ombres de ce lot ne sont pas générées.
 - Reste à produire : gisements gravier/sable/calcaire, champs (maïs, colza, canne, coton, hévéa, vigne), fermes `_sol`/`_pre`, animaux (marche), 40 photos produits.
+
+## Producteur — pharmacie en croix et hôpital en H depuis les références Gemini de Rémy (19 nov., soir)
+- `pharmacie.png` (1 case, 268×211) : bâtiment à bras en croix, deux niveaux vitrés avec rayons et comptoir visibles (lumière chaude), grande croix verte volumétrique qui traverse le bâtiment avec petites croix latérales, toits plats gris, vert sobre. Aucun texte, aucune route.
+- `hopital.png` (parcelle 3×3, 780×493) : vrai plan en H, deux ailes parallèles de même longueur, pont central exactement au milieu, cour intérieure visible, toit blanc cassé/gris clair, croix verte sobre sur le pont, entrée vitrée avec auvent. Aucun texte ; le bandeau d'enseigne haut sur fronton n'est pas dessiné (à poser par le jeu). Parvis/ambulances non peints (parcelle jardin simple) : dis-moi si tu veux les ajouter.
+- QA asset_qa : pente 0,50, débordement 0 %, centré, marge 6 px.
+- Méthode : références Gemini en entrée de flux2-edit (3 variantes chacune), choix de la meilleure, puis composition sur dalle 2:1.
