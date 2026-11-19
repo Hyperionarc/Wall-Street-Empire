@@ -13651,6 +13651,7 @@ function spGlassR(xf, y0, y1, z0, z1, n, col) {   // vitrage de la face avant dr
 function spSign(u, v, z, txt, fg, bg, fs) {   // enseigne texte sobre (bandeau sombre, lettres claires ou dorées)
   const q = PP(u, v, z); ctx.font = `700 ${fs || 11}px "IBM Plex Sans", Arial`; const w = ctx.measureText(txt).width + 12;
   ctx.fillStyle = bg || 'rgba(32,37,45,.94)'; ctx.fillRect(q[0] - w / 2, q[1] - 8, w, 16); ctx.strokeStyle = fg || '#e8ecf0'; ctx.lineWidth = 1; ctx.strokeRect(q[0] - w / 2 + 0.5, q[1] - 7.5, w - 1, 15);
+  if (SG.on) return;   // passe 54 : bandeau uni ; le titre net est la plaque générique (une seule par bâtiment)
   ctx.fillStyle = fg || '#e8ecf0'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, q[0], q[1] + 0.5);
 }
 function spCar(name, u, v, z, wpx, fb) {   // voiture HD (assets) posée par le milieu de ses roues ; repli : petite boîte
@@ -13797,7 +13798,6 @@ function drawIndustrial(a, now, grow) {
     for (let l = 0; l <= LV; l++) pWindows(x + 0.08, y + 0.1, 2.84, 2.1, 10 + l * 12, 22 + l * 12, 14, act);
     for (let i = 0; i < 4; i++) { const u = x + 0.2 + i * 0.7; pQuad([PP(u, y + 2.2, 26), PP(u + 0.5, y + 2.2, 26), PP(u + 0.5, y + 2.2, 0), PP(u, y + 2.2, 0)], i === 1 ? '#3fd8ff' : '#243053'); }
     for (let i = 0; i < 12; i++) { const cu = x + 0.2 + (i % 6) * 0.45, cv = y + 2.4 + Math.floor(i / 6) * 0.3; if (hash(i, Math.floor(seed * 100), 7) > 0.45) pPrism(cu, cv, 0.26, 0.14, 0, 6, ['#d94a4a', '#4a7ad9', '#f2f2f2', '#2f2f3a', '#e0a03a'][Math.floor(hash(i, 3, Math.floor(seed * 100)) * 5)]); }
-    { const q = PP(x + 1.55, y + 2.2, H1 + 14); ctx.fillStyle = 'rgba(9,13,28,.92)'; ctx.strokeStyle = '#ff7ad0'; ctx.lineWidth = 2; ctx.fillRect(q[0] - 62, q[1] - 11, 124, 22); ctx.strokeRect(q[0] - 62, q[1] - 11, 124, 22); ctx.fillStyle = '#ff7ad0'; ctx.font = '800 15px "Big Shoulders Display", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('MÉGA-CENTRE', q[0], q[1] + 1); }
     pCyl(x + 2.75, y + 2.7, 0.04, 0, 90, '#cfd5e6'); { const q = PP(x + 2.75, y + 2.7, 94); ctx.fillStyle = '#ff4fa3'; ctx.fillRect(q[0] - 9, q[1] - 12, 18, 12); }
     zTop = H1 + 52;
   } else if (a.t === 'wh') {
@@ -13903,6 +13903,86 @@ function drawMonument(a, now) {
     a._top = q[1];
   }
 }
+/* ---------- Passe 54 : enseignes dessinées par le code (les images d'assets ne contiennent plus aucun texte) ----------
+   SIGN[clé] : texte (nom court en capitales, tiré de TYPES / PUB / VV_SVC pour rester cohérent avec l'interface), style (charte : commerce = plaque sombre et filet bleu,
+   luxe et siège = filet laiton, services publics = plaque claire et filet discret, logistique et industrie = filet gris acier), taille (1 petite … 4 aéroport).
+   Ancrage : plaque flottante au-dessus du toit, ou (SIGN_COVER) sur l'emplacement de l'ancienne enseigne générée d'un sprite : un bandeau uni opaque est d'abord posé
+   dans le plan du toit ou de la façade (dans l'ordre de profondeur), puis le titre net est centré dessus. Plaques en cache (canevas hors écran par texte + style + taille
+   en pixels physiques), posées à plat en pixels entiers après les bâtiments ; une seule par bâtiment ; en cas de chevauchement les grands bâtiments passent d'abord ;
+   taille proportionnelle au zoom (plafonnée), texte estompé sous 9 px et masqué sous 7 px. Purement visuel : rien n'est sauvegardé, aucun hasard. */
+const SIGN_ST = { com: ['rgba(21,29,43,.94)', '#f3f5f8', '#5b8fd0', 'rgba(255,255,255,.14)'], lux: ['rgba(31,27,21,.94)', '#f6efe0', '#c9a45a', 'rgba(255,240,210,.16)'],
+  svc: ['rgba(247,245,239,.97)', '#1f2a38', '#6b8fb3', 'rgba(20,28,40,.28)'], ind: ['rgba(33,37,45,.94)', '#eef1f4', '#8d99a8', 'rgba(255,255,255,.14)'] };
+const SIGN_SZ = { 1: [30, 14], 2: [36, 16], 3: [44, 19], 4: [54, 22] };   // [police en px monde, plafond en px écran]
+const SIGN = { s1: { st: 'com', sz: 1 }, s2: { st: 'com', sz: 2 }, s3: { st: 'com', sz: 3 }, s4: { st: 'com', sz: 3 },
+  sauto: { st: 'com', sz: 2, txt: 'CONCESSION AUTO' }, stech: { st: 'com', sz: 2 }, slux: { st: 'lux', sz: 1 }, smode: { st: 'com', sz: 1 }, spharma: { st: 'com', sz: 1, ac: '#4f9e6a' },
+  shome: { st: 'com', sz: 2 }, ssport: { st: 'com', sz: 2 }, sbrico: { st: 'com', sz: 2 },
+  wh: { st: 'ind', sz: 1 }, ewh: { st: 'ind', sz: 2, txt: 'ENTREPÔT EN LIGNE' }, rd: { st: 'ind', sz: 1 }, dc: { st: 'ind', sz: 1 }, hq: { st: 'lux', sz: 2 }, port: { st: 'ind', sz: 2 }, tv: { st: 'svc', sz: 1 },
+  'mon:hospital': { st: 'svc', sz: 2, ac: '#b8474d' }, 'mon:lycee': { st: 'svc', sz: 1 }, 'mon:college': { st: 'svc', sz: 1 }, 'mon:maternelle': { st: 'svc', sz: 1 }, 'mon:garderie': { st: 'svc', sz: 1, txt: 'CRÈCHE' },
+  'mon:hall': { st: 'svc', sz: 2 }, 'mon:air': { st: 'svc', sz: 4, txt: 'AÉROPORT' },
+  'sv:gare_ferroviaire': { st: 'svc', sz: 1, txt: 'GARE' }, 'sv:station_service': { st: 'svc', sz: 1 }, 'sv:station_recharge_electrique': { st: 'svc', sz: 1, txt: 'RECHARGE ÉLECTRIQUE' } };
+// Anciennes enseignes générées (texte illisible) : centre c, demi-axes u (sens de lecture) et v (vers le bas du texte) en px de l'image d'origine, couleur du bandeau uni
+const SIGN_COVER = { boutique_high_tech: { c: [99, 52], u: [35, 15], v: [0, 10], f: '#3b4452' }, sport_loisirs: { c: [266, 94], u: [58, 23], v: [0, 10.5], f: '#3f4a58' },
+  hopital: { c: [159, 91], u: [54, -32], v: [50, 35], f: '#c81e28' }, supermarche: { c: [319.6, 75.3], u: [43, -24.5], v: [22.5, 13], f: '#b4bcc1' },
+  hypermarche: { c: [509.75, 99], u: [53, -32], v: [28.5, 16.5], f: '#b0b9c0' } };
+const SG = { on: true, list: [], drawn: [], obst: [], cur: null, cache: new Map(), fo: false, foT: 0, ms: 0, avg: 0, n: 0, hidden: 0 };
+function signTxt(key) {   // nom affiché : celui de l'interface (TYPES, PUB, VV_SVC), partie avant « · », en capitales
+  const D = SIGN[key]; if (!D) return ''; if (D.txt) return D.txt;
+  const nm = key.startsWith('mon:') ? (PUB[key.slice(4)] || [''])[0] : key.startsWith('sv:') ? (VV_SVC[key.slice(3)] || [''])[0] : (TYPES[key] && TYPES[key].name) || '';
+  return nm.split(' · ')[0].toUpperCase();
+}
+function signKey(a) {
+  if (a.t === 'npc') { if (a.k === 'mon') return a.m === 'mall' || a.m === 'air' ? null : 'mon:' + a.m; const n = SG.cur && SG.cur.a === a && SG.cur.n; return n && VV_SVC[n] ? 'sv:' + n : null; }
+  return SIGN[a.t] ? a.t : null;
+}
+const signFs = D => { const Z = SIGN_SZ[D.sz] || SIGN_SZ[1]; return Math.min(Z[1], Z[0] * z); };   // taille de police en px écran
+const signAl = fs => clamp((fs - 7) / 2, 0, 1);
+function signLift(a) {   // place réservée au-dessus du toit pour la plaque flottante (les étoiles et alertes passent au-dessus), en px monde
+  if (!SG.on) return 0; const k = signKey(a), D = k && SIGN[k]; if (!D || (SG.cur && SG.cur.a === a && SIGN_COVER[SG.cur.n])) return 0;
+  const fs = signFs(D); return signAl(fs) > 0 ? (Math.round(fs * 1.5) + 6) / z : 0;
+}
+function signCv(txt, D, px) {   // plaque en cache : canevas hors écran à la taille exacte en pixels physiques
+  const key = txt + '|' + D.st + '|' + (D.ac || '') + '|' + px + '|' + (SG.fo ? 1 : 0); let cv = SG.cache.get(key); if (cv) return cv;
+  const P = SIGN_ST[D.st] || SIGN_ST.com; cv = document.createElement('canvas'); const g = cv.getContext('2d'), font = `800 ${px}px "Big Shoulders Display", "Arial Narrow", Arial, sans-serif`;
+  const ls = Math.max(0, Math.round(px * 0.05)), setF = () => { g.font = font; if ('letterSpacing' in g) g.letterSpacing = ls + 'px'; };
+  setF(); const tw = Math.ceil(g.measureText(txt).width), pad = Math.max(3, Math.round(px * 0.55)), h = Math.max(6, Math.round(px * 1.5)), bar = Math.max(1, Math.round(px * 0.11)), r = Math.max(2, Math.round(px * 0.26));
+  cv.width = tw + 2 * pad; cv.height = h; setF();
+  g.fillStyle = P[0]; g.beginPath(); if (g.roundRect) g.roundRect(0.5, 0.5, cv.width - 1, h - 1, r); else g.rect(0.5, 0.5, cv.width - 1, h - 1); g.fill(); g.strokeStyle = P[3]; g.lineWidth = 1; g.stroke();
+  g.fillStyle = D.ac || P[2]; g.fillRect(pad, h - bar - Math.max(1, Math.round(px * 0.14)), cv.width - 2 * pad, bar);   // filet d'accent (une seule couleur)
+  g.fillStyle = P[1]; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, cv.width / 2 + ls / 2, Math.round(h / 2 - bar / 2));
+  if (SG.cache.size > 480) { let i = 0; for (const k of SG.cache.keys()) { SG.cache.delete(k); if (++i >= 120) break; } }
+  SG.cache.set(key, cv); return cv;
+}
+function signCollect(a, o) {   // après drawOverlay, sur la case avant : bandeau uni sur l'ancienne enseigne (dans l'ordre de profondeur) et plaque mise en file
+  if (!SG.on || o.ghost) return; const t0 = performance.now(), key = signKey(a), D = key && SIGN[key]; if (!D) return;
+  const cur = SG.cur && SG.cur.a === a ? SG.cur : null, C = cur && SIGN_COVER[cur.n]; let wx, wy, mode = 'b';
+  if (C) {
+    const M = (u, v) => [cur.x + (C.c[0] + u[0] + v[0]) * cur.kx, cur.y + (C.c[1] + u[1] + v[1]) * cur.ky], U = C.u, V = C.v, nU = [-U[0], -U[1]], nV = [-V[0], -V[1]];
+    const pts = [M(nU, nV), M(U, nV), M(U, V), M(nU, V)]; ctx.fillStyle = C.f; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill();
+    [wx, wy] = M([0, 0], [0, 0]); mode = 'c';
+  } else { wx = iso(a.x + a.w / 2, a.y + a.h / 2).x; wy = a._top; }
+  if (Number.isFinite(wx) && Number.isFinite(wy)) SG.list.push({ id: a.x + ',' + a.y, key, D, wx, wy, mode, cover: !!C, pri: a.w * a.h * 10 + D.sz + (C ? 5 : 0) });
+  SG.ms += performance.now() - t0;
+}
+function signFlush() {   // dessine les plaques à plat, en pixels physiques entiers (texte net), sans chevauchement
+  const t0 = performance.now(); SG.drawn = []; SG.hidden = 0;
+  if (t0 - SG.foT > 1000) { SG.foT = t0; SG.fo = !!(document.fonts && document.fonts.check && document.fonts.check('800 20px "Big Shoulders Display"')); }
+  const acc = SG.obst.map(b => { const p = [vx + (b[0] - cam.x) * z, vy + (b[1] - cam.y) * z, vx + (b[2] - cam.x) * z, vy + (b[3] - cam.y) * z]; return p.map(v => v * dpr); });
+  const L = SG.list.sort((p, q) => q.pri - p.pri || p.wy - q.wy || p.wx - q.wx), m = 2 * dpr;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (const s of L) {
+    const fs = signFs(s.D), al = signAl(fs); if (al <= 0) continue;
+    const txt = signTxt(s.key), cv = signCv(txt, s.D, Math.max(1, Math.round(fs * dpr))), w = cv.width, h = cv.height;
+    const sx = (vx + (s.wx - cam.x) * z) * dpr, sy = (vy + (s.wy - cam.y) * z) * dpr, x0 = Math.round(sx - w / 2), y0 = Math.round(s.mode === 'c' ? sy - h / 2 : sy - h - 4 * dpr);
+    if (x0 > W * dpr || y0 > H * dpr || x0 + w < 0 || y0 + h < 0) continue;
+    const r = [x0, y0, x0 + w, y0 + h];
+    if (!s.cover && acc.some(q => r[0] < q[2] + m && r[2] > q[0] - m && r[1] < q[3] + m && r[3] > q[1] - m)) { SG.hidden++; continue; }
+    acc.push(r); ctx.globalAlpha = al; ctx.drawImage(cv, x0, y0);
+    SG.drawn.push({ id: s.id, key: s.key, txt, x: x0 / dpr, y: y0 / dpr, w: w / dpr, h: h / dpr, fs, al, cover: s.cover });
+  }
+  ctx.restore(); ctx.globalAlpha = 1;
+  SG.ms += performance.now() - t0; SG.n++; SG.avg = SG.n < 2 ? SG.ms : SG.avg * 0.9 + SG.ms * 0.1; SG.last = SG.ms;
+}
+function signReset() { SG.list = []; SG.obst = []; SG.ms = 0; }
 function drawMall(a, x, y, p, now) {   // passe 44 : parvis pavé sur les 4 cases, sprite HD du méga-centre commercial (2×2) sur la case avant, enseigne « MALL CENTRAL »
   pQuad([PP(x, y, 0), PP(x + 1, y, 0), PP(x + 1, y + 1, 0), PP(x, y + 1, 0)], '#d8d2c2'); pQuad([PP(x + 0.08, y + 0.08, 0.3), PP(x + 0.92, y + 0.08, 0.3), PP(x + 0.92, y + 0.92, 0.3), PP(x + 0.08, y + 0.92, 0.3)], '#e6e0cf');
   const P = mallPos(); a._top = p.y - 40; if (!P || x !== P.x + 1 || y !== P.y + 1) return;
@@ -13911,7 +13991,7 @@ function drawMall(a, x, y, p, now) {   // passe 44 : parvis pavé sur les 4 case
   const sx = q.x, sy = top + 4, gl = 0.75 + 0.25 * Math.sin(now / 600);
   ctx.save(); ctx.font = '800 22px sans-serif'; ctx.textAlign = 'center'; const tw = ctx.measureText('MALL CENTRAL').width + 22;
   ctx.fillStyle = 'rgba(20,24,44,.88)'; ctx.fillRect(sx - tw / 2, sy - 30, tw, 30); ctx.strokeStyle = `rgba(255,179,71,${gl.toFixed(2)})`; ctx.lineWidth = 2; ctx.strokeRect(sx - tw / 2, sy - 30, tw, 30);
-  ctx.fillStyle = '#ffb347'; ctx.fillText('MALL CENTRAL', sx, sy - 8); ctx.restore();
+  ctx.fillStyle = '#ffb347'; ctx.fillText('MALL CENTRAL', sx, sy - 8); ctx.restore(); SG.obst.push([sx - tw / 2, sy - 30, sx + tw / 2, sy]);   // passe 54 : les enseignes voisines évitent celle du mall
   a._top = sy - 34;
 }
 /* ---------- Passe 49 : rendu procédural de l'aéroport (6×4 cases) : piste, aire de stationnement avec un avion, terminal vitré, tour de contrôle, enseigne sobre.
@@ -13941,8 +14021,7 @@ function drawAirport(a, x, y, now) {
   const C = L.C; prism(C.u0, C.v0, C.u0 + 0.4, C.v0 + 0.4, 0, C.z, '#d3d8de'); prism(C.u0 - 0.12, C.v0 - 0.12, C.u0 + 0.52, C.v0 + 0.52, C.z, C.z + 14, '#5d86ad'); prism(C.u0 - 0.16, C.v0 - 0.16, C.u0 + 0.56, C.v0 + 0.56, C.z + 14, C.z + 18, '#3a414c');
   const bt = Q(C.u0 + 0.2, C.v0 + 0.2, C.z + 24); ctx.fillStyle = Math.sin(now / 350) > 0 ? '#ff4b4b' : '#7a2b2b'; ctx.beginPath(); ctx.arc(bt[0], bt[1], 3, 0, 7); ctx.fill();
   // enseigne sur le toit du terminal
-  const sg = Q((T.u0 + T.u1) / 2, (T.v0 + T.v1) / 2, T.z + 4); ctx.save(); ctx.font = '700 17px sans-serif'; ctx.textAlign = 'center'; const tw = ctx.measureText('AÉROPORT').width + 18;
-  ctx.fillStyle = 'rgba(29,36,51,.9)'; ctx.fillRect(sg[0] - tw / 2, sg[1] - 26, tw, 24); ctx.fillStyle = '#e9edf2'; ctx.fillText('AÉROPORT', sg[0], sg[1] - 8); ctx.restore();
+  const sg = Q((T.u0 + T.u1) / 2, (T.v0 + T.v1) / 2, T.z + 4); if (SG.on) SG.list.push({ id: 'air', key: 'mon:air', D: SIGN['mon:air'], wx: sg[0], wy: sg[1] + 2, mode: 'b', cover: false, pri: 1e4 });   // passe 54 : enseigne générique (au-dessus du terminal)
   a._top = Math.min(sg[1] - 30, Q(C.u0, C.v0, C.z + 30)[1]);
 }
 /* ---------- Passe 45 / 46 : rendu du grand Mall central (10×10 cases) ----------
@@ -14224,6 +14303,7 @@ function drawMallBig(a, x, y, now) {
   g.addColorStop(0, 'rgba(255,196,120,.16)'); g.addColorStop(1, 'rgba(255,196,120,0)'); ctx.fillStyle = g; mbPoly([Q(-0.9, -0.9, 0), Q(10.9, -0.9, 0), Q(10.9, 10.9, 0), Q(-0.9, 10.9, 0)]); ctx.fill(); ctx.restore();
   // --- partie statique (cache hors écran) : sol, arbres de l'arrière, bâtiment principal, entrées, passerelle du parking
   const C = mbCache(X0, Y0, false); ctx.drawImage(C.cv, C.wx, C.wy, C.ww, C.wh);
+  { const DT = mbDc(X.ZC), c = Q(DT[0], DT[1], (X.ZC + X.ZK) / 2), Rx = X.RK * 93.34, Ry = X.RK * 46.67, A = 250 / Rx; SG.obst.push([c[0] - Rx * Math.sin(A) - 20, c[1] + Ry * Math.cos(A) - 50, c[0] + Rx * Math.sin(A) + 20, c[1] + Ry + 40]); }   // passe 54 : zone de l'enseigne « MALL CENTRAL » (courbe), réservée
   mbLive(Q, now);
   // --- éléments de l'avant (marché, tour de parking, stations, passerelles, passants), dans l'ordre de profondeur
   const front = []; L.it.forEach(o => { if (!o.back) front.push(o); });
@@ -14347,7 +14427,7 @@ function poleBadge(a, now, pulse) {   // passe 45 : halo bien visible des boutiq
   const b = mallBonus(a.x, a.y); if (!b.near && !b.pole) return;
   const col = b.pole ? '255,140,30' : '255,205,80', pts = [iso(a.x, a.y), iso(a.x + a.w, a.y), iso(a.x + a.w, a.y + a.h), iso(a.x, a.y + a.h)];
   ctx.save(); ctx.shadowColor = `rgb(${col})`; ctx.shadowBlur = 14; ctx.lineWidth = 5; ctx.strokeStyle = `rgba(${col},${(0.7 + 0.3 * pulse).toFixed(2)})`; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.closePath(); ctx.stroke();
-  const tx = (pts[0].x + pts[2].x) / 2, ty = Math.min(a._top == null ? pts[0].y - 40 : a._top, pts[0].y) - 18, k = Math.round((b.k - 1) * 100), txt = '+' + k + ' %';
+  const tx = (pts[0].x + pts[2].x) / 2, ty = Math.min(a._top == null ? pts[0].y - 40 : a._top, pts[0].y) - 18 - signLift(a), k = Math.round((b.k - 1) * 100), txt = '+' + k + ' %';
   ctx.font = '800 20px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(txt).width + 30;
   ctx.fillStyle = 'rgba(20,16,36,.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(tx - w / 2, ty - 14, w, 28, 14) : ctx.rect(tx - w / 2, ty - 14, w, 28); ctx.fill(); ctx.stroke();
   ctx.shadowBlur = 0; ctx.fillStyle = `rgb(${col})`; ctx.fillText('★' + txt, tx, ty + 1); ctx.restore();
@@ -14473,7 +14553,7 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
       ctx.shadowColor = '#ff5a5f'; ctx.shadowBlur = 10; ctx.fillStyle = '#ff5a5f';
       ctx.beginPath(); ctx.arc(p.x, topY + 26, 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
     }
-    if ((a.t === 'bank' || a.t === 'hq') && conn) {
+    if ((a.t === 'bank' || (a.t === 'hq' && !SG.on)) && conn) {   // passe 54 : le siège porte sa plaque « SIÈGE SOCIAL »
       ctx.shadowColor = '#f2b84b'; ctx.shadowBlur = 12; ctx.fillStyle = '#ffe08a';
       ctx.font = '800 20px "Big Shoulders Display", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(a.t === 'hq' ? 'HQ' : '$', p.x, topY + 22); ctx.shadowBlur = 0;
@@ -14506,12 +14586,13 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
       sign(p.x - 10, p.y - 62 - ex, 'USINE', '#ff4fa3'); topY = p.y - 90 - ex;
     }
     else if (a.t === 'foundry') { chimney(p.x + 22, p.y + 6, 52, now, a.seed, '#ffd76a', conn, alpha); topY = p.y - 50; }
-    else if (a.t === 's2') { sign(p.x - 30, p.y - 36, 'SUPER', '#7f96ff'); topY = p.y - 60; }
+    else if (a.t === 's2') { topY = p.y - 60; }   // passe 54 : le titre est l'enseigne générique
     else if (a.t === 'immo') { sign(p.x - 6, p.y - 40, 'IMMO', '#ffb347'); topY = p.y - 62; }
     else if (a.t === 'btp') { drawTowerCrane(p.x - 18, p.y + 36, now, a.seed); sign(p.x - 38, p.y - 36, 'BTP', '#ffb347'); topY = p.y - 160; }
-    else if (a.t === 's3') { sign(p.x - 28, p.y - 62 - (a.lvl || 0) * 10, 'HYPER', '#ff4fa3'); topY = p.y - 90 - (a.lvl || 0) * 10; }
+    else if (a.t === 's3') { topY = p.y - 90 - (a.lvl || 0) * 10; }
   }
   ctx.globalAlpha = 1;
+  if (!o.ghost) topY -= signLift(a);   // passe 54 : étoiles et alerte au-dessus de l'enseigne
   if (a.lvl > 0 && a.t !== 'res') {
     ctx.fillStyle = '#f2b84b'; ctx.shadowColor = '#f2b84b'; ctx.shadowBlur = 8;
     ctx.font = '700 22px "IBM Plex Sans", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -14770,7 +14851,7 @@ function frame(now) {
     if (selected && tool === 'view') { ctx.lineWidth = 4; poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }
 
     // passe 2 : arbres et bâtiments dans l'ordre de profondeur
-    const treeCol = 1;
+    const treeCol = 1; signReset();
     eachVisible(vr, (x, y) => {
       const i = idx(x, y), rc = S.grid[i], p = iso(x, y);
       if (rc) {
@@ -14779,8 +14860,9 @@ function frame(now) {
           if (a) {
             const ox = rc.t === 'part' ? rc.ox : 0, oy = rc.t === 'part' ? rc.oy : 0;
             const o = { now, born: a.born, alert: S.day <= a.alertUntil };
+            const fr = x === a.x + a.w - 1 && y === a.y + a.h - 1; if (fr) SG.cur = null;
             drawTileOf(a, x, y, ox, oy, o);
-            if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { drawOverlay(a, o); if (POLE_SHOPS[a.t]) poleBadge(a, now, pulse); }
+            if (fr) { if (SG.cur) SG.cur.a = a; drawOverlay(a, o); if (POLE_SHOPS[a.t]) poleBadge(a, now, pulse); signCollect(a, o); }   // passe 54 : enseigne
           }
         }
       } else if (ZONE[i] === 4) {
@@ -14800,6 +14882,7 @@ function frame(now) {
     });
     ships.forEach(sh => { const sp = iso(sh.x, sh.y); drawShip(sp.x, sp.y + 33 + 12, sh.seed); });
     drawOwnership(vr, pulse);
+    signFlush();   // passe 54 : enseignes nettes, après tous les bâtiments
     // flyers (-$)
     for (let i = flyers.length - 1; i >= 0; i--) {
       const f = flyers[i], age = (now - f.t) / 900;
@@ -16845,7 +16928,7 @@ Object.keys(P2HD).forEach(n => { const im = new Image(), e = P2_IMG[n] = { im, o
 function p2Draw(name, p, cells, c) {   // dessine le sprite : le centre de sa dalle (rangée la plus large) est posé sur le centre c = {x, y} de l'emprise (par défaut le centre de la case p) ; renvoie le haut du sprite, ou null
   const e = P2_IMG[name], d = P2DIM[name]; if (!e || !e.ok || !d) return null;
   const dm = d.length >= 9 ? [d[6], d[7], d[8]] : [d[2], d[4], d[5] - (d[4] - d[2]) / 4], sy = d[9] || 1, k = TW * (cells || 1) / (dm[1] - dm[0]), w = d[0] * k, h = d[1] * k * sy, cx = c ? c.x : p.x, cy = c ? c.y : p.y + TH / 2, x = cx - (dm[0] + dm[1]) / 2 * k, y = cy - dm[2] * k * sy;
-  ctx.drawImage(e.im, x, y, w, h); return y;
+  ctx.drawImage(e.im, x, y, w, h); SG.cur = { n: name, x, y, kx: w / d[0], ky: h / d[1] }; return y;   // passe 54 : cadre du sprite, pour poser l'enseigne
 }
 /* ---------- Ville vivante (intégrateur n° 9) : services de quartier, véhicules et navires HD, décor du port, détails des fermes, niveaux, parcs, rochers, chantiers ----------
    Tout est visuel et déterministe (hash) : l'économie d'une case PNJ ne change pas (un café reste, pour l'emploi et les loyers, l'immeuble de bureaux ou de logements qu'il était),
@@ -16855,7 +16938,7 @@ const VV_BOX = { maison_n3: 1, immeuble_n1: 1, immeuble_n2: 1, tour_bureaux: 1, 
 function p2DrawBox(name, p, cells, c) {
   const e = P2_IMG[name], d = P2DIM[name]; if (!e || !e.ok || !d) return null;
   const n = cells || 1, k = TW * n / Math.max(1, d[4] - d[2]), cx = c ? c.x : p.x, cy = (c ? c.y : p.y + TH / 2) + TH * n / 2, x = cx - (d[2] + d[4]) / 2 * k, y = cy - d[5] * k;
-  ctx.drawImage(e.im, x, y, d[0] * k, d[1] * k); return y + d[3] * k;
+  ctx.drawImage(e.im, x, y, d[0] * k, d[1] * k); SG.cur = { n: name, x, y, kx: k, ky: k }; return y + d[3] * k;
 }
 const vvDraw = (name, p, cells, c) => VV_BOX[name] ? p2DrawBox(name, p, cells, c) : p2Draw(name, p, cells, c);
 function vvSpr(n, x, y, w, flip) {   // objet posé (véhicule, animal, personnage, grue, navire, marchandise) : ancre d'ancres.json (sinon bas de la silhouette) en (x, y), silhouette opaque large de w px monde ; flip = miroir horizontal
@@ -17266,6 +17349,7 @@ Object.assign(window.WSE, { coach: { st: coachSt, pick: coachPick, view: coachVi
 Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDaily, obs: netObs, render: renderNet, tab: setNetTab, unread: netUnread, badge: netBadge, save: netSave, san: netSan, reply: netReply, TPL: NET_TPL, CHAT: NET_CHAT, BOTS: NET_BOTS, reset: sd => { S.net = null; const n = netS(); if (sd != null) { n.sd = sd | 0; n.posts = []; n.chat = []; n.id = 0; netSeedContent(); n.seen = n.id; n.o = netSnap(); } NET._t = 0; return n; }, setGap: ms => { NET._t = ms ? NET._t : 0; } } });   // passe 42 : Réseau Wall Street
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ecomStep, list: ewhList, site: ecSite, cat: ecCatalog, delay: ecDelay, attract: ecAttract, pool: ecPool, val: ecVal, tier: () => tierOf((S.stats && S.stats.worth) || 0), raise: ecRaise, set: ecSet, kpi: ecKpi, advice: ecAdvice, save: ecSave, san: ecSan, render: renderEcom, show: ecShow, html: ecomHTML, edu: ecEduHTML, shipCap: ecShipCap, storeCap: ecStoreCap, used: ecUsed, CLS: EC_CLS, MIX: EC_MIX, RET: EC_RET, WORLD: EC_WORLD, FREQ: EC_FREQ, BASKET: EC_BASKET, EL: EC_EL, SHIP: EC_SHIP, STORE: EC_STORE, HOST: EC_HOST, DC: EC_DC, RESV: EC_RESV, LAUNCH: EC_LAUNCH } });   // passe 46 : commerce en ligne
+Object.assign(window.WSE, { sign: { SIGN, SIGN_COVER, SIGN_ST, SIGN_SZ, txt: signTxt, key: signKey, get drawn() { return SG.drawn.slice(); }, get queued() { return SG.list.length; }, get hidden() { return SG.hidden; }, get ms() { return SG.last || 0; }, get avg() { return SG.avg; }, get on() { return SG.on; }, set on(v) { SG.on = !!v; }, get cacheN() { return SG.cache.size; } } });   // passe 54 : enseignes dessinées par le code
 Object.assign(window.WSE, { ground: { GT, ROAD_SPR, GT_NAMES, kind: gtKind, active: gtActive, roadSpr: (x, y) => ROAD_SPR[roadMask(x, y)], clearing: gtClearing, tex: gtTex }, view: { get z() { return z; }, setZ: v => { fitted = true; z = clamp(v, 0.03, 1.8); }, centerOn, get dpr() { return dpr; } } });   // passe sol et routes
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
 window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMILY, famOf: pFamOf, byFam: SPEC_BY_FAM, of: specOf, tab: specTab, share: specShare, famShare: specFamShare, mk: specMk, known: specKnown, locked: specLocked, need: specNeedTxt, shelfOk: specShelfOk, bcT: specBcT, stats: specStats, card: specCard, mall: specMallLine, edu: eduSpecHTML, PASS: SPEC_PASS, PRI: SPEC_PRI, day: () => S._spec || {} };   // passe 46 : magasins spécialisés
