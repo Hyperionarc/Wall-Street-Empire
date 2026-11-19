@@ -1083,7 +1083,7 @@ body.vopen #feed{z-index:9}
 #bview.imm #bimmn{font-family:var(--font-d);font-size:20px;letter-spacing:.05em;color:var(--gold);white-space:nowrap}
 #bview.imm #bimm .sp{flex:1}
 .ib{min-height:44px;padding:6px 14px;background:rgba(8,10,30,.86);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:999px;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}.ib:hover,.ib[aria-pressed="true"]{background:#fff;color:#10142e}
-#bview.imm #bcam{top:62px}#bview.imm #bhud{top:150px}
+#bview.imm #bcam{top:62px}#bview.imm #bhud{top:150px}#bview.imm #blinks{top:106px}
 #bview.imm #bpop{left:auto!important;right:12px;top:62px!important;width:min(380px,calc(100% - 24px));max-height:calc(100% - 150px);z-index:12}
 #bview.imm #bstats,#bview.imm #bpal,#bview.imm #btiles,#bview.imm #bcam,#bview.imm #bvit,#bview.imm #bhud,#bview.imm #bimm{transition:opacity .45s}
 #bview.imm.idle #bstats,#bview.imm.idle #bpal,#bview.imm.idle #btiles,#bview.imm.idle #bcam,#bview.imm.idle #blinks,#bview.imm.idle #bvit,#bview.imm.idle #bhud,#bview.imm.idle #bimm{opacity:0;pointer-events:none}
@@ -1094,6 +1094,7 @@ body.vopen #feed{z-index:9}
   #bview.imm #bimm{left:10px;top:60px;overflow-x:auto;scrollbar-width:none}#bview.imm #bimmn{display:none}
   #bview.imm #bcam,#bstage.plan #bcam{top:112px;flex-wrap:wrap!important;max-width:calc(100% - 20px)!important}#bview.imm #bcam .angs{width:100%}#bview.imm #bvit{display:none}#bview.imm #bpal .tool{min-width:0;flex:1;padding:2px 3px;font-size:11px}#bview.imm #bpal .pt{display:none}#bview.imm #bpop{top:auto!important;bottom:6px;right:6px;left:6px!important;width:auto;max-height:62vh}
   #bview.imm #bexit small{display:none}
+  #bcam.topv .exb{position:static}
   #bstage.plan .tile{min-width:0;padding:4px 3px;gap:4px}#bstage.plan .tile svg{display:none}#bstage.plan .tile b{font-size:10.5px;line-height:1.1}
 }
 .fxs{display:block;margin:8px 0 12px}.fxs span{display:flex;justify-content:space-between;align-items:baseline}.fxs span b{font-size:15px}.fxs em{font-style:normal;font-weight:800;color:var(--gold);font-size:16px}.fxs input[type=range]{width:100%;min-height:34px}.fxs small{display:block;color:var(--mut);font-size:11.5px;line-height:1.3}.fxs small.eff{color:#9fe0ff;margin-top:2px}
@@ -5689,15 +5690,15 @@ function step() {
     if (!list.length) return;
     let units = 0;
     list.forEach(c => { c._un = unitsOf(c) * (tgt.slow || 1); c._pe = PLAN_DIM[c.t] ? planEvalC(c) : null; c._u = c._un * fillOf(c) * (c._pe ? c._pe.F : 1); units += c._u; });
-    list.forEach(c => { c._impCost = 0; c._impIn = 0; c._impV = 0; });
+    list.forEach(c => { c._impCost = 0; c._impIn = 0; c._impV = 0; c._noAuto = ''; });
     // fournisseurs : chaque usine choisit pour chaque intrant Auto (stock local puis port), Port (import) ou Local (stock seulement)
     Object.keys(inp).forEach(g => {
       const impR = Math.max(1.05, 1.3 - 0.05 * (cn.port || 0)) * TM.buy * modOf('buy');
       let tot = 0; list.forEach(c => { tot += c._u * inp[g]; });
       const outV = tgt.good ? tgt.qty * S.price[tgt.good] : tgt.prod ? tgt.qty * prodPrice(tgt.prod) : 0, inV = Object.keys(inp).reduce((a, k) => a + inp[k] * S.price[k] * impR * 1.1, 0);
       let short = inV > outV * 0.85 ? 0 : Math.max(0, tot - S.stock[g]);   // l'import automatique n'a lieu que si la fabrication reste rentable
-      list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0;
-        if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) { if (c._autoBuy && c._autoBuy[g] && inV > outV * 0.85) { c._noBuy = GOODS[g].name.toLowerCase(); q = 0; } else q = need; }   // achat choisi par l'auto-production : suspendu tant que les prix du marché rendent la fabrication déficitaire (un choix manuel reste respecté) else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }
+      list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0; if (mode === 'auto' && inV > outV * 0.85 && need > S.stock[g] + 0.01) c._noAuto = GOODS[g].name.toLowerCase();   // audit : l'import automatique refusé est expliqué au joueur
+        if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) { if (c._autoBuy && c._autoBuy[g] && inV > outV * 0.85) { c._noBuy = GOODS[g].name.toLowerCase(); q = 0; } else q = need; } else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }   // achat choisi par l'auto-production : suspendu tant que les prix du marché rendent la fabrication déficitaire (un choix manuel reste respecté). Audit intérieurs : la branche « auto » (stock local puis port) était tombée dans ce commentaire depuis la passe 21, l'import automatique ne se faisait plus jamais
         if (q > 0.01) { const of = mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3), c.haul) : null; const cost = of ? q * of.total * TM.buy * modOf('buy') : q * S.price[g] / mpM(g) * impR * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; fAdd(c, g, q, 1); indImport += cost; c._impCost = (c._impCost || 0) + cost; c._impIn = (c._impIn || 0) + q; c._impV = (c._impV || 0) + q * S.price[g]; } });   // passe 46 : l'import se paie au cours mondial (sans ta prime de marché)
     });
     let r = units, lim = null;
@@ -5795,6 +5796,7 @@ function step() {
           const share = n0 * c._cap * c.adF * c.pw * specW(c) / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * shEl(elF(cls, Math.max(0.4, pkOf(c, key)), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1, nec, !gen && isPh(it.k)), bsh) - (c.sales[key] || 0); if (pass === 0 && !gen) pcap += Math.max(0, Math.min(capItem, c._lcI[cls] || 0)); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem)); const sD = gen ? specOf(c) : null; if (sD) q = Math.min(q, Math.max(0, pool[sD.fam] || 0));
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * PNJ_MK / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
+          if (!gen && q > fs) q = fs;   // audit (stock négatif du dentifrice) : un reliquat sous 1e-9 était compté vendu sans stock ; un produit de marque ne se vend que sur son stock
           if (FGD && fs > 1e-9) fDraw(c, gen ? cls : it.k, fs);
           if (sD) pool[sD.fam] -= q;
           stockLeft -= fs; fromStock += fs; c._left -= q; c._lc[cls] -= q; c._sold += q; c._rev += q * it.price * retailMk(cls) * pfOfK(c, key) * specMk(c); c._cl += fs * it.price; c.sales[key] = (c.sales[key] || 0) + q; got += q; need -= q;
@@ -5803,7 +5805,7 @@ function step() {
       if (!gen) { S._dw.pc[it.k] = pcap; specTrack(it.k, car, key, got); }
       addressed[cls] += wi;
       if (gen) { S.stock[cls] -= fromStock; want[cls] += fromStock; }   // les ventes en magasin sont de la demande servie
-      else { const ps = S.prod[it.k]; ps.stock -= got; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
+      else { const ps = S.prod[it.k]; ps.stock -= got; if (ps.stock < 0) ps.stock = 0; ps.sold = got; ps.rev = got * it.price; ps.share = it.attr / totalAttr; }
       fFlush(gen ? cls : it.k);
       sold[cls] += got; revRetVal += got * it.price * retailMk(cls) * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOfK(c, key) * specMk(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
     });
@@ -6505,6 +6507,7 @@ function refreshStats() {
   if (st.net == null) st.net = 0;
   S.stats = st;
 }
+const NET_PIECE = { pylon: 'Pylône : porte la ligne haute tension. Les centrales alimentent les bâtiments reliés par le réseau.', cable: 'Câble enterré : réseau électrique sans pertes ni dégâts de tempête.', pipeline: 'Pipeline : achemine pétrole, gaz et charbon des puits et mines vers tes usines.' };
 function inspect(x, y) {
   const c = cell(x, y);
   if (isMall(c)) { selected = { x, y }; mallOpen(); return; }   // passe 44 : le Mall central ouvre son panneau
@@ -6522,6 +6525,7 @@ function inspect(x, y) {
   if (c.t === 'npc' && c.k !== 'mon' && ownerOf(c) !== 'npc' && ownerOf(c) !== 'me') { say(`${kindFr(c.k, 1).replace(/^./, m => m.toUpperCase())} de ${ownerName(ownerOf(c))} : rapporte ${money(bldRent(c) * DM)}/mois, valeur estimée ${money(acqValue(c))}. Pose un commerce dessus pour négocier le rachat.`, 'info'); return; }
   if (c.t === 'npc') { say(c.k === 'mon' ? `${PUB[c.m][0]} : ${PUB[c.m][2]}. Les services publics sont financés par la mairie.` : c.k === 'park' ? 'Parc public de la ville : il valorise les quartiers voisins.' : c.k === 'house' ? 'Maison de la ville existante (5 habitants).' : `Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
   if (c.t === 'road') { say(c.own ? 'Route de desserte : entretien 12 $/mois.' : 'Rue publique, entretenue par la mairie.', 'info'); return; }
+  if (NET_PIECE[c.t]) { say(NET_PIECE[c.t] + ' Entretien ' + money(TYPES[c.t].upkeep * DM) + '/mois.', 'info'); return; }   // audit intérieurs : un pylône, un câble ou un pipeline n'a pas d'intérieur (avant : bureau avec employés fictifs)
   openBuilding(c.x, c.y); return;
   const T = TYPES[c.t];
   const parts = [`${T.name} · ${T.sub}`];
@@ -8862,6 +8866,7 @@ function openBuilding(x, y) {
   if (S.mode && S.mode.f) S.mode.f.open = 1;
   closeViews('b'); bPick = -1; planSel = -1; planMv = -1; planTool = ''; alMenu = null; immPanel = ''; scam.z = 1;
   const c = cell(x, y); if (!c) return;
+  if (NET_PIECE[c.t]) { inspect(c.x, c.y); return; }   // pas de vue intérieure pour le réseau
   bsel = { x: c.x, y: c.y }; selected = { x: c.x, y: c.y };
   el('pview').hidden = true; el('pv').setAttribute('aria-pressed', 'false');
   el('bview').hidden = false; bvHtml = ''; bTab = 'int';
@@ -9493,7 +9498,7 @@ function bottleneck(c) {
   if (isFac && GOODS[L]) acts.push(['opensup:' + L, 'Choisir un fournisseur']);
   // Conseil actionnable (passe 21) : « manque de cuivre : construis une mine de cuivre, ou choisis un fournisseur »
   const fix = RECIPES[L] ? `construis ou affecte une ${LVL_NAME[RECIPES[L].lvl]} pour ${RECIPES[L].name.toLowerCase()}` : RAW_SRC[L] && TYPES[RAW_SRC[L]] ? (hasBld(RAW_SRC[L]) ? 'agrandis ou ajoute : ' : 'construis : ') + TYPES[RAW_SRC[L]].name.toLowerCase() : L === 'ingot' ? 'construis une fonderie d\'or' : 'trouve une source';
-  const buyNote = c._noBuy ? ` Les achats ont été suspendus (${c._noBuy}) car les fournisseurs sont trop chers pour que cette usine reste rentable.` : '';
+  const buyNote = (c._noBuy ? ` Les achats ont été suspendus (${c._noBuy}) car les fournisseurs sont trop chers pour que cette usine reste rentable.` : '') + (c._noAuto && !c._noBuy ? ` Import automatique en pause : au cours du port, cet intrant coûterait plus que ce que rapporte la production. Construis la source, ou choisis un fournisseur pour forcer l'achat.` : '');
   return { sev: 'bad', t: `Goulot : manque ${dEl(gn)}`, d: `Manque ${dEl(gn)} : ${fix}${isFac ? ', ou choisis un fournisseur' : ''}. Stock ${fmt(gStock(L))}, cours ${f1(gPrice(L))} $.${buyNote}`, acts };
 }
 const TILE_IC = {
@@ -9566,6 +9571,9 @@ function renderBuilding(force) {
     inHtml = `<div class="bn"><b>Marchandises vendues</b><small>${T.ret.fam ? 'famille ' + SPEC_FAM[T.ret.fam].n.toLowerCase() + ' (' + T.ret.sells.map(s => GOODS[s].name.toLowerCase()).join(', ') + ')' : T.ret.sells.map(s => s === 'estate' ? 'maisons' : GOODS[s].name.toLowerCase()).join(', ')}</small></div>`;
     { const pt = POLE_SHOPS[c.t] ? poleTxt(c) : null; if (pt) inHtml += pt.on ? `<div class="bn polebn"><b><span class="polepip">Pôle commercial</span></b><small>${pt.t.join(' · ')}</small></div>` : `<div class="bn"><b>Pôle commercial : non</b><small>Rapproche-toi du Mall central (moins de ${MALL_R} cases : +${Math.round(MALL_TRF * 100)} %) ou groupe ${POLE_N} boutiques voisines (+${Math.round(POLE_TRF * 100)} %, frais fixes −${Math.round(POLE_UPK * 100)} %).</small></div>`; }   // passe 44
     outHtml = `<div class="bn"><b>Ventes</b><small>${f1(c.out)} articles/jour · capacité ${f1(c._cap || 0)}</small></div>`;
+  } else if (c.t === 'res') {   // audit intérieurs : un immeuble de logements n'a ni « clientèle » ni « bourse »
+    inHtml = `<div class="bn"><b>Habitants</b><small>${fmt(6 + 4 * (c.floors || 1))} logements · ${c.floors || 1} étage${(c.floors || 1) > 1 ? 's' : ''}</small></div>`;
+    outHtml = `<div class="bn"><b>Loyers et valeur</b><small>dans la fiche de l'immeuble (clic sur l'immeuble avec l'outil Main)</small></div>`;
   } else {
     inHtml = `<div class="bn"><b>Clientèle</b><small>revenus liés à la ville et à la bourse</small></div>`;
     outHtml = `<div class="bn"><b>Recettes</b><small>${mj(c.pRev || 0)} /mois</small></div>`;
@@ -9743,11 +9751,23 @@ const newPerson = (rnd, x, y) => ({ x, y, fv: rnd(), ph: rnd() * 6, spd: 42 + rn
 
 /* --- magasin en vue isométrique : rayons en 3D, caisses, chariots et paniers --- */
 const PCOL = ['#ff8a3d', '#46d39a', '#7f96ff', '#ffd76a', '#ff4fa3', '#3fd8ff', '#e8e4d8', '#c4664a'];
+// Audit intérieurs : chaque magasin spécialisé a son propre mobilier (avant : les mêmes gondoles multicolores qu'un supermarché, y compris pour une concession automobile).
+// pal : couleurs des produits en rayon ; disp : présentoirs au centre (car voitures, rack portants de vêtements, tech tables d'écrans, ped socles de luxe, furn mobilier) ; cross : enseigne verte de pharmacie
+const RT_STYLE = {
+  sauto: { pal: ['#2a2f45', '#3a3f58', '#5b6178', '#1f2336'], disp: 'car', cars: ['#e8ecf4', '#c0392b', '#2c3e70', '#1d1f26', '#9aa3b5'] },
+  smode: { pal: ['#d8c8b0', '#7a8fb0', '#b04a5a', '#3a3f58', '#e8e4d8', '#8a6a4a'], disp: 'rack' },
+  stech: { pal: ['#2a2f45', '#e8ecf4', '#5b6178', '#3fd8ff', '#1f2336'], disp: 'tech' },
+  slux:  { pal: ['#d9b45a', '#1f2336', '#e8e4d8', '#8a6a4a'], disp: 'ped' },
+  shome: { pal: ['#d8c8b0', '#a08a6a', '#7a8f7a', '#e8e4d8', '#b07a5a'], disp: 'furn' },
+  spharma: { pal: ['#f4f6fa', '#58c27d', '#4aa8e0', '#e8584f', '#f4f6fa', '#bfe9ff'], cross: 1 },
+  ssport: { pal: ['#2f9bff', '#e8584f', '#1d1f26', '#f4f6fa', '#46d39a', '#ffd76a'] },
+  sbrico: { pal: ['#ff8a3d', '#5b6178', '#9aa3b5', '#2a2f45', '#ffd76a'] }
+};
 function mkRetail(c) {
   const k = c.t === 's3' || c.t === 's4' ? 2 : c.t === 's2' ? 1 : 0, rnd = mkRnd(c.seed);
   const GW = [12, 15, 17][k], GH = [9, 11, 13][k], frontY = [4, 6, 8][k], n = k + 1, sum = GW + GH;
   const tw = Math.min(48, Math.floor(1500 / sum)), oy = 78, H = Math.round(oy + sum * tw / 4 + 24), ox = 400 - (GW - GH) * tw / 4;
-  const sc = { kind: 'retail', k, GW, GH, frontY, tw, ox, oy, H, cust: [], staff: [], sp: 0.3, hs: [], ks: [], rnd, time: 0, cap: [8, 12, 16][k], rate: [1, 1.5, 2.3][k], XL: 1.2, XR: GW - 2.2, bg: document.createElement('canvas'), aisles: [1.3], gond: [] };
+  const RS = RT_STYLE[c.t] || {}, sc = { kind: 'retail', pal: RS.pal, disp: RS.disp, cars: RS.cars, k, GW, GH, frontY, tw, ox, oy, H, cust: [], staff: [], sp: 0.3, hs: [], ks: [], rnd, time: 0, cap: [8, 12, 16][k], rate: [1, 1.5, 2.3][k], XL: 1.2, XR: GW - 2.2, bg: document.createElement('canvas'), aisles: [1.3], gond: [] };
   const sp = (GH - frontY - 1.4) / n;
   for (let i = 0; i < n; i++) sc.hs.push({ type: 'h', yl: frontY + 1 + (i + 0.5) * sp, bx0: 3.6, bx1: 7.2, q: [], cur: null, items: [], cs: { it: null, t: 0 }, scan: 0, open: true });
   for (let i = 0; i < n; i++) sc.ks.push({ type: 's', x: GW - 2 - i * 1.7, y: frontY + 0.5, q: [], cur: null, pulse: 0 });
@@ -9770,7 +9790,20 @@ function mkRetail(c) {
   const T = TYPES[c.t]; g.save(); const a = P(GW / 2 - 3, 0, 52), b = P(GW / 2 + 3, 0, 52), d = P(GW / 2 + 3, 0, 36), e = P(GW / 2 - 3, 0, 36);
   quad(g, [a, b, d, e], '#ffd76a', '#c99a3a'); g.translate(a[0], a[1]); g.transform(1, 0.5, 0, 1, 0, 0); g.fillStyle = '#1a2150'; g.font = '800 14px sans-serif'; g.textAlign = 'center'; g.fillText(T.name.toUpperCase(), 3 * sc.tw / 2 * 1, 22); g.restore();
   quad(g, [P(0.9, GH - 0.9), P(2.5, GH - 0.9), P(2.5, GH), P(0.9, GH)], '#7a4a30');
+  if (RS.cross) { const cx = GW / 2 + 4.2, q = [P(cx - 0.5, 0, 56), P(cx + 0.5, 0, 56), P(cx + 0.5, 0, 40), P(cx - 0.5, 0, 40)]; quad(g, q, '#2f9a56'); quad(g, [P(cx - 0.12, 0, 54), P(cx + 0.12, 0, 54), P(cx + 0.12, 0, 42), P(cx - 0.12, 0, 42)], '#f4f6fa'); quad(g, [P(cx - 0.4, 0, 49.5), P(cx + 0.4, 0, 49.5), P(cx + 0.4, 0, 46.5), P(cx - 0.4, 0, 46.5)], '#f4f6fa'); }
   return sc;
+}
+// présentoir central d'un magasin spécialisé, à la place d'une gondole (x0, yg : coin de la case)
+function rtDisp(g, sc, x0, yg, i) {
+  const P = (x, y, z) => isoP(sc, x, y, z), d = sc.disp, col = (sc.pal || PCOL)[i % (sc.pal || PCOL).length];
+  if (d === 'car') { if (i % 2) return; const cc = sc.cars[(i / 2 + Math.round(yg)) % sc.cars.length]; quad(g, [P(x0 - 0.2, yg - 0.35), P(x0 + 2.0, yg - 0.35), P(x0 + 2.0, yg + 1.05), P(x0 - 0.2, yg + 1.05)], 'rgba(255,255,255,.35)');
+    [[0.15, 0.0], [1.35, 0.0], [0.15, 0.62], [1.35, 0.62]].forEach(w => sbox(g, sc, x0 + w[0], yg + w[1], 0.3, 0.1, 6, '#1d1f26', '#12141a', '#12141a'));
+    sbox(g, sc, x0, yg + 0.05, 1.8, 0.62, 11, lighten(cc), cc, fshade(cc, -40), 3); sbox(g, sc, x0 + 0.45, yg + 0.1, 0.9, 0.52, 19, '#9fd0ff', '#6f9cc8', '#56789c', 11); return; }
+  if (d === 'rack') { sbox(g, sc, x0 + 0.05, yg + 0.3, 0.08, 0.08, 34, '#9aa1c4', '#6f78a3', '#59618a'); sbox(g, sc, x0 + 0.87, yg + 0.3, 0.08, 0.08, 34, '#9aa1c4', '#6f78a3', '#59618a'); sbox(g, sc, x0 + 0.05, yg + 0.3, 0.9, 0.06, 35, '#c3c9e6', '#9aa1c4', '#838aae', 32);
+    for (let j = 0; j < 5; j++) { const cj = (sc.pal || PCOL)[(i + j) % (sc.pal || PCOL).length]; sbox(g, sc, x0 + 0.12 + j * 0.16, yg + 0.22, 0.12, 0.22, 31, lighten(cj), cj, fshade(cj, -30), 12 + (j % 2) * 3); } return; }
+  if (d === 'tech') { sbox(g, sc, x0, yg, 1, 0.7, 14, '#e8ecf4', '#b9bfdc', '#9aa1c4'); bMon(g, sc, x0 + 0.3, yg + 0.12, 14, true, 'rgba(63,216,255,' + (0.55 + Math.sin(sc.time * 2 + i) * 0.15) + ')', sc.time, 0.42); sbox(g, sc, x0 + 0.62, yg + 0.3, 0.26, 0.34, 15.5, '#1f2336', '#12141a', '#12141a', 14); return; }
+  if (d === 'ped') { if (i % 2) return; sbox(g, sc, x0 + 0.2, yg + 0.05, 0.6, 0.6, 20, '#f4f1e8', '#d8d2c4', '#bfb8a8'); sbox(g, sc, x0 + 0.38, yg + 0.22, 0.24, 0.24, 27, '#ffe9a8', '#d9b45a', '#b8933a', 20); return; }
+  if (d === 'furn') { if (i % 2) { sbox(g, sc, x0 + 0.1, yg + 0.1, 0.8, 0.5, 11, '#c9a878', '#a8865a', '#8f714a'); sbox(g, sc, x0 + 0.42, yg + 0.28, 0.14, 0.14, 26, '#ffe9a8', '#e8d8a8', '#d0c090', 11); return; } sbox(g, sc, x0, yg + 0.05, 1, 0.6, 9, lighten(col), col, fshade(col, -30)); sbox(g, sc, x0, yg + 0.05, 1, 0.16, 19, lighten(col), col, fshade(col, -30), 9); return; }
 }
 function isoP(sc, x, y, z) { if (sc.pj && !sc.loc) return sc.pj(x, y, z); return [sc.ox + (x - y) * sc.tw / 2, sc.oy + (x + y) * sc.tw / 4 - (z || 0) * (sc.zs || 1)]; }
 function quad(g, pts, fill, stroke) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1; g.stroke(); } }
@@ -9786,10 +9819,10 @@ function sbox(g, sc, x, y, w, h, z, cT, cL, cR, z0) {
   quad(g, [P(x + w, y, z), P(x + w, y + h, z), P(x + w, y + h, z0), P(x + w, y, z0)], cR);
   quad(g, [P(x, y, z), P(x + w, y, z), P(x + w, y + h, z), P(x, y + h, z)], cT);
 }
-function bands(sc, g, axis, fixed, a0, a1, zs) {
-  const n = Math.max(1, Math.round((a1 - a0) / 0.3));
+function bands(sc, g, axis, fixed, a0, a1, zs, pal) {
+  const n = Math.max(1, Math.round((a1 - a0) / 0.3)), PC = pal || sc.pal || PCOL;
   zs.forEach((z, b) => { for (let i = 0; i < n; i++) {
-    const u0 = a0 + i * (a1 - a0) / n + 0.025, u1 = a0 + (i + 1) * (a1 - a0) / n - 0.025, col = PCOL[Math.floor(hash(i + Math.floor(a0 * 7), Math.floor(fixed * 10) + b * 5, 3) * 8) % 8];
+    const u0 = a0 + i * (a1 - a0) / n + 0.025, u1 = a0 + (i + 1) * (a1 - a0) / n - 0.025, col = PC[Math.floor(hash(i + Math.floor(a0 * 7), Math.floor(fixed * 10) + b * 5, 3) * 8) % PC.length];
     const pts = axis === 'x' ? [isoP(sc, u0, fixed, z[1]), isoP(sc, u1, fixed, z[1]), isoP(sc, u1, fixed, z[0]), isoP(sc, u0, fixed, z[0])] : [isoP(sc, fixed, u0, z[1]), isoP(sc, fixed, u1, z[1]), isoP(sc, fixed, u1, z[0]), isoP(sc, fixed, u0, z[0])];
     quad(g, pts, col); } });
 }
@@ -9865,6 +9898,7 @@ function drawRetail(sc, c, g) {
   g.drawImage(sc.bg, 0, 0);
   const P = (x, y, z) => isoP(sc, x, y, z), t = sc.time, s = sc.tw / 52, objs = [];
   sc.gond.forEach(yg => { const n = Math.floor(sc.GW - 4.0 - 2.5); for (let i = 0; i < n; i++) { const x0 = 2.5 + i; objs.push({ k: x0 + 1 + yg + 0.7, f: () => {
+    if (sc.disp) { rtDisp(g, sc, x0, yg, i); return; }
     sbox(g, sc, x0, yg, 1, 0.7, 36, '#e3e6f5', '#b9bfdc', '#9aa1c4');
     bands(sc, g, 'x', yg + 0.7, x0 + 0.02, x0 + 0.98, [[4, 12], [15, 23], [26, 35]]);
     if (i === n - 1) bands(sc, g, 'y', x0 + 1, yg + 0.05, yg + 0.65, [[4, 12], [15, 23], [26, 35]]);
@@ -10326,7 +10360,7 @@ function drawFac(sc, c, g) {
 
 /* --- sites en vue isométrique 2:1 (Passe 18) : mines, carrières, puits, fermes, camps de bûcherons et entrepôt --- */
 const SGROUND = { mine: ['#766f5f', '#6d6657'], quarry: ['#97907b', '#8c8571'], oil: ['#7f6d51', '#756349'], wood: ['#4d8743', '#457d3d'], crop: ['#6f5237', '#664b33'], wh: ['#586194', '#4f5888'] };
-const siteKind = (c, T) => c.t === 'wh' ? 'wh' : c.t === 'crush' ? 'quarry' : (T.ext === 'oil' || T.ext === 'gas') ? 'oil' : T.ext === 'wood' ? 'wood' : isFarmK(T.ext) ? 'crop' : /^(gravel|sand|limestone|silica|clay|salt)$/.test(T.ext) ? 'quarry' : 'mine';
+const siteKind = (c, T) => (c.t === 'wh' || c.t === 'ewh') ? 'wh' : c.t === 'crush' ? 'quarry' : (T.ext === 'oil' || T.ext === 'gas') ? 'oil' : T.ext === 'wood' ? 'wood' : isFarmK(T.ext) ? 'crop' : /^(gravel|sand|limestone|silica|clay|salt)$/.test(T.ext) ? 'quarry' : 'mine';
 const smooth = u => u * u * (3 - 2 * u);
 // plant d'une rangée de culture (dessinée une fois dans un canvas par rangée) : blé, canne, coton, hévéa
 function cropPlant(g, sc, ext, x, y, v) {
@@ -10424,7 +10458,7 @@ function mkSite(c) {
 function updSite(sc, c, dt) {
   const rnd = sc.rnd, sk = sc.sk, wh = sk === 'wh', util = clamp(c.util || 0, 0, 1), lim = c.limit, full = lim === '_full', exh = lim === 'reserve';
   let used = 0, cap = 1;
-  if (wh) { used = Object.keys(c.inv || {}).reduce((a, k) => a + c.inv[k], 0); cap = whCap(c); sc.used = used; sc.cap = cap; sc.imp = (c._imp || 0) > 0.5 || (c._rev || 0) > 0; sc.full = used >= cap * 0.98; }
+  if (wh) { used = Object.keys(c.inv || {}).reduce((a, k) => a + c.inv[k], 0); cap = c.t === 'ewh' ? ecStoreCap(c) : whCap(c); sc.used = used; sc.cap = cap; sc.imp = (c._imp || 0) > 0.5 || (c._rev || 0) > 0; sc.full = used >= cap * 0.98; }
   else { sc.full = full; const d = S.dep[idx(c.x, c.y)]; sc.ratio = (isFarmK(sc.ext) || sc.T.recy) ? 1 : (d && DEPOSITS[sc.ext]) ? clamp(d.r / DEPOSITS[sc.ext].res, 0, 1) : 0; }
   sc.exh = exh;
   const run = wh ? (used > 0.5 ? 0.55 + (sc.imp ? 0.35 : 0) : 0) : clamp(util * 1.4, 0, 1), eff = (!wh && (full || exh)) ? 0 : run;
@@ -10880,7 +10914,7 @@ BB.res = (sc, g, c, D) => {
   bSlot(sc, { free: true, r: 'sit', x: 2.6, y: 8.2, shirt: '#46d39a', arm: 0.9 }); bSlot(sc, { free: true, r: 'sit', x: 3.8, y: 8.2, shirt: '#ff7fbf' });
   bSlot(sc, { free: true, r: 'walk', x: 8, y: 5.8, shirt: '#ffd43b', way: [[8, 5.8, 3], [9.8, 7.4, 2], [5.2, 5.0, 2], [4, 3.2, 3]] });
   bSlot(sc, { free: true, r: 'walk', x: 6.8, y: 6.6, shirt: '#4dabf7', way: [[6.8, 6.6, 2], [3, 3.8, 3], [8.4, 3.4, 4]] });
-  sc.alertAt = [6, 4, 70]; sc.cap = c => `Immeuble de ${lvFloors(c)} étages · ${fmt(S.pop || 0)} habitants en ville`;
+  sc.alertAt = [6, 4, 70]; sc.cap = c => `Immeuble de ${lvFloors(c)} étage${lvFloors(c) > 1 ? 's' : ''} · ${fmt(S.pop || 0)} habitants en ville`;
 };
 // ---- banque ----
 BB.bank = (sc, g, c, D) => {
@@ -12138,10 +12172,11 @@ function facGapTxt(v) {   // message de l'écart offre − demande (une phrase)
 function facAdvice(c, v, rec) {   // conseil d'une phrase, tiré du goulot réel puis de l'écart ; une action existante au plus
   const L = v.lim, U = PL_BAD[L], uName = { make: 'une machine', buy: 'une ligne d\'achat', stock: 'un stock', sell: 'un quai de vente' };
   if (L === 'pl_sell0') return { t: 'Ouvre un quai de vente : rien ne sort de l\'usine.', a: 'alr:addunit:sell', l: 'Ajouter un quai' };
-  if (L && GOODS[L] && rec.in[L]) return { t: 'Il manque ' + gName(L).toLowerCase() + ' : choisis un fournisseur ou construis la source.', a: 'opensup:' + L, l: 'Choisir un fournisseur' };
+  if (L && GOODS[L] && rec.in[L]) return { t: 'Rupture ' + dEl(gName(L).toLowerCase()) + ' : choisis un fournisseur ou construis la source.', a: 'opensup:' + L, l: 'Choisir un fournisseur' };
   if (L === 'staff' || /^pl_s(buy|stock|sell)$/.test(L)) return { t: 'Il manque du personnel : monte les salaires ou construis des logements.', a: 'wage2', l: 'Salaires élevés' };
   if (L === '_full') return { t: 'Le stock est plein : trouve des débouchés (magasins, usines clientes) ou change de production.', a: 'catalog', l: 'Changer de production' };
   if (v.st === 'short') return U ? { t: 'La demande dépasse ta production : ajoute ' + uName[U] + ', c\'est le maillon qui limite.', a: 'alr:addunit:' + U, l: 'Ajouter ' + uName[U] } : { t: 'La demande dépasse ta production : ajoute une machine.', a: 'alr:addunit:make', l: 'Ajouter une machine' };
+  if (v.isP && v.dem > 0.5 && v.sold < 0.5 * Math.min(v.dem, v.prodTot)) return { t: 'Tes magasins ne vendent que ' + f1(v.sold) + ' /j sur une demande de ' + f1(v.dem) + ' /j : ouvre des magasins qui le mettent en rayon (le reste part à l\'export, avec une marge réduite). Baisser le prix n\'y changera rien.', a: '', l: '' };   // audit : rayons saturés, la demande n'est pas le problème
   if (v.st === 'over') return v.isP ? { t: 'Tu produis plus qu\'on ne te demande : baisse le prix ou mets le produit en rayon dans plus de magasins.', a: 'studio', l: 'Prix et marque' } : { t: 'Tu produis plus qu\'on ne te demande : alimente une usine cliente ou change de production.', a: 'catalog', l: 'Changer de production' };
   if (v.isP && v.dem > 0.5 && v.sold < 0.85 * v.dem && v.days > 3) return { t: 'Le stock est là mais les magasins ne suivent pas : ouvre des rayons ou un magasin de plus.', a: '', l: '' };
   return { t: v.st === 'na' ? 'Laisse tourner une journée pour lire le carnet.' : 'Rien à changer : l\'usine sert sa demande.', a: '', l: '' };
@@ -12665,7 +12700,7 @@ function sceneReset(c, keepCam) {
   const upd = (s, c2, dt) => ({ retail: updRetail, site: updSite, fac: updFac, off: updOff, bld: updBld, plan: updPlan })[s.kind](s, c2, dt);
   el('bstage').classList.toggle('plan', isP);
   const sv = keepCam ? { z: scam.z, x: scam.x, y: scam.y } : null;
-  scene = isP ? mkPlanScene(c) : (T.ext || c.t === 'wh' || T.recy) ? mkSite(c) : (T.ret && c.t !== 'immo') ? mkRetail(c) : (T.rec) ? mkFac(c) : BLD[c.t] ? mkBld(c) : mkOffice(c);
+  scene = isP ? mkPlanScene(c) : (T.ext || c.t === 'wh' || c.t === 'ewh' || T.recy) ? mkSite(c) : (T.ret && c.t !== 'immo') ? mkRetail(c) : (T.rec) ? mkFac(c) : BLD[c.t] ? mkBld(c) : mkOffice(c);
   scene.cid = c.t + c.x + '_' + c.y; scene.H = scene.H || SCH; el('bscene').width = scene.W || SCW; el('bscene').height = scene.H; capLast = ''; el('bcap').textContent = '';
   if (isP) { facBtns(); camLayout(); if (sv) { scam.z = sv.z; scam.x = sv.x; scam.y = sv.y; camClamp(); camApply(); } else camHome(); planFrame(scene, c, 0); }
   else { const cv = el('bscene'); cv.style.width = cv.style.height = cv.style.transform = ''; scam.z = 1; scam.x = 0; scam.y = 0; const sw = el('bsw'); if (sw) setTimeout(() => { sw.scrollLeft = Math.max(0, (sw.scrollWidth - sw.clientWidth) / 2); }, 0); }
