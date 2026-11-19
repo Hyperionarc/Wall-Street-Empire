@@ -196,6 +196,34 @@ for _gd in (os.path.join(ROOT, 'assets', 'guide_hd'), os.path.join(ROOT, '..', '
                     _im = _I.open(io.BytesIO(_raw)).convert('RGB'); _im.thumbnail((288, 288)); _bf = io.BytesIO(); _im.save(_bf, 'JPEG', quality=78, optimize=True); _raw = _bf.getvalue(); _m = 'image/jpeg'
                 except Exception: pass
                 guidehd[_b] = 'data:' + _m + ';base64,' + base64.b64encode(_raw).decode()
+# Passe 59 (audit des produits, docs/AUDIT_PRODUITS.md) : corrections de branchement sans nouvelle image.
+# GUIDE_SUBST : la photo propre au produit est mauvaise (pseudo-texte, sujet faux) et une photo existante convient mieux -> remplacée (retirer la ligne quand la commande Cowork est livrée).
+# GUIDE_FILL : pas de photo pour la clé -> photo existante fidèle d'un bien voisin (ne s'applique pas si une photo propre arrive).
+GUIDE_SUBST = {'whisky': 'spirit'}   # whisky.jpg : grande étiquette en pseudo-lettres ; spirit.jpg : carafe de spiritueux ambré, sans texte
+GUIDE_FILL = {'sweater': 'jacket', 'beefmeat': 'meat', 'drinkmilk': 'milk'}   # jacket.jpg montre un pull plié ; meat.jpg une pièce de bœuf persillée ; milk.jpg un pichet et un verre de lait
+for _k, _s in GUIDE_SUBST.items():
+    if _s in guidehd: guidehd[_k] = guidehd[_s]
+for _k, _s in GUIDE_FILL.items():
+    if _k not in guidehd and _s in guidehd: guidehd[_k] = guidehd[_s]
+# GUIDE_COMPOSE : matières animales sans photo -> l'animal HD existant (assets/phase2_hd/animal_*.png) posé sur le fond studio gris clair des photos du Guide (repli provisoire, commande Cowork en cours)
+GUIDE_COMPOSE = {'beef': 'animal_vache', 'pork': 'animal_cochon', 'poultry': 'animal_poule', 'lamb': 'animal_mouton', 'wool': 'animal_mouton'}
+def _studio(src):
+    import io
+    from PIL import Image as _I, ImageDraw as _D, ImageFilter as _F
+    S_ = 288; bg = _I.new('RGB', (S_, S_)); px = bg.load()
+    for y in range(S_):
+        for x in range(S_):
+            v = int(226 - 22 * y / S_ - 10 * (((x - S_ / 2) / S_) ** 2 + ((y - S_ * 0.4) / S_) ** 2)); px[x, y] = (v, v, min(255, v + 3))
+    a = _I.open(src).convert('RGBA'); a = a.crop(a.getbbox()); k = min(S_ * 0.78 / a.width, S_ * 0.70 / a.height); a = a.resize((max(1, round(a.width * k)), max(1, round(a.height * k))), _I.LANCZOS)
+    ox, oy = (S_ - a.width) // 2, int(S_ * 0.86) - a.height
+    sh = _I.new('L', (S_, S_), 0); _D.Draw(sh).ellipse((ox + a.width * 0.08, oy + a.height - 10, ox + a.width * 0.92, oy + a.height + 12), fill=90); sh = sh.filter(_F.GaussianBlur(7))
+    bg.paste((150, 150, 156), (0, 0), sh); bg.paste(a, (ox, oy), a); bf = io.BytesIO(); bg.save(bf, 'JPEG', quality=80, optimize=True)
+    return 'data:image/jpeg;base64,' + base64.b64encode(bf.getvalue()).decode()
+for _k, _n in GUIDE_COMPOSE.items():
+    _p = os.path.join(ROOT, '..', 'assets', 'phase2_hd', _n + '.png')
+    if _k not in guidehd and os.path.exists(_p):
+        try: guidehd[_k] = _studio(_p)
+        except Exception as _e: print('composition', _k, _e)
 print('photos du guide :', len(guidehd))
 
 def _diamond(_im):
