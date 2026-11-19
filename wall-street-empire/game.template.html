@@ -1136,6 +1136,7 @@ body.vopen #feed{z-index:9}
       <button data-ptab="fin" aria-pressed="false" title="Compte de résultat, emprunts, impôts"><i>▦</i>Finances</button>
       <button data-ptab="fund" aria-pressed="false" title="Lever de la dette ou de l'equity"><i>◐</i>Financement</button>
       <button data-ptab="prods" aria-pressed="false" title="Prix, qualité, notoriété et parts de marché"><i>▤</i>Produits</button>
+      <button data-ptab="ecom" aria-pressed="false" title="Ma plateforme en ligne : startup, ventes mondiales, exports"><i>⇄</i>En ligne</button>
       <button data-ptab="chain" aria-pressed="false" title="Flux et goulots de la chaîne"><i>⛓</i>Chaîne</button>
       <button data-ptab="ops" aria-pressed="false" title="Promoteur : chantiers, plus-values, parc locatif, zonage"><i>▣</i>Opérations</button>
       <div class="ng">Marchés</div>
@@ -1205,8 +1206,11 @@ body.vopen #feed{z-index:9}
       <div id="netMsgs" class="nmsgs" aria-live="polite"></div>
     </div>
     </section>
+    <section data-sec="ecom" id="ecomSec" hidden>
+    <div id="ecomBody"></div>
+    </section>
     <section data-sec="edu" id="eduSec" hidden>
-    <div class="seg2" id="eduTabs" style="margin-bottom:8px"><button class="btn" data-edut="brand">Atelier marque</button><button class="btn sec" data-edut="scm">Supply chain</button><button class="btn sec" data-edut="deb">Bilan d'apprentissage</button><button class="btn sec" data-edut="pat">Brevets</button><button class="btn sec" data-edut="spec">Généraliste ou spécialiste ?</button></div>
+    <div class="seg2" id="eduTabs" style="margin-bottom:8px"><button class="btn" data-edut="brand">Atelier marque</button><button class="btn sec" data-edut="scm">Supply chain</button><button class="btn sec" data-edut="deb">Bilan d'apprentissage</button><button class="btn sec" data-edut="pat">Brevets</button><button class="btn sec" data-edut="spec">Généraliste ou spécialiste ?</button><button class="btn sec" data-edut="exp">Pourquoi exporter ?</button></div>
     <div id="eduBody"></div>
     </section>
     <section data-sec="rivals" hidden>
@@ -1483,6 +1487,7 @@ const TYPES = {
   res:     { name: 'Logements',     sub: 'Résidentiel',     cost: 500,   color: '#7f96ff', jobs: 0,  upkeep: 1 },
   tech:    { name: 'Tour Tech',     sub: 'Tech Composite',  cost: 3500,  color: '#3fd8ff', jobs: 14, upkeep: 5,  tier: 1 },
   wh:      { name: 'Entrepôt',     sub: 'Stockage, import, export', cost: 6000, color: '#9a9aa5', jobs: 6, upkeep: 3 },
+  ewh:     { name: 'Entrepôt logistique en ligne', sub: 'Vente mondiale en ligne · export', cost: 4500000, color: '#ff9f43', jobs: 35, upkeep: 1000, w: 2, h: 2, tier: 2 },   // passe 46 : commerce en ligne (stock propre, expédition par le port)
   plant:   { name: 'Centrale électrique', sub: 'Charbon → électricité', cost: 400000, color: '#ffd43b', jobs: 30, upkeep: 300, w: 2, h: 1 },
   solar:   { name: 'Centrale solaire', sub: 'R&D · intermittente · champ de 20 cases', cost: 4050000, color: '#ffe066', jobs: 24, upkeep: 600, w: 5, h: 4, ow: 5, tech: 'solar' },   // champ de panneaux : 20 cases, production ×5, coût ×4,5 (l'échelle, pas une remise cachée)
   wind:    { name: 'Éolienne', sub: 'R&D · selon le vent', cost: 350000, color: '#b8f0ff', jobs: 4, upkeep: 60, tech: 'wind' },
@@ -2780,7 +2785,7 @@ const ICONS = {
   zone: '<rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><path d="M13 16.5h7M16.5 13v7"/>',
   bull: '<path d="M5 7h14M10 7V4.5h4V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6M14 11v6"/>'
 };
-const ICON_OF = { tv: 'bank', off: 'tech', sport: 'res', s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
+const ICON_OF = { ewh: 'wh', ecom: 'tech', tv: 'bank', off: 'tech', sport: 'res', s4: 's3', solar: 'tech', wind: 'f2', nuclear: 'f2', pylon: 'road', cable: 'road', rd: 'tech', dc: 'bank', pipeline: 'road', plant: 'f1', buyout: 'bull', qsand: 'qgravel', qlime: 'qgravel', miron: 'mine', mcoal: 'mine', mcopper: 'mine', mgold: 'mine' };
 Object.assign(ICONS, {   // passe 46 : magasins spécialisés
   sauto: '<path d="M3 15l2-5h14l2 5v4H3z"/><path d="M6 10l2-3h8l2 3"/><circle cx="7.5" cy="18" r="1.6"/><circle cx="16.5" cy="18" r="1.6"/>',
   stech: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>',
@@ -2798,6 +2803,7 @@ const TOOL_META = {
   keep: { name: 'Racheter pour louer', sub: 'prix de marché', color: '#ffb347' },
   terra: { name: 'Terrassement', sub: 'remblai, polder, aplanir', color: '#46d3d3' },
   zone: { name: 'Zonage', sub: 'R, C, bureaux, industrie', color: '#8fd36a' },
+  ecom: { name: 'Ma plateforme en ligne', sub: 'startup, KPI, leviers', color: '#ff9f43' },
   up:   { name: 'Améliorer', sub: 'Niveau +1', color: '#f2b84b' },
   bull: { name: 'Démolir', sub: 'Gratuit', color: '#ff5a5f' }
 };
@@ -2807,7 +2813,7 @@ const CATS = [
   { id: 'extr',  name: 'Extraction', tools: ['well', 'gwell', 'mcoal', 'miron', 'mcopper', 'mgold', 'mnicr', 'mbauxite', 'mzinc', 'mlithium', 'mgraphite', 'qsilica', 'qclay', 'qsalt', 'mphos', 'mpotash', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qsand', 'qlime', 'crush', 'btp', 'buyout', 'keep', 'terra', 'zone', 'road'] },
   { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'f4', 'plant', 'solar', 'wind', 'nuclear', 'pylon', 'cable', 'wh', 'port', 'pipeline'] },
-  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 's4', 'sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico', 'immo'] }
+  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 's4', 'sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico', 'immo', 'ewh', 'ecom'] }
 ];
 // Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
 const FAMS = {
@@ -2816,7 +2822,7 @@ const FAMS = {
   extr: [['Énergie', ['well', 'gwell', 'mcoal', 'pipeline']], ['Métaux', ['miron', 'mcopper', 'mgold', 'mnicr', 'mbauxite', 'mzinc', 'mlithium', 'mgraphite']], ['Minéraux industriels', ['qsilica', 'qclay']], ['Chimie de base', ['qsalt', 'mphos', 'mpotash']], ['Bois', ['logging']], ['Accès', ['road', 'link']]],
   btp: [['Carrières', ['qgravel', 'qsand', 'qlime']], ['Recyclage', ['crush']], ['Chantiers', ['btp']], ['Acquisition', ['buyout', 'keep']], ['Urbanisme', ['zone', 'terra', 'road']]],
   indus: [['Usines', ['f1', 'f2', 'f3', 'f4']], ['Fonderie', ['foundry']], ['Centrales', ['plant', 'wind', 'solar', 'nuclear']], ['Réseau', ['pylon', 'cable', 'pipeline']], ['Logistique', ['wh', 'port']]],
-  com: [['Magasins', ['s1', 's2', 's3', 's4']], ['Magasins spécialisés', ['sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico']], ['Immobilier', ['immo']]]
+  com: [['Magasins', ['s1', 's2', 's3', 's4']], ['Magasins spécialisés', ['sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico']], ['Immobilier', ['immo']], ['En ligne', ['ewh', 'ecom']]]
 };
 let famOpen = -1;
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
@@ -3463,7 +3469,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, ecom: S.ecom ? ecSave() : undefined, g, dep }));
     localStorage.setItem(SAVE_KEY + '_gal', JSON.stringify(S.gal || {}));
   } catch (e) { /* stockage indisponible */ }
 }
@@ -3519,7 +3525,7 @@ function load() {
     S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP * (cv2 ? S0.bassin : 1) / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.firms = Array.isArray(d.firms) ? d.firms.filter(f => f && f.id > 0 && typeof f.name === 'string') : []; S0.grp = (d.grp && typeof d.grp === 'object') ? d.grp : null;   // passe 32 : filiales (absentes des anciennes sauvegardes)
-    S0.net = netSan(d.net); S0.edu = eduSan(d.edu);   // passe 43 : apprentissage (champ facultatif)
+    S0.net = netSan(d.net); S0.edu = eduSan(d.edu); S0.ecom = ecSan(d.ecom);   // passe 43 : apprentissage (champ facultatif)
       // passe 42 : Réseau Wall Street (absent des anciennes sauvegardes)
     S0.cprod = cprod; S0.prod = initProd(); S0.mat = d.mat ? 1 : 0; S0.matPop = +d.matPop || 0; S0.trials = Array.isArray(d.trials) ? d.trials : []; S0.tid = +d.tid || 0; if (Array.isArray(d.mkv)) { S0.mkBuy = +d.mkv[0] || 0; S0.mkRoy = +d.mkv[1] || 0; S0.mkTrialCost = +d.mkv[2] || 0; }
     if (d.prod) PKEYS.forEach(pk => { if (d.prod[pk]) Object.assign(S0.prod[pk], d.prod[pk]); });
@@ -5059,9 +5065,9 @@ function firmDay(o) {
   const rows = L.map(f => {
     const bs = FGD.bf[f.id] || [], r = { f, id: f.id, n: bs.length, ext: 0, wages: 0, upk: 0, tra: 0, ad: 0, imp: 0, dep: 0 };
     bs.forEach(c => { const T = TYPES[c.t];
-      r.ext += (T.ret || c.t === 'wh') ? (c._rev || 0) * o.mult : (T.ext || FLEVEL[c.t] || c.t === 'foundry' || c.t === 'port') ? 0 : (c.pRev || 0);
+      r.ext += c.t === 'ewh' ? (c._rev || 0) : (T.ret || c.t === 'wh') ? (c._rev || 0) * o.mult : (T.ext || FLEVEL[c.t] || c.t === 'foundry' || c.t === 'port') ? 0 : (c.pRev || 0);
       r.wages += c.wages || 0; r.upk += upkOf(c); r.tra += c.transport || 0; r.ad += c.t === 'wh' ? 0 : (c.adCost || 0);
-      r.imp += (T.ret ? (c._inImpR || 0) : T.ext ? (c._xcost || 0) : (c.t === 'wh' || c.t === 'tv') ? (c.inCost || 0) : (FLEVEL[c.t] || c.t === 'foundry') ? (c._impCost || 0) : 0) + (c._pdy || 0);
+      r.imp += (T.ret ? (c._inImpR || 0) : T.ext ? (c._xcost || 0) : (c.t === 'wh' || c.t === 'tv') ? (c.inCost || 0) : c.t === 'ewh' ? (c._buy || 0) : (FLEVEL[c.t] || c.t === 'foundry') ? (c._impCost || 0) : 0) + (c._pdy || 0);
       r.dep += investOf(c) / DEP_DAYS; });
     r.ext += (FGD.x[f.id] || 0) * o.mult; r.int = FGD.ir[f.id] || 0; r.icost = FGD.ic[f.id] || 0; r.interest = (f.debt || 0) * o.loanRate / 360;
     r.ecost = r.wages + r.upk + r.tra + r.ad + r.imp; r.ebitda = r.ext + r.int - r.icost - r.ecost; r.pre = r.ebitda - r.interest; return r; });
@@ -5624,6 +5630,7 @@ function step() {
       S.stock[g] -= q; if (g === 'basic' || g === 'std' || g === 'lux') want[g] += q; S.xsum = S.xsum || {}; S.xsum[g] = (S.xsum[g] || 0) + q * S.price[g]; { const xv = xmF(g) * q * S.price[g] / mpM(g) * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)) / (1 + EXP_CONG * q / foreign); revExp += xv; fSellExt(g, q, xv, 1); S._xv[g] = xv; } S._xs[g] = q; S.expSold = S.expSold || {}; S.expSold[g] = q; });
     fTrimAll();
     S._portUse = used; S._portCap = tp; }
+  { const er = ecomStep(portN, mult); revExp += er.rev / Math.max(0.01, mult); importCost += er.buy; }   // passe 46 : ventes en ligne (exports par le port), après les magasins de la ville et avant l'export du surplus
   PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - prodRoom(pk)); if (ex > 0) { const exF = FGD ? Math.min(ex, Math.max(0, ps.stock - ledRes(pk))) : ex, xv = exF * prodPrice(pk) / mpProd(pk).m * (expRate - 0.1); fSellExt(pk, exF, xv); if (FGD && ex > exF) fLose(pk, ex - exF); ps.stock -= ex; ps.exp = exF; revExp += xv; S._xv[pk] = xv; } else ps.exp = 0; });   // passe 21 : le surplus au-delà de ~15 jours de ventes part à l'export (cours - 10 pts) au lieu de dormir jusqu'à 10 000 unités
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
@@ -5649,13 +5656,14 @@ function step() {
     if (c.t === 'tv') { if (!S._mediaDay || S._mediaDay !== S.day) { S._mediaDay = S.day; stepMedia(buildings.filter(b => b.t === 'tv' && b.conn)); } revTech += c.pRev || 0; importCost += c._mbc || 0; }
     if (c.t === 'tech') { c.pRev = jobsOf(c) * 1650 * (0.3 + 0.7 * fill) * qualMult(c) * mult * cpi() * SAT.tech.m; revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = (TYPES.bank.jobs * levelMult(c) * crewEff(c) * 1500 + Math.min(Math.max(0, S.cash - (S.loan || 0)), TYPES.bank.jobs * levelMult(c) * crewEff(c) * 4e6) * 0.0001) * qualMult(c) * cpi() * SAT.bank.m; revBank += c.pRev; }   // intérêts sur un encours de prêts plafonné par la taille de la banque (≈ 4 M$ de crédits par employé), pas sur toute la trésorerie
-    if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && !T.ext && !T.rec && !T.ret) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
+    if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && c.t !== 'ewh' && !T.ext && !T.rec && !T.ret) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
     if (T.jobs) { if (FLEVEL[c.t]) { const a0 = actOf(c); c._actE = a0 + (clamp(c.util || 0, 0, 1) - a0) * 0.05; } c.wages = jobsOf(c) * crewWage(c) * sectWage(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); c._wb = c.wages; c.wages *= znWm(c); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
-    if (c.t === 'wh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
+    if (c.t === 'wh' || c.t === 'ewh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
     c.transport = (c.out + (c._co || 0)) * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
     c.adCost = adSpend(c); adTotal += c.adCost;
     transportTotal += c.transport;
   });
+  if (S._ecDay) { transportTotal += S._ecDay.ovh || 0; adTotal += S._ecDay.adv || 0; }   // passe 46 : flotte, hébergement et publicité en ligne
   const revRetail = revRetVal * mult, revExport = revExp * mult;
   let advCost = adTotal; PKEYS.forEach(pk => { const ps = S.prod[pk]; ps.adCost = ps.st === 'on' ? padSpend(ps) + eduCampDay(pk) : 0; advCost += ps.adCost; });
   S.loan = S.loan || 0;
@@ -5673,7 +5681,7 @@ function step() {
   if (preTax > 1) S.taxEff = S.taxEff == null ? rate : S.taxEff * 0.92 + rate * 0.08;   // taux perçu les jours bénéficiaires (lissé) : sans bénéfice, pas de recettes, donc pas de nouveaux services
   const net = preTax - corpTax;
   S.cash += net;
-  const div = (S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0; S.cash -= div; S._cashEnd = S.cash;
+  const div = ((S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0) + ((S._ecDay && S._ecDay.mi) || 0); S.cash -= div;   // + part des investisseurs de la startup en ligne (passe 46) S._cashEnd = S.cash;
   { const caD = revRetail + revExport + revTech + revBank, ebeD = caD - wagesTotal - upkeepI - transportTotal - advCost - importCost; S.m30 = S.m30 || []; S.m30.push([caD, ebeD, net, revRetail, revExport, revTech, revBank, wagesTotal, upkeepI, transportTotal, advCost, interest, importCost, div, corpTax]); if (S.m30.length > 30) S.m30.shift(); }
   S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep: upkeepI, transport: transportTotal, adv: advCost, interest, imports: importCost, div, tax: corpTax, net };
   if (FD) firmBook(FD, S.fin, preTax);
@@ -5690,12 +5698,12 @@ function step() {
     else if (T.rec) c.pRev = c.out * outPrice(c) * qualMult(c) * (1 + 0.5 * (deptMult(c).sell - 1));
     else if (T.ret) c.pRev = (c._rev || 0) * mult;
     else if (c.t === 'port') c.pRev = revExport / Math.max(1, portN);
-    else if (c.t === 'wh') c.pRev = c._rev || 0;
+    else if (c.t === 'wh' || c.t === 'ewh') c.pRev = c._rev || 0;
     if (FGD) { if (c._ga) c.pRev += c._ga; if (c._gd) c.inCost = Math.max(0, (c.inCost || 0) + c._gd); }   // passe 32 : écart entre prix de cession et prix de marché (marge déplacée vers la société vendeuse)
     const up = upkOf(c); c.zs = znOf(c) ? (upkOf0(c) - up) + ((c._wb || 0) - (c.wages || 0)) : 0;   // part prise en charge par la ville (aide de zone)
     // Séparation : production valorisée interne (mines, usines : non encaissée) / chiffre d'affaires encaissé ; intrants importés (décaissés) / prélevés sur stock local (transfert interne)
     c.pInt = (T.ext || T.rec || T.recy) ? c.pRev : 0;
-    { const ip = T.ret ? (c._inImpR || 0) : T.ext ? (c._xcost || 0) : c.t === 'wh' || c.t === 'tv' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
+    { const ip = T.ret ? (c._inImpR || 0) : T.ext ? (c._xcost || 0) : c.t === 'ewh' ? (c._buy || 0) : c.t === 'wh' || c.t === 'tv' ? (c.inCost || 0) : (T.rec ? (c._impCost || 0) : 0); c.inImp = Math.min(c.inCost || 0, ip); c.inLoc = (c.inCost || 0) - c.inImp; }
     REC.pInt += c.pInt; REC.pCash += c.pRev - c.pInt; REC.inImp += c.inImp; REC.inLoc += c.inLoc; REC.wag += c.wages; REC.upk += up; REC.tra += c.transport; REC.ad += c.adCost || 0;
     c.cost = c.inCost + c.wages + up + c.transport + (c.adCost || 0);
     c.profit = c.pRev - c.cost;
@@ -5844,7 +5852,7 @@ function toolLocked(k) {
   return !!(T && ((T.tier && tierNow() < T.tier) || modeLocked(k) || specLocked(k)));   // passe 46 : un magasin spécialisé suppose de connaître sa famille de produits
 }
 const ZONE_NEED = { tv: 1, off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 1, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
-SPEC_KEYS.forEach(k => { ZONE_NEED[k] = 1; }); ZONE_NEED.crush = 2; ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
+SPEC_KEYS.forEach(k => { ZONE_NEED[k] = 1; }); ZONE_NEED.crush = 2; ZONE_NEED.ewh = 2; ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
 const zoneOk = (key, z) => (key === 'pylon' || key === 'cable') ? (z === 0 || z === 2 || z === 4) : key === 'crush' ? (z === 0 || z === 2) : z === ZONE_NEED[key] || (ZONE_NEED[key] === 2 && z === 0);   // passe 48 : l'industrie peut aussi s'installer en campagne (terrain bon marché, sans subvention, transport plus long), jamais en ville
 const indRural = (key, x, y) => ZONE_NEED[key] === 2 && ZONE[idx(x, y)] === 0;   // placements automatiques : la zone industrielle du port d'abord
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Pas d\'usine en ville : construis-la en zone industrielle du port (subventionnée) ou en campagne (terrain moins cher, transport plus long).', 4: 'Les terminaux portuaires se construisent sur le quai.' };
@@ -6388,8 +6396,8 @@ function updateHUD() {
     const vf = clamp((window._vcF == null ? 0.1 : window._vcF), 0, 0.49), vn = vcNext(vf), me = (1 - vcSold()) * (1 - (S.float || 0)), vcCard = `<div class="fcard" style="margin:8px 0"><h4>Equity raising · ${vn.name}</h4><p class="note" style="margin:0 0 6px">Prépare ton <b>pitch deck</b> et choisis la part de la société que tu cèdes à tes <b>investisseurs</b> (jusqu'à ${Math.round(VC_MAXSOLD * 100)} % : tu gardes le contrôle). Le marché fixe la valorisation : <b>bull run</b> = FOMO chez les VC, <b>bear market</b> = down round. Plus tu cèdes d'un coup, plus la <b>dilution</b> te coûte cher.</p><div class="taxrow"><span>Equity cédée</span><input type="range" id="vcpct" min="1" max="${Math.max(1, Math.floor(vn.maxF * 100))}" step="1" value="${Math.round(Math.min(vf, vn.maxF) * 100)}" aria-label="Part du capital cédée" ${vn.maxF >= 0.01 ? '' : 'disabled'}><b>${Math.round(vn.f * 100)} %</b></div><div class="finrow"><span>Pre-money valuation</span><b>${money(vn.raw)}</b></div><div class="finrow"><span>Multiple de valorisation (term sheet)</span><b class="gold">×${vn.m.toFixed(2)}</b></div><div class="finrow"><span>Post-money valuation</span><b>${money(vn.raw + vn.amt)}</b></div><div class="finrow"><span>Cash levé (Series money)</span><b class="gold">${money(vn.amt)}</b></div><div class="finrow"><span>Cap table après le tour</span><b>toi ${Math.round(me * (1 - vn.f) * 100)} % · investisseurs ${Math.round((1 - me * (1 - vn.f)) * 100)} %</b></div>${vn.gap ? `<p class="note">Prochain tour possible dans ${vn.gap} j (le temps de refaire un <b>roadshow</b>).</p>` : ''}<h4 style="margin:8px 0 4px">Ce qui fait monter ta valorisation</h4>${vn.vm.parts.map(q => `<div class="finrow"><span>${q[0]}</span><b class="${q[1] >= 0 ? 'pos' : 'neg'}">${q[1] >= 0 ? '+' : '−'}${Math.abs(q[1]).toFixed(2)}</b></div>`).join('')}<button class="btn" id="vcgo" ${vn.ok ? '' : 'disabled'} style="margin-top:8px">Pitcher les investisseurs · lever ${money(vn.amt)}</button>${vcSold() ? `<p class="note">Cap table : investisseurs privés ${Math.round(vcSold() * 100)} %.</p>` : ''}<p class="note">Un CFO et un directeur des relations investisseurs (dans ton siège social) rendent le pitch plus convaincant : meilleur multiple et plus de chances d'un tour <b>oversubscribed</b>.</p></div>`;
     const invCard = (S.inv || []).length ? `<div class="fcard" style="margin:8px 0"><h4>Invitations à investir</h4>${S.inv.map((q, i) => { const r = (S.rivals || []).find(x => x.id === q.id), c = q.qty * q.px; return r ? `<div class="rv"><span><b>${r.name}</b><small>${fmt(q.qty)} actions à ${fx2(q.px)} $ (cours ${fx2(rivalPx(r))} $) · reste ${Math.max(0, q.until - S.day)} j</small></span><button class="btn sec" data-inv="${i}" ${S.cash >= c ? '' : 'disabled'}>Souscrire · ${money(c)}</button></div>` : ''; }).join('')}</div>` : '';
     renderDebt();
-    if (!listed) bh = invCard + vcCard + `<p class="note">Introduis ta société en bourse pour lever des capitaux : tu cèdes 30 % du capital. Il faut un siège social et ${money(IPO_MIN)} de capitalisation.</p><button class="btn" id="ipo" ${raw >= IPO_MIN && hq ? '' : 'disabled'}>Introduction en bourse · 30 %${raw >= IPO_MIN && hq ? '' : ' (' + (hq ? '' : 'siège social + ') + money(IPO_MIN) + ' requis)'}</button>${dir}`;
-    else bh = invCard + vcCard + `<div class="finrow"><span>Cours de l'action</span><b class="${(S.sp || []).length > 1 && S.sp[S.sp.length - 1] >= S.sp[S.sp.length - 2] ? 'pos' : 'neg'}">${fx2(price)} $</b></div><div class="finrow"><span>Capitalisation boursière</span><b>${money(raw * (S.prem || 1.1))}</b></div><div class="finrow"><span>Flottant (actionnaires extérieurs)</span><b>${Math.round(S.float * 100)} %</b></div><div class="finrow"><span>Prime de marché</span><b>${Math.round((S.prem - 1) * 100)} %</b></div><canvas id="spk" width="320" height="50" style="width:100%;height:46px"></canvas>${dir}
+    if (!listed) bh = invCard + ecFundCard() + vcCard + `<p class="note">Introduis ta société en bourse pour lever des capitaux : tu cèdes 30 % du capital. Il faut un siège social et ${money(IPO_MIN)} de capitalisation.</p><button class="btn" id="ipo" ${raw >= IPO_MIN && hq ? '' : 'disabled'}>Introduction en bourse · 30 %${raw >= IPO_MIN && hq ? '' : ' (' + (hq ? '' : 'siège social + ') + money(IPO_MIN) + ' requis)'}</button>${dir}`;
+    else bh = invCard + ecFundCard() + vcCard + `<div class="finrow"><span>Cours de l'action</span><b class="${(S.sp || []).length > 1 && S.sp[S.sp.length - 1] >= S.sp[S.sp.length - 2] ? 'pos' : 'neg'}">${fx2(price)} $</b></div><div class="finrow"><span>Capitalisation boursière</span><b>${money(raw * (S.prem || 1.1))}</b></div><div class="finrow"><span>Flottant (actionnaires extérieurs)</span><b>${Math.round(S.float * 100)} %</b></div><div class="finrow"><span>Prime de marché</span><b>${Math.round((S.prem - 1) * 100)} %</b></div><canvas id="spk" width="320" height="50" style="width:100%;height:46px"></canvas>${dir}
       <div class="taxrow"><span>Dividendes</span><input type="range" id="payout" min="0" max="60" step="5" value="${Math.round((S.payout || 0) * 100)}" aria-label="Part des bénéfices distribuée" ${cfo ? '' : 'disabled'}><b>${cfo ? Math.round((S.payout || 0) * 100) + ' %' : 'CFO requis'}</b></div>
       <p class="note">Les dividendes soutiennent le cours mais sortent de ta trésorerie, à hauteur du flottant. Réglage réservé au directeur financier.</p>
       <button class="btn sec" id="buyback" ${(cfo || S.float >= 0.5) && S.float >= 0.05 && S.cash >= 0.05 * raw * S.prem ? '' : 'disabled'}>Racheter 5 % du capital · ${money(0.05 * raw * (S.prem || 1.1))}${cfo || S.float >= 0.5 ? '' : ' (CFO requis)'}</button>
@@ -6431,6 +6439,7 @@ function updateHUD() {
   try { if (!el('panel').hidden) renderOps(); if (pfSel) renderFiche(); if (mallOn) mallRender(); } catch (e) { /* panneau facultatif */ }
   try { netBadge(); renderNet(); } catch (e) { /* réseau facultatif */ }
   try { renderEdu(); } catch (e) { /* apprentissage facultatif */ }
+  try { renderEcom(); } catch (e) { /* commerce en ligne facultatif */ }
 }
 el('rvban').addEventListener('click', e => { const b = e.target.closest('[data-rv]'); if (b) { rvAnswer(b.dataset.rv === 'yes'); save(); } });
 el('rivals').addEventListener('click', e => { const q = e.target.closest('[data-rv]'); if (q && !q.disabled) { if (q.dataset.rv === 'sale') rvBuySale(); else rvAnswer(q.dataset.rv === 'yes'); save(); return; } const b = e.target.closest('[data-buy]'); if (!b || b.disabled) return; const r = (S.rivals || []).find(x => x.id === b.dataset.buy); if (!r) return; const v = rivalValue(r); if (S.cash < v) return; S.cash -= v; S.rivals = S.rivals.filter(x => x !== r); say(`Rachat de ${r.name} pour ${money(v)} : sa clientèle est à prendre.`, 'gold'); updateHUD(); save(); });
@@ -6831,7 +6840,7 @@ function recoHTML() {
   const preTax = rv - costAll - F.interest, cashB = R.profit - R.pInt + R.inLoc;
   const r = (n, v, cls, tip) => `<tr class="${cls || ''}"${tip ? ` title="${tip}"` : ''}><td>${n}</td><td class="${v >= 0 ? '' : 'neg'}">${sg(v)}</td></tr>`;
   return `<h3>RÉCONCILIATION BÂTIMENTS / RÉSULTAT NET (par mois)</h3><div class="tcard"><table class="fint"><tr><th>Chiffre d'affaires encaissé</th><th>$ / mois</th></tr>
-    ${r('Ventes au détail', F.revRetail)}${r('Exports (port, entrepôts, surplus)', F.revExport)}${r('Services : tech, énergie, banques, filiales', F.revTech + F.revBank)}${r('Total encaissé', rv, 'tot')}</table>
+    ${r('Ventes au détail', F.revRetail)}${r('Exports (port, entrepôts, surplus, en ligne)', F.revExport)}${r('Services : tech, énergie, banques, filiales', F.revTech + F.revBank)}${r('Total encaissé', rv, 'tot')}</table>
     <table class="fint" style="margin-top:8px"><tr><th>Du résultat des bâtiments au résultat net</th><th>$ / mois</th></tr>
     ${r('Σ résultats des bâtiments (EBE, avant amortissement et impôt)', R.profit, '', 'Somme des profits affichés sur chaque fiche bâtiment')}
     ${r('− Production valorisée interne des mines et usines (non encaissée)', -R.pInt)}
@@ -9026,7 +9035,7 @@ function proRoadErr(x, y) {
   if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(d => isRoad(x + d[0], y + d[1]))) return 'Une voie nouvelle doit se raccorder à une rue existante.';
   return '';
 }
-const SVC_KIND = t => isPlant(t) ? 'power' : ({ tv: 'tv', off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
+const SVC_KIND = t => isPlant(t) ? 'power' : ({ ewh: 'ewh', tv: 'tv', off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'tech', port: 'port', btp: 'btp' })[t] || null;
 const svcOf = c => { const T = TYPES[c.t]; return (T.ext || T.rec || T.ret) ? null : SVC_KIND(c.t); };
 const hasBld = t => { let n = 0; eachBuilding(b => { if (b.t === t && b.conn) n++; }); return n; };
 function svcInfo(c) {
@@ -9051,6 +9060,13 @@ function svcInfo(c) {
     R.util = clamp(ratio, 0, 1); R.utilLbl = 'taux de remplissage';
     R.kpi = [['Stock', fmt(used) + ' / ' + fmt(cap)], ['Remplissage', pct(R.util)], ['Frais de stockage / mois', mj(c._fee || 0), 'neg'], ['Ventes export / mois', mj(c._rev || 0), 'pos']];
     R.bn = ratio > 0.95 ? ok('Entrepôt plein', 'Les surplus ne peuvent plus être mis de côté : agrandis-le ou exporte au-dessus d\'un seuil (onglet Stock).', 'warn') : ok(`Entrepôt rempli à ${pct(R.util)}`, 'Il met de côté tes surplus et les restitue ; importe ou exporte selon le réglage de l\'onglet Stock.');
+  } else if (k === 'ewh') {   // passe 46 : entrepôt logistique en ligne
+    const E = ecS(), inv = c.inv || {}, cap = ecShipCap(c), used = ecUsed(c), top = Object.keys(inv).filter(g => inv[g] > 0.5).sort((a, b) => inv[b] - inv[a]).slice(0, 3);
+    R.inH = top.length ? top.map(g => nb(gName(g), fmt(inv[g]) + ' en stock')).join('') : nb('Stock en ligne', E ? 'vide : il se remplit du surplus de tes produits (après tes magasins) et des grossistes' : 'lance ta startup (Menu > En ligne)');
+    R.outH = nb('Expéditions vers le monde', `${fmt(c._ship || 0)} / ${fmt(cap)} u/j par le port`) + nb('Ventes en ligne (exports)', `${mj(c._rev || 0)} /mois`);
+    R.util = clamp(c._ecU || 0, 0, 1); R.utilLbl = 'capacité d\'expédition';
+    R.kpi = [['Expédié / jour', fmt(c._ship || 0) + ' u'], ['Stock', fmt(used) + ' / ' + fmt(ecStoreCap(c))], ['Ventes en ligne / mois', mj(c._rev || 0), 'pos'], ['Logistique et fret / mois', mj(c._fee || 0), 'neg']];
+    R.bn = !E ? ok('Startup non lancée', 'Menu > En ligne : lance ta plateforme de vente mondiale pour que cet entrepôt expédie.', 'warn') : ok(`Entrepôt en ligne : ${pct(R.util)} de sa capacité d'expédition`, 'Ses ventes sont des exports : elles n\'enlèvent rien aux magasins de la ville. Leviers : Menu > En ligne.');
   } else if (k === 'rd') {
     const rate = u * 0.4 / 30, days = rate > 0 ? Math.max(1, Math.ceil((1 - (c._pat || 0)) / rate)) : null, roy = (S.patRev || 0) * cpi();
     R.inH = nb('Chercheurs', `${fmt(jobs * fill)} / ${fmt(jobs)} postes pourvus`) + nb('Vitesse de recherche', `+${Math.round(25 * (S.rdPower || 0))} % (tous centres)`);
@@ -12871,6 +12887,7 @@ function buildTools() {
 }
 document.addEventListener('click', e => { if (famOpen >= 0 && !e.target.closest('#bar')) { famOpen = -1; buildTools(); } });
 function setTool(k) {
+  if (k === 'ecom') { ecShow(); return; }   // passe 46 : page « Ma plateforme en ligne »
   if (TYPES[k] && toolLocked(k)) { const T = TYPES[k]; say(`${T.name} se débloque ${modeLocked(k) ? 'au scénario ' + unlockScn(k) : (T.tier && tierNow() < T.tier) || !specLocked(k) ? 'au palier ' + TIERS[T.tier].n : 'quand tu sais vendre sa famille : ' + specNeedTxt(k)}.`, 'warn'); return; }
   tool = k; famOpen = -1; renderZnBan();
   const owner = CATS.find(c => c.tools.indexOf(k) >= 0);
@@ -12979,7 +12996,7 @@ function setPtab(n) {
   document.querySelectorAll('#panel [data-ptab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ptab === n ? 'true' : 'false'));
   document.querySelectorAll('#panel [data-sec]').forEach(s => { s.hidden = s.dataset.sec !== n; });
   try { sessionStorage.setItem('wse-ptab', n); } catch (e) {}
-  updateHUD(); if (n === 'net') try { renderNet(true); } catch (e) { /* réseau facultatif */ } if (n === 'edu') try { renderEdu(true); } catch (e) { /* apprentissage facultatif */ } if (n === 'rdp') try { renderRdp(true); } catch (e) { /* brevets facultatifs */ }
+  updateHUD(); if (n === 'net') try { renderNet(true); } catch (e) { /* réseau facultatif */ } if (n === 'edu') try { renderEdu(true); } catch (e) { /* apprentissage facultatif */ } if (n === 'rdp') try { renderRdp(true); } catch (e) { /* brevets facultatifs */ } if (n === 'ecom') try { renderEcom(true); } catch (e) { /* commerce en ligne facultatif */ }
 }
 document.querySelectorAll('#panel [data-ptab]').forEach(b => { b.onclick = () => setPtab(b.dataset.ptab); });
 el('mProd').onclick = () => { setPview(true); };
@@ -14724,7 +14741,7 @@ const subCount = () => (S.rivals || []).filter(r => r.sub).length + (S.subs || [
 const stakeOf = id => { const h = (S.port || {})[id]; return h ? h.n / RSH : 0; };
 // Verrous de scénario : les bâtiments absents de la liste sont verrouillés (déblocage progressif)
 const L1 = ['road', 'res', 's1', 's2', 's3', 'sport'];
-const L2 = L1.concat(['off', 'tv', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'qgravel', 'qsand', 'qlime', 'gwell', 'qsilica', 'qclay', 'qsalt', 'mbauxite', 'mzinc', 'mphos', 'mpotash', 'fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcorn', 'frapeseed', 'fcattle', 'fchicken', 'fpig', 'fsheep', 'f1', 'f2', 'f3', 'foundry', 'btp', 'immo', 'pipeline', 'pylon', 'plant', 'wh', 'port']);   // le port s'ouvre dès le scénario 2 : sans exportation, les mines n'ont pas de débouché
+const L2 = L1.concat(['off', 'tv', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'logging', 'qgravel', 'qsand', 'qlime', 'gwell', 'qsilica', 'qclay', 'qsalt', 'mbauxite', 'mzinc', 'mphos', 'mpotash', 'fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcorn', 'frapeseed', 'fcattle', 'fchicken', 'fpig', 'fsheep', 'f1', 'f2', 'f3', 'foundry', 'btp', 'immo', 'pipeline', 'pylon', 'plant', 'wh', 'ewh', 'port']);   // le port s'ouvre dès le scénario 2 : sans exportation, les mines n'ont pas de débouché
 const L3 = L2.concat(['sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico', 'solar', 'wind', 'cable', 'nuclear', 'dc', 'tech', 'rd', 'f4', 's4', 'mnicr', 'mlithium', 'mgraphite']);
 const L4 = L3.concat(['bank', 'hq']);
 const SCN_LOCK = { s1: L1, s2: L2, s3: L3, s4: L4, s5: null };
@@ -14806,7 +14823,7 @@ function debtCapEbe() { return Math.max(0.2 * Math.max(0, (S.stats && S.stats.wo
 // Marchés d'export stables : 2 par joueur (tes 2 meilleurs débouchés) ; les autres se vendent au cours spot
 const XM_MAX = 2, XM_SPOT = 0.88;
 function xmF(g) { const xm = S.xm || []; return (!xm.length || xm.indexOf(g) >= 0) ? 1 : XM_SPOT; }
-function xmUpdate() { const s = S.xsum || {}; S.xm = Object.keys(s).sort((a, b) => s[b] - s[a]).slice(0, XM_MAX); Object.keys(s).forEach(k => { s[k] *= 0.5; }); }
+function xmUpdate() { const s = S.xsum || {}; S.xm = Object.keys(s).filter(k => k.indexOf('e:') !== 0).sort((a, b) => s[b] - s[a]).slice(0, XM_MAX); Object.keys(s).forEach(k => { s[k] *= 0.5; }); }
 // Difficulté adaptative : la courbe attendue mène à 1 Md$ en ROUND_DAYS (un joueur qui la suit n'a aucun malus)
 // Forme de la courbe attendue (part du logarithme du chemin parcouru), mesurée sur un bon joueur : départ rapide (levier), plateau des commerces, envol des tours
 const CURVE = [0, 0.19, 0.32, 0.42, 0.48, 0.53, 0.63, 0.72, 0.82, 0.92, 1];
@@ -15970,7 +15987,7 @@ function renderEdu(force) {
   const ae = document.activeElement; if (!force && ae && ae.id === 'eduPk') return;
   const det = box.querySelector('details.eddet'), wasOpen = det && det.open;
   box.dataset.h = sig;
-  box.innerHTML = tab === 'spec' ? eduSpecHTML() : tab === 'pat' ? patEduHTML() : tab === 'deb' ? eduDebHTML() : !pk ? '<p class="note">Aucun produit lancé. Lance un produit (Menu > Guide ou catalogue d\'une usine) pour ouvrir l\'atelier marque et le tableau supply chain.</p>' : tab === 'scm' ? eduScHTML(pk) : eduBrandHTML(pk) + mpEduHTML(pk);
+  box.innerHTML = tab === 'spec' ? eduSpecHTML() : tab === 'pat' ? patEduHTML() : tab === 'deb' ? eduDebHTML() : tab === 'exp' ? ecEduHTML() : !pk ? '<p class="note">Aucun produit lancé. Lance un produit (Menu > Guide ou catalogue d\'une usine) pour ouvrir l\'atelier marque et le tableau supply chain.</p>' : tab === 'scm' ? eduScHTML(pk) : eduBrandHTML(pk) + mpEduHTML(pk);
   if (wasOpen) { const d2 = box.querySelector('details.eddet'); if (d2) d2.open = true; }
 }
 function eduCopy() {
@@ -16311,6 +16328,227 @@ function patEduHTML() {
   <p class="note edform">Valeur d'un brevet = (redevances + rente de monopole ≈ ${Math.round(PAT_MONO * 100)} % du chiffre d'affaires) × ${YEAR_D} jours × facteur d'annuité sur les années restantes au taux de ${Math.round(PAT_DISC * 100)} %. Détail dans Bureau > R&D et brevets.</p>
   <div class="edacts"><button class="btn sec" data-edu="rdp">Ouvrir R&D et brevets</button></div>`;
 }
+/* ---------- Passe 46 : commerce en ligne (plateforme de vente mondiale ; ventes en ligne = exports par le port) ---------- */
+// Un « Entrepôt logistique en ligne » (zone du port, 2×2) détient SON stock (c.inv, par produit) et une capacité d'expédition par jour ; les data centers (dc) portent le site
+// (qualité, capacité de trafic). La demande mondiale (clients de la startup) est un réservoir distinct de la ville, servi seulement par les ventes en ligne et le port.
+// Aucune concurrence frontale : les entrepôts ne prennent que le stock laissé APRÈS les ventes des magasins de la ville (réserve de 2 jours de ventes locales gardée pour eux)
+// et achètent les marchandises de rayon aux grossistes extérieurs (offre illimitée) : aucune vente n'est retirée aux magasins de la ville.
+const EC_CLS = ['basic', 'std', 'lux'], EC_MIX = { basic: 0.55, std: 0.32, lux: 0.13 }, EC_RET = { basic: 0.03, std: 0.08, lux: 0.06 };   // panier mondial type ; taux de retour (e-commerce 3-10 %)
+const EC_WORLD = 12e6, EC_FREQ = 0.02, EC_BASKET = 2, EC_EL = 1.8, EC_COVER = 6, EC_RESV = 2;   // clients potentiels, commandes par client et par jour, unités par commande, élasticité-prix, jours de stock visés, réserve laissée aux magasins
+const EC_SHIP = 2500, EC_STORE = 40000, EC_HOST = 1000, EC_DC = 3000, EC_C0 = 5000, EC_LAUNCH = 500000, EC_FLEET_MAX = 3, EC_HMAX = 360, EC_DISC_MAX = 0.3, EC_AD_MAX = 60000;
+const EC_NAMES = ['Nimbus', 'Colibri', 'Orbite', 'Atlas Market', 'Zéphyr', 'Quokka', 'Mistral', 'Pangée'];
+const ecS = () => (S && S.ecom) || null;
+function ewhList() { const a = []; eachBuilding(c => { if (c.t === 'ewh' && ownerOf(c) === 'me') a.push(c); }); return a; }
+function ecDcs() { const a = []; eachBuilding(c => { if (c.t === 'dc' && c.conn && ownerOf(c) === 'me') a.push(c); }); return a; }
+const ecShipCap = c => c.conn ? EC_SHIP * levelMult(c) * fillOf(c) : 0;
+const ecStoreCap = c => EC_STORE * levelMult(c);
+const ecUsed = c => { let u = 0; Object.keys(c.inv || {}).forEach(k => { u += c.inv[k] || 0; }); return u; };
+function ecSite() {   // qualité du site (0-1) et capacité de trafic (commandes/jour) : hébergement externe sans data center
+  let u = 0; ecDcs().forEach(c => { u += levelMult(c) * fillOf(c); });
+  return { q: clamp(0.45 + 0.14 * u, 0.45, 1), cap: EC_HOST + EC_DC * u, dc: u };
+}
+const ecName = () => EC_NAMES[Math.floor(hash((S.rs == null ? 7 : S.rs) | 0, 46, 1) * EC_NAMES.length) % EC_NAMES.length] + '.com';
+function ecLaunch(name) {
+  if (ecS()) return false;
+  const cost = Math.round(EC_LAUNCH * Math.max(1, cpi()));
+  if (S.cash < cost) { say(`Lancer la startup coûte ${money(cost)} (site, catalogue, premières campagnes) : il te manque ${money(cost - S.cash)}.`, 'bad'); return false; }
+  S.cash -= cost; const nm = String(name || '').replace(/[<>&"]/g, '').trim().slice(0, 24) || ecName();
+  S.ecom = { on: 1, name: nm, d0: S.day, C: EC_C0, disc: 0.1, ad: 0, fleet: 0, whole: 1, off: [], sold: 0, raised: 0, capIn: 0, n: 0, svc: 1, h: [], cum: { rev: 0, eb: 0, u: 0, o: 0, lost: 0, lostS: 0, mi: 0 }, last: null };
+  say(`Startup ${nm} lancée : un site de vente mondiale. Construis un entrepôt logistique en ligne près du port (Commerce > En ligne) : chaque vente en ligne est un export.`, 'gold');
+  refreshStats(); updateHUD(); saveSoon(); return true;
+}
+function ecCatalog() {   // produits proposés en ligne : marchandises de rayon (grossistes) et produits lancés de l'empire
+  const E = ecS(), off = (E && E.off) || [], it = [];
+  if (E && E.whole) EC_CLS.forEach(cls => { if (off.indexOf(cls) < 0) it.push({ k: cls, cls, gen: 1, price: S.price[cls] || GOODS[cls].base, w: 0.8, br: 0 }); });
+  const whs = ewhList(), held = pk => whs.reduce((a, c) => a + ((c.inv && c.inv[pk]) || 0), 0);
+  PKEYS.forEach(pk => { const ps = S.prod[pk], P0 = PRODUCTS[pk]; if (!ps || ps.st !== 'on' || EC_CLS.indexOf(P0.cls) < 0 || off.indexOf(pk) >= 0) return; if (!(ps.stock - EC_RESV * (ps.sold || 0) > 1 || held(pk) > 1)) return;   // référence en ligne seulement s'il reste du stock après la réserve des magasins de la ville, ou en entrepôt en ligne
+    const br = bcOf(ps); it.push({ k: pk, cls: P0.cls, gen: 0, price: prodPrice(pk), w: 1 + br / 100, br }); });
+  return it;
+}
+function ecDelay(list, portN) {   // délai de livraison moyen (jours) : préparation + route jusqu'au port + fret maritime ; la flotte et les terminaux le raccourcissent, la congestion du port l'allonge
+  const E = ecS(); if (!portN) return 12;
+  const d = list.length ? list.reduce((a, c) => a + Math.abs(c.x - PORT_HUB.x) + Math.abs(c.y - PORT_HUB.y), 0) / list.length : 10, use = S._portCap > 0 ? (S._portUse || 0) / S._portCap : 0;
+  return Math.max(1.5, 2.2 + d / 15 + 1.5 * Math.max(0, 3 - Math.min(3, portN - 1)) / 3 - 0.6 * ((E && E.fleet) || 0) + 2 * Math.max(0, use - 0.8) / 0.2);
+}
+function ecAttract(q, nCat, br, delay) {   // part du marché mondial atteignable (0-1) : site, étendue du catalogue, marque, délais
+  return q * (1 - Math.exp(-nCat / 5)) * (0.75 + 0.5 * br / 100) / (1 + 0.15 * Math.max(0, delay - 2));
+}
+function ecPool(att) { const Cm = EC_WORLD * att, o = {}; EC_CLS.forEach(cls => { o[cls] = Cm * EC_FREQ * EC_BASKET * EC_MIX[cls]; }); return o; }   // réservoir de demande mondiale (unités/jour) au plein potentiel
+function ecVal() {   // valorisation de la startup : chiffre d'affaires annualisé × multiple (croissance, marché haussier) ; plancher : actifs logistiques
+  const E = ecS(); if (!E) return 0; const h = E.h || [], n = h.length, r30 = n ? h.slice(-30).reduce((a, x) => a + x[2], 0) / Math.min(30, n) : 0, r90 = n >= 120 ? h.slice(-120, -90).reduce((a, x) => a + x[2], 0) / 30 : 0;
+  const g = r90 > 0 ? clamp(r30 / r90 - 1, -0.5, 3) : n > 20 ? 1 : 0.5, m = clamp(1.5 + 2.5 * g, 1, 8) * (1 + clamp(mktSent(), -0.35, 0.45) * 1.6);
+  let book = 0; ewhList().forEach(c => { book += TYPES.ewh.cost * 0.9 * levelMult(c); });
+  return Math.max(book + 0.5 * EC_LAUNCH, r30 * 360 * m);
+}
+function ecRaise(f) {   // levée de fonds de la startup : les investisseurs reçoivent la part f de la startup APRÈS la levée ; ta valorisation de fondateur ne monte pas (intérêts minoritaires)
+  const E = ecS(); if (!E) return false; f = clamp(+f || 0, 0, 0.49); const maxF = Math.max(0, 1 - 0.51 / (1 - (E.sold || 0))); f = Math.min(f, maxF);
+  if (f < 0.01) { say('La startup est déjà détenue à 49 % par des investisseurs : tu gardes le contrôle.', 'warn'); return false; }
+  if (S.day - (E.lr == null ? -99 : E.lr) < 10) { say('Une levée tous les 10 jours au plus : les fonds analysent encore le dernier tour.', 'warn'); return false; }
+  const V = ecVal(), u = hash(S.day, E.n || 0, 4646) + mktSent(), k = u > 0.85 ? 1.2 : u > 0.25 ? 1 : 0.85, amt = Math.round(f * V * k / (1 - f));
+  S.cash += amt; S.capAdj = (S.capAdj || 0) - amt;   // la levée finance la croissance ; contrepartie : part des investisseurs (minoritaires) au bilan
+  E.sold = (E.sold || 0) + f * (1 - (E.sold || 0)); E.raised = (E.raised || 0) + amt; E.capIn = (E.capIn || 0) + amt; E.n = (E.n || 0) + 1; E.lr = S.day;
+  say(`${E.name} lève ${money(amt)} pour ${Math.round(f * 100)} % de la startup (valorisation ${money(V * k)}${k > 1 ? ', tour sursouscrit' : k < 1 ? ', tour tiède' : ''}). Les investisseurs touchent ${Math.round(E.sold * 100)} % de ses bénéfices.`, 'gold');
+  refreshStats(); updateHUD(); saveSoon(); renderEcom(true); return true;
+}
+// Pas quotidien : appelé après les ventes des magasins (section 3) et l'export du port, avant l'export du surplus des produits. Renvoie les montants à intégrer au compte de résultat.
+function ecomStep(portN, mult) {
+  const E = ecS(), list = ewhList(), out = { rev: 0, buy: 0, fee: 0, adv: 0, ovh: 0, mi: 0, u: 0 };
+  list.forEach(c => { c.inv = c.inv || {}; c._rev = 0; c._fee = 0; c._buy = 0; c._cl = 0; c._ship = 0; c._ecU = 0; });
+  if (!E || !E.on) { S._ecDay = out; return out; }
+  const site = ecSite(), cat = ecCatalog(), cpx = Math.max(1, cpi()), dl = ecDelay(list, portN), live = portN > 0 && list.some(c => ecShipCap(c) > 0);
+  const nCat = cat.length, br = nCat ? cat.reduce((a, it) => a + it.br, 0) / nCat : 0, att = ecAttract(site.q, nCat, br, dl), Cmax = Math.max(1, EC_WORLD * att);
+  // 1. Clients : croissance logistique (effet de réseau : catalogue et base de clients), acquisition payante, attrition liée au service
+  const disc = clamp(E.disc || 0, 0, EC_DISC_MAX), ad = clamp(E.ad || 0, 0, EC_AD_MAX), svc = clamp(E.svc == null ? 1 : E.svc, 0, 1);
+  const r = live ? (0.004 + 0.03 * Math.min(1.5, 0.3 + 0.1 * nCat) * site.q * svc * svc) : 0, cac = 25 * cpx * (1 + 4 * E.C / Cmax);
+  const acq = live ? ad / cac : 0, churn = E.C * (0.002 + 0.04 * (1 - svc) + (live ? 0 : 0.01));
+  E.C = clamp(E.C + r * E.C * (1 - E.C / Cmax) + acq - churn, 500, EC_WORLD);
+  // 2. Demande mondiale : commandes (élasticité à la remise, conjoncture, aléa déterministe), plafonnées par le trafic que le site absorbe
+  const gdp = clamp(1 + 3 * (((S.macro && S.macro.gdp) || 0.03) - 0.03), 0.85, 1.15), noise = 0.95 + 0.1 * hash(S.day, (S.rs | 0) + 4601, 46);
+  const O = live ? E.C * EC_FREQ * Math.pow(1 - disc, -EC_EL) * gdp * noise : 0, Oe = Math.min(O, site.cap), lostSite = O - Oe;
+  const byCls = {}; cat.forEach(it => { (byCls[it.cls] = byCls[it.cls] || []).push(it); });
+  const dem = {}, pool = ecPool(att); let Udem = 0;
+  EC_CLS.forEach(cls => { const L = byCls[cls]; if (!L) return; const Uc = Oe * EC_BASKET * EC_MIX[cls], sw = L.reduce((a, it) => a + it.w, 0); L.forEach(it => { dem[it.k] = Uc * it.w / sw; Udem += dem[it.k]; }); });
+  // 3. Réassort : stock laissé après les magasins de la ville (réserve de 2 jours de leurs ventes), puis grossistes pour les marchandises de rayon
+  const caps = list.map(ecShipCap), capT = caps.reduce((a, v) => a + v, 0), portLeft = Math.max(0, (S._portCap || 0) - (S._portUse || 0));
+  cat.forEach(it => { const d = dem[it.k] || 0; list.forEach((c, i) => {
+    const sh = capT > 0 ? caps[i] / capT : 0; if (!(sh > 0)) return; const want = Math.min(Math.max(0, d * sh * EC_COVER - (c.inv[it.k] || 0)), 2 * d * sh + 1), room = Math.max(0, ecStoreCap(c) - ecUsed(c)); let q = Math.min(want, room);   // réassort lissé : au plus 2 jours de demande par jour if (!(q > 1e-6)) return;
+    if (!it.gen) { const ps = S.prod[it.k], av = Math.max(0, ps.stock - EC_RESV * (ps.sold || 0)), g = Math.min(q, av); if (g > 1e-6) { if (FGD) fSellExt(it.k, g, g * it.price); ps.stock -= g; c.inv[it.k] = (c.inv[it.k] || 0) + g; c._cl += g * it.price; } }
+    else { const cost = q * it.price * PNJ_MK * TM.buy * modOf('buy'); c.inv[it.k] = (c.inv[it.k] || 0) + q; c._buy += cost; out.buy += cost; }
+  }); });
+  // 4. Expédition : chaque entrepôt sert sa part de la demande dans la limite de son stock, de sa capacité et du débit restant du port ; un second passage reporte le reliquat
+  const srv = {}, left = caps.slice(); let shipT = 0, portCap = portLeft;
+  for (let pass = 0; pass < 2; pass++) cat.forEach(it => { const d = Math.max(0, (dem[it.k] || 0) - (srv[it.k] || 0)); if (!(d > 1e-6)) return; const tot = left.reduce((a, v, i) => a + ((list[i].inv[it.k] || 0) > 0 ? v : 0), 0); if (!(tot > 0)) return;
+    list.forEach((c, i) => { const st = c.inv[it.k] || 0; if (!(st > 0) || !(left[i] > 0)) return; const q = Math.min(st, left[i], d * left[i] / tot, portCap); if (!(q > 1e-9)) return;
+      c.inv[it.k] = st - q; left[i] -= q; portCap -= q; shipT += q; srv[it.k] = (srv[it.k] || 0) + q; c._ship += q;
+      const on = it.price * retailMk(it.cls) * (1 - disc) * mult, ret = EC_RET[it.cls] * q, gross = q * on, refund = ret * on, oN = q / EC_BASKET;
+      const fee = oN * (2 + 0.5 * EC_BASKET) * cpx + q * (0.35 * cpx + 0.03 * on) * (1 - 0.05 * Math.min(4, portN - 1)) * (1 - 0.05 * (E.fleet || 0)) + ret * 1.2 * cpx;
+      c.inv[it.k] += 0.7 * ret; c._rev += gross - refund; c._fee += fee; out.rev += gross - refund; out.fee += fee;
+      S.xsum = S.xsum || {}; S.xsum['e:' + it.cls] = (S.xsum['e:' + it.cls] || 0) + gross; S._xv = S._xv || {}; S._xv['e:' + it.k] = (S._xv['e:' + it.k] || 0) + gross - refund; }); });
+  S._portUse = (S._portUse || 0) + shipT; out.u = shipT;
+  list.forEach((c, i) => { c.inCost = c._buy + c._cl; c.out = c._ship; c._ecU = caps[i] > 0 ? clamp(c._ship / caps[i], 0, 1) : 0; c.util = c._ecU; c.limit = !c.conn ? 'road' : !portN ? 'port' : c._ship < 0.5 && ecUsed(c) < 1 ? 'stock' : c._ecU > 0.97 ? 'capacity' : null; });
+  // 5. Frais généraux : publicité en ligne, flotte de livraison, hébergement externe tant qu'il n'y a pas de data center ; part des investisseurs de la startup
+  out.adv = live ? ad : 0; out.ovh = (E.fleet || 0) * 700 * cpx + (site.dc > 0 ? 0 : 300 * cpx);
+  let wag = 0, upk = 0; list.forEach(c => { wag += c._wb || 0; upk += (TYPES.ewh.upkeep || 0) * cpi(); });
+  const eb = out.rev - out.buy - out.fee - out.adv - out.ovh - wag - upk; out.mi = (E.sold || 0) * Math.max(0, eb); out.eb = eb;
+  // 6. Indicateurs
+  const U = Object.keys(srv).reduce((a, k) => a + srv[k], 0), lostStock = Math.max(0, Udem - U), svcD = (Udem + lostSite * EC_BASKET) > 0 ? U / (Udem + lostSite * EC_BASKET) : 1;
+  E.svc = E.svc == null ? svcD : E.svc * 0.85 + svcD * 0.15; E.dl = dl; E.att = att; E.Cmax = Cmax;
+  E.last = { d: S.day, C: E.C, O, Oe, Uo: U / EC_BASKET, U, Udem, rev: out.rev, eb, buy: out.buy, fee: out.fee, adv: out.adv, ovh: out.ovh, wag, upk, mi: out.mi, svc: svcD, dl, att, Cmax, q: site.q, tcap: site.cap, scap: capT, lostSite, lostStock, nCat, live: live ? 1 : 0, dem, srv, pool, port: portN, basket: U > 0 ? out.rev / (U / EC_BASKET) : 0 };
+  const cu = E.cum; cu.rev += out.rev; cu.eb += eb; cu.u += U; cu.o += U / EC_BASKET; cu.lost += Math.max(0, Udem - U) + lostSite * EC_BASKET; cu.lostS += lostStock; cu.mi += out.mi; cu.dem = (cu.dem || 0) + Udem + lostSite * EC_BASKET;
+  E.h.push([S.day, Math.round(E.C), Math.round(out.rev), Math.round(U / EC_BASKET), Math.round(svcD * 1000) / 1000, Math.round(eb)]); if (E.h.length > EC_HMAX) E.h.shift();
+  S._ecDay = out; return out;
+}
+// Sauvegarde : champ facultatif et borné (clé wse-city-v8)
+function ecSave() { const E = ecS(); if (!E) return undefined; const r = v => Math.round(v || 0); return { on: E.on ? 1 : 0, name: E.name, d0: E.d0 | 0, C: r(E.C), disc: +(E.disc || 0).toFixed(3), ad: r(E.ad), fleet: E.fleet | 0, whole: E.whole ? 1 : 0, off: (E.off || []).slice(0, 80), sold: +(E.sold || 0).toFixed(4), raised: r(E.raised), capIn: r(E.capIn), n: E.n | 0, lr: E.lr == null ? undefined : E.lr | 0, svc: +(E.svc == null ? 1 : E.svc).toFixed(4), h: (E.h || []).slice(-EC_HMAX), cum: Object.fromEntries(Object.keys(E.cum || {}).map(k => [k, r(E.cum[k])])) }; }
+function ecSan(d) {
+  if (!d || typeof d !== 'object') return undefined; const n = (v, a, b, z) => { v = +v; return Number.isFinite(v) ? clamp(v, a, b) : z; };
+  const E = { on: d.on ? 1 : 0, name: String(d.name || 'Ma startup').replace(/[<>&"]/g, '').slice(0, 24), d0: n(d.d0, 0, 1e7, 0) | 0, C: n(d.C, 500, EC_WORLD, EC_C0), disc: n(d.disc, 0, EC_DISC_MAX, 0.1), ad: n(d.ad, 0, EC_AD_MAX, 0), fleet: n(d.fleet, 0, EC_FLEET_MAX, 0) | 0, whole: d.whole === 0 ? 0 : 1,
+    off: Array.isArray(d.off) ? d.off.filter(k => typeof k === 'string' && (EC_CLS.indexOf(k) >= 0 || PRODUCTS[k])).slice(0, 80) : [], sold: n(d.sold, 0, 0.49, 0), raised: n(d.raised, 0, 1e13, 0), capIn: n(d.capIn, 0, 1e13, 0), n: n(d.n, 0, 999, 0) | 0, svc: n(d.svc, 0, 1, 1), h: [], cum: { rev: 0, eb: 0, u: 0, o: 0, lost: 0, lostS: 0, mi: 0, dem: 0 }, last: null };
+  if (d.lr != null) E.lr = n(d.lr, -99, 1e7, 0) | 0;
+  if (Array.isArray(d.h)) E.h = d.h.filter(x => Array.isArray(x) && x.length >= 6 && x.slice(0, 6).every(v => Number.isFinite(+v))).slice(-EC_HMAX).map(x => [x[0] | 0, Math.max(0, +x[1]), +x[2], Math.max(0, +x[3]), clamp(+x[4], 0, 1), +x[5]]);
+  if (d.cum && typeof d.cum === 'object') Object.keys(E.cum).forEach(k => { E.cum[k] = n(d.cum[k], -1e14, 1e14, 0); });
+  return E;
+}
+// Leviers
+function ecSet(k, v) {
+  const E = ecS(); if (!E) return false;
+  if (k === 'disc') E.disc = clamp(+v || 0, 0, EC_DISC_MAX);
+  else if (k === 'ad') E.ad = clamp(Math.round(+v || 0), 0, EC_AD_MAX);
+  else if (k === 'whole') E.whole = v ? 1 : 0;
+  else if (k === 'cat') { const [key, on] = v; E.off = (E.off || []).filter(x => x !== key); if (!on) E.off.push(key); }
+  else if (k === 'fleet') { if ((E.fleet || 0) >= EC_FLEET_MAX) return false; const cost = Math.round(500000 * ((E.fleet || 0) + 1) * Math.max(1, cpi())); if (S.cash < cost) { say(`Flotte de livraison : il faut ${money(cost)}.`, 'bad'); return false; } S.cash -= cost; E.fleet = (E.fleet || 0) + 1; E.capIn = (E.capIn || 0) + cost; say(`Flotte de livraison niveau ${E.fleet} : délais −0,6 jour, fret −5 %.`, 'good'); }
+  else if (k === 'on') E.on = v ? 1 : 0;
+  saveSoon(); return true;
+}
+function ecAdvice() {   // conseil d'une phrase
+  const E = ecS(); if (!E) return 'Lance ta startup : la ville est un marché fini, le monde ne l\'est pas, et chaque vente en ligne est un export.';
+  const L = E.last, list = ewhList(); if (!list.length) return 'Construis un entrepôt logistique en ligne dans la zone du port : sans entrepôt, rien n\'est expédié.';
+  if (!L || !L.port) return 'Il faut un terminal portuaire : les colis partent vers le monde par le port.';
+  if (L.lostSite > 0.05 * L.O) return 'Ton site sature (' + fmt(L.tcap) + ' commandes/jour) : un data center de plus absorbe 3 000 commandes et améliore la qualité du site.';
+  if (L.lostStock > 0.1 * L.Udem && L.scap > 0 && L.U >= 0.95 * L.scap) return 'Tes entrepôts expédient à pleine capacité : un entrepôt de plus (ou un niveau) sert la demande perdue.';
+  if (L.lostStock > 0.1 * L.Udem) return E.whole ? 'Ruptures en ligne : produis davantage ou garde les grossistes actifs pour réassortir.' : 'Ruptures en ligne : réactive les grossistes ou produis davantage.';
+  if (L.nCat < 4) return 'Élargis ton catalogue (lance d\'autres produits) : chaque référence accélère l\'effet de réseau.';
+  if (L.dl > 5) return 'Délais longs (' + f1(L.dl) + ' j) : achète une flotte de livraison ou un terminal portuaire de plus.';
+  if (E.C < 0.3 * L.Cmax && (E.ad || 0) < 2000) return 'Ta base de clients est loin du potentiel : un peu de publicité en ligne accélère l\'acquisition.';
+  return 'Plateforme saine : réinvestis le cash dans un entrepôt ou lève des fonds pour aller plus vite.';
+}
+function ecKpi() {   // moyennes sur 30 jours
+  const E = ecS(); if (!E || !E.h.length) return null; const h = E.h.slice(-30), n = h.length, s = i => h.reduce((a, x) => a + x[i], 0);
+  const rev = s(2) / n, eb = s(5) / n, o = s(3) / n, L = E.last || {};
+  return { rev, eb, o, basket: o > 0 ? rev / o : 0, svc: s(4) / n, C: E.C, dl: E.dl || L.dl || 0, mg: rev > 0 ? eb / rev : 0, val: ecVal() };
+}
+// ---- page « Ma plateforme en ligne » (Menu > En ligne)
+const ecOpen = () => !el('panel').hidden && el('ecomSec') && !el('ecomSec').hidden;
+function ecSpark() {
+  const E = ecS(), h = (E && E.h) || []; if (h.length < 2) return '<p class="note">La courbe de croissance apparaît après quelques jours d\'activité.</p>';
+  const st = Math.max(1, Math.floor(h.length / 60)), a = h.filter((x, i) => i % st === 0 || i === h.length - 1);
+  return eduSpark([{ a: a.map(x => x[1]), col: '#3fd8ff', fill: 'rgba(63,216,255,.12)' }]) + eduSpark([{ a: a.map(x => x[2]), col: '#46d39a' }, { a: a.map(x => Math.max(0, x[5])), col: '#f2b84b' }], 56)
+    + `<div class="edleg"><span style="color:#3fd8ff">■ clients</span> <span style="color:#46d39a">■ chiffre d'affaires / jour</span> <span style="color:#f2b84b">■ EBITDA / jour</span> · ${h.length} derniers jours</div>`;
+}
+function ecomHTML() {
+  const E = ecS(), cpx = Math.max(1, cpi());
+  const intro = `<p class="note">Une plateforme de vente <b>mondiale</b> : tes entrepôts en ligne expédient par le port vers le monde entier. Chaque commande est un <b>export</b> (recettes d'export du compte de résultat). <b>Aucune concurrence frontale</b> avec les magasins de la ville : la demande mondiale est un réservoir distinct, et tes entrepôts ne prennent que le stock laissé après les ventes de tes magasins (deux jours de leurs ventes restent réservés) ou achètent aux grossistes. Les rivaux IA ne font pas encore de commerce en ligne.</p>`;
+  if (!E) return intro + `<div class="fcard"><h4>Lancer une startup en ligne</h4><p class="note" style="margin:0 0 6px">Site, catalogue et premières campagnes : ${money(EC_LAUNCH * cpx)}. Ensuite : un entrepôt logistique en ligne (zone du port, ${money(TYPES.ewh.cost * cpx)}), un terminal portuaire et, pour grandir, des data centers.</p>
+    <div class="taxrow"><span>Nom</span><input id="ecName" maxlength="24" placeholder="${ecName()}" aria-label="Nom de la startup" style="min-width:0;flex:1;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 8px"></div>
+    <button class="btn" data-ec="launch" style="margin-top:6px" ${S.cash >= EC_LAUNCH * cpx ? '' : 'disabled'}>Lancer ma startup · ${money(EC_LAUNCH * cpx)}</button></div><div class="edlearn">${ecAdvice()}</div>`;
+  const L = E.last || {}, K = ecKpi() || { rev: 0, eb: 0, o: 0, basket: 0, svc: 1, C: E.C, dl: 0, mg: 0, val: ecVal() }, list = ewhList(), site = ecSite(), cat = ecCatalog();
+  const K1 = eduK, pool = L.pool || ecPool(E.att || 0.1), poolT = EC_CLS.reduce((a, c) => a + pool[c], 0), cityD = (S.stats && S.stats.dem) ? EC_CLS.reduce((a, c) => a + (S.stats.dem[c] || 0), 0) : 0;
+  let h = `<h3>${E.name.toUpperCase()} · MA PLATEFORME EN LIGNE</h3><div class="edlearn"><b>Conseil :</b> ${ecAdvice()}</div>
+  <div class="edk">${K1('Chiffre d\'affaires / mois', mj(K.rev), 'ventes en ligne nettes des retours (exports)', 'pos')}${K1('EBITDA / mois', mj(K.eb), 'marge ' + pct(K.mg), K.eb >= 0 ? 'pos' : 'neg')}${K1('Commandes / jour', fmt(K.o), 'panier moyen ' + money(K.basket))}${K1('Taux de service', pct(K.svc), 'commandes servies / demandées', K.svc >= 0.9 ? 'pos' : 'neg')}${K1('Délai de livraison', f1(K.dl) + ' j', 'préparation, route, fret maritime')}${K1('Clients', fmt(E.C), 'potentiel ' + fmt(E.Cmax || 0))}${K1('Demande mondiale', fmt(poolT) + ' u/j', 'potentiel ; ville : ' + fmt(cityD) + ' u/j')}${K1('Valorisation de la startup', money(K.val), (E.sold > 0 ? Math.round(E.sold * 100) + ' % aux investisseurs' : '100 % à toi'))}</div>
+  <h3>COURBE DE CROISSANCE</h3>${ecSpark()}
+  <h3>LEVIERS</h3>
+  <div class="taxrow"><span>Remise en ligne</span><input type="range" id="ecDisc" min="0" max="${EC_DISC_MAX * 100}" step="1" value="${Math.round((E.disc || 0) * 100)}" aria-label="Remise en ligne"><b>${Math.round((E.disc || 0) * 100)} %</b></div>
+  <p class="note">Prix en ligne = prix de rayon × (1 − remise). Élasticité ${f1(EC_EL)} : −10 % de prix ≈ +${Math.round((Math.pow(0.9, -EC_EL) - 1) * 100)} % de commandes.</p>
+  <div class="taxrow"><span>Publicité en ligne / mois</span><input type="range" id="ecAd" min="0" max="${EC_AD_MAX}" step="500" value="${Math.round(E.ad || 0)}" aria-label="Publicité en ligne par jour"><b>${mj(E.ad || 0)}</b></div>
+  <p class="note">Coût d'acquisition d'un client ≈ ${money(25 * cpx * (1 + 4 * E.C / Math.max(1, E.Cmax || 1)))} (il monte quand tu approches du potentiel).</p>
+  <h4>Catalogue (${cat.length} références)</h4><div class="finrow"><span><label><input type="checkbox" data-ecw="1" ${E.whole ? 'checked' : ''}> Marchandises de rayon achetées aux grossistes (base, manufacturé, luxe)</label></span><b>${E.whole ? 'actif' : 'coupé'}</b></div>
+  ${PKEYS.filter(pk => S.prod[pk] && S.prod[pk].st === 'on' && EC_CLS.indexOf(PRODUCTS[pk].cls) >= 0).map(pk => `<div class="finrow"><span><label><input type="checkbox" data-ecc="${pk}" ${(E.off || []).indexOf(pk) < 0 ? 'checked' : ''}> ${PRODUCTS[pk].name}</label></span><b>${money(prodPrice(pk) * retailMk(PRODUCTS[pk].cls) * (1 - (E.disc || 0)))}</b></div>`).join('') || '<p class="note">Lance des produits (usines) pour les vendre en ligne avec ta marque : ils sont bien plus rentables que les marchandises de grossiste.</p>'}
+  <h4>Entrepôts logistiques en ligne (${list.length})</h4>${list.map(c => `<div class="finrow"><span>Entrepôt (${c.x}, ${c.y}) · niveau ${(c.lvl || 0) + 1}${c.conn ? '' : ' · <span class="neg">hors rue</span>'}</span><b>${fmt(c._ship || 0)} / ${fmt(ecShipCap(c))} u/j · stock ${fmt(ecUsed(c))}</b></div>`).join('') || '<p class="note">Aucun entrepôt : construis-en un dans la zone du port.</p>'}
+  <button class="btn sec" data-ec="tool:ewh">Construire un entrepôt en ligne · ${money(TYPES.ewh.cost * cpx)}</button>
+  <h4>Site et data centers</h4><div class="finrow"><span>Qualité du site · capacité de trafic</span><b>${pct(site.q)} · ${fmt(site.cap)} commandes/j</b></div><button class="btn sec" data-ec="tool:dc">Construire un data center</button>
+  <h4>Flotte de livraison</h4><div class="finrow"><span>Niveau ${E.fleet || 0} / ${EC_FLEET_MAX}</span><b>${E.fleet ? '−' + f1(0.6 * E.fleet) + ' j de délai' : 'transporteurs externes'}</b></div>${(E.fleet || 0) < EC_FLEET_MAX ? `<button class="btn sec" data-ec="fleet">Agrandir la flotte · ${money(500000 * ((E.fleet || 0) + 1) * cpx)}</button>` : ''}
+  <h4>Financement</h4><div class="finrow"><span>Levé auprès des investisseurs</span><b>${money(E.raised || 0)} · ${Math.round((E.sold || 0) * 100)} % cédés</b></div><div class="seg2"><button class="btn sec" data-ec="raise:0.1">Lever pour 10 %</button><button class="btn sec" data-ec="raise:0.2">Lever pour 20 %</button><button class="btn sec" data-ec="fund">Financement</button></div>
+  <p class="note">Valorisation = chiffre d'affaires annualisé × multiple (croissance, marché ${mktSent() >= 0.02 ? 'haussier : multiples élevés' : mktSent() <= -0.02 ? 'baissier : multiples rognés' : 'neutre'}). Les investisseurs touchent leur part des bénéfices de la startup ; ta valorisation de fondateur ne monte pas par la levée.</p>
+  <h4>Ce mois-ci</h4><div class="finrow"><span>Achats aux grossistes</span><b class="neg">−${mj(L.buy || 0)}</b></div><div class="finrow"><span>Logistique, fret et retours</span><b class="neg">−${mj(L.fee || 0)}</b></div><div class="finrow"><span>Publicité, flotte, hébergement</span><b class="neg">−${mj((L.adv || 0) + (L.ovh || 0))}</b></div><div class="finrow"><span>Salaires et entretien des entrepôts</span><b class="neg">−${mj((L.wag || 0) + (L.upk || 0))}</b></div><div class="finrow"><span>Demande perdue (site saturé · rupture ou capacité)</span><b>${fmt((L.lostSite || 0) * EC_BASKET)} · ${fmt(L.lostStock || 0)} u/j</b></div>`;
+  return intro + h;
+}
+function renderEcom(force) {
+  if (!S || !ecOpen()) return; const box = el('ecomBody'), E = ecS(), sig = S.day + '|' + (E ? [E.disc, E.ad, E.fleet, E.whole, (E.off || []).join(), E.n].join() : '-') + '|' + Math.round(S.cash / 1e5);
+  if (!force && box.dataset.h === sig) return; const ae = document.activeElement; if (!force && ae && (ae.id === 'ecDisc' || ae.id === 'ecAd' || ae.id === 'ecName')) return;
+  box.dataset.h = sig; box.innerHTML = ecomHTML();
+}
+function ecShow() { setPanel(true); setPtab('ecom'); renderEcom(true); }
+function ecAct(a) {
+  const [k, x] = a.split(':');
+  if (k === 'launch') { const i = el('ecName'); ecLaunch(i ? i.value : ''); }
+  else if (k === 'tool') { setPanel(false); setTool(x); return; }
+  else if (k === 'fleet') ecSet('fleet');
+  else if (k === 'raise') ecRaise(+x);
+  else if (k === 'fund') { setPtab('fund'); return; }
+  refreshStats(); updateHUD(); renderEcom(true);
+}
+el('ecomSec').addEventListener('click', e => { const b = e.target.closest('[data-ec]'); if (b && !b.disabled) ecAct(b.dataset.ec); });
+el('ecomSec').addEventListener('change', e => { const t = e.target; if (t.id === 'ecDisc') { ecSet('disc', +t.value / 100); renderEcom(true); } else if (t.id === 'ecAd') { ecSet('ad', +t.value); renderEcom(true); } else if (t.dataset.ecw) { ecSet('whole', t.checked); renderEcom(true); } else if (t.dataset.ecc) { ecSet('cat', [t.dataset.ecc, t.checked]); renderEcom(true); } });
+el('ecomSec').addEventListener('input', e => { const t = e.target; if (t.id === 'ecDisc' || t.id === 'ecAd') { const b = t.nextElementSibling; if (b) b.textContent = t.id === 'ecDisc' ? t.value + ' %' : mj(+t.value); } });
+// ---- Apprendre > « Pourquoi exporter ? »
+function ecEduHTML() {
+  const E = ecS(), L = (E && E.last) || null, cu = (E && E.cum) || null, K = ecKpi(), cityD = (S.stats && S.stats.dem) ? EC_CLS.reduce((a, c) => a + (S.stats.dem[c] || 0), 0) : 0;
+  const svcCum = cu && cu.dem > 0 ? cu.u / cu.dem : null, rupt = cu && cu.dem > 0 ? cu.lostS / cu.dem : null, F = (finM && finM().F) || S.fin || {}, xs = (F.revExport || 0), xe = K ? K.rev : 0;
+  return `<p class="note">Chapitre : pourquoi exporter ? Les chiffres viennent de ta partie.</p>
+  <div class="edk">${eduK('Niveau de service en ligne', K ? pct(K.svc) : '—', svcCum != null ? 'depuis le lancement : ' + pct(svcCum) : 'lance ta startup (Menu > En ligne)', K && K.svc >= 0.9 ? 'pos' : '')}${eduK('Délai de livraison', K ? f1(K.dl) + ' j' : '—', 'préparation + route + fret maritime')}${eduK('Rupture en ligne', rupt != null ? pct(rupt) : '—', cu ? fmt(cu.lostS) + ' u non servies faute de stock ou de capacité' : '', rupt > 0.1 ? 'neg' : '')}${eduK('Exports / mois', mj(xs), 'dont en ligne ' + mj(xe), 'pos')}${eduK('Demande de la ville', fmt(cityD) + ' u/j', 'marché fini')}${eduK('Demande mondiale potentielle', L ? fmt(EC_CLS.reduce((a, c) => a + L.pool[c], 0)) + ' u/j' : '—', 'réservoir distinct de la ville')}</div>
+  <h3>POURQUOI EXPORTER ?</h3>
+  <div class="edlearn"><b>Un marché plus grand.</b> La ville est un marché fini : quand tes magasins servent toute sa demande, chaque usine de plus produit des invendus. Le monde, lui, est des dizaines de fois plus grand : l'export est un relais de croissance.</div>
+  <div class="edlearn"><b>Des économies d'échelle.</b> Produire plus étale les coûts fixes (salaires, entretien, R&D) sur plus d'unités : ta marge par unité monte, en ville comme à l'étranger.</div>
+  <div class="edlearn"><b>Le niveau de service fait la croissance.</b> En ligne, un client mal servi (rupture, délai long) part et ne revient pas : l'attrition grimpe de 4 points par point de service manquant, et l'effet de réseau ralentit.</div>
+  <div class="edlearn"><b>Pas de cannibalisation.</b> Vendre au monde ne prend aucune vente à tes magasins : tes entrepôts en ligne ne puisent que le stock laissé après eux. C'est de la demande en plus, donc de la masse de ventes en plus.</div>
+  <div class="edlearn"><b>Le coût de l'export.</b> Fret maritime, préparation des commandes, retours (${Math.round(EC_RET.basic * 100)} à ${Math.round(EC_RET.std * 100)} %) et délais : la marge en ligne est plus mince par unité que celle d'un magasin, mais le volume est sans commune mesure.</div>`;
+}
+
+function ecFundCard() {   // Financement > Equity raising : la startup lève pour elle-même
+  const E = ecS(); if (!E) return ''; const V = ecVal(), maxF = Math.max(0, 1 - 0.51 / (1 - (E.sold || 0))), gap = Math.max(0, (E.lr == null ? -99 : E.lr) + 10 - S.day);
+  return `<div class="fcard" style="margin:8px 0"><h4>Equity raising · startup ${E.name}</h4><p class="note" style="margin:0 0 6px">Ta plateforme en ligne lève pour elle-même : valorisation = chiffre d'affaires annualisé × multiple de croissance, plus élevée en marché haussier. Les investisseurs reçoivent une part de la startup (et de ses bénéfices), jamais de ta société.</p><div class="finrow"><span>Valorisation de la startup</span><b class="gold">${money(V)}</b></div><div class="finrow"><span>Déjà cédé</span><b>${Math.round((E.sold || 0) * 100)} % · ${money(E.raised || 0)} levés</b></div><div class="seg2"><button class="btn sec" data-ecf="0.1" ${maxF >= 0.01 && !gap ? '' : 'disabled'}>Céder 10 % · ≈ ${money(0.1 * V / 0.9)}</button><button class="btn sec" data-ecf="0.2" ${maxF >= 0.01 && !gap ? '' : 'disabled'}>Céder 20 % · ≈ ${money(0.2 * V / 0.8)}</button></div></div>`;
+}
+el('bourse').addEventListener('click', e => { const b = e.target.closest('[data-ecf]'); if (b && !b.disabled) { ecRaise(+b.dataset.ecf); el('bourse').dataset.h = ''; } });
 const _ld = load(); S = _ld || newCity(); if (!S.mode) S.mode = { k: 'free' }; if (!_ld) { S.mode.pending = 1; speed = 0; }
 makeDecor();
 buildTools();
@@ -16348,7 +16586,7 @@ function citySpr(a, grp, fl) {   // sprite HD pour un immeuble (choix détermini
 }
 const P2HD = __P2HD_JSON__, P2DIM = __P2DIM_JSON__, P2_IMG = {};   // sprites de la phase 2 (gisements, mines, puits, carrières) ; dim = [largeur, hauteur, x0, y0, x1, y1] de l'image d'origine, la parcelle est calée sur le losange de la case
 const P2_DEP = { oil: 'gisement_petrole', iron: 'gisement_fer', coal: 'gisement_charbon', gas: 'gisement_gaz', copper: 'gisement_cuivre', nickel: 'gisement_nickel_chrome', chrome: 'gisement_nickel_chrome', bauxite: 'gisement_bauxite', lithium: 'gisement_lithium', zinc: 'gisement_zinc', graphite: 'gisement_graphite', phosphate: 'gisement_phosphate', potash: 'gisement_potasse', salt: 'gisement_sel', silica: 'gisement_silice', clay: 'gisement_argile' };
-const P2_TYPE = { fwheat: 'fwheat', fsugar: 'fsugar', fcotton: 'fcotton', frubber: 'frubber', fvine: 'fvine', fcorn: 'fcorn', frapeseed: 'frapeseed', fcattle: 'fcattle', fchicken: 'fchicken', fpig: 'fpig', fsheep: 'fsheep', wh: 'entrepot', solar: 'centrale_solaire', wind: 'eolienne', plant: 'centrale_charbon', nuclear: 'centrale_nucleaire', pylon: 'pylone_electrique', rd: 'centre_rd', dc: 'data_center', btp: 'chantier_moyen', immo: 'agence_immo', foundry: 'fonderie', f1: 'usine_petite_f1', f2: 'usine_moyenne_f2', f3: 'usine_grande_f3', f4: 'usine_f4_mega', s1: 'petit_marche_n1', s2: 'supermarche', s3: 'hypermarche', s4: 'mega_centre_commercial', port: 'terminal_portuaire', tv: 'station_tv', sport: 'stade_sport' };
+const P2_TYPE = { ewh: 'entrepot', fwheat: 'fwheat', fsugar: 'fsugar', fcotton: 'fcotton', frubber: 'frubber', fvine: 'fvine', fcorn: 'fcorn', frapeseed: 'frapeseed', fcattle: 'fcattle', fchicken: 'fchicken', fpig: 'fpig', fsheep: 'fsheep', wh: 'entrepot', solar: 'centrale_solaire', wind: 'eolienne', plant: 'centrale_charbon', nuclear: 'centrale_nucleaire', pylon: 'pylone_electrique', rd: 'centre_rd', dc: 'data_center', btp: 'chantier_moyen', immo: 'agence_immo', foundry: 'fonderie', f1: 'usine_petite_f1', f2: 'usine_moyenne_f2', f3: 'usine_grande_f3', f4: 'usine_f4_mega', s1: 'petit_marche_n1', s2: 'supermarche', s3: 'hypermarche', s4: 'mega_centre_commercial', port: 'terminal_portuaire', tv: 'station_tv', sport: 'stade_sport' };
 { const SPEC_SPR = { sauto: ['concession_auto'], stech: ['boutique_high_tech'], slux: ['boutique_luxe'], smode: ['boutique_mode_luxe', 'boutique_mode'], spharma: ['pharmacie', 'drugstore'], shome: ['maison_deco'], ssport: ['sport_loisirs'], sbrico: ['brico_outillage'] };   // passe 46 : sprite HD commandé (n° 9) s'il est livré, sinon sprite existant (assets/factory_hd), sinon composition en primitives (drawSpecShop)
   Object.keys(SPEC_SPR).forEach(k => { const n = SPEC_SPR[k].find(x => P2HD[x]); if (n) P2_TYPE[k] = n; }); }
 const p2Ready = t => { const n = P2_TYPE[t] || P2_EXT[t]; return !!(n && P2_IMG[n] && P2_IMG[n].ok); };
@@ -16739,6 +16977,7 @@ Object.assign(window.WSE, { costs: { payYear, fxTrainCost, trainCost, RND_POP, D
 Object.assign(window.WSE, { coach: { st: coachSt, pick: coachPick, view: coachView, plan: tierPlan, reg: COACH, step: stepCoach, reset: coachReset, shopMarginal, bestShop, shopStats, adAdvice, adRoiHTML, adWasteTotal, roiCard, hqSite, hqSiteMsg, frame: frameCity, focus: cityFocus, camTile, builtNear, rankRows, rankHTML, recap, recapEvent, subPen, subGapTxt, stepSub, dateTxt, dateParts, ROI_MAX, every: coachEvery, setPanel, tierPlan, get S() { return S.coach; } } });
 Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDaily, obs: netObs, render: renderNet, tab: setNetTab, unread: netUnread, badge: netBadge, save: netSave, san: netSan, reply: netReply, TPL: NET_TPL, CHAT: NET_CHAT, BOTS: NET_BOTS, reset: sd => { S.net = null; const n = netS(); if (sd != null) { n.sd = sd | 0; n.posts = []; n.chat = []; n.id = 0; netSeedContent(); n.seen = n.id; n.o = netSnap(); } NET._t = 0; return n; }, setGap: ms => { NET._t = ms ? NET._t : 0; } } });   // passe 42 : Réseau Wall Street
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
+Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ecomStep, list: ewhList, site: ecSite, cat: ecCatalog, delay: ecDelay, attract: ecAttract, pool: ecPool, val: ecVal, tier: () => tierOf((S.stats && S.stats.worth) || 0), raise: ecRaise, set: ecSet, kpi: ecKpi, advice: ecAdvice, save: ecSave, san: ecSan, render: renderEcom, show: ecShow, html: ecomHTML, edu: ecEduHTML, shipCap: ecShipCap, storeCap: ecStoreCap, used: ecUsed, CLS: EC_CLS, MIX: EC_MIX, RET: EC_RET, WORLD: EC_WORLD, FREQ: EC_FREQ, BASKET: EC_BASKET, EL: EC_EL, SHIP: EC_SHIP, STORE: EC_STORE, HOST: EC_HOST, DC: EC_DC, RESV: EC_RESV, LAUNCH: EC_LAUNCH } });   // passe 46 : commerce en ligne
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
 window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMILY, famOf: pFamOf, byFam: SPEC_BY_FAM, of: specOf, tab: specTab, share: specShare, famShare: specFamShare, mk: specMk, known: specKnown, locked: specLocked, need: specNeedTxt, shelfOk: specShelfOk, bcT: specBcT, stats: specStats, card: specCard, mall: specMallLine, edu: eduSpecHTML, PASS: SPEC_PASS, PRI: SPEC_PRI, day: () => S._spec || {} };   // passe 46 : magasins spécialisés
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial

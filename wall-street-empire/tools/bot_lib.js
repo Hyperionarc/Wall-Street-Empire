@@ -256,11 +256,27 @@ window.BOT = (function () {
     const r = buildChain(aff.pk, aff.sc);
     if (r > 0 || r === 0) { IND.chains[aff.pk] = { sc: aff.sc, day: s.day }; IND.last = s.day; IND.log.push([s.day, aff.sc > 1 ? 'grow' : 'new', aff.pk, aff.sc, Math.round(r || 0)]); }
   }
+  // passe 46 : commerce en ligne (P.ecom) : à partir du palier Industriel, lance la startup, un entrepôt en ligne près du port, puis ajoute de la capacité
+  // (entrepôt ou data center) quand le goulot est mesuré et que la plateforme est rentable sur 30 jours
+  const EC = { last: -99, log: [] };
+  function ecom() {
+    const s = S(), E = W.ecom; if (!E || s.day - EC.last < 15) return; EC.last = s.day;
+    if ((E.tier ? E.tier() : 0) < (P.ecTier != null ? P.ecTier : 2) || !tierOk('ewh')) return;   // palier Industriel (valeur de l'empire), même quand tout est débloqué
+    const cp = Math.max(1, s.cpi || 1), wc = W.TYPES.ewh.cost * cp;
+    if (!E.st()) { const need = E.LAUNCH * cp + wc * 1.1; if (s.cash < need) borrow(need + 1e5); if (s.cash < need || !ensurePort()) return; if (!E.launch()) return; E.set('disc', P.ecDisc != null ? P.ecDisc : 0.08); E.set('ad', P.ecAd != null ? P.ecAd : 1500); EC.log.push([s.day, 'launch']); }
+    const list = E.list(), L = E.st().last || {}, K = E.kpi();
+    const add = k => { const c0 = k === 'dc' ? W.TYPES.dc.cost * cp : wc; if (s.cash < c0 * 1.05) borrow(c0 * 1.05 + 1e5); if (s.cash < c0 * 1.05) return false; const r = k === 'dc' ? tryBuild('dc') : tryBuildAny('ewh'); if (r > 0) { cnt[k] = (cnt[k] || 0) + 1; EC.log.push([s.day, k, Math.round(r)]); return true; } return false; };
+    if (!list.length) { add('ewh'); return; }
+    if (!K || s.day - (EC.lastAdd || 0) < 60) return;
+    if (L.lostSite > 0.08 * L.O && K.eb > 0) { if (add('dc')) EC.lastAdd = s.day; return; }
+    if (L.U >= 0.9 * L.scap && K.eb > 0 && list.length < (P.ecMax || 6)) { if (add('ewh')) EC.lastAdd = s.day; }
+  }
   function tick() {
     const s = S(); let did = 0, spent = 0;
     if (s.day % 20 === 0) prune();
     if (s.day % 8 === 0) missions();
     if (P.industry) industry();
+    if (P.ecom) ecom();
     if (P.idle > 0 && ((s.day * 2654435761) >>> 0) % 1000 < P.idle * 1000) return { did: 0, spent: 0 };
     if (s.stats.unemp < 0.045 && s.cash > 1.5e6 && (cnt.res || 0) < P.resCap) { for (let i = 0; i < 3; i++) { const r = tryBuild('res'); if (r) { spent += r; did++; } } }
     for (let n = 0; n < P.maxPerTick; n++) {
@@ -276,5 +292,5 @@ window.BOT = (function () {
     if (P.bourse && s.day % 8 === 0) bourse();
     return { did, spent };
   }
-  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan };
+  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC };
 })();
