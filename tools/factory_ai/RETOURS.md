@@ -194,3 +194,6 @@ Livrés, sans texte, marge 6 px, QA asset_qa : pente 0,50, débordement 0 % (mé
 
 ## Retour de Rémy (4) : EMERGENCY réduit
 - Hôpital : « EMERGENCY » ramené à un petit bandeau (≈110 px) près de l'entrée au lieu de toute la longueur de la façade ; « HOSPITAL » sur le toit et héliport conservés.
+
+## Retour de Rémy (5) : pharmacie sans arbres, croix lumineuse
+- Pharmacie : arbres supprimés ; croix verte éclairée façon néon (vert émeraude lumineux, reflets sur la dalle). Régénérée avec flux2-edit à partir du bâtiment précédent (gab_pharmacie_nt), variante b retenue. 268×209, pente 0,52, débord 0, centrage ≈ 0. Ombre au sol régénérée.
