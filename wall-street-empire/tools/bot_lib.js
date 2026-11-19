@@ -284,7 +284,7 @@ window.BOT = (function () {
   // programmes emblématiques, achat-revente dans la hausse, terrains créés et zonés quand la ville manque de lots, levier élevé (LTV visée P.trLtv) réduit en fin de bulle,
   // désendettement par ventes au krach. N'utilise que l'API publique WSE.pro (mêmes règles que le joueur).
   const TR = { last: -99, log: [], dev: 0, flip: 0, sold: 0, prog: 0, terra: 0, zone: 0, keep: {} };
-  function trLtvTarget() { const s = S(), cy = (s.pro && s.pro.cy) || {}; if ((cy.k || 0) > 0.05) return 0.35; return (P.trLtv || 0.65) - 0.25 * Math.max(0, (cy.bub || 0) - 0.3); }
+  function trLtvTarget() { const s = S(), cy = (s.pro && s.pro.cy) || {}; if ((cy.k || 0) > 0.05) return 0.45; return Math.max(0.4, (P.trLtv || 0.65) - 0.6 * Math.max(0, (cy.bub || 0) - 0.25)); }   // fin de bulle : on se désendette ; au krach : on tient (pas de vente à la casse) sauf près du covenant
   function trBorrow(need) { const b = document.getElementById('loanUp'), tg = trLtvTarget(); let n = 0; while (S().cash < need && n++ < 120) { if (W.pro.ltv() > tg) break; const l0 = S().loan || 0; b.click(); if ((S().loan || 0) === l0) break; } }
   function trRepay(to) { const b = document.getElementById('loanDn'); let n = 0; while ((S().loan || 0) > 0 && W.pro.ltv() > to && S().cash > 2e5 && n++ < 120) { const l0 = S().loan; b.click(); if (S().loan === l0) break; } }
   function trSellOne(how) {   // vend le bien à la plus forte plus-value latente (au marché ou en annonce)
@@ -304,7 +304,7 @@ window.BOT = (function () {
     const s = S(), Pr = W.pro; if (!Pr || s.caste !== 'promoteur' || s.day - TR.last < (P.trEvery || 4)) return; TR.last = s.day;
     const cy = s.pro.cy || {}, krach = (cy.k || 0) > 0.05, ltv = Pr.ltv(), rate = W.loanRateNow ? W.loanRateNow() : 0.07;
     // 1. risque : au krach ou au-delà de la LTV visée + 12 points, on vend et on rembourse (le covenant force la vente à 90 %)
-    if ((krach && ltv > 0.55) || ltv > trLtvTarget() + 0.12) { for (let k = 0; k < 3 && Pr.ltv() > trLtvTarget(); k++) if (!trSellOne('force')) break; trRepay(trLtvTarget()); return; }
+    if ((krach && ltv > 0.8) || (!krach && ltv > trLtvTarget() + 0.12)) { for (let k = 0; k < 3 && Pr.ltv() > trLtvTarget(); k++) if (!trSellOne('force')) break; trRepay(trLtvTarget()); return; }
     // 2. fin de bulle : prises de bénéfices sur les tours détenues depuis 150 jours (impôt réduit), mises en annonce au-dessus du marché
     if ((cy.bub || 0) > 0.35 && s.day % 20 < (P.trEvery || 4)) trSellOne('list');
     trZone();
@@ -313,7 +313,7 @@ window.BOT = (function () {
     for (const q of deals) {
       if (n >= (P.trPer || 3) || krach) break;
       if (s.cash < q.total * 1.05) trBorrow(q.total * 1.05 + 2e5);
-      if (s.cash < q.total * 1.05) { if (q.margin > 0.35 && Pr.ltv() > trLtvTarget() - 0.05 && TR.lastSell !== s.day) { TR.lastSell = s.day; trSellOne('list'); } break; }
+      if (s.cash < q.total * 1.05) { if (q.margin > 0.35 && Pr.ltv() > trLtvTarget() - 0.05 && s.day - (TR.lastSell || -99) >= 20) { TR.lastSell = s.day; trSellOne('list'); } break; }   // recyclage du capital : une tour en annonce tous les 20 jours au plus
       const r = Pr.develop(q.x, q.y, q.fl); if (r.ok) { n++; TR.dev++; TR.log.push([s.day, 'dev', q.x, q.y, q.fl, Math.round(q.total), +q.margin.toFixed(2)]); }
     }
     // 4. programmes emblématiques sur les grandes tours livrées (hôtel, casino, centre commercial) ; golf sur les petits immeubles

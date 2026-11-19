@@ -7961,7 +7961,7 @@ function creditLimit() {
 // Promoteur BTP : actifs gageables = trésorerie + stocks (80 %) + immobilier expertisé (× indice de prix) + autres immobilisations (60 %) ; dette ≤ 80 % de ces actifs, soit 4 × les fonds propres (levier ×5)
 const IMMO_T = ['res', 'immo', 'btp', 'off', 'hq', 'wh', 'sport', 's1', 's2', 's3', 's4'];
 const PROMO_LTV = 0.8, PROMO_COV = 0.9;   // LTV à l'octroi 80 % ; au-delà de 90 % : appel de marge
-const immoIdx = () => { const M = S.macro || { gdp: 0.03, rate: 0.04 }; return clamp(1 + 2 * (M.gdp - 0.03) - 3 * (M.rate - 0.04) - 0.3 * shockI('credit') - 0.45 * ((S.pro && S.pro.cy && S.pro.cy.k) || 0), 0.45, 1.35); };   // passe 69 : − krach immobilier (expertises des prêteurs)   // indice des prix de l'immobilier : baisse en récession, quand les taux montent et en crise du crédit
+const immoIdx = () => { const M = S.macro || { gdp: 0.03, rate: 0.04 }; return clamp(1 + 2 * (M.gdp - 0.03) - 3 * (M.rate - 0.04) - 0.3 * shockI('credit') - 0.3 * ((S.pro && S.pro.cy && S.pro.cy.k) || 0), 0.45, 1.35); };   // passe 69 : − krach immobilier (expertises des prêteurs)   // indice des prix de l'immobilier : baisse en récession, quand les taux montent et en crise du crédit
 function promoAssets() { const st = S.stats || {}, iv = st.iv || 0, fv = st.fv || 0; return S.cash + 0.8 * stockValue() + iv * immoIdx() + 0.6 * Math.max(0, fv - iv); }
 function promoLimit() { return Math.max(0, Math.round((PROMO_LEV - 1) * (promoAssets() - (S.loan || 0)) / 1000) * 1000); }
 const promoLtv = () => { const a = promoAssets(); return (S.loan || 0) <= 0 ? 0 : a > 0 ? (S.loan || 0) / a : 9; };
@@ -10138,10 +10138,10 @@ function proCycleStep(p) {
   const m = S.macro || {}, rate = m.rate == null ? 0.03 : m.rate, L = p.cy || (p.cy = { bub: 0, k: 0, rmin: rate, n: 0 }), cr = shockI('credit');
   if (L.k > 0) { L.k *= 0.994; if (L.k < 0.03) { L.k = 0; say('Le marché immobilier se stabilise après le krach : les acquéreurs reviennent.', 'info'); } return; }
   const lev = casteIs('promoteur') && (S.loan || 0) > 0 ? promoLtv() : 0;
-  L.bub = clamp(L.bub + 0.0035 * Math.max(0, (p.hype || 0) - 0.2) + 0.002 * Math.max(0, lev - 0.55) + 0.15 * Math.max(0, 0.03 - rate) - 0.004 * Math.max(0, -(p.hype || 0)) - 0.0005, 0, 1);
+  L.bub = clamp(L.bub + 0.0022 * Math.max(0, (p.hype || 0) - 0.2) + 0.002 * Math.max(0, lev - 0.55) + 0.15 * Math.max(0, 0.03 - rate) - 0.004 * Math.max(0, -(p.hype || 0)) - 0.0005, 0, 1);
   L.rmin = L.bub > 0.05 ? Math.min(L.rmin, rate) : rate;
   if (L.bub > 0.4 && (cr > 0.2 || proGdp() < 0.005 || rate - L.rmin > 0.012 || hash(S.day, 77, 991) < 0.003 * L.bub)) {
-    L.k = clamp(0.25 + 0.6 * L.bub, 0.25, 0.85); L.n = (L.n || 0) + 1; L.kd = S.day; L.bub = 0;
+    L.k = clamp(0.2 + 0.45 * L.bub, 0.2, 0.65); L.n = (L.n || 0) + 1; L.kd = S.day; L.bub = 0;
     say(`Krach immobilier : la bulle éclate. Taux de capitalisation +${pf1(3 * L.k)} pt, acquéreurs rares (ventes au marché −${Math.round(100 * (1 - proMktK()))} %), banques prudentes : les promoteurs endettés sont exposés.`, 'bad');
   }
 }
