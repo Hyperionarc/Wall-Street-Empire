@@ -1549,8 +1549,8 @@ const TYPES = {
   f2:      { name: 'Usine moyenne', sub: 'Manufacturés, pharma', cost: 6000,  color: '#7f96ff', jobs: 16, upkeep: 6,  w: 2, h: 1, tier: 1, rec: { in: { iron: 10, coal: 8, copper: 6 }, out: { std: 17 } } },
   f3:      { name: 'Grande usine',  sub: 'Luxe et haute technologie', cost: 15000, color: '#ff4fa3', jobs: 30, upkeep: 12, w: 2, h: 2, tier: 2, rec: { in: { copper: 8, oil: 6, ingot: 0.5 }, out: { lux: 10 } } },
   s1:      { name: 'Petit marché',  sub: 'Biens de base',   cost: 700,   color: '#46d39a', jobs: 4,  upkeep: 1.5, ret: { cap: 40, sells: ['basic'] } },
-  s2:      { name: 'Supermarché',   sub: 'Base + manufact.', cost: 3500, color: '#7f96ff', jobs: 12, upkeep: 4,  w: 2, h: 1, tier: 1, ret: { cap: 110, sells: ['basic', 'std'] } },
-  s3:      { name: 'Hypermarché',   sub: 'Tout + luxe',     cost: 12000, color: '#ff4fa3', jobs: 35, upkeep: 10, w: 2, h: 2, tier: 2, ret: { cap: 300, sells: ['basic', 'std', 'lux'] } },
+  s2:      { name: 'Supermarché',   sub: 'Base + manufact.', cost: 3500, color: '#7f96ff', jobs: 12, upkeep: 4,  w: 2, h: 2, tier: 1, ret: { cap: 110, sells: ['basic', 'std'] } },   // barème des tailles (docs/BAREME_TAILLES.md) : 2×2 = 4 cases (bâtiment + parking)
+  s3:      { name: 'Hypermarché',   sub: 'Tout + luxe · périphérie', cost: 12000, color: '#ff4fa3', jobs: 35, upkeep: 10, w: 3, h: 3, tier: 2, peri: 1, ret: { cap: 300, sells: ['basic', 'std', 'lux'] } },   // 3×3 = 9 cases (sprite carré : grande boîte plate et parking), hors du centre dense
   port:    { name: 'Terminal portuaire', sub: 'Export à bon prix', cost: 9000, color: '#5fb0ff', jobs: 30, upkeep: 8, w: 2, h: 2 },
   off:     { name: 'Tour de location', sub: 'Bureaux à louer', cost: 60000000, color: '#8fd0ff', jobs: 10, upkeep: 6500, tier: 1 },
   tv:      { name: 'Station média', sub: 'Télé et radio : publicité', cost: 18000000, color: '#ff9bd0', jobs: 30, upkeep: 6000, tier: 1 },
@@ -2677,8 +2677,8 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   // Méga-usine (3×3) : mêmes recettes que la grande usine + électronique de masse ; capacité ×3 (et non ×8 : la demande par produit est limitée), 2,4× les effectifs, capex ×3,2. L'effectif suit l'activité (jobsOf).
   TYPES.f4 = Object.assign({}, TYPES.f3, { name: 'Méga-usine', sub: 'Électronique de masse, ×3', cost: TYPES.f3.cost * 3.2, upkeep: TYPES.f3.upkeep * 3, jobs: TYPES.f3.jobs * 2.4, jobs0: (TYPES.f3.jobs0 || TYPES.f3.jobs) * 2.4, w: 3, h: 3, tier: 3, capK: 3, color: '#ff7ad0', rec: { in: Object.assign({}, TYPES.f3.rec.in), out: Object.assign({}, TYPES.f3.rec.out) } });
   // Commerces : un supermarché ≈ 3,8 M$ de CA/an, 13 employés (≈ 290 k$ par employé, comme Walmart), 2-3 fois plus grand qu'avant
-  setC('s1', 110000, 50); setC('s2', 700000, 240); setC('s3', 4000000, 1000);   // retour sur capex 3-5 ans pour s1/s2 (EBITDA 9-12 %), s3 ≈ 3,5 ans ; entretien du supermarché 300 → 240 $/j après le « Round honnête » (le plus exposé à la baisse d'humeur et de population : EBITDA du banc 4,8 % → 6,5 %)
-  TYPES.s1.ret.cap = 110; TYPES.s2.ret.cap = 400; TYPES.s3.ret.cap = 540; TYPES.s1.jobs = 1; TYPES.s2.jobs = 5; TYPES.s3.jobs = 16;
+  setC('s1', 110000, 50); setC('s2', 700000, 240); setC('s3', 4400000, 1150);   // barème des tailles : hypermarché 3×3 (9 cases au lieu de 4) → capex +10 % (bâtiment et parking plus grands, le terrain suit l'emprise), capacité et effectif ci-dessous   // retour sur capex 3-5 ans pour s1/s2 (EBITDA 9-12 %), s3 ≈ 3,5 ans ; entretien du supermarché 300 → 240 $/j après le « Round honnête » (le plus exposé à la baisse d'humeur et de population : EBITDA du banc 4,8 % → 6,5 %)
+  TYPES.s1.ret.cap = 110; TYPES.s2.ret.cap = 400; TYPES.s3.ret.cap = 720; TYPES.s1.jobs = 1; TYPES.s2.jobs = 5; TYPES.s3.jobs = 20;   // hypermarché : capacité 540 → 720 et 16 → 20 employés (1,8 fois le supermarché 2×2, pour 2,25 fois sa surface)
   ['res', 'wh', 'hq', 'btp', 'immo', 'port'].forEach(k => { TYPES[k].cost *= 30 * K_SIZE; TYPES[k].upkeep *= 30 * K_SIZE; });
   TYPES.res.upkeep = 1;   // passe 34 : les logements rapportent des loyers ; entretien = 1 $ + 4,6 $ par étage et par jour (resUpk), plus la taxe foncière
   ['plant', 'solar', 'wind', 'nuclear'].forEach(k => { TYPES[k].cost *= K_SIZE; TYPES[k].upkeep *= K_SIZE; });
@@ -2720,7 +2720,7 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   const EXT_CAPEX = { well: 5200000, gwell: 4000000, miron: 4500000, mcoal: 3000000, mcopper: 4000000, mgold: 6000000, mnicr: 5000000, mbauxite: 3500000, mlithium: 4500000, mzinc: 3500000, mgraphite: 2500000, qsilica: 1200000, qclay: 800000, qsalt: 1500000, mphos: 3000000, mpotash: 4000000, qgravel: 800000, qsand: 700000, qlime: 1000000, logging: 600000, fwheat: 2000000, fsugar: 2500000, fcotton: 2200000, frubber: 2500000, fvine: 3000000, fcorn: 2000000, frapeseed: 2600000, fcattle: 1000000, fchicken: 600000, fpig: 800000, fsheep: 700000 };
   Object.keys(EXT_CAPEX).forEach(k => { if (TYPES[k]) TYPES[k].cost = EXT_CAPEX[k]; });
   // Méga-centre commercial (s4, 3×3) : mêmes rayons que s3, capacité ×4, capex et effectifs en proportion (la méga-usine f4 est définie plus haut)
-  TYPES.s4 = Object.assign({}, TYPES.s3, { name: 'Méga-centre commercial', sub: 'Base + manufact. + luxe, ×4', cost: TYPES.s3.cost * 4, upkeep: TYPES.s3.upkeep * 4, jobs: TYPES.s3.jobs * 4, w: 3, h: 3, tier: 3, color: '#ff7ad0', ret: { cap: TYPES.s3.ret.cap * 4, sells: TYPES.s3.ret.sells.slice() } });
+  TYPES.s4 = Object.assign({}, TYPES.s3, { name: 'Méga-centre commercial', sub: 'Base + manufact. + luxe, ×4 · périphérie', cost: TYPES.s3.cost * 4, upkeep: TYPES.s3.upkeep * 4, jobs: TYPES.s3.jobs * 4, w: 3, h: 3, tier: 3, color: '#ff7ad0', ret: { cap: TYPES.s3.ret.cap * 4, sells: TYPES.s3.ret.sells.slice() } });
   TIERS.forEach(x => { x.at *= SCALE_M; });
 })();
 // ===== Passe 46 : magasins spécialisés (valeurs finales, après l'échelle des commerces). ret.fam : famille vendue (PRODUCT_FAMILY) ; ret.sells : classes de cette famille.
@@ -3194,10 +3194,42 @@ function genCropFields2(dep, grid) {
 const MONU = { '45,21': 'stadium', '21,45': 'stadium2', '33,45': 'hall', '45,45': 'telecom', '45,33': 'hospital', '15,21': 'police', '21,15': 'fire', '39,15': 'lycee', '27,15': 'college', '15,39': 'maternelle', '27,45': 'garderie' };
 const PUB = { stadium: ['Stade', 'sport', 'Loisirs : +1,5 d\'humeur'], stadium2: ['Stade', 'sport', 'Loisirs'], hall: ['Hôtel de ville', 'admin', 'Administration : +1,5 d\'humeur'], telecom: ['Tour de télécommunications', 'telecom', 'Réseau : +2 d\'humeur'], hospital: ['Hôpital', 'sante', 'Santé : +2,5 d\'humeur'], police: ['Commissariat de police', 'secu', 'Sécurité : +2 d\'humeur'], fire: ['Caserne de pompiers', 'secu2', 'Sécurité : +1,5 d\'humeur'], lycee: ['Lycée', 'edu', 'Éducation : +1,5 d\'humeur'], college: ['Collège', 'edu', 'Éducation : +1,5 d\'humeur'], maternelle: ['École maternelle', 'edu2', 'Familles : +2 d\'humeur'], garderie: ['Crèche et garderie', 'edu2', 'Familles : +2 d\'humeur'] };
 const PUB_BONUS = { sport: 1.5, admin: 1.5, telecom: 1, sante: 2.5, secu: 2, secu2: 1.5, edu: 1.5, edu2: 1 };
+// Barème des tailles : emprise (cases) des équipements publics de la ville. Chaque case de l'emprise est une case « mon » du même équipement (comme le mall et l'aéroport),
+// avec le coin nord (mx, my) et la taille (mw, mh) : le sprite est dessiné une fois, depuis la case avant. Les autres équipements restent sur 1 case.
+const MON_FP = { hospital: [3, 3], lycee: [3, 2], college: [2, 2], hall: [2, 2], stadium: [2, 2], stadium2: [2, 2] };
+const monMulti = c => !!c && c.t === 'npc' && c.k === 'mon' && (c.mw > 1 || c.mh > 1);
+const monFront = c => !monMulti(c) || (c.x === c.mx + c.mw - 1 && c.y === c.my + c.mh - 1);
+function monFit(grid, x, y, w, h, can) {   // coin nord d'une emprise w×h de lots (hors avenues, hors coin 2×2 réservé) qui contient la case (x, y) ; can(case) dit si une case occupée peut être reprise ; null si impossible
+  let best = null, bc = 1e9;
+  for (let oy = 0; oy < h; oy++) for (let ox = 0; ox < w; ox++) {
+    const ax = x - ox, ay = y - oy; let ok = true, cost = 0;
+    for (let j = 0; j < h && ok; j++) for (let i = 0; i < w && ok; i++) { const X = ax + i, Y = ay + j; if (!inb(X, Y) || ZONE[idx(X, Y)] !== 1 || !isLot(X, Y) || isRoadPos(X, Y)) { ok = false; break; } const o = grid[idx(X, Y)]; if (o) { if (X === x && Y === y) continue; if (!can || !can(o)) ok = false; else cost++; } }
+    if (ok && cost < bc) { bc = cost; best = { x: ax, y: ay }; }
+  }
+  return best;
+}
+function monPut(grid, m, ax, ay, w, h, seed) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const c = npcCellOf(ax + i, ay + j, 'mon', 1, seed == null ? null : seed); c.m = m; if (w > 1 || h > 1) { c.mx = ax; c.my = ay; c.mw = w; c.mh = h; } grid[idx(ax + i, ay + j)] = c; } }
+function monPlaceAll(grid) {   // génération : les équipements de plusieurs cases d'abord (sur des lots libres), les autres restent posés par la boucle des lots
+  Object.keys(MONU).forEach(k => { const m = MONU[k], fp = MON_FP[m]; if (!fp) return; const [x, y] = k.split(',').map(Number); const a = monFit(grid, x, y, fp[0], fp[1], null); if (a) monPut(grid, m, a.x, a.y, fp[0], fp[1], hash(x, y, 44)); });
+}
+function monLink(grid) {   // chargement : relie les cases d'un équipement de plusieurs cases ; une ancienne sauvegarde (équipement sur 1 case) est agrandie à l'emprise du barème sur les lots voisins (maisons et immeubles de la ville repris, jamais un bâtiment du joueur ni une rue)
+  const razed = [];
+  Object.keys(MON_FP).forEach(m => {
+    const fp = MON_FP[m], cs = []; for (let i = 0; i < N * N; i++) { const c = grid[i]; if (c && c.t === 'npc' && c.k === 'mon' && c.m === m) cs.push(c); } if (!cs.length) return;
+    const x0 = Math.min(...cs.map(c => c.x)), y0 = Math.min(...cs.map(c => c.y)), x1 = Math.max(...cs.map(c => c.x)), y1 = Math.max(...cs.map(c => c.y));
+    if (cs.length === fp[0] * fp[1] && x1 - x0 + 1 === fp[0] && y1 - y0 + 1 === fp[1]) { cs.forEach(c => { c.mx = x0; c.my = y0; c.mw = fp[0]; c.mh = fp[1]; }); return; }
+    if (cs.length !== 1) { cs.forEach(c => { delete c.mx; delete c.my; delete c.mw; delete c.mh; }); return; }   // forme inattendue : chaque case reste un équipement d'une case
+    const c0 = cs[0], a = monFit(grid, c0.x, c0.y, fp[0], fp[1], o => o.t === 'npc' && o.k !== 'mon');
+    if (!a) return;
+    for (let j = 0; j < fp[1]; j++) for (let i = 0; i < fp[0]; i++) { const X = a.x + i, Y = a.y + j, o = grid[idx(X, Y)]; if (o && o !== c0) razed.push([X, Y]); }
+    monPut(grid, m, a.x, a.y, fp[0], fp[1], c0.seed);
+  });
+  return razed;
+}
 function pubBonus() { const seen = {}; let b = 0; S.grid.forEach(c => { if (c && c.t === 'npc' && c.k === 'mon' && PUB[c.m]) { const g = PUB[c.m][1]; if (!seen[g]) { seen[g] = 1; b += PUB_BONUS[g] || 0; } } }); return b; }
 function genNpc(grid) {
   // Manhattan au centre (très hautes tours), immeubles moyens autour, petits immeubles puis maisons en périphérie
-  let cap = 0, offFloors = 0;
+  let cap = 0, offFloors = 0; monPlaceAll(grid);
   const lm = { '26,26': 66, '32,26': 54 };
   const cx = (CITY.x0 + CITY.x1) / 2, cy = (CITY.y0 + CITY.y1) / 2;
   for (let by = 0; by < 6; by++) for (let bx = 0; bx < 6; bx++) {
@@ -3207,7 +3239,7 @@ function genNpc(grid) {
       if (grid[id]) continue;
       const key = x + ',' + y, isLm = lm[key] != null, d = Math.hypot(x - cx, y - cy) + (hash(x, y, 47) - 0.5) * 2.2;
       if (MONU[key]) { grid[id] = { t: 'npc', k: 'mon', m: MONU[key], seed: hash(x, y, 44), floors: 1, lvl: 0, w: 1, h: 1, x, y, born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; continue; }
-      if (!isLm && i >= 3 && j >= 3) continue;                   // coin libre de 2x2 : emplacement pour hypermarché
+      if (!isLm && i >= 3 && j >= 3) continue;                   // coin libre de 2x2 : emplacement d'un supermarché (2×2)
       const zone = d <= 7.5 ? 0 : d <= 12 ? 1 : d <= 16 ? 2 : 3;
       const p = [0.88, 0.6, 0.5, 0.42][zone];
       if (!isLm && hash(x, y, 41) >= p) continue;
@@ -3244,11 +3276,11 @@ const CITY_MS = [[150000, 'New Dollarton devient une ville : les premiers quarti
   [400000, 'New Dollarton devient une grande ville : tours de bureaux et nouveaux quartiers.'], [600000, 'New Dollarton devient une métropole : le centre est une forêt de tours.'],
   [800000, 'Cap des 800 000 habitants : les supertours dominent le centre.'], [1000000, 'Un million d\'habitants : New Dollarton est une mégalopole.']];
 const citySizeName = pop => { let n = CITY_SIZES[0][1]; CITY_SIZES.forEach(a => { if (pop >= a[0]) n = a[1]; }); return n; };
-const isLot = (x, y) => x % GRID !== 0 && y % GRID !== 0 && !((x % GRID) - 1 >= 3 && (y % GRID) - 1 >= 3);   // lot constructible d'un bloc (les 4 cases du coin 2x2 restent libres : emplacement d'hypermarché)
+const isLot = (x, y) => x % GRID !== 0 && y % GRID !== 0 && !((x % GRID) - 1 >= 3 && (y % GRID) - 1 >= 3);   // lot constructible d'un bloc (les 4 cases du coin 2x2 restent libres : emplacement exact d'un supermarché 2×2)
 const npcCellOf = (x, y, k, floors, seed) => ({ t: 'npc', k, seed: seed == null ? hash(x, y, 44) : seed, floors, lvl: 0, w: 1, h: 1, x, y, born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false });
 function genNpcTown(grid, d0) {   // petite ville : centre bas et dense, quartiers de maisons, périphérie clairsemée ; passe 44 : d0 = CITY_D0 (ville aérée autour du mall central)
   const D = clamp(d0 == null ? CITY_D0 : d0, 0.3, 1);
-  let cap = 0, offFloors = 0; const R = cityR(CITY_POP0 * Math.sqrt(D)), Fm = cityFmax(CITY_POP0 * Math.sqrt(D));   // hauteur : Fmax d'une ville de 100 000 × √D habitants (centre de 6 à 14 étages pour D = 0,6)
+  let cap = 0, offFloors = 0; monPlaceAll(grid); const R = cityR(CITY_POP0 * Math.sqrt(D)), Fm = cityFmax(CITY_POP0 * Math.sqrt(D));   // hauteur : Fmax d'une ville de 100 000 × √D habitants (centre de 6 à 14 étages pour D = 0,6)
   const occK = 0.55 + 0.45 * D, parkP = 0.07 + 0.12 * (1 - D), plaza = D < 1 ? 1 : -1;   // lots occupés, parcs et pelouses, parvis libre autour du mall (cases)
   for (let by = 0; by < 6; by++) for (let bx = 0; bx < 6; bx++) {
     const ox = CITY0.x0 + 1 + bx * GRID, oy = CITY0.y0 + 1 + by * GRID;
@@ -3593,7 +3625,7 @@ function load() {
     { let nm = 0; if (cv2 && Array.isArray(d.cty)) d.cty.forEach(q => { if (Array.isArray(q) && q[2] === 'mon' && q[5] === 'mall' && q[0] >= MALL_BIG.x0 && q[0] < MALL_BIG.x0 + MALL_BIG.w && q[1] >= MALL_BIG.y0 && q[1] < MALL_BIG.y0 + MALL_BIG.w) nm++; }); mallBSet(nm >= MALL_BIG.w * MALL_BIG.w); }   // passe 45 : grand mall seulement si la sauvegarde le contient ; ancien mall 2×2 ou pas de mall : comportement d'avant
     Object.assign(CITY, CITY0); if (cv2 && Array.isArray(d.cext)) d.cext.forEach(b => { if (Array.isArray(b)) cityBlockApply(b[0] | 0, b[1] | 0); });
     genRoads(grid);
-    const npcInfo = cv2 ? ctyLoad(grid, d.cty) : genNpc(grid);
+    const npcInfo = cv2 ? ctyLoad(grid, d.cty) : genNpc(grid); const fpRz = monLink(grid);   // barème des tailles : équipements publics à leur emprise (hôpital 3×3, lycée 3×2…)
     if (!cv2) (Array.isArray(d.built) ? d.built : []).forEach(b => { const id = idx(b[0], b[1]); if (!grid[id]) grid[id] = { t: 'npc', k: b[2], seed: b[4], floors: b[3], lvl: 0, w: 1, h: 1, x: b[0], y: b[1], born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; });
     if (!cv2) (Array.isArray(d.npcMods) ? d.npcMods : []).forEach(m => { const c = grid[idx(m[0], m[1])]; if (!c || c.t !== 'npc') return; if (m[2] === 'x') grid[idx(m[0], m[1])] = null; else { c.k = m[2]; c.floors = m[3]; } });
     if (d.npcGrow && !cv2) Object.keys(d.npcGrow).forEach(k => { const [gx, gy] = k.split(',').map(Number), c = inb(gx, gy) && grid[idx(gx, gy)], v = d.npcGrow[k]; if (c && c.t === 'npc' && c.k === 'off' && Array.isArray(v)) { c.floors = Math.max(c.floors, v[0] | 0); c.f0 = v[1] | 0 || c.floors; } });
@@ -3603,6 +3635,7 @@ function load() {
     if (!dep.some(q => q && CROPS[q.k])) genCropFields(dep);
     { const have = {}; dep.forEach(q => { if (q) have[q.k] = 1; }); const miss = {}; let nm = 0; NEW_DEP_KINDS.forEach(k => { if (!have[k]) { miss[k] = 1; nm++; } }); if (nm) genExtraDeposits(dep, grid, miss); if (!have.corn && !have.rapeseed) genCropFields2(dep, grid); }   // passe 33 : sauvegarde antérieure, les nouveaux gisements sont ajoutés sur les cases encore libres
     airEnsure(grid, dep);   // passe 49 : aéroport (sauvegardé dans cty ; absent des anciennes sauvegardes : posé sur un rectangle libre)
+    fpRz.push(...fpMigrate(grid, dep));   // barème des tailles : bâtiments du joueur agrandis à leur nouvelle emprise (supermarché 2×1 → 2×2, hypermarché 2×2 → 3×3), sans en perdre aucun
     const S0 = {
       cash: +d.cash, pop: +d.pop, day: d.day | 0, grid, dep, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: d.boomUntil == null ? -1 : (+d.boomUntil | 0),
       milestone: 99, lastWarn: -99, tax: clamp(+d.tax || 0.25, 0.05, 0.45),
@@ -3613,7 +3646,7 @@ function load() {
     if (cv2) { S0.cityV = 2; S0.bassin = +d.bs > 0 ? +d.bs : BASSIN_NEW; S0.bx = +d.bx > 0 ? +d.bx : 0; S0.cityExt = Array.isArray(d.cext) ? d.cext : []; S0.cg = Object.assign({ acc: 0, park: 0, ms: 0, ext: 0, jt: 0.88, f: {} }, d.cg || {}); }
     try { const ga = JSON.parse(localStorage.getItem(SAVE_KEY + '_gal') || '{}'); S0.gal = ga && typeof ga === 'object' ? ga : {}; } catch (e) { S0.gal = {}; }   // passe 28 : galerie des produits fabriqués
     S0.capAdj = +d.capAdj || 0; S0.fix1 = d.fix1 == null ? (S0.cash < 0 ? 0 : 1) : 1;   // remise à niveau : seulement pour les très anciennes sauvegardes (sans le champ) à trésorerie négative if (d.rmb != null) S0.rmb = +d.rmb;
-    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.rv = d.rv && typeof d.rv === 'object' ? d.rv : null; S0.seats = Array.isArray(d.seats) ? d.seats : null; S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.coach = (d.cch && typeof d.cch === 'object') ? d.cch : null; S0.tierMax = d.tmx | 0; S0.bk = d.bk || null; S0.mc = d.mc || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; S0.npcOwn = d.nown && typeof d.nown === 'object' ? d.nown : {}; S0.neg = d.neg && typeof d.neg === 'object' ? d.neg : {}; S0.reqs = Array.isArray(d.reqs) ? d.reqs : []; S0.rid = +d.rid || 0; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.pro = d.pro && typeof d.pro === 'object' ? d.pro : null; S0.pland = d.pland && typeof d.pland === 'object' ? d.pland : null; S0.plv = d.plv && typeof d.plv === 'object' ? d.plv : null; S0.pzn = d.pzn && typeof d.pzn === 'object' ? d.pzn : null; S0.pzm = d.pzm && typeof d.pzm === 'object' ? d.pzm : null; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.zn = znSan(d.zn); S0.rub = rubSan(d.rub); S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.moodEv = isFinite(d.mev) ? clamp(+d.mev, -40, 40) : 0; S0.irCd = d.irCd || {}; S0.inv = Array.isArray(d.inv) ? d.inv.filter(q => q && typeof q.id === 'string').slice(0, 4).map(q => ({ id: q.id, qty: +q.qty || 0, px: +q.px || 0, day: +q.day || 0, until: +q.until || 0 })) : []; S0.vc = d.vc && typeof d.vc === 'object' ? { n: clamp(+d.vc.n || 0, 0, 9), sold: clamp(+d.vc.sold || 0, 0, 0.9), last: isFinite(+d.vc.last) && d.vc.last != null ? +d.vc.last : -99, mult: +d.vc.mult || 0 } : undefined; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
+    S0.contracts = Array.isArray(d.contracts) ? d.contracts : []; S0.houses = +d.houses || 0; S0.built = Array.isArray(d.built) ? d.built : []; S0.cid = +d.cid || 0; S0.cdone = +d.cdone || 0; S0.lots = +d.lots || 0; S0.rivals = Array.isArray(d.rivals) && d.rivals.length ? d.rivals : (d.rivals ? [] : initRivals()); S0.rv = d.rv && typeof d.rv === 'object' ? d.rv : null; S0.seats = Array.isArray(d.seats) ? d.seats : null; S0.loan = +d.loan || 0; S0.macro = d.macro || null; S0.cpi = +d.cpi || 1; S0.rw = clamp(+d.rw || 1, 0.7, 3); S0.exp = d.exp && typeof d.exp === 'object' ? d.exp : {}; S0.patents = +d.patents || 0; S0.x11 = (d.x11 && typeof d.x11 === 'object') ? d.x11 : null; S0.coach = (d.cch && typeof d.cch === 'object') ? d.cch : null; S0.tierMax = d.tmx | 0; S0.bk = d.bk || null; S0.mc = d.mc || null; S0.caste = CASTES[d.caste] ? d.caste : ({ energeticien: 'negociant', geopoliticien: 'negociant', tycoon: 'industriel' })[d.caste] || ''; S0.npcMods = Array.isArray(d.npcMods) ? d.npcMods : []; fpRz.forEach(q => S0.npcMods.push([q[0], q[1], 'x', 0])); S0.npcOwn = d.nown && typeof d.nown === 'object' ? d.nown : {}; S0.neg = d.neg && typeof d.neg === 'object' ? d.neg : {}; S0.reqs = Array.isArray(d.reqs) ? d.reqs : []; S0.rid = +d.rid || 0; S0.npcGrow = d.npcGrow || {}; S0.kp = +d.kp || 0; S0.skills = d.skills || {}; S0.goal = GOALS[d.goal] ? d.goal : 'sandbox'; S0.goalDone = d.goalDone || null; S0.streak = +d.streak || 0; S0.tutoDone = !!d.tutoDone; S0.diff = +d.diff || 0; S0.rs = d.rs == null ? null : d.rs; S0.unlockAll = d.unlockAll === undefined ? true : !!d.unlockAll; S0.pro = d.pro && typeof d.pro === 'object' ? d.pro : null; S0.pland = d.pland && typeof d.pland === 'object' ? d.pland : null; S0.plv = d.plv && typeof d.plv === 'object' ? d.plv : null; S0.pzn = d.pzn && typeof d.pzn === 'object' ? d.pzn : null; S0.pzm = d.pzm && typeof d.pzm === 'object' ? d.pzm : null; S0.npcFarm = d.npcFarm || {}; S0.brandStrat = d.brandStrat || 'range'; S0.deals = d.deals || {}; S0.rel = d.rel || {}; S0.cx = d.cx || {}; S0.talent = Array.isArray(d.talent) ? d.talent : []; S0.opt = d.opt || null; S0.npcSup = d.npcSup || {}; S0.foreign = Array.isArray(d.foreign) ? d.foreign : null; S0.pol = d.pol || null; S0.noEv = !!d.noEv; S0.tech = d.tech || {}; S0.zn = znSan(d.zn); S0.rub = rubSan(d.rub); S0.research = d.research || null; S0.mods = Array.isArray(d.mods) ? d.mods : []; S0.nextEv = +d.nextEv || 0; S0.gtiH = Array.isArray(d.gtiH) ? d.gtiH : []; S0.port = d.port || {}; S0.subs = Array.isArray(d.subs) ? d.subs : []; S0.exec = d.exec || { cfo: 0, ir: 0 }; S0.pb = +d.pb || 0; S0.mood = +d.mood || 0; S0.moodEv = isFinite(d.mev) ? clamp(+d.mev, -40, 40) : 0; S0.irCd = d.irCd || {}; S0.inv = Array.isArray(d.inv) ? d.inv.filter(q => q && typeof q.id === 'string').slice(0, 4).map(q => ({ id: q.id, qty: +q.qty || 0, px: +q.px || 0, day: +q.day || 0, until: +q.until || 0 })) : []; S0.vc = d.vc && typeof d.vc === 'object' ? { n: clamp(+d.vc.n || 0, 0, 9), sold: clamp(+d.vc.sold || 0, 0, 0.9), last: isFinite(+d.vc.last) && d.vc.last != null ? +d.vc.last : -99, mult: +d.vc.mult || 0 } : undefined; S0.float = clamp(+d.float || 0, 0, 0.6); S0.prem = +d.prem || 1.1; S0.payout = clamp(+d.payout || 0, 0, 0.6); S0.sp = Array.isArray(d.sp) ? d.sp.slice(-60) : []; S0.fin = null; if (d.wind != null) S0.wind = clamp(+d.wind || 0.6, 0.1, 1); S0._pSup = Math.max(0, +d.pSup || 0); S0._pDraw = Math.max(0, +d.pDraw || 0); if (d.st && typeof d.st === 'object') ['happy', 'unemp', 'worth', 'raw'].forEach(k => { if (isFinite(d.st[k])) S0.stats[k] = +d.st[k]; }); if (d.locSold && typeof d.locSold === 'object') S0.locSold = d.locSold; if (d.brandAvg && typeof d.brandAvg === 'object') S0._brandAvg = d.brandAvg; if (Array.isArray(d.m30)) S0.m30 = d.m30.slice(-30); if (d.forces && typeof d.forces === 'object') S0.forces = d.forces; S0.lossC = Math.max(0, +d.lossC || 0); S0.storm = +d.storm || 0; S0.event = d.event || null;
     S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP * (cv2 ? S0.bassin : 1) / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.firms = Array.isArray(d.firms) ? d.firms.filter(f => f && f.id > 0 && typeof f.name === 'string') : []; S0.grp = (d.grp && typeof d.grp === 'object') ? d.grp : null;   // passe 32 : filiales (absentes des anciennes sauvegardes)
@@ -3636,6 +3669,33 @@ function dcMigrate(grid) {
   const full = (TYPES.dc.w || 1) * (TYPES.dc.h || 1);
   grid.forEach((c, i) => { if (!c || c.t !== 'dc') return; let mx = 0, my = 0, n = 0; grid.forEach(q => { if (q && q.t === 'part' && q.ai === i) { n++; mx = Math.max(mx, q.ox | 0); my = Math.max(my, q.oy | 0); } });
     if (n + 1 < full) { c.w = Math.min(mx + 1, TYPES.dc.w); c.h = Math.min(my + 1, TYPES.dc.h); c.lg = DC_LEG; } });
+}
+// Migration des emprises (barème des tailles) : un bâtiment du joueur dont le type a grandi garde son coin nord s'il le peut (sinon le plus proche), et prend les cases voisines libres
+// ou occupées par la ville (maison, immeuble, parc : rasés comme pour une acquisition) ; jamais une rue, un équipement public, un gisement ni un autre bâtiment du joueur.
+// Si aucune place n'est possible, il garde son ancienne emprise (c.w, c.h) : rien ne se chevauche. Renvoie les cases de la ville reprises [x, y].
+function fpMigrate(grid, dep) {
+  const razed = [];
+  for (let i = 0; i < N * N; i++) {
+    const c = grid[i]; if (!c || c.t === 'part' || c.t === 'road' || c.t === 'npc' || c.x + c.y * N !== i) continue;
+    const T = TYPES[c.t]; if (!T) continue; const w = T.w || 1, h = T.h || 1;
+    const old = [i]; for (let j = 0; j < N * N; j++) { const q = grid[j]; if (q && q.t === 'part' && q.ai === i) old.push(j); }
+    let ox0 = c.x, oy0 = c.y, ox1 = c.x, oy1 = c.y; old.forEach(j => { const X = j % N, Y = (j / N) | 0; ox0 = Math.min(ox0, X); oy0 = Math.min(oy0, Y); ox1 = Math.max(ox1, X); oy1 = Math.max(oy1, Y); });
+    const ow = ox1 - ox0 + 1, oh = oy1 - oy0 + 1;
+    if (old.length === w * h && ow === w && oh === h && ox0 === c.x && oy0 === c.y) continue;   // emprise déjà conforme
+    const mine = new Set(old), free = j => { const o = grid[j]; if (mine.has(j)) return 0; if (dep && dep[j]) return -1; if (!o) return ZONE[j] === 3 || isRoadPos(j % N, (j / N) | 0) ? -1 : 0; return o.t === 'npc' && o.k !== 'mon' ? 1 : -1; };
+    let best = null;
+    for (let ay = oy1 - h + 1; ay <= oy0; ay++) for (let ax = ox1 - w + 1; ax <= ox0; ax++) {
+      let ok = true, cost = 0; for (let y = ay; y < ay + h && ok; y++) for (let x = ax; x < ax + w; x++) { if (!inb(x, y)) { ok = false; break; } const f = free(idx(x, y)); if (f < 0) { ok = false; break; } cost += f; }
+      if (!ok) continue; const sc = (ax === c.x && ay === c.y ? 0 : 100) + cost * 10 + Math.abs(ax - c.x) + Math.abs(ay - c.y);
+      if (!best || sc < best.sc) best = { x: ax, y: ay, sc };
+    }
+    if (!best) { if (old.length === ow * oh) { c.w = ow; c.h = oh; c.fpOld = 1; } continue; }   // pas de place : ancienne emprise gardée (cohérente avec ses cases)
+    old.forEach(j => { grid[j] = null; });
+    for (let y = best.y; y < best.y + h; y++) for (let x = best.x; x < best.x + w; x++) { const j = idx(x, y), o = grid[j]; if (o && o.t === 'npc') razed.push([x, y]); }
+    c.x = best.x; c.y = best.y; c.w = w; c.h = h; const ai = idx(c.x, c.y);
+    for (let oy = 0; oy < h; oy++) for (let ox = 0; ox < w; ox++) grid[idx(c.x + ox, c.y + oy)] = (ox || oy) ? { t: 'part', ai, ox, oy } : c;
+  }
+  return razed;
 }
 function applyZm(zm) {   // passe 34 : réapplique les terrains créés (la carte d'origine est reconstruite par buildZones)
   buildZones(); if (!zm || typeof zm !== 'object') return;
@@ -6004,6 +6064,59 @@ SPEC_KEYS.forEach(k => { ZONE_NEED[k] = 1; }); ZONE_NEED.crush = 2; ZONE_NEED.ew
 const zoneOk = (key, z) => (key === 'pylon' || key === 'cable') ? (z === 0 || z === 2 || z === 4) : key === 'crush' ? (z === 0 || z === 2) : z === ZONE_NEED[key] || (ZONE_NEED[key] === 2 && z === 0);   // passe 48 : l'industrie peut aussi s'installer en campagne (terrain bon marché, sans subvention, transport plus long), jamais en ville
 const indRural = (key, x, y) => ZONE_NEED[key] === 2 && ZONE[idx(x, y)] === 0;   // placements automatiques : la zone industrielle du port d'abord
 const DC_ZMSG = 'Pas de data center en ville : un campus de 5×4 cases et ses besoins électriques ne tiennent pas dans le centre. Construis-le en zone industrielle du port ou en campagne, puis alimente-le (réseau ou tes centrales).';
+// Barème des tailles (docs/BAREME_TAILLES.md) : les grandes surfaces (hypermarché, méga-centre commercial : T.peri) ne se posent pas dans le centre dense, mais en périphérie
+// de la ville : le centre de leur emprise doit être à PERI_R cases ou plus du centre-ville (CBD), là où il y a la place pour un grand parking. Les bâtiments déjà construits (anciennes sauvegardes) restent où ils sont.
+const PERI_R = 12;
+// Barème des tailles (référence : docs/BAREME_TAILLES.md) : emprise en cases [largeur, profondeur] de chaque type ; plus c'est gros dans la vraie vie, plus d'emprise (1 case ≈ 150 m).
+// Vérifié par tools/tests/t58_tailles.js (chaque type de TYPES doit y figurer avec exactement son emprise).
+const FP_BAREME = {
+  road: [1, 1], pylon: [1, 1], cable: [1, 1], pipeline: [1, 1], npc: [1, 1],   // réseaux et ville (immeuble PNJ : 1 lot)
+  res: [1, 1], tech: [1, 1], off: [1, 1], bank: [1, 1], rd: [1, 1], dc: [1, 1], tv: [1, 1], sport: [1, 1], immo: [1, 1], hq: [2, 2],   // tours et bureaux sur 1 lot (on monte en étages), siège 2×2 inchangé
+  s1: [1, 1], smode: [1, 1], spharma: [1, 1], slux: [1, 1], stech: [2, 1], shome: [2, 1], ssport: [2, 1], sbrico: [2, 1], sauto: [2, 2], s2: [2, 2], s3: [3, 3], s4: [3, 3], ewh: [2, 2],   // commerce
+  f1: [1, 1], foundry: [1, 1], wh: [1, 1], crush: [1, 1], f2: [2, 1], btp: [2, 1], plant: [2, 1], f3: [2, 2], port: [2, 2], f4: [3, 3], nuclear: [3, 3], solar: [5, 4], wind: [1, 1]   // industrie, logistique, énergie
+};
+Object.keys(TYPES).forEach(k => { if (!FP_BAREME[k] && (TYPES[k].ext)) FP_BAREME[k] = isFarmK(TYPES[k].ext) ? [2, 2] : [1, 1]; });   // fermes et élevages 2×2 ; mines, puits, carrières, camp de bûcherons 1×1 (sur leur gisement)
+function fpRules() {   // écarts entre TYPES et le barème (liste vide = barème respecté)
+  const bad = []; Object.keys(TYPES).forEach(k => { const T = TYPES[k], b = FP_BAREME[k]; if (!b) bad.push(k + ' absent du barème'); else if ((T.w || 1) !== b[0] || (T.h || 1) !== b[1]) bad.push(`${k} ${T.w || 1}×${T.h || 1} au lieu de ${b[0]}×${b[1]}`); });
+  return bad;
+}
+// Contrôle mathématique des emprises d'une grille : chaque bâtiment est ancré sur une case entière, chaque case de son emprise lui appartient (case « part » qui pointe vers lui),
+// aucune case n'appartient à deux emprises, aucun bâtiment de la ville ne déborde de sa case, chaque équipement de plusieurs cases forme un rectangle complet. Renvoie la liste des défauts.
+function fpAudit(grid) {
+  grid = grid || S.grid; const bad = [], own = new Int32Array(N * N).fill(-1), push = t => { if (bad.length < 40) bad.push(t); };
+  for (let i = 0; i < N * N; i++) {
+    const c = grid[i]; if (!c || c.t === 'part') continue; const X = i % N, Y = (i / N) | 0;
+    if (c.t === 'road') { own[i] = i; continue; }
+    if (!Number.isInteger(c.x) || !Number.isInteger(c.y) || c.x !== X || c.y !== Y) { push(`${c.t} (${X},${Y}) ancré en (${c.x},${c.y})`); continue; }
+    const w = c.w || 1, h = c.h || 1; if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) { push(`${c.t} (${X},${Y}) emprise ${w}×${h}`); continue; }
+    if (c.t === 'npc') { if (w !== 1 || h !== 1) push(`immeuble de la ville (${X},${Y}) sur ${w}×${h} cases`); if (own[i] >= 0) push(`(${X},${Y}) déjà prise`); own[i] = i;
+      if (monMulti(c)) { if (!(X >= c.mx && X < c.mx + c.mw && Y >= c.my && Y < c.my + c.mh)) push(`équipement ${c.m} (${X},${Y}) hors de son emprise`); for (let j = 0; j < c.mh; j++) for (let k = 0; k < c.mw; k++) { const q = inb(c.mx + k, c.my + j) && grid[idx(c.mx + k, c.my + j)]; if (!q || q.t !== 'npc' || q.k !== 'mon' || q.m !== c.m || q.mx !== c.mx || q.my !== c.my) { push(`équipement ${c.m} : emprise ${c.mw}×${c.mh} incomplète en (${c.mx + k},${c.my + j})`); j = c.mh; break; } } }
+      continue; }
+    for (let oy = 0; oy < h; oy++) for (let ox = 0; ox < w; ox++) {
+      const x = X + ox, y = Y + oy; if (!inb(x, y)) { push(`${c.t} (${X},${Y}) déborde de la carte`); continue; } const j = idx(x, y), q = grid[j];
+      if (own[j] >= 0) push(`${c.t} (${X},${Y}) chevauche la case (${x},${y}) déjà prise`); own[j] = i;
+      if ((ox || oy) && !(q && q.t === 'part' && q.ai === i && q.ox === ox && q.oy === oy)) push(`${c.t} (${X},${Y}) : la case (${x},${y}) de son emprise n'est pas à lui (${q ? q.t : 'vide'})`);
+    }
+  }
+  for (let j = 0; j < N * N; j++) { const q = grid[j]; if (q && q.t === 'part' && own[j] !== q.ai) push(`case (${j % N},${(j / N) | 0}) rattachée à un bâtiment dont l'emprise ne la couvre pas`); }
+  return bad;
+}
+function fpSprCheck() {   // centrage des sprites d'une case (maisons, immeubles, services, équipements) : écart (en cases) entre le bas de la silhouette dessinée et le sommet avant de la case
+  const out = {}, one = (n, cells) => { const d = P2DIM[n]; if (!d) return; const dm = p2Dm(n, d), sy = d[9] || 1, k = TW * cells / (dm[1] - dm[0]); out[n] = +(((d[5] - dm[2]) * k * sy - TH * cells / 2) / TH).toFixed(3); };
+  const names = new Set(['maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c', 'immeuble_pnj_a', 'immeuble_pnj_b', 'maison_n1', 'maison_n2', 'petit_marche_n1', 'petit_marche_n2', 'parc_urbain', 'chantier_petit', 'agence_immo'].concat(Object.keys(VV_SVC)).concat(Object.values(VV_MON)));
+  names.forEach(n => { if (!VV_BOX[n]) one(n, 1); });
+  const ca = {}; Object.keys(CITY_IMG).forEach(n => { const e = CITY_IMG[n]; if (!e.ok || !e.a || !e.a.dm) return; const q = cityBox(e, { x: 0, y: 0 }), bb = e.a.bb || [0, 0, e.im.width, e.im.height]; ca[n] = +(((q.y + bb[3] / e.im.height * q.h) - TH) / TH).toFixed(3); });
+  return { p2: out, city: ca };
+}
+function fpTestCity(kind) {   // grille d'une ville générée à part (sans toucher à la partie) : 'town' (ville de départ), 'dense' (densité maximale), 'old' (ancienne ville d'avant la passe 35)
+  const grid = new Array(N * N).fill(null), keepM = MALLB, keepC = Object.assign({}, CITY); if (kind === 'old') mallBSet(false);
+  try { genRoads(grid); if (kind === 'old') genNpc(grid); else { mallEnsure(grid); genNpcTown(grid, kind === 'dense' ? 1 : null); } }
+  finally { MALLB = keepM; Object.assign(CITY, keepC); _mallG = null; }
+  return grid;
+}
+const periDist = (x, y, w, h) => Math.hypot(x + (w || 1) / 2 - 0.5 - CBD.x, y + (h || 1) / 2 - 0.5 - CBD.y);
+const periOk = (key, x, y) => { const T = TYPES[key]; return !T || !T.peri || periDist(x, y, T.w, T.h) >= PERI_R; };
+const periMsg = key => `${TYPES[key].name} : trop grand pour le centre dense (${(TYPES[key].w || 1) * (TYPES[key].h || 1)} cases avec son parking). Pose-le en périphérie de la ville, à ${PERI_R} cases ou plus du centre, là où il y a la place (zone commerciale).`;
 const ZONE_MSG = { 1: 'Zone urbaine uniquement : logements, commerces et tours se construisent en ville.', 2: 'Pas d\'usine en ville : construis-la en zone industrielle du port (subventionnée) ou en campagne (terrain moins cher, transport plus long).', 4: 'Les terminaux portuaires se construisent sur le quai.' };
 // vérifie si l'emprise est libre ; renvoie un message d'erreur ou ''
 function footprintError(x, y, key, acq) {
@@ -6019,6 +6132,7 @@ function footprintError(x, y, key, acq) {
     else if (T.ext) { if (!d || d.k !== T.ext) return T.ext === 'wood' ? 'Il faut une forêt sous un camp de bûcherons.' : isFarmK(T.ext) ? 'Les fermes se construisent en campagne, hors de la ville et du port.' : `Il faut un gisement de ${DEPOSITS[T.ext].name} sous ce bâtiment.`; if (d.r <= 0) return 'Gisement épuisé.'; }
     else if (d && key !== 'pipeline' && key !== 'pylon' && key !== 'cable' && !(key === 'crush' && BTP_DEP[d.k] && d.r < 1)) return d.k === 'wood' ? 'Cette case est une forêt : réserve-la à un camp de bûcherons.' : CROPS[d.k] ? 'Cette case est une terre agricole : réserve-la à une ferme.' : 'Cette case est un gisement : réserve-la à une mine ou une carrière.';
   }
+  if (!periOk(key, x, y)) return periMsg(key);
   return '';
 }
 let lastRoadMsg = 0;
@@ -6101,6 +6215,7 @@ function acqExec(x, y, key, deals) {
     ap.items.forEach(i => { S.grid[idx(i.x, i.y)] = i.c; }); S.npcMods.length = mods0; S.npcOwn = own0; S.cash = cash0; rc0.forEach(p => { if (p[0]) p[0].cash = p[1]; }); S.pland = pl0; if (S.pro) S.pro.hold = JSON.parse(hold0); proDirty();
     return { ok: false, why: 'La construction a échoué : rien n\'a été débité.' };
   }
+  { const d = (cash0 - S.cash) - total; if (Math.abs(d) <= Math.min(25000, 0.005 * ap.build)) S.cash += d; }   // prix annoncé tenu : le terrain des cases restées libres (grande emprise) a pu baisser d'un rien une fois le bâti voisin rasé
   flyers.push({ x, y, text: '-' + fmt(ap.acqNpc + dealTot), t: performance.now(), col: '#ffa34d' });
   say(`Bâti racheté (${money(ap.acqNpc + dealTot)}) puis rasé : ${TYPES[key].name.toLowerCase()} construit sur le terrain.${ap.housing ? ' Habitat -' + ap.housing + ' places (population relogée ailleurs).' : ''}${ap.jobs >= 1 ? ' Emplois de bureaux -' + Math.round(ap.jobs) + '.' : ''}`, 'gold');
   refreshStats(); updateHUD(); save();
@@ -13791,6 +13906,32 @@ function spCar(name, u, v, z, wpx, fb) {   // voiture HD (assets) posée par le 
   if (e && e.ok && d) { const h = wpx * d[1] / d[0]; ctx.drawImage(e.im, q[0] - wpx / 2, q[1] - h * 0.78, wpx, h); return; }
   pPrism(u - 0.13, v - 0.07, 0.26, 0.14, 0, 7, fb || '#5a6470');
 }
+// Supermarché (2×2) et hypermarché (3×3) : abris à caddies posés sur le parking du sprite, et repli procédural soigné (grande boîte plate, bandeau, parking tracé, voitures) si le sprite manque.
+// Aucun texte : l'enseigne est la plaque SIGN. Tout reste dans l'emprise (u, v en cases depuis le coin nord).
+function drawCarts(a) {
+  const x = a.x, y = a.y, w = a.w, h = a.h, spots = w >= 3 ? [[0.42, 0.5], [0.42, 0.62], [0.7, 0.86]] : [[0.4, 0.56], [0.66, 0.84]];
+  spots.forEach(([fu, fv], k) => {
+    const u = x + fu * w, v = y + fv * h, L = 0.26, D = 0.07;
+    pQuad([PP(u, v, 0.8), PP(u + L, v, 0.8), PP(u + L, v + D, 0.8), PP(u, v + D, 0.8)], '#5d636d');
+    for (let i = 0; i < 6; i++) { const q = PP(u + 0.03 + i * 0.04, v + D / 2, 0.8); ctx.fillStyle = i % 2 ? '#c9ced6' : '#e3e6ea'; ctx.fillRect(q[0] - 1.6, q[1] - 5, 3.2, 5); ctx.fillStyle = '#d23c3c'; ctx.fillRect(q[0] - 1.6, q[1] - 5.6, 3.2, 1.1); }   // caddies emboîtés (poignée rouge)
+    [[u, v], [u + L, v], [u + L, v + D], [u, v + D]].forEach(([pu, pv]) => { const A = PP(pu, pv, 0.8), B = PP(pu, pv, 9); ctx.strokeStyle = '#7b818b'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); });
+    pQuad([PP(u - 0.02, v - 0.02, 9), PP(u + L + 0.02, v - 0.02, 9), PP(u + L + 0.02, v + D + 0.02, 9), PP(u - 0.02, v + D + 0.02, 9)], k % 2 ? 'rgba(46,92,160,.9)' : 'rgba(58,104,170,.9)');   // toit de l'abri
+  });
+}
+function drawRetailBox(a, grow) {   // repli sans sprite : bâtiment plat au fond de l'emprise, parking tracé devant, arbres d'alignement
+  const x = a.x, y = a.y, w = a.w, h = a.h, gg = grow == null ? 1 : grow, big = w >= 3, H = (big ? 30 : 24) * gg * (1 + 0.1 * (a.lvl || 0));
+  pQuad([PP(x + 0.03, y + 0.03, 0.4), PP(x + w - 0.03, y + 0.03, 0.4), PP(x + w - 0.03, y + h - 0.03, 0.4), PP(x + 0.03, y + h - 0.03, 0.4)], '#3a3f48');   // enrobé
+  pQuad([PP(x + 0.03, y + 0.03, 0.5), PP(x + w - 0.03, y + 0.03, 0.5), PP(x + w - 0.03, y + 0.1, 0.5), PP(x + 0.03, y + 0.1, 0.5)], '#9aa1ab');   // trottoir
+  const bu0 = x + 0.12, bv0 = y + 0.12, bw = w - 0.24, bh = h * (big ? 0.38 : 0.42);
+  ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1;
+  for (let r = 0; r < (big ? 3 : 2); r++) { const v = bv0 + bh + 0.3 + r * (big ? 0.62 : 0.5); if (v > y + h - 0.12) break; for (let i = 0; i <= Math.floor(bw / 0.18); i++) { const u = bu0 + i * 0.18, A = PP(u, v - 0.16, 0.6), B = PP(u, v + 0.16, 0.6); ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke(); }
+    for (let i = 0; i < Math.floor(bw / 0.18); i++) if (hash(x * 7 + i, y + r, 361) < 0.55) { const q = PP(bu0 + 0.09 + i * 0.18, v, 0.6); ctx.fillStyle = MB_AWN[(i + r) % MB_AWN.length]; ctx.fillRect(q[0] - 4, q[1] - 4, 8, 5); ctx.fillStyle = 'rgba(190,220,255,.8)'; ctx.fillRect(q[0] - 2.5, q[1] - 6, 5, 2.4); } }   // places et voitures garées
+  pPrism(bu0, bv0, bw, bh, 0, H, '#e9ecef');   // grande boîte plate
+  pQuad([PP(bu0, bv0 + bh, H - 2), PP(bu0 + bw, bv0 + bh, H - 2), PP(bu0 + bw, bv0 + bh, H - 9), PP(bu0, bv0 + bh, H - 9)], '#1f5fbf');   // bandeau de façade (sans texte)
+  pQuad([PP(bu0 + bw * 0.35, bv0 + bh, 12), PP(bu0 + bw * 0.65, bv0 + bh, 12), PP(bu0 + bw * 0.65, bv0 + bh, 0.6), PP(bu0 + bw * 0.35, bv0 + bh, 0.6)], 'rgba(120,160,190,.75)');   // entrée vitrée
+  pQuad([PP(bu0 + 0.06, bv0 + 0.06, H + 0.5), PP(bu0 + bw - 0.06, bv0 + 0.06, H + 0.5), PP(bu0 + bw - 0.06, bv0 + bh - 0.06, H + 0.5), PP(bu0 + 0.06, bv0 + bh - 0.06, H + 0.5)], '#c9ced5');   // toit-terrasse
+  a._top = PP(bu0 + bw / 2, bv0 + bh / 2, H)[1] - 10;
+}
 function drawSpecShop(a, now, grow) {
   const x = a.x, y = a.y, gg = grow == null ? 1 : grow, LV = a.lvl || 0, ex = LV * 10 * gg, lit = (a.util || 0) > 0.05 && a.conn, t = a.t; let zTop = 50;
   const slab = (w, h, col) => pQuad([PP(x + 0.03, y + 0.03, 0.4), PP(x + w - 0.03, y + 0.03, 0.4), PP(x + w - 0.03, y + h - 0.03, 0.4), PP(x + 0.03, y + h - 0.03, 0.4)], col);
@@ -14087,7 +14228,7 @@ const SIGN = { s1: { st: 'com', sz: 1 }, s2: { st: 'com', sz: 2 }, s3: { st: 'co
   wh: { st: 'ind', sz: 1 }, ewh: { st: 'ind', sz: 2, txt: 'ENTREPÔT EN LIGNE' }, rd: { st: 'ind', sz: 1 }, dc: { st: 'ind', sz: 3 }, hq: { st: 'lux', sz: 2 }, port: { st: 'ind', sz: 2 }, tv: { st: 'svc', sz: 1 },
   'mon:hospital': { st: 'svc', sz: 2, ac: '#b8474d' }, 'mon:lycee': { st: 'svc', sz: 1 }, 'mon:college': { st: 'svc', sz: 1 }, 'mon:maternelle': { st: 'svc', sz: 1 }, 'mon:garderie': { st: 'svc', sz: 1, txt: 'CRÈCHE' },
   'mon:hall': { st: 'svc', sz: 2 }, 'mon:air': { st: 'svc', sz: 4, txt: 'AÉROPORT' },
-  'sv:gare_ferroviaire': { st: 'svc', sz: 1, txt: 'GARE' }, 'sv:station_service': { st: 'svc', sz: 1 }, 'sv:station_recharge_electrique': { st: 'svc', sz: 1, txt: 'RECHARGE ÉLECTRIQUE' } };
+  'sv:station_service': { st: 'svc', sz: 1 }, 'sv:station_recharge_electrique': { st: 'svc', sz: 1, txt: 'RECHARGE ÉLECTRIQUE' } };
 // Anciennes enseignes générées (texte illisible) : centre c, demi-axes u (sens de lecture) et v (vers le bas du texte) en px de l'image d'origine, couleur du bandeau uni
 const SIGN_COVER = { boutique_high_tech: { c: [99, 52], u: [35, 15], v: [0, 10], f: '#3b4452' }, sport_loisirs: { c: [266, 94], u: [58, 23], v: [0, 10.5], f: '#3f4a58' },
   hopital: { c: [159, 91], u: [54, -32], v: [50, 35], f: '#c81e28' }, supermarche: { c: [319.6, 75.3], u: [43, -24.5], v: [22.5, 13], f: '#b4bcc1' },
@@ -14099,7 +14240,7 @@ function signTxt(key) {   // nom affiché : celui de l'interface (TYPES, PUB, VV
   return nm.split(' · ')[0].toUpperCase();
 }
 function signKey(a) {
-  if (a.t === 'npc') { if (a.k === 'mon') return a.m === 'mall' || a.m === 'air' ? null : 'mon:' + a.m; const n = SG.cur && SG.cur.a === a && SG.cur.n; return n && VV_SVC[n] ? 'sv:' + n : null; }
+  if (a.t === 'npc') { if (a.k === 'mon') return a.m === 'mall' || a.m === 'air' || !monFront(a) ? null : 'mon:' + a.m;   /* équipement de plusieurs cases : une seule plaque, sur la case avant */ const n = SG.cur && SG.cur.a === a && SG.cur.n; return n && VV_SVC[n] ? 'sv:' + n : null; }
   return SIGN[a.t] ? a.t : null;
 }
 const signFs = D => { const Z = SIGN_SZ[D.sz] || SIGN_SZ[1]; return Math.min(Z[1], Z[0] * z); };   // taille de police en px écran
@@ -14137,7 +14278,7 @@ function signCollect(a, o) {   // après drawOverlay, sur la case avant : bandea
     const M = (u, v) => [cur.x + (C.c[0] + u[0] + v[0]) * cur.kx, cur.y + (C.c[1] + u[1] + v[1]) * cur.ky], U = C.u, V = C.v, nU = [-U[0], -U[1]], nV = [-V[0], -V[1]];
     const pts = [M(nU, nV), M(U, nV), M(U, V), M(nU, V)]; ctx.fillStyle = C.f; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill();
     [wx, wy] = M([0, 0], [0, 0]); mode = 'c';
-  } else { wx = fx; wy = fy; }
+  } else { wx = monMulti(a) ? iso(a.mx + a.mw / 2, a.my + a.mh / 2).x : fx; wy = fy; }
   if (Number.isFinite(wx) && Number.isFinite(wy)) SG.list.push({ id: a.x + ',' + a.y, a, ord: SG.ord, key, D, wx, wy, fx, fy, mode, cover: !!C, pri: a.w * a.h * 10 + D.sz + (C ? 5 : 0) });
   SG.ms += performance.now() - t0;
 }
@@ -14693,7 +14834,9 @@ function drawTileOf(a, x, y, ox, oy, o) {
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
   if (P2_TYPE[a.t] && p2Ready(a.t) && !(a.t === 'dc' && !a.lg)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
-    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; farmFx(a, o.now); if (VV_FARM[a.t]) vvFarm(a); }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes
+    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; farmFx(a, o.now); if (VV_FARM[a.t]) vvFarm(a); if ((a.t === 's2' || a.t === 's3') && a.w === a.h) { const cur = SG.cur; drawCarts(a); SG.cur = cur; } }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes ; barème : sprite carré sur toute l'emprise carrée, caddies sur le parking
+  } else if ((a.t === 's2' || a.t === 's3') && !a.fpOld) {
+    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { drawRetailBox(a, grow); drawCarts(a); }   // repli sans sprite (jamais l'ancien atlas en losanges)
   } else if (a.t === 'npc' && vvNpc(a, p)) {
     // ville vivante : équipement, parc, chantier, service de quartier ou tour en HD (dessiné par vvNpc)
   } else if (a.t === 'hq' && vvHq(a)) {
@@ -14707,7 +14850,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
   } else if (a.t === 'npc' && a.k === 'mon' && a.m === 'air') {
     drawAirport(a, x, y, o.now);   // passe 49 : aéroport (dessiné une fois, depuis la case avant)
   } else if (a.t === 'npc' && a.k === 'mon') {
-    drawMonument(a, o.now);
+    if (monFront(a)) drawMonument(monMulti(a) ? Object.assign({}, a, { x: a.mx + a.mw - 1, y: a.my + a.mh - 1 }) : a, o.now);   // repli sans sprite : une seule fois par équipement
   } else if (a.t === 'npc' && a.k === 'park') {
     drawPark(a, o.now);
   } else if (a.t === 'npc' && !a.lm && a.k !== 'house' && a.floors >= 8 && hash(a.x, a.y, 53) < 0.55 && !citySpr(a)) {
@@ -15055,23 +15198,24 @@ function frame(now) {
       let ok = false, w = 1, h = 1;
       const T = TYPES[tool];
       if (T && T.w) { w = T.w; h = T.h; }
+      const hv = snapAt(hover.x, hover.y, tool);   // grille stricte : l'aperçu montre l'emprise recalée (celle qui sera posée)
       if (tool === 'bull') ok = !!c;
       else if (tool === 'buyout') ok = !!c && c.t === 'npc' && c.k !== 'mon' && (ownerOf(c) === 'npc' || ownerOf(c) === 'me') && S.cash >= buyoutCost(c) + proFees(buyoutCost(c));
       else if (tool === 'keep') ok = !!c && proBuyCheck(c).ok;
-      else if (tool === 'terra') { const pl = terraPlan(hover.x, hover.y); ok = pl.cells.length > 0 && S.cash >= pl.cost; w = h = PR().brush; }
-      else if (tool === 'zone') ok = !zoneErr(hover.x, hover.y, PR().zmode);
+      else if (tool === 'terra') { const pl = terraPlan(hv.x, hv.y); ok = pl.cells.length > 0 && S.cash >= pl.cost; w = h = PR().brush; }
+      else if (tool === 'zone') ok = !zoneErr(hv.x, hv.y, PR().zmode);
       else if (tool === 'link') ok = !!c && c.t !== 'road' && !footConn(c);
       else if (tool === 'link') ok = !!c && c.t !== 'road' && c.linked === false;
       else if (tool === 'up') ok = !!c && c.t !== 'road' && upgradeCost(c) > 0 && S.cash >= upgradeCost(c);
-      else if (tool !== 'view') ok = !toolLocked(tool) && S.cash >= T.cost + landCostFor(hover.x, hover.y, tool) && (tool === 'road' ? !roadError(hover.x, hover.y) : !footprintError(hover.x, hover.y, tool));
-      const hap = (T && tool !== 'view' && tool !== 'road') ? acqPlanC(hover.x, hover.y, tool) : null;
+      else if (tool !== 'view') ok = !toolLocked(tool) && S.cash >= T.cost + landCostFor(hv.x, hv.y, tool) && (tool === 'road' ? !roadError(hv.x, hv.y) : !footprintError(hv.x, hv.y, tool));
+      const hap = (T && tool !== 'view' && tool !== 'road') ? acqPlanC(hv.x, hv.y, tool) : null;
       if (hap) ok = Object.keys(hap.groups).length > 0 || S.cash >= hap.total;
       const col = tool === 'view' ? 'rgba(233,237,255,.9)' : hap ? (ok ? 'rgba(255,154,61,.98)' : 'rgba(255,90,95,.95)') : ok ? 'rgba(70,211,154,.95)' : 'rgba(255,90,95,.95)';
       ctx.lineWidth = 4;
       for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
-        poly(tilePts(iso(hover.x + ox, hover.y + oy)), tool === 'view' ? null : hap ? (ok ? 'rgba(255,154,61,.34)' : 'rgba(255,90,95,.26)') : (ok ? 'rgba(70,211,154,.22)' : 'rgba(255,90,95,.22)'), col);
+        poly(tilePts(iso(hv.x + ox, hv.y + oy)), tool === 'view' ? null : hap ? (ok ? 'rgba(255,154,61,.34)' : 'rgba(255,90,95,.26)') : (ok ? 'rgba(70,211,154,.22)' : 'rgba(255,90,95,.22)'), col);
       }
-      if (ok && T && !T.ext && tool !== 'road') { const g = mkCell(tool, 0.5); g.x = hover.x; g.y = hover.y; ghost = g; }
+      if (ok && T && !T.ext && tool !== 'road') { const g = mkCell(tool, 0.5); g.x = hv.x; g.y = hv.y; ghost = g; }
     }
     if (selected && tool === 'view') { ctx.lineWidth = 4; poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }
 
@@ -15190,7 +15334,17 @@ function applyAt(p) {
   if (!t) return;
   if (lastTile && lastTile.x === t.x && lastTile.y === t.y) return;
   lastTile = t;
-  place(t.x, t.y, tool);
+  const a = snapAt(t.x, t.y, tool); place(a.x, a.y, tool);   // grille stricte : emprise recalée sur des cases entières autour du pointeur
+}
+// Recalage (snap) d'une pose : la case pointée est dans l'emprise ; parmi les coins possibles, celui dont l'emprise est valide et la mieux centrée sur le pointeur.
+// Bâtiment d'une case, outils (route, démolir, rachat…) ou aucune emprise valide : la case pointée est le coin nord, comme avant (message d'erreur et acquisition inchangés).
+function snapAt(hx, hy, key) {
+  const T = TYPES[key], w = (T && T.w) || 1, h = (T && T.h) || 1;
+  if (!T || key === 'road' || (w === 1 && h === 1) || !S || !S.grid || toolLocked(key)) return { x: hx, y: hy };
+  const cand = []; for (let oy = 0; oy < h; oy++) for (let ox = 0; ox < w; ox++) cand.push({ x: hx - ox, y: hy - oy, d: Math.hypot(ox - (w - 1) / 2, oy - (h - 1) / 2) });
+  cand.sort((a, b) => a.d - b.d || b.x - a.x || b.y - a.y);
+  for (const q of cand) if (inb(q.x, q.y) && !footprintError(q.x, q.y, key)) return { x: q.x, y: q.y };
+  return { x: hx, y: hy };
 }
 cvs.addEventListener('contextmenu', e => e.preventDefault());
 cvs.addEventListener('pointerdown', e => {
@@ -17149,7 +17303,7 @@ Object.keys(CITYHD).forEach(n => { const im = new Image(), e = CITY_IMG[n] = { i
 const CITY_HOUSES = ['maison_moderne_cubique', 'pavillon_banlieue', 'maison_de_ville_briques', 'chalet_savoyard', 'maison_japonaise', 'villa_mediterraneenne', 'maison_bois_nordique'];
 function cityHouse(a) { const c = CITY_HOUSES.filter(n => CITY_IMG[n] && CITY_IMG[n].ok); return c.length ? CITY_IMG[c[Math.floor(a.seed * 7919) % c.length]] : null; }
 function cityBox0(hs, p) {   // cadre d'un sprite de ville : le losange de la parcelle (emprise opaque) est calé sur celui de la case, pour qu'aucun bâtiment ne mord sur la route
-  const A = hs.a, dm = A.dm; if (dm) { const k = TW / (dm[1] - dm[0]), sy = A.sy || 1; return { x: p.x - (dm[0] + dm[1]) / 2 * k, y: p.y + TH / 2 - dm[2] * k * sy, w: hs.im.width * k, h: hs.im.height * k * sy }; }   // centre de la dalle = centre de la case
+  const A = hs.a, dm = A.dm; if (dm) { const k = TW / (dm[1] - dm[0]), sy = A.sy || 1, cE = A.bb ? A.bb[3] - (dm[1] - dm[0]) * 0.25 / sy : dm[2], c2 = (dm[2] - cE) / (dm[1] - dm[0]) < -0.12 ? cE : dm[2]; return { x: p.x - (dm[0] + dm[1]) / 2 * k, y: p.y + TH / 2 - c2 * k * sy, w: hs.im.width * k, h: hs.im.height * k * sy }; }   // centre de la dalle = centre de la case (recalculé depuis le bas de la silhouette si la rangée la plus large est un étage en surplomb)
   const bb = A.bb || [0, 0, hs.im.width, hs.im.height], k = TW / (bb[2] - bb[0]);
   return { x: p.x - (bb[0] + bb[2]) / 2 * k, y: p.y + TH - bb[3] * k, w: hs.im.width * k, h: hs.im.height * k };
 }
@@ -17170,6 +17324,16 @@ const P2_TYPE = { ewh: 'entrepot', fwheat: 'fwheat', fsugar: 'fsugar', fcotton: 
 const p2Ready = t => { const n = P2_TYPE[t] || P2_EXT[t]; return !!(n && P2_IMG[n] && P2_IMG[n].ok); };
 const P2_EXT = { well: 'puits_petrole', gwell: 'puits_gaz', miron: 'mine_fer', mcoal: 'mine_charbon', mcopper: 'mine_cuivre', mgold: 'mine_or', mnicr: 'mine_nickel_chrome', mbauxite: 'mine_bauxite', mlithium: 'mine_lithium', mzinc: 'mine_zinc', mgraphite: 'mine_graphite', qsilica: 'carriere_silice', qclay: 'carriere_argile', qsalt: 'mine_sel', mphos: 'mine_phosphate', mpotash: 'mine_potasse', qgravel: 'carriere', qsand: 'carriere', qlime: 'carriere', logging: 'camp_bucherons', crush: 'carriere' };   // passe 55 : le centre de concassage reprend la carrière HD en attendant son sprite (commande Cowork n° 55-1)
 Object.keys(P2HD).forEach(n => { const im = new Image(), e = P2_IMG[n] = { im, ok: false }; im.onload = () => { e.ok = true; }; im.src = P2HD[n]; });
+// Grille stricte : le centre de la dalle détecté au build (rangée la plus large) est parfois une avancée de toit ou un auvent, très au-dessus du sol ; le bâtiment serait alors dessiné
+// une demi-case trop bas, « au milieu de 4 cases ». Pour les sprites de bâtiments, le centre de la dalle est recalculé depuis le bas de la silhouette (sommet avant du losange) quand l'écart dépasse 20 % de sa largeur.
+const P2_FIXC = {};
+function p2Ctr(name, d) {
+  if (P2_FIXC[name] !== undefined) return P2_FIXC[name];
+  let v = null; if (d.length >= 9 && !/^(gisement_|data_center|eolienne|pylone|arbre|buisson|foret|veh_|voiture|camion|animal|bac_|conteneur|grue|navire|rochers|fermier|vendangeur|vigneron|lingots|sacs|barres|briques|futs|porcelaine|chassis|aimants|auge|balles|meule)/.test(name)) {
+    const dw = d[7] - d[6], sy = d[9] || 1, cE = d[5] - dw * 0.25 / sy; if ((d[8] - cE) / dw < -0.2) v = cE; }
+  return (P2_FIXC[name] = v);
+}
+const p2Dm = (name, d) => { if (d.length < 9) return [d[2], d[4], d[5] - (d[4] - d[2]) / 4]; const c2 = p2Ctr(name, d); return [d[6], d[7], c2 == null ? d[8] : c2]; };
 /* Passe 57 : recalage des sprites de bâtiments dans la colonne de leur emprise (losange fp = [w, h] cases prolongé vers le haut), calculé une fois par sprite et
    par emprise. Point de départ : le calage d'origine (dalle de l'image sur le losange, cityBox / p2Draw). Puis, d'après le profil bas réel de l'image :
    1. silhouette plus large que le losange : réduite à sa largeur ; 2. silhouette décalée : ramenée dans la colonne ; 3. toit pris pour la parcelle (bas de
@@ -17198,7 +17362,7 @@ function sprFit(key, im, iw, ih, k, dx, dy, sy, fp) {   // (k, dx, dy) : échell
   return (SPR_FIT[ck] = { k, dx, dy, sy, w: iw * k, h: ih * k * sy });
 }
 function p2Fit(name, d, cells, fp) {
-  const dm = d.length >= 9 ? [d[6], d[7], d[8]] : [d[2], d[4], d[5] - (d[4] - d[2]) / 4], sy = d[9] || 1, k = TW * (cells || 1) / (dm[1] - dm[0]);
+  const dm = p2Dm(name, d), sy = d[9] || 1, k = TW * (cells || 1) / (dm[1] - dm[0]);
   return sprFit('p2:' + name, P2_IMG[name].im, d[0], d[1], k, -(dm[0] + dm[1]) / 2 * k, -dm[2] * k * sy, sy, fp);
 }
 function p2Fit0(d, cells) {   // ancien calage (gisements, forêts, champs : pas un bâtiment)
@@ -17232,7 +17396,7 @@ const VV = { n: 0, day: -1, g: null, svc: {}, list: [] };
 const VV_SVC = {
   restaurant_terrasse: ['Restaurant en terrasse', 'c', 3], cafe_de_quartier: ['Café de quartier', 'c', 3], boulangerie: ['Boulangerie', 'c', 3], boutique_mode: ['Boutique de mode', 'c', 3],
   drugstore: ['Drugstore', 'm', 2], barre_hlm: ['Barre HLM', 'm', 4, 'hlm'], immeuble_en_construction: ['Immeuble en construction', 'm', 2, 'up'],
-  eglise_de_village: ['Église', 'p', 2], gare_ferroviaire: ['Gare ferroviaire', 'p', 1, 'far'], station_service: ['Station-service', 'p', 3, 'road'], station_recharge_electrique: ['Station de recharge électrique', 'p', 2, 'road'], batiment_abandonne: ['Immeuble abandonné (friche)', 'p', 1]
+  eglise_de_village: ['Église', 'p', 2], station_service: ['Station-service', 'p', 3, 'road'], station_recharge_electrique: ['Station de recharge électrique', 'p', 2, 'road'], batiment_abandonne: ['Immeuble abandonné (friche)', 'p', 1]
 };
 const VV_MON = { telecom: 'station_tv', hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport' };   // équipements publics existants : sprite HD
 P2_DEP.gold = 'gisement_or';
@@ -17270,15 +17434,21 @@ function vvSvcMap() {   // une passe par jour de jeu : chaque service va aux cas
   Object.keys(VV_SVC).forEach(n => {
     const [, ring, want, rule] = VV_SVC[n], picked = [];
     const ok = c => { const d = vvRing(c.x, c.y); if (rule === 'hlm') return c.k === 'res' && c.floors >= 3 && c.floors <= 10 && d >= 5 && d < 14; if (rule === 'up') return c.k !== 'house' && c.floors >= 2 && c.floors <= 9 && d >= 5 && d < 14;
-      if (c.floors > 7) return false; if (ring === 'c') return d < 9; if (ring === 'm') return d >= 5 && d < 14; return d >= 9 && (rule !== 'road' || roadAdj(c)) && (rule !== 'far' || roadAdj(c)); };
-    const sc = c => rule === 'far' ? -vvRing(c.x, c.y) + hash(c.x, c.y, 81) * 2 : hash(c.x, c.y, 80 + n.length);
+      if (c.floors > 7) return false; if (ring === 'c') return d < 9; if (ring === 'm') return d >= 5 && d < 14; return d >= 9 && (rule !== 'road' || roadAdj(c)); };   // plus de gare pour l'instant (consigne de Rémy) : la règle « far » des gares a été retirée
+    const sc = c => hash(c.x, c.y, 80 + n.length);
     cand.filter(c => !used.has(c) && ok(c)).sort((a, b) => sc(a) - sc(b) || a.x - b.x || a.y - b.y).forEach(c => { if (picked.length >= want || picked.some(q => Math.abs(q.x - c.x) + Math.abs(q.y - c.y) < 4)) return; picked.push(c); used.add(c); c._sv = n; list.push([c.x, c.y, n]); });
     out[n] = picked.length;
   });
   VV.svc = out; VV.list = list; return out;
 }
 function vvNpc(a, p) {   // bâtiment PNJ en HD (équipement, parc, chantier de la croissance, service de quartier, tour) ; true si dessiné
-  if (a.k === 'mon') { const n = VV_MON[a.m]; if (!n || !vvOk(n)) return false; a._top = vvDraw(n, p, 1, null, [1, 1]); return true; }
+  if (a.k === 'mon') { const n = VV_MON[a.m]; if (!n || !vvOk(n)) return false;
+    if (monMulti(a)) {   // barème des tailles : équipement de plusieurs cases, sol de l'emprise (depuis le coin nord, dessiné en premier) puis sprite calé sur le plus grand carré de l'emprise (depuis la case avant)
+      if (a.x === a.mx && a.y === a.my) monGround(a);
+      if (!monFront(a)) { a._top = null; return true; }
+      const n2 = Math.min(a.mw, a.mh), q = iso(a.mx + (a.mw - n2) + (n2 - 1) / 2, a.my + (a.mh - n2) + (n2 - 1) / 2);   // bâtiment au fond de l'emprise si elle n'est pas carrée (la cour ou le terrain de sport devant)
+      a._top = vvDraw(n, p, n2, { x: q.x, y: q.y + TH / 2 }); return true; }
+    a._top = vvDraw(n, p, 1, null, [1, 1]); return true; }
   if (a.k === 'park') { if (!vvOk('parc_urbain')) return false; a._top = vvDraw('parc_urbain', p, 1, null, [1, 1]); return true; }
   if (!a.lm && a.cd != null && S.day - a.cd < 6) { const n = a.k === 'house' ? 'chantier_petit' : 'immeuble_en_construction'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // chantier : 6 jours après une construction ou une surélévation par la ville
   vvSvcMap(); if (a._sv && vvOk(a._sv)) { a._top = vvDraw(a._sv, p, 1, null, [1, 1]); return true; }
@@ -17286,6 +17456,18 @@ function vvNpc(a, p) {   // bâtiment PNJ en HD (équipement, parc, chantier de 
   if (a.k !== 'house' && !a.lm && a.floors >= 3 && a.floors <= 8 && hash(a.x, a.y, 86) < 0.3) { const n = a.k === 'off' || hash(a.x, a.y, 87) < 0.5 ? 'immeuble_pnj_b' : 'immeuble_pnj_a'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }
   if (a.k !== 'house' && !a.lm && a.floors >= 12 && a.floors <= 30 && hash(a.x, a.y, 77) < 0.35) { const n = hash(a.x, a.y, 78) < 0.5 ? 'tour_pnj_a' : 'tour_pnj_b'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }
   return false;
+}
+function monGround(a) {   // sol d'un équipement de plusieurs cases : parvis clair, et pour les écoles et stades une cour ou un terrain de sport tracé sur la partie libre
+  const x = a.mx, y = a.my, w = a.mw, h = a.mh, n2 = Math.min(w, h), sch = /lycee|college/.test(a.m), hos = a.m === 'hospital';
+  pQuad([PP(x + 0.03, y + 0.03, 0.3), PP(x + w - 0.03, y + 0.03, 0.3), PP(x + w - 0.03, y + h - 0.03, 0.3), PP(x + 0.03, y + h - 0.03, 0.3)], hos ? '#c9ccd0' : '#cfcabd');
+  if (w !== h) {   // rectangle : la bande libre devant le bâtiment (côté x si w > h, côté y sinon)
+    const u0 = w > h ? x + 0.08 : x + 0.1, v0 = w > h ? y + 0.1 : y + 0.08, u1 = w > h ? x + (w - n2) - 0.06 : x + w - 0.1, v1 = w > h ? y + h - 0.1 : y + (h - n2) - 0.06;
+    pQuad([PP(u0, v0, 0.5), PP(u1, v0, 0.5), PP(u1, v1, 0.5), PP(u0, v1, 0.5)], sch ? '#c0553f' : '#6aa356');   // piste ou pelouse
+    const m0 = (u0 + u1) / 2, n0 = (v0 + v1) / 2; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5; ctx.beginPath();
+    const r = [PP(u0 + 0.12, v0 + 0.12, 0.6), PP(u1 - 0.12, v0 + 0.12, 0.6), PP(u1 - 0.12, v1 - 0.12, 0.6), PP(u0 + 0.12, v1 - 0.12, 0.6)]; r.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath();
+    const m = w > h ? [PP(u0 + 0.12, n0, 0.6), PP(u1 - 0.12, n0, 0.6)] : [PP(m0, v0 + 0.12, 0.6), PP(m0, v1 - 0.12, 0.6)]; ctx.moveTo(m[0][0], m[0][1]); ctx.lineTo(m[1][0], m[1][1]); ctx.stroke();
+  }
+  if (hos) { const c = PP(x + 0.55, y + h - 0.55, 0.6); ctx.fillStyle = '#4a7f4a'; ctx.beginPath(); ctx.ellipse(c[0], c[1], 22, 11, 0, 0, 7); ctx.fill(); }   // pelouse d'entrée
 }
 const vvSvcName = c => { if (!c || c.t !== 'npc') return ''; vvSvcMap(); return c._sv && VV_SVC[c._sv] ? VV_SVC[c._sv][0] : ''; };
 function vvSvcHTML() {   // panneau du Mall : commerces et services de quartier de la ville
@@ -17775,6 +17957,7 @@ Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAd
 window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMILY, famOf: pFamOf, byFam: SPEC_BY_FAM, of: specOf, tab: specTab, share: specShare, famShare: specFamShare, mk: specMk, known: specKnown, locked: specLocked, need: specNeedTxt, shelfOk: specShelfOk, bcT: specBcT, stats: specStats, card: specCard, mall: specMallLine, edu: eduSpecHTML, PASS: SPEC_PASS, PRI: SPEC_PRI, day: () => S._spec || {} };   // passe 46 : magasins spécialisés
 window.WSE.air = { pos: airPos, ensure: airEnsure, pax: airPax, data: airData, html: airHTML, open: airOpen, close: airClose, isOpen: () => airOn, show: airShow, act: airAct, openShop: airOpenShop, closeShop: airCloseShop, shelf: airShelf, price: airPrice, step: airStep, san: airSan, K: { AIR_W, AIR_H, AIR_PAX0, AIR_BUY, AIR_MK, AIR_TAX, AIR_ENTRY, AIR_RENT, AIR_L } };   // passe 49 : aéroport et duty free
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
+window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
 window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.rd = { patentHeld, held: patentHeld, mine: patMine, block: patBlock, blockMsg: patBlockMsg, grant: patGrant, value: patValue, incDay: patIncDay, licDay: patLicDay, revDay: patRevDay, licFee: patLicFee, buyLicence: patBuyLicence, opps: patOpps, develop: patDevelop, answer: patOfferAnswer, step: patStep, years: patYears, comp: patCompF, top: mkTopRaw, save: patSave, load: patLoad, st: rdxS, pat: () => S.pat || {}, list: accList, info: accInfo, quote: accQuote, accelerate, gemCost, gemAdd, render: renderRdp, edu: patEduHTML, advice: rdpAdvice, iap: { LIVE: IAP_LIVE, PACKS: IAP_PACKS, purchase: iapPurchase, log: IAP }, K: { PAT_Y, PAT_NIV_Y, PAT_ROY, PAT_LIC_SH, PAT_LIC_MAX, PAT_RIV_FROM, PAT_RIV_EVERY, PAT_OFF_EVERY, PAT_WARN_D, PAT_DISC, PAT_MONO, GEM_N, GEM_START, GEM_TIER, GEM_JAL, ACC_TOT, ACC_DAY_MAX, ACC_CASH_K, ACC_LAB_MAX, ACC_LAB_GAIN } };   // passe 47 : brevets de produit, R&D, accélération (aucun paiement réel)
 window.WSE.land = { model: landModel, price: landPrice, raw: landRaw, map: landMap, range: landRange, norm: landNorm, useOf: landUseOf, natUse: landNatUse, district: districtAt, cache: landCache, pole: landPole, foot: landFoot, costFor: landCostFor, val: c => landVal(c), assets: () => proLandAssets(), tip: landTipHTML, setLayer, layer: () => layer, cur: () => curLayer(), LAYER_N, LAYER_F, LEG, USES: LAND_USES, PARTS: LM_PART, K: LM_K, DISTRICTS, zoneOk, autoSpot };   // passe 48 : valeur du terrain par usage

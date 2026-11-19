@@ -5,7 +5,7 @@
 // caméra de départ sur tout le mall, encart de bienvenue replié ; une sauvegarde avec l'ancien mall 2×2 garde l'ancien comportement.
 exports.name = 'Mall central, pôle commercial et ville aérée (passe 44)';
 const SCAN = `(() => { const W = window.WSE, S = W.S, N = W.N; const o = { n: 0, max: 0, cmax: 0, mall: 0, mon: 0, park: 0 };
-  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!c || c.t !== 'npc') continue; if (c.k === 'mon' && c.m === 'mall') { o.mall++; continue; } if (c.m === 'air') continue; o.n++; if (c.k === 'mon') o.mon++; if (c.k === 'park') o.park++;
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!c || c.t !== 'npc') continue; if (c.k === 'mon' && c.m === 'mall') { o.mall++; continue; } if (c.m === 'air') continue; if (c.k === 'mon' && c.mw && !(c.x === c.mx && c.y === c.my)) continue; o.n++; if (c.k === 'mon') o.mon++; if (c.k === 'park') o.park++;
     if (c.floors > o.max) o.max = c.floors; if (Math.hypot(c.x - 30, c.y - 30) < 12 && c.floors > o.cmax) o.cmax = c.floors; }
   return o; })()`;
 const start = async (pg, opt) => pg.evaluate(async o => {

@@ -1,4 +1,4 @@
-// Passe 54 : enseignes dessinées par le code. Les images d'assets ne contiennent plus de texte : chaque magasin, équipement public, gare, station, entrepôt, siège…
+// Passe 54 : enseignes dessinées par le code. Les images d'assets ne contiennent plus de texte : chaque magasin, équipement public, station, entrepôt, siège…
 // reçoit une plaque nette (police du jeu, nom de l'interface en capitales), une seule par bâtiment, sans chevauchement, masquée quand elle serait illisible,
 // posée sur l'ancienne enseigne générée des sprites concernés. Vérifie aussi le coût de dessin (< 1 ms par image) et l'écran de téléphone (390 × 844).
 exports.name = 'Enseignes dessinées par le code (passe 54)';
@@ -25,9 +25,9 @@ exports.run = async (t, L) => {
   const w0 = await world(pg, L);
   const tb = await pg.evaluate(keys => { const W = window.WSE, G = W.sign; return { api: !!G && typeof G.txt === 'function', bad: keys.filter(k => !G.SIGN[k] || !G.txt(k) || G.txt(k) !== G.txt(k).toUpperCase()),
     names: keys.map(k => [k, G.txt(k)]), coh: ['s1', 's2', 's3', 'stech', 'smode', 'shome', 'ssport', 'sbrico', 'wh', 'rd', 'dc', 'hq'].every(k => G.txt(k) === W.TYPES[k].name.toUpperCase()),
-    pub: ['hospital', 'lycee', 'college', 'maternelle', 'hall'].map(m => G.txt('mon:' + m)), sv: ['gare_ferroviaire', 'station_service', 'station_recharge_electrique'].map(n => G.txt('sv:' + n)) }; }, KEYS);
+    pub: ['hospital', 'lycee', 'college', 'maternelle', 'hall'].map(m => G.txt('mon:' + m)), sv: ['station_service', 'station_recharge_electrique'].map(n => G.txt('sv:' + n)), gare: G.txt('sv:gare_ferroviaire') }; }, KEYS);
   t.check('window.WSE.sign : table SIGN pour les 15 types (magasins, entrepôt, R&D, data center, siège), textes en capitales', tb.api && !tb.bad.length, tb.bad.join(','));
-  t.check('noms tirés des tables de l\'interface (TYPES[..].name, équipements publics, services)', tb.coh && tb.pub.join('|') === 'HÔPITAL|LYCÉE|COLLÈGE|ÉCOLE MATERNELLE|HÔTEL DE VILLE' && tb.sv[0] === 'GARE', tb.pub.join('|') + ' · ' + tb.sv.join('|'));
+  t.check('noms tirés des tables de l\'interface (TYPES[..].name, équipements publics, services)', tb.coh && tb.pub.join('|') === 'HÔPITAL|LYCÉE|COLLÈGE|ÉCOLE MATERNELLE|HÔTEL DE VILLE' && tb.sv.join('|') === 'STATION-SERVICE|RECHARGE ÉLECTRIQUE' && !tb.gare, tb.pub.join('|') + ' · ' + tb.sv.join('|'));
   t.info(tb.names.map(n => n.join('=')).join(' · '));
   t.check('15 bâtiments posés en ville pour le test', Object.keys(w0.placed).length >= 12, Object.keys(w0.placed).join(','));
 
