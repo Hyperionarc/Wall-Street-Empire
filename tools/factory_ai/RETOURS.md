@@ -325,3 +325,16 @@ Le jeu ajoute un **aéroport** unique (emprise **6×4 cases**, en périphérie s
 - `aeroport` (6×4) : à l'arrière (côté haut de l'image) une **piste** d'asphalte sur toute la longueur avec axe pointillé blanc et seuils ; une bretelle vers une **aire de stationnement** en béton clair avec un avion de ligne blanc (dérive bleu-gris sans logo) relié par une passerelle ; à l'avant un **terminal** long et bas, façade vitrée bleutée, toiture claire débordante, enseigne sobre « AÉROPORT » ; à droite une **tour de contrôle** (fût clair, vigie vitrée, toit sombre). Herbe rase autour de la piste, quelques voitures sur un parking devant le terminal.
 - Facultatif : `avion_ligne` (objet seul, trois-quarts avant, avant en bas à droite, et sa vue `_ar`) pour l'avion qui roule et décolle (aujourd'hui dessiné en primitives) ; `aeroport_nuit` (terminal éclairé, balisage de piste).
 Branchement côté jeu : `drawAirport` (game.template.html) et `P2_NAMES` (tools/build.py). Joindre la sortie d'`asset_qa.py`.
+## Producteur — candidats maisons/immeubles (19 nov.)
+- 11 candidats recomposés sur parcelle 2:1 (1 case, 256 px, jardin) dans `assets/factory_hd_candidats/` : maison_n1/n2/n3, maison_pnj_a/b/c, immeuble_n1/n2, immeuble_pnj_a/b, tour_logements. Originaux non touchés ; à Rémy de trancher (remplacer seulement si au moins aussi soigné).
+- Commande n°9 (magasins) en production sur le Mac : lot15 + mall_moderne (rendu architectural sans arc-en-ciel). Composition + QA ensuite.
+## Producteur — lot commande n°9 + mall (19 nov.)
+Livrés dans assets/factory_hd (parcelle 2:1, marge 6 px, QA asset_qa : pente 0,50, débordement 0 %, centré, aucun signalement) :
+- concession_auto, concession_auto_n2 (2×2, 524×274/287 ; showroom vitré, voitures, petit parking client)
+- boutique_high_tech, boutique_high_tech_n2 (1×1 ; cube vitré, étage bois clair, enseigne lumineuse sans logo)
+- boutique_luxe (1×1 ; pierre sombre, laiton doré, portier), boutique_mode_luxe (1×1 ; store noir et or, mannequins)
+- pharmacie (1×1 ; croix verte seule). drugstore.png reste utilisable pour une épicerie/drugstore, mais pharmacie est dédiée.
+- maison_deco, sport_loisirs (parcelle 2×2 de 512 px, bâtiment en bande 2×1 ; vélos et tentes devant pour sport_loisirs)
+- mall_central (10×10, 2572×1665, emprise 10, style MBK Bangkok ; passerelle, tour parking, étals) et mall_central_moderne (10×10, rendu architectural sans arc-en-ciel, alternative à la version calculée par le jeu). `mall_central_nuit` : pas encore.
+- Sources bat_* conservées. Pas encore produits : niveaux _n2/_n3 de boutique_mode/boulangerie/cafe_de_quartier, scènes 1920×1080, avatars, n3, vignettes.
+- Ombres (ombres/*.png) non poussées pour ce lot, à régénérer si nécessaire.
