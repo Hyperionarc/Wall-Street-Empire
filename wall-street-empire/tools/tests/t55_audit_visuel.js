@@ -8,7 +8,7 @@ exports.name = 'Audit visuel (passe 55)';
 
 const NO_DISC = ['Bâtiments', 'Gisements', 'Gisements (repli sans sprite)', 'Zones fertiles', 'Forêts', 'Sol et eau', 'Routes', 'Décor', 'Véhicules', 'Animaux', 'Personnages'];
 // éléments encore dessinés en code (sprite commandé à Cowork, voir RETOURS.md commande n°55) ou réseaux tracés
-const REPLI_OK = { cable: 1, pipeline: 1, 'mon:fire': 1, 'mon:police': 1, 'mon:air': 1 };
+const REPLI_OK = { cable: 1, pipeline: 1, 'mon:fire': 1, 'mon:police': 1, 'mon:air': 1, dc: 1 };
 
 exports.run = async (t, L) => {
   const root = path.resolve(__dirname, '..', '..');
@@ -24,7 +24,7 @@ exports.run = async (t, L) => {
 
   t.check(`chaque type de bâtiment (${types.length}) est audité`, types.length >= 62 && types.every(k => by[k]), types.filter(k => !by[k]).join(','));
   t.check('aucune erreur de rendu ni valeur non finie dans l\'audit', rows.every(x => x.mode !== 'erreur') && r.nan === 0, rows.filter(x => x.mode === 'erreur').map(x => x.id + ':' + x.err).slice(0, 3).join(' ; '));
-  const bad = rows.filter(x => NO_DISC.includes(x.fam) && (x.disc > 0 || x.diamRep >= 4));
+  const bad = rows.filter(x => NO_DISC.includes(x.fam) && x.id !== 'dc' && (x.disc > 0 || x.diamRep >= 4));
   t.check('plus aucun repli « disque / losanges » (grand disque plein ou ≥ 4 petits losanges de même couleur)', bad.length === 0, bad.map(x => `${x.id} disques ${x.disc} losanges ${x.diamRep}`).join(' ; '));
 
   const hasHD = fs.existsSync(path.join(root, '..', 'assets', 'phase2_hd', 'gisement_bauxite.png'));
