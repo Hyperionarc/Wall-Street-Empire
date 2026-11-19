@@ -1160,6 +1160,30 @@ Six régressions apparues seulement une fois les branches fusionnées, chacune m
 ### 6. Reporté
 Étain, uranium (nucléaire sans combustible modélisé), argent, titane, plomb ; lithium en roche dure ; vrais sprites ; puissances étrangères spécialisées par métal ; engrais achetable ; avantage de vente de la voiture en aluminium ; constructeur automatique de terres rares (il faut monter de niveau une mine de cuivre ou de lithium).
 
+## Passe 47 : brevets de produit, R&D et accélération (premier jalon de monétisation)
+
+**Fin de la rente fixe.** Un brevet est désormais attaché à un produit : `S.pat[produit] = { since, until, holder, licensees, q, kind, roy, rate }`, lu par `patentHeld(pk)` (indicateur prévu pour le modèle de marges par pouvoir de marché).
+- **Obtention** : le premier à terminer la R&D d'un produit dépose le brevet. En marché mûr (mode Libre), le produit existe déjà chez les offreurs : il faut être le premier à une **gamme supérieure** à la meilleure gamme vendue (Bureau > R&D et brevets > « Produits brevetables » liste ces trous du marché). Monter un produit à une gamme que personne ne fait donne un brevet d'amélioration (4 ans). Les produits standard (sans R&D) et les licences de marché ne donnent pas de brevet.
+- **Durée** : 8 ans de jeu (1 an = 120 jours), 10 ans en haute technologie (palier ≥ 2), 12 ans en pharmacie (+1 an pour l'Innovateur tech). L'échéance est affichée, une alerte tombe 60 jours avant.
+- **Exclusivité** : à la gamme couverte et au-dessus, seuls le titulaire et ses licenciés vendent ; les autres offreurs du marché mûr ne gardent qu'une **version de gamme inférieure** (comptée comme un demi-concurrent dans l'attrait) ou disparaissent si le brevet couvre la gamme de base.
+- **Licences accordées** : des offres arrivent (au plus une tous les 30 jours par brevet, tirage `hash(jour, graine, clé)`) : forfait + 4 à 8 % des ventes du licencié. Redevance/jour = 12 % de la demande du produit × prix de gros × taux (×1,5 pour l'Innovateur), versée via les revenus technologiques (`S.patRev`) et débitée au rival licencié. Accepter = un concurrent de plus (attrait ×1/1,1 par licencié en marché neuf).
+- **Brevets des rivaux** : à partir de l'an 3, tous les 60 jours, un rival peut breveter un produit que tu n'as pas développé (au plus 1 + 1 tous les 6 ans, 4 en tout ; gamme premium ou haut de gamme). Tu ne peux pas le développer à cette gamme : achète la licence (50 % de la R&D, transfert de technologie immédiat, puis 6 % de ton chiffre d'affaires), attends l'expiration ou choisis une gamme inférieure.
+- **Valeur du brevet** = (redevances + rente de monopole ≈ 8 % du chiffre d'affaires du produit) × 120 jours × facteur d'annuité sur les années restantes (10 %).
+- **Anciennes sauvegardes** : les n brevets à rente fixe deviennent des brevets sur tes produits développés, le reste un lot de « brevets génériques » qui garde ses 70 $/jour pendant 8 ans puis expire. Les centres de R&D ne déposent plus de brevets : chaque dossier bouclé donne **5 jours de crédits labo** (plafond 90).
+
+**Bureau du PDG > Stratégie > R&D et brevets** : solde de Diamants et crédits labo, conseil d'une phrase, recherches en cours (produits et technologie) avec barre de progression, temps restant et bouton **Accélérer**, produits brevetables, portefeuille (expiration, valeur, redevances, licenciés), offres de licence reçues (accepter, refuser), brevets des concurrents à licencier, brevets expirés, boutique de démonstration.
+
+**Accélération** (à la Supremacy, sans tirage au sort) : retire des jours au temps restant d'une recherche.
+- Coût en **Diamants** (monnaie premium ; « Or » prêterait à confusion avec l'or des mines) : `ceil(3 × jours^0,85)`, soit 1 j = 3, 5 j = 12, 10 j = 22 (dégressif).
+- Alternative en **trésorerie** : 3 fois le coût journalier de la R&D (coût de R&D ÷ durée × 3), sans remise ; ou **crédits labo** (1 jour pour 1 jour).
+- Plafonds : 10 % de la durée par jour de jeu (au plus 10 j) et la moitié de la durée par recherche. Le coût est toujours affiché sur le bouton puis dans une confirmation ; rien n'est débité avant « Confirmer ».
+- Diamants : 100 au départ (test), +10 par palier atteint, +5 par jalon du conseiller.
+- **Aucun paiement réel** : module `IAP` isolé, `IAP_LIVE = false`, `iapPurchase(packId)` n'ouvre qu'une boîte « Paiements bientôt disponibles » et ne crédite rien. Le commentaire du module indique où brancher StoreKit 2, Google Play Billing ou Stripe Checkout (crédit par le serveur uniquement).
+
+**Apprendre > Brevets** : chapitre « Brevets et avantage concurrentiel » (ta situation, puis une phrase par cas : brevet détenu, licence payée, expiration imminente, avantage durable).
+
+API : `window.WSE.rd` ; sauvegarde : champs facultatifs bornés `pat` et `rdx` (clé `wse-city-v8` inchangée). Test : `tools/tests/t47_brevets.js` (30 vérifications).
+
 ## Passe 43 : outil d'apprentissage (écoles de commerce)
 
 Bureau du PDG > **Apprendre**, trois écrans, tous les chiffres sont lus dans la simulation (demande adressée `S._dw.pd`, ventes, production, stock, capacité des rayons `S._dw.pc`, capital de marque).
