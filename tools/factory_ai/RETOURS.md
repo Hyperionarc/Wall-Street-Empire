@@ -183,3 +183,7 @@ Livrés, sans texte, marge 6 px, QA asset_qa : pente 0,50, débordement 0 % (mé
 - Hôpital : H exact construit depuis un gabarit géométrique (gab_hopital_rb.py), pont à l'axe exact des deux ailes, toits rouges, murs blancs, entrée sur une vraie façade, aucune croix ni objet sur les toits, aucun texte. Remplace hopital.png (780×502, 3×3).
 - Pharmacie : plan en croix, murs blancs, croix verte plate sur le toit uniquement, plus de murs ou piliers verts ni de potence parasite. Remplace pharmacie.png (268×148).
 - QA : pente 0,52 / 0,52, débord 0, coupé non, décentrage ≈ 0.
+
+## Retour de Rémy (suite) : pharmacie d'origine restaurée, texte sur l'hôpital
+- Pharmacie : retour au bâtiment Gemini d'origine (bat_pharmacie_gem_c) ; seules les deux petites croix en relief sur les façades latérales sont retirées (retouche pixel, le reste est inchangé). Ombre au sol supprimée pour cette version (à regénérer si besoin).
+- Hôpital : exception explicite de Rémy à la règle « pas de texte » : « HOSPITAL » (bandeau blanc, lettres rouges, grande façade) et « EMERGENCY » (bandeau rouge, lettres blanches, au-dessus de l'entrée), incrustés en perspective isométrique, police DejaVu Sans Bold. Les autres assets restent sans texte.
