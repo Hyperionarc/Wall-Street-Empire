@@ -13203,6 +13203,7 @@ function mixC(a, b, t) {
 // gisements dessinés sur le sol
 function drawField(p, d, x, y) {
   if (d.k === 'wheat') { const n = d.r > DEPOSITS.wheat.res * 0.5 ? 'champ_ble_mur' : 'champ_ble_vert'; if (vvOk(n) && vvDraw(n, p, 1) != null) return; }   // ville vivante : champ de blé HD (mûr tant que la parcelle est riche, vert après les récoltes)
+  { const n = CROP_SPR[d.k]; if (n && p2Recolor(n) && vvDraw(n, p, 1) != null) return; }   // passe 55 : parcelle HD de la culture (sprite du champ de blé recoloré), comme les fermes
   const col = CROP_COL[d.k];
   ctx.fillStyle = col; ctx.globalAlpha *= 0.72; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + 66, p.y + 33); ctx.lineTo(p.x, p.y + 66); ctx.lineTo(p.x - 66, p.y + 33); ctx.closePath(); ctx.fill(); ctx.globalAlpha /= 0.72;
   ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 2; for (let k = 1; k < 4; k++) { const a = iso(x, y + k / 4), b = iso(x + 1, y + k / 4); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
@@ -13235,7 +13236,7 @@ function depFx(k, cx, cy, now, x, y) {
   } else if (k === 'oil') {
     const per = 2200, ph = (now / per + hash(x, y, 80)) % 1, er = ph < 0.18 ? ph / 0.18 : ph < 0.72 ? 1 : Math.max(0, 1 - (ph - 0.72) / 0.2);
     const bx = cx + (hash(x, y, 81) - 0.5) * 14, by = cy - 2;
-    ctx.fillStyle = 'rgba(8,5,16,.9)'; ctx.beginPath(); ctx.ellipse(bx, by, 14 + 12 * er, 6 + 5 * er, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(8,5,16,.9)'; ctx.beginPath(); ctx.ellipse(bx, by, 10 + 9 * er, 4 + 4 * er, 0, 0, 7); ctx.fill();
     if (er > 0.02) {
       const H = 92 * er;
       const gg = ctx.createLinearGradient(0, by, 0, by - H); gg.addColorStop(0, 'rgba(14,9,24,.95)'); gg.addColorStop(0.7, 'rgba(40,28,52,.8)'); gg.addColorStop(1, 'rgba(60,44,70,0)');
@@ -13249,39 +13250,40 @@ function depFx(k, cx, cy, now, x, y) {
   }
   ctx.globalCompositeOperation = prev; ctx.globalAlpha = pa;
 }
-function drawDeposit(p, d, now, x, y) {
-  const cx = p.x, cy = p.y + TH / 2, k = d.k;
+function drawDeposit(p, d, now, x, y) {   // passe 55 : sprite HD du gisement (dérivé recoloré pour gravier, sable, calcaire, soufre, terres rares), sinon repli procédural sobre (plus de disque ni de losanges)
+  const cx = p.x, cy = p.y + TH / 2, k = d.k, nm = P2_DEP[k];
   ctx.save(); ctx.globalAlpha = d.r > 0 ? 1 : 0.35;
-  if (P2_DEP[k] && p2Draw(P2_DEP[k], p, 1) != null) { if (d.r > 0) depFx(k, cx, cy, now, x, y); ctx.restore(); return; }
-  if (k === 'oil') {
-    ctx.fillStyle = '#241a3d'; ctx.beginPath(); ctx.ellipse(cx, cy, 44, 21, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#4b3b78'; ctx.beginPath(); ctx.ellipse(cx - 12, cy - 5, 16, 6, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#7b6cc0'; ctx.beginPath(); ctx.ellipse(cx - 18, cy - 7, 5, 2, 0, 0, 7); ctx.fill();
-  } else if (k === 'gas') {
-    ctx.fillStyle = '#1b3550'; ctx.beginPath(); ctx.ellipse(cx, cy, 40, 19, 0, 0, 7); ctx.fill();
-    for (let i = 0; i < 5; i++) { const t = (now / 1400 + hash(x, y, i)) % 1, bx = cx + (hash(x, y, i + 3) - 0.5) * 50; ctx.fillStyle = `rgba(160,220,255,${0.55 * (1 - t)})`; ctx.beginPath(); ctx.arc(bx, cy - t * 26, 3 + 3 * t, 0, 7); ctx.fill(); }
-    ctx.fillStyle = '#3f7aa8'; ctx.beginPath(); ctx.ellipse(cx - 8, cy - 3, 14, 5, 0, 0, 7); ctx.fill();
-  } else if (k === 'gold') {
-    ctx.fillStyle = '#c9972f'; ctx.beginPath(); ctx.ellipse(cx, cy, 40, 19, 0, 0, 7); ctx.fill();
-    for (let i = 0; i < 6; i++) {
-      const a = hash(x, y, i) * 6.28, r = hash(i, x, y) * 0.8;
-      const tw = 0.5 + 0.5 * Math.sin(now / 400 + i * 2 + x);
-      ctx.fillStyle = `rgba(255,236,150,${0.5 + 0.5 * tw})`;
-      const sx = cx + Math.cos(a) * r * 34, sy = cy + Math.sin(a) * r * 15;
-      ctx.beginPath(); ctx.moveTo(sx, sy - 6); ctx.lineTo(sx + 3, sy); ctx.lineTo(sx, sy + 6); ctx.lineTo(sx - 3, sy); ctx.closePath(); ctx.fill();
-    }
-  } else {
-    const col = k === 'iron' ? ['#8a4630', '#b4614a'] : k === 'coal' ? ['#1d1f2b', '#3a3d52'] : k === 'gravel' ? ['#6f6f78', '#9d9da8'] : k === 'sand' ? ['#cdb877', '#ecdca6'] : k === 'limestone' ? ['#cfcab8', '#f3f0e4'] : GRADE_K[k] ? [mixC(GOODS[k].color, '#000000', 0.45), GOODS[k].color] : ['#1f8f7d', '#46d3bb'];
-    ctx.fillStyle = col[0]; ctx.beginPath(); ctx.ellipse(cx, cy, 42, 20, 0, 0, 7); ctx.fill();
-    for (let i = 0; i < 5; i++) {
-      const sx = cx + (hash(x, y, i) - 0.5) * 56, sy = cy + (hash(y, x, i + 7) - 0.5) * 22;
-      ctx.fillStyle = col[1]; ctx.beginPath();
-      ctx.moveTo(sx, sy - 6); ctx.lineTo(sx + 8, sy - 2); ctx.lineTo(sx, sy + 3); ctx.lineTo(sx - 8, sy - 2); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = col[0]; ctx.beginPath(); ctx.moveTo(sx - 8, sy - 2); ctx.lineTo(sx, sy + 3); ctx.lineTo(sx, sy + 7); ctx.lineTo(sx - 8, sy + 2); ctx.closePath(); ctx.fill();
-    }
-  }
-  if (k === 'gold' && d.r > 0) depFx(k, cx, cy, now, x, y);
+  if (nm && (!P2_RECOL[nm] || p2Recolor(nm)) && p2Draw(nm, p, 1) != null) { if (d.r > 0) depFx(k, cx, cy, now, x, y); ctx.restore(); return; }
+  depProc(k, cx, cy, x, y);
   ctx.restore();
+}
+// Repli procédural des gisements (sprite absent) : terre aux contours irréguliers fondue dans l'herbe, puis tas en volume 2:1 (lumière haut-gauche, ombre bas-droite) ou nappe sombre (pétrole, gaz)
+const DEP_PAL = { gravel: ['#4a4b4f', '#85857f', '#bdbcb4'], sand: ['#8a7550', '#c2ad7f', '#e6d8b4'], limestone: ['#7c776b', '#b9b3a3', '#e9e5da'], clay: ['#6e4a36', '#a0705a', '#c99a80'],
+  silica: ['#7d8288', '#b7bcc0', '#e4e7e8'], salt: ['#8a8c90', '#c4c6c8', '#eeeeec'], potash: ['#7a5450', '#b48a82', '#dcbab2'], phosphate: ['#5a5236', '#8c8258', '#b8ae84'], sulfur: ['#6e6430', '#ad9e52', '#d8cc8a'],
+  rare: ['#4c4656', '#7c7488', '#aaa3b4'], iron: ['#5a3a2e', '#8c5a48', '#b48470'], coal: ['#1f2025', '#3d3f46', '#686a72'], copper: ['#3e5650', '#6a8a7e', '#9ab4a8'], gold: ['#6e5a2c', '#a8904e', '#d8c486'],
+  nickel: ['#4e5a50', '#82927e', '#b4c0aa'], chrome: ['#40464e', '#6c7480', '#9ea6b0'], bauxite: ['#6a3a2a', '#9a5e44', '#c08a6c'], lithium: ['#7c8486', '#b4bcbc', '#e0e4e2'], zinc: ['#3e4656', '#6c7688', '#a0a8b8'],
+  graphite: ['#25262b', '#45474e', '#73757c'], oil: ['#16141c', '#2a2630', '#4a4552'], gas: ['#1e2630', '#36424e', '#5a6876'] };
+function depProc(k, cx, cy, x, y) {
+  const P = DEP_PAL[k] || ['#5e574a', '#948b78', '#c4bca8'], liq = k === 'oil' || k === 'gas', pa = ctx.globalAlpha;
+  const blob = (r0, col, a, sd) => {   // tache irrégulière (14 rayons bruités), bords fondus par un dégradé radial
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(1, 0.5); const g = ctx.createRadialGradient(0, 0, r0 * 0.2, 0, 0, r0 * 1.05);
+    g.addColorStop(0, col); g.addColorStop(0.65, col); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.globalAlpha = pa * a; ctx.beginPath();
+    for (let i = 0; i <= 14; i++) { const t = i / 14 * 6.2832, r = r0 * (0.78 + 0.3 * hash(x * 7 + i, y, sd)); i ? ctx.lineTo(Math.cos(t) * r, Math.sin(t) * r) : ctx.moveTo(Math.cos(t) * r, Math.sin(t) * r); }
+    ctx.closePath(); ctx.fill(); ctx.restore(); ctx.globalAlpha = pa; };
+  blob(60, P[1], 0.42, 3);
+  if (liq) {   // nappe sombre et reflet discret
+    blob(34, P[0], 0.9, 5);
+    ctx.strokeStyle = P[2]; ctx.globalAlpha = pa * 0.5; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(cx - 16, cy - 4); ctx.quadraticCurveTo(cx - 4, cy - 8, cx + 8, cy - 5); ctx.stroke(); ctx.globalAlpha = pa; return;
+  }
+  const n = 2 + Math.floor(hash(x, y, 11) * 2);
+  const heaps = []; for (let i = 0; i < n; i++) heaps.push([cx + (hash(x, y, 20 + i) - 0.5) * 54, cy + (hash(y, x, 30 + i) - 0.5) * 18, 15 + 9 * hash(x, y, 40 + i)]);
+  heaps.sort((a, b) => a[1] - b[1]).forEach(([hx, hy, r], i) => {
+    const h = r * (k === 'sand' || k === 'clay' ? 0.55 : 0.8), ax = hx - r * 0.12, ay = hy - h;
+    ctx.fillStyle = 'rgba(30,34,24,.22)'; ctx.beginPath(); ctx.moveTo(hx - r, hy); ctx.quadraticCurveTo(hx + r * 0.3, hy + r * 0.62, hx + r * 1.25, hy + 2); ctx.quadraticCurveTo(hx + r * 0.4, hy - r * 0.2, hx - r, hy); ctx.fill();   // ombre portée bas-droite
+    ctx.fillStyle = P[2]; ctx.beginPath(); ctx.moveTo(hx - r, hy); ctx.quadraticCurveTo(hx - r * 0.55, ay + h * 0.2, ax, ay); ctx.quadraticCurveTo(ax - r * 0.05, hy - h * 0.2, hx - r * 0.05, hy + r * 0.42); ctx.quadraticCurveTo(hx - r * 0.6, hy + r * 0.3, hx - r, hy); ctx.fill();   // flanc éclairé (haut-gauche)
+    ctx.fillStyle = P[1]; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(hx + r * 0.55, ay + h * 0.25, hx + r, hy); ctx.quadraticCurveTo(hx + r * 0.5, hy + r * 0.36, hx - r * 0.05, hy + r * 0.42); ctx.quadraticCurveTo(ax - r * 0.05, hy - h * 0.2, ax, ay); ctx.fill();   // flanc à l'ombre
+    ctx.fillStyle = P[0]; ctx.globalAlpha = pa * 0.55; for (let j = 0; j < 7; j++) { const u = hash(x + i, y, 50 + j), v = hash(y, x + i, 60 + j); ctx.fillRect(hx + (u - 0.3) * r * 1.2, hy - h * 0.15 - v * h * 0.6, 2.2, 1.4); } ctx.globalAlpha = pa;   // grain de la roche
+  });
 }
 
 // tas de minerai (petits cubes)
@@ -13452,7 +13454,7 @@ function gtTex(n, rot) {   // tuile découpée sur son losange (1 px de recouvre
   const e = typeof P2_IMG !== 'undefined' && P2_IMG[n]; if (!e || !e.ok || !e.im.naturalWidth) return null;
   const w = e.im.naturalWidth, h = e.im.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d'), ex = 1.5 * w / 264; g.beginPath(); g.moveTo(w / 2, -ex / 2); g.lineTo(w + ex, h / 2); g.lineTo(w / 2, h + ex / 2); g.lineTo(-ex, h / 2); g.closePath(); g.clip();
-  if (rot) { g.translate(w, h); g.rotate(Math.PI); } g.drawImage(e.im, 0, 0, w, h);
+  if (rot) { g.translate(w, h); g.rotate(Math.PI); } g.drawImage(e.im, 0, 0, w, h); c._hd = n;
   try { const q = document.createElement('canvas'); q.width = 8; q.height = 4; const qg = q.getContext('2d'); qg.drawImage(e.im, w * 0.3, h * 0.3, w * 0.4, h * 0.4, 0, 0, 8, 4); const d = qg.getImageData(0, 0, 8, 4).data; let r = 0, gg = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; } c.avg = `rgb(${r / 32 | 0},${gg / 32 | 0},${b / 32 | 0})`; } catch (er) { c.avg = gtFlatOf(n); }
   return GT_MK[k] = c;
 }
@@ -13461,7 +13463,7 @@ function gtWaterTex(n, rot, k) {   // eau assombrie vers le large : dégradé de
   const t = gtTex(n, rot); if (!t) return null;
   const c = document.createElement('canvas'), w = c.width = t.width, h = c.height = t.height, g = c.getContext('2d'), a = u => (0.12 + 0.42 * clamp(u / 6, 0, 1)).toFixed(3);
   g.drawImage(t, 0, 0); g.globalCompositeOperation = 'source-atop'; const gr = g.createLinearGradient(w / 4, h / 4, 3 * w / 4, 3 * h / 4);
-  gr.addColorStop(0, `rgba(16,52,104,${a(k - 0.5)})`); gr.addColorStop(1, `rgba(16,52,104,${a(k + 0.5)})`); g.fillStyle = gr; g.fillRect(0, 0, w, h); c.avg = t.avg;
+  gr.addColorStop(0, `rgba(16,52,104,${a(k - 0.5)})`); gr.addColorStop(1, `rgba(16,52,104,${a(k + 0.5)})`); g.fillStyle = gr; g.fillRect(0, 0, w, h); c.avg = t.avg; c._hd = n;
   return GT_MK[key] = c;
 }
 function gtPatch(n) {   // terre aux bords fondus (clairières) : dessinée plus grande que la case, elle déborde en douceur sur l'herbe voisine
@@ -13470,7 +13472,7 @@ function gtPatch(n) {   // terre aux bords fondus (clairières) : dessinée plus
   const w = e.im.naturalWidth, h = e.im.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
   g.drawImage(e.im, 0, 0, w, h); g.globalCompositeOperation = 'destination-in'; g.setTransform(1, 0, 0, 0.5, 0, 0);
   const gr = g.createRadialGradient(w / 2, h, 0, w / 2, h, w / 2); gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.5, 'rgba(0,0,0,.9)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-  g.fillStyle = gr; g.fillRect(0, 0, w, h * 2); return GT_MK[k] = c;
+  g.fillStyle = gr; g.fillRect(0, 0, w, h * 2); c._hd = n; return GT_MK[k] = c;
 }
 function gtNoise(x, y) { const G = 5, gx = x / G, gy = y / G, ix = Math.floor(gx), iy = Math.floor(gy), fx = gx - ix, fy = gy - iy, sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy), h = (a, b) => hash(a, b, 91); return lerp(lerp(h(ix, iy), h(ix + 1, iy), sx), lerp(h(ix, iy + 1), h(ix + 1, iy + 1), sx), sy); }
 const gtWater = (x, y) => inb(x, y) && ZONE[idx(x, y)] === 3;
@@ -13515,9 +13517,11 @@ function gtBake(cx, cy, lv, flat, sig, old) {
   g.save(); g.beginPath(); g.moveTo(A.x, A.y - e); g.lineTo(B.x + 2 * e, B.y); g.lineTo(C.x, C.y + e); g.lineTo(D.x - 2 * e, D.y); g.closePath(); g.clip();
   for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) if (inb(x, y) && !isRoad(x, y)) gtTile(g, x, y, o, flat);
   for (let y = y0 - 1; y <= y0 + CH; y++) for (let x = x0 - 1; x <= x0 + CH; x++) if (gtClearing(x, y)) {   // clairières (y compris celles des cases voisines qui débordent dans ce bloc)
-    const pt = gtPatch(GT_DIRT[Math.floor(hash(x, y, 79) * 4)]), p = iso(x, y), k = 0.85 + 0.35 * hash(x, y, 81);
-    if (flat || !pt) { g.globalAlpha = 0.55; g.fillStyle = GT_FLAT.terre; g.beginPath(); g.ellipse(p.x, p.y + 33, 58 * k, 29 * k, 0, 0, 7); g.fill(); g.globalAlpha = 1; }
+    const dp = S.dep && S.dep[idx(x, y)], pt = gtPatch(GT_DIRT[Math.floor(hash(x, y, 79) * 4)]), p = iso(x, y), k = dp ? 0.62 + 0.16 * hash(x, y, 81) : 0.85 + 0.35 * hash(x, y, 81);   // passe 55 : sous un gisement, terre fondue plus petite et plus légère (plus de grande tache brune cernée)
+    g.globalAlpha = dp ? 0.45 + 0.25 * gtNoise(x * 2, y * 2) : 1;
+    if (flat || !pt) { g.globalAlpha *= 0.55; g.fillStyle = GT_FLAT.terre; g.beginPath(); g.ellipse(p.x, p.y + 33, 58 * k, 29 * k, 0, 0, 7); g.fill(); g.globalAlpha = 1; }
     else g.drawImage(pt, p.x - 99 * k, p.y + 33 - 49.5 * k, 198 * k, 99 * k);
+    g.globalAlpha = 1;
   }
   for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) if (inb(x, y) && isRoad(x, y)) gtTile(g, x, y, o, flat);
   g.restore(); GT.stat.baked++;
@@ -13559,6 +13563,7 @@ function updateShips(dt) { ships.forEach(s => { s.y += s.v * dt * speedFactor();
 
 // --- Forêts et camps de bûcherons ---
 const P2_FOREST = ['foret_dense_a', 'foret_dense_b', 'foret_dense_c', 'foret_dense_a', 'foret_dense_b', 'foret_sapins_a', 'foret_sapins_b'], P2_TREES = ['arbre_isole_a', 'arbre_isole_b', 'arbre_isole_c', 'arbre_isole_d'];
+function drawDecorTree(p, x, y, dc) { const tn = P2_TREES[Math.floor(hash(x, y, 17) * P2_TREES.length)], te = P2_IMG[tn]; if (te && te.ok) { const k = 54 / 212, cy2 = p.y + 33 + dc.dy + 4; ctx.drawImage(te.im, p.x + dc.dx - 27, cy2 - 312 * k, 54, 312 * k); } else blit('tree', p.x - 16 + dc.dx, p.y + 33 - 42 + dc.dy); }   // arbre isolé du décor (HD, sinon atlas)
 function drawForest(p, x, y, d) {
   { const nm = P2_FOREST[Math.floor(hash(x, y, 3) * P2_FOREST.length)], e = P2_IMG[nm]; if (e && e.ok) { const full = clamp(d.r / DEPOSITS.wood.res, 0.2, 1); ctx.globalAlpha *= 0.55 + 0.45 * full; p2Draw(nm, p, 1); return; } }   // forêt HD : une tuile de feuillus ou de sapins par case de bois, plus claire quand elle se vide
   const s = SP.tree; if (!s) return;
@@ -13867,16 +13872,17 @@ function drawMonument(a, now) {
     const cc = PP(x + 0.5, y + 0.82, 38); ctx.fillStyle = '#e03a3a'; ctx.fillRect(cc[0] - 9, cc[1] - 3, 18, 6); ctx.fillRect(cc[0] - 3, cc[1] - 9, 6, 18);
     const hp = PP(x + 0.3, y + 0.4, 56); ctx.fillStyle = '#3d466f'; ctx.beginPath(); ctx.ellipse(hp[0], hp[1], 15, 8, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#ffd43b'; ctx.font = '700 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('H', hp[0], hp[1] + 3);
     a._top = PP(x + 0.5, y + 0.5, 70)[1];
-  } else if (m === 'police') {
-    pPrism(x + 0.12, y + 0.2, 0.76, 0.6, 0, 36, '#6f86b8'); pPrism(x + 0.1, y + 0.18, 0.8, 0.64, 36, 40, '#3b4a78'); pWindows(x + 0.12, y + 0.2, 0.76, 0.6, 10, 28, 5, true);
-    pQuad([PP(x + 0.4, y + 0.8, 24), PP(x + 0.6, y + 0.8, 24), PP(x + 0.6, y + 0.8, 0), PP(x + 0.4, y + 0.8, 0)], '#2a3566');
-    const fl = PP(x + 0.2, y + 0.3, 40); ctx.strokeStyle = '#9aa4d6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fl[0], fl[1]); ctx.lineTo(fl[0], fl[1] - 34); ctx.stroke(); ctx.fillStyle = '#3f6fd9'; ctx.fillRect(fl[0], fl[1] - 34, 18, 11);
-    const lt = PP(x + 0.5, y + 0.5, 40); ctx.fillStyle = Math.sin(now / 160) > 0 ? '#ff4d4d' : '#3f8fff'; ctx.beginPath(); ctx.arc(lt[0], lt[1] - 4, 5, 0, 7); ctx.fill();
+  } else if (m === 'police') {   // passe 55 : commissariat sobre (pierre grise, toit ardoise, auvent, mât discret) en attendant le sprite HD (commande Cowork 55-3)
+    pPrism(x + 0.12, y + 0.2, 0.76, 0.6, 0, 36, '#a9adb2'); pPrism(x + 0.1, y + 0.18, 0.8, 0.64, 36, 40, '#5d636c'); pWindows(x + 0.12, y + 0.2, 0.76, 0.6, 10, 28, 5, true);
+    pPrism(x + 0.36, y + 0.78, 0.28, 0.08, 22, 25, '#4f5966');   // auvent de l'entrée
+    pQuad([PP(x + 0.42, y + 0.8, 20), PP(x + 0.58, y + 0.8, 20), PP(x + 0.58, y + 0.8, 0), PP(x + 0.42, y + 0.8, 0)], '#3e4652');
+    const fl = PP(x + 0.2, y + 0.3, 40); ctx.strokeStyle = '#8c9096'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(fl[0], fl[1]); ctx.lineTo(fl[0], fl[1] - 30); ctx.stroke(); ctx.fillStyle = '#5a6f96'; ctx.fillRect(fl[0], fl[1] - 30, 12, 7);
     a._top = PP(x + 0.5, y + 0.5, 56)[1];
-  } else if (m === 'fire') {
-    pPrism(x + 0.1, y + 0.2, 0.8, 0.6, 0, 34, '#c2403a'); pPrism(x + 0.1, y + 0.18, 0.8, 0.64, 34, 38, '#8a2a26');
-    for (let k = 0; k < 2; k++) { const u = x + 0.18 + k * 0.38; pQuad([PP(u, y + 0.8, 26), PP(u + 0.28, y + 0.8, 26), PP(u + 0.28, y + 0.8, 0), PP(u, y + 0.8, 0)], '#f2d36a'); for (let q = 1; q < 5; q++) pQuad([PP(u, y + 0.8, 26 - q * 5), PP(u + 0.28, y + 0.8, 26 - q * 5), PP(u + 0.28, y + 0.8, 25 - q * 5), PP(u, y + 0.8, 25 - q * 5)], 'rgba(0,0,0,.25)'); }
-    pPrism(x + 0.72, y + 0.22, 0.2, 0.2, 38, 76, '#d9544a'); pPrism(x + 0.7, y + 0.2, 0.24, 0.24, 76, 80, '#8a2a26');
+  } else if (m === 'fire') {   // passe 55 : caserne sobre (brique patinée, portes de remise grises rainurées, tour de séchage) en attendant le sprite HD (commande Cowork 55-2)
+    pPrism(x + 0.1, y + 0.2, 0.8, 0.6, 0, 34, '#9c6a5c'); pPrism(x + 0.1, y + 0.18, 0.8, 0.64, 34, 38, '#5e4840');
+    for (let k = 0; k < 2; k++) { const u = x + 0.18 + k * 0.38; pQuad([PP(u, y + 0.8, 26), PP(u + 0.28, y + 0.8, 26), PP(u + 0.28, y + 0.8, 0), PP(u, y + 0.8, 0)], '#b9bcbf');
+      ctx.strokeStyle = 'rgba(60,64,70,.45)'; ctx.lineWidth = 1; ctx.beginPath(); for (let q = 1; q < 5; q++) { const A = PP(u, y + 0.8, 26 - q * 5), B = PP(u + 0.28, y + 0.8, 26 - q * 5); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); } ctx.stroke(); }
+    pPrism(x + 0.72, y + 0.22, 0.2, 0.2, 38, 76, '#a87566'); pPrism(x + 0.7, y + 0.2, 0.24, 0.24, 76, 80, '#5e4840');
     a._top = PP(x + 0.8, y + 0.3, 90)[1];
   } else if (m === 'lycee' || m === 'college') {
     const big = m === 'lycee';
@@ -14532,7 +14538,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
     if (!vw && !vl) roofTop(a, p, o.now);
     if (a.works) drawWorksOver(a, p, bx, by, floors, o.now);
   } else {
-    const name = tileSprite(a, ox, oy), s = name && SP[name];
+    const xe = P2_EXT[a.t], name = xe && P2_IMG[xe] && P2_IMG[xe].ok ? null : tileSprite(a, ox, oy), s = name && SP[name];   // passe 55 : pas de bloc Kenney sous une mine HD
     const hs = TYPES[a.t].ret ? 1 + 0.12 * (a.lvl || 0) : 1;   // les commerces s'élèvent avec leur niveau
     if (s) ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], p.x - s[2] / 2, p.y + 99 - s[3] * hs + (1 - grow) * 30, s[2], s[3] * grow * hs);
     if (ox === 0 && oy === 0) a._top = p.y - 28 - (s ? s[3] * (hs - 1) : 0);
@@ -14871,7 +14877,7 @@ function frame(now) {
         drawForest(p, x, y, S.dep[i]);
       } else if (decor[i] && !S.dep[i]) {
         const dc = decor[i];
-        ctx.globalAlpha = treeCol; { const tn = P2_TREES[Math.floor(hash(x, y, 17) * P2_TREES.length)], te = P2_IMG[tn]; if (te && te.ok) { const k = 54 / 212, cy2 = p.y + 33 + dc.dy + 4; ctx.drawImage(te.im, p.x + dc.dx - 27, cy2 - 312 * k, 54, 312 * k); } else blit('tree', p.x - 16 + dc.dx, p.y + 33 - 42 + dc.dy); } ctx.globalAlpha = 1;
+        ctx.globalAlpha = treeCol; drawDecorTree(p, x, y, dc); ctx.globalAlpha = 1;
       } else if (ZONE[i] === 0 && !S.dep[i] && !isRoadPos(x, y) && hash(x, y, 71) < 0.022) {
         vvRock(p, x, y);   // ville vivante : rochers épars sur la campagne non bâtie
       }
@@ -16923,7 +16929,7 @@ const P2_TYPE = { ewh: 'entrepot', fwheat: 'fwheat', fsugar: 'fsugar', fcotton: 
 { const SPEC_SPR = { sauto: ['concession_auto'], stech: ['boutique_high_tech'], slux: ['boutique_luxe'], smode: ['boutique_mode_luxe', 'boutique_mode'], spharma: ['pharmacie', 'drugstore'], shome: ['maison_deco'], ssport: ['sport_loisirs'], sbrico: ['brico_outillage'] };   // passe 46 : sprite HD commandé (n° 9) s'il est livré, sinon sprite existant (assets/factory_hd), sinon composition en primitives (drawSpecShop)
   Object.keys(SPEC_SPR).forEach(k => { const n = SPEC_SPR[k].find(x => P2HD[x]); if (n) P2_TYPE[k] = n; }); }
 const p2Ready = t => { const n = P2_TYPE[t] || P2_EXT[t]; return !!(n && P2_IMG[n] && P2_IMG[n].ok); };
-const P2_EXT = { well: 'puits_petrole', gwell: 'puits_gaz', miron: 'mine_fer', mcoal: 'mine_charbon', mcopper: 'mine_cuivre', mgold: 'mine_or', mnicr: 'mine_nickel_chrome', mbauxite: 'mine_bauxite', mlithium: 'mine_lithium', mzinc: 'mine_zinc', mgraphite: 'mine_graphite', qsilica: 'carriere_silice', qclay: 'carriere_argile', qsalt: 'mine_sel', mphos: 'mine_phosphate', mpotash: 'mine_potasse', qgravel: 'carriere', qsand: 'carriere', qlime: 'carriere', logging: 'camp_bucherons' };
+const P2_EXT = { well: 'puits_petrole', gwell: 'puits_gaz', miron: 'mine_fer', mcoal: 'mine_charbon', mcopper: 'mine_cuivre', mgold: 'mine_or', mnicr: 'mine_nickel_chrome', mbauxite: 'mine_bauxite', mlithium: 'mine_lithium', mzinc: 'mine_zinc', mgraphite: 'mine_graphite', qsilica: 'carriere_silice', qclay: 'carriere_argile', qsalt: 'mine_sel', mphos: 'mine_phosphate', mpotash: 'mine_potasse', qgravel: 'carriere', qsand: 'carriere', qlime: 'carriere', logging: 'camp_bucherons', crush: 'carriere' };   // passe 55 : le centre de concassage reprend la carrière HD en attendant son sprite (commande Cowork n° 55-1)
 Object.keys(P2HD).forEach(n => { const im = new Image(), e = P2_IMG[n] = { im, ok: false }; im.onload = () => { e.ok = true; }; im.src = P2HD[n]; });
 function p2Draw(name, p, cells, c) {   // dessine le sprite : le centre de sa dalle (rangée la plus large) est posé sur le centre c = {x, y} de l'emprise (par défaut le centre de la case p) ; renvoie le haut du sprite, ou null
   const e = P2_IMG[name], d = P2DIM[name]; if (!e || !e.ok || !d) return null;
@@ -16954,8 +16960,33 @@ const VV_SVC = {
   drugstore: ['Drugstore', 'm', 2], barre_hlm: ['Barre HLM', 'm', 4, 'hlm'], immeuble_en_construction: ['Immeuble en construction', 'm', 2, 'up'],
   eglise_de_village: ['Église', 'p', 2], gare_ferroviaire: ['Gare ferroviaire', 'p', 1, 'far'], station_service: ['Station-service', 'p', 3, 'road'], station_recharge_electrique: ['Station de recharge électrique', 'p', 2, 'road'], batiment_abandonne: ['Immeuble abandonné (friche)', 'p', 1]
 };
-const VV_MON = { hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport' };   // équipements publics existants : sprite HD
-P2_DEP.gold = 'gisement_or';   // gisement d'or HD (les effets de brillance depFx restent dessinés par-dessus)
+const VV_MON = { telecom: 'station_tv', hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport' };   // équipements publics existants : sprite HD
+P2_DEP.gold = 'gisement_or';
+/* Passe 55 (audit visuel) : sprites HD dérivés. Les gisements sans rendu propre (gravier, sable, calcaire, soufre, terres rares) et les parcelles
+   de cultures (maïs, colza, canne, coton, hévéa, vigne) reprennent un sprite HD voisin dont la luminance est remappée sur une palette sobre
+   (3 teintes désaturées) : même modelé, même éclairage, même emprise que les autres. Créés une fois, quand le sprite de base est chargé. */
+const P2_RECOL = {   // nom : [sprite de base, sombre, moyen, clair, position du moyen]
+  gisement_gravier: ['gisement_bauxite', '#2e2f33', '#77777a', '#c9c8c2'], gisement_sable: ['gisement_bauxite', '#6e5a3c', '#bfa877', '#eee1bd'],
+  gisement_calcaire: ['gisement_potasse', '#6f6b60', '#bdb7a6', '#f2eee3'], gisement_soufre: ['gisement_zinc', '#4e4626', '#a8984c', '#ddd38e'], gisement_terres_rares: ['gisement_graphite', '#2c2836', '#6a6280', '#b8b0c8'],
+  champ_mais: ['champ_ble_vert', '#24381c', '#5f7d36', '#c9c07a'], champ_colza: ['champ_ble_mur', '#3d4a1e', '#a39f3a', '#e2d880', 0.55], champ_canne: ['champ_ble_vert', '#1f3a1d', '#5a8f45', '#b8d79a'],
+  champ_coton: ['champ_ble_vert', '#2a3d24', '#7a8f5e', '#f4f2ea'], champ_hevea: ['champ_ble_vert', '#1b2e1c', '#3d6a3e', '#8fb07a'], champ_vigne: ['champ_ble_vert', '#2e3424', '#5e6a42', '#a9b47e']
+};
+Object.assign(P2_DEP, { gravel: 'gisement_gravier', sand: 'gisement_sable', limestone: 'gisement_calcaire', sulfur: 'gisement_soufre', rare: 'gisement_terres_rares' });
+const CROP_SPR = { corn: 'champ_mais', rapeseed: 'champ_colza', sugar: 'champ_canne', cotton: 'champ_coton', rubber: 'champ_hevea', grapes: 'champ_vigne' };
+function p2Recolor(n) {   // true si le sprite dérivé n est prêt (le crée au premier appel où son sprite de base est chargé)
+  const e = P2_IMG[n]; if (e && e.ok) return true; const R = P2_RECOL[n]; if (!R) return false;
+  const b = P2_IMG[R[0]]; if (!b || !b.ok || !P2DIM[R[0]] || !b.im.naturalWidth) return false;
+  try {
+    const w = b.im.naturalWidth, h = b.im.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.drawImage(b.im, 0, 0);
+    const D = g.getImageData(0, 0, w, h), a = D.data, hist = new Uint32Array(256); let m = 0;
+    for (let i = 0; i < a.length; i += 4) if (a[i + 3] > 40) { hist[(0.3 * a[i] + 0.59 * a[i + 1] + 0.11 * a[i + 2]) | 0]++; m++; }
+    const pct = q => { let s = 0; for (let v = 0; v < 256; v++) { s += hist[v]; if (s >= q * m) return v; } return 255; }, lo = pct(0.02), hi = Math.max(lo + 1, pct(0.98));
+    const C = [R[1], R[2], R[3]].map(x => [1, 3, 5].map(j => parseInt(x.slice(j, j + 2), 16))), pm = R[4] || 0.5;
+    for (let i = 0; i < a.length; i += 4) { const t = clamp(((0.3 * a[i] + 0.59 * a[i + 1] + 0.11 * a[i + 2]) - lo) / (hi - lo), 0, 1), u = t < pm ? t / pm : (t - pm) / (1 - pm), c0 = C[t < pm ? 0 : 1], c1 = C[t < pm ? 1 : 2];
+      a[i] = c0[0] + (c1[0] - c0[0]) * u; a[i + 1] = c0[1] + (c1[1] - c0[1]) * u; a[i + 2] = c0[2] + (c1[2] - c0[2]) * u; }
+    g.putImageData(D, 0, 0); c._hd = R[0]; P2_IMG[n] = { im: c, ok: true, base: R[0] }; P2DIM[n] = P2DIM[R[0]]; return true;
+  } catch (er) { return false; }
+}   // gisement d'or HD (les effets de brillance depFx restent dessinés par-dessus)
 function vvRing(x, y) { const dc = Math.hypot(x - CBD.x, y - CBD.y); return MALLB ? Math.max(0, dc - MALL_SH) : dc; }
 function vvSvcMap() {   // une passe par jour de jeu : chaque service va aux cases PNJ les plus adaptées (hash), espacées d'au moins 4 cases entre services du même type
   if (!S || !S.grid) return VV.svc; if (VV.day === S.day && VV.g === S.grid) return VV.svc;
@@ -17350,6 +17381,7 @@ Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDail
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ecomStep, list: ewhList, site: ecSite, cat: ecCatalog, delay: ecDelay, attract: ecAttract, pool: ecPool, val: ecVal, tier: () => tierOf((S.stats && S.stats.worth) || 0), raise: ecRaise, set: ecSet, kpi: ecKpi, advice: ecAdvice, save: ecSave, san: ecSan, render: renderEcom, show: ecShow, html: ecomHTML, edu: ecEduHTML, shipCap: ecShipCap, storeCap: ecStoreCap, used: ecUsed, CLS: EC_CLS, MIX: EC_MIX, RET: EC_RET, WORLD: EC_WORLD, FREQ: EC_FREQ, BASKET: EC_BASKET, EL: EC_EL, SHIP: EC_SHIP, STORE: EC_STORE, HOST: EC_HOST, DC: EC_DC, RESV: EC_RESV, LAUNCH: EC_LAUNCH } });   // passe 46 : commerce en ligne
 Object.assign(window.WSE, { sign: { SIGN, SIGN_COVER, SIGN_ST, SIGN_SZ, txt: signTxt, key: signKey, get drawn() { return SG.drawn.slice(); }, get queued() { return SG.list.length; }, get hidden() { return SG.hidden; }, get ms() { return SG.last || 0; }, get avg() { return SG.avg; }, get on() { return SG.on; }, set on(v) { SG.on = !!v; }, get cacheN() { return SG.cache.size; } } });   // passe 54 : enseignes dessinées par le code
+Object.assign(window.WSE, { gfx: { use(g, fn) { const m = ctx; ctx = g; try { return fn(); } finally { ctx = m; } }, tile: drawTileOf, overlay: drawOverlay, dep: drawDeposit, depProc, spr: vvSpr, drawFlat: vvDraw, field: drawField, forest: drawForest, tree: drawDecorTree, rock: vvRock, quay: drawQuayDecor, ship: drawShip, car: drawCar, crane: drawCrane, containers: drawContainers, gtTile, gtPatch, gtKind, iso, mkCell, ATLAS, P2_IMG, P2DIM, P2_DEP, P2_RECOL, CROP_SPR, recolor: p2Recolor, VV_FARM, VV_CARS, VV_GOODS, PROC_IND, SPEC_T, CROP_COL, CITY_IMG, HQ_IMG, FAC_IMG } });   // passe 55 : audit visuel (tools/audit_visuel.js)
 Object.assign(window.WSE, { ground: { GT, ROAD_SPR, GT_NAMES, kind: gtKind, active: gtActive, roadSpr: (x, y) => ROAD_SPR[roadMask(x, y)], clearing: gtClearing, tex: gtTex }, view: { get z() { return z; }, setZ: v => { fitted = true; z = clamp(v, 0.03, 1.8); }, centerOn, get dpr() { return dpr; } } });   // passe sol et routes
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
 window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMILY, famOf: pFamOf, byFam: SPEC_BY_FAM, of: specOf, tab: specTab, share: specShare, famShare: specFamShare, mk: specMk, known: specKnown, locked: specLocked, need: specNeedTxt, shelfOk: specShelfOk, bcT: specBcT, stats: specStats, card: specCard, mall: specMallLine, edu: eduSpecHTML, PASS: SPEC_PASS, PRI: SPEC_PRI, day: () => S._spec || {} };   // passe 46 : magasins spécialisés
