@@ -175,7 +175,7 @@ Gravité : **5** = change la façon de jouer contre l'IA ; **1** = détail.
 | Difficulté (§1.1) | Barre 1–8 + note en % | `rivBase` (facile/normal) × `compNow` (palier, chaînes, avance) | Pas de note lisible ; l'IA ne changeait pas de nature avec le palier | 3 | **Fait** : `fabMax` par palier, `rivRating()` |
 | Expertise produit / focus | Focus par IA, expertise par classe | 6 castes, classes de cœur | Pas de spécialisation produit | 3 | **Fait** : `RIV_FABF` (familles par caste) |
 | Dette et levée (R16, R22) | Obligations, émissions d'actions, IPO | trésorerie seule, `debt: 0` | Les IA ne s'endettaient jamais | 3 | **Partiel** : dette d'usine bornée à 30 % ; pas d'émission d'actions IA |
-| Faillite (R20) | Sanction réelle | vente forcée puis faillite ; « aucune faillite spontanée observée » (README) | Faillites invraisemblablement rares | 3 | **Non atteint** : dette et vente d'usines en détresse existent, mais 0 faillite sur 12 parties (§5) |
+| Faillite (R20) | Sanction réelle | vente forcée puis faillite ; « aucune faillite spontanée observée » (README) | Faillites invraisemblablement rares | 3 | **Non atteint ici**, puis **fait** dans la passe équilibre (`docs/EQUILIBRE_ECONOMIE.md`) : IA aventureuses endettées, refus de reconduction, faillite dans 5 parties sur 17 |
 | Rachat d'une IA en difficulté (R20) | Offert au joueur | `rivBankrupt` : actifs à vendre 30 j | — | — | inchangé (usines ajoutées aux actifs) |
 | Fusions entre IA, IA qui se rachètent (R17) | Oui (option) | Non : seul le plus riche reprend un failli | Pas de consolidation | 2 | non fait |
 | OPA sur le joueur (R19, R21) | Participations, OPA si flottant large | `rivalOpa` : dès 25 % de flottant | Présent | — | inchangé |
