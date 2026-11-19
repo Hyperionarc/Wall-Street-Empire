@@ -446,8 +446,9 @@ window.BOT = (function () {
       }
     }
     // 3) centres de R&D : avance technologique (fenêtre plus longue), R&D pharma plus rapide ; priorité au produit le plus rentable encore exclusif
-    const nrd = s.rdPower || 0, wv = s.stats.worth || 0, wantRd = Math.min(P.inRdMax || 3, mine.length, wv > 250e6 * cp ? 3 : wv > 120e6 * cp ? 2 : wv > 60e6 * cp ? 1 : 0);
-    if (nrd < wantRd && s.cash > 1.3 * W.TYPES.rd.cost * cp * 0.75) { const r = tryBuild('rd'); if (r > 0) IN.log.push([s.day, 'rdc', nrd + 1]); }
+    const nrd = s.rdPower || 0, wv = s.stats.worth || 0, wantRd = Math.min(P.inRdMax || 3, mine.length, wv > 250e6 * cp ? 3 : wv > 120e6 * cp ? 2 : wv > (P.inRdAt || 40e6) * cp ? 1 : 0), rdc = W.TYPES.rd.cost * cp * 0.75 * 1.1;
+    if (nrd < wantRd && nrd === 0 && s.cash < rdc && avail > rdc) borrow(rdc + 1e5);   // le premier centre de R&D est un investissement prioritaire (pari de long terme)
+    if (nrd < wantRd && s.cash > (nrd === 0 ? 1 : 1.3) * rdc) { const r = tryBuild('rd'); if (r > 0) IN.log.push([s.day, 'rdc', nrd + 1]); }
     // 3 bis) premier campus data center (plateforme cloud et IA, demande portée par les brevets) : on s'endette pour l'ouvrir dès que la valeur le permet
     const ndc = (s.stats.cn && s.stats.cn.dc) || 0;
     if (ndc === 0 && tierOk('dc') && wv > (P.inDcAt || 70e6) * cp && P.fam.indexOf('dc') >= 0) { const c0 = W.TYPES.dc.cost * cp * 1.1, room2 = Math.max(0, Math.min(0.6 * wv, W.creditLimit()) - (s.loan || 0)); if (s.cash + room2 >= c0) { if (s.cash < c0) { const l0 = P.lev; P.lev = 0.6; borrow(c0 + 1e5); P.lev = l0; } if (s.cash >= c0) { const r = tryBuildAny('dc'); if (r > 0) IN.log.push([s.day, 'dc', Math.round(r)]); } } }
