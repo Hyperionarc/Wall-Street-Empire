@@ -2246,7 +2246,7 @@ const rivPm = (r, cls) => { if (!r.px) return 1; const x = rivPxRel(r, cls) * (r
 const rivalAttr = cls => optV('price', OPT_PRICE) * (S.rivals || []).reduce((a, r) => a + rivEff(r, cls) * ((r.emb || 0) >= (S.day || 0) ? 0.5 : 1), 0);
 // Valeur d'un rival : trésorerie + magasins (≈ 27 M$ par point d'attrait à K_SIZE = 5) + actifs hors magasins (usines, brevets, participations, fermes) + immobilier
 const rivalValue = r => Math.round((Math.max(0, r.cash) + RIV_ASSET * rivalSum(r) + (r.as || 0) + (r.re || 0) + (r.fab ? fabVal(r) : 0) - (r.debt || 0)) *(casteIs('industriel') ? 0.85 : 1) / 5000) * 5000;
-const rvLog = (r, t) => { const L = rvS().log || (rvS().log = []); L.push({ d: S.day, id: r ? r.id : '', n: r ? r.name : '', t }); if (L.length > 14) L.shift(); try { netRivLog(r, t); } catch (e) { /* réseau facultatif */ } };
+const rvLog = (r, t) => { const L = rvS().log || (rvS().log = []); L.push({ d: S.day, id: r ? r.id : '', n: r ? r.name : '', t }); if (L.length > 40) L.shift(); try { netRivLog(r, t); } catch (e) { /* réseau facultatif */ } };
 const rvCartelK = cls => (S && S.rv && S.rv.cartel && S.rv.cartel.cls === cls) ? 1.08 : 1;   // entente acceptée : tes prix de rayon montent de 8 % dans la classe
 // Services disputés : la banque de l'IA banquier et les data centers de l'IA innovateur prennent jusqu'à 12 % des recettes de services du joueur à mesure que leurs actifs grandissent
 const rivSvc = k => { const r = (S.rivals || []).find(x => x.caste === (k === 'bank' ? 'banquier' : 'innovateur')); return r ? 0.12 * Math.min(1, (r.as || 0) / (1.5 * Math.max(1e6, r.v0 || 2e7))) : 0; };
@@ -2265,14 +2265,23 @@ function rivWar(r, cls) {
 function rivPrice(r) {
   const P = rivP(r), mk = S.mkt || {}, st = r.st || {}, RV = rvS(), val = Math.max(1, rivalValue(r)), cr = r.cash / val; r.sm = r.sm || {};
   RIV_CLS.forEach(cls => {
-    const b = P.px[cls] || 1, you = mk[cls] ? mk[cls].you : 0, mine = mk[cls] ? ((mk[cls].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0; let t = 1;
+    const b = P.px[cls] || 1, you = mk[cls] ? mk[cls].you : 0, mine = mk[cls] ? ((mk[cls].riv.find(x => x.id === r.id) || { s: 0 }).s) : 0; let t = 1; const why = [];   // why : facteurs du prix cible, pour le journal explicatif
+    const f = (k, x) => { if (Math.abs(x - 1) > 1e-4) why.push([k, x]); t *= x; };
     r.sm[cls] = r.sm[cls] == null ? mine : r.sm[cls] * 0.97 + mine * 0.03;
-    if (r.att[cls] > 0.01 && r.sm[cls] > 0.005) t *= 1 - 0.15 * clamp((r.sm[cls] - mine) / r.sm[cls], -0.4, 0.6);
-    t *= cr < 0.04 && rivalSum(r) >= (r.a0 || 0) + rivYoung() ? 1.06 : cr > 0.45 && S.day > 120 ? 0.97 : 1;
-    if (you > 0.05) t *= 1 + clamp((playerPx(cls) - 1) * P.fol, -0.12, 0.1) * Math.min(1, you / 0.25);
-    if (st.k === 'war' && st.cls === cls) t *= 1 - st.d; else if (st.k === 'limit' && st.cls === cls) t *= 0.93;
-    if (RV.cartel && RV.cartel.cls === cls) t *= RV.cartel.rid === r.id ? RV.cartel.m : 1 + (RV.cartel.m - 1) / 2;
-    const tgt = clamp(b * t, b * 0.7, b * 1.3); r.px[cls] = +(r.px[cls] + clamp(tgt - r.px[cls], -0.03 * b, 0.015 * b)).toFixed(4);
+    if (r.att[cls] > 0.01 && r.sm[cls] > 0.005) f('part', 1 - 0.15 * clamp((r.sm[cls] - mine) / r.sm[cls], -0.4, 0.6));
+    f('cash', cr < 0.04 && rivalSum(r) >= (r.a0 || 0) + rivYoung() ? 1.06 : cr > 0.45 && S.day > 120 ? 0.97 : 1);
+    if (you > 0.05) f('toi', 1 + clamp((playerPx(cls) - 1) * P.fol, -0.12, 0.1) * Math.min(1, you / 0.25));
+    if (st.k === 'war' && st.cls === cls) f('guerre', 1 - st.d); else if (st.k === 'limit' && st.cls === cls) f('limite', 0.93);
+    if (RV.cartel && RV.cartel.cls === cls) f('entente', RV.cartel.rid === r.id ? RV.cartel.m : 1 + (RV.cartel.m - 1) / 2);
+    const war = st.k === 'war' && st.cls === cls, cb = r.cb && r.cb[cls], fl = cb > 0 && r.fab && r.fab.length ? b * (cb + (war ? -0.04 : 0.02)) : 0;   // « ne jamais vendre sous le coût » (politique du COO de Capitalism Lab), sauf guerre des prix : jusqu'à 4 % sous le coût
+    if (fl > b * t) why.push(['coût', fl / (b * t)]);
+    const tgt = clamp(Math.max(b * t, fl), b * 0.7, b * 1.3); r.px[cls] = +(r.px[cls] + clamp(tgt - r.px[cls], -0.03 * b, 0.015 * b)).toFixed(4);
+    // journal explicatif : un mouvement de prix d'au moins 6 % depuis le dernier relevé est expliqué par son facteur principal (au plus une fois par mois et par rival)
+    r.pxL = r.pxL || {}; if (r.pxL[cls] == null) r.pxL[cls] = r.px[cls];
+    const dv = r.px[cls] / r.pxL[cls] - 1;
+    if (Math.abs(dv) >= 0.06 && r.att[cls] > 0.02 && S.day - (r.pxD || -99) >= 30) { r.pxL[cls] = r.px[cls]; r.pxD = S.day; const w = why.sort((x, y) => Math.abs(Math.log(y[1])) - Math.abs(Math.log(x[1])))[0];
+      const RS = { part: 'ses parts reculent', cash: cr < 0.04 ? 'sa trésorerie est tendue' : 'sa trésorerie est abondante', toi: `il s'aligne sur tes prix (indice ${playerPx(cls).toFixed(2).replace('.', ',')})`, guerre: 'guerre des prix contre toi', limite: 'prix limite pour freiner ta progression', entente: 'entente sur les prix', 'coût': `il ne vend pas sous son coût de revient (${Math.round(cb * 100)} % du cours)` };
+      rvLog(r, `${dv < 0 ? 'baisse' : 'monte'} ses prix de ${Math.round(Math.abs(dv) * 100)} % sur ${CLS_FR[cls]} (×${r.px[cls].toFixed(2).replace('.', ',')}) : ${w ? RS[w[0]] : 'retour à son positionnement habituel'}.`); }
   });
   if (r.fl) { const ft = st.k === 'war' && st.cls === r.fl.cls ? 0.9 : cr < 0.04 ? 1.05 : 1; r.fl.d = +(r.fl.d + clamp(ft - r.fl.d, -0.03, 0.015)).toFixed(4); }   // produit phare : produit d'appel en guerre des prix
 }
