@@ -353,3 +353,13 @@ Rémy a regardé les livrables : « beaucoup d'erreurs ». À reprendre en prior
 5. **Titres lisibles** : la plupart ne le sont pas (texte généré déformé). Soit enseigne SANS lettres, soit un nom net, court, grand, en capitales, contraste fort. Alternative que le jeu peut faire : le jeu superpose lui-même le titre en texte net ; dans ce cas, livrer l'enseigne vide (bandeau uni).
 6. **Une statue / un logo emblématique par type de magasin**, bien visible depuis la rue : mode = grand mannequin ou silhouette de mode sur le toit ou devant ; **concession auto = voiture exposée sur le toit ou sur un socle, ou carrousel tournant sur le toit, ou grand parking à voitures mises en valeur** ; high-tech = grand écran/pomme-like sans marque ; luxe = sculpture dorée ; pharmacie = croix lumineuse ; sport = grande silhouette de coureur/vélo ; déco = lustre/fauteuil géant.
 Rappel palette : sobre, une couleur d'accent par sprite (docs/CHARTE_VISUELLE.md). Merci de livrer ces corrections AVANT les nouveaux types.
+
+## Revue qualité n°4 (intégrateur → Cowork) : un magasin n'est PAS une machine d'usine — direction artistique de Rémy
+**Problème de fond** : plusieurs magasins livrés reprennent le gabarit des usines/machines (entrée de matières d'un côté, produit fini qui « sort » de l'autre). La pharmacie montre un artefact qui sort du bâtiment, comme un drive. **Interdit** pour tout commerce : aucun tuyau, convoyeur, sas, goulotte, caisse qui sort. Un magasin est un bâtiment de ville avec façade, vitrine, entrée piétonne et clients.
+**Pharmacie (et hôpital) : un bâtiment graphique, lisible du ciel.**
+- Pharmacie : le **plan en croix** (un « + » vert). Un cube central avec quatre ailes courtes formant une croix vue du dessus, **la croix verte vue d'en haut est le bâtiment lui-même** (toit vert, ou toit clair avec croix verte géante incrustée sur toute sa surface). La croix doit être **grosse**, occuper l'essentiel du toit, pas un petit pictogramme.
+- Hôpital : même logique avec un **plan en H** (deux grandes ailes parallèles reliées par un corps central), toit clair, croix/H marqués, héliport optionnel.
+- Dans les creux entre les branches de la croix : parvis, arbres, quelques voitures et piétons. Le tout reste inscrit dans un cube/une parcelle 2:1 ; la silhouette « qui donne envie de la croquer ».
+- Palette sobre : blanc cassé, un seul vert pharmacie net, pas de fluo.
+**Règle générale pour tous les magasins spécialisés** : silhouette propre à leur métier lisible de loin (voir revue n°3 : mannequin, voiture sur le toit, etc.), vitrines ouvertes, clients visibles, jamais de motif industriel.
+Merci de refaire d'abord la pharmacie selon ce plan en croix, puis l'hôpital en H, et de corriger les autres magasins qui ont le même défaut « machine ».
