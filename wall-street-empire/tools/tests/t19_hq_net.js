@@ -2,10 +2,12 @@
 exports.name = 'Siège social : sprite net et opaque';
 
 // Mesure sur le canevas de la carte (#view) : zone du corps du bâtiment au-dessus de la case avant du siège.
+// Ville vivante : le siège de niveau 1 est le sprite siege_hq_n1 (3 étages, toit vers 200 z au-dessus de la case avant) ; la zone part de 190 z
+// (façade seule) au lieu de 230 z (ancien sprite plus haut : la bande du haut contenait le ciel/le fond au-dessus du toit).
 const BODY = `(() => {
   const W = window.WSE, cv = document.getElementById('view'), g = cv.getContext('2d'), k = cv.width / cv.getBoundingClientRect().width;
   const q = W.tileToScreen(window.__hq.x + 1, window.__hq.y + 1), q2 = W.tileToScreen(window.__hq.x + 2, window.__hq.y + 1), z = Math.abs(q2.x - q.x) / 66, r = cv.getBoundingClientRect();
-  const x0 = Math.round((q.x - r.left - 36 * z) * k), x1 = Math.round((q.x - r.left + 36 * z) * k), y0 = Math.round((q.y - r.top - 230 * z) * k), y1 = Math.round((q.y - r.top - 70 * z) * k);
+  const x0 = Math.round((q.x - r.left - 36 * z) * k), x1 = Math.round((q.x - r.left + 36 * z) * k), y0 = Math.round((q.y - r.top - 190 * z) * k), y1 = Math.round((q.y - r.top - 70 * z) * k);
   const w = x1 - x0, h = y1 - y0, d = g.getImageData(x0, y0, w, h).data; return { w, h, d: Array.from(d), z, k, inside: x0 >= 0 && y0 >= 0 && x1 <= cv.width && y1 <= cv.height };
 })()`;
 const lum = (d, i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
@@ -49,8 +51,20 @@ exports.run = async (t, L) => {
   for (let y = 0; y < cur.h; y++) for (let x = 0; x < cur.w - 1; x++) { const i = (y * cur.w + x) * 4; gs += Math.abs(lum(cur.d, i) - lum(cur.d, i + 4)); gn++; const l = lum(cur.d, i) - mean; vs += l * l; }
   const grad = gs / gn, sd = Math.sqrt(vs / n);
   t.info(`corps du siège : ${(diff / n * 100).toFixed(1)} % de pixels masquant le fond, gradient ${grad.toFixed(2)}, écart-type luma ${sd.toFixed(1)}`);
-  t.check('le corps du siège est opaque : >= 97 % des pixels diffèrent du fond d\'origine', diff / n >= 0.97, (diff / n * 100).toFixed(1) + ' %');
-  t.check('le siège est net : gradient horizontal de luminance >= 5 (flou/aplats < 3)', grad >= 5, grad.toFixed(2));
+  // Opacité : 1) part des pixels qui changent. Le nouveau sprite a une façade claire (béton, menuiseries blanches) dont ~8 % des pixels
+  // tombent par hasard à moins de 24 niveaux du trottoir clair : seuil 88 % (mesuré 92 %). 2) Contrôle direct de la transparence : si le
+  // siège laissait voir le fond, la luminance du rendu serait corrélée à celle du fond d'origine (simulation sur capture : alpha 1 -> -0,02,
+  // 0,85 -> 0,11, 0,7 -> 0,29, 0,5 -> 0,59) : corrélation <= 0,2 exigée.
+  let ca = 0, cb = 0; for (let p = 0; p < n; p++) { ca += lum(cur.d, p * 4); cb += lum(base.d, p * 4); } ca /= n; cb /= n;
+  let sab = 0, saa = 0, sbb = 0; for (let p = 0; p < n; p++) { const u = lum(cur.d, p * 4) - ca, v = lum(base.d, p * 4) - cb; sab += u * v; saa += u * u; sbb += v * v; }
+  const corr = sab / Math.sqrt(Math.max(1e-9, saa * sbb));
+  t.check('le corps du siège est opaque : >= 88 % des pixels diffèrent du fond d\'origine', diff / n >= 0.88, (diff / n * 100).toFixed(1) + ' %');
+  t.check('le fond ne transparaît pas : corrélation de luminance rendu / fond d\'origine <= 0,2', corr <= 0.2, corr.toFixed(3));
+  // Netteté : la zone mesurée ne couvre plus que la façade (grandes vitres unies du sprite siege_hq_n1) : gradient moyen mesuré 3,7 (5,4 avec
+  // l'ancienne bande du toit). On exige moyenne >= 3,2 ET des bords francs : 99e centile du gradient >= 34 (capture : net 42 ; flou 3x3 : 28 ; flou 5x5 : 19).
+  const gl = []; for (let y = 0; y < cur.h; y++) for (let x = 0; x < cur.w - 1; x++) { const i = (y * cur.w + x) * 4; gl.push(Math.abs(lum(cur.d, i) - lum(cur.d, i + 4))); }
+  gl.sort((u, v) => u - v); const g99 = gl[Math.floor(gl.length * 0.99)];
+  t.check('le siège est net : gradient horizontal moyen >= 3,2 et 99e centile >= 34 (flou 3x3 : 2,9 / 28)', grad >= 3.2 && g99 >= 34, grad.toFixed(2) + ' · p99 ' + g99.toFixed(1));
   t.check('le siège a du relief (écart-type de luminance >= 18)', sd >= 18, sd.toFixed(1));
 
   // 3. L'alpha global ne fuit pas : après le dessin du siège, le contexte est repassé à 1
