@@ -280,8 +280,59 @@ window.BOT = (function () {
     if (L.lostSite > 0.08 * L.O && K.eb > 0) { if (add('dc')) EC.lastAdd = s.day; return; }
     if (L.U >= 0.9 * L.scap && K.eb > 0 && list.length < (P.ecMax || 6)) { if (add('ewh')) EC.lastAdd = s.day; }
   }
+  // ===== Profil promoteur « Trump » (P.trump, passe 69) : promotions aux droits à bâtir sur les biens sous-valorisés et les lots libres, tours baptisées,
+  // programmes emblématiques, achat-revente dans la hausse, terrains créés et zonés quand la ville manque de lots, levier élevé (LTV visée P.trLtv) réduit en fin de bulle,
+  // désendettement par ventes au krach. N'utilise que l'API publique WSE.pro (mêmes règles que le joueur).
+  const TR = { last: -99, log: [], dev: 0, flip: 0, sold: 0, prog: 0, terra: 0, zone: 0, keep: {} };
+  function trLtvTarget() { const s = S(), cy = (s.pro && s.pro.cy) || {}; if ((cy.k || 0) > 0.05) return 0.35; return (P.trLtv || 0.65) - 0.25 * Math.max(0, (cy.bub || 0) - 0.3); }
+  function trBorrow(need) { const b = document.getElementById('loanUp'), tg = trLtvTarget(); let n = 0; while (S().cash < need && n++ < 120) { if (W.pro.ltv() > tg) break; const l0 = S().loan || 0; b.click(); if ((S().loan || 0) === l0) break; } }
+  function trRepay(to) { const b = document.getElementById('loanDn'); let n = 0; while ((S().loan || 0) > 0 && W.pro.ltv() > to && S().cash > 2e5 && n++ < 120) { const l0 = S().loan; b.click(); if (S().loan === l0) break; } }
+  function trSellOne(how) {   // vend le bien à la plus forte plus-value latente (au marché ou en annonce)
+    const s = S(), Pr = W.pro, L = Pr.port().filter(c => !c.works && !(s.pro.ops || []).some(o => o.t === 'sale' && o.x === c.x && o.y === c.y));
+    let best = null, bg = -1e18; L.forEach(c => { const f = Pr.fiche(c); if (!f.quote) return; const g = how === 'force' ? f.quote.net : f.quote.net - f.basis; if (g > bg) { bg = g; best = c; } });
+    if (!best) return false; if (how === 'list') { const r = Pr.list(best.x, best.y, P.trList || 1.12); return r.ok; }
+    const r = Pr.sell(best.x, best.y); if (r.ok) { TR.sold++; TR.log.push([s.day, 'sell', best.x, best.y, Math.round(r.q.gain)]); } return r.ok;
+  }
+  function trTerra() {   // terrain créé au bord de la ville (aplanissement ou polder), puis zoné résidentiel dense
+    const s = S(), Pr = W.pro; let best = null;
+    for (let y = 2; y < N - 2; y += 1) for (let x = 2; x < N - 2; x += 1) { const i = y * N + x; if (s.grid[i]) continue; const pl = Pr.terraPlan(x, y, 3); if (pl.cells.length < 6 || !pl.access) continue; const d = Math.hypot(x - 30, y - 30) + pl.cost / 2e5; if (!best || d < best.d) best = { x, y, d, pl }; }
+    if (!best || s.cash < best.pl.cost * 1.2) return false;
+    s.pro.brush = 3; const ok = W.place(best.x, best.y, 'terra'); if (ok) { TR.terra++; TR.log.push([s.day, 'terra', best.x, best.y, best.pl.cells.length]); TR.pend = (TR.pend || []).concat(best.pl.cells.map(q => [q.x, q.y])); } return ok;
+  }
+  function trZone() { const s = S(), Pr = W.pro; if (!TR.pend || !TR.pend.length) return; s.pro.zmode = 'R'; TR.pend = TR.pend.filter(q => { if (s.grid[q[1] * N + q[0]]) return false; if (Pr.zoneErr(q[0], q[1], 'R')) return true; if (Pr.zone(q[0], q[1], 'R')) { TR.zone++; return false; } return true; }); }
+  function trump() {
+    const s = S(), Pr = W.pro; if (!Pr || s.caste !== 'promoteur' || s.day - TR.last < (P.trEvery || 4)) return; TR.last = s.day;
+    const cy = s.pro.cy || {}, krach = (cy.k || 0) > 0.05, ltv = Pr.ltv(), rate = W.loanRateNow ? W.loanRateNow() : 0.07;
+    // 1. risque : au krach ou au-delà de la LTV visée + 12 points, on vend et on rembourse (le covenant force la vente à 90 %)
+    if ((krach && ltv > 0.55) || ltv > trLtvTarget() + 0.12) { for (let k = 0; k < 3 && Pr.ltv() > trLtvTarget(); k++) if (!trSellOne('force')) break; trRepay(trLtvTarget()); return; }
+    // 2. fin de bulle : prises de bénéfices sur les tours détenues depuis 150 jours (impôt réduit), mises en annonce au-dessus du marché
+    if ((cy.bub || 0) > 0.35 && s.day % 20 < (P.trEvery || 4)) trSellOne('list');
+    trZone();
+    // 3. promotions : meilleures marges au-dessus du coût du capital ; financement jusqu'à la LTV visée
+    const deals = Pr.deals(6, Math.max(P.trMin || 0.15, rate + 0.08)); let n = 0;
+    for (const q of deals) {
+      if (n >= (P.trPer || 3) || krach) break;
+      if (s.cash < q.total * 1.05) trBorrow(q.total * 1.05 + 2e5);
+      if (s.cash < q.total * 1.05) { if (q.margin > 0.35 && Pr.ltv() > trLtvTarget() - 0.05 && TR.lastSell !== s.day) { TR.lastSell = s.day; trSellOne('list'); } break; }
+      const r = Pr.develop(q.x, q.y, q.fl); if (r.ok) { n++; TR.dev++; TR.log.push([s.day, 'dev', q.x, q.y, q.fl, Math.round(q.total), +q.margin.toFixed(2)]); }
+    }
+    // 4. programmes emblématiques sur les grandes tours livrées (hôtel, casino, centre commercial) ; golf sur les petits immeubles
+    if (s.day % 30 < (P.trEvery || 4) && !krach) {
+      const L = Pr.port().filter(c => c.t === 'res' && !c.works && !c.prog).sort((a, b) => b.floors - a.floors);
+      for (const c of L) { const k = ['casino', 'hotel', 'mall', 'golf'].find(k => !Pr.progErr(c, k)); if (!k) continue; const cost = Pr.progCost(c, k); if (s.cash < cost + 1e6) trBorrow(cost + 1e6); if (s.cash < cost + 1e6) break; const r = Pr.prog(c.x, c.y, k); if (r.ok) { TR.prog++; TR.log.push([s.day, 'prog', k, c.x, c.y]); } break; }
+    }
+    // 5. achat-revente : dans un marché porteur, rachat de biens de la ville proposés sous leur valeur, revendus en annonce au-dessus
+    if (!krach && ((s.pro.hype || 0) > 0.2) && s.cash > 2e6) {
+      const C = []; for (let y = 12; y <= 48; y++) for (let x = 12; x <= 48; x++) { const c = cell(x, y); if (!c || c.t !== 'npc' || (c.k !== 'res' && c.k !== 'house' && c.k !== 'off')) continue; const k = Pr.buyCheck(c); if (!k.ok) continue; const v = Pr.value(c).v; if (k.price < 0.95 * v && k.price < 0.1 * s.cash) C.push([k.price / v, x, y]); }
+      C.sort((a, b) => a[0] - b[0]); for (let k = 0; k < Math.min(P.trFlip || 2, C.length); k++) { const [, x, y] = C[k]; if (Pr.keep(x, y)) { TR.flip++; TR.keep[x + ',' + y] = s.day; Pr.list(x, y, P.trList || 1.12); } }
+    }
+    Object.keys(TR.keep).forEach(k => { const [x, y] = k.split(',').map(Number), c = cell(x, y); if (!c || W.acq && W.acq.ownerOf && W.acq.ownerOf(c) !== 'me') { delete TR.keep[k]; return; } if (!(s.pro.ops || []).some(o => o.t === 'sale' && o.x === x && o.y === y)) Pr.list(x, y, s.day - TR.keep[k] > 120 ? 1.04 : 1.1); });
+    // 6. terrain créé et zoné résidentiel dense : tous les 120 jours, tous les 45 jours quand il n'y a plus de lot rentable
+    if (!krach && s.day - (TR.tlast || -99) >= (deals.length ? 120 : 45) && s.cash > 3e6) { TR.tlast = s.day; trTerra(); }
+  }
   function tick() {
     const s = S(); let did = 0, spent = 0;
+    if (P.trump) trump();
     if (s.day % 20 === 0) prune();
     if (s.day % 8 === 0) missions();
     if (P.industry) industry();
@@ -302,5 +353,5 @@ window.BOT = (function () {
     if (P.bourse && s.day % 8 === 0) bourse();
     return { did, spent };
   }
-  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC };
+  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC, TR };
 })();
