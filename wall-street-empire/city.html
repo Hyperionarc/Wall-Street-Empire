@@ -3145,7 +3145,7 @@ const MISSIONS = [
   { id: 'm4',  t: 'Vendre 600 biens aux habitants',                 r: 4000,  ok: c => c.sold >= 600 },
   { id: 'mport', t: 'Ouvrir un terminal portuaire',                 r: 5000,  ok: c => c.cn.port >= 1 },
   { id: 'm5',  t: 'Employer 300 personnes dans tes entreprises',    r: 5000,  ok: c => c.jobsPlayer >= 300 },
-  { id: 'm6',  t: 'Capitalisation de ' + mM(0.4 * TIERS[1].at),      r: 8000,  ok: c => c.worth >= 0.4 * TIERS[1].at },
+  { id: 'm6',  t: 'Capitalisation de ' + mM(0.6 * TIERS[1].at),      r: 8000,  cap: 0.6 * TIERS[1].at, ok: c => c.worth >= 0.6 * TIERS[1].at },   // 15 M$ : un vrai premier palier depuis les 10 M$ du Round Normal (à 10 M$, elle se validait dès la première seconde)
   { id: 'm7',  t: 'Ouvrir une mine d\'or et une fonderie',          r: 8000,  ok: c => c.cn.mgold >= 1 && c.cn.foundry >= 1 },
   { id: 'm8',  t: 'Construire une usine moyenne',                   r: 8000,  ok: c => c.cn.f2 >= 1 },
   { id: 'mw',  t: 'Fabriquer un lave-linge complet',                r: 8000,  ok: c => c.washerMade },
@@ -3157,10 +3157,10 @@ const MISSIONS = [
   { id: 'm13', t: 'Ouvrir un hypermarché',                          r: 25000, ok: c => c.cn.s3 >= 1 },
   { id: 'm14', t: 'Ouvrir une Banque',                              r: 25000, ok: c => c.cn.bank >= 1 },
   { id: 'm15', t: 'Employer 3 000 personnes dans tes entreprises',  r: 60000, ok: c => c.jobsPlayer >= 3000 },
-  { id: 'w1', t: 'Capitalisation de ' + mM(TIERS[1].at) + ' : tu deviens Entrepreneur', r: 30000, ok: c => c.worth >= TIERS[1].at },
-  { id: 'w2', t: 'Capitalisation de ' + mM(TIERS[2].at) + ' : tu deviens Industriel',   r: 60000, ok: c => c.worth >= TIERS[2].at },
-  { id: 'w3', t: 'Capitalisation de ' + mM(TIERS[3].at) + ' : tu deviens Magnat',      r: 150000, ok: c => c.worth >= TIERS[3].at },
-  { id: 'm16', t: 'Devenir Oligarque (' + mM(TIERS[4].at) + ')',        r: 0,     ok: c => c.worth >= TIERS[4].at }
+  { id: 'w1', t: 'Capitalisation de ' + mM(TIERS[1].at) + ' : tu deviens Entrepreneur', r: 30000, cap: TIERS[1].at, ok: c => c.worth >= TIERS[1].at },
+  { id: 'w2', t: 'Capitalisation de ' + mM(TIERS[2].at) + ' : tu deviens Industriel',   r: 60000, cap: TIERS[2].at, ok: c => c.worth >= TIERS[2].at },
+  { id: 'w3', t: 'Capitalisation de ' + mM(TIERS[3].at) + ' : tu deviens Magnat',      r: 150000, cap: TIERS[3].at, ok: c => c.worth >= TIERS[3].at },
+  { id: 'm16', t: 'Devenir Oligarque (' + mM(TIERS[4].at) + ')',        r: 0,     cap: TIERS[4].at, ok: c => c.worth >= TIERS[4].at }
 ];MISSIONS.forEach(m => { m.r *= MISSION_K; });   // récompense ≈ 0,5 à 5 % du capex du palier visé
 
 
@@ -6441,14 +6441,18 @@ function missionCtx() {
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps && ps.st === 'on') { prodOn_++; maxShare = Math.max(maxShare, ps.share || 0); } });
   return { pop: st.pop || 0, jobsPlayer: st.playerJobs || 0, cn: st.cn || none, sold: S.sold, worth: st.worth || 0, prodOn: prodOn_, maxShare, housesSold: S.houses || 0, contractsDone: S.cdone || 0, woodProd: ['woodtoys', 'chair', 'bed'].some(k => S.prod[k] && S.prod[k].st === 'on'), linkedRural: linkedRural_, comp: Object.keys(S.cm || {}).filter(k => RECIPES[k]).length, washerMade: !!(S.prod.washer && (S.prod.washer.made > 0 || S.prod.washer.sold > 0)) };
 }
+// Une mission de capitalisation dont le seuil ne dépasse pas le capital de départ de la partie (Round Facile à 100 M$, scénarios 2 et 3) est « déjà atteinte au départ » :
+// cochée sans récompense ni point de connaissance (avant : Round Facile = 9,8 M$ et 1 point offerts dès la première seconde, Round Normal = 800 000 $).
+const capFree = m => m.cap != null && S.mode && S.mode.w0 > 0 && m.cap <= S.mode.w0;
 function checkMissions() {
   const c = missionCtx();
   MISSIONS.forEach(m => {
     if (S.done.indexOf(m.id) >= 0 || !m.ok(c)) return;
+    if (capFree(m)) { S.done.push(m.id); (S.mode.mfree || (S.mode.mfree = [])).push(m.id); return; }
     S.done.push(m.id);
     S.cash += m.r;
     say(`Mission accomplie : ${m.t}${m.r ? ' (+' + fmt(m.r) + ' $)' : ''}`, 'gold');
-    if (S.done.length % 3 === 0) addKp(1, 'missions accomplies');
+    if ((S.done.length - ((S.mode && S.mode.mfree) || []).length) % 3 === 0) addKp(1, 'missions accomplies');
     if (m.id === 'm16' && !S.won) { S.won = true; el('winAmt').textContent = mM(TIERS[4].at).replace(' M$', ' millions'); el('win').hidden = false; }
   });
 }
@@ -7009,7 +7013,7 @@ function updateHUD() {
     b.querySelector('small').textContent = lock ? lockLabel(k) : money(T.cost);
   });
 
-  S.done.forEach(id => { const li = el('ms-' + id); if (li) li.classList.add('done'); });
+  S.done.forEach(id => { const li = el('ms-' + id); if (li) { li.classList.add('done'); if (S.mode && S.mode.mfree && S.mode.mfree.indexOf(id) >= 0 && !li.dataset.free) { li.dataset.free = 1; const rw = li.querySelector('.rw'); if (rw) rw.textContent = 'atteint au départ'; } } });
   if (!el('pview').hidden && !pvDrag) renderProducts();
   if (mkV) mkRender();
   if (!el('bview').hidden) renderBuilding();
