@@ -14,7 +14,8 @@ if (process.env.SIM_WORKER) {
     baron: { lev: 0.5, every: 3, idle: 0, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.6, bourse: false, play: 'industriel', prods: ['bread', 'utensils', 'bike', 'jeans', 'headache', 'cough', 'cream', 'blender', 'watch', 'perfume', 'skincare', 'jewelry', 'handbag', 'tv', 'fridge', 'washer', 'car'], fam: ['s1', 's2', 's3', 's4', 'off', 'miron', 'mcopper', 'mcoal', 'mgold', 'well'] } },
     negoce: { lev: 0.5, every: 3, idle: 0, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.6, bourse: false, play: 'negociant', fam: ['s1', 's2', 's3', 's4', 'off', 'miron', 'mcopper', 'mcoal', 'mgold', 'well'] } },
     banque: { lev: 0.6, every: 4, idle: 0, p: { hurdle: 0.05, play: 'banquier' } },
-    agri: { lev: 0.4, every: 3, idle: 0, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.5, bourse: false, play: 'agriculteur', fam: ['fwheat', 'fsugar', 'fcotton', 'fvine', 'fcattle', 'fchicken', 'fpig', 'fsheep', 's1', 's2', 's3'] } } };
+    agri: { lev: 0.4, every: 3, idle: 0, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.5, bourse: false, play: 'agriculteur', fam: ['fwheat', 'fsugar', 'fcotton', 'fvine', 'fcattle', 'fchicken', 'fpig', 'fsheep', 's1', 's2', 's3'] } },
+    innovateur: { lev: 0.45, every: 4, idle: 0, p: { hurdle: 0.05, innov: true } } };   // passe 67 (innovateur) : bon joueur + R&D de produits inédits, brevets, usines, licences, obésité, data center
   (async () => {
     const b = await chromium.launch();
     for (const j of jobs) {
@@ -46,8 +47,8 @@ if (process.env.SIM_WORKER) {
     const PERS = [['hardcore', 'rapide'], ['joueuse', 'bon'], ['ado', 'casual'], ['fermier', 'fermier']];   // monde partagé : même graine ; chaque persona prend une caste différente et tourne sur les six castes au fil des mondes
     for (let w = 1; w <= seeds; w++) PERS.forEach((pr, i) => jobs.push({ persona: pr[0], caste: castes[(w - 1 + i) % castes.length], profile: pr[1], seed: 7000 + w, events: true }));
   } else if (A.includes('--native')) {   // équilibre des castes : chaque caste jouée par le profil qui exploite son métier (agriculteur = fermes, industriel = usines, les autres = bon joueur), mêmes graines pour toutes
-    const NAT = A.includes('--old') ? { agriculteur: 'fermier', industriel: 'industriel', negociant: 'industriel', banquier: 'banquier', promoteur: 'bon' }   // --old : bots d'avant la passe 67
-      : { agriculteur: 'agri', industriel: 'baron', negociant: 'negoce', banquier: 'banque', promoteur: process.env.SIM_PROMO_BON ? 'bon' : 'trump' };   // passe 67 : playbooks de caste ; passe 69 : le promoteur joue son métier (SIM_PROMO_BON=1 : ancien protocole) ; innovateur : bot bon joueur
+    const NAT = A.includes('--old') ? { agriculteur: 'fermier', industriel: 'industriel', negociant: 'industriel', banquier: 'banquier', promoteur: 'bon', innovateur: 'bon' }   // --old : bots d'avant la passe 67
+      : { agriculteur: 'agri', industriel: 'baron', negociant: 'negoce', banquier: 'banque', promoteur: process.env.SIM_PROMO_BON ? 'bon' : 'trump', innovateur: process.env.SIM_INNOV_BON ? 'bon' : 'innovateur' };   // passe 67 : playbooks de caste ; passe 69 : promoteur ; innovateur : playbook (SIM_INNOV_BON=1 : ancien protocole)
     for (let s = 1; s <= seeds; s++) for (const c of castes) jobs.push({ caste: c, profile: NAT[c] || 'bon', seed: 5000 + 1000 * s, events: true });
   } else for (let s = 1; s <= seeds; s++) for (const c of castes) for (const p of profiles) jobs.push({ caste: c, profile: p, seed: 1000 * s + 17 * castes.indexOf(c) + 3 * profiles.indexOf(p), events: s % 2 === 0 });
   let done = new Set(); if (A.includes('--resume') && fs.existsSync(out)) { fs.readFileSync(out, 'utf8').split('\n').filter(Boolean).forEach(l => { try { const r = JSON.parse(l); if (r.series) done.add([r.persona || '', r.caste, r.profile, r.seed].join('|')); } catch (e) {} }); } else fs.writeFileSync(out, '');

@@ -2168,9 +2168,47 @@ function mpGood(g, my, want) {
 function mpProdOf(pk) {
   const pr = PRODUCTS[pk], ps = S && S.prod && S.prod[pk]; if (!pr || !ps) return { m: 1, p: 0, k: 0, n: 1 };
   const cls = pr.cls, P = isPh(pk) ? 0.9 : (MP_PCLS[cls] || 0); if (!P) return { m: 1, p: 0, k: 0, n: 1 };
-  let k = ps.mpx || 0; (S.rivals || []).forEach(r => { if (r.sub || !r.att) return; k += (r.fl && r.fl.k === pk) ? 1 : clamp((r.att[cls] || 0) / 0.2, 0, 1); });
+  const rx = monoRx(ps), pat = patentHeld(pk), nl = pat && pat.holder === 'me' ? (pat.licensees || []).filter(l => l.id !== 'me').length : 0;
+  let k = (ps.mpx || 0) + MONO_LIC_K * nl; (S.rivals || []).forEach(r => { if (r.sub || !r.att) return; k += (r.fl && r.fl.k === pk) ? 1 : rx * clamp((r.att[cls] || 0) / 0.2, 0, 1); });   // passe 67 : fenêtre de monopole, les rivaux de la catégorie ne savent pas (encore) faire ce produit (× rattrapage rx)
   const kb = k * (1.15 - 0.3 * clamp(ps.brand || 0, 0, 100) / 100), n = 1 + kb + MP_SUB, p = mpPrime(P, n);
-  return { m: 1 + p, p, k, n };
+  return { m: 1 + p, p, k, n, ex: 1 - rx };
+}
+/* ---------- Passe 67 : MONOPOLE TEMPORAIRE DE L'INNOVATION (Apple, Dyson...). Un produit que tu es le premier à développer (R&D terminée, aucun rival ne le fabrique)
+   ouvre une fenêtre d'exclusivité : ps.rx = rattrapage des rivaux, 0 (personne ne sait le faire) → 1 (tout le monde). Tant que rx < 1, les rivaux de la catégorie ne
+   comptent dans le pouvoir de marché que pour rx : prime de prix forte, marge de monopole. Le rattrapage avance chaque jour de 1 / fenêtre, où
+   fenêtre = MONO_W × brevet (×1,6 ; ×4 pour un médicament, MONO_PH) × Innovateur tech (×1,4) × avance technologique (1 + 2,5 × (techno / pointe − 1)⁺) / (1 + 0,35 × licenciés) ; chaque copie (rival ou marque
+   étrangère) l'avance d'un coup. Une nouvelle gamme brevetée relance la fenêtre (rx ≤ 0,3). Sauvegarde : champ facultatif S.prod[pk].rx (absent = marché ouvert, rx = 1).
+   Somme positive : les licenciés gagnent leur marge sur les ventes sous licence (redevance déduite), la technologie se diffuse au lieu d'être seulement ponctionnée. */
+const MONO_PH = 2.5;   // médicament breveté : les génériques attendent l'expiration du brevet (Eli Lilly), la fenêtre suit presque la durée du brevet
+const MONO_W = 300, MONO_PAT = 1.6, MONO_INNOV = 1.4, MONO_LIC = 0.35, MONO_LIC_K = 0.6, MONO_COPY = 0.25, MONO_COPY_PAT = 0.15, MONO_NIV = 0.3, LIC_MG = 0.16;
+const monoRx = ps => ps && ps.rx != null && isFinite(ps.rx) ? clamp(ps.rx, 0, 1) : 1;
+function monoWin(pk) {   // fenêtre en jours (rattrapage complet) au rythme du jour
+  const ps = S.prod[pk], pat = patentHeld(pk), mine = !!pat && pat.holder === 'me', nl = mine ? (pat.licensees || []).filter(l => l.id !== 'me').length : 0;
+  const lead = ps.tc != null ? ps.tc / Math.max(1, techFront()) : 1;
+  return MONO_W * (mine ? MONO_PAT * (isPh(pk) ? MONO_PH : 1) : 1) * (casteIs('innovateur') ? MONO_INNOV : 1) * (1 + 2.5 * Math.max(0, lead - 1)) / (1 + MONO_LIC * nl);
+}
+function monoInit(pk) {   // fin de la R&D : exclusivité si personne d'autre ne vend ce produit
+  const pr = PRODUCTS[pk], ps = S.prod[pk]; if (!pr || !ps || pr.free || ps.lic || ps.res) return;
+  const pat = patentHeld(pk), riv = (S.rivals || []).some(r => r.fl && r.fl.k === pk);
+  if (pat && pat.holder !== 'me') return;
+  if (mkOn() && !(pat && pat.holder === 'me')) return;   // marché mûr sans brevet : le produit est déjà vendu par d'autres
+  ps.rx = riv || (ps.mpx || 0) > 0 ? 0.5 : 0;
+}
+function monoStep(pk, ps) { if (ps.rx == null || ps.rx >= 1) return; ps.rx = clamp(ps.rx + 1 / Math.max(30, monoWin(pk)), 0, 1); if (ps.rx >= 1) { ps.rx = 1; say(`Fenêtre de monopole refermée : les rivaux savent maintenant fabriquer ${PRODUCTS[pk].name.toLowerCase()}. Ta marge revient au niveau du marché : lance le produit suivant.`, 'warn'); } }
+// export d'un produit encore exclusif : le monde entier ne sait pas le faire non plus (Eli Lilly, Apple) ; prime de monopole × exclusivité sur un volume
+// mondial borné à MONO_XW fois tes ventes locales (au-delà : cours ordinaire). Rendements d'échelle de l'innovation, sans plafond sur l'argent gagné.
+const MONO_XW = 4;
+function monoXP(pk, q) { const ps = S.prod[pk], rx = monoRx(ps); if (rx >= 1 || !(q > 0)) return 0; const pr = PRODUCTS[pk], P0 = isPh(pk) ? 0.9 : (MP_PCLS[pr.cls] || 0); return mpPrime(P0, 1 + MP_SUB) * (1 - rx) * clamp(MONO_XW * Math.max(0, ps.sold || 0) / q, 0, 1); }
+function monoInfo(pk) {   // lecture pour l'interface : exclusivité, jours restants, risque de copie
+  const ps = S.prod[pk]; if (!ps || ps.st !== 'on') return null; const rx = monoRx(ps); if (rx >= 1) return { ex: 0, left: 0, risk: 0, open: true, p: mpProd(pk).p };
+  const win = monoWin(pk), left = Math.round((1 - rx) * win), nc = (ps.mpx || 0) + (S.rivals || []).filter(r => r.fl && r.fl.k === pk).length;
+  const T = Math.round((150 + 100 * nc) * (0.85 + 0.3 * hash(PKEYS.indexOf(pk), nc, 471)) * (patMine(pk) ? 2 : 1)), risk = clamp((ps.mph || 0) / Math.max(1, T), 0, 1);
+  return { ex: 1 - rx, left, win: Math.round(win), risk, copyIn: Math.max(0, T - (ps.mph || 0)), pat: patMine(pk), p: mpProd(pk).p };
+}
+function monoTxt(pk) {
+  const o = monoInfo(pk); if (!o) return ''; if (o.open) return 'Marché ouvert : les rivaux savent fabriquer ce produit (pas de fenêtre de monopole).';
+  const rk = o.risk > 0.66 ? 'élevé' : o.risk > 0.33 ? 'moyen' : 'faible';
+  return `Fenêtre de monopole : exclusivité ${Math.round(o.ex * 100)} %, environ ${o.left} j restants${o.pat ? ' (brevet)' : ''} · prime +${Math.round(o.p * 100)} % · risque de copie ${rk}${o.risk > 0.33 ? ' (~' + o.copyIn + ' j)' : ''}. Prépare le produit suivant avant l'érosion.`;
 }
 const mpProd = pk => { const c = S && S._mpp && S._mpp[pk]; return c && c.d === S.day ? c.v : ((S._mpp || (S._mpp = {}))[pk] = { d: S && S.day, v: mpProdOf(pk) }).v; };
 const mpVol = pk => { const o = mpProd(pk), e = isPh(pk) ? 0.2 : (MP_ELP[PRODUCTS[pk].cls] || 0); return Math.pow(o.m, -e); };   // élasticité : la prime de prix coûte une partie du volume
@@ -2194,10 +2232,15 @@ function mpEntry(g, n, Dl) {
 function mpProdEntry(pk) {
   const ps = S.prod[pk], o = mpProd(pk), cls = PRODUCTS[pk].cls, pi = PKEYS.indexOf(pk);
   ps.mph = o.p >= MP_HOT && (ps.sold || 0) > 0.5 ? (ps.mph || 0) + 1 : Math.max(0, (ps.mph || 0) - 2);
-  const nc = (ps.mpx || 0) + (S.rivals || []).filter(r => r.fl && r.fl.k === pk).length, T = Math.round((150 + 100 * nc) * (0.85 + 0.3 * hash(pi, nc, 471)));
+  const pm = patMine(pk), nc = (ps.mpx || 0) + (S.rivals || []).filter(r => r.fl && r.fl.k === pk).length, T = Math.round((150 + 100 * nc) * (0.85 + 0.3 * hash(pi, nc, 471)) * (pm ? 2 : 1));   // passe 67 : ton brevet double le délai avant copie
   if (ps.mph < T || nc >= MP_KMAX) return;
   ps.mph = 0; const rv = (S.rivals || []).filter(r => !r.sub && r.ctrl !== 'human' && r.att && (r.att[cls] || 0) > 0.03 && !(r.fl && r.fl.k === pk));
-  if (rv.length) { const r = rv[Math.floor(hash(pi, nc, 473) * rv.length)]; r.fl = { k: pk, cls, d: 1 }; say(`${r.name} copie ${PRODUCTS[pk].name} et en fait son produit phare : ta marge va se tasser.`, 'warn'); }
+  if (ps.rx != null) ps.rx = clamp(ps.rx + (pm ? MONO_COPY_PAT : MONO_COPY), 0, 1);   // passe 67 : une copie fait avancer le rattrapage des rivaux
+  if (pm) {   // sous brevet : le rival prend une licence (il paie une redevance mais gagne sa marge), sinon une marque étrangère sort une version de gamme inférieure (demi-concurrent)
+    const pat = patentHeld(pk), r = rv.length ? rv[Math.floor(hash(pi, nc, 473) * rv.length)] : null;
+    if (r && (pat.licensees || []).length < PAT_LIC_MAX && !patIsLic(pat, 'x' + r.id)) { const fee = Math.round(Math.max(0.2 * PRODUCTS[pk].rnd * QTIER[pat.q].rnd, 0.12 * patValue(pk), 500)); pat.licensees.push({ id: 'x' + r.id, name: r.name, since: S.day, fee, rate: PAT_ROY, paid: 0 }); S.cash += fee; r.cash = (r.cash || 0) - fee; mkInv(); say(`${r.name} veut fabriquer ${PRODUCTS[pk].name.toLowerCase()} : ton brevet l'oblige à prendre une licence (+${money(fee)}, puis ${pctTxt(PAT_ROY)} de ses ventes). Ta fenêtre de monopole se resserre.`, 'warn'); }
+    else { ps.mpx = (ps.mpx || 0) + 0.5; say(`Une marque étrangère sort une version de gamme inférieure de ${PRODUCTS[pk].name} (ton brevet protège ta gamme) : ta marge se tasse un peu.`, 'warn'); }
+  } else if (rv.length) { const r = rv[Math.floor(hash(pi, nc, 473) * rv.length)]; r.fl = { k: pk, cls, d: 1 }; say(`${r.name} copie ${PRODUCTS[pk].name} et en fait son produit phare : ta marge va se tasser.`, 'warn'); }
   else { ps.mpx = (ps.mpx || 0) + 1; say(`Une marque étrangère lance un concurrent de ${PRODUCTS[pk].name}, attirée par tes marges.`, 'warn'); }
   S._mpp = {};
 }
@@ -3227,7 +3270,7 @@ function prodModelHTML(pk) {
    <div class="qr"><span>Technologies (max. 3)</span><span>${techRows}</span></div>
    <div class="qr"><span>Niveau techno · pointe du marché · expertise</span><span>${Math.round(ptech(ps))} · ${Math.round(front)} · ${Math.round(expOf(pk))}</span></div>
    <div class="qr"><span>Méga-classe de marque</span><span>${megaName(pk)} (${megaCount()} active${megaCount() > 1 ? 's' : ''}, fidélité ×${f(corpLoyF())})</span></div>
-   <div class="qr"><span>Cycle de vie</span><span>${lifeLine(pk)}</span></div>
+   <div class="qr"><span>Cycle de vie</span><span>${lifeLine(pk)}</span></div>${monoInfo(pk) ? `<div class="qr"><span>Monopole</span><span>${monoTxt(pk)}</span></div>` : ''}
    ${days ? `<div class="qr"><span>Produit cher</span><span>fabrication ${f(days)} j par unité (prix / seuil ${fmt(EXP_T)})</span></div>` : ''}</div>`;
 }
 
@@ -4503,10 +4546,12 @@ const wageMkt = () => clamp(1 + 1.5 * (0.125 - ((S && S.stats && S.stats.unemp !
 // Rendements décroissants des services : la demande (bureaux tech, calcul, crédit) dépend de la taille de la ville ; n tours du même type se partagent une demande finie (D),
 // la recette totale vaut D × (1 − e^(−U/D)) : la 1re tour est pleine, la 10e rapporte à peine un tiers. Réseau : chaque autre type de service présent ajoute 12 % de demande ; concurrence : −7 % par rival.
 const SVC_POP = { tech: 36000, dc: 48000, bank: 32000 };
+const DC_PLAT = 0.4;   // passe 67 : demande de calcul ajoutée par brevet actif de l'Innovateur (+40 % de la demande de la ville chacun)
 function svcSat(list) {
   const U = { tech: 0, dc: 0, bank: 0 }; list.forEach(c => { if ((c.t === 'tech' || c.t === 'dc' || c.t === 'bank') && c.conn) U[c.t] += levelMult(c); });
   const kinds = Object.keys(U).filter(k => U[k] > 0).length, comp = clamp(1 - 0.07 * Math.min(3, (S.rivals || []).length), 0.6, 1), out = {};
-  Object.keys(U).forEach(k => { const D = Math.max(1, popE() / SVC_POP[k]) * (1 + 0.12 * Math.max(0, kinds - (U[k] > 0 ? 1 : 0))) * comp; out[k] = { U: U[k], D, m: (U[k] > 0 ? Math.min(1, (1 - Math.exp(-U[k] / D)) / U[k] / (1 - Math.exp(-1 / D))) : 1) * (1 - rivSvc(k)) }; });   // rivSvc : part de la demande prise par l'IA banquier (banque) ou innovateur (tech, data centers)
+  const plat = k => k === 'dc' && casteIs('innovateur') ? 1 + DC_PLAT * Object.keys(S.pat || {}).filter(q => patMine(q)).length : 1;   // passe 67 : plateforme cloud et IA de l'Innovateur, vendue au-delà de la ville, portée par ses brevets
+  Object.keys(U).forEach(k => { const D = Math.max(1, popE() / SVC_POP[k]) * (1 + 0.12 * Math.max(0, kinds - (U[k] > 0 ? 1 : 0))) * comp * plat(k); out[k] = { U: U[k], D, m: (U[k] > 0 ? Math.min(1, (1 - Math.exp(-U[k] / D)) / U[k] / (1 - Math.exp(-1 / D))) : 1) * (1 - rivSvc(k)) }; });   // rivSvc : part de la demande prise par l'IA banquier (banque) ou innovateur (tech, data centers)
   return out;
 }
 const WAGE_RATE = 120;                        // ≈ 43 000 $/an par salarié                       // salaire de base par emploi et par jour
@@ -4547,7 +4592,7 @@ const CASTES = {
   banquier: { n: 'Banquier d\'affaires', col: '#3fd8ff', tag: 'Crédit, levier, marchés', d: 'Ta banque dispose de 100 M$ de fonds propres CET1, dont 20 % tradables. Règles Bâle III : ratio CET1 ≥ 8 % + 2,5 % de coussin (plus un coussin contracyclique en boom) sur des actifs pondérés du risque, liquidité LCR ≥ 100 %, levier ×10 sur les fonds propres. Les défauts en récession et en crise du crédit rongent tes fonds propres : sous 4,5 % le régulateur te restreint, en dessous de zéro c\'est la faillite.', cash: 0, fx: { interest: 0.6 }, cost: {} },
   negociant: { n: 'Négociant en matières', col: '#46d39a', tag: 'Trading Zurich-Genève, cartels, embargos', d: 'Une maison de négoce façon Zurich ou Genève. Cartels et embargos 50 % moins chers, exportations +15 %, achats d\'intrants et importations 4 % moins chers, pétrole +10 %. Pipelines 40 % moins chers, centrales 20 % moins chères, électricité +30 %.', cash: 0, fx: { export: 1.15, oil: 1.1, buy: 0.96 }, cost: { plant: 0.8, pipeline: 0.6 } },
   agriculteur: { n: 'Exploitant agricole', col: '#9fd05a', tag: 'Simulation de ferme, cultures, élevage', d: 'Tu vis de la terre. Fermes 25 % moins chères, rendement des cultures +15 %, irrigation 30 % moins chère, sécheresses deux fois moins sévères, fertilité des sols +8 %.', cash: 0, fx: { crop: 1.15 }, cost: { fwheat: 0.75, fsugar: 0.75, fcotton: 0.75, frubber: 0.75, fvine: 0.75, fcorn: 0.75, frapeseed: 0.75, fcattle: 0.75, fchicken: 0.75, fpig: 0.75, fsheep: 0.75 } },
-  innovateur: { n: 'Innovateur tech', col: '#b78cff', tag: 'R&D, brevets, data centers, IA', d: 'Tu inventes. Recherches 30 % plus rapides et 20 % moins chères, centres de R&D et data centers 25 % moins chers, brevets plus rentables (+50 %). Tes data centers louent leur puissance de calcul et boostent l\'efficience de toute ton entreprise grâce à l\'IA.', cash: 0, fx: {}, cost: { rd: 0.75, dc: 0.75 } }
+  innovateur: { n: 'Innovateur tech', col: '#b78cff', tag: 'R&D, brevets, data centers, IA', d: 'Tu inventes. Un produit que personne ne sait faire t\'ouvre une fenêtre de monopole (prime de prix, export exclusif) jusqu\'à ce que les rivaux rattrapent : relance le suivant avant l\'érosion. Recherches et développements 30 % plus rapides et 20 % moins chers, centres de R&D et data centers 25 % moins chers, fenêtre de monopole +40 %, redevances +50 %. Tes data centers louent leur puissance de calcul et boostent l\'efficience de toute ton entreprise grâce à l\'IA.', cash: 0, fx: {}, cost: { rd: 0.75, dc: 0.75 } }
 };
 const casteOf = () => (S && S.caste) || '';
 const casteIs = k => casteOf() === k;
@@ -4658,7 +4703,7 @@ function setCaste(k) {
   TM = techMults(); el('caste').hidden = true; say(`Tu joues : ${CASTES[k].n}.`, 'gold'); refreshStats(); if (first) { setPanel(false); if (S.mode && S.mode.k) { frameCity(); coachReset(); } } updateHUD(); save(); if (first && S.mat && S.day < 6) { try { mkInv(); mkOpen('welcome', ''); } catch (e) {} }
 }
 const CASTE_BLD = { industriel: ['f1', 'f2', 'f3', 'f4', 'foundry', 'port', 'wh'], promoteur: ['res', 'btp', 'immo', 'buyout', 'keep', 'terra', 'zone', 'hq', 'off', 'sport'], banquier: ['bank', 'hq', 'tech'], negociant: ['pipeline', 'plant', 'port', 'wh', 'well'], agriculteur: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcorn', 'frapeseed', 'fcattle', 'fchicken', 'fpig', 'fsheep', 'f1', 'wh'], innovateur: ['rd', 'dc', 'tech', 'hq'] };
-const CASTE_SPEC = { industriel: ['Usines et fonderies −12 % de coût', 'Production +5 %', 'OPA dès 10 % du capital (prime 20 %)', 'Rachat de rivaux −15 %'], promoteur: ['Constructions urbaines −15 %, permis facilités', 'Rachats 8 % sous le marché, ventes +10 %', 'Terrains ex nihilo : remblai, polder, aplanissement, puis zonage', 'Chantiers BTP payés +25 %, matériaux achetés au marché', 'Honoraires sur les chantiers des autres, objectifs de caste', 'Crédit adossé à l\'immobilier : 20 % de fonds propres (LTV 80 %)'], banquier: ['Banque de 100 M$ de fonds propres CET1', 'Bâle III : CET1 ≥ 10,5 %, LCR ≥ 100 %', 'Pondérations : entreprises 100 %, immobilier 50 %, souverain 0 %', 'Intérêts −40 %, emprunt ≤ 9 × fonds propres'], negociant: ['Cartels et embargos −50 %', 'Exports +15 %, intrants −4 %', 'Pipelines −40 %, centrales −20 %', 'Électricité +30 %, pétrole +10 %'], agriculteur: ['Fermes −25 %', 'Cultures +15 %, sols +8 %', 'Irrigation −30 %', 'Sécheresses deux fois moins sévères'], innovateur: ['Recherche −30 % de durée, −20 % de coût', 'R&D et data centers −25 %', 'Brevets +50 %, loyer de calcul +50 %', 'Boost d\'IA jusqu\'à +12 % partout'] };
+const CASTE_SPEC = { industriel: ['Usines et fonderies −12 % de coût', 'Production +5 %', 'OPA dès 10 % du capital (prime 20 %)', 'Rachat de rivaux −15 %'], promoteur: ['Constructions urbaines −15 %, permis facilités', 'Rachats 8 % sous le marché, ventes +10 %', 'Terrains ex nihilo : remblai, polder, aplanissement, puis zonage', 'Chantiers BTP payés +25 %, matériaux achetés au marché', 'Honoraires sur les chantiers des autres, objectifs de caste', 'Crédit adossé à l\'immobilier : 20 % de fonds propres (LTV 80 %)'], banquier: ['Banque de 100 M$ de fonds propres CET1', 'Bâle III : CET1 ≥ 10,5 %, LCR ≥ 100 %', 'Pondérations : entreprises 100 %, immobilier 50 %, souverain 0 %', 'Intérêts −40 %, emprunt ≤ 9 × fonds propres'], negociant: ['Cartels et embargos −50 %', 'Exports +15 %, intrants −4 %', 'Pipelines −40 %, centrales −20 %', 'Électricité +30 %, pétrole +10 %'], agriculteur: ['Fermes −25 %', 'Cultures +15 %, sols +8 %', 'Irrigation −30 %', 'Sécheresses deux fois moins sévères'], innovateur: ['Recherche et développement de produits −30 % de durée, −20 % de coût', 'R&D et data centers −25 %', 'Fenêtre de monopole +40 %, redevances de brevets +50 %', 'Plateforme cloud : +40 % de demande de calcul par brevet', 'Boost d\'IA jusqu\'à +12 % partout'] };
 function showCasteDetail(k) {
   const C = CASTES[k], img = CASTE_IMG[k] ? `<img alt="${C.n}" src="${CASTE_IMG[k]}">` : casteSVG(k), mine = TECHS.filter(x => x.caste === k), common = TECHS.filter(x => !x.caste);
   const tc = x => `<div class="ctech ${x.caste ? 'own' : ''}"><b>${x.n}</b><small>${ERA_N[x.era].split('·')[0].trim()} · ${money(Math.round(x.c * (k === 'innovateur' ? 0.8 : 1)))} · ${Math.max(2, Math.round(x.d * (k === 'innovateur' ? 0.7 : 1)))} j</small><small>${x.d2}</small></div>`;
@@ -6571,7 +6616,7 @@ function step() {
     S._portUse = used; S._portCap = tp; }
   { const er = ecomStep(portN, mult); revExp += er.rev / Math.max(0.01, mult); importCost += er.buy; }   // passe 46 : ventes en ligne (exports par le port), après les magasins de la ville et avant l'export du surplus
   const AD = airStep(mult); revRetVal += AD.rev; importCost += AD.imp;   // passe 49 : ventes duty free de l'aéroport (CA en commerce, marchandises importées, redevance en frais), avant l'export du surplus
-  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - prodRoom(pk)); if (ex > 0) { const exF = FGD ? Math.min(ex, Math.max(0, ps.stock - ledRes(pk))) : ex, xv = exF * prodPrice(pk) / mpProd(pk).m * (expRate - 0.1); fSellExt(pk, exF, xv); if (FGD && ex > exF) fLose(pk, ex - exF); ps.stock -= ex; ps.exp = exF; revExp += xv; S._xv[pk] = xv; } else ps.exp = 0; });   // passe 21 : le surplus au-delà de ~15 jours de ventes part à l'export (cours - 10 pts) au lieu de dormir jusqu'à 10 000 unités
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; const ex = Math.max(0, ps.stock - prodRoom(pk)); if (ex > 0) { const exF = FGD ? Math.min(ex, Math.max(0, ps.stock - ledRes(pk))) : ex, xv = exF * prodPrice(pk) / mpProd(pk).m * (expRate - 0.1) * (1 + monoXP(pk, exF)); fSellExt(pk, exF, xv); if (FGD && ex > exF) fLose(pk, ex - exF); ps.stock -= ex; ps.exp = exF; revExp += xv; S._xv[pk] = xv; } else ps.exp = 0; });   // passe 21 : le surplus au-delà de ~15 jours de ventes part à l'export (cours - 10 pts) au lieu de dormir jusqu'à 10 000 unités
   rkDay();   // passe 71 : compteurs des classements (ventes par produit et par vendeur), après toutes les ventes du jour
 
   // 5. Compte de résultat : recettes externes - salaires, entretien, transport, publicité, intérêts, impôt sur les sociétés
@@ -6695,6 +6740,7 @@ function step() {
     ps.made = ps.mDay; ps.mDay = 0;
     if (ps.st === 'on') {
       mpProdEntry(pk);   // passe 46 : un produit très rentable finit copié
+      monoStep(pk, ps);   // passe 67 : les rivaux rattrapent ton avance (fenêtre de monopole)
       const ad = padOf(ps), bT = clamp(100 * clamp(padPower(pk) / 1.5, 0, 1) + (ps.sold > 0.1 ? 6 : 0), 0, 100);
       ps.brand = awStep(ps.brand, bT); bcStep(pk, ps);
       const rtT = clamp(trueQ(pk) * 0.9 + 18 * clamp(padRt(pk) / 1.2, 0, 1), 0, 100), rt0 = ps.rt == null ? QTIER[ps.q].q : ps.rt;
@@ -6708,7 +6754,7 @@ function step() {
         if (S.day % 30 === 29) { (ps.hq || (ps.hq = [])).push(ps._bq); (ps.hr || (ps.hr = [])).push(ps._br); ps._bq = 0; ps._br = 0; if (ps.hq.length > 36) { ps.hq.shift(); ps.hr.shift(); } } }
     } else if (ps.st === 'rnd') {
       ps.rnd -= (PRODUCTS[pk].pharma ? TM.pharma * (1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto')) : 1) * (1 + 0.01 * expOf(pk));
-      if (ps.rnd <= 0) { ps.st = 'on'; ps.pf = 1; ps.A = S.mat ? 0.5 : 0.03; ps.age = S.mat ? 120 : 0; ps._q = ps.q; ps.tc = techFront(); ps.obs = 1; gainExp(pk, 4); updInputQ(pk); let na = 0; eachBuilding(b => { if (b.prod === pk && FLEVEL[b.t]) { b.src = {}; autoSource(b, true); na++; } }); say(`Produit lancé : ${PRODUCTS[pk].name}. ${na ? na + ' usine(s) démarrent : fournisseurs et imports choisis automatiquement.' : 'Choisis-lui des usines dans le catalogue de production.'}`, 'gold'); cineShow(pk, 'lancement'); patGrant(pk, 'dev'); }
+      if (ps.rnd <= 0) { ps.st = 'on'; ps.pf = 1; ps.A = S.mat ? 0.5 : 0.03; ps.age = S.mat ? 120 : 0; ps._q = ps.q; ps.tc = techFront(); ps.obs = 1; gainExp(pk, 4); updInputQ(pk); let na = 0; eachBuilding(b => { if (b.prod === pk && FLEVEL[b.t]) { b.src = {}; autoSource(b, true); na++; } }); say(`Produit lancé : ${PRODUCTS[pk].name}. ${na ? na + ' usine(s) démarrent : fournisseurs et imports choisis automatiquement.' : 'Choisis-lui des usines dans le catalogue de production.'}`, 'gold'); cineShow(pk, 'lancement'); patGrant(pk, 'dev'); monoInit(pk); }
     }
   });
 
@@ -8648,12 +8694,12 @@ function facCounts(k) {
 function launchProduct(pk, mode) {
   if (!PRODUCTS[pk]) return false;
   const pr = PRODUCTS[pk], ps = S.prod[pk], mat = mkOn(), viaRd = mat && mode === 'rd', viaLic = mat && !viaRd;   // marché mûr : licence (par défaut) ou R&D accélérée
-  const cost = pr.free ? 0 : Math.round(pr.rnd * QTIER[ps.q].rnd * (viaLic ? LIC_K : viaRd ? RDX_K : 1));
+  const inv = casteIs('innovateur') && !viaLic, cost = pr.free ? 0 : Math.round(pr.rnd * QTIER[ps.q].rnd * (viaLic ? LIC_K : viaRd ? RDX_K : 1) * (inv ? 0.8 : 1));   // passe 67 : l'Innovateur développe 20 % moins cher et 30 % plus vite (bonus de caste affiché)
   if (ps.st !== 'locked') return false;
   if (patBlock(pk)) { say(patBlockMsg(pk), 'warn'); return false; }   // passe 47 : brevet d'un concurrent
   if (!mat && pr.tier > tierNow()) { say(`${pr.name} se débloque au palier ${TIERS[pr.tier].n}.`, 'warn'); return false; }
   if (S.cash < cost) { say(`Il faut ${money(cost)} pour ${viaLic ? 'la licence de' : 'développer'} ${pr.name.toLowerCase()}.`, 'bad'); return false; }
-  S.cash -= cost; ps.st = 'rnd'; ps.rnd = viaRd ? Math.max(1, Math.ceil(pr.days / 3)) : pr.days; ps.rdT = ps.rnd; ps.acc = 0; ps.accD = -1; ps.accN = 0; ps.lic = 0; ps.res = 0; ps.buy = null; ps.inb = []; ps.tc = null; ps.obs = 1; if (pr.cls === 'basic' && !pr.pkg) ps.pack = 0; ps.brand = 0; ps.loy = 20; ps.rt = QTIER[ps.q].q; ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; ps.stock = 0;
+  S.cash -= cost; ps.st = 'rnd'; ps.rnd = Math.max(1, Math.round((viaRd ? Math.ceil(pr.days / 3) : pr.days) * (inv ? 0.7 : 1))); ps.rdT = ps.rnd; ps.acc = 0; ps.accD = -1; ps.accN = 0; ps.lic = 0; ps.res = 0; ps.buy = null; ps.inb = []; ps.tc = null; ps.obs = 1; if (pr.cls === 'basic' && !pr.pkg) ps.pack = 0; ps.brand = 0; ps.loy = 20; ps.rt = QTIER[ps.q].q; ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; ps.stock = 0;
   if (viaLic || pr.free) { ps.st = 'on'; ps.rnd = 0; ps.pf = 1; ps.A = mat ? MAT_A : 0.03; ps.age = mat ? 150 : 0; ps._q = ps.q; ps.tc = techFront(); if (viaLic && !pr.free) { ps.lic = 1; ps.brand = 6; say(`Licence obtenue pour ${pr.name} (${money(cost)}, puis ${(ROY * 100).toFixed(1).replace('.', ',')} % de redevance sur le chiffre d'affaires) : un produit déjà développé par le marché.`, 'good'); refreshStats(); updateHUD(); cineShow(pk, 'lancement'); return true; } say(`Produit standard : ${pr.name} se fabrique tout de suite (aucune R&D). Choisis les usines dans le catalogue.`, 'good'); refreshStats(); updateHUD(); cineShow(pk, 'lancement'); return true; }
   const dd = pr.pharma ? Math.round(pr.days / (TM.pharma * (1 + 0.25 * (S.rdPower || 0) + 0.4 * cxF('cto')))) : pr.days; say(`Développement lancé : ${pr.name}, gamme ${QTIER[ps.q].n.toLowerCase()} (${pr.days} jours${pr.pharma && dd < pr.days ? ', accéléré à ~' + dd + ' jours' : ''}).`, 'info');
   refreshStats(); updateHUD(); return true;
@@ -8668,7 +8714,7 @@ function changeTier(pk, i) {
   if (S.cash < cost) { say(`Il faut ${money(cost)} pour changer de gamme.`, 'bad'); return false; }
   S.cash -= cost; ps.q = i; ps.pf = 1; ps.brand *= 0.8; ps.bc = bcOf(ps) * 0.9;
   say(`${pr.name} passe en gamme ${QTIER[i].n.toLowerCase()} (${money(cost)}).`, 'good');
-  if (!ps.res && !ps.lic && !patBlock(pk, 0) && !(patentHeld(pk) && patentHeld(pk).holder !== 'me')) patGrant(pk, 'niv');   // passe 47 : premier à une gamme supérieure
+  if (!ps.res && !ps.lic && !patBlock(pk, 0) && !(patentHeld(pk) && patentHeld(pk).holder !== 'me')) { const g = patGrant(pk, 'niv'); if (g && g.holder === 'me') { ps.rx = Math.min(monoRx(ps), MONO_NIV); S._mpp = {}; } }   // passe 47 : premier à une gamme supérieure ; passe 67 : nouvelle génération = fenêtre relancée
   refreshStats(); return true;
 }
 // ===== Passe 25 : composeur de produits. Un « modèle » (jouet, meuble, vêtement, appareil, snack…) + jusqu'à 3 composants compatibles = un produit viable.
@@ -13115,7 +13161,7 @@ function carnetHTML(c) {   // panneau du BUREAU : marché, offre, écart, stock,
     <div class="cbc"><b>Conseil</b><span>${v.tip.t}</span>${v.tip.a ? `<button class="btn sec" data-act="${v.tip.a}">${v.tip.l}</button>` : ''}</div>
     ${v.exp > 0.01 ? row('Surplus exporté', pj(v.exp), 'neg') + row('Marge perdue à l\'export', '−' + money(v.xLoss) + ' /j', 'neg') + (v.xPct != null ? '<small>L\'export paie ' + Math.round(v.xPct * 100) + ' % du prix intérieur.</small>' : '') : ''}
     <h5>STOCK ET VENTES</h5>${row('Ventes réelles', pj(v.sold))}${row('Stock', fmt(Math.round(v.stock)) + ' u · ' + Math.round(v.fill * 100) + ' % ' + v.capL)}${row('Autonomie', days)}
-    <h5>PRIX ET MARGE</h5>${row('Ton prix', money(v.price))}${row(v.refL, money(v.ref))}${v.mp ? row('Pouvoir de marché', '×' + v.mp.m.toFixed(2).replace('.', ',') + ' · ' + (v.mp.k < 0.5 ? 'seul' : (Math.round(v.mp.k * 10) / 10 + ' conc.').replace('.', ','))) + '<small class="cmp">' + mpTxt(v.mp) + '</small>' : ''}${v.rivPx ? row('Prix moyen des rivaux', '≈ ' + money(v.rivPx)) : ''}${row('Marge matière', (v.mg >= 0 ? '' : '−') + money(Math.abs(v.mg)) + ' /u', v.mg >= 0 ? 'pos' : 'neg')}
+    <h5>PRIX ET MARGE</h5>${row('Ton prix', money(v.price))}${row(v.refL, money(v.ref))}${v.mp ? row('Pouvoir de marché', '×' + v.mp.m.toFixed(2).replace('.', ',') + ' · ' + (v.mp.k < 0.5 ? 'seul' : (Math.round(v.mp.k * 10) / 10 + ' conc.').replace('.', ','))) + '<small class="cmp">' + mpTxt(v.mp) + '</small>' + (v.isP && PRODUCTS[c.prod] && monoInfo(c.prod) && !monoInfo(c.prod).open ? '<small class="cmp mono">' + monoTxt(c.prod) + '</small>' : '') : ''}${v.rivPx ? row('Prix moyen des rivaux', '≈ ' + money(v.rivPx)) : ''}${row('Marge matière', (v.mg >= 0 ? '' : '−') + money(Math.abs(v.mg)) + ' /u', v.mg >= 0 ? 'pos' : 'neg')}
     <h5>GOULOT</h5><small class="cbl" style="color:${v.limSev === 'ok' ? '#7fe3a0' : v.limSev === 'bad' ? '#ff8a8e' : '#ffcf8a'}">${v.limT}</small></div>`;
 }
 const planOfficeHit = (sc, px, py) => { if (!sc || !sc.top || !sc.unp) return false; const q = sc.unp(px, py); return !!q && q[0] >= 12.8 && q[0] <= 22.2 && q[1] >= 15 && q[1] <= 21.2; };   // local bureau vitré (FG.off) au sol
@@ -18122,7 +18168,7 @@ function patStep() {
       return;
     }
     if (!r.w && r.until - d <= PAT_WARN_D) { r.w = 1; if (r.holder === 'me' || patIsLic(r, 'me')) say(`Expiration imminente : le brevet sur ${PRODUCTS[pk].name} tombe dans ${r.until - d} jours (${dateTxt(r.until)}).`, 'warn'); }
-    if (r.holder === 'me') (r.licensees || []).forEach(l => { const a = patLicDay(pk, l) * k; if (a <= 0) return; l.paid = (l.paid || 0) + a; r.roy = (r.roy || 0) + a; const rv = l.id[0] === 'x' ? (S.rivals || []).find(x => 'x' + x.id === l.id) : null; if (rv) rv.cash = (rv.cash || 0) - a; });
+    if (r.holder === 'me') (r.licensees || []).forEach(l => { const a = patLicDay(pk, l) * k; if (a <= 0) return; l.paid = (l.paid || 0) + a; r.roy = (r.roy || 0) + a; const rv = l.id[0] === 'x' ? (S.rivals || []).find(x => 'x' + x.id === l.id) : null; if (rv) rv.cash = (rv.cash || 0) - a + LIC_MG * a / Math.max(0.01, (l.rate || r.rate) * (casteIs('innovateur') ? 1.5 : 1)); });   // passe 67 (somme positive) : le licencié encaisse sa marge sur les ventes sous licence, redevance déduite
     else if (patIsLic(r, 'me')) { const ps = S.prod[pk], me = r.licensees.find(l => l.id === 'me'); if (ps.st === 'on' && !ps.res && ps.rev > 0) { const fee = ps.rev * me.rate; S.cash -= fee; me.paid = (me.paid || 0) + fee; r.roy = (r.roy || 0) + fee; X.paid += fee; const rv = (S.rivals || []).find(x => x.id === r.holder); if (rv) rv.cash = (rv.cash || 0) + fee; } }
   });
   // offres de licence reçues sur tes brevets (une chance sur ~2,5 par mois et par brevet, au plus 4 en attente)
@@ -18270,7 +18316,7 @@ function renderRdp(force) {
   { const TR = rdTechRows(); h += `<h3>TECHNOLOGIE DE TES PRODUITS</h3>`;
     if (!TR.length) h += '<p class="note">Aucun produit lancé.</p>';
     else h += `<p class="note">${(S.rdPower || 0) ? `Tes centres de R&D (${S.rdPower} unité${S.rdPower > 1 ? 's' : ''}) entretiennent la technologie de tes produits ; sans eux elle perd 10 % par an pendant que la pointe du marché avance de 4 points par an. Un produit prioritaire reçoit ${RD_FOC} fois la part des autres ; un produit en retard rattrape plus vite (diffusion de la technologie).` : 'Aucun centre de R&D : la technologie de tes produits perd 10 % par an et la pointe du marché avance de 4 points par an. Construis un centre de R&D (Ville > Direction).'}</p>`;
-    TR.slice(0, 8).forEach(r => { h += `<div class="rdrow${r.foc ? ' mine' : ''}"><b>${PRODUCTS[r.pk].name}${r.foc ? ' · prioritaire' : ''}</b><small>Technologie ${Math.round(r.tc)} / pointe ${Math.round(r.front)} · qualité réelle ${Math.round(r.q)} · ${r.net >= 0 ? '+' : '−'}${Math.abs(r.net).toFixed(1).replace('.', ',')} point${Math.abs(r.net) >= 2 ? 's' : ''} par an${r.cu > 0.005 ? ' (dont rattrapage +' + Math.round(r.cu * 100) + ' %)' : ''}</small><div class="acts"><button class="btn ${r.foc ? '' : 'sec'}" data-rdp="foc:${r.pk}">${r.foc ? 'Retirer la priorité' : 'Prioriser'}</button></div></div>`; }); }
+    TR.slice(0, 8).forEach(r => { h += `<div class="rdrow${r.foc ? ' mine' : ''}"><b>${PRODUCTS[r.pk].name}${r.foc ? ' · prioritaire' : ''}</b><small>Technologie ${Math.round(r.tc)} / pointe ${Math.round(r.front)} · qualité réelle ${Math.round(r.q)} · ${r.net >= 0 ? '+' : '−'}${Math.abs(r.net).toFixed(1).replace('.', ',')} point${Math.abs(r.net) >= 2 ? 's' : ''} par an${r.cu > 0.005 ? ' (dont rattrapage +' + Math.round(r.cu * 100) + ' %)' : ''}</small>${(() => { const mo = monoInfo(r.pk); return mo && !mo.open ? `<small class="mono" style="display:block">${monoTxt(r.pk)}</small>` : ''; })()}<div class="acts"><button class="btn ${r.foc ? '' : 'sec'}" data-rdp="foc:${r.pk}">${r.foc ? 'Retirer la priorité' : 'Prioriser'}</button></div></div>`; }); }
   // produits brevetables : être le premier (marché mûr : une gamme au-dessus de la meilleure vendue)
   { const opp = patOpps(5); h += `<h3>PRODUITS BREVETABLES</h3>`;
     if (!opp.length) h += '<p class="note">Aucun produit brevetable pour l\'instant (tous développés, déjà brevetés ou hors de ton palier).</p>';
@@ -19267,6 +19313,7 @@ window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallC
 window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
 window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.brand.setStrat = setBrandStrat;
+window.WSE.mono = { xp: monoXP, info: monoInfo, txt: monoTxt, win: monoWin, init: monoInit, step: monoStep, rx: monoRx, K: { MONO_PH, MONO_XW, MONO_W, MONO_PAT, MONO_INNOV, MONO_LIC, MONO_LIC_K, MONO_COPY, MONO_COPY_PAT, MONO_NIV, LIC_MG } };   // passe 67 : monopole temporaire de l'innovation
 window.WSE.rd = { focus: rdSetFocus, focW: rdFocW, catchUp: rdCatch, techRows: rdTechRows, RD_FOC, patentHeld, held: patentHeld, mine: patMine, block: patBlock, blockMsg: patBlockMsg, grant: patGrant, value: patValue, incDay: patIncDay, licDay: patLicDay, revDay: patRevDay, licFee: patLicFee, buyLicence: patBuyLicence, opps: patOpps, develop: patDevelop, answer: patOfferAnswer, step: patStep, years: patYears, comp: patCompF, top: mkTopRaw, save: patSave, load: patLoad, st: rdxS, pat: () => S.pat || {}, list: accList, info: accInfo, quote: accQuote, accelerate, gemCost, gemAdd, render: renderRdp, edu: patEduHTML, advice: rdpAdvice, iap: { LIVE: IAP_LIVE, PACKS: IAP_PACKS, purchase: iapPurchase, log: IAP }, K: { PAT_Y, PAT_NIV_Y, PAT_ROY, PAT_LIC_SH, PAT_LIC_MAX, PAT_RIV_FROM, PAT_RIV_EVERY, PAT_OFF_EVERY, PAT_WARN_D, PAT_DISC, PAT_MONO, GEM_N, GEM_START, GEM_TIER, GEM_JAL, ACC_TOT, ACC_DAY_MAX, ACC_CASH_K, ACC_LAB_MAX, ACC_LAB_GAIN } };   // passe 47 : brevets de produit, R&D, accélération (aucun paiement réel)
 window.WSE.land = { model: landModel, price: landPrice, raw: landRaw, map: landMap, range: landRange, norm: landNorm, useOf: landUseOf, natUse: landNatUse, district: districtAt, cache: landCache, pole: landPole, foot: landFoot, costFor: landCostFor, val: c => landVal(c), assets: () => proLandAssets(), tip: landTipHTML, setLayer, layer: () => layer, cur: () => curLayer(), LAYER_N, LAYER_F, LEG, USES: LAND_USES, PARTS: LM_PART, K: LM_K, DISTRICTS, zoneOk, autoSpot };   // passe 48 : valeur du terrain par usage
 Object.assign(window.WSE, { cl: { supCap, supLeft, supRef, productScore, compOv, locQ, locAttr, stepLocQ, cooTargetPf, stepCooPrice, cooPol, offerScore, buyerQw, bestOffer, srcQ, inputQ, updInputQ, supplierList, trueQ, COO_GAP, SUP_QE, IMP_Q, MKT_Q } });   // CapLab : chaîne, prix, demande (docs/CAPLAB_CHAINE_PRIX_DEMANDE.md)

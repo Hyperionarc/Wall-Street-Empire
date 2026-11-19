@@ -280,8 +280,7 @@ window.BOT = (function () {
     if (L.lostSite > 0.08 * L.O && K.eb > 0) { if (add('dc')) EC.lastAdd = s.day; return; }
     if (L.U >= 0.9 * L.scap && K.eb > 0 && list.length < (P.ecMax || 6)) { if (add('ewh')) EC.lastAdd = s.day; }
   }
-  // ===================================================================================================================
-  // Passe 67 : playbooks de caste (P.play = 'banquier' | 'negociant' | 'industriel' | 'agriculteur').
+  // ============================================================================================================  // Passe 67 : playbooks de caste (P.play = 'banquier' | 'negociant' | 'industriel' | 'agriculteur').
   // Chaque playbook joue ce qu'un joueur EXPERT de la caste ferait avec les outils de sa caste, dans l'ordre, chiffres du jeu à l'appui ;
   // il ne triche pas : uniquement les fonctions du jeu (place, outils BTP, banque, terminal financier, fiche de ferme...). CP.n compte les actions emblématiques (test t68).
   const CP = { n: {}, log: [], bk: { last: -99, inv: -99 }, tr: { last: -99, car: -99, emb: -99, pl: -99, pipe: -99 }, ag: { last: -99 }, ba: { last: -99 } };
@@ -472,9 +471,59 @@ window.BOT = (function () {
     // 6. terrain créé et zoné résidentiel dense : tous les 120 jours, tous les 45 jours quand il n'y a plus de lot rentable
     if (!krach && s.day - (TR.tlast || -99) >= (deals.length ? 120 : 45) && s.cash > 3e6) { TR.tlast = s.day; trTerra(); }
   }
+  // ===== Passe 67 : Innovateur tech (P.innov). Séquence : produit phare inédit (R&D) → brevet → usine du produit (composants importés) → montée en capacité
+  // tant que la fenêtre de monopole tient → centres de R&D (avance technologique, priorité au produit phare) → licences en fin de fenêtre → produit suivant avant l'érosion.
+  // Les data centers (campus alimentés) et le commerce restent choisis par pick() (familles P.fam).
+  const IN = { last: -99, log: [], fac: {}, bad: {} };
+  const INNOV_PRODS = ['headache', 'cough', 'phone', 'antibio', 'tv', 'camera', 'smartwatch', 'headphones', 'desktop', 'etoys', 'powertools', 'solarpanel', 'ebike', 'fridge', 'washer', 'microwave'];
+  function innov() {
+    const s = S(); if (s.day - IN.last < (P.inEvery || 10)) return; IN.last = s.day;
+    const M = W.mono, R = W.rd, cp = Math.max(1, s.cpi || 1), tn = W.tierNow ? W.tierNow() : 0, FKx = ['', 'f1', 'f2', 'f3', 'f4'];
+    const room = Math.max(0, Math.min((P.inLev || P.lev) * s.stats.worth, W.creditLimit()) - (s.loan || 0)), avail = s.cash + room;
+    const mine = W.PKEYS.filter(pk => IN.fac[pk] != null && !IN.bad[pk]);
+    // 1) licences : on garde l'exclusivité au début de la fenêtre, on licencie quand elle s'érode (redevances, somme positive pour le licencié)
+    try { const X = R.st(); (X.off || []).slice().forEach(o => { const inf = M.info(o.pk); R.answer(o.id, !inf || inf.ex < 0.45); }); } catch (e) { /* rien */ }
+    // 2) montée en capacité des produits lancés : usines tant que les ventes absorbent la production et que l'exclusivité tient
+    for (const pk of mine) {
+      const ps = s.prod[pk], pr = W.PRODUCTS[pk]; if (ps.st !== 'on' || IN.bad[pk]) continue; const fk = FKx[pr.lvl], fcs = W.facCounts(pk), fc = fcs.mine, inf = M.info(pk) || { ex: 0 };
+      if (fc > 0 && IN.fac[pk] > 0 && s.day - IN.fac[pk] > 45 && !(ps.made > 0) && !(ps.sold > 0)) { W.unassignProduct(pk); if (W.stopProduct) W.stopProduct(pk); IN.bad[pk] = s.day; IN.log.push([s.day, 'echec', pk]); if (IN.cur === pk) IN.cur = null; continue; }   // échec : intrants introuvables à un coût rentable (risque de l'innovation)
+      // rendement mesuré par usine (EBE × 360 / capex) : on agrandit tant qu'il dépasse le seuil (plus bas pendant la fenêtre de monopole, où l'export exclusif paie une prime)
+      const pf = prodProfit(pk), yld = pf != null && fc > 0 ? pf / fc * 360 / (W.TYPES[fk].cost * cp) : null, grow = yld != null && yld > (P.inYld || 0.6) && inf.ex > 0.3 && ps.made < 0.8 * ((W.mono.K.MONO_XW || 4) + 1) * Math.max(1, ps.sold) && fc < (P.inMaxFac || 8);   // débouché borné : ventes locales + export exclusif (MONO_XW × ventes locales) ; au-delà, l'export ordinaire fait monter le prix des intrants et ruine la chaîne (mesuré)
+      if (fc > 0 && fcs.free > 0 && grow) { W.assignProduct(pk, fc + 1); IN.fac[pk] = s.day; continue; }
+      if (fc === 0 || (IN.fac[pk] < s.day - 40 && grow)) {
+        const c0 = W.TYPES[fk].cost * cp * 1.15; if (avail < c0) continue; if (s.cash < c0) borrow(c0 + 1e5); if (s.cash < c0) continue;
+        if (!ensurePort()) continue; const r = tryBuildAny(fk); if (r > 0) { W.assignProduct(pk, fc + 1); IN.fac[pk] = s.day; IN.log.push([s.day, 'fac', pk, fc + 1]); return; }
+      }
+    }
+    // 3) centres de R&D : avance technologique (fenêtre plus longue), R&D pharma plus rapide ; priorité au produit le plus rentable encore exclusif
+    const nrd = s.rdPower || 0, wv = s.stats.worth || 0, wantRd = Math.min(P.inRdMax || 3, mine.length, wv > 250e6 * cp ? 3 : wv > 120e6 * cp ? 2 : wv > (P.inRdAt || 40e6) * cp ? 1 : 0), rdc = W.TYPES.rd.cost * cp * 0.75 * 1.1;
+    if (nrd < wantRd && nrd === 0 && s.cash < rdc && avail > rdc) borrow(rdc + 1e5);   // le premier centre de R&D est un investissement prioritaire (pari de long terme)
+    if (nrd < wantRd && s.cash > (nrd === 0 ? 1 : 1.3) * rdc) { const r = tryBuild('rd'); if (r > 0) IN.log.push([s.day, 'rdc', nrd + 1]); }
+    // 3 bis) premier campus data center (plateforme cloud et IA, demande portée par les brevets) : on s'endette pour l'ouvrir dès que la valeur le permet
+    const ndc = (s.stats.cn && s.stats.cn.dc) || 0;
+    if (ndc === 0 && tierOk('dc') && wv > (P.inDcAt || 70e6) * cp && P.fam.indexOf('dc') >= 0) { const c0 = W.TYPES.dc.cost * cp * 1.1, room2 = Math.max(0, Math.min(0.6 * wv, W.creditLimit()) - (s.loan || 0)); if (s.cash + room2 >= c0) { if (s.cash < c0) { const l0 = P.lev; P.lev = 0.6; borrow(c0 + 1e5); P.lev = l0; } if (s.cash >= c0) { const r = tryBuildAny('dc'); if (r > 0) IN.log.push([s.day, 'dc', Math.round(r)]); } } }
+    const foc = mine.filter(pk => s.prod[pk].st === 'on').sort((a, b) => ((M.info(b) || {}).ex || 0) * (s.prod[b].rm || 0) - ((M.info(a) || {}).ex || 0) * (s.prod[a].rm || 0))[0];
+    if (foc && s.rdFocus !== foc) R.focus(foc);
+    // 4) produit suivant : aucun développement en cours, et le dernier lancé est rentable ou s'érode
+    // 4 bis) pari de long terme (Eli Lilly) : la pilule contre l'obésité, développement de plusieurs années, en parallèle, dès qu'un centre de R&D l'accélère
+    const ob = s.prod.obesity, OB = W.PRODUCTS.obesity;
+    if (OB && ob && ob.st === 'locked' && !IN.long && nrd >= 1 && wv > (P.inLongAt || 50e6) * cp && OB.tier <= tn && !R.held('obesity')) { const c = OB.rnd * [0.6, 1, 1.8][ob.q]; if (s.cash > 1.5 * c && W.launchProduct('obesity')) { IN.long = 'obesity'; IN.fac.obesity = 0; IN.log.push([s.day, 'rd', 'obesity']); } }
+    if (W.PKEYS.some(pk => s.prod[pk].st === 'rnd' && pk !== IN.long)) return;
+    const last = IN.cur, lps = last && s.prod[last], linf = last && M.info(last);
+    if (last && lps && lps.st === 'on' && s.day - IN.curDay < (P.inGap || 150) && !(linf && linf.ex < 0.5)) return;
+    const cands = (P.inProds || INNOV_PRODS).filter(pk => { const pr = W.PRODUCTS[pk], ps = s.prod[pk]; return pr && !pr.free && ps.st === 'locked' && pr.tier <= tn && !(W.modeLocked && W.modeLocked(pk)) && !R.held(pk) && !(s.rivals || []).some(r => r.fl && r.fl.k === pk) && tierOk(FKx[pr.lvl]) && !(pr.pharma && W.PRODUCTS[pk].days > 400 && nrd < 3); });
+    for (const pk of cands) {
+      const pr = W.PRODUCTS[pk], cost = pr.rnd * [0.6, 1, 1.8][s.prod[pk].q] + W.TYPES[FKx[pr.lvl]].cost * cp * 1.2 + (cnt.port || (s.stats.cn.port || 0) ? 0 : W.TYPES.port.cost * cp * 1.2);
+      if (cost > avail * 0.6) continue;
+      if (s.cash < cost) borrow(cost + 1e5); if (s.cash < pr.rnd) continue;
+      if (W.launchProduct(pk)) { IN.cur = pk; IN.curDay = s.day; IN.fac[pk] = 0; IN.log.push([s.day, 'rd', pk]); }
+      return;
+    }
+  }
   function tick() {
     const s = S(); let did = 0, spent = 0;
     if (P.trump) trump();
+    if (P.innov) innov();
     if (s.day % 20 === 0) prune();
     if (s.day % 8 === 0) missions();
     if (P.industry) industry();
@@ -499,5 +548,5 @@ window.BOT = (function () {
     if (P.bourse && s.day % 8 === 0) bourse();
     return { did, spent };
   }
-  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC, CP, TR };
+  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC, CP, TR, IN };
 })();

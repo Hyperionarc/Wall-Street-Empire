@@ -1678,3 +1678,18 @@ L'étude complète est dans `docs/CAPLAB_CHAINE_PRIX_DEMANDE.md`, avec ses sourc
 - **Directeur des prix (COO).** Réglage « Prix des produits » : Manuel (défaut), Normal, Agressif ou Très agressif. La note globale visée est celle de la concurrence (marque blanche locale et rivaux, `compOv`), plus 0, 10 ou 20 points. Le prix bouge de 2 % par jour au plus et ne descend jamais sous le coût des intrants. Si la demande dépasse ce que tu livres, le prix monte de 1 % par jour, quelle que soit la politique. Un produit dont le joueur touche le curseur repasse en manuel.
 - **Les producteurs locaux rattrapent.** Leur qualité (`S.locQ`, clé de sauvegarde optionnelle `lq`) suit lentement la qualité vendue dans la catégorie (demi-vie 540 jours), à une vitesse qui dépend de leur compétence (paramètre de partie). Rien ne bouge tant que tu ne vends pas sous ta marque.
 - **Les fournisseurs nommés ont une capacité.** Elle vaut 0,5 à 1,4 fois la demande locale de référence par jour (3 fois pour une puissance étrangère) et se partage entre tous leurs clients. Au-delà, le reliquat est importé au prix du port : l'usine ne s'arrête pas. Les barres Offre et Demande de la vue fournisseur sont désormais vraies, et le choix automatique évite un fournisseur saturé.
+
+## Passe 67 (innovateur) : le monopole temporaire de l'innovation
+
+Détail et mesures : `docs/INNOVATEUR_MONOPOLE.md`. Test : `tools/tests/t67_innovateur.js` (16 vérifications).
+- **Fenêtre de monopole** (`monoInit`, `monoStep`, `monoWin`, `monoInfo`, `window.WSE.mono`) : un produit que tu es le premier à développer ouvre une exclusivité
+  (`S.prod[pk].rx`, rattrapage des rivaux 0 → 1). Pendant la fenêtre, les rivaux de la catégorie ne comptent dans le pouvoir de marché que pour `rx` : prime ≈ 40-50 %,
+  marge d'usine de monopole 40-55 %. Fenêtre = 300 j × brevet (×1,6 ; médicament ×4) × Innovateur (×1,4) × avance technologique / (1 + 0,35 × licenciés) ; chaque copie
+  l'avance d'un coup ; une nouvelle gamme brevetée la relance. Interface : fiche produit, bureau de l'usine et panneau R&D (« exclusivité, jours restants, prime, risque de copie »).
+- **Brevet** : sous ton brevet, un rival qui veut ton produit prend une licence au lieu de copier ; **export exclusif** avec prime de monopole (jusqu'à 4 × les ventes locales).
+- **Somme positive** : le licencié encaisse sa marge (16 %) sur ses ventes sous licence, redevance déduite ; la plateforme cloud de l'Innovateur vend du calcul au-delà de la ville (+40 % de demande par brevet).
+- **Bonus de caste réels** : développement de produit −20 % de coût, −30 % de durée. Sauvegarde : champ facultatif `rx` (absent = marché ouvert).
+- **Bot innovateur** (`P.innov`, profil `innovateur` de `sim_batch --native`) : médicament inédit → brevet → usine → produit suivant avant l'érosion ; centre de R&D
+  prioritaire ; pari de long terme sur la pilule contre l'obésité ; licences en fin de fenêtre.
+- Mesure (18 parties, 1 800 jours) : innovateur 142 → 262 M$ (0,66 → 1,06 de la moyenne, 6e → 3e), variance la plus forte (208-386 M$) ; autres castes inchangées sauf le
+  baron (+24 %, il développe aussi des médicaments). Cible 1,5-3 × non atteinte : le data center campus reste hors de portée du crédit avant le jour 1 800.
