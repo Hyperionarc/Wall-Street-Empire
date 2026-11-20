@@ -1713,3 +1713,17 @@ Aucune avance au calendrier : l'ancienne règle « une génération tous les 540
 - **Conservé** : obsolescence des anciens nœuds (dès qu'une génération plus récente existe, diffusion sur 360 jours, plancher des puces matures ×0,5), prime de monopole quand tu es seul à graver au nœud de pointe, mise à niveau payante des fonderies (vers un nœud autorisé seulement), pénurie de puces matures, effets énergétiques des GPU.
 - **Interface** : fiche de la fonderie et panneau R&D et brevets (« Nœud de pointe atteint par X (brevet), prochain nœud : R&D requise Y, ton avancement », budget, centres, licences, offres, course à la gravure), classement des fondeurs (Menu > Chaîne).
 - **Sauvegarde** : champ facultatif `chip` étendu (`pub`, `k`, `x`, `pt`, `fd`, `bud`, `rc`, `of`, `ac`) ; une ancienne sauvegarde (pointe fractionnaire) rend publiques les générations déjà sorties.
+## Passe 74 : paliers par chantier, COO à acheter (premium simulé), score de maîtrise de la supply chain
+
+Détail, barèmes et mesures : `docs/PALIERS_COO.md`. Tests : `tools/tests/t74_paliers.js`, `tools/tests/t75_coo.js`. Exports : `WSE.pal`, `WSE.ent`, `WSE.coo`, `WSE.scm`.
+**Aucun paiement réel n'est branché** : le premium est un droit simulé (`S.ent.prem`, bouton « Activer Premium (simulé) » dans Menu > Partie), les Diamants une monnaie simulée.
+- **Paliers 1 → 5 par chantier** (système générique `PAL_DEF`, appliqué aux magasins s1-s4 et spécialisés) : barre de progression dans la fiche, l'intérieur, au-dessus du
+  bâtiment sur la carte et dans la liste « Niveau n/5 » (Menu > Empire) ; durée croissante (4 jours → 5 semaines) ; supermarché 3, 8, 20, 40 M$, hypermarché 20, 40, 70, 100 M$ ;
+  le magasin vend pendant les travaux ; prérequis (palier d'entreprise, population, trésorerie) ; un chantier par bâtiment, 1 à 5 en parallèle selon le palier ; accélération
+  en Diamants proportionnelle au temps restant (plafond de 50 % du chantier en Round) ; capacité, emplois, sprite et densité de l'intérieur suivent le niveau ; anciennes
+  parties : niveau payé par le coût historique, sinon niveau 1.
+- **COO à recruter** (Menu > Chaîne, Bronze / Argent / Or, fixe + part des achats pilotés) : choisit les sources au coût livré corrigé de la qualité, mix propre production /
+  port / négociant, stocks tampons, ruptures, équilibrage des chaînes, prix confiés au directeur des prix. Journal, économies estimées, score. Mesure t75 : ≈ 93 % d'un expert
+  manuel, jamais au-dessus. Le pilotage manuel reste gratuit, complet et inchangé.
+- **Score de maîtrise de la supply chain** (gratuit) : service, rotation, coût livré / marché, ruptures sur 30 jours ; classement dédié (Classements > Supply chain) et 7 badges,
+  réservés au pilotage manuel (Diamants gratuits en prime).
