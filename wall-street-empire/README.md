@@ -1325,7 +1325,7 @@ Produits finis ajoutés (10), tous avec poids prix / qualité / marque, nécessi
 | Viande de bœuf | basic | 3 bœuf | 78 | 50/30/20 | 0,9 |
 | Poulet | basic | 3 volaille | 80 | 50/30/20 | 1,2 |
 | Viande de porc | basic | 3 porc | 78 | 50/30/20 | 1,0 |
-| Viande d'agneau | basic | 3 agneau | 70 | 45/35/20 | 0,35 |
+| Agneau | basic | 3 agneau | 70 | 45/35/20 | 0,35 |
 | Saucisson et charcuterie | basic | 2 porc + 0,2 sel | 50 | 35/30/35 | 0,5 |
 | Pulls en laine | std (usine moyenne) | 3,5 laine + 0,5 tissu | 40 | 30/30/40 | 0,25 |
 | Vin de table | basic | 2,5 vin + 1,5 verre | 28 | 25/20/55 | 0,6 |
@@ -1383,7 +1383,7 @@ Tables renseignées comme les autres cultures : `TYPES`, `GOODS` (groupe brut), 
 ### 2. Chaînes et produits
 - **Huile de cuisine** (`cookoil`, petite usine) = 4 maïs + 2 colza → 3 ; **Biodiesel** (`biodiesel`, usine moyenne) = 4 colza + 0,5 produits chimiques (méthanol) → 3. Prix de base recalculés (`calP`, EBITDA 15 %) : 19 $ et 20,6 $ ; ils se vendent aussi comme marchandises au marché et au port.
 - **Huile de table** (`tableoil`, basic) = 2 huile de cuisine + 0,3 plastique, nécessité 80, poids 50/30/20, 0,8 u/hab./an, famille Alimentation.
-- **Chips de maïs** (`cornchips`, basic) = 2 maïs + 0,5 huile + 0,1 sel, nécessité 25, poids 35/25/40, 0,5 u/hab./an.
+- ~~**Chips de maïs** (`cornchips`)~~ : retirées en passe 75 (gamme resserrée, décision de Rémy) ; l'huile de table est LE dérivé du maïs et du colza.
 - **Biocarburant en bidons** (`biofuel`, basic) = 2 biodiesel + 0,3 plastique, nécessité 40, poids 55/30/15, 0,2 u/hab./an, famille Auto et outils. Le jeu n'a pas de consommation de carburant par les transports : le biodiesel se vend donc en bidons aux automobilistes et comme marchandise.
 Les trois produits sont dans `P25` (le poids de demande des 35 produits d'origine ne bouge pas) avec `PROD_W`, `NECESS`, `DEMAND_PC`, `MEGA_OF`, `OBSO`, `PROD_TECH`/`TECH_SHARE`, `FAM`, vignette `GLY`. EBITDA mesurés (`isoFactory`) : huile de cuisine 14,5 %, biodiesel 15 %, huile de table 19,5 %, chips 19,7 %, biocarburant 19,4 %. Aucun produit existant n'a changé de recette.
 
@@ -1717,7 +1717,7 @@ Aucune avance au calendrier : l'ancienne règle « une génération tous les 540
 
 Détail, barèmes et mesures : `docs/PALIERS_COO.md`. Tests : `tools/tests/t74_paliers.js`, `tools/tests/t75_coo.js`. Exports : `WSE.pal`, `WSE.ent`, `WSE.coo`, `WSE.scm`.
 **Aucun paiement réel n'est branché** : le premium est un droit simulé (`S.ent.prem`, bouton « Activer Premium (simulé) » dans Menu > Partie), les Diamants une monnaie simulée.
-- **Paliers 1 → 5 par chantier** (système générique `PAL_DEF`, appliqué aux magasins s1-s4 et spécialisés) : barre de progression dans la fiche, l'intérieur, au-dessus du
+- **Paliers 1 → 5 par chantier** (système réutilisable `PAL_DEF`, appliqué aux magasins s1-s4 et spécialisés) : barre de progression dans la fiche, l'intérieur, au-dessus du
   bâtiment sur la carte et dans la liste « Niveau n/5 » (Menu > Empire) ; durée croissante (4 jours → 5 semaines) ; supermarché 3, 8, 20, 40 M$, hypermarché 20, 40, 70, 100 M$ ;
   le magasin vend pendant les travaux ; prérequis (palier d'entreprise, population, trésorerie) ; un chantier par bâtiment, 1 à 5 en parallèle selon le palier ; accélération
   en Diamants proportionnelle au temps restant (plafond de 50 % du chantier en Round) ; capacité, emplois, sprite et densité de l'intérieur suivent le niveau ; anciennes
@@ -1727,3 +1727,12 @@ Détail, barèmes et mesures : `docs/PALIERS_COO.md`. Tests : `tools/tests/t74_p
   manuel, jamais au-dessus. Le pilotage manuel reste gratuit, complet et inchangé.
 - **Score de maîtrise de la supply chain** (gratuit) : service, rotation, coût livré / marché, ruptures sur 30 jours ; classement dédié (Classements > Supply chain) et 7 badges,
   réservés au pilotage manuel (Diamants gratuits en prime).
+
+## Passe 75 : gamme resserrée (demande de Rémy : « vendre que de l'agneau », pas de dérivés inutiles)
+
+Détail, audit des 95 produits et propositions à trancher : `docs/GAMME_PRODUITS.md`. Test : `tools/tests/t78_gamme.js`.
+- **Chips de maïs supprimées** (`cornchips`) : 94 produits finis. L'huile de table (`tableoil`) reste LE produit dérivé du maïs et du colza ; le maïs ne sert plus qu'à l'huile de cuisine.
+- **Ovin = agneau seul** : `lambmeat` s'appelle « Agneau » (gigots, carrés, côtelettes) ; aucun produit « mouton ». La laine (`wool`) reste un coproduit de l'élevage `fsheep` (pulls en laine).
+- **Anciennes sauvegardes** (`PROD_RETIRED`, `retiredMigrate`, appelée par `load` avant toute lecture) : stock du produit retiré (entrepôt + rayons des magasins) revendu au coût de revient historique (intrants au prix de base, ≈ 2,75 $/u pour les chips) et crédité en trésorerie ; usines remises sans produit ; rayons, prix de magasin, ventes lissées, duty free, e-commerce, brevets, classements `S.rk` et pédagogie nettoyés ; produit phare et usines des rivaux reportés sur l'huile de table (même classe). Message au joueur au démarrage. Migration pure et idempotente (aucun tirage aléatoire).
+- **Propositions** (non appliquées, à trancher par Rémy) : biocarburant en bidons, doublons voiture alu / voiture, casseroles inox / ustensiles, etc. (tableau produit | raison | impact).
+- Exports : `WSE.PROD_RETIRED`, `WSE.retiredMigrate`, `WSE.retiredUnitCost`.

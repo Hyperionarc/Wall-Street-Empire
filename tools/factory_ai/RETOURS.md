@@ -294,8 +294,8 @@ Branchés dans le jeu (même chaîne que la phase 2 : moitié de la taille, pale
 **Branché dans le jeu** : `fcorn` (Culture de maïs) et `frapeseed` (Culture de colza) sont deux vraies fermes 2×2 du menu Agriculture (famille Cultures), avec zones fertiles de maïs et de colza sur la carte ; les sprites `assets/factory_hd/fcorn.png` et `frapeseed.png` sont embarqués par le build (`P2_NAMES`) et calés sur le losange de 2 cases exactement comme `fwheat` (losange mesuré 512 px, ancre de `ancres.json`). Plus de « pas dans le jeu ».
 Nouveaux biens : `corn` (Maïs, brut), `rapeseed` (Colza en graines, brut), `cookoil` (Huile de cuisine = maïs + colza, intermédiaire), `biodiesel` (Biodiesel = colza + produits chimiques, intermédiaire). Nouveaux produits finis : `tableoil` (Huile de table, première nécessité), `cornchips` (Chips de maïs), `biofuel` (Biocarburant en bidons, rayon Auto et outils).
 **Attend une image du Mac** (le jeu retombe sur la vignette vectorielle en attendant ; sujets décrits dans `tools/factory_ai/photos_guide.json`, même consigne que les autres) :
-1. Photos du Guide du fabricant, `assets/guide_hd/<clé>.jpg` (512×512) : produits `tableoil`, `cornchips`, `biofuel` ; biens `corn`, `rapeseed`, `cookoil`, `biodiesel`.
-2. Vignettes produits (lot E, `hero_*` facultatif) : `tableoil`, `cornchips`, `biofuel`.
+1. Photos du Guide du fabricant, `assets/guide_hd/<clé>.jpg` (512×512) : produits `tableoil`, `biofuel` (~~`cornchips`~~ retiré du jeu, passe 75) ; biens `corn`, `rapeseed`, `cookoil`, `biodiesel`.
+2. Vignettes produits (lot E, `hero_*` facultatif) : `tableoil`, `biofuel` (`cornchips` retiré du jeu, passe 75 : ne pas le produire).
 3. Marchandises sur palette (sprites `MAT_SPR`, 2,2 × 2,2 cases, ancre au centre), facultatif : `sacs_mais`, `sacs_colza`, `futs_huile`, `futs_biodiesel` ; en attendant, sacs et fûts vectoriels.
 4. Gisement (facultatif) : une parcelle de champ fertile « maïs » et « colza » au repos (losange 1 case, comme les autres gisements de la phase 2) ; en attendant, champ vectoriel jaune.
 ## Commande de l'intégrateur n° 9 (magasins spécialisés, 18 nov.)
@@ -397,7 +397,7 @@ Audit réel (passe 59, `docs/AUDIT_PRODUITS.md`, planches de `wall-street-empire
 - `sausage.jpg` : saucisson sec à fleur blanche ficelé, quelques rondelles coupées devant.
 - `tablewine.jpg` : **vin de table** : bouteille d'un litre en verre vert, simple, bouchon à vis, étiquette unie crème **sans texte**, un verre à eau rempli de rouge à côté. Rien de luxueux.
 - `grandcru.jpg` : **grand cru** : bouteille bordelaise en verre très sombre, longue capsule dorée, **étiquette sobre crème avec un fin filet doré et une gravure de château (dessin, pas de texte)**, posée devant une caisse en bois ouverte avec paille, un verre à pied en cristal. Rien d'écrit nulle part (ni millésime, ni nom).
-- `tableoil.jpg`, `cornchips.jpg`, `biofuel.jpg`, `corn.jpg`, `rapeseed.jpg`, `cookoil.jpg`, `biodiesel.jpg` : sujets déjà écrits dans `photos_guide.json` (sachet de chips **uni**, jerrican sans inscription).
+- `tableoil.jpg`, `biofuel.jpg`, `corn.jpg`, `rapeseed.jpg`, `cookoil.jpg`, `biodiesel.jpg` : sujets déjà écrits dans `photos_guide.json` (sachet de chips **uni**, jerrican sans inscription).
 - `grapes.jpg` : deux grappes de raisin noir avec quelques feuilles de vigne, dans une cagette de vendange en bois.
 - `egg.jpg` : œufs en vrac : plateau alvéolé de 30 œufs bruns (matière agricole, pas de boîte de vente).
 - `wine.jpg` : vin en vrac : tonneau de chêne cerclé couché sur un chantier, une carafe de rouge devant.
@@ -558,3 +558,7 @@ Livraison dans assets/factory_hd avec ancres (ancres.json) ; revue qualité à c
 - **Caserne de pompiers** (dessin code) : bloc brun avec cheminée sur dalle verte plate, aspect jouet : à remplacer par un vrai sprite HD (cf. n°15 point 6).
 - **Collège et lycée** : un sprite existe mais il est **hors charte et de style « jouet »** (toit bleu vif, grand cahier/livre jaune posé sur le toit, fenêtres multicolores, pas la même matière que les autres bâtiments) ; le lycée réutilise le même bâtiment avec un terrain rouge accolé. **Rémy : « ça ne va pas »**. À refaire entièrement dans le style des boutiques v2/usine moyenne : matériaux réalistes (brique/béton/vitrage), toit plat gris ou tuiles sobres, aucun objet géant sur le toit, couleurs sobres, plan en L pour le collège, grand ensemble avec gymnase pour le lycée, DEUX sprites distincts.
 - Le mot « sprite HD » du catalogue signale seulement qu'un sprite existe ; il ne garantit pas la qualité. La qualité de chaque sprite sera notée A/B/C dans docs/REVUE_BATIMENTS.md.
+## Passe 75 (intégrateur) : gamme resserrée, commande d'images allégée
+- **`cornchips` (chips de maïs) supprimé du jeu** : ne plus le photographier (retiré des commandes n° 10 et 11 et de `photos_guide.json`). L'huile de table `tableoil` est LE dérivé du maïs et du colza.
+- **Ovin = AGNEAU uniquement** : `lambmeat` s'appelle désormais « Agneau » dans le jeu ; sujet ajouté dans `photos_guide.json` (carré et gigot d'agneau crus, jamais de mouton). La laine `wool` reste (coproduit de l'élevage).
+- **`biofuel` : NE PAS produire pour l'instant** (proposé à la suppression, en attente de la décision de Rémy, voir `wall-street-empire/docs/GAMME_PRODUITS.md`). Idem pour les autres produits listés « à trancher » dans ce document : attendre la décision avant de commander leurs photos.

@@ -2,10 +2,11 @@
 
 Généré par `tools/audit_produits.js` (inventaire automatique du jeu construit) ; la colonne fidélité est un jugement à l'œil sur les planches de contact (`tools/audit_produits_verdicts.json`).
 
-- Produits finis : 95, dont 85 avec photo HD (assets/guide_hd), 10 avec visuel de lancement 16:9 (assets/products_hd).
+- Produits finis : 94, dont 85 avec photo HD (assets/guide_hd), 10 avec visuel de lancement 16:9 (assets/products_hd).
 - Biens et matières : 95, dont 85 avec photo HD.
-- Sans photo HD (20) : repli vectoriel explicite : `eggs`, `chicken`, `porkmeat`, `lambmeat`, `sausage`, `tablewine`, `grandcru`, `tableoil`, `cornchips`, `biofuel`, `grapes`, `corn`, `rapeseed`, `egg`, `wine`, `cookoil`, `biodiesel`, `basic`, `std`, `lux`. Commande Cowork en fin de tools/factory_ai/RETOURS.md.
+- Sans photo HD (19) : repli vectoriel explicite : `eggs`, `chicken`, `porkmeat`, `lambmeat`, `sausage`, `tablewine`, `grandcru`, `tableoil`, `biofuel`, `grapes`, `corn`, `rapeseed`, `egg`, `wine`, `cookoil`, `biodiesel`, `basic`, `std`, `lux`. Commande Cowork en fin de tools/factory_ai/RETOURS.md.
 - Photo présente mais à refaire (14, mauvaise ou moyenne) : `tv`, `obesity`, `spirits`, `antibio`, `hygiene`, `jacket`, `ebike`, `lube`, `petfood`, `chrome`, `rubber`, `ingot`, `screen`, `silicon`.
+- Gamme resserrée (passe 75) : les chips de maïs (`cornchips`) sont retirées du jeu (l'huile de table reste le dérivé du maïs et du colza) ; la seule viande ovine vendue est l'agneau (`lambmeat`, « Agneau »). Propositions de réduction : `docs/GAMME_PRODUITS.md`.
 - Corrigé par le code (passe 59) : whisky (photo à pseudo-texte remplacée par la carafe sans texte), pull/bœuf/lait (photos existantes fidèles réaffectées), carcasses et laine (animal HD sur fond studio), 10 nouveaux dessins de repli (œufs, poulet, porc, agneau, saucisson, pull, vin de table, grand cru, chips ; raisin, œufs en vrac, carcasses, laine, vin côté biens), et la photo HD des biens désormais affichée dans les rayons, fournisseurs, emplacements et bulles de la halle (avant : toujours le dessin vectoriel).
 
 Où l'image s'affiche : produits = `productSVG` (catalogue, fiche produit, paliers, rayons de magasin, Guide, vignettes de l'usine, cinéma de lancement en repli du hero) ; biens = `gThumb` (Guide) et `compIcon`/`drawProd` (rayons, fournisseurs, emplacements d'usine, bulles d'intrants) qui prennent la photo HD si elle existe, sinon le dessin vectoriel. Les palettes et caisses de la halle restent des formes (carton/caisse/sac) colorées : pas de photo collée sur un volume 3D.
@@ -98,14 +99,13 @@ Où l'image s'affiche : produits = `productSVG` (catalogue, fiche produit, palie
 | `beefmeat` Viande de bœuf | Alimentation | `assets/guide_hd/meat.jpg` 512×512 (GUIDE_FILL) | fidèle : pièce de bœuf persillée sur planche (photo des viandes d'abattoir) | code : GUIDE_FILL beefmeat ← meat.jpg ; commande Cowork beefmeat.jpg (barquette de steaks) pour la distinguer |
 | `chicken` Poulet | Alimentation | **repli vectoriel** (productSVG0) | repli propre : poulet entier cru sur barquette (`chicken`), remplace le plateau-repas générique | commande Cowork chicken.jpg |
 | `porkmeat` Viande de porc | Alimentation | **repli vectoriel** (productSVG0) | repli propre : côte de porc avec os (`chop`), remplace le plateau-repas | commande Cowork porkmeat.jpg |
-| `lambmeat` Viande d'agneau | Alimentation | **repli vectoriel** (productSVG0) | repli propre : carré d'agneau, 3 côtes manchonnées (`rack`), remplace le plateau-repas | commande Cowork lambmeat.jpg |
+| `lambmeat` Agneau | Alimentation | **repli vectoriel** (productSVG0) | repli propre : carré d'agneau, 3 côtes manchonnées (`rack`), remplace le plateau-repas | commande Cowork lambmeat.jpg |
 | `sausage` Saucisson et charcuterie | Alimentation | **repli vectoriel** (productSVG0) | repli propre : saucisson fleuri ficelé et rondelles (`saucisson`), remplace une tablette de chocolat | commande Cowork sausage.jpg |
 | `sweater` Pulls en laine | Mode | `assets/guide_hd/jacket.jpg` 512×512 (GUIDE_FILL) | approchant : pull col montant plié (jersey uni plutôt que grosse maille) | code : GUIDE_FILL sweater ← jacket.jpg ; commande Cowork sweater.jpg (pull en laine torsadée) |
 | `tablewine` Vin de table | Boissons | **repli vectoriel** (productSVG0) | repli propre : litre de verre vert, étiquette unie à bande bordeaux, verre de rouge (`tablewine`) ; distinct du grand cru | commande Cowork tablewine.jpg |
 | `grandcru` Vin de grande réserve | Boissons | **repli vectoriel** (productSVG0) | repli propre : bouteille bordelaise très sombre, capsule or longue, étiquette crème à double filet doré et gravure de château (forme, sans texte), cachet de cire, caisse en bois (`grandcru`) | commande Cowork grandcru.jpg |
 | `petfood` Aliments pour animaux | Alimentation | `assets/guide_hd/petfood.jpg` 512×512 | moyen : sachet de croquettes juste, petit pseudo-texte | commande Cowork facultative |
 | `tableoil` Huile de table | Alimentation | **repli vectoriel** (productSVG0) | repli correct : bouteille d'huile dorée bouchon vert (`bottle`) | commande Cowork tableoil.jpg (sujet déjà dans photos_guide.json) |
-| `cornchips` Chips de maïs | Alimentation | **repli vectoriel** (productSVG0) | repli propre : sachet doré et chips triangulaires (`chips`) | commande Cowork cornchips.jpg (sujet déjà dans photos_guide.json) |
 | `biofuel` Biocarburant en bidons | Auto et outils | **repli vectoriel** (productSVG0) | repli correct : jerrican vert (`oilcan`) | commande Cowork biofuel.jpg (sujet déjà dans photos_guide.json) |
 | `oil` Pétrole | raw | `assets/guide_hd/oil.jpg` 512×512 | fidèle | — |
 | `iron` Minerai de fer | raw | `assets/guide_hd/iron.jpg` 512×512 | fidèle | — |

@@ -119,7 +119,7 @@ Distribution (R22, conçu pour l'équilibre, C) : chaque mois, `FAB_PAY` = 80 % 
 
 Mise en sommeil : si `m_fab < m_r − 0,02` pendant 60 jours (intrant trop cher), l'usine s'arrête et le rival revend des marchandises achetées ; elle rouvre après 30 jours à `m_fab > m_r + 0,04`. Chaque décision est écrite au journal avec ses chiffres.
 
-**Exemple** (test `t63`, Round Normal, négociant DiscountCo, jour 600, ventes lissées de 900 unités/jour en produits de base) : meilleur projet = chips de maïs (maïs, huile, sel) ; marge fabriquée 48 % contre 17 % en négoce ; capacité 270 u/j (30 % de 900) ; 402 000 $ investis ; retour 1,3 an. Journal : « DiscountCo ouvre une usine de Chips de maïs (270 u/j) : marge fabriquée 48 % contre 17 % en négoce, 402 000 $ investis, retour en 1,3 ans. Ses intrants s'achètent au marché local (maïs, huile de cuisine, sel). »
+**Exemple** (mesuré avant la passe 75, qui a retiré les chips de maïs ; le rival choisit désormais un autre produit de base) (test `t63`, Round Normal, négociant DiscountCo, jour 600, ventes lissées de 900 unités/jour en produits de base) : meilleur projet = chips de maïs (maïs, huile, sel) ; marge fabriquée 48 % contre 17 % en négoce ; capacité 270 u/j (30 % de 900) ; 402 000 $ investis ; retour 1,3 an. Journal : « DiscountCo ouvre une usine de Chips de maïs (270 u/j) : marge fabriquée 48 % contre 17 % en négoce, 402 000 $ investis, retour en 1,3 ans. Ses intrants s'achètent au marché local (maïs, huile de cuisine, sel). »
 
 ### 2.2 Journée d'usine (stock, ventes, rupture) — implémenté
 

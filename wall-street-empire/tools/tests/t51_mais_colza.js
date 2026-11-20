@@ -1,11 +1,11 @@
 // Passe 51 : maïs et colza. Cultures constructibles (2×2, sprites HD), zones fertiles sur la carte, production, chaînes
-// maïs + colza -> huile de cuisine -> huile de table / chips de maïs, colza -> biodiesel -> biocarburant, vente en magasin,
+// maïs + colza -> huile de cuisine -> huile de table (LE dérivé retenu ; les chips de maïs sont retirées : passe 75), colza -> biodiesel -> biocarburant, vente en magasin,
 // rentabilité des fermes, guide, sauvegarde antérieure, déterminisme, 0 erreur de page.
 const fs = require('fs'), path = require('path');
 exports.name = 'Maïs et colza (passe 51)';
 
 const CROPS2 = { fcorn: 'corn', frapeseed: 'rapeseed' };
-const FIN = { tableoil: ['cookoil'], cornchips: ['corn', 'cookoil'], biofuel: ['biodiesel'] };
+const FIN = { tableoil: ['cookoil'], biofuel: ['biodiesel'] };
 
 exports.run = async (t, L) => {
   const root = path.resolve(__dirname, '..', '..');
@@ -29,7 +29,7 @@ exports.run = async (t, L) => {
     o.base = { wheat: W.GOODS.wheat.base, sugar: W.GOODS.sugar.base, corn: W.GOODS.corn.base, rapeseed: W.GOODS.rapeseed.base, cookoil: W.GOODS.cookoil.base, biodiesel: W.GOODS.biodiesel.base };
     o.rec = { cookoil: W.RECIPES.cookoil && W.RECIPES.cookoil.in, biodiesel: W.RECIPES.biodiesel && W.RECIPES.biodiesel.in, grpC: W.GOODS.cookoil.grp, grpB: W.GOODS.biodiesel.grp };
     o.fin = Object.keys(FIN).map(k => { const P = W.PRODUCTS[k]; if (!P) return [k, 'absent']; const w = W.PROD_W[k]; return [k, P.cls, FIN[k].every(g => P.in[g] > 0), P.ref > 0 && P.out > 0 && P.rnd > 0 && P.days > 0 && P.tier != null && !!P.desc, W.NECESS[k] != null, W.DEMAND_PC[k] > 0, w && w.reduce((a, b) => a + b, 0) === 100, W.OBSO[k] != null, W.famOf(k) !== 'Autres', !!W.GLY[k], /^<svg/.test(W.productSVG(k, 1)), !!W.P25[k], S.prod[k] && S.prod[k].st]; });
-    o.tableoilNec = W.NECESS.tableoil; o.fam = [W.famOf('tableoil'), W.famOf('cornchips'), W.famOf('biofuel')];
+    o.tableoilNec = W.NECESS.tableoil; o.fam = [W.famOf('tableoil'), W.famOf('biofuel')]; o.noChips = !W.PRODUCTS.cornchips && !!W.PROD_RETIRED.cornchips;
     o.fields = {}; S.dep.forEach(d => { if (d && (d.k === 'corn' || d.k === 'rapeseed')) o.fields[d.k] = (o.fields[d.k] || 0) + 1; });
     o.quad = {}; S.dep.forEach((d, i) => { if (d && (d.k === 'corn' || d.k === 'rapeseed')) { const q = (i % W.N < W.N / 2 ? 0 : 1) + ((i / W.N | 0) < W.N / 2 ? 0 : 2); (o.quad[d.k] = o.quad[d.k] || {})[q] = 1; } });
     const seen = new Set(); o.dup = []; [W.GOODS, W.PRODUCTS, W.TYPES].forEach(M => Object.keys(M).forEach(k => { const n = M[k].name; if (seen.has(n)) o.dup.push(n); seen.add(n); }));
@@ -39,16 +39,17 @@ exports.run = async (t, L) => {
   t.check('fcorn et frapeseed : fermes 2×2 du menu Agriculture, maïs et colza bruts (CROPS, RAW_SRC, gisement, offre locale, coût), icône', D.bad.length === 0, D.bad.slice(0, 4).join(' ; '));
   t.check('prix de base cohérents avec le blé et la canne (maïs 5-8 $, colza 7-12 $)', D.base.corn >= 5 && D.base.corn <= 8 && D.base.rapeseed >= 7 && D.base.rapeseed <= 12, JSON.stringify(D.base));
   t.check('recettes : huile de cuisine = maïs + colza, biodiesel = colza + produits chimiques (intermédiaires « comp »)', D.rec.cookoil && D.rec.cookoil.corn > 0 && D.rec.cookoil.rapeseed > 0 && D.rec.biodiesel && D.rec.biodiesel.rapeseed > 0 && D.rec.biodiesel.chem > 0 && D.rec.grpC === 'comp' && D.rec.grpB === 'comp', JSON.stringify(D.rec));
-  t.check('produits finis (huile de table, chips de maïs, biocarburant) : intrants, prix, R&D, nécessité, demande, méga-classe, poids, obsolescence, famille, vignette',
+  t.check('produits finis (huile de table, biocarburant) : intrants, prix, R&D, nécessité, demande, méga-classe, poids, obsolescence, famille, vignette',
     D.fin.every(r => r[1] === 'basic' && r.slice(2, 12).every(Boolean)), JSON.stringify(D.fin.filter(r => !(r[1] === 'basic' && r.slice(2, 12).every(Boolean)))));
-  t.check('huile de table : première nécessité (Alimentation), biocarburant dans Auto et outils', D.tableoilNec >= 70 && D.fam[0] === 'Alimentation' && D.fam[1] === 'Alimentation' && D.fam[2] === 'Auto et outils', JSON.stringify(D.fam));
+  t.check('huile de table : première nécessité (Alimentation), biocarburant dans Auto et outils', D.tableoilNec >= 70 && D.fam[0] === 'Alimentation' && D.fam[1] === 'Auto et outils', JSON.stringify(D.fam));
+  t.check('chips de maïs retirées de la gamme (passe 75), listées dans PROD_RETIRED pour les anciennes sauvegardes', D.noChips, '');
   t.check('zones fertiles de maïs et de colza présentes et réparties sur la carte (au moins 3 quarts chacune)', D.fields.corn > 40 && D.fields.rapeseed > 30 && Object.keys(D.quad.corn || {}).length >= 3 && Object.keys(D.quad.rapeseed || {}).length >= 3, JSON.stringify(D.fields) + ' ' + JSON.stringify(D.quad));
   t.check('aucun nom en double (marchandises, produits, bâtiments)', D.dup.length === 0, D.dup.join(', '));
   t.info(`types ${D.counts[0]} · biens ${D.counts[1]} · recettes ${D.counts[2]} · produits ${D.counts[3]}`);
 
   // 2. Sprites HD : branchés dans le build et calés sur 2×2 comme les autres fermes
   { const tpl = fs.readFileSync(path.join(root, 'game.template.html'), 'utf8'), html = fs.readFileSync(path.join(root, 'city.html'), 'utf8'), bld = fs.readFileSync(path.join(root, 'tools', 'build.py'), 'utf8');
-    t.check('méga-classe de marque (MEGA_OF) et technologies (PROD_TECH) : huile de table et chips en alimentation, biocarburant en auto', /tableoil: 'food', cornchips: 'food', biofuel: 'auto'/.test(tpl) && /tableoil: 8, cornchips: 8 \}/.test(tpl) && /biofuel: 10 \}, \['handtools', 'lube', 'biofuel'\]/.test(tpl), '');
+    t.check('méga-classe de marque (MEGA_OF) et technologies (PROD_TECH) : huile de table en alimentation, biocarburant en auto', /tableoil: 'food', biofuel: 'auto'/.test(tpl) && /tableoil: 8 \}/.test(tpl) && /biofuel: 10 \}, \['handtools', 'lube', 'biofuel'\]/.test(tpl), '');
     const dim = k => { const m = html.match(new RegExp('"' + k + '": \\[([0-9., ]+)\\]')); return m ? m[1].split(',').map(Number) : null; };
     const dw = dim('fwheat'), dc = dim('fcorn'), dr = dim('frapeseed');
     t.check('sprites HD : fcorn et frapeseed dans P2_TYPE et dans le build (P2_NAMES)', /P2_TYPE = \{[^}]*fcorn: 'fcorn'[^}]*frapeseed: 'frapeseed'/.test(tpl) && /'fcorn', 'frapeseed'/.test(bld), '');
@@ -77,11 +78,11 @@ exports.run = async (t, L) => {
     ex.forEach(x => { if (x.none) return t.check(`${x.key} : zone fertile disponible`, false);
       if (x.key === 'fwheat') return t.check('ferme de blé inchangée : EBITDA 15-30 % et retour <= 6 ans', x.eb * 100 >= 15 && x.eb * 100 <= 30 && x.payback <= 6, `EBITDA ${(x.eb * 100).toFixed(1)} %, retour ${x.payback.toFixed(1)} an`);
       t.check(`${x.key} : EBITDA 15-30 % et retour sur capex 1,5 à 6 ans`, x.eb * 100 >= 15 && x.eb * 100 <= 30 && x.payback >= 1.5 && x.payback <= 6, `EBITDA ${(x.eb * 100).toFixed(1)} %, retour ${x.payback.toFixed(2)} an`); });
-    const fx = await L.pool(['cookoil', 'biodiesel', 'tableoil', 'cornchips', 'biofuel'], 3, k => L.isoFactory(k));
+    const fx = await L.pool(['cookoil', 'biodiesel', 'tableoil', 'biofuel'], 3, k => L.isoFactory(k));
     fx.forEach(a => t.check(`usine ${a.key} : EBITDA 10-25 % (marge plausible)`, a.eb * 100 >= 10 && a.eb * 100 <= 25 && a.errs.length === 0, `EBITDA ${(a.eb * 100).toFixed(1)} %, MB ${(a.gm * 100).toFixed(0)} %`)); }
 
   // 5. Chaînes de bout en bout : « Fabriquer » construit cultures et usines, le produit fini sort et se vend en magasin
-  const CH = [['tableoil', ['fcorn', 'frapeseed']], ['cornchips', ['fcorn']], ['biofuel', ['frapeseed']]];
+  const CH = [['tableoil', ['fcorn', 'frapeseed']], ['biofuel', ['frapeseed']]];
   for (const [pk, farms] of CH) {
     const p2 = await L.newPage({ wait: 600 }); await L.setup(p2, { cash: 5e10 }); await L.inject(p2);
     const r = await p2.evaluate(({ pk, farms }) => {
