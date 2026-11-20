@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Audit des intérieurs : pour CHAQUE type de bâtiment (TYPES), le construit dans une ville de test, ouvre sa vue intérieure (panneau + scène animée),
-// parcourt tous les onglets, entre en vue immersive pour les usines (atelier + bureau / carnet de commandes), ouvre aussi le Mall et l'Aéroport,
+// parcourt tous les onglets, entre en vue immersive pour les usines (atelier + bureau / carnet de commandes), ouvre aussi le Mall et l'Aéroport (panneau et intérieur)
+// et l'intérieur de chaque équipement public de la ville (passe 78 : clés « pub:<équipement> »),
 // en bureau (1280×900) puis en mobile (390×844). Détecte : erreurs JS, NaN / undefined / Infinity (texte du panneau ET texte dessiné sur les canevas),
 // éléments hors écran, défilement horizontal, onglets vides, scène vide, coût de rendu d'une image de la scène.
 // Usage : NODE_PATH=$(npm root -g) node wall-street-empire/tools/audit_interieurs.js [dossier_captures] [filtre_type ...]
@@ -137,6 +138,33 @@ async function auditAll(L, o = {}) {
     const er = err0(); if (er.length) r.problems.push('erreurs JS : ' + er.slice(0, 3).join(' || ').slice(0, 300));
     r.ms = Date.now() - t1; if (o.log) console.log(`${tag} ${k.padEnd(10)} ${(r.kind || '').padEnd(6)} ${String(r.ms).padStart(5)} ms  ${r.problems.length ? r.problems.join(' ; ') : 'ok'}`);
   }
+  // Passe 78 : équipements publics de la ville (écoles, crèche, hôpital, caserne, commissariat, mairie, stades, télécom) ouverts au clic comme un joueur (inspect),
+  // Mall et Aéroport par le bouton « Voir l'intérieur » de leur panneau : chacun doit avoir une scène intérieure animée (kind 'pub')
+  const pubs = await pg.evaluate(() => { const W = window.WSE, S = W.S, o = {}; S.grid.forEach(c => { if (c && c.t === 'npc' && c.k === 'mon' && W.pub.is(c) && !/_\d+$/.test(c.m) && !o[c.m]) o[c.m] = [c.x, c.y]; }); return o; });
+  for (const m of Object.keys(pubs)) {
+    const k = 'pub:' + m; if (o.only && o.only.length && !o.only.includes(k) && !o.only.includes('pub')) continue;
+    const r = { key: k, tag, problems: [] }, t1 = Date.now(); res.push(r);
+    try {
+      const pnl = m === 'mall' || m === 'air' ? m : null;
+      if (pnl) await pg.evaluate(w => { window.WSE.closeBuilding(); window.WSE[w].open(); const b = document.querySelector(`[data-${w}="int"]`); if (b) b.click(); }, pnl);
+      else await pg.evaluate(p => { window.WSE.closeBuilding(); window.WSE.inspect(p[0], p[1]); }, pubs[m]);
+      await pg.waitForTimeout(o.fast ? 350 : 700);
+      const m1 = await pg.evaluate(MEASURE); Object.assign(r, { name: m1.name, kind: m1.kind, ink: m1.ink, cols: m1.cols });
+      if (!m1.open) r.problems.push('la vue ne s\'ouvre pas'); if (m1.kind !== 'pub') r.problems.push('pas de scène intérieure (kind ' + m1.kind + ')');
+      if (m1.bad.length) r.problems.push('texte suspect : ' + m1.bad.join(' | ')); if (m1.canvasBad.length) r.problems.push('texte de scène suspect : ' + m1.canvasBad.join(' | '));
+      if (m1.out.length) r.problems.push('hors écran : ' + m1.out.slice(0, 4).join(', ')); if (m1.hscroll) r.problems.push('défilement horizontal du panneau'); if (m1.ov.length) r.problems.push('boutons superposés : ' + m1.ov.join(', ')); if (!m1.inView) r.problems.push('panneau hors de la fenêtre');
+      if (m1.ink >= 0 && (m1.ink < 0.2 || m1.cols < 6)) r.problems.push(`scène vide ou presque (couverture ${Math.round(m1.ink * 100)} %, ${m1.cols} couleurs)`);
+      if (!/Intérieur/.test(await pg.evaluate(() => [...document.querySelectorAll('#bview .btabs button')].filter(b => b.offsetParent).map(b => b.textContent).join('|')))) r.problems.push('onglet Intérieur absent');
+      if (/pas d'intérieur/i.test(await pg.evaluate(() => document.getElementById('bview').innerText))) r.problems.push('« pas d\'intérieur » affiché');
+      r.frameMs = await pg.evaluate(() => { const W = window.WSE; let best = 1e9; for (let b = 0; b < 3; b++) { const t0 = performance.now(); for (let i = 0; i < 10; i++) W.sceneFrame(0.033); best = Math.min(best, (performance.now() - t0) / 10); } return +best.toFixed(2); });
+      if (r.frameMs > 25) r.problems.push('scène lente : ' + r.frameMs + ' ms/image');
+      r.stats = await pg.evaluate(() => window.WSE.pub.stats());
+      if (shots) await pg.screenshot({ path: path.join(shots, `${tag}_pub_${m}.png`) });
+    } catch (e) { r.problems.push('exception : ' + (e.message || e).toString().slice(0, 160)); }
+    const er = err0(); if (er.length) r.problems.push('erreurs JS : ' + er.slice(0, 3).join(' || ').slice(0, 300));
+    r.ms = Date.now() - t1; if (o.log) console.log(`${tag} ${k.padEnd(14)} ${(r.kind || '').padEnd(6)} ${String(r.ms).padStart(5)} ms  ${r.problems.length ? r.problems.join(' ; ') : 'ok'}`);
+  }
+  await pg.evaluate(() => window.WSE.closeBuilding());
   // Mall central et aéroport (panneaux dédiés)
   for (const [k, sel, open] of [['mall', '#mallp', 'mall'], ['aeroport', '#airp', 'air']]) {
     if (o.only && o.only.length && !o.only.includes(k)) continue;
