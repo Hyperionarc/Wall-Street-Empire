@@ -21,3 +21,13 @@
 2. **Synergies visibles** : chaque caste affiche dans l'UI « ce que les autres castes t'apportent » et « ce que tu leur apportes ».
 3. **Pas d'annulation** : aucune action de caste ne réduit durablement la valeur d'une autre caste de plus qu'elle ne crée pour elle-même ou pour l'ensemble.
 4. **Croissance exponentielle jusqu'aux limites** : trajectoire de valeur globale convexe (rendements croissants) sur les 2 000 premiers jours.
+
+## État (passe 68, détail dans docs/EQUILIBRE_ECONOMIE.md)
+- Mécanismes : multiplicateur de prospérité (`prosp`, revenu créé par toutes les entreprises), marché élargi par l'offre des concurrents (`rivMkt`), deux bassins de
+  clientèle (`attrDen` : une IA pèse peu sur ta clientèle d'origine, de plus en plus avec ton palier), services B2B au lieu de −7 % par rival, `rivSvc` ≤ 6 %, crédit des IA
+  chez le banquier joueur, demande de matières liée à l'activité des entreprises, cartel du négociant devenu contrat d'approvisionnement (prix stable, volumes garantis).
+- Critère 1 (A/B 1 800 jours, 3 graines) : monde à six = ×1,93 le joueur seul (×1,39 avant) ; par caste, joueur avec les 5 autres / seul : agriculteur 1,63, banquier 1,13,
+  industriel 1,06, promoteur 1,02, innovateur 1,02, **négociant 0,87** (chemin de bot au départ, voir passe 68). Avant : 0,25 à 0,76 (agriculteur 1,35).
+- Critère 2 : bilan « Ce que les autres castes t'apportent / ce que tu leur apportes » en tête de Menu > Concurrents (chiffres réels, relevé `S.syn`).
+- Critère 4 : trajectoire du monde convexe (166, 218, 301, 396, 546, 760 M$).
+- Reste à transformer : guerres des prix des IA et embargos de riposte ; équilibre des castes en partie normale (promoteur et banquier au-dessus de la bande).
