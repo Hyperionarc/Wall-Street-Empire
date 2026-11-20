@@ -1400,6 +1400,10 @@ body.cmp #pclose{margin-left:auto;flex:0 0 auto}
     <p class="note">Grèves, krachs, incendies, opportunités... Une décision à prendre tous les 20 à 35 jours.</p>
     <div class="seg2" id="evtoggle"><button class="btn sec" data-ev2="1">Oui</button><button class="btn sec" data-ev2="0">Non</button></div>
     <div class="actions"><button class="btn" id="mCash">+1 M$ (bac à sable)</button><button class="btn" id="mUnlock">Tout débloquer : oui</button><button class="btn" id="mCaste">Changer de caste</button><button class="btn" id="mProd">Ouvrir la vue Produits</button><button class="btn sec" id="mNew">Nouvelle ville</button></div>
+    <h3>TÉLÉMÉTRIE LOCALE (ANONYME)</h3>
+    <p class="note" id="telNote">Désactivée par défaut. Si tu l'actives, le jeu tient un petit journal anonyme (premier achat, première usine, paliers, chantiers, accélérations, choix manuel ou automatique des fournisseurs, ruptures) dans ce navigateur seulement : rien n'est envoyé. Tu peux l'exporter en JSON pour nous le transmettre si tu le souhaites, ou l'effacer.</p>
+    <div class="seg2" id="teltoggle"><button class="btn sec" data-tel="1">Oui</button><button class="btn sec" data-tel="0">Non</button></div>
+    <div class="actions"><button class="btn sec" id="telExport">Exporter le journal (JSON)</button><button class="btn sec" id="telClear">Effacer le journal</button></div>
     <h3>RACCOURCIS</h3>
     <p class="note">Molette ou boutons + et − : 5 niveaux de zoom (1 très près, 5 vue macro). Touches + et − aussi. Flèches : déplacer. Espace + glisser : déplacer. Un clic avec l'outil Main sur un bâtiment ouvre sa vue intérieure.</p>
     </section>
@@ -1485,6 +1489,74 @@ const TIERS = [
   { n: 'Citoyen', at: 0 }, { n: 'Entrepreneur', at: 1250000 }, { n: 'Industriel', at: 3500000 },
   { n: 'Magnat', at: 12500000 }, { n: 'Oligarque', at: 35000000 }
 ];
+// ---- Passe 76 : télémétrie locale anonyme (docs/MONETISATION_GAMIFICATION.md). OPT-IN, désactivée par défaut, RIEN n'est envoyé :
+// le journal reste dans ce navigateur (clé wse-telemetry, ≤ TEL_MAX caractères, les plus anciens événements sont retirés au-delà) et s'exporte en JSON (Menu > Partie).
+// Aucune donnée personnelle (ni nom, ni adresse, ni horodatage précis : la date du jour seulement). Lecture seule de l'état du jeu : n'appelle jamais rnd(),
+// ne modifie jamais S ; une partie est identique avec ou sans télémétrie (test t76). API : window.WSE.tel.
+const TEL_REFUS = /^(Il (te )?(faut|manque)|Trésorerie insuffisante|Fonds insuffisants|Pas assez)|se débloque (au|quand)/;   // action du joueur refusée (argent, palier) : un point de blocage
+const TEL_KEY = 'wse-telemetry', TEL_V = 1, TEL_MAX = 200000, TEL_MULT = [1.5, 2, 3, 5, 10, 30, 100];
+let _tel = null, _telO = null, _telT = 0;
+function telBlank() { return { v: TEL_V, on: 0, sid: '', ev: [], cnt: {}, first: {}, sess: [], drop: 0 }; }
+function telS() {
+  if (_tel) return _tel;
+  let x = null; try { x = JSON.parse(localStorage.getItem(TEL_KEY) || 'null'); } catch (e) { x = null; }
+  const b = telBlank();
+  if (x && x.v === TEL_V && typeof x === 'object') { b.on = x.on ? 1 : 0; b.sid = typeof x.sid === 'string' ? x.sid.slice(0, 12) : ''; b.ev = Array.isArray(x.ev) ? x.ev.filter(Array.isArray).slice(-5000) : []; b.cnt = x.cnt && typeof x.cnt === 'object' ? x.cnt : {}; b.first = x.first && typeof x.first === 'object' ? x.first : {}; b.sess = Array.isArray(x.sess) ? x.sess.slice(-50) : []; b.drop = +x.drop || 0; }
+  _tel = b; if (b.on) telSess(); return b;
+}
+const telOn = () => !!(_tel || telS()).on;
+function telSess() { const X = _tel; X._t0 = Date.now(); X.sess.push({ d: new Date().toISOString().slice(0, 10), s: 0, j: 0 }); if (X.sess.length > 50) X.sess.shift(); }
+function telSec() { const X = _tel; return X && X._t0 ? Math.round((Date.now() - X._t0) / 1000) : 0; }
+function telDay() { try { return S ? S.day | 0 : 0; } catch (e) { return 0; } }
+// enregistre un événement : [secondes réelles depuis le début de la session, jour de jeu, type, données courtes]
+function tel(type, d) {
+  if (!telOn()) return; const X = _tel, day = telDay(), s = telSec();
+  X.ev.push(d === undefined ? [s, day, type] : [s, day, type, d]); X.cnt[type] = (X.cnt[type] || 0) + 1;
+  if (!X.first[type]) X.first[type] = { s, j: day };
+  telSoon();
+}
+function telCount(type, n) { if (!telOn() || !n) return; _tel.cnt[type] = (_tel.cnt[type] || 0) + n; }
+function telPack() {
+  const X = _tel, o = { v: X.v, on: X.on, sid: X.sid, ev: X.ev, cnt: X.cnt, first: X.first, sess: X.sess, drop: X.drop };
+  const se = X.sess[X.sess.length - 1]; if (se && X._t0) { se.s = telSec(); se.j = Math.max(se.j, telDay() - (X._j0 || 0)); }
+  let s = JSON.stringify(o);
+  while (s.length > TEL_MAX * 0.97 && X.ev.length > 20) { const k = Math.ceil(X.ev.length / 5); X.ev.splice(0, k); X.drop += k; o.ev = X.ev; o.drop = X.drop; s = JSON.stringify(o); }   // borne : on retire les plus anciens (les « premières fois » restent dans first)
+  return s;
+}
+function telFlush() { _telT = 0; if (!_tel || !_tel.on) return; try { localStorage.setItem(TEL_KEY, telPack()); } catch (e) { /* stockage plein ou indisponible : le journal reste en mémoire */ } }
+function telSoon() { if (_telT) return; try { _telT = setTimeout(telFlush, 1500); } catch (e) { _telT = 0; } }
+function telEnable(on) {
+  const X = telS(); on = on ? 1 : 0; if (X.on === on) return on;
+  X.on = on;
+  if (on) { if (!X.sid) X.sid = Date.now().toString(36).slice(-8); telSess(); _telO = null; tel('optin'); telFlush(); }
+  else { try { localStorage.setItem(TEL_KEY, JSON.stringify({ v: TEL_V, on: 0, sid: X.sid, ev: X.ev, cnt: X.cnt, first: X.first, sess: X.sess, drop: X.drop })); } catch (e) { /* indisponible */ } }
+  return on;
+}
+function telChantier(c) { if (!telOn()) return; tel('chantier', { t: c.t, l: c.t === 'res' ? c.floors | 0 : (c.lvl | 0) + 1, via: 'ui' }); if (_telO && _telO.S === S) _telO.lv++; }
+function telClear() { const on = telS().on; _tel = telBlank(); _tel.on = on; _telO = null; if (on) { _tel.sid = Date.now().toString(36).slice(-8); telSess(); } try { if (on) localStorage.setItem(TEL_KEY, telPack()); else localStorage.removeItem(TEL_KEY); } catch (e) { /* indisponible */ } }
+function telExport() { telS(); const X = _tel, o = JSON.parse(telPack()); o.schema = 'wse-telemetry/1 : ev = [secondes depuis la session, jour de jeu, type, données] ; cnt = compteurs ; first = première occurrence ; sess = sessions (date, secondes, jours joués)'; o.types = TEL_TYPES; return JSON.stringify(o, null, 1); }
+function telDownload() { try { const b = new Blob([telExport()], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'wse-telemetrie-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); return true; } catch (e) { return false; } }
+const TEL_TYPES = { optin: 'télémétrie activée', game: 'partie observée (mode, caste, difficulté)', first_buy: 'premier bâtiment acheté', first_factory: 'première usine', tier: 'palier de fortune atteint', mult: 'valeur ×1,5 / ×2 / ×3 / ×5 / ×10… du départ', bn: 'valeur ≥ 1 Md$', chantier: 'chantier lancé (amélioration de niveau 1→5 ou étage)', accel: 'accélération payée (Diamants, trésorerie, crédits labo)', policy: 'politique automatique changée (fournisseurs auto = seek, prix confiés au COO = px)', sc_manual: 'fournisseur choisi à la main', sc_auto: 'intrant rendu au mode automatique', sc_autosource: 'bouton « Sources automatiques »', sc_switch: 'changement de fournisseur fait par le jeu (politique automatique)', px_manual: 'prix réglé à la main', rupture: 'début de rupture d\'approvisionnement (une par bâtiment et matière au plus tous les 30 jours)', refus: 'action refusée (trésorerie, palier…)', iap: 'boutique de démonstration ouverte' };
+// observation quotidienne, en lecture seule, appelée à la fin de step() quand la télémétrie est active
+function telStep() {
+  const st = S.stats || {}, cn = st.cn || {}, w = +st.worth || 0;
+  let own = 0, fac = 0, lv = 0, rup = 0; const nr = [];
+  Object.keys(cn).forEach(k => { if (k !== 'road' && k !== 'npc' && k !== 'part' && k !== 'pylon' && k !== 'cable' && k !== 'pipeline') own += cn[k] | 0; if (k === 'f1' || k === 'f2' || k === 'f3' || k === 'f4' || k === 'foundry') fac += cn[k] | 0; });
+  for (let i = 0; i < S.grid.length; i++) { const c = S.grid[i]; if (!c || c.t === 'npc' || c.t === 'road' || c.x + c.y * N !== i) continue; lv += (c.lvl | 0) + (c.t === 'res' ? Math.max(0, (c.floors | 0) - 1) : 0); if (c._rup > 0) { rup++; if (c._rup === 1) nr.push(c); } }
+  const seek = !!(S.pol && S.pol.seek), px = cooPol();
+  const O = _telO;
+  if (!O || O.S !== S) { _telO = { S, own, fac, lv, tier: tierOf(w), w0: w || 1, m: TEL_MULT.filter(k => w >= k * (w || 1)).length, bn: w >= 1e9, seek, px, rk: {} }; _tel._j0 = S.day; tel('game', { mode: S.mode ? S.mode.k : '', caste: S.caste || '', dif: S.diff || 0, j: S.day, seek: seek ? 1 : 0, px, own, fac }); return; }
+  if (own > 0 && O.own === 0) tel('first_buy', { j: S.day }); if (fac > 0 && O.fac === 0) tel('first_factory', { j: S.day });
+  O.own = own; O.fac = fac;
+  const tn = tierOf(w); if (tn > O.tier) { O.tier = tn; tel('tier', { n: tn, nm: TIERS[tn].n }); }
+  while (O.m < TEL_MULT.length && w >= TEL_MULT[O.m] * O.w0) { tel('mult', { x: TEL_MULT[O.m] }); O.m++; }
+  if (!O.bn && w >= 1e9) { O.bn = true; tel('bn'); }
+  if (lv > O.lv) tel('chantier', { n: lv - O.lv, via: 'obs' }); O.lv = lv;   // niveaux gagnés hors bouton (bot, promoteur) ; le bouton « Améliorer » est compté par place('up')
+  if (seek !== O.seek) { O.seek = seek; tel('policy', { k: 'seek', v: seek ? 1 : 0 }); } if (px !== O.px) { O.px = px; tel('policy', { k: 'px', v: px }); }
+  telCount('rup_days', rup);   // jours × bâtiments en rupture (compteur seul)
+  nr.forEach(c => { const key = c.t + ':' + (c._rupG || ''); if (O.rk[key] != null && S.day - O.rk[key] < 30) return; O.rk[key] = S.day; tel('rupture', { t: c.t, g: c._rupG || '' }); });
+  if (S.day % 30 === 0) telSoon();
+}
 
 // Marchandises : prix de base, couleur
 const GOODS = {
@@ -5605,8 +5677,8 @@ function stepProcure() {
   eachBuilding(c => { const T = TYPES[c.t]; if (!c.conn || c.t === 'npc' || n >= 3) return;
     const ins = (FLEVEL[c.t] || c.t === 'foundry') && recOf(c) ? Object.keys(recOf(c).in) : T.ret ? T.ret.sells.filter(x => x !== 'estate') : []; if (!ins.length) return;
     ins.forEach(g => { if (!GOODS[g]) return; const mode = (c.src && c.src[g]) || 'auto', qw = buyerQw(c), best = bestOffer(g, c.haul, qw, FLEVEL[c.t] || c.t === 'foundry' ? c : null); if (!best) return;
-      if (mode === 'auto') { if ((c._rup | 0) >= polTol() && c._rupG === g) { c.src = c.src || {}; c.src[g] = best.id; n++; say(`Rupture de ${GOODS[g].name.toLowerCase()} depuis ${c._rup} jours : ${T.name.toLowerCase()} se tourne vers ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré, qualité ${best.o.q}).`, 'info'); } }
-      else if (mode.indexOf('co:') === 0) { const cur = supOffer(g, mode.slice(3), c.haul), full = !!(c._supS && c._supS[g] > 0.01); if ((full || best.sc < offerScore(cur, qw) * 0.95) && best.id !== mode) { /* fournisseur saturé : on en cherche un qui a de la place */ c.src[g] = best.id; n++; say(`Meilleur fournisseur trouvé pour ${GOODS[g].name.toLowerCase()} : ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré au lieu de ${cur.total.toFixed(2).replace('.', ',')}).`, 'info'); } } }); });
+      if (mode === 'auto') { if ((c._rup | 0) >= polTol() && c._rupG === g) { c.src = c.src || {}; c.src[g] = best.id; n++; tel('sc_switch', { t: c.t, g, why: 'rup' }); say(`Rupture de ${GOODS[g].name.toLowerCase()} depuis ${c._rup} jours : ${T.name.toLowerCase()} se tourne vers ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré, qualité ${best.o.q}).`, 'info'); } }
+      else if (mode.indexOf('co:') === 0) { const cur = supOffer(g, mode.slice(3), c.haul), full = !!(c._supS && c._supS[g] > 0.01); if ((full || best.sc < offerScore(cur, qw) * 0.95) && best.id !== mode) { /* fournisseur saturé : on en cherche un qui a de la place */ c.src[g] = best.id; n++; tel('sc_switch', { t: c.t, g, why: 'px' }); say(`Meilleur fournisseur trouvé pour ${GOODS[g].name.toLowerCase()} : ${best.o.name} (${best.o.total.toFixed(2).replace('.', ',')} $ livré au lieu de ${cur.total.toFixed(2).replace('.', ',')}).`, 'info'); } } }); });
 }
 // Indice de fréquentation (Customer Index) : six facteurs pondérés, 0 à 100, qui pilote directement l'affluence du magasin
 function custIndex(c) {
@@ -7108,6 +7180,7 @@ function step() {
   try { stepCoach(); } catch (e) { /* conseiller facultatif */ }
   try { netDaily(); } catch (e) { /* réseau facultatif : n'affecte pas la simulation */ }
   checkMissions();
+  if ((_tel || telS()).on) { try { telStep(); } catch (e) { /* télémétrie facultative : jamais bloquante */ } }
   if (S.day % 5 === 0) save();
   updateHUD();
 }
@@ -7484,6 +7557,7 @@ function place(x, y, key) {
     if (S.cash < cost) { say(`Il faut ${money(cost)} pour améliorer ce bâtiment.`, 'bad'); return false; }
     S.cash -= cost; c.invest = investOf(c) + cost;
     if (c.t === 'res') c.floors++; else c.lvl++;
+    telChantier(c);
     c.born = performance.now() - 300;
     flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cost), t: performance.now(), col: '#ff8a8e' });
     refreshStats(); checkMissions(); updateHUD();
@@ -7624,6 +7698,7 @@ function inspect(x, y) {
 /* ---------- Fil d'alertes ---------- */
 const feed = $('#feed');
 function say(text, kind) {
+  if (_tel && _tel.on && (kind === 'bad' || kind === 'warn') && TEL_REFUS.test(String(text))) { try { telCount('refus_n', 1); const d = telDay(); if (_tel._rf == null || d - _tel._rf >= 10) { _tel._rf = d; tel('refus', { m: String(text).replace(/[0-9][0-9 ,.]*/g, '#').slice(0, 60) }); } } catch (e) { /* facultatif */ } }
   try { if (typeof S !== 'undefined' && S) { (S._sayBuf = S._sayBuf || []).push(String(text).slice(0, 90)); if (S._sayBuf.length > 4) S._sayBuf.shift(); } } catch (e) {}
   // passe 64 : file courte. Téléphone : une seule notification (4,5 s) ; bureau : deux au plus (6,5 s) ; un message identique déjà affiché est prolongé au lieu d'être répété
   const cm = isCmp(), life = cm ? 4500 : 6500, last = feed.lastElementChild;
@@ -9928,7 +10003,7 @@ el('pdetail').addEventListener('click', e => {
 });
 el('pdetail').addEventListener('input', e => {
   if (e.target.id !== 'pd-pf') return;
-  S.prod[selProd].pf = +e.target.value / 100; if (cooPol() !== 'man') S.prod[selProd].pxm = 1;   // le joueur reprend la main sur ce produit (le COO n'y touche plus)
+  S.prod[selProd].pf = +e.target.value / 100; if (cooPol() !== 'man') S.prod[selProd].pxm = 1; if (telOn() && (!_telO || _telO.pxd !== S.day)) { if (_telO) _telO.pxd = S.day; tel('px_manual', { p: selProd }); }   // le joueur reprend la main sur ce produit (le COO n'y touche plus)
   e.target.previousElementSibling.textContent = 'Prix : ' + e.target.value + ' % de ' + money(PRODUCTS[selProd].ref * QTIER[S.prod[selProd].q].ref);
   const pb = el('pdetail').querySelector('.pricebig'); if (pb) pb.textContent = money(prodPrice(selProd));
 });
@@ -10969,7 +11044,7 @@ function bAct(a) {
   else if (a === 'autoslots') { c.slots = null; c.shelf = null; bPick = -1; }
   else if (a.indexOf('tab:') === 0) { /* géré plus haut */ }
   else if (a.indexOf('recipe:') === 0) { c.prod = a.slice(7) || null; c.src = {}; if (c.prod) autoSource(c); }
-  else if (a === 'autosrc') { autoSource(c); }
+  else if (a === 'autosrc') { autoSource(c); tel('sc_autosource', { t: c.t }); }
   else if (a.indexOf('make:') === 0) { const n = assignRecipe(a.slice(5), 1); say(n ? 'Usine affectée à ' + RECIPES[a.slice(5)].name.toLowerCase() + '.' : 'Aucune usine libre : construis-en une.', n ? 'good' : 'warn'); }
   else if (a.indexOf('info:') === 0) { const [nm, have] = a.slice(5).split('|'); say((have === '1' ? 'Agrandis ou ajoute : ' : 'Construis : ') + nm.toLowerCase() + '.', 'info'); }
   refreshStats(); updateHUD(); renderBuilding(true);
@@ -14373,8 +14448,8 @@ el('supview').addEventListener('click', e => {
   if (a.indexOf('slotput:') === 0) { const key = a.slice(8), N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[spI] = key; el('supview').hidden = true; supMode = 'sup'; bPick = -1; renderBuilding(true); save(); return; }
   const ins = supIns(c);
   if (a === 'cancel') { el('supview').hidden = true; return; }
-  if (a === 'ok') { c.src = c.src || {}; if (supSel) c.src[supG] = supSel; if (c.prod && PRODUCTS[c.prod] && S.prod[c.prod].st === 'on') updInputQ(c.prod); el('supview').hidden = true; renderBuilding(true); save(); return; }
-  if (a === 'auto') { c.src = c.src || {}; c.src[supG] = 'auto'; supSel = 'auto'; el('supview').hidden = true; renderBuilding(true); return; }
+  if (a === 'ok') { c.src = c.src || {}; if (supSel) { c.src[supG] = supSel; tel(supSel === 'auto' ? 'sc_auto' : 'sc_manual', { t: c.t, g: supG }); } if (c.prod && PRODUCTS[c.prod] && S.prod[c.prod].st === 'on') updInputQ(c.prod); el('supview').hidden = true; renderBuilding(true); save(); return; }
+  if (a === 'auto') { c.src = c.src || {}; c.src[supG] = 'auto'; supSel = 'auto'; tel('sc_auto', { t: c.t, g: supG }); el('supview').hidden = true; renderBuilding(true); return; }
   if (a.indexOf('pick:') === 0) { supSel = a.slice(5); supNeg = false; }
   else if (a === 'prev' || a === 'next') { const i = ins.indexOf(supG); supG = ins[(i + (a === 'next' ? 1 : -1) + ins.length) % ins.length]; supSel = null; }
   else if (a === 'neg') supNeg = !supNeg;
@@ -14382,7 +14457,7 @@ el('supview').addEventListener('click', e => {
     if (rnd() < pr) { const d = (4 + 5 * rnd() + days / 30) / 100, key = supG + ':' + (supSel.indexOf('co:') === 0 ? supSel.slice(3) : supSel); S.deals[key] = { m: 1 - d, until: S.day + days }; S.rel[supSel] = Math.min(100, rel + 8); say(`Accord obtenu : −${Math.round(d * 100)} % pendant ${days} jours.`, 'good'); } else { S.rel[supSel] = Math.min(100, rel + 3); say('Négociation échouée : le fournisseur campe sur ses prix.', 'warn'); } supNeg = false; } }
   renderSup();
 });
-el('supview').addEventListener('change', e => { if (e.target.dataset.sps) { const c = supB && cell(supB.x, supB.y); if (c) { c.src = c.src || {}; c.src[e.target.dataset.sps] = e.target.value; } return; } const s = e.target.dataset.sf; if (!s) return; if (s === 'g') { supG = e.target.value; supSel = null; } else if (s === 'type') supType = e.target.value; else supSort = e.target.value; renderSup(); });
+el('supview').addEventListener('change', e => { if (e.target.dataset.sps) { const c = supB && cell(supB.x, supB.y); if (c) { c.src = c.src || {}; c.src[e.target.dataset.sps] = e.target.value; tel(e.target.value === 'auto' ? 'sc_auto' : 'sc_manual', { t: c.t, g: e.target.dataset.sps }); } return; } const s = e.target.dataset.sf; if (!s) return; if (s === 'g') { supG = e.target.value; supSel = null; } else if (s === 'type') supType = e.target.value; else supSort = e.target.value; renderSup(); });
 function purTab(c) {
   const rec = recOf(c); if (!rec) { if (FLEVEL[c.t]) { const why = !c.prod ? 'Aucun produit n\'est choisi : l\'usine est à l\'arrêt, donc elle n\'a rien à acheter.' : (PRODUCTS[c.prod] && S.prod[c.prod].st === 'rnd') ? 'Le produit choisi est encore en R&D : l\'usine n\'achète rien tant qu\'il n\'est pas lancé.' : 'Cette usine est trop petite pour ce produit : améliore-la ou affecte-lui une usine de niveau supérieur.'; return `<p class="fnote"><b>${why}</b></p><div class="actions"><button class="btn" data-act="catalog">Choisir la production</button></div><p class="fnote">Une fois le produit choisi, le jeu sélectionne automatiquement fournisseurs et imports pour chaque intrant ; tu pourras les modifier ici.</p>`; } return '<p class="fnote">Ce bâtiment n\'achète rien.</p>'; }
   let h = `<p class="fnote">Comme dans Capitalism : choisis, pour chaque intrant, à quelle société tu achètes. Le prix livré = prix de la société + frais de transport selon la distance. L'import par le port est plus cher que ton réseau local (marge du port + fret long).</p>`;
@@ -14681,7 +14756,7 @@ function setPtab(n) {
   document.querySelectorAll('#panel [data-ptab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ptab === n ? 'true' : 'false'));
   document.querySelectorAll('#panel [data-sec]').forEach(s => { s.hidden = s.dataset.sec !== n; });
   try { sessionStorage.setItem('wse-ptab', n); } catch (e) {}
-  updateHUD(); if (n === 'net') try { renderNet(true); } catch (e) { /* réseau facultatif */ } if (n === 'edu') try { renderEdu(true); } catch (e) { /* apprentissage facultatif */ } if (n === 'rdp') try { renderRdp(true); } catch (e) { /* brevets facultatifs */ } if (n === 'ecom') try { renderEcom(true); } catch (e) { /* commerce en ligne facultatif */ } if (n === 'rank') try { renderRank(true); } catch (e) { console.error('classements', e); }
+  updateHUD(); if (n === 'game') try { syncTelToggle(); } catch (e) { /* télémétrie facultative */ } if (n === 'net') try { renderNet(true); } catch (e) { /* réseau facultatif */ } if (n === 'edu') try { renderEdu(true); } catch (e) { /* apprentissage facultatif */ } if (n === 'rdp') try { renderRdp(true); } catch (e) { /* brevets facultatifs */ } if (n === 'ecom') try { renderEcom(true); } catch (e) { /* commerce en ligne facultatif */ } if (n === 'rank') try { renderRank(true); } catch (e) { console.error('classements', e); }
 }
 document.querySelectorAll('#panel [data-ptab]').forEach(b => { b.onclick = () => setPtab(b.dataset.ptab); });
 el('mProd').onclick = () => { setPview(true); };
@@ -14691,6 +14766,10 @@ el('mCash').onclick = () => { S.cash += 1e6; say('+1 000 000 $ ajoutés à ta tr
 el('mCaste').onclick = () => { setPanel(false); showCaste(true); };
 el('caste').addEventListener('click', e => { const v = e.target.closest('[data-cview]'); if (v) { showCasteDetail(v.dataset.cview); return; } if (e.target.closest('[data-cback]')) { showCaste(true); return; } const b = e.target.closest('[data-caste]'); if (!b) return; if (b.dataset.caste) { const q = seatClaim(b.dataset.caste, 'me'); if (!q.ok) { say(q.why || 'Siège indisponible.', 'warn'); return; } el('caste').hidden = true; } else el('caste').hidden = true; if (S.mode && S.mode.await && S.caste) { delete S.mode.await; setSpeed(1); syncSpeedUI(); } });
 function syncEvToggle() { document.querySelectorAll('#evtoggle [data-ev2]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.ev2 === '0') === !!S.noEv ? 'true' : 'false')); }
+function syncTelToggle() { const on = telOn(); document.querySelectorAll('#teltoggle [data-tel]').forEach(b => b.setAttribute('aria-pressed', (b.dataset.tel === '1') === on ? 'true' : 'false')); const X = _tel, n = X ? X.ev.length : 0; const ne = el('telNote'); if (ne && ne.dataset.base == null) ne.dataset.base = ne.textContent; if (ne) ne.textContent = ne.dataset.base + (on ? ` Journal : ${n} événement${n > 1 ? 's' : ''}, ${Math.round(telPack().length / 1000)} ko sur ${TEL_MAX / 1000} au plus.` : n ? ` Journal conservé (${n} événements), collecte arrêtée.` : ''); }
+el('teltoggle').addEventListener('click', e => { const b = e.target.closest('[data-tel]'); if (!b) return; telEnable(b.dataset.tel === '1'); syncTelToggle(); });
+el('telExport').addEventListener('click', () => { telS(); if (!_tel.ev.length && !_tel.on) { say('Le journal est vide : active la télémétrie locale pour le remplir.', 'info'); return; } telDownload(); say('Journal de télémétrie exporté (fichier JSON, rien n\'a été envoyé).', 'info'); });
+el('telClear').addEventListener('click', () => { telClear(); syncTelToggle(); say('Journal de télémétrie effacé.', 'info'); });
 el('evtoggle').addEventListener('click', e => { const b = e.target.closest('[data-ev2]'); if (!b) return; S.noEv = b.dataset.ev2 === '0'; if (S.noEv) { S.event = null; el('evcard').hidden = true; } syncEvToggle(); save(); });
 el('mNew').onclick = () => { el('rst').click(); };
 el('pclose').onclick = () => setPanel(false);
@@ -18595,7 +18674,7 @@ function accelerate(k, d, pay) {
   else return { ok: false, why: 'Mode de paiement inconnu.' };
   if (I.kind === 'p') o.rnd = Math.max(0, o.rnd - Q.d * I.rate); else o.left = Math.max(0, o.left - Q.d * I.rate);
   o.acc = (o.acc || 0) + Q.d; if (o.accD !== S.day) { o.accD = S.day; o.accN = 0; } o.accN += Q.d;
-  say(`Recherche accélérée : ${I.n} −${Q.d} jour${Q.d > 1 ? 's' : ''} (${paid}).`, 'good'); updateHUD(); saveSoon();
+  say(`Recherche accélérée : ${I.n} −${Q.d} jour${Q.d > 1 ? 's' : ''} (${paid}).`, 'good'); tel('accel', { pay, d: Q.d, gem: pay === 'gem' ? Q.gem : 0, k: I.kind }); updateHUD(); saveSoon();
   return { ok: true, d: Q.d, pay, gem: pay === 'gem' ? Q.gem : 0, cash: pay === 'cash' ? Q.cash : 0 };
 }
 // ---- Module IAP isolé. AUCUN paiement réel n'est branché dans ce build : IAP_LIVE = false, iapPurchase n'ouvre qu'une boîte d'information et ne crédite rien.
@@ -18610,7 +18689,7 @@ const IAP_PACKS = [{ id: 'gem_s', n: 'Sachet de Diamants', gems: 80, px: '0,99 �
 const IAP = { calls: [], credited: 0 };
 function iapBox(t, m) { const b = el('iapbox'); if (!b) return; el('iapT').textContent = t; el('iapM').textContent = m; b.hidden = false; }
 function iapPurchase(packId) {
-  const p = IAP_PACKS.find(x => x.id === packId); IAP.calls.push({ packId, day: S ? S.day : 0, live: IAP_LIVE });
+  const p = IAP_PACKS.find(x => x.id === packId); IAP.calls.push({ packId, day: S ? S.day : 0, live: IAP_LIVE }); tel('iap', { p: String(packId).slice(0, 20) });
   if (!IAP_LIVE || !p) { iapBox('Paiements bientôt disponibles', `Offre de démonstration${p ? ' (' + p.n + ', ' + p.gems + ' ' + GEM_N + ', ' + p.px + ')' : ''} : aucun paiement n'est possible dans cette version et aucune carte n'est sollicitée. Gagne des ${GEM_N} en atteignant les paliers et les jalons du conseiller.`); return { ok: false, reason: 'iap_off' }; }
   return { ok: false, reason: 'no_store' };   // IAP_LIVE : brancher ici le magasin (voir ci-dessus) ; le crédit viendra du serveur
 }
@@ -19685,6 +19764,9 @@ window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAu
 window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.brand.setStrat = setBrandStrat;
 window.WSE.mono = { xp: monoXP, info: monoInfo, txt: monoTxt, win: monoWin, init: monoInit, step: monoStep, rx: monoRx, K: { MONO_PH, MONO_XW, MONO_W, MONO_PAT, MONO_INNOV, MONO_LIC, MONO_LIC_K, MONO_COPY, MONO_COPY_PAT, MONO_NIV, LIC_MG } };   // passe 67 : monopole temporaire de l'innovation
+window.WSE.supply = { autoSource, bestOffer, buyerQw, procure: stepProcure };
+window.WSE.tel = { on: () => telOn(), enable: on => telEnable(on), log: (type, d) => tel(String(type).slice(0, 24), d), state: () => telS(), events: () => telS().ev.slice(), counts: () => Object.assign({}, telS().cnt), first: () => Object.assign({}, telS().first), export: () => telExport(), download: () => telDownload(), clear: () => telClear(), flush: () => { telS(); if (_tel.on) telFlush(); }, size: () => { telS(); return telPack().length; }, sync: () => syncTelToggle(), KEY: TEL_KEY, MAX: TEL_MAX, TYPES: TEL_TYPES };
+try { window.addEventListener('pagehide', () => { if (_tel && _tel.on) telFlush(); }); document.addEventListener('visibilitychange', () => { if (document.hidden && _tel && _tel.on) telFlush(); }); } catch (e) { /* facultatif */ }
 window.WSE.rd = { focus: rdSetFocus, focW: rdFocW, catchUp: rdCatch, techRows: rdTechRows, RD_FOC, patentHeld, held: patentHeld, mine: patMine, block: patBlock, blockMsg: patBlockMsg, grant: patGrant, value: patValue, incDay: patIncDay, licDay: patLicDay, revDay: patRevDay, licFee: patLicFee, buyLicence: patBuyLicence, opps: patOpps, develop: patDevelop, answer: patOfferAnswer, step: patStep, years: patYears, comp: patCompF, top: mkTopRaw, save: patSave, load: patLoad, st: rdxS, pat: () => S.pat || {}, list: accList, info: accInfo, quote: accQuote, accelerate, gemCost, gemAdd, render: renderRdp, edu: patEduHTML, advice: rdpAdvice, iap: { LIVE: IAP_LIVE, PACKS: IAP_PACKS, purchase: iapPurchase, log: IAP }, K: { PAT_Y, PAT_NIV_Y, PAT_ROY, PAT_LIC_SH, PAT_LIC_MAX, PAT_RIV_FROM, PAT_RIV_EVERY, PAT_OFF_EVERY, PAT_WARN_D, PAT_DISC, PAT_MONO, GEM_N, GEM_START, GEM_TIER, GEM_JAL, ACC_TOT, ACC_DAY_MAX, ACC_CASH_K, ACC_LAB_MAX, ACC_LAB_GAIN } };   // passe 47 : brevets de produit, R&D, accélération (aucun paiement réel)
 window.WSE.ip = { info: ipInfo, pat: ipPat, plat: ipPlat, book: ipBook, q: platQ, bill: platBill, card: platCardHTML, empire: ipEmpireHTML, debtRows: ipDebtRows, ems: { G: EMS_G, px: emsPx, name: emsName, rival: emsRiv, pay: emsPay, st: () => S._ems || null }, platSt: () => S._plat || null, K: { YEAR_D, IP_DISC, IP_PRU, IP_LTV, IP_LTV_IN, PLAT_Y, PLAT_LTV, DC_PROJ, DC_PROJ_N, IP_EROS, PLAT_DN, PLAT_PQ, PLAT_PMAX, PLAT_NET, PLAT_EXT, PLAT_GAIN, EMS_M, EMS_FR, EMS_Q, EMS_CF } };   // passe 72 : actifs immatériels, plateforme cloud, sous-traitance électronique
 window.WSE.land = { model: landModel, price: landPrice, raw: landRaw, map: landMap, range: landRange, norm: landNorm, useOf: landUseOf, natUse: landNatUse, district: districtAt, cache: landCache, pole: landPole, foot: landFoot, costFor: landCostFor, val: c => landVal(c), assets: () => proLandAssets(), tip: landTipHTML, setLayer, layer: () => layer, cur: () => curLayer(), LAYER_N, LAYER_F, LEG, USES: LAND_USES, PARTS: LM_PART, K: LM_K, DISTRICTS, zoneOk, autoSpot };   // passe 48 : valeur du terrain par usage
