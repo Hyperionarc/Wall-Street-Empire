@@ -187,6 +187,9 @@ Où l'image s'affiche : produits = `productSVG` (catalogue, fiche produit, palie
 | `chassis` Châssis et carrosserie | comp | `assets/guide_hd/chassis.jpg` 512×512 | fidèle | — |
 | `sensor` Capteurs et optiques | comp | `assets/guide_hd/sensor.jpg` 512×512 | fidèle | — |
 | `pv` Cellules photovoltaïques | comp | `assets/guide_hd/pv.jpg` 512×512 | fidèle | — |
+| `cpu` Processeurs | comp | repli vectoriel (puce sur support, sans texte) | provisoire | photo commandée (RETOURS.md n° 12, `cpu.jpg`) |
+| `dram` Mémoire DRAM | comp | repli vectoriel (barrette, sans texte) | provisoire | photo commandée (RETOURS.md n° 12, `dram.jpg`) |
+| `gpu` Cartes graphiques et accélérateurs IA | comp | repli vectoriel (carte à deux ventilateurs, sans texte) | provisoire | photo commandée (RETOURS.md n° 12, `gpu.jpg`) |
 | `stainless` Acier inoxydable | comp | `assets/guide_hd/stainless.jpg` 512×512 | fidèle | — |
 | `galva` Acier galvanisé | comp | `assets/guide_hd/galva.jpg` 512×512 | fidèle | — |
 | `brass` Laiton | comp | `assets/guide_hd/brass.jpg` 512×512 | fidèle | — |

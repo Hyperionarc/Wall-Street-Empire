@@ -6,7 +6,7 @@ const fs = require('fs'), path = require('path');
 exports.name = 'Audit produits et fermes (passe 59)';
 
 // replis vectoriels assumés (commande Cowork en cours, voir docs/AUDIT_PRODUITS.md) : toute autre clé sans photo HD est une régression
-const REPLI = ['eggs', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'tablewine', 'grandcru', 'tableoil', 'cornchips', 'biofuel', 'grapes', 'corn', 'rapeseed', 'egg', 'wine', 'cookoil', 'biodiesel', 'basic', 'std', 'lux'];
+const REPLI = ['eggs', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'tablewine', 'grandcru', 'tableoil', 'cornchips', 'biofuel', 'grapes', 'corn', 'rapeseed', 'egg', 'wine', 'cookoil', 'biodiesel', 'cpu', 'dram', 'gpu', 'basic', 'std', 'lux'];   // passe 73 : puces (photos commandées, RETOURS.md n° 12)
 const OWN_GLYPH = { eggs: 'eggbox', chicken: 'chicken', porkmeat: 'chop', lambmeat: 'rack', sausage: 'saucisson', tablewine: 'tablewine', grandcru: 'grandcru', cornchips: 'chips' };
 const FARMS = ['fwheat', 'frapeseed', 'fcorn', 'fsugar', 'fvine', 'fcattle', 'fsheep', 'fpig', 'fchicken'];
 
