@@ -372,3 +372,5 @@ Lecture honnête :
 `t70_somme_positive` (nouveau, 18 contrôles) : mécanismes (prospérité > 1 avec une part due aux autres, marché élargi borné, B2B > 1, `rivSvc` ≤ 6 %, contrat d'approvisionnement :
 prix = cours + 6 %, client plafonné en cas de flambée, pas de doublon, fin à 60 jours), A/B réduit à 500 jours (graine 6000) : promoteur ×1,05 et banquier ×1,04 (seuil 0,9),
 négociant ×0,59 à 500 jours (non soumis au seuil, voir section 2), monde > 1,2 × joueur seul pour les trois, bilan des synergies affiché et chiffré.
+Suite ciblée sur la version finale : t01, t02, t25, t27, t34 (39/39, croissance passive dans les bornes : 1 687 k au jour 7 200), t45, t63, t65, t66, t68, t70 : 0 FAIL.
+Sous une charge de 18-20, le contrôle de performance de t34 avait échoué une fois (pic 1,7 s pour 1,5 s) ; relancé à charge 6, il passe.
