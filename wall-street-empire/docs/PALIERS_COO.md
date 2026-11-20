@@ -115,3 +115,18 @@ fournisseurs (gratuit). Résultat net de la chaîne (EBE cumulé − rémunérat
 Le COO récupère 92 % du gain de l'expert et reste à ≈ 93 % de son résultat (cible 90-95 %). Sans COO, aucune source ne change (manuel intact).
 Dans ce scénario statique Or et Argent font les mêmes choix (l'avance d'Or apparaît quand les cours bougent, quand un fournisseur sature ou quand une usine libre
 peut équilibrer la chaîne) ; Or coûte plus cher.
+
+## 3. Score de maîtrise de la supply chain (gratuit)
+
+Mesuré pour tout le monde, chaque jour, sur 30 jours glissants (`S.scm.h`) : usines (production perdue faute d'intrant), magasins (jours en rupture de stock), coût des
+intrants payé face au cours du marché, rotation des stocks d'intrants.
+
+`score = 100 × (0,35 service + 0,15 rotation + 0,30 coût + 0,20 ruptures)`, avec service = 60 % usines + 40 % magasins (0 à 70 % → 0, 100 % → 1), rotation 4 → 52 par an
+(échelle log), coût livré / marché 1,30 → 0 et ≤ 0,95 → 1, ruptures 0 % → 1 et ≥ 25 % → 0. Mesure du scénario t75 : chaîne mal réglée 70,5, COO Or 95,7, expert 95,7.
+
+- **Menu > Chaîne** : carte « Score de maîtrise » (score, service, ruptures, rotation, coût livré / marché, badges).
+- **Menu > Classements > Supply chain** : classement de maîtrise (ta société et les sociétés IA, score IA estimé de façon déterministe selon leur métier et leur style),
+  record manuel, badges. **Une période pilotée par un COO n'entre pas au classement de maîtrise ni aux badges** : le premium délègue, il ne gagne pas de classement.
+  Le classement des sociétés du Round reste la valorisation, où le COO ne fait jamais mieux qu'un expert.
+- **Badges (gratuits, Diamants en prime)** après 30 jours de pilotage manuel : Zéro rupture (+20), Service impeccable ≥ 98 % (+15), Acheteur avisé (coût ≤ marché, +15),
+  Flux tendu (rotation ≥ 24/an et service ≥ 95 %, +15), Logisticien ≥ 70 (+10), Directeur des flux ≥ 85 (+20), Maître de la supply chain ≥ 95 (+40).

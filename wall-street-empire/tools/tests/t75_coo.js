@@ -53,6 +53,8 @@ exports.run = async (t, L) => {
   t.check('niveaux (résultat de la chaîne avant rémunération du COO) : Bronze ≤ Argent ≤ Or ≤ expert ; net de chaque niveau au-dessus de la chaîne mal réglée', R.bronze.net > base && R.argent.net > base && R.bronze.prof <= R.argent.prof && R.argent.prof <= R.or.prof && R.or.prof <= R.expert.prof, ['bronze', 'argent', 'or'].map(m => `${m} ${(R[m].prof / R.expert.prof * 100).toFixed(1)} % brut, ${(R[m].net / ex * 100).toFixed(1)} % net`).join(' · '));
   t.check('le COO affiche ce qu\'il fait : journal de décisions et économies estimées', R.or.log.length >= 2 && R.or.sav > 0 && R.argent.log.length >= 2, R.or.log.slice(0, 3).join(' || '));
   t.check('Bronze = aide au pilotage : il règle les ruptures et propose le reste (conseils à appliquer)', R.bronze.adv > 0 || R.bronze.log.some(l => /Conseil/.test(l)), R.bronze.log.slice(0, 3).join(' || '));
+  t.check('score de maîtrise : mesuré pour tous, plus haut pour l\'expert que pour la chaîne mal réglée', R.expert.score > R.none.score && R.none.score != null, `mal réglée ${R.none.score}, expert ${R.expert.score}, COO Or ${R.or.score}`);
+  t.check('score de maîtrise : pilotage manuel reconnu (expert), période COO marquée hors classement', R.expert.manual === true && R.or.manual === false, '');
   t.check('0 erreur JS (5 parties)', Object.keys(R).every(m => !R[m].errs.length), Object.keys(R).map(m => R[m].errs.join(';')).join(' ').trim());
 
   // ---- droit premium simulé, Diamants, interface, sauvegarde, classement et badges
@@ -65,16 +67,21 @@ exports.run = async (t, L) => {
     document.querySelector('#entBox [data-p74="prem"]').click(); o.prem = E.prem; o.dia = E.dia;
     W.setPtab('chain'); W.p74Render(); o.chain = document.getElementById('cooBox').innerText.replace(/\s+/g, ' ');
     const b = document.querySelector('#cooBox [data-p74="coo:3"]'); o.btn = !!b && !b.disabled; b.click(); o.lv = E.coo.lv;
-    for (let d = 0; d < 6; d++) W.step(); W.p74Render(); o.chain2 = document.getElementById('cooBox').innerText.replace(/\s+/g, ' ');
+    for (let d = 0; d < 6; d++) W.step(); W.p74Render(); o.chain2 = document.getElementById('cooBox').innerText.replace(/\s+/g, ' '); o.scm = document.getElementById('scmBox').innerText.replace(/\s+/g, ' ');
     W.save(); return o; });
   t.check('sans droit premium simulé, le COO ne se recrute pas (le manuel reste complet)', u.refused, '');
   t.check('Menu > Partie : bouton de démonstration « Activer Premium (simulé) », aucun paiement réel annoncé', /Activer Premium \(simulé\)/.test(u.game) && /aucun paiement réel/i.test(u.game) && u.prem === 1 && u.dia >= 300, u.game.slice(0, 160));
-  t.check('Menu > Chaîne : carte du COO (niveaux Bronze/Argent/Or, salaire), journal', u.btn && u.lv === 3 && /Bronze/.test(u.chain) && /Or/.test(u.chain) && /gratuit/i.test(u.chain) && /JOURNAL DU COO/i.test(u.chain2), u.chain2.slice(0, 200));
+  t.check('Menu > Chaîne : carte du COO (niveaux Bronze/Argent/Or, salaire), journal et score supply chain ; carte de maîtrise gratuite', u.btn && u.lv === 3 && /Bronze/.test(u.chain) && /Or/.test(u.chain) && /gratuit/i.test(u.chain) && /JOURNAL DU COO/i.test(u.chain2) && /maîtrise/i.test(u.scm), u.chain2.slice(0, 200));
   await pg.close();
   pg = await ctx.newPage(); pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message)); await pg.goto(L.URL); await pg.evaluate(() => window.WSE.setSpeed(0));
   const re = await pg.evaluate(() => { const S = window.WSE.S; return { prem: S.ent && S.ent.prem, lv: S.ent && S.ent.coo && S.ent.coo.lv, log: S.ent && S.ent.coo ? S.ent.coo.log.length : 0, scm: S.scm ? S.scm.h.length : 0 }; });
-  t.check('sauvegarde : droit simulé, niveau du COO, journal relus (champs facultatifs)', re.prem === 1 && re.lv === 3 && re.log > 0, JSON.stringify(re));
-  t.check('rechargement : 0 erreur', pg.errs.length === 0, pg.errs.slice(0, 2).join(' ; '));
+  t.check('sauvegarde : droit simulé, niveau du COO, journal et historique de maîtrise relus (champs facultatifs)', re.prem === 1 && re.lv === 3 && re.log > 0 && re.scm > 0, JSON.stringify(re));
+  const rk = await pg.evaluate(() => { const W = window.WSE, S = W.S; W.openRank('scm'); const h = document.getElementById('rkBody').innerText;
+    // badges : 30 jours de pilotage manuel sans rupture → badges gratuits et Diamants
+    S.ent.coo.lv = 0; const d0 = S.ent.dia; S.scm.h = Array.from({ length: 30 }, () => [100, 0, 0, 3, 2, 0, 95, 100, 50, 2, 0]); W.scm.award(); return { h, b: Object.keys(S.scm.b), gain: S.ent.dia - d0, best: S.scm.best, rank: W.scm.rank() }; });
+  t.check('Classements > Supply chain : classement de maîtrise (sociétés IA estimées) et badges', /Score de maîtrise/i.test(rk.h) && /BADGES DE MAÎTRISE/i.test(rk.h) && /hors classement|rang/i.test(rk.h), rk.h.slice(0, 200));
+  t.check('badges gratuits après 30 jours de pilotage manuel sans rupture (Diamants en prime), record manuel', rk.b.indexOf('r0') >= 0 && rk.b.indexOf('svc') >= 0 && rk.b.indexOf('cost') >= 0 && rk.gain > 0 && rk.best >= 85, JSON.stringify({ b: rk.b, gain: rk.gain, best: rk.best }));
+  t.check('rechargement et classement : 0 erreur', pg.errs.length === 0, pg.errs.slice(0, 2).join(' ; '));
   await ctx.close();
 
   // ---- ancienne sauvegarde (sans ent ni scm) : se charge, aucun COO, premium désactivé
@@ -92,6 +99,7 @@ exports.run = async (t, L) => {
       box.scrollIntoView(); await new Promise(r => setTimeout(r, 200));
       return { inside: r.left >= -1 && r.right <= innerWidth + 1, sw: document.documentElement.scrollWidth, iw: innerWidth, minBtn: Math.min(...btns), txt: box.innerText.length }; });
     if (SHOTS) await pg.screenshot({ path: require('path').join(SHOTS, `t75_${tag}_coo.png`) });
+    if (SHOTS) { await pg.evaluate(() => { const S = window.WSE.S; S.ent.coo.lv = 0; S.scm.h = Array.from({ length: 30 }, () => [100, 2, 1, 3, 2, 0, 104, 100, 50, 2, 0]); window.WSE.openRank('scm'); }); await pg.waitForTimeout(300); await pg.screenshot({ path: require('path').join(SHOTS, `t75_${tag}_classement.png`) }); }
     t.check(`${tag} ${w}×${h} : carte du COO dans l'écran, sans défilement horizontal, boutons ≥ 26 px`, m.inside && m.sw <= m.iw + 1 && m.minBtn >= 26 && m.txt > 200, JSON.stringify(m));
     t.check(`${tag} : 0 erreur`, pg.errs.length === 0, pg.errs.slice(0, 2).join(' ; '));
     await pg.context().close();
