@@ -285,7 +285,9 @@ VV_NAMES = ['boulangerie', 'boutique_mode', 'cafe_de_quartier', 'restaurant_terr
             'grue_portique', 'conteneur_bleu', 'conteneur_rouge', 'conteneur_pile', 'bac_argile', 'bac_bauxite', 'bac_chrome', 'bac_graphite', 'bac_lithium', 'bac_nickel', 'bac_phosphate', 'bac_potasse', 'bac_sel', 'bac_silice', 'bac_soufre', 'bac_terres_rares', 'bac_zinc', 'lingots_aluminium', 'lingots_laiton', 'sacs_alumine', 'sacs_engrais', 'barres_galva', 'barres_inox', 'briques_palette', 'futs_gaz', 'porcelaine_caisses', 'chassis_aluminium', 'aimants_terres_rares', 'maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c', 'immeuble_pnj_a', 'immeuble_pnj_b',
             'animal_vache', 'animal_mouton', 'animal_poule', 'animal_cochon', 'auge_foin', 'balles_foin', 'meule_foin', 'fermier_seau', 'vendangeur', 'vigneron_hotte', 'champ_ble_vert', 'champ_ble_mur',
             'maison_n1', 'maison_n2', 'maison_n3', 'immeuble_n1', 'immeuble_n2', 'tour_bureaux', 'tour_logements', 'tour_tech', 'tour_pnj_a', 'tour_pnj_b', 'siege_hq_n1', 'siege_hq_n2', 'siege_hq_n3', 'supermarche_n2', 'supermarche_n3', 'hypermarche_n2', 'hypermarche_n3',
-            'parc_urbain', 'rochers_a', 'rochers_b', 'gisement_or', 'batiment_abandonne', 'chantier_petit']
+            'parc_urbain', 'rochers_a', 'rochers_b', 'gisement_or', 'batiment_abandonne', 'chantier_petit',
+            # passe 78 : supermarché et hypermarché, bâtiment seul occupant la parcelle (assets/factory_hd/bat_*)
+            'bat_supermarche', 'bat_supermarche_n2', 'bat_supermarche_n3', 'bat_hypermarche', 'bat_hypermarche_n2', 'bat_hypermarche_n3']
 P2_NAMES += [_n for _n in VV_NAMES if _n not in P2_NAMES]
 p2hd = {}; p2dim = {}
 # Sol et routes (losanges 396x198 sans couture) : pas de palette 256 couleurs (bandes visibles sur l'herbe) mais un JPEG de qualité ;
@@ -336,6 +338,61 @@ def _ground_tile(name, im, path=None):
         h = h.point(lambda x: max(0, x - 3)); s = s.point(lambda x: int(x * 0.75))
         img = Image.merge('HSV', (h, s, v)).convert('RGB')
     return img.resize(GROUND_PX, Image.LANCZOS)
+# Passe 78 (revue des bâtiments, docs/REVUE_BATIMENTS.md) : encodage des sprites de la phase 2.
+# Avant : réduction ×0,5 puis palette 256 couleurs FASTOCTREE sans tramage -> paliers et taches sur les dégradés lisses (toits plats, murs, ciel des vitrages) :
+# mesuré en jeu (zoom 1,5 et 2,5) contre la source pleine définition, 10 à 13 % des pixels des zones lisses s'écartaient de plus de 6 niveaux (0,1 % sans la palette).
+# Maintenant : WebP, alpha sans perte, couleur qualité 90, aucune palette, PLEINE définition (396 px par case pour la plupart) : une réduction préalable
+# (×0,5 ou ×0,66) suivie de la réduction du jeu fait deux rééchantillonnages et coûte plus en SSIM que l'encodage lui-même (mesuré : SSIM 0,964 à ×0,66 contre 0,997 en pleine définition).
+# Seules les sources au-delà de 480 px par case sont ramenées à 400 px par case. WSE_P2_ENC=png256 rétablit l'ancien encodage (comparaisons, tools/tests/t81_encodage.js).
+P2_ENC = os.environ.get('WSE_P2_ENC', 'webp')
+P2_PXCASE = 400   # px source par case au-delà de 480 px par case (largeur de la dalle / nombre de cases de large)
+P2_FP = {'supermarche': 2, 'supermarche_n2': 2, 'supermarche_n3': 2, 'hypermarche': 3, 'hypermarche_n2': 3, 'hypermarche_n3': 3, 'bat_supermarche': 2, 'bat_supermarche_n2': 2, 'bat_supermarche_n3': 2,
+         'bat_hypermarche': 3, 'bat_hypermarche_n2': 3, 'bat_hypermarche_n3': 3, 'usine_moyenne_f2': 1.5, 'usine_grande_f3': 2, 'usine_f4_mega': 3, 'mega_centre_commercial': 2, 'terminal_portuaire': 2,
+         'centrale_nucleaire': 3, 'centrale_solaire': 4.5, 'data_center': 4.5, 'concession_auto': 2, 'boutique_high_tech': 1.5, 'maison_deco': 1.5, 'sport_loisirs': 1.5, 'chantier_moyen': 1.5,
+         'centrale_charbon': 1.5, 'siege_hq_n2': 2, 'siege_hq_n3': 2, 'fwheat': 2, 'fsugar': 2, 'fcotton': 2, 'frubber': 2, 'fvine': 2, 'fcorn': 2, 'frapeseed': 2, 'fcattle': 2, 'fchicken': 2, 'fpig': 2, 'fsheep': 2}
+# Passe 78 : éclairage. Convention du jeu (mesurée sur maisons, immeubles, tours, usine moyenne, boutiques v2, dalle commune des commerces) : lumière haut-gauche,
+# flanc gauche (face sud-ouest) clair, flanc droit (face sud-est) sombre. Ces sprites sont rendus avec la lumière à DROITE (flancs de dalle et murs gauche
+# nettement plus sombres que les droits, voir tools/tests/t80_orientation.js) et n'ont ni texte ni façade orientée par le jeu : un miroir horizontal remet
+# la lumière à gauche sans rien casser (le miroir est fait ici, avant toute mesure : dimensions, losange, ancres et profils restent cohérents).
+P2_FLIP = {'entrepot', 'terminal_portuaire', 'centrale_nucleaire', 'data_center', 'chantier_moyen', 'stade_sport', 'eolienne', 'puits_petrole', 'puits_gaz', 'mine_fer', 'mine_charbon', 'mine_cuivre', 'mine_or',
+           'mine_nickel_chrome', 'mine_bauxite', 'mine_lithium', 'mine_zinc', 'mine_graphite', 'mine_phosphate', 'mine_potasse', 'mine_sel', 'mine_cuivre_niveau3', 'carriere', 'carriere_argile', 'carriere_silice', 'camp_bucherons'}
+# Passe 78 : supermarché et hypermarché = bâtiment seul sur sa dalle (assets/factory_hd/bat_*), qui occupe la parcelle (au lieu d'un petit cube au fond d'un
+# grand parking de voitures criardes). Les niveaux 1 portent un cartouche « SUPERMARKET » / « HYPERMARKET » sur le toit (texte interdit dans les assets) :
+# il est effacé ici (cartouche bleu + lettres, cadre en px de l'image d'origine) et le toit y est reconstruit (plan ajusté sur le toit nu voisin, garde le dégradé).
+P2_UNLABEL = {'bat_supermarche': (131, 60, 314, 171), 'bat_hypermarche': (184, 75, 400, 212)}
+def _unlabel(im, box):
+    import numpy as np
+    from PIL import ImageFilter as _F
+    a = np.asarray(im, np.float32); x0, y0, x1, y1 = box
+    blue = (a[..., 2] > a[..., 0] + 70) & (a[..., 3] > 200); m = np.zeros(blue.shape, bool); m[y0:y1 + 1, x0:x1 + 1] = blue[y0:y1 + 1, x0:x1 + 1]
+    ys, xs = np.where(m)
+    for y in range(y0, y1 + 1):   # lettres blanches dans le cartouche : entre le premier et le dernier pixel bleu de la ligne
+        r = xs[ys == y]
+        if len(r): m[y, r.min():r.max() + 1] = True
+    # le cartouche laisse aussi un reflet bleuté et une ombre ovale autour de lui : la zone remplacée suit sa forme, élargie de 25 px, limitée au toit
+    # (pixels proches de la teinte du toit nu) ; le toit y est reconstruit par un plan ajusté sur le toit nu voisin (moindres carrés), fondu sur les bords.
+    def dil(b, k): return np.asarray(Image.fromarray(np.uint8(b * 255)).filter(_F.MaxFilter(k))) > 0
+    L = a[..., :3] @ np.array([0.299, 0.587, 0.114], np.float32); d = a[..., 2] - a[..., 0]; op = a[..., 3] > 200
+    ring = dil(m, 121) & ~dil(m, 61) & op & (np.abs(d - 16) < 4)
+    ref = np.median(L[ring]); roof = op & (np.abs(L - ref) < 28) & (d < 50)
+    Z = (dil(m, 51) & roof) | dil(m, 7)
+    ys, xs = np.where(ring); X = np.stack([xs, ys, np.ones_like(xs)], 1).astype(np.float32)
+    H, W = m.shape; gy, gx = np.mgrid[0:H, 0:W].astype(np.float32); plane = np.zeros((H, W, 3), np.float32)
+    for c in range(3):
+        co = np.linalg.lstsq(X, a[ys, xs, c], rcond=None)[0]; plane[..., c] = gx * co[0] + gy * co[1] + co[2]
+    wgt = np.asarray(Image.fromarray(np.uint8(Z * 255)).filter(_F.GaussianBlur(3)), np.float32)[..., None] / 255.0 * Z[..., None]
+    wgt = np.maximum(wgt, dil(m, 21)[..., None].astype(np.float32))
+    out = a.copy(); out[..., :3] = a[..., :3] * (1 - wgt) + plane * wgt
+    return Image.fromarray(np.uint8(np.clip(out, 0, 255)), 'RGBA')
+def _p2enc(name, im, dim):
+    import io
+    if P2_ENC == 'png256':
+        sm = im.resize((max(1, im.width // 2), max(1, im.height // 2)), Image.LANCZOS).quantize(colors=256, method=Image.FASTOCTREE, dither=Image.NONE)
+        bf = io.BytesIO(); sm.save(bf, 'PNG', optimize=True); return 'data:image/png;base64,' + base64.b64encode(bf.getvalue()).decode()
+    dw = max(1.0, float(dim[7]) - float(dim[6])) if len(dim) > 7 else im.width
+    pc = dw / P2_FP.get(name, 1); k = 1.0 if pc <= 480 else P2_PXCASE / pc
+    sm = im if k > 0.97 else im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
+    bf = io.BytesIO(); sm.save(bf, 'WEBP', quality=90, alpha_quality=100, method=4); return 'data:image/webp;base64,' + base64.b64encode(bf.getvalue()).decode()
 for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'factory_hd')):
     _aj = os.path.join(_d, 'ancres.json'); _anc = json.load(open(_aj)) if os.path.exists(_aj) else {}
     for _n in P2_NAMES:
@@ -343,13 +400,15 @@ for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', '
         if _n in p2hd or not os.path.exists(_f): continue
         try:
             import io; from PIL import Image as _I
-            _im = _I.open(_f).convert('RGBA'); p2dim[_n] = [_im.width, _im.height] + list(_im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox() or (0, 0, _im.width, _im.height)) + _diamond(_im) + [_sy(_f)]
+            _im = _I.open(_f).convert('RGBA')
+            if _n in P2_FLIP: _im = _im.transpose(_I.FLIP_LEFT_RIGHT)
+            if _n in P2_UNLABEL: _im = _unlabel(_im, P2_UNLABEL[_n])
+            p2dim[_n] = [_im.width, _im.height] + list(_im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox() or (0, 0, _im.width, _im.height)) + _diamond(_im) + [_sy(_f)]
             _a = _anc.get(_n + '.png')   # indices 10 et 11 : ancre (pieds, contact au sol) d'ancres.json, -1 si absente ; sert aux objets posés (véhicules, animaux, personnages, grue, navire)
-            p2dim[_n] += [_a['ancre_x'], _a['ancre_y']] if _a and 'ancre_x' in _a and 'ancre_y' in _a else [-1, -1]
+            p2dim[_n] += [(_im.width - _a['ancre_x']) if _n in P2_FLIP else _a['ancre_x'], _a['ancre_y']] if _a and 'ancre_x' in _a and 'ancre_y' in _a else [-1, -1]
             if _n in GROUND_TILES:   # tuiles de sol et de route : JPEG 264x132 (2 px par px du jeu à zoom 1), le jeu les découpe sur le losange
                 _bf = io.BytesIO(); _ground_tile(_n, _im, _f).save(_bf, 'JPEG', quality=88, optimize=True, subsampling=0); p2hd[_n] = 'data:image/jpeg;base64,' + base64.b64encode(_bf.getvalue()).decode(); continue
-            _sm = _im.resize((max(1, _im.width // 2), max(1, _im.height // 2)), _I.LANCZOS).quantize(colors=256, method=_I.FASTOCTREE, dither=_I.NONE)
-            _bf = io.BytesIO(); _sm.save(_bf, 'PNG', optimize=True); p2hd[_n] = 'data:image/png;base64,' + base64.b64encode(_bf.getvalue()).decode()
+            p2hd[_n] = _p2enc(_n, _im, p2dim[_n])
         except Exception as _e: print('phase2 ignoré', _n, _e)
 print('sprites phase 2 :', len(p2hd), ' poids', sum(len(v) for v in p2hd.values()) // 1024, 'Ko')
 print('sprites usine :', len(fac), 'sur', len(FAC_NAMES) + len(facextra), '(dont HD :', len(_hd['png']), ')', '(repli vectoriel pour les autres)')

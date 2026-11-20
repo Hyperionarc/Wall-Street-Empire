@@ -16814,7 +16814,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
   if (P2_TYPE[a.t] && p2Ready(a.t) && !(a.t === 'dc' && !a.lg)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
-    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; farmFx(a, o.now); if (VV_FARM[a.t]) vvFarm(a); if ((a.t === 's2' || a.t === 's3') && a.w === a.h) { const cur = SG.cur; drawCarts(a); SG.cur = cur; } }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes ; barème : sprite carré sur toute l'emprise carrée, caddies sur le parking
+    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = a.t === 'f3' && a.w === 2 && a.h === 2 && vvOk(P2_F3_DUO) ? drawF3Duo(a) : p2Draw(vvP2Name(a), p, Math.min(a.w, a.h) * (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t]) ? P2_REPLI_K[a.t] || 1 : 1), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; farmFx(a, o.now); if (VV_FARM[a.t]) vvFarm(a); if ((a.t === 's2' || a.t === 's3') && a.w === a.h && !/^bat_/.test(SG.cur && SG.cur.n || '')) { const cur = SG.cur; drawCarts(a); SG.cur = cur; } }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes ; barème : sprite carré sur toute l'emprise carrée, caddies sur le parking
   } else if ((a.t === 's2' || a.t === 's3') && !a.fpOld) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { drawRetailBox(a, grow); drawCarts(a); }   // repli sans sprite (jamais l'ancien atlas en losanges)
   } else if (a.t === 'npc' && vvNpc(a, p, x, y)) {
@@ -19819,7 +19819,19 @@ function vvSvcHTML() {   // panneau du Mall : commerces et services de quartier 
 }
 // Niveaux des bâtiments du joueur : logements (étages), tours, siège, supermarché et hypermarché (niveau d'amélioration)
 const VV_LVL = { s2: ['supermarche', 'supermarche', 'supermarche_n2', 'supermarche_n2', 'supermarche_n3'], s3: ['hypermarche', 'hypermarche', 'hypermarche_n2', 'hypermarche_n2', 'hypermarche_n3'] };
-function vvP2Name(a) { const L = VV_LVL[a.t]; if (L) { const n = L[Math.min(L.length - 1, a.lvl || 0)]; if (vvOk(n)) return n; } return P2_TYPE[a.t]; }
+/* Passe 78 (revue des bâtiments, Rémy : « supermarchés : angle inversé, toits qui s'effondrent ») : le supermarché et l'hypermarché sont le bâtiment seul sur sa dalle
+   (bat_*, cartouche de toit effacé au build), qui occupe toute la parcelle, au lieu d'un petit cube dans le coin d'un grand parking de voitures criardes. Repli : anciens sprites. */
+const VV_LVL_BAT = { s2: ['bat_supermarche', 'bat_supermarche', 'bat_supermarche_n2', 'bat_supermarche_n2', 'bat_supermarche_n3'], s3: ['bat_hypermarche', 'bat_hypermarche', 'bat_hypermarche_n2', 'bat_hypermarche_n2', 'bat_hypermarche_n3'] };
+/* Passe 78 : petite usine (f1) et grande usine (f3) jugées « n'importe quoi » par Rémy (f1 : hangar à toit de bardeaux sans dalle, aspect abri de jardin ;
+   f3 : halls aux toits confus), l'usine moyenne (f2) étant jugée satisfaisante. En attendant la commande Cowork n° 14 (tools/factory_ai/RETOURS.md) :
+   f1 = l'usine moyenne (brique, tôle, cheminée, quai) recalée sur sa case ; f3 = deux halls de l'usine moyenne côte à côte sur ses 2×2 cases (drawF3Duo).
+   Retirer l'entrée de P2_REPLI (et P2_F3_DUO) quand les nouveaux sprites sont livrés. */
+const P2_REPLI = { f1: 'usine_moyenne_f2' }, P2_REPLI_K = { f1: 0.8 }, P2_F3_DUO = 'usine_moyenne_f2';   // f1 à 80 % : plus petite que l'usine moyenne posée sur sa case
+function drawF3Duo(a) {   // grande usine : deux halls f2 (2×1) sur les deux rangées de l'emprise 2×2, celle du fond d'abord ; renvoie le haut du dessin
+  let top = null; for (let r = 0; r < a.h; r++) { const q = iso(a.x + (a.w - 1) / 2, a.y + r), t = p2Draw(P2_F3_DUO, null, 1, { x: q.x, y: q.y + TH / 2 }, [a.w, 1]); if (t != null) top = top == null ? t : Math.min(top, t); }
+  return top;
+}
+function vvP2Name(a) { if (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t])) return P2_REPLI[a.t]; for (const T of [VV_LVL_BAT, VV_LVL]) { const L = T[a.t]; if (L) { const n = L[Math.min(L.length - 1, a.lvl || 0)]; if (vvOk(n)) return n; } } return P2_TYPE[a.t]; }
 function vvHq(a) { const n = ['siege_hq_n1', 'siege_hq_n1', 'siege_hq_n2', 'siege_hq_n2', 'siege_hq_n3'][Math.min(4, a.lvl || 0)]; return vvOk(n) ? n : null; }
 function vvLvl(a, fl) {   // sprite de niveau d'un immeuble du joueur, ou null
   let n = null;
