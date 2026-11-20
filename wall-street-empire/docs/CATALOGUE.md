@@ -2,7 +2,7 @@
 
 Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html` (autonome, filtrable). Images capturées dans `city.html` (voir « Méthode » dans le HTML).
 
-- Produits finis : 95 (85 photos HD, 10 vectoriels de repli : eggs, chicken, porkmeat, lambmeat, sausage, tablewine, grandcru, tableoil, cornchips, biofuel)
+- Produits finis : 94 (85 photos HD, 9 vectoriels de repli : eggs, chicken, porkmeat, lambmeat, sausage, tablewine, grandcru, tableoil, biofuel). Gamme resserrée (passe 75) : chips de maïs (`cornchips`) retirées ; propositions de réduction dans `docs/GAMME_PRODUITS.md`.
 - Biens, matières et composants : 98 (85 photos HD, 13 vectoriels de repli : grapes, corn, rapeseed, egg, wine, cpu, dram, gpu, cookoil, biodiesel, basic, std, lux)
 - Bâtiments constructibles : 71 types (71 vues extérieures, 67 vues intérieures) ; décor et ville : 21 éléments
 
@@ -98,14 +98,13 @@ Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html`
 | Viande de bœuf | `beefmeat` | Base | Alimentation (généralistes : s1 s2 s3 s4) | 30,77 $ | Bœuf (carcasses) 75 + Emballages 150 → 150 u | niv. 1 · petite usine (f1) | photo HD |
 | Poulet | `chicken` | Base | Alimentation (généralistes : s1 s2 s3 s4) | 17,26 $ | Volaille (carcasses) 75 + Emballages 200 → 200 u | niv. 1 · petite usine (f1) | vectoriel de repli |
 | Viande de porc | `porkmeat` | Base | Alimentation (généralistes : s1 s2 s3 s4) | 20,17 $ | Porc (carcasses) 75 + Emballages 200 → 200 u | niv. 1 · petite usine (f1) | vectoriel de repli |
-| Viande d'agneau | `lambmeat` | Base | Alimentation (généralistes : s1 s2 s3 s4) | 33,36 $ | Agneau (carcasses) 75 + Emballages 150 → 150 u | niv. 1 · petite usine (f1) | vectoriel de repli |
+| Agneau | `lambmeat` | Base | Alimentation (généralistes : s1 s2 s3 s4) | 33,36 $ | Agneau (carcasses) 75 + Emballages 150 → 150 u | niv. 1 · petite usine (f1) | vectoriel de repli |
 | Saucisson et charcuterie | `sausage` | Base | Alimentation (généralistes : s1 s2 s3 s4) | 15,15 $ | Porc (carcasses) 50 + Sel gemme 5 + Emballages 200 → 200 u | niv. 1 · petite usine (f1) | vectoriel de repli |
 | Pulls en laine | `sweater` | Manufacturé | Mode (généralistes : s2 s3 s4) | 26,72 $ | Laine brute 87,5 + Tissu 12,5 + Emballages 125 → 125 u | niv. 2 · usine moyenne (f2) | photo HD |
 | Vin de table | `tablewine` | Base | Boissons (généralistes : s1 s2 s3 s4) | 10,06 $ | Vin 62,5 + Verre 37,5 + Emballages 200 → 200 u | niv. 1 · petite usine (f1) | vectoriel de repli |
 | Vin de grande réserve | `grandcru` | Luxe | Boissons (généralistes : s3 s4) | 102,80 $ | Vin 125 + Verre 50 + Planches 25 + Emballages 100 → 100 u | niv. 3 · grande usine (f3) | vectoriel de repli |
 | Aliments pour animaux | `petfood` | Base | Alimentation (généralistes : s1 s2 s3 s4) | 15,33 $ | Viandes (abattoir) 50 + Farine 50 + Emballages 250 → 250 u | niv. 1 · petite usine (f1) | photo HD |
 | Huile de table | `tableoil` | Base | Alimentation (généralistes : s1 s2 s3 s4) | 11,17 $ | Huile de cuisine 50 + Plastique 7,5 + Emballages 200 → 200 u | niv. 1 · petite usine (f1) | vectoriel de repli |
-| Chips de maïs | `cornchips` | Base | Alimentation (généralistes : s1 s2 s3 s4) | 8,19 $ | Maïs 50 + Huile de cuisine 12,5 + Sel gemme 2,5 + Emballages 200 → 200 u | niv. 1 · petite usine (f1) | vectoriel de repli |
 | Biocarburant en bidons | `biofuel` | Base | Auto et outils (généralistes : s1 s2 s3 s4) | 11,68 $ | Biodiesel 50 + Plastique 7,5 + Emballages 200 → 200 u | niv. 1 · petite usine (f1) | vectoriel de repli |
 
 ### B. Biens, matières et composants
@@ -126,7 +125,7 @@ Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html`
 | Bauxite | `bauxite` | Matière première | entre dans 1 recette | 8,00 $ | extraction | extraction · Mine de bauxite | photo HD |
 | Lithium | `lithium` | Matière première | entre dans 1 recette | 40,00 $ | extraction | extraction · Mine de lithium | photo HD |
 | Silice pure | `silica` | Matière première | entre dans 3 recettes | 6,00 $ | extraction | extraction · Carrière de silice | photo HD |
-| Sel gemme | `salt` | Matière première | entre dans 3 recettes | 5,00 $ | extraction | extraction · Mine de sel gemme | photo HD |
+| Sel gemme | `salt` | Matière première | entre dans 2 recettes | 5,00 $ | extraction | extraction · Mine de sel gemme | photo HD |
 | Soufre | `sulfur` | Matière première | entre dans 1 recette | 7,00 $ | extraction | extraction · Puits de gaz naturel (coproduit) | photo HD |
 | Phosphate | `phosphate` | Matière première | entre dans 2 recettes | 10,00 $ | extraction | extraction · Mine de phosphate | photo HD |
 | Gaz naturel | `gas` | Matière première | entre dans 4 recettes | 11,00 $ | extraction | extraction · Puits de gaz naturel | photo HD |
@@ -140,7 +139,7 @@ Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html`
 | Coton | `cotton` | Matière première | entre dans 1 recette | 11,00 $ | extraction | extraction · Plantation de coton | photo HD |
 | Caoutchouc naturel | `rubber` | Matière première | entre dans 4 recettes | 15,00 $ | extraction | extraction · Plantation d'hévéas | photo HD |
 | Raisin | `grapes` | Matière première | entre dans 1 recette | 10,00 $ | extraction | extraction · Vignoble | vectoriel de repli |
-| Maïs | `corn` | Matière première | entre dans 2 recettes | 6,00 $ | extraction | extraction · Culture de maïs | vectoriel de repli |
+| Maïs | `corn` | Matière première | entre dans 1 recette | 6,00 $ | extraction | extraction · Culture de maïs | vectoriel de repli |
 | Colza (graines) | `rapeseed` | Matière première | entre dans 2 recettes | 9,00 $ | extraction | extraction · Culture de colza | vectoriel de repli |
 | Lait cru | `milk` | Matière première | entre dans 4 recettes | 12,00 $ | extraction | extraction · Élevage de bovins | photo HD |
 | Œufs en vrac | `egg` | Matière première | entre dans 1 recette | 16,00 $ | extraction | extraction · Élevage de poulets | vectoriel de repli |
@@ -164,7 +163,7 @@ Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html`
 | Principes actifs | `api` | Composant | entre dans 5 recettes | 37,14 $ | Produits chimiques 75 + Canne à sucre 25 + Phosphate 12,5 → 50 u | niv. 2 · usine moyenne (f2) | photo HD |
 | Plastique | `plastic` | Composant | entre dans 39 recettes | 7,72 $ | Pétrole 40 → 125 u | niv. 1 · petite usine (f1) | photo HD |
 | Câbles de cuivre | `wire` | Composant | entre dans 21 recettes | 13,04 $ | Cuivre 50 → 75 u | niv. 1 · petite usine (f1) | photo HD |
-| Emballages | `pack` | Composant | entre dans 93 recettes | 2,82 $ | Plastique 25 + Bois 25 → 250 u | niv. 1 · petite usine (f1) | photo HD |
+| Emballages | `pack` | Composant | entre dans 92 recettes | 2,82 $ | Plastique 25 + Bois 25 → 250 u | niv. 1 · petite usine (f1) | photo HD |
 | Moteurs électriques | `motor` | Composant | entre dans 10 recettes | 39,78 $ | Acier 50 + Câbles de cuivre 50 + Aimants permanents 5 → 50 u | niv. 2 · usine moyenne (f2) | photo HD |
 | Batteries | `battery` | Composant | entre dans 11 recettes | 24,64 $ | Câbles de cuivre 25 + Plastique 25 + Lithium 10 + Graphite 12,5 → 75 u | niv. 2 · usine moyenne (f2) | photo HD |
 | Cartes électroniques | `circuit` | Composant | entre dans 17 recettes | 50,58 $ | Câbles de cuivre 75 + Plastique 50 + Silicium 25 + Lingots d'or 10 → 100 u | niv. 2 · usine moyenne (f2) | photo HD |
@@ -205,7 +204,7 @@ Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html`
 | Briques | `brick` | Composant | entre dans 1 recette | 7,06 $ | Argile et kaolin 100 + Gaz naturel 20 → 150 u | niv. 1 · petite usine (f1) | photo HD |
 | Porcelaine | `porcelain` | Composant | entre dans 1 recette | 18,04 $ | Argile et kaolin 75 + Silice pure 25 + Gaz naturel 25 → 75 u | niv. 2 · usine moyenne (f2) | photo HD |
 | Châssis en aluminium | `chassisal` | Composant | entre dans 1 recette | 92,69 $ | Aluminium 75 + Peintures et vernis 25 → 50 u | niv. 2 · usine moyenne (f2) | photo HD |
-| Huile de cuisine | `cookoil` | Composant | entre dans 2 recettes | 19,03 $ | Maïs 100 + Colza (graines) 50 → 75 u | niv. 1 · petite usine (f1) | vectoriel de repli |
+| Huile de cuisine | `cookoil` | Composant | entre dans 1 recette | 19,03 $ | Maïs 100 + Colza (graines) 50 → 75 u | niv. 1 · petite usine (f1) | vectoriel de repli |
 | Biodiesel | `biodiesel` | Composant | entre dans 1 recette | 20,60 $ | Colza (graines) 100 + Produits chimiques 12,5 → 75 u | niv. 2 · usine moyenne (f2) | vectoriel de repli |
 | Biens de base | `basic` | Biens génériques | Biens génériques (magasins) | 7,88 $ | Pétrole 150 + Minerai de fer 150 → 600 u | petite usine (f1) | vectoriel de repli |
 | Biens manufacturés | `std` | Biens génériques | Biens génériques (magasins) | 16,29 $ | Minerai de fer 250 + Charbon 200 + Cuivre 150 → 425 u | usine moyenne (f2) | vectoriel de repli |

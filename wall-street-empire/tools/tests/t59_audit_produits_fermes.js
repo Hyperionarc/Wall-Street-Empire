@@ -6,8 +6,8 @@ const fs = require('fs'), path = require('path');
 exports.name = 'Audit produits et fermes (passe 59)';
 
 // replis vectoriels assumés (commande Cowork en cours, voir docs/AUDIT_PRODUITS.md) : toute autre clé sans photo HD est une régression
-const REPLI = ['eggs', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'tablewine', 'grandcru', 'tableoil', 'cornchips', 'biofuel', 'grapes', 'corn', 'rapeseed', 'egg', 'wine', 'cookoil', 'biodiesel', 'cpu', 'dram', 'gpu', 'basic', 'std', 'lux'];   // passe 73 : puces (photos commandées, RETOURS.md n° 12)
-const OWN_GLYPH = { eggs: 'eggbox', chicken: 'chicken', porkmeat: 'chop', lambmeat: 'rack', sausage: 'saucisson', tablewine: 'tablewine', grandcru: 'grandcru', cornchips: 'chips' };
+const REPLI = ['eggs', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'tablewine', 'grandcru', 'tableoil', 'biofuel', 'grapes', 'corn', 'rapeseed', 'egg', 'wine', 'cookoil', 'biodiesel', 'cpu', 'dram', 'gpu', 'basic', 'std', 'lux'];   // passe 73 : puces (photos commandées, RETOURS.md n° 12)
+const OWN_GLYPH = { eggs: 'eggbox', chicken: 'chicken', porkmeat: 'chop', lambmeat: 'rack', sausage: 'saucisson', tablewine: 'tablewine', grandcru: 'grandcru' };
 const FARMS = ['fwheat', 'frapeseed', 'fcorn', 'fsugar', 'fvine', 'fcattle', 'fsheep', 'fpig', 'fchicken'];
 
 exports.run = async (t, L) => {
@@ -37,7 +37,7 @@ exports.run = async (t, L) => {
   t.check(`chaque produit (${A.prod}) et bien (${A.good}) a une photo HD ou figure dans la liste explicite des replis`, A.miss.length === 0, 'sans image : ' + A.miss.join(', '));
   t.check('liste des replis à jour (aucune clé listée n\'a déjà sa photo)', A.extra.length === 0, A.extra.join(', '));
   t.check('replis : dessins propres au produit (jamais le tas de rochers par défaut), toutes qualités', A.vecBad.length === 0, A.vecBad.join(', '));
-  t.check('aliments et vins sans photo : silhouette fidèle (œufs, viandes, saucisson, vin de table ≠ grand cru, chips), plus de plateau-repas générique', A.glyph.length === 0 && A.wineDiff, A.glyph.join(', '));
+  t.check('aliments et vins sans photo : silhouette fidèle (œufs, viandes, saucisson, vin de table ≠ grand cru), plus de plateau-repas générique', A.glyph.length === 0 && A.wineDiff, A.glyph.join(', '));
   t.check('whisky : photo sans pseudo-texte (carafe spirit.jpg) au lieu de whisky.jpg', A.whisky, '');
   t.check(`photos HD décodables et >= 256 px (${A.nPhotos})`, A.dims.length === 0, A.dims.slice(0, 5).join(', '));
   t.check('biens : l\'icône des rayons, fournisseurs et emplacements est la photo HD quand elle existe', A.icon.length === 0, A.icon.slice(0, 5).join(', '));

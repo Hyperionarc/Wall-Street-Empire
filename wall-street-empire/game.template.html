@@ -1930,19 +1930,49 @@ const P25 = {
   beefmeat: { name: 'Viande de bœuf',          cls: 'basic', lvl: 1, in: { beef: 3 },                                out: 6,  ref: 14,  rnd: 1300,  days: 4,  tier: 0, pkg: 1, desc: 'Steaks et rôtis de bœuf frais en barquette : abattage et découpe de la viande bovine.' },
   chicken:  { name: 'Poulet',                  cls: 'basic', lvl: 1, in: { poultry: 3 },                             out: 8,  ref: 8,   rnd: 1100,  days: 4,  tier: 0, pkg: 1, desc: 'Poulets entiers et filets frais, vendus en barquette ou surgelés.' },
   porkmeat: { name: 'Viande de porc',          cls: 'basic', lvl: 1, in: { pork: 3 },                                out: 8,  ref: 9,   rnd: 1100,  days: 4,  tier: 0, pkg: 1, desc: 'Côtes, rôtis et jambon de porc frais ou surgelés.' },
-  lambmeat: { name: 'Viande d\'agneau',        cls: 'basic', lvl: 1, in: { lamb: 3 },                                out: 6,  ref: 16,  rnd: 1300,  days: 4,  tier: 0, pkg: 1, desc: 'Gigots et côtelettes d\'agneau, plutôt achetés les jours de fête.' },
+  lambmeat: { name: 'Agneau',                  cls: 'basic', lvl: 1, in: { lamb: 3 },                                out: 6,  ref: 16,  rnd: 1300,  days: 4,  tier: 0, pkg: 1, desc: 'Gigots, carrés et côtelettes d\'agneau, plutôt achetés les jours de fête : la seule viande ovine vendue (jamais de mouton).' },
   sausage:  { name: 'Saucisson et charcuterie', cls: 'basic', lvl: 1, in: { pork: 2, salt: 0.2 },                    out: 8,  ref: 12,  rnd: 1500,  days: 5,  tier: 0, pkg: 1, desc: 'Saucissons, jambons secs et pâtés : du porc salé et séché.' },
-  sweater:  { name: 'Pulls en laine',          cls: 'std',   lvl: 2, in: { wool: 3.5, fabric: 0.5 },                 out: 5,  ref: 70,  rnd: 3800,  days: 9,  tier: 1, desc: 'Pulls et écharpes en laine tricotée : la laine des moutons, filée et tricotée.' },
+  sweater:  { name: 'Pulls en laine',          cls: 'std',   lvl: 2, in: { wool: 3.5, fabric: 0.5 },                 out: 5,  ref: 70,  rnd: 3800,  days: 9,  tier: 1, desc: 'Pulls et écharpes en laine tricotée : la laine tondue à l\'élevage, filée et tricotée.' },
   tablewine: { name: 'Vin de table',           cls: 'basic', lvl: 1, in: { wine: 2.5, glass: 1.5 },                  out: 8,  ref: 6,   rnd: 1400,  days: 5,  tier: 0, desc: 'Vin de table en bouteille : le vin des vignobles, embouteillé. Une marque forte fidélise les clients.' },
   grandcru: { name: 'Vin de grande réserve',   cls: 'lux',   lvl: 3, in: { wine: 5, glass: 2, plank: 1 },            out: 4,  ref: 80,  rnd: 20000, days: 18, tier: 2, desc: 'Grands crus vieillis en fût de bois, bouchés et millésimés : un produit de luxe de marque.' },
   petfood:  { name: 'Aliments pour animaux',   cls: 'basic', lvl: 1, in: { meat: 2, flour: 2 },                     out: 10, ref: 6,   rnd: 1100,  days: 4,  tier: 0, desc: 'Croquettes et pâtées pour chiens et chats.' },
-  // Passe 51 : maïs et colza. Huile de table (première nécessité), chips de maïs, biocarburant vendu aux automobilistes
+  // Passe 51 : maïs et colza. Huile de table (première nécessité, LE dérivé retenu du maïs et du colza), biocarburant vendu aux automobilistes.
+  // Gamme resserrée (passe 75) : les chips de maïs (cornchips) sont retirées du jeu (voir PROD_RETIRED et docs/GAMME_PRODUITS.md)
   tableoil: { name: 'Huile de table',          cls: 'basic', lvl: 1, in: { cookoil: 2, plastic: 0.3 },             out: 8,  ref: 5,   rnd: 1000,  days: 3,  tier: 0, pkg: 1, desc: 'Bouteilles d\'huile de maïs et de colza pour la cuisine et l\'assaisonnement : un bien de première nécessité.' },
-  cornchips: { name: 'Chips de maïs',          cls: 'basic', lvl: 1, in: { corn: 2, cookoil: 0.5, salt: 0.1 },      out: 8,  ref: 4,   rnd: 1100,  days: 4,  tier: 0, pkg: 1, desc: 'Tortillas de maïs frites dans l\'huile et salées, en sachet.' },
   biofuel:  { name: 'Biocarburant en bidons',  cls: 'basic', lvl: 1, in: { biodiesel: 2, plastic: 0.3 },           out: 8,  ref: 6,   rnd: 1200,  days: 4,  tier: 0, pkg: 1, desc: 'Biodiesel de colza (B100) en bidons pour moteurs diesel, engins agricoles et groupes électrogènes.' }
 };
 Object.assign(PRODUCTS, P25);
 const PKEYS = Object.keys(PRODUCTS);
+// ===== Passe 75 : gamme resserrée. Produits retirés du jeu : une ancienne sauvegarde qui en contient se charge proprement (retiredMigrate, appelée par load) :
+// stock (entrepôt et rayons des magasins) revendu à son coût de revient historique (intrants au prix de base) et crédité en trésorerie, usines remises « sans produit »,
+// rayons, prix de magasin, ventes lissées, boutique duty free et e-commerce nettoyés, produit phare et usines des rivaux reportés sur le produit de remplacement (même classe),
+// brevets, classements (S.rk) et galerie filtrés. in/out : recette au moment du retrait (sert au coût historique).
+const PROD_RETIRED = { cornchips: { name: 'Chips de maïs', to: 'tableoil', cls: 'basic', in: { corn: 2, cookoil: 0.5, salt: 0.1 }, out: 8 } };
+const retiredUnitCost = k => { const R = PROD_RETIRED[k]; let c = 0; Object.keys(R.in).forEach(g => { c += R.in[g] * (GOODS[g] ? GOODS[g].base : 0); }); return c / Math.max(1, R.out); };
+function retiredMigrate(d) {
+  const ks = Object.keys(PROD_RETIRED).filter(k => !PRODUCTS[k]), rep = { n: 0, units: 0, cash: 0, keys: [] }; if (!ks.length || !d || typeof d !== 'object') return rep;
+  const ob = x => x && typeof x === 'object' && !Array.isArray(x), sell = (k, u) => { u = Math.max(0, +u || 0); if (!u) return; const v = u * retiredUnitCost(k); rep.units += u; rep.cash += v; };
+  const to = k => { const t = PROD_RETIRED[k].to; return PRODUCTS[t] && PRODUCTS[t].cls === PROD_RETIRED[k].cls ? t : null; };
+  ks.forEach(k => {
+    let hit = false;
+    if (ob(d.prod) && d.prod[k]) { sell(k, d.prod[k].stock); delete d.prod[k]; hit = true; }
+    (Array.isArray(d.g) ? d.g : []).forEach(r => { if (!Array.isArray(r) || typeof r[0] !== 'string' || r[0] === 'part' || r[0] === 'road') return;
+      if (r[4] === k) { r[4] = 0; hit = true; }   // usine : plus de produit choisi (le joueur en choisit un autre)
+      if (Array.isArray(r[13]) && Array.isArray(r[13][2])) r[13][2] = r[13][2].filter(x => x !== k);   // rayons désactivés
+      const e = r[20]; if (ob(e)) { if (ob(e.inv) && e.inv[k] != null) { sell(k, e.inv[k]); delete e.inv[k]; hit = true; } ['pk', 'pd', 'sm'].forEach(f => { if (ob(e[f])) delete e[f][k]; }); } });
+    (Array.isArray(d.rivals) ? d.rivals : []).forEach(r => { if (!r) return; const t = to(k);
+      if (r.fl && r.fl.k === k) { if (t) r.fl = { k: t, cls: PRODUCTS[t].cls, d: r.fl.d || 1 }; else delete r.fl; hit = true; }
+      if (Array.isArray(r.fab)) r.fab = r.fab.filter(f => { if (!f || f.pk !== k) return true; hit = true; if (t) { f.pk = t; return true; } return false; }); });
+    if (ob(d.pat) && d.pat[k]) { delete d.pat[k]; hit = true; }
+    if (ob(d.rk)) { ['C', 'L', 'T', 'X', 'XL', 'XT', 'hp', 'rec', 'll'].forEach(f => { if (ob(d.rk[f])) delete d.rk[f][k]; }); if (ob(d.rk.w)) Object.keys(d.rk.w).forEach(c => { if (Array.isArray(d.rk.w[c])) d.rk.w[c] = d.rk.w[c].filter(x => !Array.isArray(x) || x[0] !== k); }); if (Array.isArray(d.rk.H)) d.rk.H.forEach(h => { if (h && ob(h.p)) delete h.p[k]; if (h && ob(h.f)) delete h.f[k]; }); }
+    if (ob(d.air) && ob(d.air.off)) delete d.air.off[k];
+    if (ob(d.edu)) ['h', 'p', 'camp', 'cut'].forEach(f => { if (ob(d.edu[f])) delete d.edu[f][k]; });
+    if (ob(d.ecom) && Array.isArray(d.ecom.off)) d.ecom.off = d.ecom.off.filter(x => x !== k);
+    if (hit) { rep.n++; rep.keys.push(k); }
+  });
+  rep.cash = Math.round(rep.cash); if (rep.cash > 0) d.cash = (+d.cash || 0) + rep.cash;
+  return rep;
+}
 const LEGACY_P = new Set(PKEYS.filter(k => !P25[k]));   // les 35 produits d'origine : référence du poids de demande (typeW) pour ne rien changer à leur équilibre
 // Gammes : qualité, intrants, R&D, prix de référence
 const QTIER = [
@@ -1993,21 +2023,21 @@ Object.assign(PROD_W, {
   sportswear: [25, 30, 45], tent: [35, 45, 20], ebike: [30, 40, 30], dolls: [35, 30, 35], etoys: [30, 30, 40],
   car: [25, 40, 35], scooter: [30, 40, 30], lube: [45, 30, 25], handtools: [40, 40, 20], powertools: [30, 45, 25], petfood: [40, 30, 30],
   drinkmilk: [50, 30, 20], eggs: [50, 30, 20], beefmeat: [50, 30, 20], chicken: [50, 30, 20], porkmeat: [50, 30, 20], lambmeat: [45, 35, 20], sausage: [35, 30, 35], sweater: [30, 30, 40], tablewine: [25, 20, 55], grandcru: [8, 32, 60],
-  tableoil: [50, 30, 20], cornchips: [35, 25, 40], biofuel: [55, 30, 15]
+  tableoil: [50, 30, 20], biofuel: [55, 30, 15]
 });
 Object.assign(NECESS, {
   yogurt: 70, cheese: 55, pasta: 85, chocolate: 25, readymeal: 50, soda: 30, beer: 28, spirits: 12, whisky: 2, vitamins: 35, antibio: 60, shampoo: 60, toothpaste: 75, makeup: 18, hygiene: 80,
   jacket: 35, leathershoes: 40, dress: 30, socks: 70, bag: 22, couture: 2, camera: 8, smartwatch: 10, headphones: 15, microwave: 40, vacuum: 40, lamp: 55, desktop: 20, solarpanel: 25,
   sofa: 30, table: 55, wardrobe: 40, tableware: 60, books: 40, sportswear: 30, tent: 12, ebike: 20, dolls: 30, etoys: 22, car: 30, scooter: 25, lube: 45, handtools: 45, powertools: 20, petfood: 65,
   drinkmilk: 90, eggs: 85, beefmeat: 78, chicken: 80, porkmeat: 78, lambmeat: 70, sausage: 50, sweater: 40, tablewine: 28, grandcru: 3,
-  tableoil: 80, cornchips: 25, biofuel: 40
+  tableoil: 80, biofuel: 40
 });
 Object.assign(DEMAND_PC, {
   yogurt: 1.0, cheese: 0.5, pasta: 0.8, chocolate: 0.5, readymeal: 0.4, soda: 1.0, beer: 0.7, spirits: 0.12, whisky: 0.02, vitamins: 0.3, antibio: 0.5, shampoo: 0.6, toothpaste: 0.6, makeup: 0.15, hygiene: 0.8,
   jacket: 0.15, leathershoes: 0.2, dress: 0.2, socks: 0.8, bag: 0.1, couture: 0.01, camera: 0.05, smartwatch: 0.1, headphones: 0.15, microwave: 0.05, vacuum: 0.05, lamp: 0.4, desktop: 0.04, solarpanel: 0.03,
   sofa: 0.04, table: 0.06, wardrobe: 0.04, tableware: 0.3, books: 0.5, sportswear: 0.25, tent: 0.04, ebike: 0.05, dolls: 0.2, etoys: 0.15, car: 0.01, scooter: 0.03, lube: 0.3, handtools: 0.15, powertools: 0.08, petfood: 0.5,
   drinkmilk: 2.0, eggs: 1.6, beefmeat: 0.9, chicken: 1.2, porkmeat: 1.0, lambmeat: 0.35, sausage: 0.5, sweater: 0.25, tablewine: 0.6, grandcru: 0.02,
-  tableoil: 0.8, cornchips: 0.5, biofuel: 0.2
+  tableoil: 0.8, biofuel: 0.2
 });
 Object.assign(MEGA_N, { appl: 'Électroménager', home: 'Maison et meubles', sport: 'Sport et loisirs', toys: 'Jouets', auto: 'Auto et mobilité', tools: 'Outils et bricolage' });
 Object.assign(MEGA_OF, {
@@ -2018,20 +2048,20 @@ Object.assign(MEGA_OF, {
   sofa: 'home', table: 'home', wardrobe: 'home', tableware: 'home', sportswear: 'sport', tent: 'sport', ebike: 'sport', dolls: 'toys', etoys: 'toys',
   car: 'auto', scooter: 'auto', lube: 'auto', handtools: 'tools', powertools: 'tools',
   drinkmilk: 'food', eggs: 'food', beefmeat: 'food', chicken: 'food', porkmeat: 'food', lambmeat: 'food', sausage: 'food', sweater: 'fashion', tablewine: 'food', grandcru: 'luxury',
-  tableoil: 'food', cornchips: 'food', biofuel: 'auto'
+  tableoil: 'food', biofuel: 'auto'
 });
 Object.assign(OBSO, {
   yogurt: 0.01, cheese: 0.005, pasta: 0, chocolate: 0.02, readymeal: 0.03, soda: 0.03, beer: 0.02, spirits: 0.01, whisky: 0.005, vitamins: 0.02, antibio: 0.01, shampoo: 0.02, toothpaste: 0.01, makeup: 0.04, hygiene: 0.01,
   jacket: 0.04, leathershoes: 0.03, dress: 0.05, socks: 0.02, bag: 0.04, couture: 0.02, camera: 0.07, smartwatch: 0.1, headphones: 0.07, microwave: 0.03, vacuum: 0.03, lamp: 0.03, desktop: 0.08, solarpanel: 0.04,
   sofa: 0.02, table: 0.01, wardrobe: 0.01, tableware: 0.01, books: 0.03, sportswear: 0.05, tent: 0.02, ebike: 0.05, dolls: 0.03, etoys: 0.06, car: 0.02, scooter: 0.03, lube: 0.01, handtools: 0.01, powertools: 0.04, petfood: 0.01,
   drinkmilk: 0.002, eggs: 0.002, beefmeat: 0.005, chicken: 0.005, porkmeat: 0.005, lambmeat: 0.005, sausage: 0.01, sweater: 0.03, tablewine: 0.01, grandcru: 0.005,
-  tableoil: 0.002, cornchips: 0.02, biofuel: 0.01
+  tableoil: 0.002, biofuel: 0.01
 });
 SUCC.desktop = { by: 'laptop', keep: 0.5, at: 1080 };
 {
   const AG = [['agri1', 40], ['agri2', 30], ['wms', 30]], TX = [['blast2', 40], ['auto', 35], ['lean', 25]], EL = [['auto', 40], ['insilico', 30], ['blast2', 30]], AP = [['blast2', 30], ['auto', 40], ['lean', 30]], WD = [['saw1', 45], ['blast2', 25], ['auto', 30]], MT = [['blast1', 35], ['blast2', 35], ['auto', 30]], HL = [['insilico', 40], ['auto', 30], ['wms', 30]];
   const set = (tech, ts, ks) => ks.forEach(k => { PROD_TECH[k] = tech; TECH_SHARE[k] = ts[k] != null ? ts[k] : 15; });
-  set(AG, { yogurt: 8, cheese: 8, pasta: 8, chocolate: 8, readymeal: 10, soda: 8, beer: 8, spirits: 12, whisky: 15, petfood: 8, drinkmilk: 8, eggs: 8, beefmeat: 8, chicken: 8, porkmeat: 8, lambmeat: 8, sausage: 10, tablewine: 12, grandcru: 18, tableoil: 8, cornchips: 8 }, ['yogurt', 'cheese', 'pasta', 'chocolate', 'readymeal', 'soda', 'beer', 'spirits', 'whisky', 'petfood', 'drinkmilk', 'eggs', 'beefmeat', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'tablewine', 'grandcru', 'tableoil', 'cornchips']);
+  set(AG, { yogurt: 8, cheese: 8, pasta: 8, chocolate: 8, readymeal: 10, soda: 8, beer: 8, spirits: 12, whisky: 15, petfood: 8, drinkmilk: 8, eggs: 8, beefmeat: 8, chicken: 8, porkmeat: 8, lambmeat: 8, sausage: 10, tablewine: 12, grandcru: 18, tableoil: 8 }, ['yogurt', 'cheese', 'pasta', 'chocolate', 'readymeal', 'soda', 'beer', 'spirits', 'whisky', 'petfood', 'drinkmilk', 'eggs', 'beefmeat', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'tablewine', 'grandcru', 'tableoil']);
   set(HL, { vitamins: 25, shampoo: 15, toothpaste: 15, makeup: 20, hygiene: 12 }, ['vitamins', 'shampoo', 'toothpaste', 'makeup', 'hygiene']);
   PROD_TECH.antibio = PROD_TECH.headache; TECH_SHARE.antibio = 50;
   set(TX, { jacket: 12, leathershoes: 15, dress: 12, socks: 8, bag: 12, couture: 15, sportswear: 25, tent: 20, sweater: 12 }, ['jacket', 'leathershoes', 'dress', 'socks', 'bag', 'couture', 'sportswear', 'tent', 'sweater']);
@@ -2049,7 +2079,7 @@ Object.assign(OBSO, { car_alu: 0.02, cookware: 0.01 });
 PROD_TECH.car_alu = PROD_TECH.car; TECH_SHARE.car_alu = 40; PROD_TECH.cookware = PROD_TECH.utensils; TECH_SHARE.cookware = 15;
 // Familles d'affichage (catalogue, écran Produits) : purement visuel, ne change ni la demande ni la fidélité de marque
 const FAM = {
-  'Alimentation': ['bread', 'biscuits', 'candy', 'drinkmilk', 'eggs', 'beefmeat', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'yogurt', 'cheese', 'pasta', 'chocolate', 'readymeal', 'petfood', 'tableoil', 'cornchips'], 'Boissons': ['soda', 'beer', 'tablewine', 'spirits', 'whisky', 'grandcru'],
+  'Alimentation': ['bread', 'biscuits', 'candy', 'drinkmilk', 'eggs', 'beefmeat', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'yogurt', 'cheese', 'pasta', 'chocolate', 'readymeal', 'petfood', 'tableoil'], 'Boissons': ['soda', 'beer', 'tablewine', 'spirits', 'whisky', 'grandcru'],
   'Santé et beauté': ['headache', 'cough', 'obesity', 'antibio', 'vitamins', 'soap', 'cream', 'shampoo', 'toothpaste', 'makeup', 'hygiene', 'perfume', 'skincare'],
   'Mode': ['tshirt', 'jeans', 'sneakers', 'socks', 'dress', 'jacket', 'leathershoes', 'bag', 'handbag', 'sweater', 'couture', 'jewelry', 'watch'],
   'Électronique': ['phone', 'tv', 'tablet', 'laptop', 'desktop', 'console', 'camera', 'smartwatch', 'headphones', 'lamp'],
@@ -2069,7 +2099,7 @@ const SPEC_FAM = {
   auto: { n: 'Automobile et mobilité' }, home: { n: 'Maison et déco' }, sport: { n: 'Sport et loisirs' }, diy: { n: 'Bricolage et outillage' }, estate: { n: 'Immobilier' }
 };
 const PRODUCT_FAMILY = {
-  food:    ['bread', 'tableoil', 'cornchips', 'biscuits', 'candy', 'yogurt', 'cheese', 'pasta', 'chocolate', 'readymeal', 'soda', 'beer', 'tablewine', 'drinkmilk', 'eggs', 'beefmeat', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'petfood'],
+  food:    ['bread', 'tableoil', 'biscuits', 'candy', 'yogurt', 'cheese', 'pasta', 'chocolate', 'readymeal', 'soda', 'beer', 'tablewine', 'drinkmilk', 'eggs', 'beefmeat', 'chicken', 'porkmeat', 'lambmeat', 'sausage', 'petfood'],
   health:  ['headache', 'cough', 'obesity', 'antibio', 'vitamins', 'soap', 'cream', 'shampoo', 'toothpaste', 'makeup', 'hygiene'],   // pharmacie et drugstore
   fashion: ['tshirt', 'jeans', 'sneakers', 'socks', 'dress', 'jacket', 'leathershoes', 'bag', 'sweater'],
   luxury:  ['watch', 'jewelry', 'handbag', 'couture', 'perfume', 'skincare', 'spirits', 'whisky', 'grandcru'],   // mode de luxe, bijoux, montres, parfums et soins de luxe, spiritueux et grands vins
@@ -4446,6 +4476,7 @@ function load() {
     if (!raw) return null;
     const d = JSON.parse(raw);
     if (!d || (d.v !== 7 && d.v !== 8) || !Array.isArray(d.g) || d.g.length !== N * N) return null;
+    const retired = retiredMigrate(d);   // passe 75 : produits retirés de la gamme (chips de maïs) : stock en trésorerie, usines, rayons, rivaux, brevets, classements nettoyés
     applyZm(d.pzm);   // passe 34 : terrains créés (avant les routes et la ville d'origine)
     const cprod = syncCustom(d.cprod);   // passe 25 : produits composés (absents des anciennes sauvegardes), enregistrés avant la grille et les produits
     const grid = d.g.map((r, i) => {
@@ -4488,6 +4519,7 @@ function load() {
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
     S0.cm = d.cm || {};
+    if (retired.n) S0.retired = retired;   // passe 75 : bilan de la migration (non sauvegardé), annoncé au joueur au démarrage
     if (cv2) { S0.cityV = 2; S0.bassin = +d.bs > 0 ? +d.bs : BASSIN_NEW; S0.bx = +d.bx > 0 ? +d.bx : 0; S0.cityExt = Array.isArray(d.cext) ? d.cext : []; S0.cg = Object.assign({ acc: 0, park: 0, ms: 0, ext: 0, jt: 0.88, f: {} }, d.cg || {}); }
     try { const ga = JSON.parse(localStorage.getItem(SAVE_KEY + '_gal') || '{}'); S0.gal = ga && typeof ga === 'object' ? ga : {}; } catch (e) { S0.gal = {}; }   // passe 28 : galerie des produits fabriqués
     S0.capAdj = +d.capAdj || 0; S0.fix1 = d.fix1 == null ? (S0.cash < 0 ? 0 : 1) : 1;   // remise à niveau : seulement pour les très anciennes sauvegardes (sans le champ) à trésorerie négative if (d.rmb != null) S0.rmb = +d.rmb;
@@ -9235,7 +9267,7 @@ const GLY = {
   camera: ['camera', '#2b2f3f', '#8f7fff'], smartwatch: ['swatch', '#3a3f55', '#1d2230'], headphones: ['headphones', '#e8584f', '#2b2f3f'], microwave: ['microwave', '#cdd6e2', '#56657a'], vacuum: ['vacuum', '#e8584f', '#56657a'], lamp: ['lamp', '#aab6c6', '#56657a'], desktop: ['monitor', '#2b2f3f', '#56657a'], solarpanel: ['panel', '#1f4fb0', '#cdd6e2'],
   sofa: ['sofa', '#6f8fb8', '#52709a'], table: ['table', '#c28f58', '#94693b'], wardrobe: ['wardrobe', '#a97c43', '#c79a5d'], tableware: ['dishes', '#f4f6fa', '#4a79e0'], books: ['book', '#4a79e0', '#2f4fa0'],
   sportswear: ['tee', '#5fd0c0', '#2f9e90'], tent: ['tent', '#f2a23a', '#e8584f'], ebike: ['ebike', '#58c27d', '#2b2f3f'], dolls: ['doll', '#c08f5a', '#e8c9a0'], etoys: ['robot', '#4a79e0', '#aab6c6'],
-  car: ['car', '#e8584f', '#aab6c6'], car_alu: ['car', '#c9d3e4', '#8fa0bc'], cookware: ['dishes', '#cdd6e2', '#56657a'], scooter: ['scooter', '#3fb6d8', '#2b2f3f'], lube: ['oilcan', '#f2a23a', '#2b2f3f'], handtools: ['hammer', '#9aa4b8', '#6f7a9a'], powertools: ['drill', '#f2a23a', '#2b2f3f'], petfood: ['sack', '#a8693a', '#f4f6fa'], tableoil: ['bottle', '#f2c230', '#3f8f3e'], cornchips: ['chips', '#f2b632', '#d9503f'], biofuel: ['oilcan', '#8cc63f', '#2b5a2a']
+  car: ['car', '#e8584f', '#aab6c6'], car_alu: ['car', '#c9d3e4', '#8fa0bc'], cookware: ['dishes', '#cdd6e2', '#56657a'], scooter: ['scooter', '#3fb6d8', '#2b2f3f'], lube: ['oilcan', '#f2a23a', '#2b2f3f'], handtools: ['hammer', '#9aa4b8', '#6f7a9a'], powertools: ['drill', '#f2a23a', '#2b2f3f'], petfood: ['sack', '#a8693a', '#f4f6fa'], tableoil: ['bottle', '#f2c230', '#3f8f3e'], biofuel: ['oilcan', '#8cc63f', '#2b5a2a']
 };
 function glyphArt(gy, t, id) {
   const gold = `url(#gd${id})`, m = t === 2 ? gold : t === 1 ? '#cdd6e2' : '#aab6c6', f = GLYPHS[gy[0]] || GLYPHS.sack;
@@ -17532,7 +17564,7 @@ const rankPlayers = () => { const r = ranking().filter(x => x.kind !== 'groupe')
 const rankWorld = () => { const r = ranking(); return [r.findIndex(x => x.me) + 1, r.length]; };
 /* ---------- Passe 71 : CLASSEMENTS (Menu > Classements). Inspiré des classements publics de Capitalism Lab (sociétés, produits, vendeurs de chaque produit, palmarès).
    Information seule : aucun bonus, aucun plafond, aucun tirage aléatoire (la simulation est inchangée).
-   Comptage quotidien des ventes par produit (95 produits finis) et par bien (matières, composants), et par vendeur :
+   Comptage quotidien des ventes par produit (94 produits finis depuis la gamme resserrée) et par bien (matières, composants), et par vendeur :
    - « me » (toi) : produits de ta marque vendus dans tes rayons (unités, CA au prix public, prix de chaque magasin), biens vendus au marché local et exportés, surplus de produits exporté ;
    - « loc » : marchandises sans marque des producteurs locaux vendues dans tes rayons (panier de la classe) ;
    - rivaux IA : production de leurs usines (produit exact) + négoce de la classe (panier).
@@ -19628,6 +19660,7 @@ TM = techMults(); if (S.event) showEvent();
 setTimeout(() => { if (S.mode.pending && S.day === 0) showModes(); else { if (S.mode.done && S.mode.res && !S.mode.cont) showEnd(); showCaste(false); } syncSpeedUI(); }, 3200);
 refreshStats();
 if (!S.hist.length) S.hist.push(Math.round(S.stats.worth));
+if (S.retired && S.retired.n) { const R = S.retired; setTimeout(() => say(`Gamme resserrée : ${R.keys.map(k => PROD_RETIRED[k].name).join(', ')} retiré${R.n > 1 ? 's' : ''} du jeu. ${R.units > 0 ? Math.round(R.units) + ' unités en stock revendues à leur coût de revient (' + money(R.cash) + ' crédités). ' : ''}Les usines concernées attendent un nouveau produit.`, 'info'), 3600); }
 checkMissions();
 refreshRoadList();
 setInterval(() => { refreshRoadList(); drawMinimap(); }, 700);
@@ -20331,6 +20364,7 @@ window.WSE.ip = { info: ipInfo, pat: ipPat, plat: ipPlat, book: ipBook, q: platQ
 window.WSE.land = { model: landModel, price: landPrice, raw: landRaw, map: landMap, range: landRange, norm: landNorm, useOf: landUseOf, natUse: landNatUse, district: districtAt, cache: landCache, pole: landPole, foot: landFoot, costFor: landCostFor, val: c => landVal(c), assets: () => proLandAssets(), tip: landTipHTML, setLayer, layer: () => layer, cur: () => curLayer(), LAYER_N, LAYER_F, LEG, USES: LAND_USES, PARTS: LM_PART, K: LM_K, DISTRICTS, zoneOk, autoSpot };   // passe 48 : valeur du terrain par usage
 Object.assign(window.WSE, { cl: { supCap, supLeft, supRef, productScore, compOv, locQ, locAttr, stepLocQ, cooTargetPf, stepCooPrice, cooPol, offerScore, buyerQw, bestOffer, srcQ, inputQ, updInputQ, supplierList, trueQ, COO_GAP, SUP_QE, IMP_Q, MKT_Q } });   // CapLab : chaîne, prix, demande (docs/CAPLAB_CHAINE_PRIX_DEMANDE.md)
 Object.assign(window.WSE, { mp: { good: mpGood, prod: mpProd, prodOf: mpProdOf, m: mpM, k: mpK, prime: mpPrime, Pg: mpPg, on: mpOn, vol: mpVol, entry: mpEntry, prodEntry: mpProdEntry, retail: mpRetail, rt: rtPow, txt: mpTxt, S0: MP_S0, IMP: MP_IMP, SUB: MP_SUB, HOT: MP_HOT, KMAX: MP_KMAX, PCLS: MP_PCLS, RP_R, RETAIL_MK } });   // passe 46 : pouvoir de marché
+Object.assign(window.WSE, { PROD_RETIRED, retiredMigrate, retiredUnitCost });   // passe 75 : gamme resserrée (produits retirés, migration des anciennes sauvegardes)
 Object.defineProperty(window.WSE, 'imm', { get() { return { on: immOn, tr: imm.tr, from: imm.from, idle: imm.idle, panel: immPanel, ang: planAng, yaw: planYaw, cam: { z: scam.z, x: scam.x, y: scam.y, bs: scam.bs }, W: imm.W, H: imm.H }; } });
 })();
 </script>
