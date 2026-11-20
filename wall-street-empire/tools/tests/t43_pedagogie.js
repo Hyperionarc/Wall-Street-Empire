@@ -8,7 +8,7 @@ const PK = 'bread';
 const SETUP = (lim, PK, ns, ded) => `(() => {
   const W = window.WSE, S = W.S; T.frz();
   const f = T.inP('f2'); T.inP('port'); for (let i = 0; i < 40; i++) T.inC('res'); for (let i = 0; i < ${ns}; i++) T.inC('s3');
-  ${ded ? "S.grid.forEach(q => { if (q && q.t === 's3') q.shelf = { g_basic: false, g_std: false }; });" : ''}
+  ${ded ? "S.grid.forEach((q, i) => { if (q && q.t === 's3' && q.x + q.y * W.N === i) { q.shelf = { g_basic: false, g_std: false }; for (let j = 0; j < " + (+ded) + "; j++) W.place(q.x, q.y, 'up'); } });" : ''}
   W.launchProduct('${PK}'); const ps = S.prod['${PK}']; ps.st = 'on'; ps.rnd = 0; ps.pf = 1;
   f.prod = '${PK}'; f.wage = 2; const ins = Object.keys(W.productInputs('${PK}')), need = W.productInputs('${PK}');
   f.src = {}; ins.forEach(g => { f.src[g] = 'local'; });
@@ -50,8 +50,10 @@ exports.run = async (t, L) => {
   t.check('campagne : la demande monte AVEC UN DÉLAI (1/5 de l\'effet le 1er jour, plein effet au 5e)', Math.abs(c.m[0] - (1 + c.r.A / 5)) < 1e-6 && Math.abs(c.m[4] - (1 + c.r.A)) < 1e-6 && c.d[5] > c.base * (1 + 0.6 * c.r.A) && c.d[0] < c.d[5], JSON.stringify({ base: Math.round(c.base), j1: Math.round(c.d[0]), j6: Math.round(c.d[5]), A: c.r.A }));
   t.check('campagne : puis le capital de marque monte (+5 points au moins) ; budget payé chaque jour dans la publicité', c.bc[14] - c.bc0 >= 5 && c.ad.slice(0, 15).every(x => Math.abs(x - c.r.b) < 1e-6) && c.ad[16] === 0, JSON.stringify({ bc0: +c.bc0.toFixed(1), bc15: +c.bc[14].toFixed(1), b: c.r.b }));
   t.check('pic enregistré ; rayons saturés sans rupture de stock : aucune perte de fidélité, mais pic non tenu (pas de bonus)', c.rec && c.rec.k === 'camp' && c.rec.rd === 0 && c.rec.pen === 0 && c.rec.ok === 0 && c.rec.bon === 0 && c.rec.svc < c.rec.sb, JSON.stringify(c.rec));
-  // pic TENU : lave-linge, 8 hypermarchés dont les rayons lui sont consacrés (capacité des rayons et production > demande du pic)
-  { const pw = await open(L, 1280, 720, 0, { pk: 'washer', ns: 8, ded: true });
+  // pic TENU : lave-linge, 4 hypermarchés (la zone de test n'en loge pas plus) dont les rayons lui sont consacrés, agrandis au niveau 3 (capacité ×2,4, action
+  // « Améliorer » du joueur) : capacité des rayons et production > demande du pic. Passe 68 : la prospérité (prosp) et le marché élargi par les IA (rivMkt) ont porté
+  // la demande de lave-linge de ≈ 470 à ≈ 810/j ; 4 hypermarchés au niveau 1 (≈ 680/j de rayon) ne suffisaient plus, et le jeu l'annonçait justement (ahead().shelf).
+  { const pw = await open(L, 1280, 720, 0, { pk: 'washer', ns: 4, ded: 2 });
     const w = await pw.evaluate(() => { const { W, S, day } = window.B, ps = S.prod.washer, bc0 = W.brand.of(ps), loy0 = ps.loy, ah = (W.edu.camp('washer'), W.edu.ahead()[0]); for (let i = 0; i < 26; i++) day(); return { ah, rec: S.edu.pk.slice(-1)[0] || null, bc0, bc: W.brand.of(ps), loy0, loy: ps.loy }; });
     t.check('pic TENU (production et rayons suffisants, verdict annoncé « tu tiendras ») : aucune rupture, bonus de marque et de fidélité', w.ah && w.ah.ok && !w.ah.shelf && w.rec && w.rec.ok === 1 && w.rec.rd === 0 && w.rec.bon > 0 && w.rec.svc >= 0.95 && w.bc > w.bc0, JSON.stringify(w.rec));
     t.check('aucune erreur de page (pic tenu)', pw.errs.length === 0, pw.errs.slice(0, 2).join(' | '));

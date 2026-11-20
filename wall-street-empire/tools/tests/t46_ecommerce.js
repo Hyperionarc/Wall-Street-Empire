@@ -13,10 +13,10 @@ const SETUP = ec => `(() => {
   f.src = {}; ins.forEach(g => { f.src[g] = 'local'; });
   const e = T.inP('ewh'); T.inP('dc'); if (${ec}) W.ecom.launch('Testshop');   // mêmes bâtiments (mêmes emplois) dans les deux parties : seule la plateforme diffère
   const pre = () => { T.frz(); S.cash = Math.max(S.cash, 5e9); ins.forEach(g => { S.stock[g] = 1e6; }); };
-  const log = { ret: [], sold: [], pd: [], exp: [], ec: [], xv: [], pu: [], inv: [], res: [] };
+  const log = { ret: [], sold: [], pd: [], exp: [], ec: [], xv: [], pu: [], inv: [], res: [], px: [] };
   const day = () => { pre(); W.step(); const p = S.prod['${PK}'], E = S.ecom, L = E && E.last;
     log.ret.push(S.fin.revRetail); log.sold.push(p.sold || 0); log.pd.push(S._dw.pd['${PK}'] || 0); log.exp.push(S.fin.revExport); log.ec.push(L ? L.rev : 0);
-    log.xv.push(Object.keys(S._xv || {}).filter(k => k.indexOf('e:') === 0).reduce((a, k) => a + S._xv[k], 0)); log.pu.push(S._portUse || 0);
+    log.xv.push(Object.keys(S._xv || {}).filter(k => k.indexOf('e:') === 0).reduce((a, k) => a + S._xv[k], 0)); log.pu.push(S._portUse || 0); log.px.push(W.pos.prosp().v);
     log.inv.push(W.ecom.used(e)); log.res.push((p.stock || 0) - W.ecom.RESV * (p.sold || 0)); };
   window.B = { W, S, f, e, day, log };
   for (let i = 0; i < 60; i++) day();
@@ -54,7 +54,11 @@ exports.run = async (t, L) => {
   const d = await pg.evaluate(() => { const { W, S } = window.B, L = S.ecom.last, city = ['basic', 'std', 'lux'].reduce((a, c) => a + (S.stats.dem[c] || 0), 0), pool = ['basic', 'std', 'lux'].reduce((a, c) => a + L.pool[c], 0);
     return { city, pool, Udem: L.Udem, xm: S.xm.slice(), xsE: Object.keys(S.xsum).filter(k => k.indexOf('e:') === 0).length, port: L.port, mi: L.mi }; });
   t.check('demande mondiale : réservoir distinct de la ville et bien plus grand (≥ 10 × la demande de la ville)', d.pool >= 10 * d.city && d.Udem > 0, JSON.stringify({ monde: Math.round(d.pool), ville: Math.round(d.city), servie: Math.round(d.Udem) }));
-  t.check('la demande de pain adressée aux magasins de la ville est la même avec et sans commerce en ligne (écart < 0,1 % chaque jour)', A.pd.every((v, i) => Math.abs(v - B.pd[i]) <= 1e-3 * Math.max(1, v)), JSON.stringify({ sans: Math.round(sum(A.pd)), avec: Math.round(sum(B.pd)) }));
+  // Passe 68 : les ventes en ligne sont des exports, et tout export entre dans le revenu créé de la ville (S.stats.income -> prosp()) : de l'argent venu du monde paie
+  // des salaires locaux (principe de somme positive). La demande de la ville peut donc MONTER un peu avec le commerce en ligne (≈ +0,1 % ici), jamais baisser :
+  // chaque jour, aucune cannibalisation (avec ≥ sans à 0,1 % près) et un écart entièrement expliqué par la prospérité (élasticité-revenu 0,6 du pain, classe de base).
+  const pdX = A.pd.map((v, i) => { const r = v > 1 ? B.pd[i] / v : 1, rx = Math.pow(B.px[i] / A.px[i], 0.6); return { r, rx }; });
+  t.check('la demande de pain adressée aux magasins de la ville ne baisse pas avec le commerce en ligne (≥ −0,1 % chaque jour) ; l\'écart vient seulement de la prospérité (exports dans le revenu de la ville, écart au modèle < 0,01 %, total < 0,5 %)', pdX.every(x => x.r >= 1 - 1e-3 && Math.abs(x.r - x.rx) <= 1e-4) && sum(B.pd) <= 1.005 * sum(A.pd), JSON.stringify({ sans: Math.round(sum(A.pd)), avec: Math.round(sum(B.pd)), maxEcart: +(100 * Math.max(...pdX.map(x => x.r - 1))).toFixed(3) + ' %', maxResidu: +Math.max(...pdX.map(x => Math.abs(x.r - x.rx))).toExponential(1) }));
   const exS = sum(B.ec.slice(10)), xvS = sum(B.xv.slice(10)), dEx = sum(B.exp.slice(10)) - sum(A.exp.slice(10));
   t.check('ventes en ligne = exports : comptées dans revExport (S.fin), S._xv et S.xsum (clés e:), sans évincer les marchés d\'export du port (S.xm)', exS > 0 && Math.abs(xvS - exS) <= 1e-6 * exS && dEx > 0.5 * exS && B.exp.slice(10).every((v, i) => v >= B.ec[i + 10] - 1e-6) && d.xsE > 0 && d.xm.every(k => k.indexOf('e:') !== 0), JSON.stringify({ enLigne: Math.round(exS), hausseExports: Math.round(dEx) }));
   t.check('les colis passent par le port (débit portuaire consommé)', d.port >= 1 && sum(B.pu.slice(10)) > sum(A.pu.slice(10)), JSON.stringify({ sans: Math.round(sum(A.pu)), avec: Math.round(sum(B.pu)) }));
