@@ -15580,12 +15580,40 @@ const SIGN = { s1: { st: 'com', sz: 1 }, s2: { st: 'com', sz: 2 }, s3: { st: 'co
   wh: { st: 'ind', sz: 1 }, ewh: { st: 'ind', sz: 2, txt: 'ENTREPÔT EN LIGNE' }, rd: { st: 'ind', sz: 1 }, dc: { st: 'ind', sz: 3 }, hq: { st: 'lux', sz: 2 }, port: { st: 'ind', sz: 2 }, tv: { st: 'svc', sz: 1 },
   'mon:hospital': { st: 'svc', sz: 2, ac: '#b8474d' }, 'mon:lycee': { st: 'svc', sz: 1 }, 'mon:college': { st: 'svc', sz: 1 }, 'mon:maternelle': { st: 'svc', sz: 1 }, 'mon:garderie': { st: 'svc', sz: 1, txt: 'CRÈCHE' },
   'mon:hall': { st: 'svc', sz: 2 }, 'mon:air': { st: 'svc', sz: 4, txt: 'AÉROPORT' },
-  'sv:station_service': { st: 'svc', sz: 1 }, 'sv:station_recharge_electrique': { st: 'svc', sz: 1, txt: 'RECHARGE ÉLECTRIQUE' } };
+  'sv:station_service': { st: 'svc', sz: 1 }, 'sv:station_recharge_electrique': { st: 'svc', sz: 1, txt: 'RECHARGE ÉLECTRIQUE' },
+  'sv:boulangerie': { st: 'com', sz: 1, ac: '#c98a3e' }, 'sv:cafe_de_quartier': { st: 'com', sz: 1, txt: 'CAFÉ' }, 'sv:restaurant_terrasse': { st: 'com', sz: 1, txt: 'RESTAURANT' }, 'sv:boutique_mode': { st: 'com', sz: 1 } };   // passe 77 : commerces de la ville vivante
 // Anciennes enseignes générées (texte illisible) : centre c, demi-axes u (sens de lecture) et v (vers le bas du texte) en px de l'image d'origine, couleur du bandeau uni
 const SIGN_COVER = { boutique_high_tech: { c: [99, 52], u: [35, 15], v: [0, 10], f: '#3b4452' }, sport_loisirs: { c: [266, 94], u: [58, 23], v: [0, 10.5], f: '#3f4a58' },
   hopital: { c: [159, 91], u: [54, -32], v: [50, 35], f: '#c81e28' }, supermarche: { c: [319.6, 75.3], u: [43, -24.5], v: [22.5, 13], f: '#b4bcc1' },
   hypermarche: { c: [509.75, 99], u: [53, -32], v: [28.5, 16.5], f: '#b0b9c0' } };
-const SG = { on: true, list: [], drawn: [], obst: [], bb: [], ord: 0, ui: [], uiT: -1e9, uiW: 0, uiH: 0, lost: {}, cur: null, cache: new Map(), fo: false, foT: 0, ms: 0, avg: 0, n: 0, hidden: 0 };
+/* Passe 77 : enseignes FAÇADE (demande de Rémy : « pharmacie : il faut que ce soit écrit dessus, sur une façade »). Le nom est peint par le code sur le plan du mur
+   avant-gauche (L) ou avant-droit (R) du sprite : bandeau discret (style de la charte), filet d'accent, texte en capitales de la police du jeu avec une ombre légère,
+   le tout cisaillé en isométrie 2:1 (pente ±k, 0,5 par défaut) par ctx.transform, centré sur un ancrage mesuré sur chaque sprite. SIGN_FACE[type][sprite] =
+   { face, ax, ay (centre du bandeau, fractions de la largeur et de la hauteur de l'image), w (largeur horizontale maximale), h (hauteur maximale du bandeau) : fractions de la
+   largeur de l'image }. Le texte se réduit pour tenir dans la largeur (jamais de débordement). Sous 9 px écran (zoom faible), ou masqué par un bâtiment de devant,
+   la plaque flottante (ou posée) reprend la main. Bandeaux en cache par texte + taille + face (canevas hors écran déjà cisaillé, posé en pixels entiers). */
+const sfPx = (W, H, face, cx, cy, wpx, hpx, k, t) => ({ face, ax: cx / W, ay: cy / H, w: wpx / W, h: hpx / W, k: k || 0.5, t });   // mesure en px de l'image d'origine -> fractions ; t = nom court peint sur une petite façade
+const SF = {
+  pharmacie: sfPx(268, 209, 'L', 86, 121, 92, 24),            // frise blanche au-dessus de la porte, prolongée sur le bras gauche de la croix
+  petit_marche_n1: sfPx(408, 412, 'L', 136, 128, 132, 25),   // tranche du toit-terrasse, au-dessus du store rayé
+  boutique_luxe: sfPx(268, 205, 'L', 99, 83, 74, 19, 0.5, 'LUXE'),        // bandeau de pierre sous la corniche dorée
+  boutique_mode_luxe: sfPx(268, 215, 'L', 93, 90, 80, 19, 0.5, 'MODE'),   // frise noire entre les filets dorés
+  boutique_mode: sfPx(256, 299, 'R', 178, 126, 80, 20, 0.5, 'MODE'),      // mur blanc de l'étage, au-dessus des vitrines
+  boutique_high_tech: sfPx(268, 190, 'L', 99, 52, 68, 18),   // poutre haute du cadre en bois (ancienne enseigne générée)
+  maison_deco: sfPx(524, 428, 'R', 362, 205, 146, 34),       // grand bandeau vierge de la façade droite
+  sport_loisirs: sfPx(524, 360, 'L', 179, 145, 150, 22, 0.5, 'SPORT'),     // bandeau vierge de la façade gauche
+  concession_auto: sfPx(524, 286, 'L', 205, 116, 104, 15),   // bandeau blanc au-dessus du vitrage
+  boulangerie: sfPx(256, 303, 'L', 79, 155, 76, 15),         // lambrequin du store
+  cafe_de_quartier: sfPx(256, 303, 'L', 78, 151, 80, 15),    // lambrequin du store
+  ecole: sfPx(320, 370, 'R', 215, 150, 104, 18),             // mur sous l'avancée du toit, au-dessus de l'entrée
+  mairie: sfPx(320, 409, 'L', 108, 168, 96, 17)              // frise entre l'étage et le rez-de-chaussée
+};
+const SIGN_FACE = { spharma: { pharmacie: SF.pharmacie }, s1: { petit_marche_n1: SF.petit_marche_n1 }, slux: { boutique_luxe: SF.boutique_luxe },
+  smode: { boutique_mode_luxe: SF.boutique_mode_luxe, boutique_mode: SF.boutique_mode }, stech: { boutique_high_tech: SF.boutique_high_tech }, shome: { maison_deco: SF.maison_deco },
+  ssport: { sport_loisirs: SF.sport_loisirs }, sauto: { concession_auto: SF.concession_auto }, 'sv:boulangerie': { boulangerie: SF.boulangerie }, 'sv:cafe_de_quartier': { cafe_de_quartier: SF.cafe_de_quartier },
+  'sv:boutique_mode': { boutique_mode: SF.boutique_mode }, 'mon:hall': { mairie: SF.mairie }, 'mon:lycee': { ecole: SF.ecole }, 'mon:college': { ecole: SF.ecole }, 'mon:maternelle': { ecole: SF.ecole }, 'mon:garderie': { ecole: SF.ecole } };
+const SIGN_FACE_MIN = 9;   // px écran : en dessous, l'enseigne de façade serait illisible
+const SG = { on: true, list: [], drawn: [], obst: [], bb: [], ord: 0, ui: [], uiT: -1e9, uiW: 0, uiH: 0, lost: {}, cur: null, cache: new Map(), tw: new Map(), fo: false, foT: 0, ms: 0, avg: 0, n: 0, hidden: 0, faces: 0 };
 function signTxt(key) {   // nom affiché : celui de l'interface (TYPES, PUB, VV_SVC), partie avant « · », en capitales
   const D = SIGN[key]; if (!D) return ''; if (D.txt) return D.txt;
   const nm = key.startsWith('mon:') ? (PUB[key.slice(4)] || [''])[0] : key.startsWith('sv:') ? (VV_SVC[key.slice(3)] || [''])[0] : (TYPES[key] && TYPES[key].name) || '';
@@ -15599,7 +15627,37 @@ const signFs = D => { const Z = SIGN_SZ[D.sz] || SIGN_SZ[1]; return Math.min(Z[1
 const signAl = fs => clamp((fs - 7) / 2, 0, 1);
 function signLift(a) {   // place réservée au-dessus du toit pour la plaque flottante (les étoiles et alertes passent au-dessus), en px monde
   if (!SG.on) return 0; const k = signKey(a), D = k && SIGN[k]; if (!D || (SG.cur && SG.cur.a === a && SIGN_COVER[SG.cur.n])) return 0;
+  const F = SG.cur && SG.cur.a === a ? signFaceGeo(k, SG.cur) : null; if (F && signFacePx(F.t || signTxt(k), F.w * z * dpr, F.h * z * dpr) >= SIGN_FACE_MIN * dpr) return 0;   // passe 77 : nom peint sur la façade, rien au-dessus du toit
   const fs = signFs(D); return signAl(fs) > 0 ? (Math.round(fs * 1.5) + 6) / z : 0;
+}
+function signFaceGeo(key, cur) {   // passe 77 : bandeau de façade du sprite courant, en px monde (centre x, y ; largeur w ; hauteur h), ou null
+  const T = cur && SIGN_FACE[key], F = T && T[cur.n], d = F && P2DIM[cur.n]; if (!d) return null;
+  const ww = d[0] * cur.kx, hh = d[1] * cur.ky;
+  return { x: cur.x + F.ax * ww, y: cur.y + F.ay * hh, w: F.w * ww, h: F.h * ww, f: F.face, k: F.k, t: F.t, spr: [cur.x, cur.y, cur.x + ww, cur.y + hh] };
+}
+function signFacePx(txt, aw, ah) {   // plus grande police (px physiques entiers) dont le bandeau tient dans aw × ah : hauteur 1,45 × police, largeur texte + 2 × 0,55 × police
+  const tk = txt + '|' + (SG.fo ? 1 : 0); let r = SG.tw.get(tk);
+  if (r == null) { const g = (SG.twc || (SG.twc = document.createElement('canvas').getContext('2d'))); g.font = '800 100px "Big Shoulders Display", "Arial Narrow", Arial, sans-serif'; if ('letterSpacing' in g) g.letterSpacing = '5px';
+    r = g.measureText(txt).width / 100; SG.tw.set(tk, r); }
+  return Math.floor(Math.min(ah / 1.45, aw / (r + 1.1), 40 * dpr));
+}
+function signFaceCv(txt, D, px, f, k) {   // bandeau de façade en cache, déjà cisaillé (plan du mur gauche : pente +k, droit : −k) ; _ax/_ay = centre, _q = coins
+  const key = 'F|' + txt + '|' + D.st + '|' + (D.ac || '') + '|' + px + '|' + f + '|' + k + '|' + (SG.fo ? 1 : 0); let cv = SG.cache.get(key); if (cv) return cv;
+  const P = SIGN_ST[D.st] || SIGN_ST.com; cv = document.createElement('canvas'); const g = cv.getContext('2d'), font = `800 ${px}px "Big Shoulders Display", "Arial Narrow", Arial, sans-serif`;
+  const ls = Math.max(0, Math.round(px * 0.05)), setF = () => { g.font = font; if ('letterSpacing' in g) g.letterSpacing = ls + 'px'; };
+  setF(); const tw = Math.ceil(g.measureText(txt).width), pad = Math.max(2, Math.round(px * 0.55)), bw = tw + 2 * pad, bh = Math.max(6, Math.round(px * 1.45)), bar = Math.max(1, Math.round(px * 0.12));
+  const s = f === 'R' ? -k : k, sh = Math.ceil(Math.abs(s) * bw), oy = (s < 0 ? sh : 0) + 1, e = Math.max(1, Math.round(px * 0.1));
+  cv.width = bw + 1 + e; cv.height = bh + sh + 1 + e; setF(); g.setTransform(1, s, 0, 1, 1, oy);
+  g.fillStyle = 'rgba(0,0,0,.30)'; g.fillRect(e, e, bw, bh);   // relief : ombre portée du bandeau sur le mur
+  g.fillStyle = P[0]; g.fillRect(0, 0, bw, bh);
+  g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(0, 0, bw, Math.max(1, Math.round(px * 0.07)));   // arête éclairée (lumière venant du haut)
+  g.fillStyle = D.ac || P[2]; g.fillRect(0, bh - bar, bw, bar);   // filet d'accent (une seule couleur)
+  g.textAlign = 'center'; g.textBaseline = 'middle'; const ty = Math.round((bh - bar) / 2) + 0.5;
+  g.fillStyle = D.st === 'svc' ? 'rgba(255,255,255,.7)' : 'rgba(0,0,0,.6)'; g.fillText(txt, bw / 2 + ls / 2 + Math.max(0.5, px * 0.04), ty + Math.max(0.5, px * 0.05));   // ombre du lettrage
+  g.fillStyle = P[1]; g.fillText(txt, bw / 2 + ls / 2, ty);
+  cv._ax = 1 + bw / 2; cv._ay = oy + s * bw / 2 + bh / 2; cv._q = [[1, oy], [1 + bw, oy + s * bw], [1 + bw, oy + s * bw + bh], [1, oy + bh]]; cv._fs = px;
+  if (SG.cache.size > 480) { let i = 0; for (const kk of SG.cache.keys()) { SG.cache.delete(kk); if (++i >= 120) break; } }
+  SG.cache.set(key, cv); return cv;
 }
 function signCv(txt, D, px) {   // plaque en cache : canevas hors écran à la taille exacte en pixels physiques
   const key = txt + '|' + D.st + '|' + (D.ac || '') + '|' + px + '|' + (SG.fo ? 1 : 0); let cv = SG.cache.get(key); if (cv) return cv;
@@ -15624,14 +15682,17 @@ function signBox(a, o) {   // passe 57 : silhouette approchée de chaque bâtime
 }
 function signCollect(a, o) {   // après drawOverlay, sur la case avant : bandeau uni sur l'ancienne enseigne (dans l'ordre de profondeur) et plaque mise en file
   if (!SG.on || o.ghost) return; signBox(a, o); const t0 = performance.now(), key = signKey(a), D = key && SIGN[key]; if (!D) return;
-  const cur = SG.cur && SG.cur.a === a ? SG.cur : null, C = cur && SIGN_COVER[cur.n]; let wx, wy, mode = 'b';
+  const cur = SG.cur && SG.cur.a === a ? SG.cur : null; let wx, wy, mode = 'b';
+  // passe 77 : enseigne peinte sur la façade, prioritaire quand elle est lisible ; l'ancien bandeau de recouvrement n'est alors plus posé
+  let face = cur ? signFaceGeo(key, cur) : null; if (face && ![face.x, face.y, face.w, face.h].every(Number.isFinite)) face = null;
+  const fOk = !!face && signFacePx(face.t || signTxt(key), face.w * z * dpr, face.h * z * dpr) >= SIGN_FACE_MIN * dpr, C = !fOk && cur && SIGN_COVER[cur.n];
   const fx = iso(a.x + a.w / 2, a.y + a.h / 2).x, fy = a._top;   // position flottante (au-dessus du toit) : repli d'une plaque posée que masque un bâtiment de devant
   if (C) {
     const M = (u, v) => [cur.x + (C.c[0] + u[0] + v[0]) * cur.kx, cur.y + (C.c[1] + u[1] + v[1]) * cur.ky], U = C.u, V = C.v, nU = [-U[0], -U[1]], nV = [-V[0], -V[1]];
     const pts = [M(nU, nV), M(U, nV), M(U, V), M(nU, V)]; ctx.fillStyle = C.f; ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill();
     [wx, wy] = M([0, 0], [0, 0]); mode = 'c';
   } else { wx = monMulti(a) ? iso(a.mx + a.mw / 2, a.my + a.mh / 2).x : fx; wy = fy; }
-  if (Number.isFinite(wx) && Number.isFinite(wy)) SG.list.push({ id: a.x + ',' + a.y, a, ord: SG.ord, key, D, wx, wy, fx, fy, mode, cover: !!C, pri: a.w * a.h * 10 + D.sz + (C ? 5 : 0) });
+  if (Number.isFinite(wx) && Number.isFinite(wy)) SG.list.push({ id: a.x + ',' + a.y, a, ord: SG.ord, key, D, wx, wy, fx, fy, mode, cover: !!C, face: fOk ? face : null, pri: a.w * a.h * 10 + D.sz + (C ? 5 : 0) });
   SG.ms += performance.now() - t0;
 }
 function signUi() {   // passe 57 : rectangles (px CSS, repère du canevas) des éléments d'interface posés sur la vue : aucune plaque ne passe dessous
@@ -15646,7 +15707,7 @@ function signUi() {   // passe 57 : rectangles (px CSS, repère du canevas) des 
   return out;
 }
 function signFlush() {   // dessine les plaques à plat, en pixels physiques entiers (texte net), sans chevauchement entre elles ni avec l'interface
-  const t0 = performance.now(); SG.drawn = []; SG.hidden = 0; SG.lost = { ui: 0, col: 0, imp: 0, read: 0 };
+  const t0 = performance.now(); SG.drawn = []; SG.hidden = 0; SG.faces = 0; SG.lost = { ui: 0, col: 0, imp: 0, read: 0 };
   if (t0 - SG.foT > 1000) { SG.foT = t0; SG.fo = !!(document.fonts && document.fonts.check && document.fonts.check('800 20px "Big Shoulders Display"')); }
   if (t0 - SG.uiT > 250 || SG.uiW !== W || SG.uiH !== H) { SG.uiT = t0; SG.uiW = W; SG.uiH = H; try { SG.ui = signUi(); } catch (e) { SG.ui = []; } }
   const m = 2 * dpr, hit = (r, q, mm) => r[0] < q[2] + mm && r[2] > q[0] - mm && r[1] < q[3] + mm && r[3] > q[1] - mm;
@@ -15663,7 +15724,24 @@ function signFlush() {   // dessine les plaques à plat, en pixels physiques ent
     let fs = signFs(s.D), al = signAl(fs);
     if (s.foc) { fs = Math.max(fs, 10); al = 1; }   // survol / sélection : toujours lisible
     else if (al <= 0) { SG.lost.read++; continue; } else if (signImp(s) < minImp) { SG.lost.imp++; continue; }
-    const txt = signTxt(s.key), cv = signCv(txt, s.D, Math.max(1, Math.round(fs * dpr))), w = cv.width, h = cv.height;
+    const txt = signTxt(s.key);
+    if (s.face) {   // passe 77 : nom peint sur la façade quand il est lisible (≥ 9 px) et non masqué par un bâtiment de devant ; sinon plaque d'origine
+      const F = s.face, ft = F.t || txt, px = signFacePx(ft, F.w * z * dpr, F.h * z * dpr);
+      if (px >= SIGN_FACE_MIN * dpr) {
+        const fc = signFaceCv(ft, s.D, px, F.f, F.k), q = sc(F.x, F.y), x0 = Math.round(q[0] - fc._ax), y0 = Math.round(q[1] - fc._ay), r = [x0, y0, x0 + fc.width, y0 + fc.height];
+        if (!(s.ord && front(s, r))) {
+          if (r[0] > W * dpr || r[1] > H * dpr || r[2] < 0 || r[3] < 0) continue;
+          if (r[0] < 0 || r[1] < 0 || r[2] > W * dpr || r[3] > H * dpr || ui.some(u => hit(r, u, m))) { SG.hidden++; SG.lost.ui++; continue; }
+          if (acc.some(u => hit(r, u, m))) { SG.hidden++; SG.lost.col++; continue; }   // l'enseigne de façade compte comme une plaque
+          acc.push(r); ctx.globalAlpha = 1; ctx.drawImage(fc, x0, y0); SG.faces++;
+          const sp = sc(F.spr[0], F.spr[1]), sq = sc(F.spr[2], F.spr[3]);
+          SG.drawn.push({ id: s.id, key: s.key, txt: ft, name: txt, x: x0 / dpr, y: y0 / dpr, w: fc.width / dpr, h: fc.height / dpr, fs: px / dpr, al: 1, cover: false, face: F.f, foc: s.foc, imp: signImp(s),
+            quad: fc._q.map(c => [(x0 + c[0]) / dpr, (y0 + c[1]) / dpr]), spr: [sp[0] / dpr, sp[1] / dpr, sq[0] / dpr, sq[1] / dpr] });
+          continue;
+        }
+      }
+    }
+    const cv = signCv(txt, s.D, Math.max(1, Math.round(fs * dpr))), w = cv.width, h = cv.height;
     const put = (wx, wy, md) => { const q = sc(wx, wy), x0 = Math.round(q[0] - w / 2), y0 = Math.round(md === 'c' ? q[1] - h / 2 : q[1] - h - 4 * dpr); return [x0, y0, x0 + w, y0 + h]; };
     let r = put(s.wx, s.wy, s.mode), cover = s.cover;
     if (cover && s.ord && front(s, r)) { if (!Number.isFinite(s.fy)) continue; r = put(s.fx, s.fy, 'b'); cover = false; }   // plaque posée masquée par un bâtiment de devant : elle passe au-dessus du toit
@@ -19674,7 +19752,7 @@ Object.assign(window.WSE, { coach: { st: coachSt, pick: coachPick, view: coachVi
 Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDaily, obs: netObs, render: renderNet, tab: setNetTab, unread: netUnread, badge: netBadge, save: netSave, san: netSan, reply: netReply, TPL: NET_TPL, CHAT: NET_CHAT, BOTS: NET_BOTS, reset: sd => { S.net = null; const n = netS(); if (sd != null) { n.sd = sd | 0; n.posts = []; n.chat = []; n.id = 0; netSeedContent(); n.seen = n.id; n.o = netSnap(); } NET._t = 0; return n; }, setGap: ms => { NET._t = ms ? NET._t : 0; } } });   // passe 42 : Réseau Wall Street
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ecomStep, list: ewhList, site: ecSite, cat: ecCatalog, delay: ecDelay, attract: ecAttract, pool: ecPool, val: ecVal, tier: () => tierOf((S.stats && S.stats.worth) || 0), raise: ecRaise, set: ecSet, kpi: ecKpi, advice: ecAdvice, save: ecSave, san: ecSan, render: renderEcom, show: ecShow, html: ecomHTML, edu: ecEduHTML, shipCap: ecShipCap, storeCap: ecStoreCap, used: ecUsed, CLS: EC_CLS, MIX: EC_MIX, RET: EC_RET, WORLD: EC_WORLD, FREQ: EC_FREQ, BASKET: EC_BASKET, EL: EC_EL, SHIP: EC_SHIP, STORE: EC_STORE, HOST: EC_HOST, DC: EC_DC, RESV: EC_RESV, LAUNCH: EC_LAUNCH } });   // passe 46 : commerce en ligne
-Object.assign(window.WSE, { audit: { solo: auditSolo, before: auditBefore, iso, TW, TH, mkCell }, sign: { SIGN, SIGN_COVER, SIGN_ST, SIGN_SZ, txt: signTxt, key: signKey, get drawn() { return SG.drawn.slice(); }, get queued() { return SG.list.length; }, get hidden() { return SG.hidden; }, get lost() { return Object.assign({}, SG.lost); }, get ui() { return SG.ui.slice(); }, IMP: SIGN_IMP, minImp: signMinImp, get ms() { return SG.last || 0; }, get avg() { return SG.avg; }, get on() { return SG.on; }, set on(v) { SG.on = !!v; }, get cacheN() { return SG.cache.size; } } });   // passe 54 : enseignes dessinées par le code
+Object.assign(window.WSE, { audit: { solo: auditSolo, before: auditBefore, iso, TW, TH, mkCell }, sign: { SIGN, SIGN_COVER, SIGN_ST, SIGN_SZ, txt: signTxt, key: signKey, get drawn() { return SG.drawn.slice(); }, get queued() { return SG.list.length; }, get hidden() { return SG.hidden; }, get lost() { return Object.assign({}, SG.lost); }, get ui() { return SG.ui.slice(); }, IMP: SIGN_IMP, minImp: signMinImp, get ms() { return SG.last || 0; }, get avg() { return SG.avg; }, get on() { return SG.on; }, set on(v) { SG.on = !!v; }, get cacheN() { return SG.cache.size; }, FACE: SIGN_FACE, FACE_MIN: SIGN_FACE_MIN, get faces() { return SG.faces; } } });   // passe 54 : enseignes dessinées par le code
 Object.assign(window.WSE, { gfx: { use(g, fn) { const m = ctx; ctx = g; try { return fn(); } finally { ctx = m; } }, tile: drawTileOf, overlay: drawOverlay, dep: drawDeposit, depProc, spr: vvSpr, drawFlat: vvDraw, field: drawField, forest: drawForest, tree: drawDecorTree, rock: vvRock, quay: drawQuayDecor, ship: drawShip, car: drawCar, crane: drawCrane, containers: drawContainers, gtTile, gtPatch, gtKind, iso, mkCell, ATLAS, P2_IMG, P2DIM, P2_DEP, P2_RECOL, CROP_SPR, recolor: p2Recolor, VV_FARM, VV_CARS, VV_GOODS, PROC_IND, SPEC_T, CROP_COL, CITY_IMG, HQ_IMG, FAC_IMG } });   // passe 55 : audit visuel (tools/audit_visuel.js)
 Object.assign(window.WSE, { ground: { GT, ROAD_SPR, GT_NAMES, kind: gtKind, active: gtActive, roadSpr: (x, y) => ROAD_SPR[roadMask(x, y)], clearing: gtClearing, tex: gtTex }, view: { get z() { return z; }, setZ: v => { fitted = true; z = clamp(v, 0.03, 1.8); }, centerOn, get dpr() { return dpr; } } });   // passe sol et routes
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
