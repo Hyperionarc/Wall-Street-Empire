@@ -2029,7 +2029,20 @@ function supplierList(g) {
   for (let i = 0; i < 5; i++) { const q = 40 + Math.round(50 * hash(i, b, 13)); out.push({ id: 's' + i, name: SUP_POOL[(Math.floor(hash(a, b, 11) * 12) + i * 5) % 12], pf: +((0.92 + 0.12 * hash(i, a, 7)) * Math.pow(q / 65, SUP_QE)).toFixed(2), q, dist: 8 + Math.round(60 * hash(i, a, 17)), cf: +(0.35 + 0.6 * hash(i, a + b, 41)).toFixed(2) }); }
   const fp = fgnOf(g); if (fp) { out[0].name = fp.name + ' (' + fp.city + ')'; out[0].pf = +(fp.stance === 'dump' ? 0.78 : fp.stance === 'squeeze' ? 1.2 : 0.9).toFixed(2); out[0].q = 85; out[0].cf = 2; }
   if (trOn(g)) out.push(trSup(g));   // passe 66 : le négociant IA (stock au port, marge selon son pouvoir de marché)
+  if (EMS_G[g]) out.push({ id: 'ems', name: emsName() + ' (sous-traitance)', pf: +(1 + EMS_M).toFixed(2), q: EMS_Q, dist: 30, cf: EMS_CF, ems: 1 });   // passe 72 : sous-traitant électronique (prix de gros mondial)
   return out;
+}
+// Passe 72 (innovateur) : sous-traitance électronique, comme Apple chez Foxconn. Les composants électroniques (cartes, écrans, batteries, capteurs, boîtiers...)
+// s'achètent au prix de gros mondial (cours de référence × indice des prix × (1 + marge du sous-traitant 12 %), fret 3 %), quelle que soit la pénurie locale :
+// sans fabricant de composants dans la ville, le cours local monte jusqu'à 1,7 fois la référence (et 2,3 fois à l'import), si bien que l'électronique d'un innovateur
+// (sans chaîne verticale de 100 M$) échouait presque toujours. Le sous-traitant est l'industriel IA quand il est en jeu : il encaisse sa marge (somme positive).
+const EMS_G = { circuit: 1, screen: 1, battery: 1, sensor: 1, led: 1, magnet: 1, motor: 1, pv: 1, case: 1 }, EMS_M = 0.12, EMS_FR = 0.03, EMS_Q = 70, EMS_CF = 8;
+const emsRiv = () => (S && S.rivals || []).find(r => r.caste === 'industriel' && !r.sub) || null;
+const emsName = () => { const r = emsRiv(); return r ? r.name : 'Pacific Assembly'; };
+const emsPx = g => GOODS[g].base * cpi() * (1 + EMS_M);   // prix de gros, hors fret
+function emsPay(amt) {   // le sous-traitant (industriel IA) encaisse sa marge sur la commande du jour
+  if (!(amt > 0)) return; const m = amt * EMS_M / ((1 + EMS_M) * (1 + EMS_FR)), r = emsRiv(); if (r) r.cash = (r.cash || 0) + m;
+  const E = S._ems && S._ems.d === S.day ? S._ems : (S._ems = { d: S.day, amt: 0, m: 0, m30: S._ems ? S._ems.m30 || 0 : 0 }); E.amt += amt; E.m += m; E.m30 = E.m30 * (29 / 30) + m;
 }
 // Joueurs IA étrangers (PNJ d'ailleurs) : ils vendent leur spécialité sur le marché mondial, inondent ou raréfient, proposent des contrats
 const FOREIGN0 = [
@@ -2291,6 +2304,7 @@ function supOffer0(g, id, haul) {
   const base = (S.price[g] || GOODS[g].base) / (id === 'local' ? 1 : mpM(g));   // passe 46 : fournisseurs extérieurs et import au cours mondial ; le stock local au prix du marché local
   if (id === 'local') return { unit: base, freight: 0, total: base, name: 'Mon réseau (stock local)', q: 60 };
   if (id === 'import') { const pr = Math.max(1.05, 1.3 - 0.05 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)), k = base * FREIGHT, seg = [k * 15, k * 29, k * (1 + (haul || 0) * 0.3)], fr = seg[0] + seg[1] + seg[2]; return { unit: base * pr, freight: fr, total: base * pr + fr, name: 'Import par le port', q: 55, seg, segN: ['producteur → port d\'origine', 'port → port (mer)', 'port → ton site'] }; }
+  if (id === 'ems' && EMS_G[g]) { const u = emsPx(g), fr = u * EMS_FR; return { unit: u, freight: fr, total: u + fr, name: emsName() + ' (sous-traitance)', q: EMS_Q, dist: 30, ems: 1 }; }   // passe 72 : prix de gros mondial du sous-traitant
   const s = supplierList(g).find(x => x.id === id) || supplierList(g)[0];
   // Achat inter-villes (puissance étrangère) : 3 segments, fournisseur → port, port → port (mer), port → acheteur
   const fp = fgnOf(g); if (fp && s.name.indexOf('(') > 0) { const k = base * FREIGHT, sea = SEA_D[fp.id] || 70, seg = [k * s.dist * 0.35, k * sea * 0.4, k * (4 + 0.45 * (haul || 20))], fr = seg[0] + seg[1] + seg[2]; return { unit: base * s.pf, freight: fr, total: base * s.pf + fr, name: s.name, q: s.q, dist: s.dist, seg, segN: ['fournisseur → port de ' + fp.city, 'port de ' + fp.city + ' → ton port (mer)', 'ton port → ton site'] }; }
@@ -2628,6 +2642,7 @@ function lxQuote(who, amt) {
   const pf = me ? ((S.fin && S.fin.net) || 0) : (who.pf || 0), why = [];
   if (!L) return { ok: true, sp: 0.03, rate: lxPol() + 0.03, why: ['banque de la place'], lev };
   let sp = 0.02 + riskPrem(); why.push(`taux directeur ${pc1(lxPol())} + marge 2 pts`, `prime du cycle ${riskPrem() >= 0 ? '+' : '−'}${pc1(Math.abs(riskPrem()))}`);
+  if (me && ipInfo().col > 0) why.push(`garanties : brevets et plateforme cloud (${money(ipInfo().col)})`);   // passe 72 : prêt adossé aux brevets (leur valeur entre dans ta valorisation, donc dans ton levier)
   const rk = 0.04 * clamp((lev - 0.15) / 0.45, 0, 1); if (rk > 0.0005) { sp += rk; why.push(`risque (levier ${Math.round(lev * 100)} %) +${pc1(rk)}`); }
   if (M.gdp < 0 && lev > 0.4) { sp += 0.01; why.push('récession et levier élevé : +1 pt'); }
   if (lev > LX_LEVMAX) return { ok: false, lev, why: [`levier après prêt ${Math.round(lev * 100)} %, au-delà de ${Math.round(LX_LEVMAX * 100)} %`] };
@@ -2662,7 +2677,7 @@ function lxDay() {
   L.cash += nim / 360; B.nim = Math.round(nim);
 }
 // prêt au joueur : accepté, il s'ajoute à ta dette (même plafond de remboursement), au taux fixe coté, sur 2 ans
-function lxOfferAmt() { const L = lxR(); return L ? Math.max(0, Math.round(Math.min(0.15 * Math.max(0, valuation()), 0.5 * lxCap(L)) / 10000) * 10000) : 0; }
+function lxOfferAmt() { const L = lxR(); return L ? Math.max(0, Math.round(Math.min(0.15 * Math.max(0, valuation()) + 0.5 * ipInfo().col, 0.5 * lxCap(L)) / 10000) * 10000) : 0; }   // passe 72 : + la moitié de ta garantie en brevets et contrats cloud
 function lxTake(amt) {
   const L = lxR(); if (!L) return false; amt = Math.round(amt || lxOfferAmt()); if (!(amt > 0)) return false; const q = lxQuote('me', amt), B = lxS();
   if (!q.ok) { B.n.refMe = (B.n.refMe || 0) + 1; say(`${L.name} refuse de te prêter ${money(amt)} : ${q.why[0]}.`, 'warn'); rvLog(L, `refuse de te prêter ${money(amt)} : ${q.why[0]}.`); return false; }
@@ -4536,7 +4551,8 @@ const bkEquity = () => (S && S.bk && !S.bk.fail && casteIs('banquier') && S.bk.r
 // Passe 67 : une filiale acquise (OPA réussie, actifs d'un rival en faillite) compte dans la valorisation au coût amorti, comme un bâtiment (0,9 × le prix payé) ;
 // avant, son prix sortait de la trésorerie sans contrepartie (la société disparaissait du bilan). Anciennes sauvegardes (sans v) : 0, comme avant.
 const subsBook = () => ((S && S.subs) || []).reduce((a, x) => a + 0.9 * (+x.v > 0 ? +x.v : 0), 0);
-function worthOf(ev) { return S.cash + ev.value + (S.capAdj || 0) + bkEquity() + subsBook(); }
+// Passe 72 : + actifs immatériels (brevets actifs, plateforme cloud de l'Innovateur) en valeur actualisée prudente (ipInfo) ; 0 sans brevet ni campus (valeur inchangée).
+function worthOf(ev) { return S.cash + ev.value + (S.capAdj || 0) + bkEquity() + subsBook() + ipBook(); }
 
 // ---- Gestion par bâtiment : effectif, salaires, qualité, efficacité ----
 let STAFF = 1;
@@ -4547,10 +4563,19 @@ const wageMkt = () => clamp(1 + 1.5 * (0.125 - ((S && S.stats && S.stats.unemp !
 // la recette totale vaut D × (1 − e^(−U/D)) : la 1re tour est pleine, la 10e rapporte à peine un tiers. Réseau : chaque autre type de service présent ajoute 12 % de demande ; concurrence : −7 % par rival.
 const SVC_POP = { tech: 36000, dc: 48000, bank: 32000 };
 const DC_PLAT = 0.4;   // passe 67 : demande de calcul ajoutée par brevet actif de l'Innovateur (+40 % de la demande de la ville chacun)
+// Passe 72 : rendements croissants de la plateforme cloud et IA de l'Innovateur. Plus de clients = plus de données = meilleurs modèles = plus de clients :
+//  - demande (svcSat) × (1 + PLAT_DN × ln(1 + campus)) ; - recette par campus alimenté (qualité des modèles) × platQ = (1 + PLAT_PQ × brevets, au plus PLAT_PMAX) × (1 + PLAT_NET × ln(1 + campus)),
+//    à coût marginal quasi nul (l'électricité, les salaires et l'entretien du campus ne changent pas) ; la saturation vient de la demande finie (D), de l'énergie (disponibilité A) et du calcul (campus).
+//  - une part PLAT_EXT de la recette est facturée aux autres castes (rivaux IA), qui en tirent PLAT_GAIN fois plus en productivité (somme positive, S._plat).
+const PLAT_DN = 0.15, PLAT_PQ = 0.025, PLAT_PMAX = 10, PLAT_NET = 0.1, PLAT_EXT = 0.2, PLAT_GAIN = 1.6;
+function platQ() {
+  if (!casteIs('innovateur')) return 1; const np = Object.keys(S.pat || {}).filter(q => patMine(q)).length, u = (S._sat && S._sat.dc && S._sat.dc.U) || 0;
+  return (1 + PLAT_PQ * Math.min(PLAT_PMAX, np)) * (1 + PLAT_NET * Math.log(1 + u));
+}
 function svcSat(list) {
   const U = { tech: 0, dc: 0, bank: 0 }; list.forEach(c => { if ((c.t === 'tech' || c.t === 'dc' || c.t === 'bank') && c.conn) U[c.t] += levelMult(c); });
   const kinds = Object.keys(U).filter(k => U[k] > 0).length, comp = clamp(1 - 0.07 * Math.min(3, (S.rivals || []).length), 0.6, 1), out = {};
-  const plat = k => k === 'dc' && casteIs('innovateur') ? 1 + DC_PLAT * Object.keys(S.pat || {}).filter(q => patMine(q)).length : 1;   // passe 67 : plateforme cloud et IA de l'Innovateur, vendue au-delà de la ville, portée par ses brevets
+  const plat = k => k === 'dc' && casteIs('innovateur') ? (1 + DC_PLAT * Object.keys(S.pat || {}).filter(q => patMine(q)).length) * (1 + PLAT_DN * Math.log(1 + U.dc)) : 1;   // passe 67 : plateforme cloud et IA de l'Innovateur, vendue au-delà de la ville, portée par ses brevets ; passe 72 : effet de réseau (plus de campus = plus de clients)
   Object.keys(U).forEach(k => { const D = Math.max(1, popE() / SVC_POP[k]) * (1 + 0.12 * Math.max(0, kinds - (U[k] > 0 ? 1 : 0))) * comp * plat(k); out[k] = { U: U[k], D, m: (U[k] > 0 ? Math.min(1, (1 - Math.exp(-U[k] / D)) / U[k] / (1 - Math.exp(-1 / D))) : 1) * (1 - rivSvc(k)) }; });   // rivSvc : part de la demande prise par l'IA banquier (banque) ou innovateur (tech, data centers)
   return out;
 }
@@ -4592,7 +4617,7 @@ const CASTES = {
   banquier: { n: 'Banquier d\'affaires', col: '#3fd8ff', tag: 'Crédit, levier, marchés', d: 'Ta banque dispose de 100 M$ de fonds propres CET1, dont 20 % tradables. Règles Bâle III : ratio CET1 ≥ 8 % + 2,5 % de coussin (plus un coussin contracyclique en boom) sur des actifs pondérés du risque, liquidité LCR ≥ 100 %, levier ×10 sur les fonds propres. Les défauts en récession et en crise du crédit rongent tes fonds propres : sous 4,5 % le régulateur te restreint, en dessous de zéro c\'est la faillite.', cash: 0, fx: { interest: 0.6 }, cost: {} },
   negociant: { n: 'Négociant en matières', col: '#46d39a', tag: 'Trading Zurich-Genève, cartels, embargos', d: 'Une maison de négoce façon Zurich ou Genève. Cartels et embargos 50 % moins chers, exportations +15 %, achats d\'intrants et importations 4 % moins chers, pétrole +10 %. Pipelines 40 % moins chers, centrales 20 % moins chères, électricité +30 %.', cash: 0, fx: { export: 1.15, oil: 1.1, buy: 0.96 }, cost: { plant: 0.8, pipeline: 0.6 } },
   agriculteur: { n: 'Exploitant agricole', col: '#9fd05a', tag: 'Simulation de ferme, cultures, élevage', d: 'Tu vis de la terre. Fermes 25 % moins chères, rendement des cultures +15 %, irrigation 30 % moins chère, sécheresses deux fois moins sévères, fertilité des sols +8 %.', cash: 0, fx: { crop: 1.15 }, cost: { fwheat: 0.75, fsugar: 0.75, fcotton: 0.75, frubber: 0.75, fvine: 0.75, fcorn: 0.75, frapeseed: 0.75, fcattle: 0.75, fchicken: 0.75, fpig: 0.75, fsheep: 0.75 } },
-  innovateur: { n: 'Innovateur tech', col: '#b78cff', tag: 'R&D, brevets, data centers, IA', d: 'Tu inventes. Un produit que personne ne sait faire t\'ouvre une fenêtre de monopole (prime de prix, export exclusif) jusqu\'à ce que les rivaux rattrapent : relance le suivant avant l\'érosion. Recherches et développements 30 % plus rapides et 20 % moins chers, centres de R&D et data centers 25 % moins chers, fenêtre de monopole +40 %, redevances +50 %. Tes data centers louent leur puissance de calcul et boostent l\'efficience de toute ton entreprise grâce à l\'IA.', cash: 0, fx: {}, cost: { rd: 0.75, dc: 0.75 } }
+  innovateur: { n: 'Innovateur tech', col: '#b78cff', tag: 'R&D, brevets, data centers, IA', d: 'Tu inventes. Un produit que personne ne sait faire t\'ouvre une fenêtre de monopole (prime de prix, export exclusif) jusqu\'à ce que les rivaux rattrapent : relance le suivant avant l\'érosion. Recherches et développements 30 % plus rapides et 20 % moins chers, centres de R&D et data centers 25 % moins chers, fenêtre de monopole +40 %, redevances +50 %. Tes data centers louent leur puissance de calcul et boostent l\'efficience de toute ton entreprise grâce à l\'IA. Tes brevets servent de garantie bancaire (50 %) et, dès 3 brevets, la banque finance 65 % d\'un campus sur tes contrats cloud ; ta plateforme cloud a des rendements croissants (brevets, effet de réseau) et ses actifs immatériels comptent dans ta capitalisation. Électronique : composants sous-traités au prix de gros (comme Apple chez Foxconn).', cash: 0, fx: {}, cost: { rd: 0.75, dc: 0.75 } }
 };
 const casteOf = () => (S && S.caste) || '';
 const casteIs = k => casteOf() === k;
@@ -4977,10 +5002,20 @@ function dcDay(bl) {   // après la production des centrales : alimente les data
     c.limit = A < 0.999 ? 'power' : null;
   });
   if (trQ > 0) { const tr = trR(); if (tr) { const rev = trQ * tar * TR_DCK, cost = trQ * ELEC_BASE * cpi() * shockPx('elec'); const T0 = trS(); T0.eq = (T0.eq || 0) + rev - cost; trAdd('dc', rev); trAdd('pnl', rev - cost); const T = trS(); T.el = T.el && T.el.d === S.day ? T.el : { d: S.day, q: 0, dc: 0 }; T.el.dc = (T.el.dc || 0) + trQ; } }
+  if (casteIs('innovateur')) platBill(dcs.reduce((a, c) => a + (c.pRev || 0), 0));   // passe 72 : calcul facturé aux autres castes (somme positive)
   if (own > 0 && used > 0) {   // l'électricité consommée par tes data centers n'est plus vendue au réseau
     const f = clamp(used / own, 0, 1); pl.forEach(c => { const dr = (c.pRev || 0) * f; c.pRev -= dr; out.dRev -= dr; c._dcMWh = c._mwh * f; }); S._pSup = Math.max(0, (S._pSup || 0) - used);
   }
   return out;
+}
+// Passe 72 : part de la recette cloud payée par les autres castes (rivaux IA), au prorata de leur taille ; chacune en tire PLAT_GAIN fois plus en productivité
+// (logistique, prévision, conception assistée par l'IA) : elle gagne (PLAT_GAIN − 1) × ce qu'elle paie. Aucune recette n'est ajoutée au joueur (elle est déjà dans pRev).
+function platBill(rev) {
+  const rs = (S.rivals || []).filter(r => !r.sub), P = S._plat || (S._plat = { m30: 0, g30: 0, by: {} }); P.d = S.day; P.rev = rev; P.fee = 0; P.gain = 0;
+  if (!(rev > 0) || !rs.length) { P.m30 *= 29 / 30; P.g30 *= 29 / 30; return; }
+  const w = rs.map(r => Math.max(1e6, rivalValue(r))), tw = w.reduce((a, v) => a + v, 0), fee = PLAT_EXT * rev;
+  rs.forEach((r, i) => { const f = fee * w[i] / tw, g = PLAT_GAIN * f; r.cash = (r.cash || 0) - f + g; P.by[r.id] = (P.by[r.id] || 0) * (29 / 30) + (g - f); });
+  P.fee = fee; P.gain = PLAT_GAIN * fee; P.m30 = P.m30 * (29 / 30) + fee; P.g30 = P.g30 * (29 / 30) + (PLAT_GAIN - 1) * fee;
 }
 function dcAI() { let a = 0; eachBuilding(c => { if (c.t === 'dc' && c.conn) a += levelMult(c) * (c._avail == null ? 1 : c._avail) * dcCt(c); }); return a; }   // puissance de calcul effective (campus = 1)
 // --- Chocs exogènes (énergie, pandémie, crise du crédit) : état dans S.macro.sh[id] = { t0, d, k } ; intensité 0..1 (montée, plateau, retombée) ---
@@ -6458,14 +6493,14 @@ function step() {
     Object.keys(inp).forEach(g => {
       const impR = Math.max(1.05, 1.3 - 0.05 * (cn.port || 0)) * TM.buy * modOf('buy');
       let tot = 0; list.forEach(c => { tot += c._u * inp[g]; });
-      const outV = tgt.good ? tgt.qty * S.price[tgt.good] : tgt.prod ? tgt.qty * prodPrice(tgt.prod) : 0, inV = Object.keys(inp).reduce((a, k) => a + inp[k] * S.price[k] * impR * 1.1, 0);
+      const outV = tgt.good ? tgt.qty * S.price[tgt.good] : tgt.prod ? tgt.qty * prodPrice(tgt.prod) : 0, inV = Object.keys(inp).reduce((a, k) => a + inp[k] * (EMS_G[k] && list.some(c => c.src && c.src[k] === 'co:ems') ? emsPx(k) * (1 + EMS_FR) * TM.buy * modOf('buy') : S.price[k] * impR * 1.1), 0);   // passe 72 : un composant sous-traité se compte à son prix de gros
       let short = inV > outV * 0.85 ? 0 : Math.max(0, tot - S.stock[g]);   // l'import automatique n'a lieu que si la fabrication reste rentable
       list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0; if (mode === 'auto' && inV > outV * 0.85 && need > S.stock[g] + 0.01) c._noAuto = GOODS[g].name.toLowerCase();   // audit : l'import automatique refusé est expliqué au joueur
         if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) { if (c._autoBuy && c._autoBuy[g] && inV > outV * 0.85) { c._noBuy = GOODS[g].name.toLowerCase(); q = 0; } else q = need; } else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }   // achat choisi par l'auto-production : suspendu tant que les prix du marché rendent la fabrication déficitaire (un choix manuel reste respecté). Audit intérieurs : la branche « auto » (stock local puis port) était tombée dans ce commentaire depuis la passe 21, l'import automatique ne se faisait plus jamais
         let qS = q, qP = 0; if (q > 0.01 && mode.indexOf('co:') === 0) { const sid = mode.slice(3), k = g + ':' + sid, s = supplierList(g).find(x => x.id === sid), cap = supCap(g, s); qS = Math.min(q, Math.max(0, cap - (supU[k] || 0))); qP = q - qS; supU[k] = (supU[k] || 0) + qS; (c._supT || (c._supT = {}))[k] = qS;
           if (qP > 0.01) { (c._supS || (c._supS = {}))[g] = qP; if ((c._supSay || -99) <= S.day - 30) { c._supSay = S.day; say(`${s ? s.name : 'Ton fournisseur'} est à court de ${GOODS[g].name.toLowerCase()} (${fmt(Math.round(cap))} u/j pour tous ses clients) : ${TYPES[c.t].name.toLowerCase()} complète ${fmt(Math.round(qP))} u/j au port, plus cher. Choisis un second fournisseur ou produis-le.`, 'warn'); } } else if (c._supS) delete c._supS[g]; }
         let qT = 0, kT = 0; if (q > 0.01 && mode === 'auto' && trOn(g)) { kT = trK(g) * TM.buy * modOf('buy'); if (kT < impR) { const kk = g + ':neg'; qT = Math.min(q, Math.max(0, (S.rv.tr.stk[g] || 0) - (supU[kk] || 0))); supU[kk] = (supU[kk] || 0) + qT; } }   // passe 66 : en mode auto, l'import passe d'abord par le stock du négociant quand il est moins cher que le port
-        if (q > 0.01) { const of = mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3), c.haul) : null; const cost = of ? qS * of.total * TM.buy * modOf('buy') + qP * S.price[g] / mpM(g) * impR * (1 + 0.004 * (c.haul || 0)) : (q - qT) * S.price[g] / mpM(g) * impR * (1 + 0.004 * (c.haul || 0)) + qT * S.price[g] / mpM(g) * kT * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; fAdd(c, g, q, 1); indImport += cost; c._impCost = (c._impCost || 0) + cost; c._impIn = (c._impIn || 0) + q; c._impV = (c._impV || 0) + q * S.price[g]; } });   // passe 46 : l'import se paie au cours mondial (sans ta prime de marché)
+        if (q > 0.01) { const of = mode.indexOf('co:') === 0 ? supOffer(g, mode.slice(3), c.haul) : null; const cost = of ? qS * of.total * TM.buy * modOf('buy') + qP * S.price[g] / mpM(g) * impR * (1 + 0.004 * (c.haul || 0)) : (q - qT) * S.price[g] / mpM(g) * impR * (1 + 0.004 * (c.haul || 0)) + qT * S.price[g] / mpM(g) * kT * (1 + 0.004 * (c.haul || 0)); S.stock[g] += q; fAdd(c, g, q, 1); indImport += cost; c._impCost = (c._impCost || 0) + cost; if (of && of.ems) emsPay(qS * of.total * TM.buy * modOf('buy')); c._impIn = (c._impIn || 0) + q; c._impV = (c._impV || 0) + q * S.price[g]; } });   // passe 46 : l'import se paie au cours mondial (sans ta prime de marché)
     });
     let r = units, lim = null;
     Object.keys(inp).forEach(g => { want[g] += units * inp[g]; const rr = S.stock[g] / inp[g]; if (rr < r) { r = rr; lim = g; } });
@@ -6626,7 +6661,7 @@ function step() {
   buildings.forEach(c => {
     const T = TYPES[c.t], fill = fillOf(c), u = unitsOf(c);
     if (c.t === 'rd') { c._pat = (c._pat || 0) + u * 0.4 / 30; if (c._pat >= 1) { c._pat -= 1; const X = rdxS(); X.cred = Math.min(ACC_LAB_MAX, X.cred + ACC_LAB_GAIN); say(`Ton centre de R&D boucle un dossier : +${ACC_LAB_GAIN} jours de crédits labo pour accélérer une recherche (Bureau > R&D et brevets).`, 'gold'); } c.out = u; c.util = fill; c.pRev = 0; }
-    if (c.t === 'dc') { c._rent0 = jobsOf(c) * DC_PER * fill * (casteIs('innovateur') ? 1.12 : 1) * cpi() * SAT.dc.m; c.out = 0; c.util = 0; c.pRev = 0; c.transport = 20 * u * cpi(); transportTotal += c.transport; }   // passe 55 : recette encaissée selon l'alimentation (dcDay)
+    if (c.t === 'dc') { c._rent0 = jobsOf(c) * DC_PER * fill * (casteIs('innovateur') ? 1.12 : 1) * cpi() * SAT.dc.m * platQ();   /* passe 72 : qualité de la plateforme (brevets, effet de réseau) */ c.out = 0; c.util = 0; c.pRev = 0; c.transport = 20 * u * cpi(); transportTotal += c.transport; }   // passe 55 : recette encaissée selon l'alimentation (dcDay)
     if (isPlant(c.t)) {
       const storm = c.gridOver && (S.storm || 0) >= S.day, live = c.gridOk && !storm, loss = 1 - (c.gridLoss || 0), sf = 0.55 + 0.45 * Math.sin((S.day - 60) / 360 * 2 * Math.PI);
       let mwh = 0; c.limit = null; c.inCost = 0;
@@ -7204,7 +7239,9 @@ function place(x, y, key) {
     return false;
   }
   const land = landCostFor(x, y, key), prem = sitePremium(x, y, key), rfee = key === 'road' && ZONE[idx(x, y)] !== 0 ? proRoadFee() : 0, build0 = Math.round(T.cost * casteCost(key) * Math.max(1, cpi())), zAid = (key === 'road' || T.ext || T.ret || ZN_NOAID[key]) ? 0 : znBuildAid(x, y, build0), tot = build0 - zAid + land + prem + rfee;
-  if (S.cash < tot) { say(`Trésorerie insuffisante pour ${T.name.toLowerCase()} : ${money(T.cost)} de construction + ${money(land)} de terrain${prem > 0 ? ' + ' + money(prem) + ' de prime du site' : ''}.`, 'bad'); return false; }
+  const pfin = key === 'dc' && S.cash < tot ? Math.min(ipInfo().proj, tot - S.cash) : 0;   // passe 72 : financement de projet du campus (Innovateur), adossé aux contrats cloud
+  if (S.cash + pfin < tot) { say(`Trésorerie insuffisante pour ${T.name.toLowerCase()} : ${money(T.cost)} de construction + ${money(land)} de terrain${prem > 0 ? ' + ' + money(prem) + ' de prime du site' : ''}${ipInfo().proj > 0 ? ` (financement de projet possible : ${money(ipInfo().proj)})` : ''}.`, 'bad'); return false; }
+  if (pfin > 0) { S.loan = (S.loan || 0) + pfin; S.cash += pfin; S._ipc = null; say(`Financement de projet : ta banque prête ${money(pfin)} pour ce campus, adossé à tes contrats cloud et à tes brevets (taux de ta dette).`, 'gold'); }
   S.cash -= tot; trfDirty = true; siteC.dirty = true;
   if (zAid > 0) { const z = znS(); z.bud = (z.bud == null ? 150 * znInc() : z.bud) - zAid; z.cum = (z.cum || 0) + zAid; say(`Subvention de zone : la ville prend en charge ${money(zAid)} de la construction (${Math.round(100 * zAid / Math.max(1, build0))} %).`, 'gold'); }
   if (!T.ext && key !== 'road') rubAdd((T.w || 1) * (T.h || 1) * 60);   // gravats de chantier
@@ -7983,6 +8020,11 @@ function cityHTML() {
     + `</div><p class="note">${dens || 'Aucun immeuble'}. La ville se densifie quand la demande et la valeur du sol le justifient (maison, petit immeuble, immeuble, tour, grande tour, supertour) ; ses promoteurs rachètent et reconstruisent plus haut.</p>`
     + (S.cg && S.cg.h && S.cg.h.length > 1 ? `<canvas id="citspark" width="640" height="110" style="width:100%;height:70px" aria-label="Population au fil des mois"></canvas>` : '');
 }
+// Passe 72 : bloc « Actifs immatériels » du panneau Empire (brevets, plateforme cloud) : ce que la capitalisation compte en plus des murs et de la trésorerie
+function ipEmpireHTML() {
+  const I = ipInfo(); if (!(I.v > 0)) return ''; const row = (n, v, c) => `<div class="finrow"><span>${n}</span><b class="${c || ''}">${v}</b></div>`;
+  return `<h3>ACTIFS IMMATÉRIELS</h3><div class="fcard">${row(`Brevets actifs (${I.n}) : redevances ${mj(I.roy * 30)}/mois + rente de monopole ${mj(I.mono * 30)}/mois`, money(I.pat), 'gold')}${I.plat > 0 ? row('Plateforme cloud et IA (EBE actualisé moins les campus)', money(I.plat), 'gold') : ''}${row('Total compté dans ta capitalisation', money(I.v), 'gold')}<small class="note">Valeur actualisée prudente (taux ${Math.round(IP_DISC * 100)} %, décote ${Math.round(100 * (1 - IP_PRU))} %) : la rente de monopole ne compte que sur la fenêtre d'exclusivité restante, à moitié (elle s'érode). Les banques en prêtent une part (bureau de la dette).</small></div>`;
+}
 function renderEmpire() {
   if (el('panel').hidden || el('empire').closest('section').hidden) return;
   const st = S.stats || {}, ev = evaluate(), raw = st.raw || 0, fl = S.float || 0, F = finM().F || {};
@@ -7992,6 +8034,7 @@ function renderEmpire() {
   let h = `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">${kp('Capitalisation (ta part)', money(st.worth || 0), 'gold')}${kp('Trésorerie', money(cash), cash >= 0 ? 'pos' : 'neg')}${kp('Résultat net / mois', (F.net >= 0 ? '+' : '−') + mj(Math.abs(F.net || 0)), (F.net || 0) >= 0 ? 'pos' : 'neg')}${kp('Cours de l\'action', px == null ? 'non cotée' : fx2(px) + ' $', 'gold', px == null ? 'Siège social + 250 000 $ requis' : 'cap. boursière ' + money(raw * (S.prem || 1.1)))}${kp('Dette', money(debt), debt ? 'neg' : '')}${kp('Habitants', fmt(st.pop || 0), '', fmt(st.playerJobs || 0) + ' emplois dans tes bâtiments')}</div>`;
   const M = S.macro || { gdp: 0.03, infl: 0.02, rate: 0.04 };
   h += grpEmpireHTML();
+  h += ipEmpireHTML();
   h += cityHTML();
   h += reHTML();
   h += shockHTML();
@@ -8039,7 +8082,7 @@ function creditLimit() {
   const cc = 1 - 0.35 * shockI('credit');   // crise du crédit
   if (casteIs('banquier')) { const b = bkInit(); if (b.fail || b.st === 'restr') return 0; return Math.min(creditLimitBase(), (BK_LEV - 1) * Math.max(0, b.res)) * cc; }   // la banque emprunte au plus 11 × ses fonds propres (levier 12×), jamais sur son portefeuille de crédits
   if (casteIs('promoteur')) return promoLimit() * (1 - REG_DEBT * Math.max(0, S.diff || 0)) * cc;   // promoteur : financement adossé à l'immobilier (20 % de fonds propres, LTV 80 %)
-  return Math.min(creditLimitBase(), debtCapEbe()) * (1 - REG_DEBT * Math.max(0, S.diff || 0)) * cc * credCycle();   // hors banquier (levier ×10) et promoteur (levier ×5), constants : le crédit se desserre en boom et se resserre en récession   // crise du crédit : plafond de dette jusqu'à −35 %
+  return (Math.min(creditLimitBase(), debtCapEbe()) + ipInfo().col) * (1 - REG_DEBT * Math.max(0, S.diff || 0)) * cc * credCycle();   // passe 72 : + prêt adossé aux brevets et à la plateforme cloud, financement de projet d'un campus (Innovateur)   // hors banquier (levier ×10) et promoteur (levier ×5), constants : le crédit se desserre en boom et se resserre en récession   // crise du crédit : plafond de dette jusqu'à −35 %
 }
 // Promoteur BTP : actifs gageables = trésorerie + stocks (80 %) + immobilier expertisé (× indice de prix) + autres immobilisations (60 %) ; dette ≤ 80 % de ces actifs, soit 4 × les fonds propres (levier ×5)
 const IMMO_T = ['res', 'immo', 'btp', 'off', 'hq', 'wh', 'sport', 's1', 's2', 's3', 's4'];
@@ -8072,7 +8115,7 @@ function stepCovenant() {   // covenant du promoteur : LTV > 90 % = appel de mar
   } else if (l > PROMO_COV) { S.mc = { d0: S.day, until: S.day + 30 }; say(`Appel de marge : ta dette atteint ${Math.round(l * 100)} % de tes actifs gageables (covenant 90 %). Rembourse ou l'immobilier sera vendu de force sous 30 jours ; taux +3 pts.`, 'bad'); }
 }
 function creditLimitBase() { return Math.max(Math.round(curAssetsCL() * (casteIs('banquier') ? 1.5 : 1) * (execOn('cfo') ? 1.2 : 1) / 1000) * 1000, creditLimit0()); }
-function creditLimit0() { return Math.max(0, (casteIs('banquier') ? Math.round(0.5 * portValue() / 1000) * 1000 : 0) + Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.5 : 1) * ((S.stats && S.stats.worth || S.cash) + (S.loan || 0)) / 1000) * 1000); }
+function creditLimit0() { return Math.max(0, (casteIs('banquier') ? Math.round(0.5 * portValue() / 1000) * 1000 : 0) + Math.round(0.5 * (execOn('cfo') ? 1.3 : 1) * (casteIs('banquier') ? 1.5 : 1) * Math.max(0, (S.stats && S.stats.worth || S.cash) - ipBook() + (S.loan || 0)) / 1000) * 1000); }
 el('loanUp').onclick = () => { const st = loanStep(); if ((S.loan || 0) + st <= creditLimit()) { S.loan = (S.loan || 0) + st; S.cash += st; say(`Emprunt de ${money(st)} (taux ${(100 * (loanRateNow())).toFixed(1).replace('.', ',')} % par an, aucun remboursement obligatoire).`, 'info'); updateHUD(); save(); } };
 el('loanDn').onclick = () => { const r = Math.min(S.loan || 0, loanStep(), Math.floor(S.cash)); if (r > 0) { S.loan -= r; S.cash -= r; updateHUD(); save(); } };
 function setBar(id, v) {
@@ -10417,6 +10460,14 @@ function dcTips(c) {
   if (!t.length) t.push('Mix équilibré : production pilotable, renouvelables et appoint couvrent le besoin heure par heure.');
   return t;
 }
+// Passe 72 : fiche « Plateforme cloud et IA » (Innovateur) : qualité des modèles, demande servie, facturation aux autres castes et leur gain de productivité, valeur et garantie
+function platCardHTML() {
+  if (!casteIs('innovateur')) return ''; const sd = (S._sat && S._sat.dc) || { U: 0, D: 0, m: 1 }, I = ipInfo(), P = S._plat || { m30: 0, g30: 0 }, np = I.n;
+  return `<h4>Plateforme cloud et IA (rendements croissants)</h4>
+    <small>Qualité des modèles <b>×${f1(platQ())}</b> (${np} brevet${np > 1 ? 's' : ''} actif${np > 1 ? 's' : ''} : +${Math.round(100 * PLAT_PQ)} % chacun · effet de réseau de ${f1(sd.U)} campus) · demande cloud ${f1(sd.D)} campus, servie ${f1(sd.U)} (${pct(sd.D > 0 ? Math.min(1, sd.U / sd.D) : 0)}) : chaque campus alimenté ajoute des clients, donc des données, donc de meilleurs modèles ; la limite vient de l'énergie et du calcul disponibles.</small>
+    <small>Calcul facturé aux autres castes : ${mj(P.m30 || 0)}/mois · leur gain de productivité net : <b class="pos">+${mj(P.g30 || 0)}/mois</b> (ils gagnent ${String(PLAT_GAIN).replace('.', ',')} fois ce qu'ils paient : somme positive)</small>
+    <small>Valeur de la plateforme dans ta capitalisation (EBE cloud ${mj(I.pe || 0)}/mois actualisé sur ${PLAT_Y} ans, décote ${Math.round(100 * (1 - IP_PRU))} %, moins les murs) : <b class="gold">${money(I.plat)}</b> · garantie bancaire ${money(PLAT_LTV * I.plat)}</small>`;
+}
 function dcCard(c) {
   const r = dcPw(c), n = Math.max(1, r.need), cap = dcBatCap(c), bl = clamp(c.bat | 0, 0, 3), nx = bl < 3 ? DC_BATC[bl + 1] * (c.lg || 1) * cpi() : 0, tar = c._tar || dcTariff(), P = S.power || {}, ownV = r.own + r.toBat;
   const seg = (v, col, lab) => v > 0.5 ? `<i title="${lab}" style="display:block;height:100%;width:${(100 * clamp(v / n, 0, 1)).toFixed(1)}%;background:${col}"></i>` : '';
@@ -10429,7 +10480,7 @@ function dcCard(c) {
     <h4>Uptime 30 jours : ${pct(dcUp30(c))}</h4>${hist}
     <small>Batteries : ${cap > 0 ? fmt(cap) + ' MWh, chargées à ' + pct((c.soc || 0) / cap) : 'aucune'} · rendement ${Math.round(DC_EFF * 100)} % · rechargées par le surplus de tes centrales</small>
     <div class="seg2"><button class="btn" data-act="dcbat" ${nx && S.cash >= nx ? '' : 'disabled'}>${nx ? 'Batteries +' + fmt(DC_BAT[bl + 1] * (c.lg || 1) - cap) + ' MWh · ' + money(nx) : 'Batteries au maximum'}</button><button class="btn sec" data-act="dcgrid" aria-pressed="${c.gb !== 0}">Appoint réseau : ${c.gb === 0 ? 'coupé' : 'activé'}</button>${trR() ? `<button class="btn sec" data-act="dctr" aria-pressed="${!!c.tb}" title="Le négociant IA couvre les heures sans courant quand l'appoint réseau est coupé (jusqu'à sa capacité d'importation)">Appoint négociant (${trR().name}, ${f1(tar * TR_DCK)} $/MWh) : ${c.tb ? 'activé' : 'non'}</button>` : ''}</div>${r.trd > 0 ? `<small>Appoint négociant hier : ${fmt(r.trd)} MWh à ${f1(tar * TR_DCK)} $/MWh</small>` : ''}
-    <h4>Conseils</h4>${dcTips(c).map(x => `<small>• ${x}</small>`).join('')}</div>`;
+    ${platCardHTML()}<h4>Conseils</h4>${dcTips(c).map(x => `<small>• ${x}</small>`).join('')}</div>`;
 }
 function bottleneck(c) {
   const T = TYPES[c.t], L = c.limit;
@@ -14310,6 +14361,13 @@ function debtRepay(frac) {
   const r = Math.min(S.loan || 0, Math.floor(Math.max(0, S.cash)), Math.ceil((S.loan || 0) * frac / 1000) * 1000); if (!(r > 0)) return false;
   S.loan -= r; S.cash -= r; say(`Remboursement anticipé : ${money(r)} (moins d'intérêts à payer).`, 'good'); updateHUD(); save(); return true;
 }
+// Passe 72 : lignes « prêt adossé aux brevets » du bureau de la dette (garantie prise en compte dans le plafond)
+function ipDebtRows(row) {
+  const I = ipInfo(); if (!(I.v > 0 || I.proj > 0)) return ''; const inn = casteIs('innovateur');
+  return (I.pat > 0 ? row(`Brevets actifs (${I.n}) : valeur prudente ${money(I.pat)}, prêtée à ${Math.round(100 * (inn ? IP_LTV_IN : IP_LTV))} %`, '+' + money((inn ? IP_LTV_IN : IP_LTV) * I.pat), 'pos') : '')
+    + (I.plat > 0 ? row(`Contrats cloud de la plateforme : valeur ${money(I.plat)}, prêtée à ${Math.round(100 * PLAT_LTV)} %`, '+' + money(PLAT_LTV * I.plat), 'pos') : '')
+    + (I.proj > 0 ? row(`Financement de projet d'un campus (demande cloud non servie : ${f1(I.free)} campus), ${Math.round(100 * DC_PROJ)} % du coût, versé à la construction (hors plafond)`, money(I.proj), 'pos') : '');
+}
 function renderDebt() {
   const box = el('fundDebt'); if (!box || box.hidden) return;
   const lim = creditLimit(), loan = S.loan || 0, room = Math.max(0, lim - loan), f = clamp(window._debtF, 0, 1), amt = Math.floor(room * f / 1000) * 1000, rate = loanRateNow();
@@ -14325,7 +14383,7 @@ function renderDebt() {
   ${row('Coût annuel des intérêts', money(amt * rate) + ' / an', 'neg')}${row('Dette après signature', money(loan + amt))}
   <button class="btn" data-debt="draw" ${amt > 0 ? '' : 'disabled'} style="margin-top:6px">Signer le prêt · ${money(amt)}</button>
   <div class="seg2" style="margin-top:6px"><button class="btn sec" data-debt="r25" ${loan > 0 && S.cash > 0 ? '' : 'disabled'}>Rembourser 25 %</button><button class="btn sec" data-debt="r100" ${loan > 0 && S.cash > 0 ? '' : 'disabled'}>Tout rembourser (${money(Math.min(loan, Math.max(0, S.cash)))})</button></div></div>
-  <div class="fcard" style="margin-top:8px"><h4>Ce que la banque regarde</h4>${row('Fonds propres (valeur de ton groupe)', money(worth))}${row('Free cash flow annualisé', money(ebe), ebe >= 0 ? 'pos' : 'neg')}${row('Dette actuelle', money(loan), loan > 0 ? 'neg' : '')}${row('Plafond de dette accordé', money(lim), 'gold')}${row('Disponible', money(room), room > 0 ? 'pos' : 'neg')}${row('Cycle du crédit', (cc >= 1 ? '+' : '−') + Math.abs(Math.round((cc - 1) * 100)) + ' % sur le plafond', cc >= 1 ? 'pos' : 'neg')}</div>
+  <div class="fcard" style="margin-top:8px"><h4>Ce que la banque regarde</h4>${row('Fonds propres (valeur de ton groupe)', money(worth))}${row('Free cash flow annualisé', money(ebe), ebe >= 0 ? 'pos' : 'neg')}${row('Dette actuelle', money(loan), loan > 0 ? 'neg' : '')}${ipDebtRows(row)}${row('Plafond de dette accordé', money(lim), 'gold')}${row('Disponible', money(room), room > 0 ? 'pos' : 'neg')}${row('Cycle du crédit', (cc >= 1 ? '+' : '−') + Math.abs(Math.round((cc - 1) * 100)) + ' % sur le plafond', cc >= 1 ? 'pos' : 'neg')}</div>
   <div class="fcard" style="margin-top:8px"><h4>Comment le taux est fixé</h4>${row('Taux directeur de la banque centrale', pc(M.rate || 0.04))}${row('Marge de la banque + prime de risque du moment', pc(0.02 + riskPrem()))}${lxR() ? row(`dont posture de ${lxR().name} (banquier IA)`, (lxSt() >= 0 ? '+' : '−') + pc(Math.abs(LX_ST * lxSt()))) : ''}${lxMeAmt() > 0 ? row(`Prêt ${lxR() ? lxR().name : 'Luxor'} (${money(lxMeAmt())}, taux fixe)`, pc(lxMeRate())) : ''}${lv ? row('Prime de levier (dette élevée)', pc(lv)) : ''}${pp ? row('Prime de promoteur (LTV)', pc(pp)) : ''}${cs ? row('Crise du crédit', pc(cs), 'neg') : ''}${cfo ? row('Ton CFO négocie', '−25 %', 'pos') : ''}${row('Taux appliqué', pc(rate), 'gold')}<p class="note">Le taux directeur suit l'inflation ; la prime de risque monte en récession et baisse en boom. Un directeur financier (CFO) obtient un taux plus bas et un plafond plus haut.</p></div>`;
   if (box.dataset.h !== h) { if (!document.activeElement || document.activeElement.id !== 'debtamt') { box.innerHTML = h; box.dataset.h = h; } }
 }
@@ -16871,7 +16929,7 @@ function levPts() { const raw = Math.max(1, valuation()), l = (S.loan || 0) / (r
 function loanRateNow() { return (((S.macro && S.macro.rate) || 0.04) + 0.02 + riskPrem() + levPts() + promoPts() + rvSqueeze() + creditSpread()) * (execOn('cfo') ? 0.75 : 1) * TM.interest * (1 - catchUp().disc); }
 const DEBT_X = 3;   // dette maximale : 3 ans d'EBE (en plus du plafond sur actifs)
 function annEbe() { const a = S.m30 || []; if (!a.length) return 0; return a.reduce((t, r) => t + r[1], 0) * 360 / a.length; }
-function debtCapEbe() { return Math.max(0.2 * Math.max(0, (S.stats && S.stats.worth) || 0), DEBT_X * Math.max(0, annEbe())); }
+function debtCapEbe() { return Math.max(0.2 * Math.max(0, ((S.stats && S.stats.worth) || 0) - ipBook()), DEBT_X * Math.max(0, annEbe())); }   // passe 72 : les actifs immatériels ont leur propre garantie (ipInfo().col), pas de double compte
 // Marchés d'export stables : 2 par joueur (tes 2 meilleurs débouchés) ; les autres se vendent au cours spot
 const XM_MAX = 2, XM_SPOT = 0.88;
 function xmF(g) { const xm = S.xm || []; return (!xm.length || xm.indexOf(g) >= 0) ? 1 : XM_SPOT; }
@@ -18124,6 +18182,40 @@ function patValue(pk) {
   const rev = r.holder === 'me' && ps.st === 'on' && ps.rm > 0 ? ps.rm / 30 : mkDemandDay(pk) * PRODUCTS[pk].ref * QTIER[r.q].ref * 0.3;
   return Math.round(((r.holder === 'me' ? patIncDay(pk) : 0) + PAT_MONO * rev) * cpi() * YEAR_D * A);
 }
+// ---- Passe 72 (innovateur) : actifs immatériels dans la valeur de l'entreprise et en garantie de crédit ----
+// Les marchés valorisent un hyperscaler ou un laboratoire breveté sur ses rentes futures, pas sur ses murs. Valeur actualisée PRUDENTE (taux 12 %, décote 40 %) :
+//  - brevet : redevances encaissées (jusqu'à l'expiration) + rente de monopole = part du chiffre d'affaires due à la prime d'exclusivité (CA × p / (1 + p)), sur la fenêtre
+//    restante seulement, à moitié (la prime s'érode linéairement jusqu'à la fermeture de la fenêtre) ;
+//  - plateforme cloud et IA (Innovateur) : écart d'acquisition = EBE du cloud actualisé sur 5 ans, moins la valeur comptable des campus (déjà au bilan).
+// Garantie bancaire (prêt adossé aux brevets) : 50 % de cette valeur pour l'Innovateur (35 % pour une autre caste), dans la ligne de crédit. En plus, financement de projet
+// d'un campus (65 % de son coût : contrats cloud signés, comme un hyperscaler) tant que la plateforme a de la demande non servie (au moins un campus) et au moins 3 brevets :
+// prêt réservé au campus, versé à la construction (place), qui ne gonfle pas la ligne de crédit générale.
+const IP_DISC = 0.12, IP_PRU = 0.6, IP_LTV = 0.35, IP_LTV_IN = 0.5, PLAT_Y = 5, PLAT_LTV = 0.5, DC_PROJ = 0.65, DC_PROJ_N = 3, IP_EROS = 0.5;
+const ipAnn = y => y > 0 ? (1 - Math.pow(1 + IP_DISC, -y)) / IP_DISC : 0;
+function ipPat(pk) {   // { roy, mono : rentes du jour ($ courants), v : valeur prudente }
+  const r = patentHeld(pk), o = { roy: 0, mono: 0, v: 0 }; if (!r || r.holder !== 'me' || !PRODUCTS[pk]) return o;
+  const ps = S.prod[pk], yl = Math.max(0, (r.until - S.day) / YEAR_D); o.roy = patIncDay(pk) * cpi();
+  const inf = ps && ps.st === 'on' && ps.rm > 0 ? monoInfo(pk) : null; let ym = 0;
+  if (inf && !inf.open && inf.p > 0) { o.mono = ps.rm / 30 * inf.p / (1 + inf.p); ym = Math.min(yl, inf.left / YEAR_D); }
+  o.v = IP_PRU * YEAR_D * (o.roy * ipAnn(yl) + IP_EROS * o.mono * ipAnn(ym)); return o;
+}
+function ipPlat() {   // plateforme cloud et IA de l'Innovateur : EBE des campus (30 jours), valeur comptable, écart d'acquisition prudent
+  const o = { ebe: 0, book: 0, v: 0, n: 0 }; if (!casteIs('innovateur')) return o;
+  eachBuilding(c => { if (c.t !== 'dc') return; o.n += c.lg || 1; const h = (c.hist || []).slice(-30); if (h.length) o.ebe += h.reduce((a, v) => a + v, 0) / h.length; o.book += TYPES.dc.cost * (c.lg || 1) * 0.9 + upgradeSpent(c) * 0.6; });
+  o.ebe = Math.max(0, o.ebe); o.v = Math.max(0, IP_PRU * o.ebe * YEAR_D * ipAnn(PLAT_Y) - o.book); return o;
+}
+function ipInfo() {
+  if (!S) return { pat: 0, plat: 0, v: 0, col: 0, proj: 0, n: 0 };
+  const np = Object.keys(S.pat || {}).filter(k => patMine(k)).length, key = S.day + ':' + np + ':' + (S.caste || '') + ':' + ((S.stats && S.stats.cn && S.stats.cn.dc) || 0);
+  if (S._ipc && S._ipc.k === key) return S._ipc;
+  let pat = 0, roy = 0, mono = 0; Object.keys(S.pat || {}).forEach(pk => { const q = ipPat(pk); pat += q.v; roy += q.roy; mono += q.mono; });
+  const P = ipPlat(), inn = casteIs('innovateur'), sd = S._sat && S._sat.dc, free = sd ? sd.D - sd.U : 0;
+  const proj = inn && np >= DC_PROJ_N && free >= 1 && !modeLocked('dc') ? DC_PROJ * buildCost('dc') : 0;
+  const o = { k: key, n: np, pat, roy, mono, plat: P.v, pe: P.ebe, pb: P.book, nd: P.n, v: pat + P.v, proj, free };
+  o.col = (inn ? IP_LTV_IN : IP_LTV) * pat + PLAT_LTV * P.v;   // le financement de projet (proj) est réservé au campus : il n'entre pas dans la ligne de crédit générale (place('dc'))
+  S._ipc = o; return o;
+}
+const ipBook = () => ipInfo().v;
 const patLeftTxt = r => { const d = r.until - S.day; return d >= YEAR_D ? (Math.round(d / YEAR_D * 10) / 10).toString().replace('.', ',') + ' an' + (d >= 2 * YEAR_D ? 's' : '') : d + ' j'; };
 // dépôt : appelé à la fin d'une R&D (kind 'dev') ou d'une montée en gamme (kind 'niv')
 function patGrant(pk, kind) {
@@ -19315,6 +19407,7 @@ window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk,
 window.WSE.brand.setStrat = setBrandStrat;
 window.WSE.mono = { xp: monoXP, info: monoInfo, txt: monoTxt, win: monoWin, init: monoInit, step: monoStep, rx: monoRx, K: { MONO_PH, MONO_XW, MONO_W, MONO_PAT, MONO_INNOV, MONO_LIC, MONO_LIC_K, MONO_COPY, MONO_COPY_PAT, MONO_NIV, LIC_MG } };   // passe 67 : monopole temporaire de l'innovation
 window.WSE.rd = { focus: rdSetFocus, focW: rdFocW, catchUp: rdCatch, techRows: rdTechRows, RD_FOC, patentHeld, held: patentHeld, mine: patMine, block: patBlock, blockMsg: patBlockMsg, grant: patGrant, value: patValue, incDay: patIncDay, licDay: patLicDay, revDay: patRevDay, licFee: patLicFee, buyLicence: patBuyLicence, opps: patOpps, develop: patDevelop, answer: patOfferAnswer, step: patStep, years: patYears, comp: patCompF, top: mkTopRaw, save: patSave, load: patLoad, st: rdxS, pat: () => S.pat || {}, list: accList, info: accInfo, quote: accQuote, accelerate, gemCost, gemAdd, render: renderRdp, edu: patEduHTML, advice: rdpAdvice, iap: { LIVE: IAP_LIVE, PACKS: IAP_PACKS, purchase: iapPurchase, log: IAP }, K: { PAT_Y, PAT_NIV_Y, PAT_ROY, PAT_LIC_SH, PAT_LIC_MAX, PAT_RIV_FROM, PAT_RIV_EVERY, PAT_OFF_EVERY, PAT_WARN_D, PAT_DISC, PAT_MONO, GEM_N, GEM_START, GEM_TIER, GEM_JAL, ACC_TOT, ACC_DAY_MAX, ACC_CASH_K, ACC_LAB_MAX, ACC_LAB_GAIN } };   // passe 47 : brevets de produit, R&D, accélération (aucun paiement réel)
+window.WSE.ip = { info: ipInfo, pat: ipPat, plat: ipPlat, book: ipBook, q: platQ, bill: platBill, card: platCardHTML, empire: ipEmpireHTML, debtRows: ipDebtRows, ems: { G: EMS_G, px: emsPx, name: emsName, rival: emsRiv, pay: emsPay, st: () => S._ems || null }, platSt: () => S._plat || null, K: { YEAR_D, IP_DISC, IP_PRU, IP_LTV, IP_LTV_IN, PLAT_Y, PLAT_LTV, DC_PROJ, DC_PROJ_N, IP_EROS, PLAT_DN, PLAT_PQ, PLAT_PMAX, PLAT_NET, PLAT_EXT, PLAT_GAIN, EMS_M, EMS_FR, EMS_Q, EMS_CF } };   // passe 72 : actifs immatériels, plateforme cloud, sous-traitance électronique
 window.WSE.land = { model: landModel, price: landPrice, raw: landRaw, map: landMap, range: landRange, norm: landNorm, useOf: landUseOf, natUse: landNatUse, district: districtAt, cache: landCache, pole: landPole, foot: landFoot, costFor: landCostFor, val: c => landVal(c), assets: () => proLandAssets(), tip: landTipHTML, setLayer, layer: () => layer, cur: () => curLayer(), LAYER_N, LAYER_F, LEG, USES: LAND_USES, PARTS: LM_PART, K: LM_K, DISTRICTS, zoneOk, autoSpot };   // passe 48 : valeur du terrain par usage
 Object.assign(window.WSE, { cl: { supCap, supLeft, supRef, productScore, compOv, locQ, locAttr, stepLocQ, cooTargetPf, stepCooPrice, cooPol, offerScore, buyerQw, bestOffer, srcQ, inputQ, updInputQ, supplierList, trueQ, COO_GAP, SUP_QE, IMP_Q, MKT_Q } });   // CapLab : chaîne, prix, demande (docs/CAPLAB_CHAINE_PRIX_DEMANDE.md)
 Object.assign(window.WSE, { mp: { good: mpGood, prod: mpProd, prodOf: mpProdOf, m: mpM, k: mpK, prime: mpPrime, Pg: mpPg, on: mpOn, vol: mpVol, entry: mpEntry, prodEntry: mpProdEntry, retail: mpRetail, rt: rtPow, txt: mpTxt, S0: MP_S0, IMP: MP_IMP, SUB: MP_SUB, HOT: MP_HOT, KMAX: MP_KMAX, PCLS: MP_PCLS, RP_R, RETAIL_MK } });   // passe 46 : pouvoir de marché
