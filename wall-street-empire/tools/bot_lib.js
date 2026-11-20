@@ -564,8 +564,53 @@ window.BOT = (function () {
     const c0 = W.TYPES.f3.cost * cp * 1.15; if (s.cash < c0) borrow(c0 + 1e5); if (s.cash < c0 || !ensurePort()) return;
     const g = order[CH.n], r = tryBuildAny('f3'); if (r > 0) { W.assignRecipe(g, 1, true); CH.n++; CH.log.push([s.day, 'fonderie', g]); }
   }
+  // ===== Passe 76 : couche « persona » (docs/MONETISATION_GAMIFICATION.md). Réglages dans P.pers = { deleg, manual, accel, bored, quit, up } :
+  //  deleg  : délègue la chaîne d'approvisionnement au jeu (politique « chercher de meilleurs fournisseurs », prix confiés au COO, bouton Sources automatiques) ;
+  //  manual : période (jours) de revue À LA MAIN des fournisseurs de chaque usine et magasin (rupture traitée dès le 1er jour, meilleure offre livrée) ;
+  //  accel  : accélère la R&D en Diamants dès que possible (sinon compte une « envie d'accélérer » non satisfaite) ;
+  //  bored  : jours sans « victoire visible » (bâtiment, chantier, palier, ×valeur) au-delà desquels on compte un épisode d'ennui ; quit : ennui cumulé (jours) qui ferait quitter ;
+  //  up     : chantiers d'amélioration (niveaux 1→5) des bâtiments les plus rentables, période en jours.
+  // Les mesures sont dans BOT.PS (lues par tools/sim_batch.js --icp) ; aucune n'appelle le générateur aléatoire du jeu.
+  const PS = { man: { checks: 0, sw: 0, rup: 0 }, auto: { on: 0, src: 0 }, acc: { n: 0, gem: 0, days: 0, want: 0, wantD: 0 }, up: { n: 0, spent: 0 }, rd: {}, rdEp: [], ennui: 0, ennuiD: 0, gapMax: 0, quitJ: null, lastWin: 0, lastCnt: 0, lastTel: 0, waitCash: 0 };
+  const DSET = new WeakSet();   // usines déjà passées en « Sources automatiques »
+  function persona() {
+    const s = S(), Q = P.pers; if (!Q) return; const T = W.tel;
+    // épisodes de R&D (attente « accélérable ») : début, fin, durée totale annoncée
+    const L = W.rd && W.rd.list ? W.rd.list() : [];
+    L.forEach(it => { if (!PS.rd[it.k]) PS.rd[it.k] = { k: it.k, a: s.day, tot: Math.round(it.total), left0: Math.round(it.left) }; });
+    Object.keys(PS.rd).forEach(k => { if (!L.some(it => it.k === k)) { const e = PS.rd[k]; e.b = s.day; PS.rdEp.push(e); delete PS.rd[k]; } });
+    if (Q.deleg && s.day % 10 === 0) {
+      s.pol = s.pol || {}; if (!s.pol.seek || s.pol.px !== (Q.px || 'norm')) { s.pol.seek = true; s.pol.px = Q.px || 'norm'; PS.auto.on++; }
+      for (let i = 0; i < N * N; i++) { const c = s.grid[i]; if (!c || c.x + c.y * N !== i || !W.FLEVEL[c.t] || !c.prod || DSET.has(c)) continue; const R = W.recOf(c); if (!R) continue; DSET.add(c); if (W.supply) { W.supply.autoSource(c, true); PS.auto.src++; if (T) T.log('sc_autosource', { t: c.t, bot: 1 }); } }
+    }
+    if (Q.manual && W.supply && s.day % Q.manual === 0) {
+      for (let i = 0; i < N * N; i++) { const c = s.grid[i]; if (!c || c.x + c.y * N !== i || c.t === 'npc' || c.t === 'road' || !c.conn) continue; const TY = W.TYPES[c.t]; if (!TY) continue;
+        const R = (W.FLEVEL[c.t] || c.t === 'foundry') ? W.recOf(c) : null, ins = R ? Object.keys(R.in) : TY.ret ? TY.ret.sells.filter(x => x !== 'estate') : []; if (!ins.length) continue;
+        ins.forEach(g => { if (!W.GOODS[g]) return; PS.man.checks++; const mode = (c.src && c.src[g]) || 'auto', rup = (c._rup | 0) >= 1 && c._rupG === g;
+          if (mode === 'auto' && !rup) return;   // l'intrant vient de son propre groupe ou du marché par défaut : on n'y touche pas sans raison
+          const best = W.supply.bestOffer(g, c.haul, W.supply.buyerQw(c), R ? c : null); if (!best || best.id === mode) return;
+          c.src = c.src || {}; c.src[g] = best.id; PS.man.sw++; if (rup) PS.man.rup++; if (T) T.log('sc_manual', { t: c.t, g, bot: 1, rup: rup ? 1 : 0 }); }); }
+    }
+    if (Q.accel && L.length) {
+      L.forEach(it => { const q = W.rd.quote(it.k, 5); if (!q || q.d <= 0) return; const X = W.rd.st();
+        if (X.gem >= q.gem) { const r = W.rd.accelerate(it.k, q.d, 'gem'); if (r && r.ok) { PS.acc.n++; PS.acc.gem += r.gem; PS.acc.days += r.d; } }
+        else { PS.acc.want++; PS.acc.wantD += q.d; } });   // il aurait payé : moment d'achat (Diamants épuisés)
+    }
+    if (Q.up && s.day % Q.up === 0) {   // chantiers 1→5 : le bâtiment le plus rentable par $ investi, si la trésorerie le permet sans s'endetter
+      let best = null; for (let i = 0; i < N * N; i++) { const c = s.grid[i]; if (!c || c.x + c.y * N !== i || c.t === 'npc' || c.t === 'road' || c.t === 'res' || !c.conn || (c.lvl | 0) >= 4) continue; const cost = W.upgradeCost(c); if (!cost || cost > 0.25 * s.cash) continue; const pr = (c.profit || 0) / cost; if (pr > 0 && (!best || pr > best.pr)) best = { c, pr, cost }; }
+      if (best && best.pr * 360 > 0.15) { const c0 = s.cash; if (W.place(best.c.x, best.c.y, 'up')) { PS.up.n++; PS.up.spent += c0 - s.cash; } }
+    }
+    // victoires visibles : nouveau bâtiment, événement de télémétrie (chantier, palier, ×valeur, première usine) ; sinon l'ennui monte
+    const nb = Object.keys(cnt).reduce((a, k) => a + (k.indexOf('x_') !== 0 && typeof cnt[k] === 'number' ? cnt[k] : 0), 0), nt = T ? T.events().filter(e => /^(mult|tier|bn|first_|chantier)/.test(e[2])).length : 0;
+    if (nb > PS.lastCnt || nt > PS.lastTel) { PS.lastWin = s.day; PS.lastCnt = nb; PS.lastTel = nt; }
+    const gap = s.day - PS.lastWin; if (gap > PS.gapMax) PS.gapMax = gap;
+    if (Q.bored && gap === Q.bored) PS.ennui++;
+    if (Q.bored && gap > Q.bored) { PS.ennuiD++; if (Q.quit && PS.quitJ == null && PS.ennuiD >= Q.quit) PS.quitJ = s.day; }
+    if (IND.save != null && s.day - IND.save < 40) PS.waitCash++;
+  }
   function tick() {
     const s = S(); let did = 0, spent = 0;
+    if (P.pers) persona();
     if (P.trump) trump();
     if (P.innov) innov();
     if (P.chip) chipFab();
@@ -594,5 +639,5 @@ window.BOT = (function () {
     if (P.bourse && s.day % 8 === 0) bourse();
     return { did, spent };
   }
-  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC, CP, TR, IN, CH };
+  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC, CP, TR, IN, CH, PS };
 })();
