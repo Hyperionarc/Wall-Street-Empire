@@ -47,7 +47,6 @@ Colonnes : clé du type, nom, emprise avant → après (largeur × profondeur), 
 | `f1` | Petite usine | 1 × 1 | 1 × 1 | 1 | atelier |
 | `foundry` | Fonderie d'or | 1 × 1 | 1 × 1 | 1 | atelier spécialisé |
 | `wh` | Entrepôt | 1 × 1 | 1 × 1 | 1 | dépôt |
-| `crush` | Centre de concassage | 1 × 1 | 1 × 1 | 1 | reconversion d'une carrière (1 case) |
 | `f2` | Usine moyenne | 2 × 1 | 2 × 1 | 2 |  |
 | `btp` | Entreprise de BTP | 2 × 1 | 2 × 1 | 2 | bureaux + dépôt de matériel |
 | `plant` | Centrale électrique | 2 × 1 | 2 × 1 | 2 |  |
@@ -103,8 +102,7 @@ Colonnes : clé du type, nom, emprise avant → après (largeur × profondeur), 
 | `qsilica` | Carrière de silice | 1 × 1 | 1 × 1 | 1 | 1 case de gisement |
 | `qclay` | Carrière d'argile | 1 × 1 | 1 × 1 | 1 | 1 case de gisement |
 | `qsalt` | Mine de sel gemme | 1 × 1 | 1 × 1 | 1 | 1 case de gisement |
-| `qgravel` | Carrière gravier | 1 × 1 | 1 × 1 | 1 | 1 case de gisement |
-| `qsand` | Sablière | 1 × 1 | 1 × 1 | 1 | 1 case de gisement |
+| `qgravel` | Carrière de granulats (gravier + sable, concasseur en option, passe 79) | 1 × 1 | 1 × 1 | 1 | 1 case de gisement ; le concasseur tient dans la même case |
 | `qlime` | Carrière calcaire | 1 × 1 | 1 × 1 | 1 | 1 case de gisement |
 | `logging` | Camp bûcherons | 1 × 1 | 1 × 1 | 1 | 1 case de gisement |
 

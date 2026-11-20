@@ -48,7 +48,7 @@ exports.run = async (t, L) => {
     }
     if (caste === 'industriel') {
       t.check('industriel : chaîne verticale en production (usine du produit, composants, extraction)', r.ch.some(c => c.made > 0) && ['f1', 'f2', 'f3'].some(k => (r.cn[k] || 0) > 0), JSON.stringify(r.ch.map(c => [c.pk, c.sc, Math.round(c.made)])));
-      t.check('industriel : port et extraction qui alimentent ses usines (mines, puits ou carrières)', (r.cn.port || 0) >= 1 && ['miron', 'mcopper', 'mcoal', 'mgold', 'well', 'qsand', 'logging'].some(k => (r.cn[k] || 0) > 0), JSON.stringify(r.cn));
+      t.check('industriel : port et extraction qui alimentent ses usines (mines, puits ou carrières)', (r.cn.port || 0) >= 1 && ['miron', 'mcopper', 'mcoal', 'mgold', 'well', 'qgravel', 'logging'].some(k => (r.cn[k] || 0) > 0), JSON.stringify(r.cn));
       // la participation de 10 % (seuil d'OPA de la caste) vient après le jour 450 et jamais sur l'épargne d'une chaîne : relevée dans les campagnes (sim_batch, champ cp.ba_stake), pas exigée ici
     }
     await pg.context().close();

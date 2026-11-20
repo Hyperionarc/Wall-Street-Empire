@@ -6,7 +6,7 @@ async function playEmpire(days = 300, opts = {}) {
   const pg = await L.newPage({ wait: 800, w: opts.w || 1400, h: opts.h || 900 }); await L.setup(pg, { caste: opts.caste || 'industriel', cash: 2e9 }); await L.inject(pg); await L.injectBot(pg);
   await pg.evaluate(() => {
     const W = window.WSE, S = W.S, T = window.T; S.noEv = true;
-    ['well', 'miron', 'mcoal', 'fwheat', 'fcotton', 'fsugar', 'logging', 'qsand'].forEach(k => { const dep = { well: 'oil', miron: 'iron', mcoal: 'coal', fwheat: 'wheat', fcotton: 'cotton', fsugar: 'sugar', logging: 'wood', qsand: 'sand' }[k]; T.onDep(k, dep); T.onDep(k, dep, 1); });
+    ['well', 'miron', 'mcoal', 'fwheat', 'fcotton', 'fsugar', 'logging', 'qgravel'].forEach(k => { const dep = { well: 'oil', miron: 'iron', mcoal: 'coal', fwheat: 'wheat', fcotton: 'cotton', fsugar: 'sugar', logging: 'wood', qgravel: 'gravel' }[k]; T.onDep(k, dep); T.onDep(k, dep, 1); });
     T.inP('port'); T.inP('wh'); for (let i = 0; i < 4; i++) T.inP('f1'); for (let i = 0; i < 3; i++) T.inP('f2'); T.inP('f3');
     for (let i = 0; i < 30; i++) T.inC('res'); T.inC('s1'); T.inC('s2'); T.inC('s2'); T.inC('s3'); T.inC('s3'); T.inC('bank'); T.inC('tech'); T.inC('hq'); T.inC('off');
     ['utensils', 'bread', 'jeans', 'headache', 'soap'].forEach(k => { W.launchProduct(k); W.assignProduct(k, 2); try { W.autoChain(k); } catch (e) { } });

@@ -171,8 +171,8 @@ window.BOT = (function () {
   // ===== Profil industriel (passe 21) : chaînes verticales mine/ferme -> composants -> usine du produit -> magasins (les magasins viennent de pick()) =====
   // Principe : on ne construit une chaîne que dimensionnée (usines de composants = besoins de l'arborescence, extracteurs = besoins en matière), on la laisse mûrir,
   // puis on l'agrandit tant que ses ventes absorbent toute sa production (stock sous le plafond de couverture) ; les matières en excédent partent à l'export.
-  const RAWK = { oil: 'well', iron: 'miron', coal: 'mcoal', copper: 'mcopper', gold: 'mgold', wheat: 'fwheat', sugar: 'fsugar', cotton: 'fcotton', rubber: 'frubber', wood: 'logging', gravel: 'qgravel', sand: 'qsand', limestone: 'qlime' };
-  Object.keys(RAWK).forEach(g => { EXT[RAWK[g]] = g; });
+  const RAWK = { oil: 'well', iron: 'miron', coal: 'mcoal', copper: 'mcopper', gold: 'mgold', wheat: 'fwheat', sugar: 'fsugar', cotton: 'fcotton', rubber: 'frubber', wood: 'logging', gravel: 'qgravel', sand: 'qgravel', limestone: 'qlime' };
+  Object.keys(RAWK).forEach(g => { if (g !== 'sand') EXT[RAWK[g]] = g; });   // passe 79 : le sable sort de la carrière de granulats (gisement de granulats)
   const IND = { chains: {}, last: -99, log: [], dem: {}, leaf: {} };   // dem / leaf : besoins CUMULÉS de toutes les chaînes (usines par composant, matières par cycle)
   const FK = ['', 'f1', 'f2', 'f3', 'f4'];
   function needs(pk, sc) {   // usines nécessaires par composant (en unités d'usine) et matières premières par cycle de l'usine du produit

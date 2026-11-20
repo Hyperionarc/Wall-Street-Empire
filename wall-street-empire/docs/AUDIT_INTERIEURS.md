@@ -42,7 +42,7 @@ Objectif : qu'aucun bâtiment ne casse quand Rémy l'ouvre, que chaque intérieu
 | port | portiques, conteneurs, cargo | — | — |
 | 15 mines et carrières, puits | fosse/puits, excavatrice, convoyeur, camion | — | — |
 | 7 cultures, 4 élevages, bûcherons | rangées de culture ; troupeau, grange, silo ; forêt | — | — |
-| crush Concassage | rendu « carrière » | pas de tas de gravats visibles | reste (cosmétique) |
+| crush Concassage | rendu « carrière » | pas de tas de gravats visibles | passe 79 : le centre de concassage n'existe plus (concasseur intégré à la carrière de granulats `qgravel`) |
 | Mall central, Aéroport | panneaux dédiés (demande, qui vend quoi, trafic, duty free) | — | — |
 | Hôpital, écoles, mairie, parcs | services publics : message d'information (financés par la mairie) | pas d'intérieur (choix de conception) | — |
 

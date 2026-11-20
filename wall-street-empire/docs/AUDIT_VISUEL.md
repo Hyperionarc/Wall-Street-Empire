@@ -63,10 +63,8 @@ Qualité : **bonne** = sprite HD seul ; **correcte** = sprite HD + petits détai
 | Élevage de porcs (`fpig`) | HD · 5 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | Élevage de moutons (`fsheep`) | HD · 5 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | Camp bûcherons (`logging`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
-| Carrière gravier (`qgravel`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
-| Sablière (`qsand`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
+| Carrière de granulats (`qgravel`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | passe 79 : remplace la carrière de gravier et la sablière ; concasseur (investissement) dessiné en code sobre par-dessus le sprite — commande Cowork 79-1 (carrière avec concasseur) |
 | Carrière calcaire (`qlime`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
-| Centre de concassage (`crush`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | reprend la carrière HD — commande Cowork 55-1 (concasseur) |
 | Entreprise de BTP (`btp`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | Agence immobilière (`immo`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | Fonderie d'or (`foundry`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
@@ -137,8 +135,7 @@ Qualité : **bonne** = sprite HD seul ; **correcte** = sprite HD + petits détai
 | charbon (`coal`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | cuivre (`copper`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | or (`gold`) | HD · 1 img HD, 0 atlas, 13 op. code, part code 5 % | oui | bonne | sprite HD + scintillement |
-| gravier (`gravel`) | HD (dérivé de gisement_bauxite) · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | sprite HD dérivé (gisement_bauxite recoloré gris) — était disque + losanges |
-| sable (`sand`) | HD (dérivé de gisement_bauxite) · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | sprite HD dérivé (gisement_bauxite recoloré sable) — était disque + losanges |
+| granulats, gravier et sable (`gravel`) | HD (dérivé de gisement_bauxite) · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | sprite HD dérivé (gisement_bauxite recoloré gris) — était disque + losanges |
 | calcaire (`limestone`) | HD (dérivé de gisement_potasse) · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | sprite HD dérivé (gisement_potasse recoloré calcaire) — était disque + losanges |
 | nickel-chrome (`nickel`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | bauxite (`bauxite`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |

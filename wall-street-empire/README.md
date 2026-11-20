@@ -22,7 +22,7 @@ Les mines et puits fonctionnent sans route à **65 %** ; reliés au réseau publ
 comme une mine, il tourne à 65 % sans route et à 100 % une fois relié au réseau. Le bois donne des **planches**, des **montants d'ossature bois** et des **panneaux OSB**.
 Produits en bois : jouets en bois, chaise, lit.
 
-**Carrières** (catégorie BTP) : gravier, sable (surtout près de la côte) et calcaire, des gisements plus fréquents que les métaux.
+**Carrières** (catégorie BTP) : **carrière de granulats** (gravier et sable en coproduits sur un seul gisement de granulats, passe 79 ; concasseur de recyclage des gravats en option) et carrière de calcaire, des gisements plus fréquents que les métaux.
 **Ciment** = calcaire + charbon (usine moyenne) ; **béton** = ciment + sable + gravier (petite usine).
 
 **Vente de maisons** : maison à ossature bois (montants, OSB, béton, planches, acier) et maison en béton. Ce sont des produits de la classe *Immobilier*, vendus par des **agences immobilières** en ville.
@@ -442,7 +442,7 @@ Chaque contrôle imprime `PASS` ou `FAIL` avec la valeur mesurée et le seuil ; 
 | Fichier | Contrôles | Seuils |
 |---|---|---|
 | `t01_erreurs.js` | chargement à froid ; construction et ouverture de tous les types de bâtiments (clic sur chaque onglet et bouton) ; 14 vues du bureau, terminal et écran Produits après 450 jours | 0 `pageerror` ; aucun `NaN`, `undefined`, `Infinity`, `[object` ; aucun montant « $ /jour » (tout est mensuel) |
-| `t02_marges.js` | s1 à s4 sur un banc de ville ; usines f1/f2 et pharma en économie isolée (intrants au prix de base) ; 13 extracteurs | EBITDA s1-s4 5-14 % ; f1/f2 10-18 % ; pharma MB ≥ 72 % et EBITDA 30-45 % ; puits 15-22 %, charbon 15-32 %, fer, cuivre, or 40-62 %, carrières et bois 17-35 % ; retour sur capex ≤ 3,5 ans |
+| `t02_marges.js` | s1 à s4 sur un banc de ville ; usines f1/f2 et pharma en économie isolée (intrants au prix de base) ; 12 extracteurs (passe 79 : la sablière est fusionnée dans la carrière de granulats) | EBITDA s1-s4 5-14 % ; f1/f2 10-18 % ; pharma MB ≥ 72 % et EBITDA 30-45 % ; puits 15-22 %, charbon 15-32 %, fer, cuivre, or 40-62 %, carrières et bois 17-35 % ; retour sur capex ≤ 3,5 ans |
 | `t03_elasticite.js` | prix de rayon +30 % sur un bien de base et un bien courant | basique : volume long terme de −10 à −25 % ; effet court terme plus faible que long terme ; bien courant plus élastique |
 | `t04_integrite.js` | bot aléatoire déterministe 600 jours (≈ 575 bâtiments) ; usines vides f1-f4 ; auto-production | aucun `NaN`/`Infinity` dans `S`, aucun stock ni prix négatif ; usine vide : production et CA nuls ; choisir un produit sélectionne des sources et fait produire |
 | `t05_sauvegarde.js` | partie de 250 jours, sauvegarde v8, rechargement de la page ; deux parties identiques | état identique après rechargement (tolérance 1 %, `S.m30` compris) puis 30 jours sans `NaN` ; états finaux strictement identiques (déterminisme) |
@@ -1736,3 +1736,31 @@ Détail, audit des 95 produits et propositions à trancher : `docs/GAMME_PRODUIT
 - **Anciennes sauvegardes** (`PROD_RETIRED`, `retiredMigrate`, appelée par `load` avant toute lecture) : stock du produit retiré (entrepôt + rayons des magasins) revendu au coût de revient historique (intrants au prix de base, ≈ 2,75 $/u pour les chips) et crédité en trésorerie ; usines remises sans produit ; rayons, prix de magasin, ventes lissées, duty free, e-commerce, brevets, classements `S.rk` et pédagogie nettoyés ; produit phare et usines des rivaux reportés sur l'huile de table (même classe). Message au joueur au démarrage. Migration pure et idempotente (aucun tirage aléatoire).
 - **Propositions** (non appliquées, à trancher par Rémy) : biocarburant en bidons, doublons voiture alu / voiture, casseroles inox / ustensiles, etc. (tableau produit | raison | impact).
 - Exports : `WSE.PROD_RETIRED`, `WSE.retiredMigrate`, `WSE.retiredUnitCost`.
+## Passe 79 : une seule carrière de granulats, concasseur de recyclage, flux de démolition
+
+**Demande de Rémy** : « les carrières de gravier, de sable, ça rime à rien [séparées] » ; le concassage du béton, c'est la même mine ; quand la mine se tarit, le joueur
+investit dans un concasseur qui recycle la démolition d'immeubles et de maisons, et augmente son chiffre d'affaires et son volume traité.
+Code : bloc « Passe 34 + passe 79 » de `game.template.html` (`rubAdd`, `crInvest`, `stepRecycle`, `crCard`) ; test `tools/tests/t79_carriere_concasseur.js` ; export `WSE.cr`.
+
+- **Une seule carrière** `qgravel` « Carrière de granulats » (un seul outil, un seul gisement « granulats », sprite `gisement_gravier`) : 2 250 u de gravier par jour
+  et **0,7 u de sable par u de gravier** (coproduit du criblage, `co`). Les biens `gravel` et `sand` restent séparés (recettes béton 3 gravier + 2 sable, verre
+  2 sable : aucune recette, aucun produit ni compte du catalogue ne change). Le gisement s'épuise du tout-venant extrait (`coDep` : gravier + sable), réserve
+  153 000 × 25 u par case (même durée de vie qu'avant, ≈ 1 000 jours). Capex 1,2 M$ (au lieu de 0,8 + 0,7 M$), CA ≈ 15,5 k$/j, EBITDA ≈ 25 % (t02 : 17-35 %), retour ≈ 0,8 an.
+- **Concasseur** (fiche de la carrière : « Investir dans un concasseur », puis « Agrandir le concasseur ») : chantier de 10 / 20 / 30 jours (barre de progression, la
+  carrière produit pendant les travaux), 0,6 / 1,2 / 2,5 M$, **800 / 2 000 / 4 500 u de gravats par jour**, rendement gravier 50 %, sable 30 %, ciment recyclé 8 %
+  (+10 % par recherche « Recyclage et concassage » puis « Concassage de précision » ; le concasseur lui-même ne demande plus de recherche). Coûts d'exploitation
+  0,9 / 2 / 4,2 k$/j, 3 / 6 / 11 emplois. Gisement épuisé + concasseur : la fosse ne travaille plus (30 % de ses coûts et emplois gardés), plus d'alerte d'épuisement.
+  Mesures (t79, gravats abondants, site épuisé) : CA 5,4 / 13,4 / 27,8 k$/j, EBITDA 1,0 / 7,5 / 19,0 k$/j ; au niveau 3 le CA dépasse celui de l'ancienne extraction
+  (≈ 17 k$/j). Fiche : gisement restant (et jours d'extraction), gravats de la ville (stock et flux), volume traité, CA recyclé dont redevance.
+- **Gravats** (`S.rub`, champ facultatif de `wse-city-v8`, `pl` et `ev` en plus) : outil Démolir, rachat-démolition et promotion du promoteur (passe 69, rachat puis
+  construction sur bâti de la ville), mairie qui rase pour un équipement, ville qui rase et reconstruit plus haut (maison 260 u, 420 u par étage), chantiers (60 u par case),
+  et gravats diffus des rénovations : 0,5 u par habitant et par an. Le stock n'a pas d'autre plafond que ce qui a été démoli.
+- **Somme positive** : les démolisseurs de la ville paient une **redevance de dépôt** de 0,8 $/u au concasseur (recettes de services) ; le joueur qui démolit **sans**
+  concasseur paie l'**évacuation** en décharge (1,5 $/u, incluse dans le devis de promotion) ; avec son concasseur, ses gravats sont repris gratuitement, sans redevance.
+  Un promoteur qui démolit beaucoup alimente donc les concasseurs, qui alimentent le béton et le BTP.
+- **Migration** : `qsand` → `qgravel` ; `crush` → `qgravel` avec concasseur niveau 2 (2 000 u/j, ≈ l'ancien 2 250), niveau 3 s'il avait été agrandi ; gisements `sand`
+  → granulats, réserves des anciennes sauvegardes × 1,7 (champ `agg` absent) ; stocks inchangés (mêmes biens). Une carrière de calcaire épuisée peut aussi recevoir un
+  concasseur (elle devient carrière de granulats recyclés).
+- **Rendu** : carrière HD + concasseur dessiné en code sobre tant que le gisement est exploité ; sprite HD `concasseur_recyclage` (livré pour la commande 55-1) quand
+  le site vit de son concasseur. Commande Cowork n° 79 (carrière avec concasseur, sans texte) dans `tools/factory_ai/RETOURS.md`.
+- **Propositions de fusion non faites** (calcaire, argile, silice, sel ont chacun un sens propre) : voir le rapport de la passe 79.

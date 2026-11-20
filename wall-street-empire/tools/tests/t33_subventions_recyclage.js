@@ -1,4 +1,4 @@
-// Passe 34 : subventions de la zone portuaire / industrielle (aides dégressives selon l'occupation) et recyclage des gravats (R&D, centre de concassage, gisements épuisés).
+// Passe 34 : subventions de la zone portuaire / industrielle (aides dégressives selon l'occupation) et recyclage des gravats (R&D, concasseur de la carrière de granulats (passe 79), gisements épuisés).
 exports.name = 'Subventions de zone et recyclage (passe 34)';
 
 exports.run = async (t, L) => {
@@ -75,84 +75,79 @@ exports.run = async (t, L) => {
   t.check('subventions : aucune erreur de page', pg.errs.length === 0, pg.errs.slice(0, 2).join(' | '));
   await pg.context().close();
 
-  // ---------- B. RECYCLAGE ----------
+  // ---------- B. RECYCLAGE (passe 79 : le concasseur est un investissement de la carrière de granulats) ----------
   const p3 = await L.newPage({ wait: 700 }); await L.setup(p3, { cash: 5e10 }); await L.inject(p3);
   const G = await p3.evaluate(() => {
     const W = window.WSE, S = W.S, T = window.T, o = {};
-    S.unlockAll = false; delete S.tech.recycl;
-    o.techReq = W.TECHS.find(x => x.id === 'recycl'); let sx = 0, sy = 0; for (let y = 54; y < 84 && !sx; y++) for (let x = 66; x < 84; x++) { S.unlockAll = true; if (!W.footprintError(x, y, 'wh')) { sx = x; sy = y; break; } } S.unlockAll = false;
-    o.errLocked = W.footprintError(sx, sy, 'crush');
-    S.tech.recycl = 1; o.errOpen = W.footprintError(sx, sy, 'crush'); delete S.tech.recycl;
+    o.techReq = W.TECHS.find(x => x.id === 'recycl');
     const t2 = W.TECHS.find(x => x.id === 'recycl2'); o.t2 = { c: t2.c, req: t2.req, fx: t2.fx };
-    S.unlockAll = true; o.menu = W.CATS.find(c => c.id === 'btp').tools.includes('crush') && !!W.ICONS.crush;
+    o.menu = !W.CATS.find(c => c.id === 'btp').tools.includes('crush') && !W.TYPES.crush && W.CATS.find(c => c.id === 'btp').tools.includes('qgravel');
     o.eraCost = [o.techReq.c, W.TECHS.find(x => x.id === 'wind').c, W.TECHS.find(x => x.id === 'blast2').c];
     // démolition -> gravats
     const r = T.put('res', 14, 44, 14, 44); const rub0 = W.rub.st().st, exp = W.rub.of(r); W.place(r.x, r.y, 'bull'); o.bull = { exp, got: W.rub.st().st - rub0, tot: W.rub.st().tot };
     o.npcRub = W.rub.of({ t: 'npc', k: 'res', floors: 20 }); o.houseRub = W.rub.of({ t: 'npc', k: 'house' });
     // chantier : une construction laisse des gravats
     const r1 = W.rub.st().st; T.put('f1', 66, 84, 54, 84); o.site = W.rub.st().st - r1;
-    // centre de concassage : proportions, plafond, flux
-    const cr = T.put('crush', 66, 84, 54, 84); o.crush = !!cr;
-    S.rub = { st: 1e6, tot: 1e6, done: 0, fl: 0, d: 0 }; ['gravel', 'sand', 'cement'].forEach(g => { S.stock[g] = 0; });
-    W.refreshStats(); T.frz(); W.step(); const c = W.rub.st(), s1 = { gravel: S.stock.gravel, sand: S.stock.sand, cement: S.stock.cement };
-    o.cap = W.TYPES.crush.rate * W.unitsOf(cr) * W.fillOf(cr); o.done1 = c.done; o.out1 = cr.out; o.util = cr.util;
-    o.ratio = ['gravel', 'sand', 'cement'].map(g => cr._cq[g] / Math.max(1, c.done));
-    // flux limité : peu de gravats -> production plafonnée par le flux, alerte « manque de gravats »
-    S.rub.st = 500; S.rub.done = 0; ['gravel', 'sand', 'cement'].forEach(g => { S.stock[g] = 0; }); T.frz(); W.step();
-    o.low = { done: S.rub.done, st: S.rub.st, gravel: S.stock.gravel + (S.locSold ? 0 : 0), out: cr.out, lim: cr.limit };
-    T.frz(); W.step(); o.low2 = { done: S.rub.done, out: cr.out, lim: cr.limit };
-    // second centre : la capacité totale double mais pas la production si le flux est le même
-    const cr2 = T.put('crush', 66, 84, 54, 84); W.refreshStats(); S.rub.st = 3000; S.rub.done = 0; T.frz(); W.step(); o.two = { done: S.rub.done, cap: W.rub.st().cap, out: cr.out + cr2.out };
-    // bilan du centre : revenus valorisés et profit calculé
-    S.rub.st = 1e6; for (let i = 0; i < 5; i++) { T.frz(); W.step(); } o.pRev = cr.pRev; o.profit = cr.profit; o.cost = cr.cost;
+    // carrière de granulats + concasseur : proportions, plafond, flux
+    const cr = T.onDep('qgravel', 'gravel'); o.crush = !!cr; cr.cr = 1;
+    S.rub = { st: 1e6, tot: 1e6, done: 0, fl: 0, d: 0, pl: 0 }; ['gravel', 'sand', 'cement'].forEach(g => { S.stock[g] = 0; });
+    W.refreshStats(); T.frz(); W.step(); const c = W.rub.st();
+    o.cap = W.cr.CAP[1] * W.fillOf(cr); o.done1 = c.done;
+    o.ratio = ['gravel', 'sand', 'cement'].map(g => cr._rq[g] / Math.max(1, c.done));
+    // flux limité : peu de gravats -> production recyclée plafonnée par le flux
+    S.rub.st = 500; S.rub.done = 0; T.frz(); W.step();
+    o.low = { done: S.rub.done, st: S.rub.st }; const tt = S.rub.tot; T.frz(); W.step(); o.low2 = { done: S.rub.done, rin: cr._rin, add: S.rub.tot - tt };
+    // second concasseur : la capacité totale double mais pas la production si le flux est le même
+    const cr2 = T.onDep('qgravel', 'gravel'); cr.cr = 2; cr2.cr = 2; W.refreshStats(); S.rub.st = 3000; S.rub.done = 0; T.frz(); W.step(); o.two = { done: S.rub.done, cap: W.rub.st().cap }; cr.cr = 1;
+    // bilan : revenus valorisés et profit
+    S.rub.st = 1e6; for (let i = 0; i < 5; i++) { T.frz(); W.step(); } o.pRev = cr.pRev; o.profit = cr.profit; o.rrev = cr._rrev;
     return o;
   });
-  t.check('R&D « Recyclage et concassage » : ère 2, coût rééchelonné (millions), prérequis explosifs ; niveau 2 : +10 % de rendement', G.techReq && G.techReq.era === 2 && G.eraCost[0] >= 2e6 && G.eraCost[0] <= 8e6 && G.techReq.req.join() === 'blast1' && G.t2.fx.recy === 1.1 && G.t2.req.includes('recycl'), `${G.eraCost.join(' / ')}`);
-  t.check('sans la technologie : centre de concassage verrouillé ; avec elle : constructible', /Recherche requise : Recyclage et concassage/.test(G.errLocked) && G.errOpen === '', `${G.errLocked} | ${G.errOpen}`);
-  t.check('le centre figure dans le menu BTP avec son icône', G.menu, '');
+  t.check('R&D « Recyclage et concassage » : ère 2, coût rééchelonné, prérequis explosifs, +10 % de rendement des concasseurs ; niveau 2 : +10 % encore', G.techReq && G.techReq.era === 2 && G.eraCost[0] >= 2e6 && G.eraCost[0] <= 8e6 && G.techReq.req.join() === 'blast1' && G.techReq.fx.recy === 1.1 && G.t2.fx.recy === 1.1 && G.t2.req.includes('recycl'), `${G.eraCost.join(' / ')}`);
+  t.check('passe 79 : plus de centre de concassage séparé (une seule filière : carrière de granulats + concasseur)', G.menu, '');
   t.check('démolition : gravats proportionnels à la taille (étages), ajoutés au stock', G.bull.exp > 0 && G.bull.got === G.bull.exp && G.npcRub > G.houseRub, `immeuble ${G.bull.exp}, tour 20 étages ${G.npcRub}, maison ${G.houseRub}`);
   t.check('chantier : une construction laisse des gravats de chantier', G.site > 0, `${G.site}`);
   t.check('concassage : gravier 50 %, sable 30 %, ciment recyclé 8 % des gravats traités (proportions fixes)', Math.abs(G.ratio[0] - 0.5) < 0.01 && Math.abs(G.ratio[1] - 0.3) < 0.01 && Math.abs(G.ratio[2] - 0.08) < 0.005, G.ratio.map(v => v.toFixed(3)).join(' / '));
-  t.check('capacité plafonnée : un gros stock de gravats est traité à la capacité du centre (pas plus)', G.done1 > 0 && Math.abs(G.done1 - G.cap) < 0.02 * G.cap && G.util > 0.95, `traité ${Math.round(G.done1)} pour ${Math.round(G.cap)} de capacité`);
-  t.check('production plafonnée par le flux : stock de 500 → 500 traités, puis alerte « manque de gravats »', Math.abs(G.low.done - 500) < 1 && G.low.st < 1 && G.low2.out === 0 && G.low2.lim === 'rubble', `${G.low.done} traités, limite ${G.low2.lim}`);
-  t.check('deux centres ne créent pas de matière : avec 3 000 gravats, 3 000 traités', Math.abs(G.two.done - 3000) < 1, `${Math.round(G.two.done)} (capacité ${Math.round(G.two.cap)})`);
-  t.check('le centre valorise sa production au prix du marché et coûte moins que l\'extraction (profit positif)', G.pRev > 0 && G.profit > 0, `recettes ${Math.round(G.pRev)}/j, profit ${Math.round(G.profit)}/j`);
+  t.check('capacité plafonnée : un gros stock de gravats est traité à la capacité du concasseur (pas plus)', G.done1 > 0 && Math.abs(G.done1 - G.cap) < 0.02 * G.cap, `traité ${Math.round(G.done1)} pour ${Math.round(G.cap)} de capacité`);
+  t.check('production plafonnée par le flux : stock de 500 → 500 traités, puis seulement les gravats arrivés depuis', Math.abs(G.low.done - 500) < 1 && G.low.st <= G.low2.add + 1 && G.low2.rin <= G.low2.add + 1, `${G.low.done} traités, puis ${Math.round(G.low2.rin)} (gravats arrivés dans la journée : ${Math.round(G.low2.add)})`);
+  t.check('deux concasseurs ne créent pas de matière : avec 3 000 gravats, 3 000 traités', Math.abs(G.two.done - 3000) < 1, `${Math.round(G.two.done)} (capacité ${Math.round(G.two.cap)})`);
+  t.check('la carrière valorise sa production recyclée au prix du marché (profit positif)', G.pRev > 0 && G.profit > 0 && G.rrev > 0, `recettes ${Math.round(G.pRev)}/j dont recyclé ${Math.round(G.rrev)}/j, profit ${Math.round(G.profit)}/j`);
 
-  // gisement épuisé : alerte claire + reconversion / démolition remboursée
+  // gisement épuisé : alerte claire + investissement concasseur / démolition remboursée
   const D = await p3.evaluate(() => {
     const W = window.WSE, S = W.S, T = window.T, o = {};
     const q = T.onDep('qgravel', 'gravel'); o.q = !!q; if (!q) return o;
-    const dep = S.dep[q.y * W.N + q.x]; dep.r = 5; for (let i = 0; i < 3; i++) { T.frz(); W.step(); }
-    o.dry = q.dry; o.lim = q.limit; o.msg = (document.getElementById('feed') || {}).textContent || '';
+    const dep = S.dep[q.y * W.N + q.x]; dep.r = 5; S._sayBuf = []; T.frz(); W.step(); o.msg = (S._sayBuf || []).join(' | '); for (let i = 0; i < 2; i++) { T.frz(); W.step(); }
+    o.dry = q.dry; o.lim = q.limit;
     const bn = W.rub.bottleneck(q); o.bn = { t: bn.t, acts: bn.acts.map(a => a[0]) };
-    o.inv = W.investOf ? W.investOf(q) : null; o.refund = W.rub.refund(q); o.conv = W.rub.convCost(q);
-    // reconversion sans tech : refusée ; avec tech : le site devient un centre de concassage
-    S.unlockAll = false; delete S.tech.recycl; const c0 = S.cash; o.deny = W.rub.recycle(q); o.denyType = q.t; S.tech.recycl = 2; S.rub.st = 50000;
-    o.ok = W.rub.recycle(q); o.type = q.t; o.paid = c0 - S.cash; W.refreshStats(); const g0 = S.stock.gravel; for (let i = 0; i < 2; i++) { T.frz(); W.step(); } o.prod = q.out; o.lim2 = q.limit; o.grav = q._cq.gravel;
+    o.refund = W.rub.refund(q); o.conv = W.rub.convCost(q);
+    const c0 = S.cash; S.rub.st = 50000;
+    o.ok = W.rub.recycle(q); o.type = q.t; o.paid = c0 - S.cash; W.refreshStats(); for (let i = 0; i < W.cr.DAYS[0] + 2; i++) { T.frz(); W.step(); } o.lv = q.cr; o.lim2 = q.limit; o.grav = (q._rq || {}).gravel || 0;
     // démolition remboursée d'un autre site épuisé
-    S.unlockAll = true; const q2 = T.onDep('qsand', 'sand'); if (q2) { S.dep[q2.y * W.N + q2.x].r = 0; T.frz(); W.step(); const c1 = S.cash, rf = W.rub.refund(q2), rub1 = W.rub.st().st; o.bref = W.rub.bullRefund(q2); o.refGot = S.cash - c1 - 0; o.rf = rf; o.gone = !S.grid[q2.y * W.N + q2.x]; o.rubGain = W.rub.st().st - rub1; }
+    const q2 = T.onDep('qgravel', 'gravel'); if (q2) { S.dep[q2.y * W.N + q2.x].r = 0; T.frz(); W.step(); const c1 = S.cash, rf = W.rub.refund(q2), rub1 = W.rub.st().st; o.bref = W.rub.bullRefund(q2); o.refGot = S.cash - c1; o.rf = rf; o.gone = !S.grid[q2.y * W.N + q2.x]; o.rubGain = W.rub.st().st - rub1; }
     return o;
   });
   t.check('gisement épuisé : le site est signalé (alerte « épuisé », limite « reserve »)', D.q && D.dry === true && D.lim === 'reserve' && /épuisé/.test(D.msg), `${D.lim} · ${(D.msg || '').slice(0, 60)}`);
-  t.check('fiche du site épuisé : boutons « Reconvertir en centre de concassage » et « Démolir (remboursement) »', D.bn && D.bn.acts.includes('recycle') && D.bn.acts.includes('bullref') && /entretien/.test(D.bn.t), D.bn && D.bn.acts.join(','));
-  t.check('reconversion : refusée sans la technologie, acceptée avec (le site devient un centre de concassage)', D.deny === false && D.denyType === 'qgravel' && D.ok === true && D.type === 'crush' && D.paid > 0, `${D.denyType} → ${D.type}, ${Math.round(D.paid)} $`);
-  t.check('site reconverti : produit du gravier à partir des gravats (zone de production continue, aucune réserve)', D.prod > 0 && D.grav > 0, `${Math.round(D.prod)}/j, gravier +${Math.round(D.grav)}`);
+  t.check('fiche du site épuisé : boutons « Investir dans un concasseur » et « Démolir (remboursement) »', D.bn && D.bn.acts.includes('crinv') && D.bn.acts.includes('bullref') && /entretien/.test(D.bn.t), D.bn && D.bn.acts.join(','));
+  t.check('investissement : la carrière garde son type, le concasseur entre en service après son chantier', D.ok === true && D.type === 'qgravel' && D.paid > 0 && D.lv === 1, `${D.type}, niveau ${D.lv}, ${Math.round(D.paid)} $`);
+  t.check('carrière épuisée avec concasseur : produit du gravier recyclé à partir des gravats', D.grav > 0 && D.lim2 !== 'reserve', `gravier recyclé ${Math.round(D.grav)}/j, limite ${D.lim2}`);
+  // démolition : les gravats viennent du joueur (sans redevance) ; la démolition du site rembourse 35 % (frais d'évacuation déduits si plus aucun concasseur)
   t.check('démolition d\'un site épuisé : 35 % de l\'investissement remboursé, gravats récupérés', D.bref === true && Math.abs(D.refGot - D.rf) < 2 && D.rf > 0 && D.gone && D.rubGain > 0, `remb. ${Math.round(D.refGot)}, gravats +${D.rubGain}`);
 
-  // fiche des bâtiments : pas d'erreur, texte de zone de production continue et d'aide
+  // fiche des bâtiments : pas d'erreur, bloc concasseur et aide de zone
   const F = await p3.evaluate(() => { const W = window.WSE, S = W.S, T = window.T; const out = {}; S.zn.riv = { port: 0, indus: 0 }; W.refreshStats(); let cr = null, wh = null;
-    for (let i = 0; i < W.N * W.N; i++) { const c = S.grid[i]; if (c && c.t === 'crush' && !cr) cr = c; if (c && c.t === 'f1' && !wh) wh = c; }
+    for (let i = 0; i < W.N * W.N; i++) { const c = S.grid[i]; if (c && c.t === 'qgravel' && c.cr > 0 && !cr) cr = c; if (c && c.t === 'f1' && !wh) wh = c; }
     if (cr) { W.openBuilding(cr.x, cr.y); out.cr = document.getElementById('bbody').textContent; W.closeBuilding(); }
     if (wh) { W.openBuilding(wh.x, wh.y); out.wh = document.getElementById('bbody').textContent; W.closeBuilding(); }
     return out; });
-  t.check('fiche du centre : « Zone de production continue », gravats en entrée, matières recyclées en sortie', /Zone de production continue/.test(F.cr || '') && /Gravats/.test(F.cr || '') && /Gravier recyclé/i.test(F.cr || ''), (F.cr || '').slice(0, 80));
+  t.check('fiche de la carrière : « Concasseur de recyclage », gravats de la ville en entrée, matières recyclées en sortie', /Concasseur de recyclage/.test(F.cr || '') && /Gravats de la ville/.test(F.cr || '') && /Gravier recyclé/i.test(F.cr || ''), (F.cr || '').slice(0, 80));
   t.check('fiche d\'une usine de zone : bandeau « Subvention de zone »', /Subvention de zone/.test(F.wh || ''), (F.wh || 'aucun entrepôt').replace(/\s+/g, ' ').slice(0, 90));
   t.check('recyclage : aucune erreur de page', p3.errs.length === 0, p3.errs.slice(0, 2).join(' | '));
   await p3.context().close();
 
   // ---------- C. DÉTERMINISME ----------
   const SCRIPT = `(() => { const W = window.WSE, S = W.S, T = window.T; S.noEv = true; S.cash = 5e10; S.unlockAll = true;
-    T.put('port', 80, 90, 54, 84); T.put('wh', 66, 84, 54, 84); T.put('crush', 66, 84, 54, 84); T.onDep('miron', 'iron');
+    T.put('port', 80, 90, 54, 84); T.put('wh', 66, 84, 54, 84); { const k = T.onDep('qgravel', 'gravel', 1); if (k) k.cr = 1; } T.onDep('miron', 'iron');
     for (let i = 0; i < 4; i++) { const r = T.put('res', 14, 44, 14, 44); if (r && i % 2) W.place(r.x, r.y, 'bull'); }
     const q = T.onDep('qgravel', 'gravel'); if (q) S.dep[q.y * W.N + q.x].r = 3;
     S.zn.riv.indus = 20; W.refreshStats();

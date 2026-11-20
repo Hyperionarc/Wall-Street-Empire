@@ -159,13 +159,13 @@ exports.run = async (t, L) => {
     const p5 = await L.newPage({ ctx, wait: 1200 }); await L.inject(p5);
     const r = await p5.evaluate(({ oldDep, MINE }) => {
       const W = window.WSE, S = W.S, N = W.N, T = window.T, o = { day: S.day, nb: T.bldgs().length, cnt: {}, moved: 0, onBld: 0 };
-      Object.keys(oldDep).forEach(i => { const d = S.dep[i]; if (!d || d.k !== oldDep[i]) o.moved++; });
+      Object.keys(oldDep).forEach(i => { const d = S.dep[i]; const want = oldDep[i] === 'sand' ? 'gravel' : oldDep[i]; if (!d || d.k !== want) o.moved++; /* passe 79 : sable → granulats */ });
       Object.keys(MINE).forEach(k => { o.cnt[k] = 0; for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === k) { o.cnt[k]++; if (S.grid[i]) o.onBld++; } } });
       const d0 = S.day; T.stepN(30, true); o.adv = S.day - d0; o.bad = T.scan(); o.px = ['lithium', 'aluminium', 'stainless'].map(g => S.price[g]);
       W.save(); const s2 = JSON.parse(localStorage.getItem('wse-city-v8')); o.dep2 = s2.dep.length; o.sameNew = s2.dep.filter(a => MINE[a[1]]).length;
       return o; }, { oldDep, MINE });
     t.check('ancienne sauvegarde : chargée au même jour avec ses bâtiments', r.day === old.day && r.nb >= 10, `jour ${r.day}/${old.day}, ${r.nb} bâtiments`);
-    t.check('ancienne sauvegarde : les anciens gisements sont strictement inchangés', r.moved === 0, `${r.moved} cases modifiées`);
+    t.check('ancienne sauvegarde : les anciens gisements sont strictement inchangés (sable → granulats, passe 79)', r.moved === 0, `${r.moved} cases modifiées`);
     t.check('ancienne sauvegarde : les nouveaux gisements sont ajoutés, jamais sous un bâtiment existant', KINDS.every(k => r.cnt[k] >= 1) && r.onBld === 0, KINDS.map(k => k + ':' + r.cnt[k]).join(' ') + ' sous bâtiment ' + r.onBld);
     t.check('ancienne sauvegarde : 30 jours de simulation, cours des nouvelles matières définis, sans NaN', r.adv === 30 && r.bad.length === 0 && r.px.every(v => v > 0), `${r.adv} j · ${r.bad.slice(0, 2).join(';')} · ${r.px.map(v => v && v.toFixed(1)).join('/')}`);
     t.check('ancienne sauvegarde : réenregistrée avec les nouveaux gisements, 0 pageerror', r.sameNew > 20 && p5.errs.length === 0, `${r.sameNew} cases nouvelles · ${p5.errs.slice(0, 2).join(';')}`);

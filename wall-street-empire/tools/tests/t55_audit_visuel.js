@@ -30,8 +30,8 @@ exports.run = async (t, L) => {
   const hasHD = fs.existsSync(path.join(root, '..', 'assets', 'phase2_hd', 'gisement_bauxite.png'));
   if (hasHD) {
     const deps = rows.filter(x => x.fam === 'Gisements'), nhd = deps.filter(x => x.hd < 1);
-    t.check(`les ${deps.length} gisements (dont gravier, sable, calcaire, argile, silice, sel, potasse, phosphate, soufre, terres rares) en sprite HD`, deps.length >= 20 && !nhd.length, nhd.map(x => x.id).join(','));
-    t.check('gravier, sable, calcaire, soufre, terres rares : sprite HD dérivé (même modelé que les autres gisements)', ['gravel', 'sand', 'limestone', 'sulfur', 'rare'].every(k => by[k] && /gisement_/.test(by[k].derived || '')), ['gravel', 'sand', 'limestone', 'sulfur', 'rare'].map(k => k + '=' + (by[k] && by[k].derived)).join(' '));
+    t.check(`les ${deps.length} gisements (dont granulats, calcaire, argile, silice, sel, potasse, phosphate, soufre, terres rares) en sprite HD`, deps.length >= 20 && !nhd.length, nhd.map(x => x.id).join(','));
+    t.check('granulats (gravier + sable, un seul gisement depuis la passe 79), calcaire, soufre, terres rares : sprite HD dérivé (même modelé que les autres gisements)', ['gravel', 'limestone', 'sulfur', 'rare'].every(k => by[k] && /gisement_/.test(by[k].derived || '')) && !by.sand, ['gravel', 'limestone', 'sulfur', 'rare'].map(k => k + '=' + (by[k] && by[k].derived)).join(' '));
     const crops = rows.filter(x => x.fam === 'Zones fertiles'), cb = crops.filter(x => x.hd < 1 || x.share > 0.05);
     t.check(`zones fertiles (${crops.length}, dont maïs et colza) : parcelles HD, plus d'aplat ni de disque`, crops.length === 7 && !cb.length && by.corn.derived && by.rapeseed.derived, cb.map(x => x.id + ':' + x.share).join(','));
     const rp = rep.filter(x => !REPLI_OK[x.id.replace(/:bas#\d+$/, '')] && !/:repli$/.test(x.id));
