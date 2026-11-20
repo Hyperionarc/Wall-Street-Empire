@@ -535,3 +535,21 @@ Ces composants se retrouvent dans les smartphones, ordinateurs (portable et de b
 - Produits finis électroniques à vérifier/embellir : smartphone (`phone`), ordinateur portable (`laptop`), ordinateur de bureau (`desktop`), tablette (`tablet`), console (`console`), appareil photo (`camera`), télévision (`tv`), montre connectée (`smartwatch`).
 - Vignettes en 3 « niveaux de nœud » facultatives (ancien nœud = puce simple et grosse ; pointe = puce dense avec motifs fins).
 Livraison assets/guide_hd/<clé>.jpg ; revue qualité à chaque lot.
+
+## COMMANDE n° 15 (20 nov.) — remplacer TOUS les dessins vectoriels de repli par de vraies images HD (Rémy : « les collèges, écoles maternelles, casernes de pompiers et de police ne sont pas du tout en HD, pas représentatifs »)
+Aujourd'hui, ces bâtiments sont dessinés par le code ou réutilisent un sprite d'école unique pour tous les niveaux : ils doivent avoir chacun leur sprite HD, dans le MÊME style que `usine_moyenne_f2`, les boutiques v2 et les immeubles (2:1 exact, dalle de parcelle, éclairage haut-gauche, matériaux réalistes, palette sobre, **aucun texte**, bandeau d'enseigne vierge quand il faut une enseigne).
+**Équipements publics (priorité 1)**
+1. `ecole_maternelle` (parcelle 1 case) : petite école de plain-pied, toit en pente douce, cour de jeux avec toboggan et bac à sable, clôture basse, arbres ; couleurs douces sobres.
+2. `creche` (1 case) : bâtiment bas à toits décalés, jardin, petit portique de jeux.
+3. `college` (2×2, dalle 512×256) : bâtiment en L de 2 à 3 étages, préau, cour de récréation avec terrain de sport, grille, arrivée de bus.
+4. `lycee` (3×2) : bâtiment principal de 3-4 étages + gymnase + cour/terrain ; parking vélos.
+5. `ecole_primaire` si utile (1×1 ou 2×1) pour ne pas réutiliser le même sprite pour tous les niveaux.
+6. `caserne_pompiers` (1 case) : remise à 2-3 portes de garage rouges sobres (rouge brique, pas vif), tour d'exercice, camion de pompiers devant, dalle béton.
+7. `commissariat` (1 case) : bâtiment institutionnel 2 étages, façade claire, auvent, voiture de police (blanc/bleu sobre) et parking.
+8. `stade` (2×2), `stade_grand` (si 3×3) : tribunes, pelouse, pistes ; `gymnase` éventuel.
+9. `hotel_de_ville` : déjà livré (`mairie`) → à vérifier au même niveau de qualité.
+**Autres éléments encore dessinés en code**
+10. `aeroport` (6×4) et `terminal_aeroport` ; `data_center_campus` (5×4) ; `concasseur`/carrière avec concasseur ; `brico_outillage`.
+11. Pictogrammes de réseaux (câble enterré, pipeline) : restent des lignes tracées par le code (OK).
+12. Éléments de décor encore en repli : gisements génériques (terre fondue + tas) → vos sprites de gisements existants suffisent.
+Livraison dans assets/factory_hd avec ancres (ancres.json) ; revue qualité à chaque lot. Ordre : 6, 7, 3, 1, 2, 4, 5, 8, puis le reste.
