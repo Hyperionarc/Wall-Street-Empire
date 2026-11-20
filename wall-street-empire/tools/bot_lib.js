@@ -551,10 +551,22 @@ window.BOT = (function () {
       return;
     }
   }
+  // ===== Passe 73 : fondeur de puces (P.chip). Usines de niveau 3 dédiées aux puces (GPU d'abord, puis CPU et DRAM), intrants achetés (silicium, câbles, plastique) ;
+  // mise à niveau du nœud de gravure dès qu'il est dépassé (course à l'armement), une fonderie de plus tant que la dernière rapporte (EBITDA ≥ P.chEb).
+  const CH = { last: -99, n: 0, log: [] };
+  function chipFab() {
+    const s = S(); if (s.day - CH.last < (P.chEvery || 20)) return; CH.last = s.day; const cp = Math.max(1, s.cpi || 1), C = W.chip; if (!C) return;
+    C.G.forEach(g => { const my = s.chip && s.chip.my && s.chip.my[g]; if (my != null && my < C.front() && s.cash > 2 * C.upCost(g)) { if (C.up(g)) CH.log.push([s.day, 'nœud', g]); } });
+    const order = P.chOrder || ['gpu', 'cpu', 'dram', 'gpu', 'cpu', 'gpu'], prev = order[CH.n - 1];
+    if (CH.n >= Math.min(order.length, P.chMax || 6) || (prev && (C.eb(prev) == null || C.eb(prev) < (P.chEb || 0.15)))) return;
+    const c0 = W.TYPES.f3.cost * cp * 1.15; if (s.cash < c0) borrow(c0 + 1e5); if (s.cash < c0 || !ensurePort()) return;
+    const g = order[CH.n], r = tryBuildAny('f3'); if (r > 0) { W.assignRecipe(g, 1, true); CH.n++; CH.log.push([s.day, 'fonderie', g]); }
+  }
   function tick() {
     const s = S(); let did = 0, spent = 0;
     if (P.trump) trump();
     if (P.innov) innov();
+    if (P.chip) chipFab();
     if (s.day % 20 === 0) prune();
     if (s.day % 8 === 0) missions();
     if (P.industry) industry();
@@ -580,5 +592,5 @@ window.BOT = (function () {
     if (P.bourse && s.day % 8 === 0) bourse();
     return { did, spent };
   }
-  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC, CP, TR, IN };
+  return { tick, cnt, P, pick, spots, repay, born, roiOf, depQuote, IND, chainsStatus, indCost, needs, plan, EC, CP, TR, IN, CH };
 })();
