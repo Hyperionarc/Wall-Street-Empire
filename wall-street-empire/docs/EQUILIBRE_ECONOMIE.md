@@ -266,3 +266,109 @@ et de services avec l'emploi créé par chaque entreprise (la demande suivrait l
 - Le baron ne prend jamais le contrôle d'un rival en 1 800 jours : l'OPA reste peu rentable (revenu de filiale = 12 % du chiffre d'affaires de la cible, ≈ 5 %/an du prix) ;
   c'est désormais neutre au bilan (filiale au coût amorti) mais pas créateur de valeur.
 - `t65` garde les bots d'avant (`--native --old`) ; `t68` vérifie les actions emblématiques des nouveaux.
+
+# Passe 68 : une économie réellement à somme positive (prospérité, deux bassins de clientèle, services B2B, contrat d'approvisionnement)
+
+Principe de Rémy (docs/PRINCIPE_JEU_POSITIF.md) : aucune caste ne doit se nuire ou s'annuler. Mesure de départ (passe 67, section 4) : avec les 5 autres castes, chaque caste
+jouée à fond gagnait MOINS que seule (sauf l'agriculteur). Code : `game.template.html` (bloc « Passe 68 » après `wageMkt`, `svcSat`, vente en magasin de `step`,
+`stepLocalMarket`, `cartelOn`, `bkDemand`, panneau Concurrents) ; outil : `tools/sim_batch.js` (cumuls du compte de résultat `cf` et diagnostics `dg` par tranche de
+100 jours dans chaque point de la série) ; test : `tools/tests/t70_somme_positive.js`.
+
+## 1. Protocole
+
+A/B apparié, même graine (6000 / 7000 / 8000), mêmes bots (`--native`, playbooks de la passe 67 ; promoteur et innovateur : bot « bon joueur »), 1 800 jours, Round Normal,
+événements, 1 travailleur par flux (2 flux au plus en parallèle ; machine partagée, charge 7 à 20 sur 4 cœurs) : **A** = le joueur seul (`SIM_NRIV=0`, aucune IA),
+**B** = le joueur et les 5 IA de caste. Ratio = valeur du joueur B / A. 36 parties avant, 36 après ; ablations de diagnostic sur 2 graines (12 parties chacune).
+
+## 2. Diagnostic : d'où vient la perte du joueur en présence des rivaux (version de départ `90d1857`)
+
+Ablations : une copie de la version de départ où UNE mécanique de concurrence est neutralisée (diagnostic seulement, jamais livré), comparée au même joueur seul.
+Graines 6000 et 7000, moyenne géométrique de B/A.
+
+| Caste | Départ | Sans parts de rayon des IA (`rivalAttr` = 0) | Sans `svcSat` −7 %/rival ni `rivSvc` | Salaires fixes (`wageMkt` = 1) |
+|---|---:|---:|---:|---:|
+| agriculteur | 1,34 | 1,36 | 1,34 | 1,41 |
+| banquier | 0,50 | **1,15** | 0,58 | 0,58 |
+| négociant | 0,73 | 0,86 | 0,73 | 0,69 |
+| industriel | 0,75 | **0,99** | 0,75 | 0,70 |
+| promoteur | 0,28 | **0,86** | 0,36 | 0,30 |
+| innovateur | 0,45 | **1,10** | 0,44 | 0,40 |
+
+Lecture :
+- **Les parts de rayon expliquent l'essentiel** (×1,3 à ×3,1 selon la caste). Les 5 IA prenaient 63 à 72 % de la demande de chaque classe (base, manufacturé, luxe) pour
+  le promoteur, le banquier et l'innovateur (15 à 33 % face au négociant, à l'industriel et à l'agriculteur, dont les produits sont plus attractifs), alors que leur valeur
+  cumulée restait de l'ordre de celle du joueur seul : la part d'un produit du joueur dépend de son attrait (qualité, prix, marque), pas du nombre de ses magasins, et
+  l'attrait des IA grandit avec leurs ouvertures (plafond 1,3 par classe). La marge de rayon (pouvoir de marché, `mpRetail`) tombait en plus de ×1,24 (seul) à ×0,97.
+  Le bot investit tant que le rendement marginal dépasse son seuil : un magasin moins rentable, c'est moins de magasins, moins de trésorerie, et l'écart se compose sur
+  5 ans (recettes de commerce B/A : promoteur 0,40, banquier 0,34, innovateur 0,57 ; entretien, indicateur de la taille du parc : 0,14 à 0,55).
+- **Services** (`svcSat` −7 % de demande par rival jusqu'à −21 %, `rivSvc` jusqu'à 12 %) : ×1,2 à ×1,3 pour le promoteur et le banquier, rien pour les autres.
+- **Salaires** (chômage 4 à 6 % avec les IA contre 10 % seul, `wageMkt` +5 à +8 %) : effet dans le bruit (< 5 %).
+- **Cartels** : ceux du négociant IA ne s'appliquent au joueur que s'il les accepte (le bot ne répond pas) ; ceux du joueur négociant (+18 % sur le cours pendant 20 jours,
+  52 à 61 par partie) sont payés par les usines acheteuses, IA comprises : transfert pur, sans effet mesurable sur la valeur du joueur (il n'en est pas la victime).
+- **Négociant** : même sans parts de rayon il reste à 0,86. Le reste vient d'un chemin de bot : ville plus prospère dès le jour 3, le bot ouvre d'abord un magasin
+  spécialisé (maison) qui lui prend la trésorerie de l'hypermarché (s3) du jour 6 ; ses recettes de commerce restent alors deux fois plus faibles pendant 1 000 jours
+  (sans magasins spécialisés, `SIM_NOSPEC=1`, version finale : 0,90 au lieu de 0,79 sur 2 graines). En fin de partie, il investit davantage (jusqu'à 33 centrales contre 22)
+  dans une ville plus demandeuse d'électricité : la valorisation au coût amorti (0,9 × coût) pénalise un investissement récent pas encore rentabilisé.
+- Population : 433 k habitants en moyenne avec les IA contre 184 k seul, chômage 4,9 % contre 10,2 % : le gâteau grandissait déjà, mais moins vite que le nombre de parts.
+
+## 3. Mécanismes ajoutés (chacun commenté dans le code)
+
+| Mécanisme | Avant | Après | Pourquoi (gain mutuel) |
+|---|---|---|---|
+| **Multiplicateur de prospérité** `prosp()` | demande par habitant fixe | demande × emploi × salaire réel × (1 + 0,07 × ln(1 + T / 250 000 $)), T = chiffre d'affaires quotidien de TOUTES les entreprises (toi + IA) ; élasticité 0,6 (base), 1 (manufacturé), 1,4 (luxe) ; plafond ×1,6 ; s'applique aussi aux services, au crédit et aux matières (racine carrée) | chaque entreprise verse salaires, sous-traitance et dividendes ; une économie urbaine plus grosse paie mieux. Mesuré : ×1,22 à ×1,32 avec les IA, ≈ ×1,1 seul |
+| **Marché élargi** `rivMkt` | les IA prenaient des parts d'une demande fixe | demande de classe × (1 + 0,6 × (1 − e^(−0,75 × attrait des IA))), au plus +60 % | leurs rayons, marques et publicité amènent de nouveaux clients (comme tes produits : +12 % par produit lancé). Mesuré ×1,2 à ×1,35 |
+| **Deux bassins de clientèle** `attrDen` | une IA pesait tout son attrait sur tes clients | sur ta clientèle d'origine, une IA ne pèse que `rivCannib()` de son attrait : 10 % pour un débutant, jusqu'à 35 % au sommet (`compNow` : palier et profondeur des chaînes) ; sur la nouvelle clientèle, partage normal à l'attrait | une IA recrute surtout chez elle ; la concurrence monte avec ton palier. Part des IA dans les rayons : 0,63-0,72 -> 0,38-0,47 |
+| **Marge de rayon** (`mpRetail`) | calculée sur la part totale des IA | calculée sur leur poids dans TA clientèle (`rivCl`) | le pouvoir de marché dépend de la concurrence pour tes clients ; seul, la marge reste celle d'avant (×1,24) |
+| **Services B2B** `svcB2B` | −7 % de demande par rival (jusqu'à −21 %) | +7 % par entreprise active (pondérée par √(valeur / valeur de départ), au plus 5) | les entreprises sont des clientes des banques, bureaux tech et data centers |
+| **`rivSvc`** | jusqu'à 12 % des recettes de services | jusqu'à 6 % | concurrence bornée, plus que compensée par le B2B |
+| **Crédit** `bkDemand` | 3 000 $ par habitant | × prospérité, + dette des IA + la moitié de leur valeur quand tu tiens le siège du banquier (`bkRivDem`) | les IA empruntent à ta banque (« capital prêté ») |
+| **Matières** (`stepLocalMarket`) | demande locale ∝ population | × √prospérité × (1 + 4 % par entreprise active, `RAW_B2B`) | chantiers, entretien, énergie des entreprises |
+| **Contrat d'approvisionnement** (`cartelOn`, même action et même coût) | cartel : cours cible +18 % pendant 20 jours, payé par les usines clientes | prix stable (cours + 6 %) et volumes garantis 60 jours ; les usines clientes ne manquent plus de la matière (`fabFill`) et ne la paient jamais plus que le prix du contrat (`scPx`) ; pas d'amende (contrat légal) ; champ optionnel `S.rv.sc` | le vendeur gagne une prime modeste et des ventes locales ; le client gagne la sécurité d'approvisionnement et une protection contre les flambées |
+| **Bilan des synergies** (Menu > Concurrents, en tête) | — | « Ce que les autres castes t'apportent » : prospérité et sa part due au revenu des autres, marché élargi, recettes dues à la demande qu'ils créent (par mois et cumul), habitants logés et emplois chez eux, matières livrées par le négociant, crédit du banquier ; « Ce que tu leur apportes » : demande créée pour eux, tes ventes de matières à leurs usines, tes emplois et logements, crédit de ta banque aux entreprises, redevances de tes brevets. Relevé quotidien `S.syn` (facultatif, sauvegardé ; anciennes sauvegardes : rien) | critère 2 du principe |
+
+Essais écartés (mesurés sur 2 graines) : multiplicateur sur le revenu PAR HABITANT (×1,46 à ×1,59) : il gonflait surtout la partie solo (le joueur seul est riche par
+habitant dans une petite ville : promoteur seul 574 -> 902 M$, B/A 0,39) ; attrait de la ville tiré aussi par le chiffre d'affaires des IA (`cityAttract`, terme aE) :
+population passive au jour 4 800 = 1,69 M au lieu de 0,6-1,5 M (t34), retiré.
+
+## 4. Mesures (A/B 1 800 jours, graines 6000 / 7000 / 8000 ; valeur moyenne en M$ ; ratio en moyenne géométrique)
+
+| Caste | A solo avant | B avant | B/A avant | A solo après | B après | B/A après (par graine) | B après / B avant |
+|---|---:|---:|---:|---:|---:|---|---:|
+| agriculteur | 220 | 296 | 1,35 | 241 | 394 | **1,63** (1,58 / 1,66 / 1,66) | 1,33 |
+| banquier | 593 | 301 | 0,51 | 597 | 690 | **1,13** (1,38 / 0,82 / 1,25) | 2,29 |
+| négociant | 344 | 252 | 0,73 | 369 | 320 | **0,87** (0,70 / 1,03 / 0,90) | 1,27 |
+| industriel | 269 | 205 | 0,76 | 261 | 276 | **1,06** (1,02 / 1,02 / 1,16) | 1,35 |
+| promoteur | 600 | 154 | 0,25 | 661 | 677 | **1,02** (1,01 / 1,24 / 0,85) | 4,41 |
+| innovateur | 326 | 143 | 0,44 | 335 | 345 | **1,02** (1,09 / 0,90 / 1,08) | 2,42 |
+| toutes | | | 0,59 (min 0,20) | | | **1,10** (min 0,70) | |
+
+| | Avant | Après |
+|---|---:|---:|
+| Valeur de toutes les entreprises (B) / joueur seul (A), moyenne géométrique | ×1,39 | **×1,93** |
+| Valeur du monde B (moyenne, M$) | 514 | 760 |
+| Trajectoire du monde B (M$, ≈ tous les 306 jours) | 159 197 255 326 409 514 | 166 218 301 396 546 760 (accroissements 52, 83, 95, 150, 214 : convexe) |
+| Population au jour 1 800 (B / A) | 433 k / 184 k | 368 k / 184 k |
+| Chômage (B / A) | 4,9 % / 10,2 % | 6,0 % / 10,2 % |
+| Part des IA dans les rayons (promoteur, banquier, innovateur) | 0,63 à 0,72 | 0,38 à 0,47 |
+| Valeur cumulée des 5 IA (B, M$) | ≈ 290 | 264 à 374 |
+
+Lecture honnête :
+- Cinq castes sur six valent au moins leur valeur seule en moyenne (1,02 à 1,63), le monde à six vaut 1,93 fois le joueur seul (1,39 avant) et sa trajectoire est convexe.
+  Le joueur seul bouge peu (+0 à +10 %) : le gain vient de ce que les autres apportent, pas d'un gonflement général.
+- **Le négociant reste sous 1 (0,87)**, à cause du chemin de bot décrit en section 2 et de la valorisation au coût de ses centrales récentes. Une graine sur trois est au-dessus de 1.
+- **Graines sous 1** : banquier 7000 (0,82), promoteur 8000 (0,85), innovateur 7000 (0,90). À 3 graines, un écart de 10 à 15 % n'est pas significatif ; la moyenne est
+  de 1,0 à 1,1 pour ces castes, pas dans la zone visée de 1,2 à 2 (sauf l'agriculteur).
+- La population de la partie normale (B) baisse de 15 % (433 k -> 368 k) : les IA, moins dominantes dans les rayons, construisent moins de tours. La prospérité passe
+  davantage par la demande par habitant (×1,2 à ×1,3) que par le nombre d'habitants.
+- **Équilibre des castes dans la partie normale** : les valeurs B suivent désormais celles du joueur seul, où le promoteur et le banquier dominent (677 et 690 M$ contre
+  276 à 394 M$ pour les autres) : rapport à la moyenne de 0,61 (industriel) à 1,53 (banquier), au-delà de la bande 0,8-1,3 de la passe 67. Le déséquilibre existait déjà
+  seul ; il est à traiter par les playbooks et bonus de caste (priorité 5), pas par la concurrence.
+- Aucun plafond sur l'argent gagné ; spéculation inchangée ; marges par pouvoir de marché conservées (mesurées sur ta clientèle) ; agriculture non modifiée (elle profite
+  seulement de la demande accrue : 296 -> 394 M$ en partie normale). La guerre des prix des IA (et les embargos de riposte du négociant : 2 à 14 par partie) reste en place :
+  c'est la prochaine mécanique « destructrice » à transformer.
+
+## 5. Tests
+
+`t70_somme_positive` (nouveau, 18 contrôles) : mécanismes (prospérité > 1 avec une part due aux autres, marché élargi borné, B2B > 1, `rivSvc` ≤ 6 %, contrat d'approvisionnement :
+prix = cours + 6 %, client plafonné en cas de flambée, pas de doublon, fin à 60 jours), A/B réduit à 500 jours (graine 6000) : promoteur ×1,05 et banquier ×1,04 (seuil 0,9),
+négociant ×0,59 à 500 jours (non soumis au seuil, voir section 2), monde > 1,2 × joueur seul pour les trois, bilan des synergies affiché et chiffré.
