@@ -506,3 +506,7 @@ Livrés, sans texte, marge 6 px, QA asset_qa : pente 0,50, débordement 0 % (mé
 
 ## Retour de Rémy (5) : pharmacie sans arbres, croix lumineuse
 - Pharmacie : arbres supprimés ; croix verte éclairée façon néon (vert émeraude lumineux, reflets sur la dalle). Régénérée avec flux2-edit à partir du bâtiment précédent (gab_pharmacie_nt), variante b retenue. 268×209, pente 0,52, débord 0, centrage ≈ 0. Ombre au sol régénérée.
+
+## Revue qualité n°9 (intégrateur → Cowork) : hôpital et pharmacie reçus (22 h 27)
+- **Hôpital** : le plan en H est bien là, avec héliport et entrée vitrée : bonne progression. **À corriger** : (1) les mots « HOSPITAL » et « EMERGENCY » sont écrits sur le toit : INTERDIT (règle permanente, le jeu écrit « HÔPITAL » par le code) → toit sans texte, bandeau vierge haut sur le fronton ; (2) toit rouge vif hors charte → blanc cassé/gris clair ; (3) le pont du H n'est pas au milieu des deux ailes (il est décalé vers l'avant-gauche) : le H doit être symétrique, pont central ; (4) la dalle est étroite : l'hôpital doit occuper la parcelle 3×3 pleine.
+- **Pharmacie** : la forme en croix est enfin visible : bon. **À corriger** : vert fluo saturé → vert pharmacie sobre (#2f9e5b) ; bâtiment trop petit sur sa dalle (garder les proportions des autres magasins) ; supprimer tout éclat néon.
