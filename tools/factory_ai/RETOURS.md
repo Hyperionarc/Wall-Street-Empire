@@ -553,3 +553,8 @@ Aujourd'hui, ces bâtiments sont dessinés par le code ou réutilisent un sprite
 11. Pictogrammes de réseaux (câble enterré, pipeline) : restent des lignes tracées par le code (OK).
 12. Éléments de décor encore en repli : gisements génériques (terre fondue + tas) → vos sprites de gisements existants suffisent.
 Livraison dans assets/factory_hd avec ancres (ancres.json) ; revue qualité à chaque lot. Ordre : 6, 7, 3, 1, 2, 4, 5, 8, puis le reste.
+
+### Complément à la commande n°15 (capture du catalogue de Rémy, 20 nov. 23 h 14)
+- **Caserne de pompiers** (dessin code) : bloc brun avec cheminée sur dalle verte plate, aspect jouet : à remplacer par un vrai sprite HD (cf. n°15 point 6).
+- **Collège et lycée** : un sprite existe mais il est **hors charte et de style « jouet »** (toit bleu vif, grand cahier/livre jaune posé sur le toit, fenêtres multicolores, pas la même matière que les autres bâtiments) ; le lycée réutilise le même bâtiment avec un terrain rouge accolé. **Rémy : « ça ne va pas »**. À refaire entièrement dans le style des boutiques v2/usine moyenne : matériaux réalistes (brique/béton/vitrage), toit plat gris ou tuiles sobres, aucun objet géant sur le toit, couleurs sobres, plan en L pour le collège, grand ensemble avec gymnase pour le lycée, DEUX sprites distincts.
+- Le mot « sprite HD » du catalogue signale seulement qu'un sprite existe ; il ne garantit pas la qualité. La qualité de chaque sprite sera notée A/B/C dans docs/REVUE_BATIMENTS.md.
