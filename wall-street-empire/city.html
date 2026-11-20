@@ -589,7 +589,6 @@ body.vopen #feed{z-index:9}
 @media (min-width:900px){body.vopen #feed .msg{max-width:156px;font-size:12px}}
 @media (min-width:900px){#bview{left:calc(max(12px,env(safe-area-inset-left,0px)) + 168px);width:min(820px,calc(100% - 192px))}#bview.wide{width:min(1090px,calc(100% - 192px));max-height:calc(100% - var(--hud-h) - 16px);z-index:12}#bstage.plan #bscene{margin-left:auto;width:auto;max-width:100%;height:auto;max-height:max(300px,calc(100vh - 400px))}}
 #bview .ph{display:flex;align-items:baseline;gap:10px}
-#bview.pubv .btabs button:not([data-act="tab:int"]){display:none!important}
 #bview .ph b{font-family:var(--font-d);font-weight:800;font-size:20px;letter-spacing:.05em;color:var(--gold)}
 #bview .ph .sub{flex:1;color:var(--mut);font-size:12px}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
@@ -3934,9 +3933,9 @@ function stepRecycle(buildings, made) {
   });
 }
 
-function znSan(o) { const z = { bud: null, riv: { port: 0, indus: 0 }, ann: {}, cum: 0, d: 0 }; if (o && typeof o === 'object') { if (o.bud != null && isFinite(+o.bud)) z.bud = +o.bud; ZN_KEYS.forEach(k => { z.riv[k] = Math.max(0, +((o.riv || {})[k]) || 0); }); z.ann = o.ann && typeof o.ann === 'object' ? o.ann : {}; z.cum = +o.cum || 0; if (+o.don > 0) z.don = +o.don; } return z; }
+function znSan(o) { const z = { bud: null, riv: { port: 0, indus: 0 }, ann: {}, cum: 0, d: 0 }; if (o && typeof o === 'object') { if (o.bud != null && isFinite(+o.bud)) z.bud = +o.bud; ZN_KEYS.forEach(k => { z.riv[k] = Math.max(0, +((o.riv || {})[k]) || 0); }); z.ann = o.ann && typeof o.ann === 'object' ? o.ann : {}; z.cum = +o.cum || 0; } return z; }
 function rubSan(o) { return o && typeof o === 'object' ? { st: Math.max(0, +o.st || 0), tot: Math.max(0, +o.tot || 0), done: Math.max(0, +o.done || 0), fl: Math.max(0, +o.fl || 0), d: 0, pl: clamp(+o.pl || 0, 0, Math.max(0, +o.st || 0)), ev: Math.max(0, +o.ev || 0) } : null; }   // passe 79 : pl = gravats du joueur en attente, ev = frais d'évacuation payés (facultatifs)
-const znSave = () => S.zn ? { bud: S.zn.bud == null ? null : Math.round(S.zn.bud), riv: S.zn.riv, ann: S.zn.ann, cum: Math.round(S.zn.cum || 0), don: S.zn.don > 0 ? Math.round(S.zn.don) : undefined } : null;   // passe 78 : cumul du mécénat (facultatif)
+const znSave = () => S.zn ? { bud: S.zn.bud == null ? null : Math.round(S.zn.bud), riv: S.zn.riv, ann: S.zn.ann, cum: Math.round(S.zn.cum || 0) } : null;
 const rubSave = () => S.rub ? Object.assign({ st: Math.round(S.rub.st), tot: Math.round(S.rub.tot), done: Math.round(S.rub.done), fl: +S.rub.fl.toFixed(1) }, S.rub.pl > 0 ? { pl: Math.round(S.rub.pl) } : {}, S.rub.ev > 0 ? { ev: Math.round(S.rub.ev) } : {}) : null;
 function znToolZone() { const T = TYPES[tool]; if (!T || T.ext || ZN_NOAID[tool] || tool === 'view') return null; const zn = ZONE_NEED[tool]; return zn === 4 ? 'port' : zn === 2 ? 'indus' : null; }
 function renderZnBan() {
@@ -8208,7 +8207,6 @@ function inspect(x, y) {
   }
   if (c.t === 'res' || (c.t === 'npc' && c.k !== 'mon')) { proOpen(c.x, c.y); return; }   // passe 34 : fiche d'immeuble (valeur, loyer, rendement, plus-value, actions)
   if (c.t === 'npc' && c.k !== 'mon' && ownerOf(c) !== 'npc' && ownerOf(c) !== 'me') { say(`${kindFr(c.k, 1).replace(/^./, m => m.toUpperCase())} de ${ownerName(ownerOf(c))} : rapporte ${money(bldRent(c) * DM)}/mois, valeur estimée ${money(acqValue(c))}. Pose un commerce dessus pour négocier le rachat.`, 'info'); return; }
-  if (isPubCell(c)) { openBuilding(c.x, c.y); return; }   // passe 78 : intérieur de l'équipement public (avant : simple message)
   if (c.t === 'npc') { say(c.k === 'mon' ? `${PUB[c.m][0]} : ${PUB[c.m][2]}. Les services publics sont financés par la mairie.` : c.k === 'park' ? 'Parc public de la ville : il valorise les quartiers voisins.' : c.k === 'house' ? 'Maison de la ville existante (5 habitants).' : `Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
   if (c.t === 'road') { say(c.own ? 'Route de desserte : entretien 12 $/mois.' : 'Rue publique, entretenue par la mairie.', 'info'); return; }
   if (NET_PIECE[c.t]) { say(NET_PIECE[c.t] + ' Entretien ' + money(TYPES[c.t].upkeep * DM) + '/mois.', 'info'); return; }   // audit intérieurs : un pylône, un câble ou un pipeline n'a pas d'intérieur (avant : bureau avec employés fictifs)
@@ -10576,8 +10574,6 @@ function openBuilding(x, y) {
   closeViews('b'); bPick = -1; planSel = -1; planMv = -1; planTool = ''; alMenu = null; immPanel = ''; scam.z = 1;
   const c = cell(x, y); if (!c) return;
   if (NET_PIECE[c.t]) { inspect(c.x, c.y); return; }   // pas de vue intérieure pour le réseau
-  if (isPubCell(c)) { pubOpenView(c); return; }   // passe 78 : équipements publics, mall et aéroport ont un intérieur
-  el('bview').classList.remove('pubv');
   bsel = { x: c.x, y: c.y }; selected = { x: c.x, y: c.y };
   el('pview').hidden = true; el('pv').setAttribute('aria-pressed', 'false');
   el('bview').hidden = false; bvHtml = ''; bTab = 'int';
@@ -10598,7 +10594,7 @@ function closeViews(keep) {
 const VIEW_IDS = ['panel', 'bview', 'pview', 'gview', 'svview', 'tview', 'cview'];
 function syncVopen() { document.body.classList.toggle('vopen', VIEW_IDS.some(i => { const e = document.getElementById(i); return e && !e.hidden; })); }
 if (window.MutationObserver) { const mo = new MutationObserver(syncVopen); VIEW_IDS.forEach(i => { const e = document.getElementById(i); if (e) mo.observe(e, { attributes: true, attributeFilter: ['hidden'] }); }); }
-function closeBuilding() { el('bview').classList.remove('pubv'); if (typeof immOn !== 'undefined' && immOn) immLeave(true); if (!el('tview').hidden) closeTerm(); if (!el('svview').hidden) closeChain(); if (!el('cview').hidden) closeCatalog(false); if (!el('gview').hidden) closeGuide(); bsel = null; el('bview').hidden = true; bvHtml = ''; }
+function closeBuilding() { if (typeof immOn !== 'undefined' && immOn) immLeave(true); if (!el('tview').hidden) closeTerm(); if (!el('svview').hidden) closeChain(); if (!el('cview').hidden) closeCatalog(false); if (!el('gview').hidden) closeGuide(); bsel = null; el('bview').hidden = true; bvHtml = ''; }
 // Auditeur de cohérence du magasin : prix de rayon vs coût d'approvisionnement, marges, utilisation nominale, ruptures, import
 function shopCost(c, key, cls, it) {
   const ir = PNJ_MK;
@@ -11439,7 +11435,6 @@ function renderBuilding(force) {
   if (!bsel || el('bview').hidden) return;
   if (bvDown && !force) return;
   const c = cell(bsel.x, bsel.y);
-  if (isPubCell(c)) { if (bTab !== 'int') bTab = 'int'; renderPub(c); return; }   // passe 78
   if (!c || c.t === 'road' || c.t === 'npc') { closeBuilding(); return; }
   const T = TYPES[c.t], fill = fillOf(c);
   const bn = bottleneck(c), rec = recOf(c);
@@ -11539,7 +11534,6 @@ function renderBuilding(force) {
 }
 function bAct(a) {
   const c = bsel && cell(bsel.x, bsel.y); if (!c) return;
-  if (isPubCell(c)) { if (a === 'close') return closeBuilding(); if (a.indexOf('tab:') === 0) return; pubAct(a, c); return; }   // passe 78
   const spend = cost => { if (S.cash < cost) { say(`Il faut ${money(cost)}.`, 'bad'); return false; } S.cash -= cost; c.invest = investOf(c) + cost; flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cost), t: performance.now(), col: '#ff8a8e' }); return true; };
   if (a === 'close') return closeBuilding();
   if (a.indexOf('fx:') === 0) { fxAct(a, c); refreshStats(); updateHUD(); bvHtml = ''; renderBuilding(true); return; }
@@ -12694,12 +12688,12 @@ function bSlot(sc, o) { sc.slots.push(o); return sc.slots.length - 1; }
 function glassBox(sc, k, a, b, z, fl) {   // paroi vitrée sur les deux faces avant (x=b[0] et y=b[1]) d'un local
   sc.items.push({ k, fl, f: g => { bPanel(g, sc, [b[0], a[1]], [b[0], b[1]], 0, z, 'rgba(160,220,255,.16)', 'rgba(220,240,255,.7)'); bPanel(g, sc, [a[0], b[1]], [b[0], b[1]], 0, z, 'rgba(160,220,255,.12)', 'rgba(220,240,255,.7)'); } });
 }
-function mkBld(c, D0, bf) {
-  const D = D0 || BLD[c.t], rnd = mkRnd(c.seed), T = TYPES[c.t], GW = D.GW, GH = D.GH, nF = D.stack ? clamp(Math.round(lvFloors(c) / 3), 2, 3) : 1, FH = D.stack ? 132 : 0;
+function mkBld(c) {
+  const D = BLD[c.t], rnd = mkRnd(c.seed), T = TYPES[c.t], GW = D.GW, GH = D.GH, nF = D.stack ? clamp(Math.round(lvFloors(c) / 3), 2, 3) : 1, FH = D.stack ? 132 : 0;
   const tw = Math.min(48, Math.floor(1560 / (GW + GH + 3.5)) & ~1), top = Math.max(D.wh || 0, D.top || 0), oy = top + 24 + (nF - 1) * FH, WW = Math.ceil((GW + GH + 3.5) * tw / 2) + 28;
-  const sc = { kind: 'bld', bk: c.t, D, T, rnd, time: 0, GW, GH, tw, ox: GH * tw / 2 + 14, oy, oy0: oy, wallH: D.wh || 0, nF, FH, W: WW, H: Math.round(oy + (GW + GH) * tw / 4 + 30), items: [], slots: [], ws: [], vis: [], vsp: 1, a: 0.5, stall: null, nP: 99, parts: [], nOcc: 0, alertAt: [GW / 2, GH / 2, 60], bg: document.createElement('canvas') };
+  const sc = { kind: 'bld', bk: c.t, D, T, rnd, time: 0, GW, GH, tw, ox: GH * tw / 2 + 14, oy, oy0: oy, wallH: D.wh || 0, nF, FH, W: WW, H: Math.round(oy + (GW + GH) * tw / 4 + 30), items: [], slots: [], ws: [], vis: [], vsp: 1, a: 0.5, stall: null, nP: 99, parts: [], alertAt: [GW / 2, GH / 2, 60], bg: document.createElement('canvas') };
   sc.bg.width = WW; sc.bg.height = sc.H;
-  const g = sc.bg.getContext('2d'); (bf || BB[c.t])(sc, g, c, D);
+  const g = sc.bg.getContext('2d'); BB[c.t](sc, g, c, D);
   sc.items.sort((a, b) => a.k - b.k);
   sc.slots.forEach((s, i) => {
     const p = newPerson(rnd, s.x, s.y); Object.assign(p, { r: s.r, slot: s, way: s.way || null, wi: 0, wait: rnd() * 3, loop: true, spd: (s.spd || 1) * (0.95 + rnd() * 0.3), keys: rnd() * 6, fl: s.fl || 0, hat: s.hat || null, pants: s.pants || '#3a4a6b', hid: false, bag: s.bag || null, arm: 0.1, free: !!s.free });
@@ -12744,7 +12738,7 @@ function updBld(sc, c, dt) {
 function drawBld(sc, c, g) {
   g.drawImage(sc.bg, 0, 0);
   const s = sc.tw / 52, objs = sc.items.slice(), FH = sc.FH, oy0 = sc.oy0;
-  const addP = p => objs.push({ k: p.x + p.y + 0.2, fl: p.fl, f: g2 => { const q = isoP(sc, p.x, p.y, 0); const seat = p.r === 'type' || p.r === 'sit'; person(g2, q[0], q[1], { s: s * (p.slot && p.slot.ks || 1), fs: p.fs, fl: p.fl, fv: p.fv, face: p.face, shirt: p.shirt, skin: p.skin, hair: p.hair, ph: p.ph, moving: p.moving, arm: p.arm, dir: p.dir, hat: p.hat, pants: p.pants, seated: seat, bag: p.bag, tool: p.slot && p.slot.tool ? (gg, hx, hy) => p.slot.tool(gg, hx, hy, sc) : null }); } });
+  const addP = p => objs.push({ k: p.x + p.y + 0.2, fl: p.fl, f: g2 => { const q = isoP(sc, p.x, p.y, 0); const seat = p.r === 'type' || p.r === 'sit'; person(g2, q[0], q[1], { s, fs: p.fs, fl: p.fl, fv: p.fv, face: p.face, shirt: p.shirt, skin: p.skin, hair: p.hair, ph: p.ph, moving: p.moving, arm: p.arm, dir: p.dir, hat: p.hat, pants: p.pants, seated: seat, bag: p.bag, tool: p.slot && p.slot.tool ? (gg, hx, hy) => p.slot.tool(gg, hx, hy, sc) : null }); } });
   sc.ws.forEach(p => { if (!p.hid) addP(p); }); sc.vis.forEach(addP);
   if (sc.nF > 1) objs.sort((a, b) => ((a.fl || 0) - (b.fl || 0)) * 1e3 + a.k - b.k); else objs.sort((a, b) => a.k - b.k);
   objs.forEach(o => { if (o.fl) { sc.oy = oy0 - o.fl * FH; o.f(g); sc.oy = oy0; } else o.f(g); });
@@ -13256,631 +13250,6 @@ BB.off = (sc, g, c, D) => {
   sc.occN = 0; sc.lvF = lvFloors(c); sc.alertAt = [7, 1.5, 40]; sc.cap = c => `${bEmp(c)} · ${nF} étages montrés sur ${lvFloors(c)} · occupation ${pct(clamp(c._occ || 0, 0, 1))} · loyers ${mj(c.pRev || 0)}/mois`;
 };
 
-/* ---------- Passe 78 : intérieurs des équipements publics (écoles, crèche, hôpital, caserne, commissariat, hôtel de ville, stades, télécom, aéroport, mall) ----------
-   Même technique que les intérieurs de service (BB : canvas isométrique en coupe, décor pré-rendu + objets triés en profondeur + personnes animées).
-   La densité d'occupants suit les données du jeu : bassin desservi (popE) / (équipements de la sorte × habitants par équipement CITY_SVC), passagers de l'aéroport (airPax),
-   humeur des habitants pour les stades. Aucun état nouveau dans la sauvegarde sauf le cumul du mécénat (S.zn.don, facultatif). */
-const PUB_I = {   // u : occupants affichés ; cap : capacité ; st : effectif ; up : budget de fonctionnement par jour (payé par la mairie) ; d : rôle
-  maternelle: { u: 'enfants', cap: 280, cu: 'places', st: 18, stN: 'enseignants et ATSEM', up: 2600, d: 'Petite, moyenne et grande section : on apprend en jouant.' },
-  garderie: { u: 'tout-petits', cap: 60, cu: 'berceaux', st: 20, stN: 'puéricultrices et auxiliaires', up: 3400, d: 'Accueil des 0 à 3 ans en journée : leurs parents peuvent travailler.' },
-  college: { u: 'élèves', cap: 700, cu: 'places', st: 62, stN: 'professeurs et personnels', up: 9000, d: 'De la 6e à la 3e : salles de classe, couloirs et cantine.' },
-  lycee: { u: 'élèves', cap: 1200, cu: 'places', st: 110, stN: 'professeurs et personnels', up: 15000, d: 'Seconde à terminale : amphithéâtre, laboratoire et gymnase.' },
-  hospital: { u: 'patients hospitalisés', cap: 600, cu: 'lits', st: 1800, stN: 'soignants et personnels', up: 310000, d: 'Urgences, chambres et bloc opératoire.' },
-  police: { u: 'interventions par jour', cap: 120, cu: 'interventions', st: 160, stN: 'policiers et agents', up: 26000, d: 'Accueil du public, enquêtes, garde à vue et patrouilles.' },
-  fire: { u: 'interventions par jour', cap: 40, cu: 'interventions', st: 90, stN: 'sapeurs-pompiers', up: 17000, d: 'Secours, incendies : les camions partent en moins de 2 minutes.' },
-  hall: { u: 'usagers par jour', cap: 2500, cu: 'usagers', st: 320, stN: 'agents municipaux', up: 52000, d: 'État civil, urbanisme, conseil municipal.' },
-  stadium: { u: 'spectateurs par match', cap: 32000, cu: 'places', st: 70, stN: 'agents, joueurs et entraîneurs', up: 20000, d: 'Matchs du week-end, entraînements en semaine.' },
-  telecom: { u: 'abonnés', cap: 600000, cu: 'lignes', st: 45, stN: 'techniciens et journalistes', up: 30000, d: 'Réseau, régie et studio de la chaîne locale.' },
-  air: { u: 'passagers par jour', cap: 9000, cu: 'passagers', st: 600, stN: 'agents et personnels navigants', up: 120000, d: 'Enregistrement, sûreté, embarquement, boutiques hors taxes.' },
-  mall: { u: 'visiteurs par jour', cap: 45000, cu: 'visiteurs', st: 900, stN: 'vendeurs et agents', up: 0, d: 'Galeries marchandes : les boutiques des rivaux et les tiennes.' }
-};
-const PUB_NM = { mall: 'Mall central', air: 'Aéroport' };
-const pubBase = m => { const b = monBase(m); return b === 'stadium2' ? 'stadium' : b; };
-const isPubCell = c => !!c && c.t === 'npc' && c.k === 'mon' && !!PUB_I[pubBase(c.m)];
-const pubName = c => PUB_NM[c.m] || (PUB[c.m] ? PUB[c.m][0] : 'Équipement public');
-function pubInfo(c) {
-  const b = pubBase(c.m), K = PUB_I[b], pe = popE(), hp = S.stats && S.stats.happy != null ? S.stats.happy : 60;
-  let x = 0, have = 1, need = 1, cov = null;
-  if (CITY_SVC[b]) { const H = citySvcHave(); have = Math.max(1, H.n[b] || 0); need = citySvcNeed(b, S.pop || 0); cov = Math.min(1, (H.n[b] || 0) / need); x = pe / (have * CITY_SVC[b]); }
-  else if (b === 'stadium') x = (0.3 + 0.55 * Math.min(1.5, pe / POPE_REF)) * clamp(hp / 70, 0.5, 1.2);
-  else if (b === 'air') x = airPax() / K.cap;
-  else if (b === 'mall') x = pe * 0.08 / K.cap;
-  else if (b === 'telecom') x = pe * 0.92 / K.cap;
-  else x = pe * 0.006 / K.cap;   // hôtel de ville : 0,6 % du bassin passe chaque jour
-  const occ = clamp(isFinite(x) ? x : 0, 0.04, 1.6);
-  return { b, K, occ, n: Math.round(K.cap * occ), staff: K.st, cov, have, need, upM: K.up * DM * cpi(), served: Math.round(pe / have), hp, bonus: PUB[c.m] ? PUB[c.m][2] : '' };
-}
-const PBLD = {   // GW x GH tuiles, wh hauteur des murs (comme BLD) ; charte : murs neutres, un accent sobre par équipement
-  maternelle: { GW: 16, GH: 10, wh: 70, fl: ['#e6d3b1', '#ddc9a5'], wl: '#ece2cf', wd: '#ddd1ba', trim: '#e0a25a', sky: '#232847' },
-  garderie:   { GW: 15, GH: 10, wh: 70, fl: ['#dcd7c4', '#d3cdb8'], wl: '#e8e6dc', wd: '#d8d5c8', trim: '#8cc6a0', sky: '#232847' },
-  college:    { GW: 19, GH: 11, wh: 74, fl: ['#cfd3d8', '#c5c9cf'], wl: '#d9dbd2', wd: '#c9cbc1', trim: '#5b7fb0', sky: '#1f2442' },
-  lycee:      { GW: 21, GH: 12, wh: 80, fl: ['#cfd3d8', '#c5c9cf'], wl: '#d6d8d0', wd: '#c6c8bf', trim: '#5b7fb0', sky: '#1f2442' },
-  hospital:   { GW: 22, GH: 13, wh: 80, fl: ['#dfe6ea', '#d6dee3'], wl: '#e9eef0', wd: '#d9e0e4', trim: '#b8474d', sky: '#1d2340' },
-  fire:       { GW: 20, GH: 12, wh: 88, fl: ['#a9adb3', '#a1a5ab'], wl: '#c9c4ba', wd: '#b8b3a8', trim: '#a8343a', sky: '#1d2340' },
-  police:     { GW: 19, GH: 11, wh: 76, fl: ['#c9ccd2', '#c0c3c9'], wl: '#d5d8dd', wd: '#c4c7cc', trim: '#2c4a7a', sky: '#1d2340' },
-  hall:       { GW: 20, GH: 12, wh: 92, fl: ['#e3dccb', '#d4ccb8'], wl: '#e4dccb', wd: '#d3cab6', trim: '#b8954a', sky: '#1d2340' },
-  stadium:    { GW: 24, GH: 14, wh: 0, fl: ['#4f8a4a', '#4a8345'], open: 1, top: 120, sky: '#6f9cc4' },
-  telecom:    { GW: 19, GH: 11, wh: 80, fl: ['#2c3150', '#272c4a'], wl: '#20253f', wd: '#191d34', trim: '#5aa0c8', sky: '#141830', nowin: 1 },
-  air:        { GW: 26, GH: 14, wh: 92, fl: ['#d9dbdc', '#cfd1d3'], wl: '#c8ccd0', wd: '#b9bdc2', trim: '#4f7fa8', sky: '#1d2340', nowin: 1 },
-  mall:       { GW: 26, GH: 14, wh: 96, fl: ['#e2ddd2', '#d8d2c5'], wl: '#d9d3c6', wd: '#cbc4b5', trim: '#b8954a', sky: '#1d2340', nowin: 1 }
-};
-const PB = {};   // constructeurs de scène par équipement
-// occupant : silhouette affichée seulement si la part d'occupation l'atteint (seuil fo croissant)
-const pOcc = (sc, o) => { sc.nOcc = (sc.nOcc || 0) + 1; o.fo = sc.nOcc; return bSlot(sc, o); };
-const pOn = (sc, fo) => (sc.rk ? sc.rk[fo] : fo) <= sc.occN;   // la silhouette n° fo est-elle présente ? (rang tiré une fois : l'occupation se répartit entre les zones)
-const pKid = 0.66, pBaby = 0.48;
-function pBed(g, sc, x, y, z0, occ, blanket, skin) {   // lit (le long de x) ; patient allongé si occupé
-  sbox(g, sc, x, y, 1.7, 0.8, z0 + 9, '#f4f6f8', '#c9d1da', '#aeb7c2', z0 + 5); sbox(g, sc, x, y, 0.12, 0.8, z0 + 17, '#c9d1da', '#aeb7c2', '#98a2ae', z0);
-  [[0.05, 0.05], [1.55, 0.05], [0.05, 0.65], [1.55, 0.65]].forEach(l => sbox(g, sc, x + l[0], y + l[1], 0.08, 0.08, z0 + 5, '#8a94a2', '#6a7482', '#5a6472', z0));
-  sbox(g, sc, x + 0.14, y + 0.12, 0.38, 0.56, z0 + 11, '#ffffff', '#e4e8ee', '#d4dae2', z0 + 9);
-  if (occ) { sbox(g, sc, x + 0.5, y + 0.06, 1.16, 0.68, z0 + 12, fshade(blanket, 30), blanket, fshade(blanket, -30), z0 + 9); const q = isoP(sc, x + 0.34, y + 0.4, z0 + 14), k = sc.tw / 44; g.fillStyle = skin || '#e8c09a'; g.beginPath(); g.arc(q[0], q[1], 4.2 * k, 0, 7); g.fill(); g.fillStyle = '#3a2a1e'; g.beginPath(); g.arc(q[0] - 1 * k, q[1] - 1.2 * k, 3.6 * k, Math.PI, 0); g.fill(); }
-  else sbox(g, sc, x + 0.5, y + 0.06, 1.16, 0.68, z0 + 10, '#ffffff', '#e4e8ee', '#d4dae2', z0 + 9);
-}
-function pFigure(g, sc, x, y, z, o) {   // personne dessinée dans un objet (gradins, estrade) : o = { ks, shirt, arm, i }
-  const q = isoP(sc, x, y, z), i = o.i || 0;
-  person(g, q[0], q[1], { s: sc.tw / 52 * (o.ks || 1), shirt: o.shirt || SHIRTS[i % 8], skin: SKINS[(i * 3) % 5], hair: HAIRS[(i * 7) % 5], ph: 0, moving: false, arm: o.arm == null ? 0.1 : o.arm, dir: o.dir || 1, seated: o.seated !== false, face: o.face, pants: o.pants, bag: o.bag, hat: o.hat });
-}
-function pSeatRow(sc, x0, x1, y, z, k, kids, o) {   // rangée de spectateurs/élèves dessinés (seuil d'occupation par silhouette)
-  o = o || {}; const step = o.step || 0.7, list = []; for (let x = x0; x <= x1 + 1e-6; x += step) { sc.nOcc = (sc.nOcc || 0) + 1; list.push([x, sc.nOcc]); }
-  sc.items.push({ k, f: g => list.forEach((p, i) => { if (!pOn(sc, p[1])) return; pFigure(g, sc, p[0], y, z, { ks: kids || 1, i: i + Math.round(y * 5), face: o.face || 'b', arm: o.wave ? (Math.sin(sc.time * 4 + i * 1.3) > 0.6 ? 2.6 : 0.2) : o.arm != null ? o.arm + Math.sin(sc.time * 2 + i) * 0.2 : 0.1, shirt: o.shirt }); }) });
-}
-function pBoard(g, sc, x0, x1, z0, z1, col) {   // tableau (craie) sur le mur du fond
-  bPanel(g, sc, [x0 - 0.12, 0], [x1 + 0.12, 0], z0 - 3, z1 + 3, '#8a6a4a'); bPanel(g, sc, [x0, 0.01], [x1, 0.01], z0, z1, col || '#2f5246');
-  g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 1.2; for (let i = 0; i < 4; i++) { const a = isoP(sc, x0 + 0.3, 0.02, z1 - 6 - i * 6), b = isoP(sc, x0 + 0.3 + (x1 - x0 - 0.6) * (0.4 + ((i * 37) % 50) / 100), 0.02, z1 - 6 - i * 6); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
-}
-function pDoorY(g, sc, y0, y1, h, col) { bPanel(g, sc, [0.01, y0], [0.01, y1], 0, h, col || '#6a5a48', '#3a3028'); }
-function pCar(g, sc, x, y, body, o) {   // véhicule garé le long de y (avant vers le spectateur) : o.len, o.w, o.h, o.cab (camion : cabine avant), o.stripe, o.ladder, o.hose
-  o = o || {}; const L = o.len || 2.4, Wd = o.w || 1.05, H = o.h || 18, P = (a, b, z) => isoP(sc, a, b, z), dk = fshade(body, -35), GL = '#8fb4d4';
-  [[0.12, 0.3], [0.12, L - 0.75], [Wd - 0.2, 0.3], [Wd - 0.2, L - 0.75]].forEach(w => sbox(g, sc, x + w[0] - 0.04, y + w[1], 0.16, 0.42, 8, '#1d1f26', '#14161c', '#14161c'));
-  if (o.cab) {   // camion : caisse arrière + cabine avant, pare-brise, coffres latéraux
-    const yc = y + L - o.cab;
-    sbox(g, sc, x, y, Wd, L - o.cab, H, fshade(body, 30), body, dk, 5); sbox(g, sc, x, yc, Wd, o.cab, H - 6, fshade(body, 30), body, dk, 5);
-    quad(g, [P(x + 0.12, y + L, H - 8), P(x + Wd - 0.12, y + L, H - 8), P(x + Wd - 0.12, y + L, H - 18), P(x + 0.12, y + L, H - 18)], GL);
-    quad(g, [P(x + Wd, yc + 0.15, H - 8), P(x + Wd, y + L - 0.25, H - 8), P(x + Wd, y + L - 0.25, H - 17), P(x + Wd, yc + 0.15, H - 17)], GL);
-    for (let r = y + 0.25; r < yc - 0.3; r += 0.7) quad(g, [P(x + Wd, r, H - 4), P(x + Wd, r + 0.55, H - 4), P(x + Wd, r + 0.55, 11), P(x + Wd, r, 11)], fshade(body, -18), fshade(body, -50));
-    quad(g, [P(x + 0.15, y + L, 12), P(x + Wd - 0.15, y + L, 12), P(x + Wd - 0.15, y + L, 9), P(x + 0.15, y + L, 9)], '#c9ccd2');
-  } else {   // voiture : caisse basse + habitacle vitré
-    sbox(g, sc, x, y, Wd, L, H, fshade(body, 25), body, dk, 4); sbox(g, sc, x + 0.1, y + L * 0.28, Wd - 0.2, L * 0.44, H + 8, fshade(body, 15), GL, fshade(GL, -25), H);
-    quad(g, [P(x + 0.15, y + L, H - 2), P(x + Wd - 0.15, y + L, H - 2), P(x + Wd - 0.15, y + L, H - 6), P(x + 0.15, y + L, H - 6)], '#f4f1d8');
-  }
-  if (o.stripe) { quad(g, [P(x + Wd, y + 0.05, 13), P(x + Wd, y + L - 0.05, 13), P(x + Wd, y + L - 0.05, 9), P(x + Wd, y + 0.05, 9)], o.stripe); quad(g, [P(x + 0.05, y + L, 8), P(x + Wd - 0.05, y + L, 8), P(x + Wd - 0.05, y + L, 5.5), P(x + 0.05, y + L, 5.5)], o.stripe); }
-  if (o.ladder) { [0.2, Wd - 0.32].forEach(dx => sbox(g, sc, x + dx, y + 0.1, 0.12, L - o.cab - 0.1, H + 5, '#d8dce2', '#aab0b8', '#8f959e', H)); for (let r = 0.25; r < L - o.cab - 0.1; r += 0.3) sbox(g, sc, x + 0.2, y + r, Wd - 0.4, 0.05, H + 4, '#d8dce2', '#aab0b8', '#8f959e', H + 3); }
-  if (o.hose) [0.25, 0.95].forEach(r => { const q = P(x + Wd / 2, y + r + 0.3, H), k = sc.tw / 44; g.fillStyle = '#d8d0b8'; g.beginPath(); g.ellipse(q[0], q[1], 9 * k, 4.6 * k, 0, 0, 7); g.fill(); g.strokeStyle = '#a8a088'; g.lineWidth = 1; g.beginPath(); g.ellipse(q[0], q[1], 6 * k, 3 * k, 0, 0, 7); g.stroke(); });
-}
-function pLight(g, sc, x, y, z, on, c1, c2) { const q = isoP(sc, x, y, z), k = sc.tw / 44; g.fillStyle = on ? c1 : fshade(c1, -70); g.fillRect(q[0] - 7 * k, q[1] - 3 * k, 6 * k, 3 * k); g.fillStyle = !on ? c2 : fshade(c2, -70); g.fillRect(q[0] + 1 * k, q[1] - 3 * k, 6 * k, 3 * k); if (on) { g.fillStyle = 'rgba(120,170,255,.18)'; g.beginPath(); g.arc(q[0] - 4 * k, q[1] - 1, 12 * k, 0, 7); g.fill(); } }
-function mkPub(c) {
-  const b = pubBase(c.m), D = PBLD[b], sc = mkBld(c, D, PB[b]);
-  sc.kind = 'pub'; sc.pk = b; sc.nOcc = sc.nOcc || 0; { const o = []; for (let i = 1; i <= sc.nOcc; i++) o.push(i); o.sort((p, q) => hash(p, 11, 97) - hash(q, 11, 97)); sc.rk = []; o.forEach((fo, r) => { sc.rk[fo] = r + 1; }); } sc.info = pubInfo(c); sc.infoT = 0; sc.occN = Math.round(sc.nOcc * Math.min(1, sc.info.occ));
-  return sc;
-}
-function updPub(sc, c, dt) {
-  sc.time += dt; sc.infoT -= dt; if (sc.infoT <= 0) { sc.info = pubInfo(c); sc.infoT = 0.5; }
-  const I = sc.info, rnd = sc.rnd; sc.stall = null; sc.util = I.occ;
-  const tgt = clamp(0.45 + 0.55 * Math.min(1, I.occ), 0.45, 1); sc.a += (tgt - sc.a) * Math.min(1, dt * 2.5);
-  sc.occN = Math.round(sc.nOcc * Math.min(1, I.occ));
-  const act = true, sp = 0.55 + 0.45 * sc.a;
-  sc.ws.forEach(p => {
-    p.hid = p.slot.fo != null && !pOn(sc, p.slot.fo); if (p.hid) return;
-    if (p.r === 'type') p.arm = 0.95 + Math.sin(sc.time * (8 + 3 * sc.a) + p.keys) * 0.2;
-    else if (p.r === 'walk') moveP(p, dt, sp * (p.slot.fast ? 1.8 : 1));
-    else if (p.r === 'stand') { p.arm = p.slot.arm != null ? p.slot.arm + Math.sin(sc.time * 3 + p.keys) * 0.4 : 0.1; p.dir = p.slot.dir || 1; }
-    else if (p.r === 'sit') p.arm = p.slot.arm != null ? p.slot.arm + Math.sin(sc.time * 2 + p.keys) * 0.3 : 0.1;
-  });
-  const vc = sc.vcfg; if (vc && act) {
-    const mx = Math.max(1, Math.round(vc.max * Math.min(1.2, I.occ + 0.15)));
-    sc.vsp -= dt; if (sc.vsp <= 0 && sc.vis.length < mx) { const p = newPerson(rnd, vc.door[0], vc.door[1]); p.way = vc.route(rnd); p.wi = 0; p.wait = 0; p.loop = false; p.spd = 1.0 + rnd() * 0.3; p.fl = 0; p.pants = '#3a4a6b'; p.bag = vc.bag ? vc.bag(rnd) : rnd() < 0.3 ? '#e8ecff' : null; p.slot = vc.ks ? { ks: vc.ks(rnd) } : null; sc.vis.push(p); sc.vsp = (vc.gap || 3) * (0.5 + rnd()) / (0.3 + Math.min(1.2, I.occ)); }
-    sc.vis.forEach(p => moveP(p, dt, sp)); sc.vis = sc.vis.filter(p => !p.dead);
-  }
-  if (sc.upd) sc.upd(sc, c, dt);
-}
-function pubStats() {   // pour les tests : occupation, silhouettes visibles
-  const c = bsel && cell(bsel.x, bsel.y); if (!scene || scene.kind !== 'pub' || !c) return null;
-  const vis = scene.ws.filter(p => !p.hid).length, occV = scene.ws.filter(p => !p.hid && p.slot.fo != null).length, on = []; for (let i = 1; i <= scene.nOcc; i++) if (pOn(scene, i)) on.push(i);
-  return { key: scene.pk, occ: scene.info.occ, n: scene.info.n, cap: scene.info.K.cap, nOcc: scene.nOcc, occN: scene.occN, on: on.length, vis, occVis: occV, visitors: scene.vis.length, W: scene.W, H: scene.H };
-}
-function pubOpenView(c) {
-  if (typeof mallClose === 'function') mallClose(); if (typeof airClose === 'function') airClose(); if (typeof proCloseFiche === 'function') proCloseFiche();
-  bsel = { x: c.x, y: c.y }; selected = { x: c.x, y: c.y };
-  el('pview').hidden = true; el('pv').setAttribute('aria-pressed', 'false');
-  const bv = el('bview'); bv.hidden = false; bv.classList.add('pubv'); bvHtml = ''; bTab = 'int';
-  const I = pubInfo(c); el('bname').textContent = pubName(c).toUpperCase(); el('bsub').textContent = `Équipement public · ${I.K.d.split(' :')[0].replace(/\.$/, '')} · case ${c.x + 1}, ${c.y + 1}`;
-  document.querySelectorAll('.btabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.act === 'tab:int' ? 'true' : 'false'));
-  sceneReset(c); renderBuilding(true); sceneStart();
-}
-const PUB_DON = [100000, 1000000];
-function renderPub(c) {
-  const I = pubInfo(c), K = I.K, b = I.b, pc = v => Math.round(v * 100) + ' %', zb = znBud(), don = (S.zn && S.zn.don) || 0;
-  const kx = (l, v, cl, tt) => `<div${tt ? ' title="' + tt + '"' : ''}><small>${l}</small><b class="${cl || ''}">${v}</b></div>`;
-  const full = I.occ > 1.02, low = I.occ < 0.3;
-  const kpis = [kx(K.u.replace(/^./, m => m.toUpperCase()), fmt(I.n) + ' / ' + fmt(K.cap) + ' ' + K.cu), kx('Occupation', pc(I.occ), full ? 'neg' : low ? '' : 'pos'), kx('Effectif', fmt(I.staff) + ' ' + K.stN.split(' ')[0]),
-    I.cov != null ? kx('Couverture de la ville', pc(I.cov), I.cov < 0.95 ? 'neg' : 'pos', `${I.have} équipement(s) de cette sorte pour ${I.need} nécessaire(s)`) : kx('Bassin desservi', fmt(popE()) + ' hab.'),
-    kx('Humeur des habitants', Math.round(I.hp) + ' / 100', I.hp >= 60 ? 'pos' : 'neg'), kx(b === 'mall' ? 'Gestion' : 'Fonctionnement / mois', b === 'mall' ? 'foncière privée' : money(I.upM), b === 'mall' ? '' : 'neg')].join('');
-  const st = full ? `Saturé : ${fmt(I.n)} ${K.u} pour ${fmt(K.cap)} ${K.cu}.${CITY_SVC[b] ? ' La ville ouvrira un autre équipement de cette sorte quand la population le justifiera (un pour ' + fmt(CITY_SVC[b]) + ' habitants).' : ''}`
-    : low ? `Peu fréquenté pour l'instant (${pc(I.occ)}) : il grandira avec la ville.` : `Fonctionne normalement : ${pc(I.occ)} de sa capacité.`;
-  const det = [I.bonus ? `Effet sur la ville : ${I.bonus.replace(/^./, m => m.toLowerCase())}` : '', CITY_SVC[b] ? `Bassin desservi : ${fmt(I.served)} habitants (région comprise) pour ${I.have} ${pubName(c).replace(/ n° \d+$/, '').toLowerCase()}${I.have > 1 ? 's' : ''} ; besoin de la ville : ${I.need} (un par tranche de ${fmt(CITY_SVC[b])} habitants).` : '',
-    b === 'mall' ? 'Le mall est géré par une foncière privée : loyers des boutiques, pas de budget municipal.' : `Financé par la mairie : budget municipal ${zb >= 0 ? money(zb) : '−' + money(-zb)} (il finance aussi les subventions de zone).`].filter(Boolean).join('<br>');
-  const mec = b === 'mall' ? '' : `<div class="lever"><h4>Mécénat</h4><small>Un don au budget municipal soutient les services publics et les aides de zone (port, zone industrielle).${don ? ' Déjà donné : ' + money(don) + '.' : ''}</small><div class="seg2">${PUB_DON.map(v => `<button class="btn sec" data-act="pubdon:${v}" ${S.cash >= v ? '' : 'disabled'}>Donner ${money(v)}</button>`).join('')}</div></div>`;
-  const link = b === 'mall' ? `<div class="lever"><h4>Le marché du mall</h4><small>Qui vend quoi, à quel prix, et ta part du marché.</small><button class="btn" data-act="pubmall">Ouvrir le panneau du Mall</button></div>`
-    : b === 'air' ? `<div class="lever"><h4>Boutique hors taxes</h4><small>Trafic, vendeurs présents, redevance, ta boutique duty free.</small><button class="btn" data-act="pubair">Ouvrir le panneau de l'aéroport</button></div>` : '';
-  const html = `<div class="bnbanner ${full ? 'warn' : 'ok'}"><b>${K.d}</b><span>${st}</span></div><p class="cdet">${det}</p><div class="levers">${link}${mec}</div>`;
-  el('bsw').style.display = 'block'; el('bcap').style.display = 'block'; el('bstage').classList.remove('plan'); el('bview').classList.remove('wide'); el('bstage').style.display = 'block';
-  const kh = `<div class="kpis bk">${kpis}</div>`, key = kh + html; if (key === bvHtml) return;
-  const top = el('bview').scrollTop; el('bkpi').innerHTML = kh; el('bbody').innerHTML = html; bvHtml = key;
-  ['bhud', 'bvit', 'bstats', 'btiles', 'bhelp', 'bpal'].forEach(i => { el(i).innerHTML = ''; }); el('bpop').hidden = true; el('btiles').style.display = el('bhelp').style.display = el('bpal').style.display = 'none';
-  el('bview').scrollTop = top;
-}
-function pubAct(a, c) {
-  if (a.indexOf('pubdon:') === 0) { const v = +a.slice(7); if (!(v > 0) || S.cash < v) { say(`Il faut ${money(v)}.`, 'bad'); return; } S.cash -= v; const z = znS(); z.bud = znBud() + v; z.don = (z.don || 0) + v; flyers.push({ x: c.x, y: c.y, text: '-' + fmt(v), t: performance.now(), col: '#ff8a8e' }); say(`Mécénat : ${money(v)} versés au budget municipal. Merci pour ${pubName(c).toLowerCase()} !`, 'good'); try { updateHUD(); } catch (e) { /* HUD */ } saveSoon(); }
-  else if (a === 'pubmall') { closeBuilding(); mallOpen(); return; }
-  else if (a === 'pubair') { closeBuilding(); airOpen(); return; }
-  bvHtml = ''; renderBuilding(true);
-}
-// --- petits accessoires partagés par les intérieurs publics
-function pWinX(g, sc, x0, x1, z0, z1, sky) { bPanel(g, sc, [x0 - 0.08, 0], [x1 + 0.08, 0], z0 - 3, z1 + 3, '#f2f2ee'); bPanel(g, sc, [x0, 0.01], [x1, 0.01], z0, z1, sky || '#9cc4e0'); bPanel(g, sc, [(x0 + x1) / 2 - 0.03, 0.02], [(x0 + x1) / 2 + 0.03, 0.02], z0, z1, '#f2f2ee'); quad(g, [isoP(sc, x0 + 0.1, 0.02, z1 - 2), isoP(sc, x0 + 0.5, 0.02, z1 - 2), isoP(sc, x0 + 0.1, 0.02, z0 + (z1 - z0) * 0.3)], 'rgba(255,255,255,.28)'); }
-function pWinY(g, sc, y0, y1, z0, z1, sky) { bPanel(g, sc, [0, y0 - 0.08], [0, y1 + 0.08], z0 - 3, z1 + 3, '#f2f2ee'); bPanel(g, sc, [0.01, y0], [0.01, y1], z0, z1, sky || '#86b0cf'); bPanel(g, sc, [0.02, (y0 + y1) / 2 - 0.03], [0.02, (y0 + y1) / 2 + 0.03], z0, z1, '#f2f2ee'); }
-function pSignY(sc, g, y0, y1, z0, z1, txt, bg, fg) {   // enseigne sur le mur de gauche (x = 0), lisible de gauche à droite
-  const a = isoP(sc, 0, y1, z1), w = (y1 - y0) * sc.tw / 2; quad(g, [isoP(sc, 0, y0, z1), a, isoP(sc, 0, y1, z0), isoP(sc, 0, y0, z0)], bg, fg);
-  g.save(); g.translate(a[0], a[1]); g.transform(1, -0.5, 0, 1, 0, 0); g.fillStyle = fg; let fs = Math.round((z1 - z0) * 0.62); g.font = '800 ' + fs + 'px sans-serif'; while (g.measureText(txt).width > w - 8 && fs > 7) { fs--; g.font = '800 ' + fs + 'px sans-serif'; }
-  g.textAlign = 'center'; g.fillText(txt, w / 2, (z1 - z0) * 0.72); g.restore();
-}
-function pFloor(g, sc, x0, y0, x1, y1, col, col2) { for (let x = x0; x < x1 - 1e-6; x += 1) for (let y = y0; y < y1 - 1e-6; y += 1) quad(g, [isoP(sc, x, y), isoP(sc, Math.min(x1, x + 1), y), isoP(sc, Math.min(x1, x + 1), Math.min(y1, y + 1)), isoP(sc, x, Math.min(y1, y + 1))], col2 && (Math.floor(x) + Math.floor(y)) % 2 ? col2 : col); }
-function pRug(g, sc, x, y, rx, ry, col, col2) { const q = isoP(sc, x, y, 0); g.fillStyle = col; g.beginPath(); g.ellipse(q[0], q[1], rx * sc.tw * 0.707, ry * sc.tw * 0.354, 0, 0, 7); g.fill(); if (col2) { g.strokeStyle = col2; g.lineWidth = 2; g.beginPath(); g.ellipse(q[0], q[1], rx * sc.tw * 0.6, ry * sc.tw * 0.3, 0, 0, 7); g.stroke(); } }
-function pShelfY(g, sc, y0, y1, h, pal) { sbox(g, sc, 0, y0, 0.5, y1 - y0, h, '#c9a878', '#a8865a', '#8f714a'); bands(sc, g, 'y', 0.5, y0 + 0.05, y1 - 0.05, [[3, h * 0.3], [h * 0.36, h * 0.62], [h * 0.68, h * 0.95]], pal); }
-function pShelfX(g, sc, x0, x1, h, pal, d) { sbox(g, sc, x0, 0, x1 - x0, d || 0.5, h, '#c9a878', '#a8865a', '#8f714a'); bands(sc, g, 'x', d || 0.5, x0 + 0.05, x1 - 0.05, [[3, h * 0.3], [h * 0.36, h * 0.62], [h * 0.68, h * 0.95]], pal); }
-const pBook = (g, hx, hy) => { g.fillStyle = '#c0504d'; g.fillRect(hx - 5, hy - 4, 10, 7); g.fillStyle = '#f4f1e8'; g.fillRect(hx - 4, hy - 3, 8, 5); };
-const pTray = (g, hx, hy) => { g.fillStyle = '#c9ccd2'; g.fillRect(hx - 7, hy - 2, 14, 4); g.fillStyle = '#e0a25a'; g.fillRect(hx - 5, hy - 4, 4, 3); g.fillStyle = '#7fae6a'; g.fillRect(hx + 1, hy - 4, 4, 3); };
-const pCase = col => (g, hx, hy) => { g.fillStyle = col; rrect(g, hx - 5, hy + 1, 10, 13, 2); g.fill(); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(hx - 4, hy + 11, 3, 3); g.fillRect(hx + 1, hy + 11, 3, 3); };
-const pSheet = (g, hx, hy) => { g.fillStyle = '#f4f6f8'; g.fillRect(hx - 3, hy - 5, 7, 9); g.fillStyle = '#9aa3b5'; g.fillRect(hx - 2, hy - 3, 5, 1); g.fillRect(hx - 2, hy - 1, 5, 1); };
-const pCaseCol = ['#3a4a6b', '#7a2a30', '#2a5a4a', '#5b6178', '#8a6a4a', '#1d1f26'];
-function pChairS(g, sc, x, y, col, k) { k = k || 0.7; cbox(g, sc, x - 0.2 * k, y - 0.2 * k, 0.4 * k, 0.4 * k, 9 * k, col || '#e0a25a', 0); }
-function pPlantB(g, sc, x, y, s) { bPlant(g, sc, x, y, s || 1.3); }
-function pClock(g, sc, x, z) { const q = isoP(sc, x, 0.02, z), k = sc.tw / 44; g.fillStyle = '#f4f6f8'; g.beginPath(); g.ellipse(q[0], q[1], 7 * k, 8 * k, 0, 0, 7); g.fill(); g.strokeStyle = '#3a3f58'; g.lineWidth = 1.2; g.stroke(); }
-
-// ===== École maternelle : salle de classe (petites tables, tableau), coin lecture, coin jeux
-PB.maternelle = (sc, g, c, D) => {
-  D.nowin = 1; hallBg(sc, g, D); D.nowin = 0; const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f }), wh = D.wh;
-  const FR = ['#e07a5f', '#f2cc8f', '#81b29a', '#7a9cc6', '#c497b6'];
-  for (let x = 0.3, i = 0; x < sc.GW - 0.5; x += 0.6, i++) bPanel(g, sc, [x, 0.01], [x + 0.45, 0.01], wh - 16, wh - 9, FR[i % 5]);
-  for (let y = 0.3, i = 2; y < sc.GH - 0.5; y += 0.6, i++) bPanel(g, sc, [0.01, y], [0.01, y + 0.45], wh - 16, wh - 9, FR[i % 5]);
-  pBoard(g, sc, 1.6, 5.8, 22, 46); pWinX(g, sc, 7.0, 9.0, 24, 50); pWinX(g, sc, 10.0, 12.0, 24, 50); pWinY(g, sc, 1.4, 3.8, 24, 50);
-  // dessins d'enfants au mur
-  for (let i = 0; i < 5; i++) { bPanel(g, sc, [6.1 + (i % 2) * 0.45, 0.01], [6.5 + (i % 2) * 0.45, 0.01], 26 + Math.floor(i / 2) * 9, 33 + Math.floor(i / 2) * 9, '#f8f6ee', '#c9c2b0'); bPanel(g, sc, [6.2 + (i % 2) * 0.45, 0.02], [6.35 + (i % 2) * 0.45, 0.02], 28 + Math.floor(i / 2) * 9, 31 + Math.floor(i / 2) * 9, FR[i]); }
-  // casiers et portemanteaux
-  sbox(g, sc, 12.9, 0, 2.8, 0.5, 22, '#e8dcc4', '#c9b898', '#b0a080'); for (let i = 0; i < 6; i++) { const x = 13.0 + i * 0.45; bPanel(g, sc, [x, 0.51], [x + 0.36, 0.51], 3, 19, FR[i % 5]); bPanel(g, sc, [x + 0.05, 0.01], [x + 0.3, 0.01], 30, 42, FR[(i + 2) % 5]); }
-  // bacs à jouets sous les fenêtres
-  sbox(g, sc, 7.1, 0, 4.8, 0.5, 14, '#e8dcc4', '#c9b898', '#b0a080'); for (let i = 0; i < 6; i++) bPanel(g, sc, [7.25 + i * 0.78, 0.51], [7.85 + i * 0.78, 0.51], 3, 11, FR[(i + 1) % 5]);
-  // coin lecture : tapis, bibliothèque basse, poufs
-  pRug(g, sc, 1.7, 8.0, 1.6, 1.6, '#b9d3c2', '#9cbfa8'); pShelfY(g, sc, 5.6, 8.9, 26, FR);
-  it(0.9 + 7.3, g2 => { const q = P(0.9, 7.3, 0), k = sc.tw / 44; g2.fillStyle = '#c497b6'; g2.beginPath(); g2.ellipse(q[0], q[1] - 4 * k, 11 * k, 7 * k, 0, 0, 7); g2.fill(); });
-  it(2.6 + 8.8, g2 => { const q = P(2.6, 8.8, 0), k = sc.tw / 44; g2.fillStyle = '#7a9cc6'; g2.beginPath(); g2.ellipse(q[0], q[1] - 4 * k, 11 * k, 7 * k, 0, 0, 7); g2.fill(); });
-  pOcc(sc, { r: 'sit', x: 1.0, y: 7.5, ks: pKid, arm: 0.9, tool: pBook, shirt: FR[0] }); pOcc(sc, { r: 'sit', x: 2.4, y: 8.4, ks: pKid, arm: 0.9, tool: pBook, shirt: FR[3] });
-  bSlot(sc, { r: 'sit', x: 1.9, y: 7.0, arm: 1.1, tool: pBook, shirt: '#81b29a', face: 'f' });   // ATSEM qui lit une histoire
-  pOcc(sc, { r: 'sit', x: 3.0, y: 7.6, ks: pKid, arm: 0.2, shirt: FR[1], face: 'b' }); pOcc(sc, { r: 'sit', x: 2.0, y: 9.3, ks: pKid, arm: 0.2, shirt: FR[4], face: 'b' });
-  // petites tables et petites chaises face au tableau
-  [2.4, 4.0, 5.6].forEach((yt, r) => {
-    longBox(sc, 1.3, yt, 4.4, 0.7, 8, ['#f2cc8f', '#81b29a', '#7a9cc6'][r], 0, 1.1);
-    [1.8, 2.9, 4.0, 5.1].forEach((x, i) => { it(x + yt + 1.1, g2 => pChairS(g2, sc, x, yt + 1.05, FR[(i + r) % 5], 0.8)); pOcc(sc, { r: 'sit', x, y: yt + 1.0, ks: pKid, face: 'b', arm: 0.7 + ((i + r) % 2) * 0.6, shirt: FR[(i * 2 + r) % 5] }); });
-  });
-  cbox(g, sc, 6.3, 1.0, 1.5, 0.6, 14, '#c9a878');
-  bSlot(sc, { r: 'stand', x: 3.6, y: 1.25, shirt: '#c0504d', arm: 2.4, dir: -1, face: 'f' });   // la maîtresse au tableau
-  // coin jeux : tapis puzzle, cubes, petit toboggan, ballon
-  for (let x = 0; x < 4; x++) for (let y = 0; y < 3; y++) quad(g, [P(9 + x, 4 + y), P(10 + x, 4 + y), P(10 + x, 5 + y), P(9 + x, 5 + y)], FR[(x + y * 2) % 5]);
-  [[9.6, 4.6, 3], [10.4, 6.4, 2], [12.4, 5.2, 4]].forEach((t, j) => it(t[0] + t[1] + 0.4, g2 => { for (let i = 0; i < t[2]; i++) cbox(g2, sc, t[0], t[1], 0.32, 0.32, 6 * (i + 1), FR[(i + j) % 5], 6 * i); }));
-  it(14.0 + 2.6, g2 => { sbox(g2, sc, 14.0, 1.4, 0.7, 0.7, 26, '#e8dcc4', '#c9b898', '#b0a080'); quad(g2, [P(14.0, 2.1, 26), P(14.7, 2.1, 26), P(14.7, 4.2, 2), P(14.0, 4.2, 2)], '#e07a5f', '#b85a40'); for (let i = 0; i < 4; i++) quad(g2, [P(14.0, 1.4 + i * 0.01, 4 + i * 6), P(14.0, 1.4, 5 + i * 6)], null, '#8a6a4a'); });
-  it(11.6 + 7.6, g2 => { const q = P(11.6, 7.6, 0), bo = Math.abs(Math.sin(sc.time * 4)) * 16, k = sc.tw / 44; g2.fillStyle = 'rgba(0,0,0,.2)'; g2.beginPath(); g2.ellipse(q[0], q[1], 6 * k, 2.5 * k, 0, 0, 7); g2.fill(); g2.fillStyle = '#e07a5f'; g2.beginPath(); g2.arc(q[0], q[1] - 6 * k - bo, 6 * k, 0, 7); g2.fill(); g2.fillStyle = '#f8f6ee'; g2.fillRect(q[0] - 6 * k, q[1] - 7 * k - bo, 12 * k, 2 * k); });
-  const loop = (cx, cy, r, ph) => { const o = []; for (let i = 0; i < 5; i++) { const a = ph + i * 1.257; o.push([cx + Math.cos(a) * r * (1 + 0.3 * (i % 2)), cy + Math.sin(a) * r * 0.8, 0.4 + (i % 3) * 0.5]); } return o; };
-  for (let i = 0; i < 6; i++) pOcc(sc, { r: 'walk', x: 10 + i % 3, y: 5 + (i % 2), ks: pKid, spd: 0.8, shirt: FR[(i + 2) % 5], way: loop(11.4 + (i % 2) * 0.8, 6.0 + (i % 3) * 0.5, 1.6 + (i % 3) * 0.3, i) });
-  bSlot(sc, { r: 'stand', x: 12.8, y: 8.6, shirt: '#7a9cc6', arm: 1.4, dir: -1 });   // ATSEM
-  pPlantB(g, sc, 0.5, 0.6, 1.1); pPlantB(g, sc, 15.4, 9.4, 1.2);
-  sc.vcfg = { door: [sc.GW - 1.5, sc.GH + 0.5], max: 2, gap: 9, route: rnd => [[8.6, 8.0, 2 + rnd() * 2, 1, 1.2], [sc.GW - 1.5, sc.GH + 0.5]] };
-  sc.alertAt = [8, 5, 60]; sc.cap = () => `${fmt(sc.info.n)} enfants pour ${fmt(sc.info.K.cap)} places · ${sc.info.staff} adultes · occupation ${pct(sc.info.occ)}`;
-};
-
-// ===== Crèche : berceaux, tapis d'éveil, chaises hautes, puéricultrices
-PB.garderie = (sc, g, c, D) => {
-  D.nowin = 1; hallBg(sc, g, D); D.nowin = 0; const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f });
-  const PA = ['#f2cc8f', '#a8d5ba', '#b8c8e8', '#f4b6a6', '#e8dcc4'];
-  pWinX(g, sc, 9.2, 11.2, 24, 50); pWinX(g, sc, 12.2, 14.2, 24, 50); pWinY(g, sc, 5.4, 7.8, 24, 50);
-  // nuages et soleil peints
-  [[1.2, 52], [3.4, 46], [5.8, 54], [7.6, 47]].forEach((p, i) => { const q = P(p[0], 0.02, p[1]), k = sc.tw / 44; g.fillStyle = i === 0 ? '#f2cc8f' : 'rgba(255,255,255,.75)'; g.beginPath(); g.ellipse(q[0], q[1], (i ? 13 : 9) * k, (i ? 6 : 9) * k, 0.46, 0, 7); g.fill(); });
-  for (let i = 0; i < 4; i++) { const q = P(0.02, 1.4 + i * 0.9, 40 + (i % 2) * 8), k = sc.tw / 44; g.fillStyle = PA[i]; g.beginPath(); g.arc(q[0], q[1], 6 * k, 0, 7); g.fill(); }
-  // berceaux le long du mur du fond (un bébé par berceau occupé)
-  for (let i = 0; i < 5; i++) {
-    const x = 0.5 + i * 1.6, y = 0.45, fo = ++sc.nOcc, col = PA[i % 5];
-    it(x + y + 1.4, g2 => {
-      sbox(g2, sc, x, y, 1.3, 0.85, 10, '#ffffff', '#e8e4dc', '#d8d2c6', 7); if (pOn(sc, fo)) { sbox(g2, sc, x + 0.45, y + 0.08, 0.78, 0.69, 12 + Math.sin(sc.time * 1.5 + i) * 0.5, fshade(col, 25), col, fshade(col, -25), 10); const q = P(x + 0.28, y + 0.42, 13), k = sc.tw / 44; g2.fillStyle = SKINS[i % 5]; g2.beginPath(); g2.arc(q[0], q[1], 3.4 * k, 0, 7); g2.fill(); }
-      [[0, 0], [1.24, 0], [0, 0.79], [1.24, 0.79]].forEach(l => sbox(g2, sc, x + l[0], y + l[1], 0.06, 0.06, 22, '#f4f1e8', '#d8d2c6', '#c8c2b6'));
-      for (let b = 0.1; b < 1.26; b += 0.16) bPanel(g2, sc, [x + b, y + 0.85], [x + b + 0.04, y + 0.85], 7, 21, '#f4f1e8');
-      bPanel(g2, sc, [x, y + 0.85], [x + 1.3, y + 0.85], 20, 22, '#e8e4dc');
-      const m = P(x + 0.65, y + 0.42, 40), k = sc.tw / 44, a = sc.time * 0.8 + i; g2.strokeStyle = '#b0a898'; g2.lineWidth = 1; g2.beginPath(); g2.moveTo(m[0], m[1] - 10 * k); g2.lineTo(m[0], m[1]); g2.stroke();
-      for (let j = 0; j < 3; j++) { const ax = m[0] + Math.cos(a + j * 2.09) * 8 * k, ay = m[1] + Math.sin(a + j * 2.09) * 3 * k; g2.beginPath(); g2.moveTo(m[0], m[1]); g2.lineTo(ax, ay); g2.stroke(); g2.fillStyle = PA[(j + i) % 5]; g2.beginPath(); g2.arc(ax, ay + 3 * k, 2.4 * k, 0, 7); g2.fill(); }
-    });
-  }
-  // tapis d'éveil et bébés assis
-  for (let x = 0; x < 4; x++) for (let y = 0; y < 3; y++) quad(g, [P(3.6 + x * 1.1, 3.6 + y * 1.1), P(4.7 + x * 1.1, 3.6 + y * 1.1), P(4.7 + x * 1.1, 4.7 + y * 1.1), P(3.6 + x * 1.1, 4.7 + y * 1.1)], PA[(x + y) % 5]);
-  [[4.4, 4.4], [5.8, 4.2], [7.2, 4.6], [4.8, 5.9], [6.4, 6.0], [7.6, 5.8]].forEach((p, i) => pOcc(sc, { r: 'sit', x: p[0], y: p[1], ks: pBaby, arm: 0.5 + (i % 3) * 0.6, shirt: PA[(i + 1) % 5], face: i % 2 ? 'f' : 's', dir: i % 2 ? 1 : -1 }));
-  [[5.1, 5.1], [6.9, 5.2]].forEach((p, j) => it(p[0] + p[1] + 0.3, g2 => { for (let i = 0; i < 4; i++) cyl(g2, sc, p[0], p[1], 0.24 - i * 0.04, i * 3, i * 3 + 3, PA[(i + j) % 5]); }));
-  it(4.0 + 6.6, g2 => cbox(g2, sc, 4.0, 6.6, 0.35, 0.35, 7, '#f4b6a6'));
-  bSlot(sc, { r: 'sit', x: 6.0, y: 7.4, shirt: '#8cc6a0', arm: 1.4, face: 'b' });   // puéricultrice assise sur le tapis
-  // table à langer
-  cbox(g, sc, 11.6, 0.5, 1.6, 0.8, 18, '#e8e4dc'); sbox(g, sc, 11.75, 0.6, 1.3, 0.6, 20, '#a8d5ba', '#88b59a', '#78a58a', 18);
-  bSlot(sc, { r: 'stand', x: 12.4, y: 1.7, shirt: '#8cc6a0', arm: 1.6, dir: -1, face: 'b' });
-  // chaises hautes et goûter
-  longBox(sc, 10.4, 6.0, 3.0, 0.8, 12, '#e8dcc4');
-  [10.8, 11.8, 12.8].forEach((x, i) => { const fo = ++sc.nOcc; it(x + 5.2 + 0.2, g2 => { [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(l => sbox(g2, sc, x + l[0], 5.2 + l[1], 0.05, 0.05, 14, '#f4f1e8', '#d8d2c6', '#c8c2b6')); sbox(g2, sc, x - 0.25, 4.95, 0.5, 0.5, 16, '#f4f1e8', '#d8d2c6', '#c8c2b6', 14); if (pOn(sc, fo)) pFigure(g2, sc, x, 5.2, 14, { ks: pBaby, i, face: 'f', arm: 0.9 + Math.sin(sc.time * 3 + i) * 0.5, shirt: PA[i + 1] }); }); });
-  bSlot(sc, { r: 'stand', x: 11.8, y: 7.4, shirt: '#e0a25a', arm: 1.8, face: 'b' });
-  bSlot(sc, { r: 'walk', x: 3, y: 2, shirt: '#8cc6a0', way: [[2.0, 2.0, 2.5], [8.4, 2.0, 1.5], [9.0, 7.2, 2], [3.0, 7.6, 1.5]] });
-  // poussettes près de l'entrée
-  [[13.2, 8.8], [14.0, 9.2]].forEach((p, i) => it(p[0] + p[1] + 0.8, g2 => { sbox(g2, sc, p[0], p[1], 0.5, 0.9, 16, PA[i + 2], fshade(PA[i + 2], -20), fshade(PA[i + 2], -40), 6); [[0.05, 0.1], [0.4, 0.1], [0.05, 0.75], [0.4, 0.75]].forEach(w => sbox(g2, sc, p[0] + w[0], p[1] + w[1], 0.06, 0.12, 5, '#3a3f58', '#2a2f45', '#2a2f45')); }));
-  pPlantB(g, sc, 0.5, 9.3, 1.1);
-  sc.vcfg = { door: [sc.GW - 1.2, sc.GH + 0.5], max: 2, gap: 10, route: rnd => [[9.4, 8.4, 2.5 + rnd() * 2, 1, 1.4], [sc.GW - 1.2, sc.GH + 0.5]] };
-  sc.alertAt = [7, 4, 60]; sc.cap = () => `${fmt(sc.info.n)} tout-petits pour ${fmt(sc.info.K.cap)} berceaux · ${sc.info.staff} puéricultrices et auxiliaires · occupation ${pct(sc.info.occ)}`;
-};
-
-// ===== Collège : salle de classe, couloir avec casiers, cantine
-PB.college = (sc, g, c, D) => {
-  D.nowin = 1; hallBg(sc, g, D); D.nowin = 0; const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f });
-  const ST = ['#5b7fb0', '#c0504d', '#81b29a', '#e0a25a', '#7a6a9a', '#3a4a6b', '#d8c8b0', '#4a8a8a'];
-  pFloor(g, sc, 10.6, 0, sc.GW, sc.GH, '#d8d0c0', '#cec6b4');
-  pBoard(g, sc, 1.6, 6.0, 24, 50); pWinY(g, sc, 1.0, 3.2, 26, 56); pWinY(g, sc, 4.0, 6.2, 26, 56); pClock(g, sc, 7.0, 58);
-  cbox(g, sc, 2.2, 1.0, 1.8, 0.6, 13, '#a8865a');
-  bSlot(sc, { r: 'stand', x: 5.0, y: 1.1, shirt: '#3a4a6b', arm: 2.2, dir: -1, face: 'f' });
-  [2.6, 3.9, 5.2].forEach((yt, r) => [0.9, 3.4, 5.9].forEach((x, i) => {
-    longBox(sc, x, yt, 1.8, 0.5, 11, '#c9a878', 0, 1.8);
-    [x + 0.45, x + 1.35].forEach((sx, j) => { it(sx + yt + 0.95, g2 => pChairS(g2, sc, sx, yt + 0.92, '#5b6178', 0.9)); pOcc(sc, { r: 'sit', x: sx, y: yt + 0.9, ks: 0.88, face: 'b', arm: 0.6 + ((i + j + r) % 3) * 0.4, shirt: ST[(i * 3 + j * 5 + r) % 8] }); });
-  }));
-  // cloison basse vitrée entre classe et couloir
-  it(8.5 + 7.2, g2 => { bPanel(g2, sc, [8.5, 0], [8.5, 7.2], 0, 16, '#c9cbc1', '#a8aaa0'); bPanel(g2, sc, [8.5, 0], [8.5, 7.2], 16, 46, 'rgba(160,210,240,.16)', 'rgba(220,240,255,.6)'); });
-  // couloir : casiers
-  for (let i = 0; i < 4; i++) sbox(g, sc, 8.7 + i * 0.45, 0, 0.42, 0.5, 44, '#7a9cc6', '#5b7fb0', '#4a6a98'); bSign(sc, g, 12.0, 17.2, 54, 70, 'CANTINE', '#3a4a6b', '#f4f1e8');
-  [[9.6, 1.0], [9.2, 9.6], [9.9, 5.2]].forEach((p, i) => pOcc(sc, { r: 'walk', x: p[0], y: p[1], bag: ST[i + 3], shirt: ST[i], ks: 0.9, way: [[9.4, 1.2, 1 + i], [9.8, 9.8, 1.5], [4 + i * 2, 9.6, 1], [9.6, 8.0, 0.5]] }));
-  // cantine : comptoir de service, cuisiniers, tables et bancs
-  sbox(g, sc, 11.4, 1.1, 6.4, 0.7, 15, '#e8ecef', '#b9c1c8', '#9aa3ab'); for (let i = 0; i < 8; i++) sbox(g, sc, 11.6 + i * 0.76, 1.2, 0.6, 0.45, 17, ['#e0a25a', '#7fae6a', '#e8d8a8', '#c0504d'][i % 4], '#9aa3ab', '#8a939b', 15);
-  bPanel(g, sc, [11.4, 1.8], [17.8, 1.8], 22, 30, 'rgba(200,230,250,.3)', 'rgba(220,240,255,.6)');
-  [12.8, 15.6].forEach((x, i) => bSlot(sc, { r: 'stand', x, y: 0.6, shirt: '#f4f6f8', hat: '#f4f6f8', arm: 1.5 + i * 0.3, dir: 1, face: 'f' }));
-  [4.2, 7.6].forEach(yt => {
-    longBox(sc, 11.4, yt, 6.6, 0.8, 11, '#d8c8b0', 0, 1.1); longBox(sc, 11.4, yt - 0.62, 6.6, 0.3, 6, '#8a939b', 0, 1.1); longBox(sc, 11.4, yt + 1.15, 6.6, 0.3, 6, '#8a939b', 0, 1.1);
-    it(14.7 + yt + 0.45, g2 => { for (let i = 0; i < 6; i++) { const q = P(11.9 + i * 1.1, yt + 0.4, 11); g2.fillStyle = '#c9ccd2'; g2.fillRect(q[0] - 8, q[1] - 2, 16, 5); g2.fillStyle = ['#e0a25a', '#7fae6a', '#e8d8a8'][i % 3]; g2.fillRect(q[0] - 5, q[1] - 1, 5, 3); } });
-    for (let i = 0; i < 6; i++) { pOcc(sc, { r: 'sit', x: 11.9 + i * 1.1, y: yt - 0.45, ks: 0.88, face: 'f', arm: 0.9 + (i % 2) * 0.6, shirt: ST[(i + 2) % 8] }); pOcc(sc, { r: 'sit', x: 11.9 + i * 1.1, y: yt + 1.25, ks: 0.88, face: 'b', arm: 0.9 + ((i + 1) % 2) * 0.6, shirt: ST[(i + 5) % 8] }); }
-  });
-  [0, 1].forEach(i => pOcc(sc, { r: 'walk', x: 12 + i, y: 2.4, ks: 0.88, tool: pTray, shirt: ST[i + 1], way: [[12.4 + i * 2, 2.4, 1.5, 1, 1.2], [17.2 - i * 3, 3.1, 0.5, 1, 1.2], [18.4, 6.4, 0.5, 1, 1.2], [13 + i * 3, 6.4, 1, 1, 1.2], [11.0, 3.0, 0.5, 1, 1.2]] }));
-  bSlot(sc, { r: 'walk', x: 18.2, y: 9.8, shirt: '#3a4a6b', way: [[18.2, 9.8, 2], [10.4, 10.2, 1.5], [10.2, 3.2, 2], [18.4, 3.2, 1]] });
-  pPlantB(g, sc, 0.5, 10.3, 1.1);
-  sc.vcfg = { door: [9.6, sc.GH + 0.5], max: 4, gap: 4, route: rnd => [[9.6, 6 - rnd() * 4, 0.5], [rnd() < 0.5 ? 10.4 : 9.0, 9.4, 0.3], [9.6, sc.GH + 0.5]], ks: () => 0.9, bag: rnd => ST[Math.floor(rnd() * 8)] };
-  sc.alertAt = [9, 5, 60]; sc.cap = () => `${fmt(sc.info.n)} élèves pour ${fmt(sc.info.K.cap)} places · ${sc.info.staff} professeurs et personnels · occupation ${pct(sc.info.occ)}`;
-};
-
-// ===== Lycée : amphithéâtre, laboratoire, gymnase
-PB.lycee = (sc, g, c, D) => {
-  D.nowin = 1; hallBg(sc, g, D); D.nowin = 0; const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f });
-  const ST = ['#5b7fb0', '#c0504d', '#81b29a', '#e0a25a', '#7a6a9a', '#3a4a6b', '#d8c8b0', '#4a8a8a'];
-  // amphithéâtre : écran sur le mur de gauche, gradins qui montent vers la droite
-  pFloor(g, sc, 0, 0, 8.4, 8.4, '#8a6a5a', '#82624f');
-  bPanel(g, sc, [0.01, 1.2], [0.01, 7.0], 26, 62, '#f4f6f8', '#3a3f58');
-  [0, 1, 2, 3].forEach(i => { const x = 3.0 + i * 1.2, h = 6 * (i + 1); sbox(g, sc, x, 0.6, 1.2, 7.4, h, '#a08070', '#7a5a4a', '#6a4a3a'); sbox(g, sc, x + 0.1, 0.7, 0.35, 7.2, h + 9, '#5b3a2e', '#4a2e24', '#3a241c', h); });
-  [0, 1, 2, 3].forEach(i => { const x = 3.7 + i * 1.2, h = 6 * (i + 1); const list = []; for (let y = 1.0; y < 7.8; y += 0.62) { sc.nOcc++; list.push([y, sc.nOcc]); } it(x + 0.6, g2 => list.forEach((p, j) => { if (pOn(sc, p[1])) pFigure(g2, sc, x, p[0], h, { ks: 0.88, i: j + i * 3, face: 'b', arm: (j + i) % 4 === 0 ? 1.2 + Math.sin(sc.time * 2 + j) * 0.2 : 0.3 }); })); });
-  it(1.5 + 4, g2 => { cbox(g2, sc, 1.2, 3.6, 0.6, 0.8, 18, '#6a4a3a'); });
-  bSlot(sc, { r: 'stand', x: 1.4, y: 5.0, shirt: '#3a4a6b', arm: 2.0, dir: 1, face: 'f' });
-  it(0.5, g2 => { const pal = ['#5b7fb0', '#81b29a', '#e0a25a', '#c0504d']; for (let i = 0; i < 4; i++) { const hh = 6 + 18 * (0.4 + 0.6 * Math.abs(Math.sin(sc.time * 0.4 + i))), y0 = 1.9 + i * 1.2; bPanel(g2, sc, [0.03, y0], [0.03, y0 + 0.7], 32, 32 + hh, pal[i]); } });
-  it(8.4 + 8.4, g2 => { bPanel(g2, sc, [8.4, 0], [8.4, 8.4], 0, 18, '#c6c8bf', '#a6a89f'); bPanel(g2, sc, [8.4, 0], [8.4, 8.4], 18, 44, 'rgba(160,210,240,.14)', 'rgba(220,240,255,.55)'); });
-  // laboratoire : paillasses, hotte, fioles qui bouillonnent
-  pFloor(g, sc, 8.6, 0, 14.4, 6.4, '#e4e8ea', '#dadfe2');
-  sbox(g, sc, 9.2, 0, 2.6, 0.9, 48, 'rgba(200,230,250,.3)', '#c9d1da', '#aeb7c2'); bPanel(g, sc, [9.2, 0.9], [11.8, 0.9], 14, 42, 'rgba(160,210,240,.25)', '#9aa3ab');
-  pShelfX(g, sc, 12.2, 14.2, 40, ['#e0a25a', '#5b7fb0', '#81b29a', '#f4f6f8']);
-  [2.2, 4.4].forEach((yb, r) => { longBox(sc, 9.2, yb, 4.8, 0.9, 15, '#e8ecef', 0, 1.2); it(11.6 + yb + 0.9, g2 => { [9.7, 10.9, 12.1, 13.3].forEach((x, i) => { const col = ['#81b29a', '#5b7fb0', '#e0a25a', '#c0504d'][(i + r) % 4]; cyl(g2, sc, x, yb + 0.45, 0.12, 15, 22, col, fshade(col, 40)); if (sc.a > 0.05) for (let b = 0; b < 3; b++) { const u = (sc.time * 0.8 + b / 3 + i * 0.2) % 1, q = P(x, yb + 0.45, 22 + u * 14); g2.fillStyle = `rgba(255,255,255,${0.6 * (1 - u)})`; g2.beginPath(); g2.arc(q[0] + Math.sin(u * 9 + b) * 2, q[1], 1.6, 0, 7); g2.fill(); } }); });
-    [9.8, 11.4, 13.0].forEach((x, i) => pOcc(sc, { r: 'stand', x, y: yb - 0.35, shirt: '#f4f6f8', arm: 1.3 + (i % 2) * 0.5, face: 'f', dir: i % 2 ? -1 : 1 })); });
-  bSlot(sc, { r: 'walk', x: 9, y: 6, shirt: '#f4f6f8', pants: '#3a4a6b', way: [[9.0, 6.0, 2], [13.8, 6.0, 1.5], [13.8, 3.4, 1.5], [9.0, 3.4, 1]] });
-  glassBox(sc, 14.4 + 6.4, [8.6, 0], [14.4, 6.4], 40);
-  // gymnase : parquet, panier, mur d'escalade, corde, élèves qui courent
-  pFloor(g, sc, 14.6, 0, sc.GW, sc.GH, '#d9aa6c', '#d1a165'); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 1.4; g.beginPath(); [[15.4, 3], [20.4, 3], [20.4, 11.4], [15.4, 11.4], [15.4, 3]].forEach((p, i) => { const q = P(p[0], p[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke();
-  for (let i = 0; i < 18; i++) { const x = 15.0 + (i % 6) * 0.8, z = 10 + Math.floor(i / 6) * 16 + (i % 2) * 5; const q = P(x, 0.02, z), k = sc.tw / 44; g.fillStyle = ST[i % 8]; g.beginPath(); g.arc(q[0], q[1], 2.4 * k, 0, 7); g.fill(); }
-  bPanel(g, sc, [14.8, 0.01], [19.6, 0.01], 4, 60, 'rgba(255,255,255,.08)', '#a6a89f');
-  it(20.6 + 6.4, g2 => { const b = P(20.6, 6.4, 0), t = P(20.6, 6.4, 54); g2.strokeStyle = '#6a7399'; g2.lineWidth = 3; g2.beginPath(); g2.moveTo(b[0], b[1]); g2.lineTo(t[0], t[1]); g2.stroke(); bPanel(g2, sc, [20.4, 5.8], [20.4, 7.0], 44, 60, 'rgba(255,255,255,.85)', '#c0504d'); const r = P(20.1, 6.4, 46); g2.strokeStyle = '#e0763a'; g2.lineWidth = 2; g2.beginPath(); g2.ellipse(r[0], r[1], 8, 4, 0, 0, 7); g2.stroke(); });
-  sbox(g, sc, 15.0, 9.6, 2.2, 1.4, 4, '#4a6ab0', '#3a5aa0', '#2a4a90');
-  const foR = ++sc.nOcc; it(19.6 + 1.6, g2 => { const top = P(19.6, 1.6, 78), bot = P(19.6, 1.6, 4); g2.strokeStyle = '#c9a878'; g2.lineWidth = 2.4; g2.beginPath(); g2.moveTo(top[0], top[1]); g2.lineTo(bot[0], bot[1]); g2.stroke(); const fo = foR; if (pOn(sc, fo)) { const u = (Math.sin(sc.time * 0.7) + 1) / 2; pFigure(g2, sc, 19.6, 1.6, 6 + u * 34, { ks: 0.88, i: 3, seated: false, face: 'b', arm: 2.8 + Math.sin(sc.time * 5) * 0.2, shirt: '#c0504d' }); } });
-  for (let i = 0; i < 7; i++) pOcc(sc, { r: 'walk', fast: true, x: 16 + (i % 4), y: 4 + (i % 3) * 2, ks: 0.9, spd: 1.2, shirt: i % 2 ? '#f4f6f8' : '#5b7fb0', pants: '#2a2f45', way: [[15.8, 3.6 + (i % 3) * 0.3, 0], [19.9, 3.6 + (i % 3) * 0.3, 0], [19.9, 10.8 - (i % 3) * 0.3, 0], [15.8, 10.8 - (i % 3) * 0.3, 0]].slice(i % 4).concat([[15.8, 3.6 + (i % 3) * 0.3, 0], [19.9, 3.6 + (i % 3) * 0.3, 0], [19.9, 10.8 - (i % 3) * 0.3, 0], [15.8, 10.8 - (i % 3) * 0.3, 0]].slice(0, i % 4)) });
-  bSlot(sc, { r: 'stand', x: 17.8, y: 7.2, shirt: '#e0a25a', pants: '#2a2f45', arm: 2.3, dir: -1 });
-  // hall : casiers et élèves
-  sc.vcfg = { door: [12, sc.GH + 0.5], max: 5, gap: 3.5, route: rnd => [[3 + rnd() * 9, 9.6 + rnd() * 1.6, 1 + rnd() * 2], [12, sc.GH + 0.5]], ks: () => 0.9, bag: rnd => ST[Math.floor(rnd() * 8)] };
-  sc.alertAt = [10, 5, 60]; sc.cap = () => `${fmt(sc.info.n)} élèves pour ${fmt(sc.info.K.cap)} places · ${sc.info.staff} professeurs et personnels · occupation ${pct(sc.info.occ)}`;
-};
-
-// ===== Hôpital : chambres, couloir, bloc opératoire, accueil des urgences (les lits occupés suivent le taux d'occupation)
-PB.hospital = (sc, g, c, D) => {
-  D.nowin = 1; hallBg(sc, g, D); D.nowin = 0; const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f });
-  const BL = ['#9fc3d8', '#a8d5ba', '#c8c0e0', '#e8d8b8'];
-  pFloor(g, sc, 13.2, 0, sc.GW, 6.0, '#cfe2da', '#c6dbd2');
-  // chambres : 4 chambres de 2 lits, cloisons basses + vitre, moniteurs
-  for (let r = 0; r < 4; r++) {
-    const x0 = r * 3.2; pWinX(g, sc, x0 + 0.6, x0 + 2.6, 26, 56, '#a9cbe0');
-    [0.5, 2.6].forEach((y, j) => { const fo = ++sc.nOcc, col = BL[(r + j) % 4], skin = SKINS[(r * 2 + j) % 5]; it(x0 + 0.3 + y + 2.2, g2 => pBed(g2, sc, x0 + 0.3, y, 0, pOn(sc, fo), col, skin));
-      it(x0 + 2.5 + y + 0.2, g2 => { const on = pOn(sc, fo); sbox(g2, sc, x0 + 2.3, y, 0.5, 0.4, 30, '#3a3f58', '#2a2f45', '#20253a', 20); sbox(g2, sc, x0 + 2.5, y + 0.1, 0.06, 0.06, 20, '#9aa3ab', '#8a939b', '#7a838b'); const a = P(x0 + 2.32, y + 0.4, 28), b = P(x0 + 2.78, y + 0.4, 28); if (on) { g2.strokeStyle = '#6fe08a'; g2.lineWidth = 1.2; g2.beginPath(); for (let u = 0; u <= 1.001; u += 0.1) { const ph = (u * 3 + sc.time * 1.4) % 1, z = ph > 0.45 && ph < 0.55 ? 5 : 0; const q = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u - 4 - z]; u ? g2.lineTo(q[0], q[1]) : g2.moveTo(q[0], q[1]); } g2.stroke(); } }); });
-    if (r < 3) it(x0 + 3.1 + 4.6, g2 => { bPanel(g2, sc, [x0 + 3.1, 0], [x0 + 3.1, 4.6], 0, 22, '#d9e0e4', '#b9c1c8'); bPanel(g2, sc, [x0 + 3.1, 0], [x0 + 3.1, 4.6], 22, 44, 'rgba(170,215,240,.14)', 'rgba(220,240,255,.5)'); });
-  }
-  bSlot(sc, { r: 'walk', x: 2, y: 4.2, shirt: '#7fb7d6', pants: '#7fb7d6', way: [[1.6, 4.1, 2.5, 1, 1.4], [5.0, 4.0, 2.5, 1, 1.4], [8.2, 4.1, 2.5, 1, 1.4], [11.4, 4.0, 2.5, 1, 1.4], [6, 5.4, 0.5]] });
-  // bloc opératoire vitré
-  sbox(g, sc, 21.2, 0.4, 0.6, 1.4, 34, '#c9d1da', '#9aa3ab', '#8a939b'); bPanel(g, sc, [14.4, 0.01], [17.4, 0.01], 30, 52, '#2a2f45', '#9aa3ab');
-  it(17.2 + 3.0, g2 => { cbox(g2, sc, 16.2, 2.5, 2.0, 0.7, 13, '#5f8f84'); sbox(g2, sc, 16.9, 2.7, 0.2, 0.3, 6, '#8a939b', '#7a838b', '#6a737b'); if (sc.info.occ > 0.12) { sbox(g2, sc, 16.5, 2.55, 1.5, 0.6, 15, '#a8d5ba', '#88b59a', '#78a58a', 13); const q = P(16.4, 2.85, 16), k = sc.tw / 44; g2.fillStyle = '#e8c09a'; g2.beginPath(); g2.arc(q[0], q[1], 3.6 * k, 0, 7); g2.fill(); } });
-  it(17.4 + 3.4 + 2, g2 => { const top = P(17.2, 2.8, 80), l = P(17.2, 2.8, 50), k = sc.tw / 44; g2.strokeStyle = '#9aa3ab'; g2.lineWidth = 2; g2.beginPath(); g2.moveTo(top[0], top[1]); g2.lineTo(l[0], l[1] - 6 * k); g2.stroke(); g2.fillStyle = 'rgba(255,255,230,.12)'; g2.beginPath(); g2.moveTo(l[0] - 12 * k, l[1]); g2.lineTo(l[0] + 12 * k, l[1]); g2.lineTo(l[0] + 34 * k, l[1] + 34 * k); g2.lineTo(l[0] - 34 * k, l[1] + 34 * k); g2.fill(); g2.fillStyle = '#e8ecef'; g2.beginPath(); g2.ellipse(l[0], l[1], 14 * k, 6 * k, 0, 0, 7); g2.fill(); g2.fillStyle = '#fffbe0'; g2.beginPath(); g2.ellipse(l[0], l[1] + 1.5 * k, 10 * k, 3.6 * k, 0, 0, 7); g2.fill(); });
-  [[15.8, 2.0, 1, '#5f9e8f'], [18.5, 2.1, -1, '#5f9e8f'], [17.2, 1.6, 1, '#4a8a7a'], [17.0, 4.0, -1, '#7fb7d6']].forEach(s => bSlot(sc, { r: 'stand', x: s[0], y: s[1], shirt: s[3], pants: s[3], hat: '#5f9e8f', arm: 1.5, dir: s[2], face: s[1] > 3 ? 'b' : 'f' }));
-  it(14.6 + 4.2, g2 => { cbox(g2, sc, 14.4, 3.9, 0.9, 0.6, 14, '#c9d1da'); for (let i = 0; i < 4; i++) sbox(g2, sc, 14.5 + i * 0.2, 4.0, 0.1, 0.4, 15, '#e8ecef', '#c9d1da', '#aeb7c2', 14); });
-  glassBox(sc, 22 + 6.0, [13.2, 0], [22, 6.0], 48);
-  // couloir : soignants, brancard
-  it(5.0 + 6.2 + 1, g2 => { sbox(g2, sc, 4.0, 5.9, 2.0, 0.7, 13, '#f4f6f8', '#c9d1da', '#aeb7c2', 10); [[0.1, 0.1], [1.8, 0.1], [0.1, 0.5], [1.8, 0.5]].forEach(l => sbox(g2, sc, 4.0 + l[0], 5.9 + l[1], 0.08, 0.08, 10, '#8a94a2', '#6a7482', '#5a6472')); });
-  bSlot(sc, { r: 'walk', x: 18, y: 6.6, shirt: '#f4f6f8', pants: '#3a4a6b', way: [[18, 6.6, 1], [2.0, 6.8, 2], [9.0, 7.0, 1.5, 1, 1.4], [20.4, 6.8, 1]] });
-  bSlot(sc, { r: 'walk', x: 10, y: 7.0, shirt: '#7fb7d6', pants: '#7fb7d6', way: [[10, 7.0, 0.5], [20.0, 6.5, 2], [12.8, 9.2, 2, 1, 1.4], [6.0, 6.8, 1]] });
-  // accueil des urgences : comptoir, salle d'attente, entrée des ambulances
-  pSignY(sc, g, 8.4, 12.0, 56, 68, 'URGENCES', '#b8474d', '#f4f6f8');
-  bPanel(g, sc, [0.01, 8.6], [0.01, 11.8], 0, 46, 'rgba(160,210,240,.35)', '#9aa3ab'); bPanel(g, sc, [0.02, 10.17], [0.02, 10.23], 0, 46, '#9aa3ab');
-  it(0.3 + 8.4, g2 => pLight(g2, sc, 0.05, 10.2, 50, Math.sin(sc.time * 5) > 0, '#e05a5a', '#e05a5a'));
-  wsSlot(sc, 3.4, 8.2, { dw: 2.0, col: '#e8ecef', p: { shirt: '#7fb7d6' } }); wsSlot(sc, 5.6, 8.2, { dw: 2.0, col: '#e8ecef', p: { shirt: '#7fb7d6' } });
-  [10.6, 12.0].forEach((y, r) => [1.6, 2.6, 3.6, 4.6, 5.6, 6.6].forEach((x, i) => { it(x + y + 0.05, g2 => { cbox(g2, sc, x - 0.25, y - 0.2, 0.5, 0.45, 8, '#5b7fb0'); cbox(g2, sc, x - 0.25, y + 0.2, 0.5, 0.08, 18, '#4a6a98', 8); }); pOcc(sc, { r: 'sit', x, y: y - 0.02, face: 'f', arm: (i + r) % 3 === 0 ? 1.0 : 0.2, shirt: SHIRTS[(i * 3 + r) % 8], ks: (i + r) % 5 === 2 ? 0.7 : 1 }); }));
-  // box de soins des urgences (rideaux)
-  [13.4, 16.4, 19.4].forEach((x0, j) => { const fo = ++sc.nOcc; it(x0 + 1 + 9.6, g2 => pBed(g2, sc, x0 + 0.4, 9.0, 0, pOn(sc, fo), BL[j], SKINS[(j + 2) % 5])); it(x0 + 2.8 + 11.6, g2 => { bPanel(g2, sc, [x0 + 2.8, 8.0], [x0 + 2.8, 11.4], 0, 40, 'rgba(168,213,186,.55)', '#88b59a'); }); });
-  bSlot(sc, { r: 'stand', x: 15.0, y: 10.4, shirt: '#f4f6f8', pants: '#3a4a6b', arm: 1.6, dir: -1, face: 'b' }); bSlot(sc, { r: 'stand', x: 20.8, y: 10.6, shirt: '#7fb7d6', pants: '#7fb7d6', arm: 1.2, dir: -1, face: 'b' });
-  pPlantB(g, sc, 8.6, 12.4, 1.3);
-  sc.vcfg = { door: [9.8, sc.GH + 0.5], max: 4, gap: 4.5, route: rnd => [[4.4, 9.4, 2 + rnd() * 2, 1, 1.4], rnd() < 0.5 ? [10.8, 7.2, 0.5] : [8.4, 11.8, 2], [9.8, sc.GH + 0.5]] };
-  sc.alertAt = [11, 6, 70]; sc.cap = () => `${fmt(sc.info.n)} patients hospitalisés pour ${fmt(sc.info.K.cap)} lits (occupation ${pct(sc.info.occ)}) · ${fmt(sc.info.staff)} soignants et personnels`;
-};
-
-// ===== Caserne de pompiers : remise et camions, tuyaux, barre, vestiaires, entraînement
-PB.fire = (sc, g, c, D) => {
-  D.nowin = 1; hallBg(sc, g, D); D.nowin = 0; const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f });
-  const RED = '#a8343a', NAVY = '#2a3550', JK = '#c9b27a';
-  pFloor(g, sc, 13.0, 0, sc.GW, sc.GH, '#b9b3a6', '#b2ac9e');
-  g.strokeStyle = 'rgba(232,200,90,.75)'; g.lineWidth = 2; [0.8, 4.6, 8.4, 12.2].forEach(x => { const a = P(x, 0.6), b = P(x, sc.GH); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); });
-  pWinY(g, sc, 7.4, 10.4, 30, 64);
-  // enrouleurs de tuyaux au mur du fond
-  for (let i = 0; i < 4; i++) { const q = P(1.4 + i * 1.6, 0.02, 44), k = sc.tw / 44; g.save(); g.translate(q[0], q[1]); g.transform(1, 0.5, 0, 1, 0, 0); g.fillStyle = '#d8d0b8'; g.beginPath(); g.arc(0, 0, 12 * k, 0, 7); g.fill(); g.strokeStyle = '#b0a888'; g.lineWidth = 1; for (let r = 4; r < 12; r += 2.5) { g.beginPath(); g.arc(0, 0, r * k, 0, 7); g.stroke(); } g.fillStyle = RED; g.beginPath(); g.arc(0, 0, 3 * k, 0, 7); g.fill(); g.restore(); }
-  for (let i = 0; i < 5; i++) bPanel(g, sc, [7.6 + i * 0.5, 0.01], [7.9 + i * 0.5, 0.01], 34, 50, '#5a6472');
-  // camions (rouge sobre), véhicule de secours
-  const veh = [[1.2, 1.2, RED, { len: 5.4, w: 1.7, h: 42, cab: 1.5, stripe: '#e8e0c8', ladder: 1 }], [5.0, 1.2, RED, { len: 5.0, w: 1.7, h: 42, cab: 1.5, stripe: '#e8e0c8', hose: 1 }], [8.9, 1.8, '#e8e6e0', { len: 3.8, w: 1.5, h: 36, cab: 1.3, stripe: RED }]];
-  veh.forEach((v, i) => { it(v[0] + v[1] + v[3].len + v[3].w - 0.8, g2 => { pCar(g2, sc, v[0], v[1], v[2], v[3]); const on = sc.info.occ > 0.3 && Math.sin(sc.time * (4 + i)) > 0.2; pLight(g2, sc, v[0] + v[3].w / 2, v[1] + v[3].len - 0.6, v[3].h - 3, on, '#5a8ae0', '#5a8ae0'); }); });
-  // barre de descente : un pompier glisse de l'étage
-  it(11.6 + 1.0 + 0.3, g2 => { cyl(g2, sc, 11.6, 1.0, 0.05, 0, sc.wallH, '#c9cdd2'); const u = (sc.time * 0.45) % 1; if (sc.info.occ > 0.2 && u < 0.4) pFigure(g2, sc, 11.6, 1.05, 70 * (1 - u / 0.4), { seated: false, face: 'f', arm: 2.9, shirt: NAVY, pants: NAVY }); });
-  // vestiaires : casiers, vestes, casques, banc
-  for (let i = 0; i < 10; i++) { const x = 13.3 + i * 0.66; sbox(g, sc, x, 0, 0.6, 0.55, 46, '#7a838b', '#5a6472', '#4a5462'); bPanel(g, sc, [x + 0.08, 0.56], [x + 0.52, 0.56], 14, 36, JK); bPanel(g, sc, [x + 0.08, 0.57], [x + 0.52, 0.57], 22, 24, '#e8e8d8'); const q = P(x + 0.3, 0.3, 50), k = sc.tw / 44; g.fillStyle = '#c9cdd2'; g.beginPath(); g.ellipse(q[0], q[1], 5 * k, 4 * k, 0, Math.PI, 0); g.fill(); }
-  longBox(sc, 13.8, 2.4, 5.6, 0.5, 9, '#a8865a', 0, 1.4);
-  [[14.6, 1.6, 1], [17.6, 1.7, -1]].forEach((p, i) => pOcc(sc, { r: 'stand', x: p[0], y: p[1], shirt: i ? JK : NAVY, pants: NAVY, arm: 2.2, dir: p[2], face: 'b' }));
-  // entraînement : tour de manœuvre, échelle, pompiers qui courent, tuyau déroulé
-  it(18.2 + 7.6 + 1.4, g2 => { sbox(g2, sc, 17.6, 6.0, 1.6, 1.6, 74, '#b8a890', '#9a8a72', '#8a7a62'); for (let i = 0; i < 3; i++) bPanel(g2, sc, [17.8, 7.6], [18.9, 7.6], 16 + i * 20, 28 + i * 20, '#3a3f58'); for (let r = 2; r < 70; r += 5) bPanel(g2, sc, [17.95, 7.7], [18.75, 7.7], r, r + 1.2, '#d8dce2'); [17.95, 18.75].forEach(x => bPanel(g2, sc, [x, 7.7], [x + 0.06, 7.7], 0, 72, '#d8dce2')); const u = (Math.sin(sc.time * 0.6) + 1) / 2; pFigure(g2, sc, 18.35, 7.85, 4 + u * 50, { seated: false, face: 'b', arm: 2.9 + Math.sin(sc.time * 6) * 0.2, shirt: NAVY, pants: NAVY, hat: '#c9cdd2' }); });
-  it(15.0 + 10.6, g2 => { g2.strokeStyle = '#d8d0b8'; g2.lineWidth = 3; g2.beginPath(); for (let u = 0; u <= 1.001; u += 0.05) { const q = P(13.6 + u * 4.0, 10.6 + Math.sin(u * 8) * 0.4, 1); u ? g2.lineTo(q[0], q[1]) : g2.moveTo(q[0], q[1]); } g2.stroke(); });
-  for (let i = 0; i < 5; i++) pOcc(sc, { r: 'walk', fast: true, x: 14 + i, y: 8, spd: 1.1, shirt: NAVY, pants: NAVY, way: [[13.8, 6.6 + (i % 2) * 0.4, 0], [16.6, 6.6 + (i % 2) * 0.4, 0], [16.8, 11.2, 0], [13.6, 11.2, 0.4]].slice(i % 4).concat([[13.8, 6.6, 0], [16.6, 6.6, 0], [16.8, 11.2, 0], [13.6, 11.2, 0.4]].slice(0, i % 4)) });
-  bSlot(sc, { r: 'stand', x: 19.4, y: 10.6, shirt: RED, pants: NAVY, arm: 2.2, dir: -1 });
-  bSlot(sc, { r: 'walk', x: 4, y: 8, shirt: NAVY, pants: NAVY, way: [[3.8, 7.8, 2], [3.8, 1.6, 1.5, 1, 1.4], [8.4, 7.0, 2], [11.6, 8.8, 1]] });
-  pOcc(sc, { r: 'walk', x: 8, y: 9, shirt: JK, pants: NAVY, hat: '#c9cdd2', way: [[8.2, 9.0, 1], [8.0, 6.4, 2.5, 1, 1.4], [12.2, 9.6, 1]] });
-  sc.alertAt = [9, 5, 70]; sc.cap = () => `${sc.info.staff} sapeurs-pompiers · ${fmt(sc.info.n)} interventions par jour (activité ${pct(sc.info.occ)}) · ${fmt(sc.info.served)} habitants protégés`;
-};
-
-// ===== Commissariat : accueil, bureaux, cellules sobres, voitures au garage
-PB.police = (sc, g, c, D) => {
-  D.nowin = 1; hallBg(sc, g, D); D.nowin = 0; const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f });
-  const NV = '#2c3e5a';
-  pFloor(g, sc, 10.4, 5.4, sc.GW, sc.GH, '#a9adb3', '#a1a5ab'); pFloor(g, sc, 11.0, 0, sc.GW, 4.2, '#b9bcc2', '#b3b6bc');
-  pWinX(g, sc, 1.0, 3.2, 28, 58); pWinX(g, sc, 5.0, 7.2, 28, 58);
-  bPanel(g, sc, [8.0, 0.01], [10.2, 0.01], 26, 52, '#e8e4d8', '#9a9488'); for (let i = 0; i < 9; i++) { const q = P(8.2 + (i * 0.23) % 1.8, 0.02, 30 + ((i * 7) % 18)), k = sc.tw / 44; g.fillStyle = ['#c0504d', '#2c4a7a', '#e0a25a'][i % 3]; g.beginPath(); g.arc(q[0], q[1], 1.8 * k, 0, 7); g.fill(); }
-  // drapeau tricolore sobre au mur de gauche
-  bPanel(g, sc, [0.01, 7.3], [0.01, 7.65], 36, 56, '#2c4a8a'); bPanel(g, sc, [0.01, 6.95], [0.01, 7.3], 36, 56, '#f4f4f0'); bPanel(g, sc, [0.01, 6.6], [0.01, 6.95], 36, 56, '#b8474d');
-  // bureaux des enquêteurs
-  [[2.0, 2.2], [5.2, 2.2], [2.0, 4.0], [5.2, 4.0]].forEach((p, i) => wsSlot(sc, p[0], p[1], { dw: 1.8, col: '#8a939b', p: { shirt: i % 2 ? NV : '#d8dce4' } }));
-  sbox(g, sc, 7.6, 0, 0.6, 0.6, 30, '#9aa3ab', '#7a838b', '#6a737b'); sbox(g, sc, 7.0, 0, 0.6, 0.6, 30, '#9aa3ab', '#7a838b', '#6a737b');
-  bSlot(sc, { r: 'walk', x: 1, y: 5, shirt: NV, bag: '#f4f6f8', way: [[0.9, 5.2, 1.5], [7.8, 5.0, 2, 1, 1.4], [6.6, 1.2, 1.5], [0.9, 3.2, 1]] });
-  // accueil : comptoir vitré, agent, banc d'attente
-  wsSlot(sc, 3.4, 6.4, { dw: 3.4, col: '#c9ccd2', p: { shirt: NV } });
-  it(3.4 + 7.4 + 0.3, g2 => bPanel(g2, sc, [1.7, 7.15], [5.1, 7.15], 12, 30, 'rgba(170,210,240,.3)', 'rgba(220,240,255,.7)'));
-  for (let i = 0; i < 4; i++) { const y = 7.8 + i * 0.85; it(0.6 + y, g2 => cbox(g2, sc, 0.3, y - 0.25, 0.55, 0.5, 9, '#5b6178')); pOcc(sc, { r: 'sit', x: 0.6, y, face: 's', dir: 1, arm: 0.2 + (i % 2) * 0.8, shirt: SHIRTS[(i * 3 + 1) % 8] }); }
-  pOcc(sc, { r: 'stand', x: 3.6, y: 8.2, face: 'b', arm: 1.4, shirt: SHIRTS[5] });
-  // cellules : barreaux verticaux, banc, sobriété
-  for (let k = 0; k < 3; k++) { const x0 = 11.4 + k * 2.5; sbox(g, sc, x0 + 0.2, 0.2, 1.6, 0.5, 8, '#8a939b', '#6a737b', '#5a636b'); if (k) bPanel(g, sc, [x0, 0], [x0, 4.2], 0, 46, '#c9ccd2', '#9aa3ab'); }
-  it(14.6 + 1.2, g2 => { if (sc.info.occ > 0.45) pFigure(g2, sc, 14.6, 0.6, 8, { face: 'f', arm: 0.2, shirt: '#7a838b', i: 2 }); });   // une garde à vue quand l'activité est forte
-  it(15.2 + 4.2 + 0.4, g2 => { for (let x = 11.4; x <= 18.9; x += 0.2) bPanel(g2, sc, [x, 4.2], [x + 0.05, 4.2], 0, 46, '#5a636b'); bPanel(g2, sc, [11.4, 4.2], [19, 4.2], 44, 48, '#5a636b'); bPanel(g2, sc, [11.4, 4.2], [19, 4.2], 20, 22, '#5a636b'); });
-  // garage : deux voitures de patrouille, gyrophares
-  [[11.6, 6.0], [15.2, 6.0]].forEach((p, i) => it(p[0] + p[1] + 3.3, g2 => { pCar(g2, sc, p[0], p[1], '#e8ecf2', { len: 3.0, w: 1.3, h: 14, stripe: '#2c4a8a' }); pLight(g2, sc, p[0] + 0.65, p[1] + 1.5, 24, Math.sin(sc.time * (5 + i) + i) > 0 && sc.info.occ > 0.25, '#4a7ae0', '#e05a5a'); }));
-  bSlot(sc, { r: 'walk', x: 14, y: 10, shirt: NV, way: [[14.2, 9.8, 2], [18.2, 10.0, 1.5], [14.0, 5.4, 2], [10.8, 9.4, 1]] });
-  pOcc(sc, { r: 'stand', x: 13.0, y: 9.4, shirt: NV, arm: 1.0, face: 'b', dir: -1 });
-  sc.vcfg = { door: [8.6, sc.GH + 0.5], max: 3, gap: 6, route: rnd => [[3.0 + rnd() * 1.6, 7.9, 3 + rnd() * 3, 1, 1.3], [8.6, sc.GH + 0.5]] };
-  sc.alertAt = [9, 5, 60]; sc.cap = () => `${sc.info.staff} policiers et agents · ${fmt(sc.info.n)} interventions par jour (activité ${pct(sc.info.occ)}) · ${fmt(sc.info.served)} habitants protégés`;
-};
-
-// ===== Hôtel de ville : hall et guichets, bureaux, salle du conseil
-PB.hall = (sc, g, c, D) => {
-  D.nowin = 1; hallBg(sc, g, D); D.nowin = 0; const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f });
-  pFloor(g, sc, 0, 6.6, sc.GW, sc.GH, '#ece6d6', '#c9bfa8'); pFloor(g, sc, 9.0, 0, sc.GW, 6.4, '#8a6a4a', '#82624a');
-  pWinX(g, sc, 1.0, 2.8, 30, 70); pWinX(g, sc, 4.4, 6.2, 30, 70); pWinY(g, sc, 7.6, 9.6, 30, 70); pWinY(g, sc, 10.2, 11.6, 30, 70);
-  // drapeaux et portrait dans la salle du conseil
-  bPanel(g, sc, [14.6, 0.01], [16.2, 0.01], 40, 66, '#c9b88a', '#8a7a5a'); bPanel(g, sc, [14.75, 0.02], [16.05, 0.02], 43, 63, '#6a7a8a');
-  [[12.4, '#2c4a8a', '#f4f4f0', '#b8474d'], [18.0, '#2c4a8a', '#2c4a8a', '#2c4a8a']].forEach(f => { const b = P(f[0], 0.4, 0), t = P(f[0], 0.4, 76); g.strokeStyle = '#b8954a'; g.lineWidth = 2; g.beginPath(); g.moveTo(b[0], b[1]); g.lineTo(t[0], t[1]); g.stroke(); [0, 1, 2].forEach(j => { g.fillStyle = f[1 + j]; g.beginPath(); g.moveTo(t[0] + j * 6, t[1] + 2 + j * 3); g.lineTo(t[0] + j * 6 + 6, t[1] + 5 + j * 3); g.lineTo(t[0] + j * 6 + 6, t[1] + 30 + j * 3); g.lineTo(t[0] + j * 6, t[1] + 27 + j * 3); g.fill(); }); });
-  // table du conseil en U, élus, maire
-  longBox(sc, 12.6, 1.4, 5.0, 0.7, 13, '#5a3a24', 0, 1.2); longBox(sc, 12.0, 1.4, 0.6, 3.6, 13, '#5a3a24', 0, 1.2); longBox(sc, 17.6, 1.4, 0.6, 3.6, 13, '#5a3a24', 0, 1.2);
-  it(15.1 + 1.0, g2 => { cbox(g2, sc, 14.8, 0.6, 0.6, 0.5, 11, '#3a2a1e'); cbox(g2, sc, 14.8, 0.5, 0.6, 0.12, 34, '#6a2a2a', 11); });
-  bSlot(sc, { r: 'sit', x: 15.1, y: 0.95, shirt: '#2a2f45', arm: 1.6, face: 'f' });
-  [13.4, 14.2, 16.0, 16.8].forEach((x, i) => { it(x + 1.0, g2 => bChair(g2, sc, x, 0.95, '#3a2a1e')); pOcc(sc, { r: 'sit', x, y: 0.95, face: 'f', arm: 0.8 + (i % 2) * 0.5, shirt: ['#2a2f45', '#5a3a4a', '#3a4a6b', '#4a4a4a'][i] }); });
-  [2.4, 3.4, 4.4].forEach((y, i) => { it(11.5 + y, g2 => bChair(g2, sc, 11.5, y, '#3a2a1e')); pOcc(sc, { r: 'sit', x: 11.5, y, face: 's', dir: 1, arm: 0.6, shirt: ['#3a4a6b', '#2a2f45', '#6a4a3a'][i] }); it(18.7 + y, g2 => bChair(g2, sc, 18.7, y, '#3a2a1e')); pOcc(sc, { r: 'sit', x: 18.7, y, face: 's', dir: -1, arm: 1.0, shirt: ['#5a3a4a', '#3a4a6b', '#2a2f45'][i] }); });
-  bSlot(sc, { r: 'stand', x: 15.0, y: 3.4, shirt: '#3a4a6b', arm: 2.0, dir: 1, face: 'b' });
-  [13.2, 14.8, 16.4].forEach((x, i) => { longBox(sc, x, 5.4, 1.3, 0.4, 9, '#6a4a30', 0, 1.3); pOcc(sc, { r: 'sit', x: x + 0.6, y: 5.95, face: 'b', arm: 0.2, shirt: SHIRTS[(i * 3) % 8] }); });
-  it(18.9 + 6.4, g2 => { bPanel(g2, sc, [9.0, 6.4], [sc.GW, 6.4], 0, 12, '#c9b88a', '#8a7a5a'); });
-  // bureaux des services municipaux
-  [[1.8, 1.6], [4.6, 1.6], [1.8, 3.6], [4.6, 3.6]].forEach((p, i) => wsSlot(sc, p[0], p[1], { dw: 1.8, col: '#a8865a', p: { shirt: ['#3a4a6b', '#d8c8b0', '#5a3a4a', '#4a8a8a'][i] } }));
-  pShelfY(g, sc, 0.4, 4.4, 34, ['#c9b88a', '#8a7a5a', '#5b7fb0', '#e8e4d8']);
-  it(8.6 + 6.0, g2 => { bPanel(g2, sc, [8.8, 0], [8.8, 6.4], 0, 16, '#d3cab6', '#b3aa96'); bPanel(g2, sc, [8.8, 0], [8.8, 6.4], 16, 50, 'rgba(170,210,240,.14)', 'rgba(220,240,255,.5)'); });
-  // hall : colonnes, guichets, buste
-  [10.6, 19.0].forEach(x => it(x + 6.9, g2 => { sbox(g2, sc, x - 0.25, 6.6, 0.5, 0.5, sc.wallH, '#f4f0e6', '#d8d0c0', '#c8c0b0'); sbox(g2, sc, x - 0.32, 6.53, 0.64, 0.64, 6, '#e8e0d0', '#c8c0b0', '#b8b0a0'); }));
-  [2.0, 4.6, 7.2].forEach((x, i) => wsSlot(sc, x, 7.6, { dw: 2.2, col: '#c9b88a', p: { shirt: ['#3a4a6b', '#5a3a4a', '#d8c8b0'][i] } }));
-  it(5.0 + 8.8, g2 => { for (let x = 0.9; x < 8.6; x += 2.6) bPanel(g2, sc, [x, 8.6], [x + 2.2, 8.6], 18, 30, 'rgba(170,210,240,.25)', 'rgba(220,240,255,.6)'); });
-  it(14.8 + 9.6, g2 => { cbox(g2, sc, 14.5, 9.3, 0.6, 0.6, 22, '#e8e0d0'); const q = P(14.8, 9.6, 30), k = sc.tw / 44; g2.fillStyle = '#d8d0c0'; g2.beginPath(); g2.arc(q[0], q[1] - 4 * k, 6 * k, 0, 7); g2.fill(); g2.fillRect(q[0] - 7 * k, q[1] + 1 * k, 14 * k, 6 * k); });
-  [[2.4, 9.8], [5.0, 10.0], [7.6, 9.9], [3.6, 11.0], [6.4, 11.1]].forEach((p, i) => pOcc(sc, { r: 'stand', x: p[0], y: p[1], face: 'b', arm: i % 2 ? 1.2 : 0.2, shirt: SHIRTS[(i * 5) % 8], bag: i === 2 ? '#e8ecff' : null }));
-  pPlantB(g, sc, 9.6, 11.4, 1.4); pPlantB(g, sc, 19.4, 11.4, 1.4);
-  sc.vcfg = { door: [12, sc.GH + 0.5], max: 6, gap: 3, route: rnd => [[2 + rnd() * 6, 9.6 + rnd(), 3 + rnd() * 3, 1, 0.4], [12 + rnd() * 6, 8 + rnd() * 3, 1], [12, sc.GH + 0.5]] };
-  sc.alertAt = [10, 6, 80]; sc.cap = () => `${fmt(sc.info.n)} usagers par jour · ${sc.info.staff} agents municipaux · conseil municipal en séance`;
-};
-// foule peu coûteuse (gradins) : un corps et une tête par spectateur, bras levés quand la « ola » passe ; p = [x, y, z, seuil, maillot, peau]
-function pCrowd(g, sc, L, wave) {
-  const k = sc.tw / 52, t = sc.time;
-  for (let i = 0; i < L.length; i++) { const p = L[i]; if (!pOn(sc, p[3])) continue; const q = isoP(sc, p[0], p[1], p[2]); g.fillStyle = p[4]; g.fillRect(q[0] - 5 * k, q[1] - 15 * k, 10 * k, 13 * k);
-    if (wave && Math.sin(t * 2.2 - (p[0] - p[1]) * 0.45) > 0.86) g.fillRect(q[0] - 1 * k, q[1] - 30 * k, 2.6 * k, 14 * k);
-    g.fillStyle = p[5]; g.beginPath(); g.arc(q[0], q[1] - 19 * k, 4.2 * k, 0, 7); g.fill(); }
-}
-// ===== Stades : tribunes et spectateurs (selon la fréquentation), terrain, vestiaires, tableau d'affichage
-PB.stadium = (sc, g, c, D) => {
-  const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f }), GW = sc.GW, GH = sc.GH;
-  const sky = g.createLinearGradient(0, 0, 0, sc.H * 0.7); sky.addColorStop(0, '#5d8fc0'); sky.addColorStop(1, '#c4d9ea'); g.fillStyle = sky; g.fillRect(0, 0, sc.W, sc.H);
-  hallBg(sc, g, D, null, true);
-  for (let i = 0; i < 10; i++) { const x0 = 3.6 + i * 1.76; quad(g, [P(x0, 3.6), P(x0 + 1.76, 3.6), P(x0 + 1.76, 12.8), P(x0, 12.8)], i % 2 ? '#5c9c54' : '#54924c'); }
-  g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 1.6; const ln = pts => { g.beginPath(); pts.forEach((p, i) => { const q = P(p[0], p[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.stroke(); };
-  ln([[3.6, 3.6], [21.2, 3.6], [21.2, 12.8], [3.6, 12.8], [3.6, 3.6]]); ln([[12.4, 3.6], [12.4, 12.8]]); ln([[3.6, 5.8], [6.2, 5.8], [6.2, 10.6], [3.6, 10.6]]); ln([[21.2, 5.8], [18.6, 5.8], [18.6, 10.6], [21.2, 10.6]]);
-  g.beginPath(); for (let i = 0; i <= 32; i++) { const a = i / 32 * 6.2832, q = P(12.4 + Math.cos(a) * 1.5, 8.2 + Math.sin(a) * 1.5); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke();
-  // tribunes : derrière (le long de x) et à gauche (le long de y), en gradins
-  const SEAT = '#4f6f9a', CON = '#8a90a0', crowd = [], JER = ['#c0504d', '#c0504d', '#f4f6f8', '#3a4a6b', '#e0a25a', '#c0504d', '#5b7fb0', '#d8c8b0'];
-  for (let i = 0; i < 4; i++) { const h = 30 - i * 7, y = 0.2 + i * 0.8; sbox(g, sc, 3.4, y, 18.2, 0.8, h, CON, fshade(CON, -25), fshade(CON, -40)); sbox(g, sc, 3.4, y + 0.1, 18.2, 0.35, h + 3, SEAT, fshade(SEAT, -25), fshade(SEAT, -40), h); }
-  for (let i = 0; i < 4; i++) { const h = 30 - i * 7, x = 0.2 + i * 0.8; sbox(g, sc, x, 3.4, 0.8, 9.6, h, CON, fshade(CON, -25), fshade(CON, -40)); sbox(g, sc, x + 0.1, 3.4, 0.35, 9.6, h + 3, SEAT, fshade(SEAT, -25), fshade(SEAT, -40), h); }
-  for (let i = 0; i < 4; i++) { const h = 30 - i * 7; for (let x = 3.7; x < 21.4; x += 0.55) crowd.push([x, 0.5 + i * 0.8, h + 3]); for (let y = 3.7; y < 12.8; y += 0.55) crowd.push([0.5 + i * 0.8, y, h + 3]); }
-  crowd.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1])); const ord = crowd.map((p, i) => i).sort((a, b) => hash(a, 7, 31) - hash(b, 7, 31)); const rank = []; ord.forEach((ci, r) => { rank[ci] = r; });
-  crowd.forEach((p, i) => { p.push(sc.nOcc + rank[i] + 1, JER[Math.floor(hash(i, 3, 17) * 8)], SKINS[Math.floor(hash(i, 5, 19) * 5)]); }); sc.nOcc += crowd.length;
-  it(0.5, g2 => pCrowd(g2, sc, crowd, true));
-  // toit de la tribune principale, pylônes d'éclairage
-  it(1.2, g2 => { quad(g2, [P(3.4, 0, 66), P(21.6, 0, 66), P(21.6, 2.8, 60), P(3.4, 2.8, 60)], 'rgba(46,52,68,.62)'); for (let x = 4; x < 21.6; x += 3.5) { const a = P(x, 0.1, 30), b = P(x, 0.1, 66); g2.strokeStyle = '#6a7080'; g2.lineWidth = 2; g2.beginPath(); g2.moveTo(a[0], a[1]); g2.lineTo(b[0], b[1]); g2.stroke(); } });
-  [[0.3, 0.3], [23.4, 0.4]].forEach(p => it(p[0] + p[1], g2 => { const b = P(p[0], p[1], 0), t = P(p[0], p[1], 118), k = sc.tw / 44; g2.strokeStyle = '#7a8090'; g2.lineWidth = 3; g2.beginPath(); g2.moveTo(b[0], b[1]); g2.lineTo(t[0], t[1]); g2.stroke(); g2.fillStyle = '#3a3f58'; g2.fillRect(t[0] - 12 * k, t[1] - 10 * k, 24 * k, 12 * k); g2.fillStyle = '#fffbe0'; for (let i = 0; i < 4; i++) g2.fillRect(t[0] - 10 * k + i * 5.5 * k, t[1] - 8 * k, 4 * k, 8 * k); }));
-  // tableau d'affichage (titres écrits par le code)
-  it(23.0 + 1.2, g2 => { const b = P(22.8, 1.2, 0), t = P(22.8, 1.2, 74), k = sc.tw / 44; g2.strokeStyle = '#7a8090'; g2.lineWidth = 3; g2.beginPath(); g2.moveTo(b[0], b[1]); g2.lineTo(t[0], t[1]); g2.stroke(); g2.fillStyle = '#12141c'; g2.fillRect(t[0] - 26 * k, t[1] - 30 * k, 52 * k, 26 * k); const m = Math.floor(sc.time / 6), sA = Math.floor(m / 4) % 4, sB = Math.floor(m / 7) % 3; g2.fillStyle = '#ffd76a'; g2.font = `800 ${Math.round(12 * k)}px monospace`; g2.textAlign = 'center'; g2.fillText(sA + ' - ' + sB, t[0], t[1] - 14 * k); g2.fillStyle = '#9fe0a8'; g2.font = `700 ${Math.round(8 * k)}px monospace`; g2.fillText((12 + m % 78) + "'", t[0], t[1] - 6 * k); });
-  // vestiaires (coin arrière) : casiers, banc, joueurs qui se changent
-  pFloor(g, sc, 0, 0, 3.2, 3.2, '#d8dde2', '#cfd4da'); bPanel(g, sc, [0, 0], [3.2, 0], 0, 46, '#c8ccd2', '#9aa0a8'); bPanel(g, sc, [0, 0], [0, 3.2], 0, 46, '#b8bcc2', '#9aa0a8');
-  for (let i = 0; i < 4; i++) sbox(g, sc, 0.2 + i * 0.7, 0, 0.62, 0.45, 38, '#5b7fb0', '#4a6a98', '#3a5a88'); for (let i = 0; i < 3; i++) sbox(g, sc, 0, 0.6 + i * 0.75, 0.45, 0.68, 38, '#5b7fb0', '#4a6a98', '#3a5a88');
-  longBox(sc, 1.0, 1.6, 1.8, 0.4, 8, '#a8865a', 0, 1.8);
-  bSlot(sc, { r: 'stand', x: 1.4, y: 1.2, shirt: '#c0504d', pants: '#f4f6f8', arm: 2.4, dir: 1, face: 'f' }); bSlot(sc, { r: 'sit', x: 2.4, y: 2.2, shirt: '#c0504d', pants: '#f4f6f8', arm: 1.0, face: 'f' });
-  // buts, joueurs, arbitre, ballon
-  [[3.6, 1], [21.2, -1]].forEach(gl => it(gl[0] + 9.2 + (gl[1] < 0 ? 0.6 : 0), g2 => { const s = 0.6 * gl[1]; quad(g2, [P(gl[0], 7.3, 15), P(gl[0] - s, 7.3, 12), P(gl[0] - s, 9.1, 12), P(gl[0], 9.1, 15)], 'rgba(255,255,255,.25)'); bPanel(g2, sc, [gl[0] - s, 7.3], [gl[0] - s, 9.1], 0, 12, 'rgba(255,255,255,.18)'); g2.strokeStyle = '#f4f6f8'; g2.lineWidth = 2.4; g2.beginPath(); [[7.3, 0], [7.3, 15], [9.1, 15], [9.1, 0]].forEach((p, i) => { const q = P(gl[0], p[0], p[1]); i ? g2.lineTo(q[0], q[1]) : g2.moveTo(q[0], q[1]); }); g2.stroke(); }));
-  const ball = (gg, hx, hy, scn) => { const bo = Math.abs(Math.sin(scn.time * 6)) * 6; gg.fillStyle = '#f4f6f8'; gg.beginPath(); gg.arc(hx + 5, hy + 18 - bo, 3.6, 0, 7); gg.fill(); gg.fillStyle = '#2a2f45'; gg.beginPath(); gg.arc(hx + 5, hy + 18 - bo, 1.3, 0, 7); gg.fill(); };
-  const rr = (n, s, side) => { const o = []; for (let i = 0; i < n; i++) o.push([side ? 12.8 + ((i * 7 + s * 5) % 8) : 4.4 + ((i * 7 + s * 5) % 8), 4.4 + ((i * 5 + s * 3) % 8) * 0.95, 0.1 * (i % 2), 1]); return o; };
-  for (let i = 0; i < 10; i++) bSlot(sc, { r: 'walk', fast: true, spd: 1.3, x: 6 + i, y: 5 + (i % 5), shirt: i % 2 ? '#c0504d' : '#f4f6f8', pants: i % 2 ? '#f4f6f8' : '#2a3550', tool: i === 0 ? ball : null, way: rr(6, i, i % 2 ? 0 : 1) });
-  bSlot(sc, { r: 'stand', x: 4.2, y: 8.2, shirt: '#e0c040', pants: '#2a2f45', arm: 1.6, dir: 1 }); bSlot(sc, { r: 'stand', x: 20.6, y: 8.2, shirt: '#46a080', pants: '#2a2f45', arm: 1.6, dir: -1 });
-  bSlot(sc, { r: 'walk', x: 12, y: 7, shirt: '#1d1f26', pants: '#1d1f26', spd: 0.9, way: [[11, 6.4, 1], [14, 9.6, 1], [10, 10.4, 1], [13.6, 5.6, 1]] });
-  // banc de touche
-  longBox(sc, 9.6, 13.0, 5.0, 0.5, 8, '#3a4a6b', 0, 1.25); [10.2, 11.4, 12.6, 13.8].forEach((x, i) => bSlot(sc, { r: 'sit', x, y: 13.5, shirt: i === 0 ? '#2a2f45' : '#c0504d', arm: i === 0 ? 1.8 : 0.4, face: 'b' }));
-  sc.alertAt = [12, 8, 60]; sc.cap = () => `${fmt(sc.info.n)} spectateurs pour ${fmt(sc.info.K.cap)} places (remplissage ${pct(Math.min(1, sc.info.occ))}) · humeur des habitants ${Math.round(sc.info.hp)} / 100`;
-};
-
-// ===== Tour de télécommunications : régie, studio de la chaîne locale, salle des serveurs, carte du réseau
-PB.telecom = (sc, g, c, D) => {
-  hallBg(sc, g, D); const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f });
-  // carte du réseau sur le mur de gauche : nœuds et impulsions
-  bPanel(g, sc, [0.01, 0.8], [0.01, 6.4], 22, 66, '#152040', '#5aa0c8');
-  const NODES = [[1.4, 58], [2.6, 40], [3.4, 56], [4.4, 32], [5.2, 50], [2.0, 28], [5.8, 60]], EDG = [[0, 1], [1, 2], [2, 4], [1, 3], [3, 4], [4, 6], [5, 1], [5, 3], [0, 2]];
-  g.strokeStyle = 'rgba(90,160,200,.5)'; g.lineWidth = 1; EDG.forEach(e => { const a = P(0.02, NODES[e[0]][0], NODES[e[0]][1]), b = P(0.02, NODES[e[1]][0], NODES[e[1]][1]); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); });
-  it(0.3, g2 => { const r = 0.4 + 0.6 * Math.min(1, sc.info.occ); EDG.forEach((e, i) => { const u = (sc.time * (0.3 + 0.5 * r) + i * 0.27) % 1, a = NODES[e[0]], b = NODES[e[1]], q = P(0.03, a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u); g2.fillStyle = '#9fe0ff'; g2.beginPath(); g2.arc(q[0], q[1], 2, 0, 7); g2.fill(); }); NODES.forEach((n, i) => { const q = P(0.03, n[0], n[1]); g2.fillStyle = i % 3 ? '#5aa0c8' : '#ffd76a'; g2.beginPath(); g2.arc(q[0], q[1], 3, 0, 7); g2.fill(); }); });
-  // régie : mur d'écrans, console, opérateurs
-  for (let r = 0; r < 2; r++) for (let i = 0; i < 5; i++) bPanel(g, sc, [0.8 + i * 1.45, 0], [2.0 + i * 1.45, 0], 26 + r * 20, 42 + r * 20, '#0a0e28', '#4a5382');
-  it(0.4, g2 => { const pal = ['#5aa0c8', '#c9a0b8', '#7fb79a', '#e0c070', '#9a8ac8', '#d87a6a']; for (let r = 0; r < 2; r++) for (let i = 0; i < 5; i++) { const h = ((r * 5 + i) * 7 + Math.floor(sc.time * 0.8)) % 6; bPanel(g2, sc, [0.9 + i * 1.45, 0.03], [1.9 + i * 1.45, 0.03], 28 + r * 20, 40 + r * 20, pal[h]); const q = P(0.9 + i * 1.45, 0.04, 30 + r * 20); g2.fillStyle = 'rgba(255,255,255,.35)'; g2.fillRect(q[0] + 3, q[1] - 3, 8 + ((i + r + Math.floor(sc.time * 2)) % 4) * 4, 1.5); } });
-  longBox(sc, 0.9, 2.2, 7.0, 0.9, 14, '#5a6392', 0, 1.4);
-  it(4.4 + 3.2, g2 => { for (let i = 0; i < 18; i++) { const x = 1.2 + i * 0.37, q = P(x, 2.65, 13), h = 2 + 4 * Math.abs(Math.sin(sc.time * (0.6 + (i % 5) * 0.3) + i)); g2.fillStyle = i % 4 ? '#c9ccd2' : '#e05a5a'; g2.fillRect(q[0] - 1, q[1] - h, 2.2, 2); } });
-  [2.0, 4.4, 6.8].forEach((x, i) => { it(x + 3.6, g2 => bChair(g2, sc, x, 3.6, '#12163a')); bSlot(sc, { r: 'sit', x, y: 3.6, face: 'b', arm: 1.0 + i * 0.2, shirt: ['#5b7fb0', '#7a6a9a', '#4a8a8a'][i] }); });
-  pOcc(sc, { r: 'stand', x: 8.0, y: 4.2, face: 'b', arm: 1.8, dir: -1, shirt: '#d8c8b0' });
-  it(8.6 + 6.0, g2 => { bPanel(g2, sc, [8.8, 0], [8.8, 6.0], 0, 50, 'rgba(120,170,220,.12)', 'rgba(160,200,240,.5)'); });
-  // studio : décor de ville, bureau du journal, présentateurs, caméras, projecteurs
-  pFloor(g, sc, 9.0, 0, sc.GW, 6.8, '#33395c', '#2f3556');
-  bPanel(g, sc, [9.6, 0], [18.4, 0], 8, 66, '#0a0e28', D.trim);
-  for (let i = 0; i < 13; i++) { const h = 12 + ((i * 53) % 30), x0 = 9.9 + i * 0.64; bPanel(g, sc, [x0, 0.01], [x0 + 0.5, 0.01], 12, 12 + h, fshade('#2c3a6a', (i % 3) * 12)); for (let w = 0; w < 3; w++) bPanel(g, sc, [x0 + 0.12, 0.02], [x0 + 0.22, 0.02], 15 + w * 6, 17 + w * 6, ((i + w) * 7) % 5 ? 'rgba(255,224,150,.7)' : '#1d2140'); }
-  longBox(sc, 11.6, 2.6, 5.2, 1.0, 17, '#e8ecf2', 0, 1.3); it(14.2 + 3.7, g2 => bPanel(g2, sc, [11.6, 3.61], [16.8, 3.61], 4, 15, D.trim));
-  [12.8, 15.4].forEach((x, i) => { it(x + 2.1, g2 => bChair(g2, sc, x, 2.0, '#12163a')); bSlot(sc, { r: 'sit', x, y: 2.0, face: 'f', arm: 1.0 + i * 0.3, shirt: i ? '#c97a8a' : '#2b3358' }); });
-  it(18.4 + 0.5, g2 => { const q = P(17.2, 0.03, 64), on = Math.sin(sc.time * 2.4) > -0.4, k = sc.tw / 44; g2.fillStyle = on ? '#d83a44' : '#4a1d2a'; rrect(g2, q[0] - 24 * k, q[1] - 6 * k, 48 * k, 16 * k, 4); g2.fill(); g2.fillStyle = on ? '#fff' : '#8a5a64'; g2.font = `800 ${Math.round(10 * k)}px sans-serif`; g2.textAlign = 'center'; g2.fillText('EN DIRECT', q[0], q[1] + 6 * k); });
-  it(2, g2 => { [11.4, 14.2, 17.0].forEach((x, i) => { const top = P(x, 2.0, 80), fl = P(x + 0.3, 3.4, 5), a = 0.05 + 0.05 * (0.8 + 0.2 * Math.sin(sc.time * 2 + i)); g2.fillStyle = `rgba(255,240,200,${a})`; g2.beginPath(); g2.moveTo(top[0] - 4, top[1]); g2.lineTo(top[0] + 4, top[1]); g2.lineTo(fl[0] + 34, fl[1]); g2.lineTo(fl[0] - 34, fl[1]); g2.closePath(); g2.fill(); g2.fillStyle = '#12163a'; g2.fillRect(top[0] - 6, top[1] - 8, 12, 9); }); });
-  const cam = (x, y, i) => it(x + y + 0.5, g2 => { const sw = Math.sin(sc.time * 0.5 + i * 2) * 0.3, cx = x + sw; for (let l = -1; l <= 1; l++) { const b = P(cx + l * 0.45, y + 0.3, 0), t = P(cx, y, 28); g2.strokeStyle = '#3a4060'; g2.lineWidth = 2; g2.beginPath(); g2.moveTo(b[0], b[1]); g2.lineTo(t[0], t[1]); g2.stroke(); } cbox(g2, sc, cx - 0.3, y - 0.45, 0.6, 0.9, 46, '#2b3358', 28); cbox(g2, sc, cx - 0.2, y - 0.75, 0.4, 0.3, 42, '#12163a', 32); const q = P(cx, y + 0.45, 38); g2.fillStyle = Math.sin(sc.time * 4) > 0 ? '#d83a44' : '#5a2a30'; g2.beginPath(); g2.arc(q[0] + 6, q[1] - 6, 2, 0, 7); g2.fill(); });
-  cam(12.2, 5.6, 0); cam(16.6, 5.8, 1);
-  bSlot(sc, { r: 'stand', x: 12.2, y: 6.5, shirt: '#2b3358', arm: 1.5 }); pOcc(sc, { r: 'stand', x: 16.6, y: 6.7, shirt: '#4a8a8a', arm: 1.5, dir: -1 });
-  // salle des serveurs et baies de transmission
-  pFloor(g, sc, 0, 6.6, 8.6, sc.GH, '#20253f', '#1c2139');
-  [7.2, 9.2].forEach((y, r) => { for (let i = 0; i < 5; i++) { const x = 0.7 + i * 1.5; it(x + y + 1.6, g2 => { sbox(g2, sc, x, y, 1.3, 0.9, 46, '#262b48', '#1c2034', '#151829'); for (let row = 0; row < 7; row++) for (let j = 0; j < 4; j++) { const v = bLed(i * 4 + j + r * 20, row, sc.time, 2 + 4 * Math.min(1, sc.info.occ)); const q = P(x + 0.15 + j * 0.3, y + 0.9, 8 + row * 5.4); g2.fillStyle = v < 1 ? '#e05a5a' : v < 5 ? '#6fe08a' : v < 7 ? '#5aa0c8' : '#2a3050'; g2.fillRect(q[0] - 1.6, q[1] - 1, 3.2, 1.8); } }); } });
-  [0, 1].forEach(i => pOcc(sc, { r: 'walk', x: 1 + i * 3, y: 8.6, shirt: '#d8c8b0', bag: '#8f9acb', way: [[0.9 + i * 3, 8.6, 2.5, 1, 1.4], [7.6 - i * 2, 8.6, 2], [7.8, 10.6, 2.5, -1, 1.2], [1.2, 10.8, 1]] }));
-  // émetteur : armoires et oscilloscopes
-  for (let i = 0; i < 3; i++) it(12 + i * 1.6 + 9.2, g2 => { const x = 11.4 + i * 1.8; cbox(g2, sc, x, 8.4, 1.3, 0.8, 34, '#3a4060'); const a = P(x + 0.15, 9.21, 26), b = P(x + 1.15, 9.21, 26); g2.fillStyle = '#0a1a14'; g2.fillRect(a[0], a[1] - 6, b[0] - a[0], 7); g2.strokeStyle = '#6fe08a'; g2.lineWidth = 1; g2.beginPath(); for (let u = 0; u <= 1.001; u += 0.1) { const xx = a[0] + (b[0] - a[0]) * u, yy = a[1] + (b[1] - a[1]) * u - 3 + Math.sin(u * 12 + sc.time * 6 + i) * 2.2; u ? g2.lineTo(xx, yy) : g2.moveTo(xx, yy); } g2.stroke(); });
-  pOcc(sc, { r: 'stand', x: 13.2, y: 10.2, shirt: '#5aa0c8', arm: 1.6, face: 'b' });
-  sc.alertAt = [9, 5, 70]; sc.cap = () => `${fmt(sc.info.n)} abonnés pour ${fmt(sc.info.K.cap)} lignes (charge ${pct(sc.info.occ)}) · ${sc.info.staff} techniciens et journalistes`;
-};
-
-// ===== Aéroport : enregistrement, sûreté, salle d'embarquement face aux pistes, boutique hors taxes
-PB.air = (sc, g, c, D) => {
-  hallBg(sc, g, D); const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f }), wh = D.wh, X0 = 12.4, X1 = sc.GW;
-  // baie vitrée sur les pistes (mur du fond)
-  const win = (x0, x1, z0, z1, col) => quad(g, [P(x0, 0.01, z1), P(x1, 0.01, z1), P(x1, 0.01, z0), P(x0, 0.01, z0)], col);
-  win(X0, X1, 34, wh - 6, '#9cc0dc'); win(X0, X1, 50, wh - 6, '#b6d2e6'); win(X0, X1, 4, 34, '#7a8088'); win(X0, X1, 18, 24, '#5a6068');
-  for (let x = X0 + 0.3; x < X1 - 0.6; x += 1.2) win(x, x + 0.5, 20.5, 21.5, '#f4f4f0');
-  win(X0 + 1.0, X0 + 1.5, 34, 64, '#8a9098'); win(X0 + 0.6, X0 + 1.9, 64, 70, '#6a7078');   // tour de contrôle au loin
-  it(0.6, g2 => {   // avion qui roule puis décolle, dessiné dans le plan de la vitre
-    const cyc = 24, u = (sc.time % cyc) / cyc, x = X0 - 3 + u * (X1 - X0 + 6), z = 22 + Math.max(0, u - 0.55) * 120, rot = -Math.min(0.18, Math.max(0, u - 0.5) * 0.9), k = sc.tw / 44;
-    g2.save(); quad(g2, [P(X0, 0.02, wh - 6), P(X1, 0.02, wh - 6), P(X1, 0.02, 4), P(X0, 0.02, 4)]); g2.clip();
-    const q = P(x, 0.02, z); g2.translate(q[0], q[1]); g2.transform(1, 0.5, 0, 1, 0, 0); g2.rotate(rot); g2.scale(k, k);
-    g2.fillStyle = '#f2f4f6'; g2.beginPath(); g2.ellipse(0, -6, 34, 5.5, 0, 0, 7); g2.fill(); g2.beginPath(); g2.moveTo(-30, -8); g2.lineTo(-40, -24); g2.lineTo(-32, -24); g2.lineTo(-20, -9); g2.fill();
-    g2.fillStyle = '#4f7fa8'; g2.beginPath(); g2.moveTo(-36, -24); g2.lineTo(-40, -24); g2.lineTo(-33, -12); g2.fill(); g2.fillStyle = '#c8ccd2'; g2.beginPath(); g2.moveTo(-6, -4); g2.lineTo(8, -4); g2.lineTo(-12, 8); g2.lineTo(-18, 8); g2.fill();
-    g2.fillStyle = '#5a6070'; for (let i = 0; i < 11; i++) g2.fillRect(-20 + i * 4.4, -8, 2, 2); g2.fillStyle = '#9aa0a8'; g2.fillRect(-4, 0, 9, 4);
-    if (z < 24) { g2.fillStyle = '#2a2f45'; g2.fillRect(-14, 0, 2, 5); g2.fillRect(18, 0, 2, 5); }
-    g2.restore();
-  });
-  for (let x = X0; x <= X1 + 0.01; x += 1.6) bPanel(g, sc, [x, 0.02], [x + 0.08, 0.02], 4, wh - 6, '#6a7078');
-  // tableaux des départs (mur du fond, à gauche) et entrée vitrée (mur de gauche)
-  for (let b = 0; b < 2; b++) bPanel(g, sc, [1.2 + b * 5.2, 0.01], [5.4 + b * 5.2, 0.01], 52, 78, '#12141c', '#4a5060');
-  it(0.4, g2 => { for (let b = 0; b < 2; b++) for (let r = 0; r < 6; r++) { const y0 = 54 + r * 4, f = (r + Math.floor(sc.time / 3) + b) % 7; bPanel(g2, sc, [1.4 + b * 5.2, 0.02], [3.0 + b * 5.2, 0.02], y0, y0 + 2.4, '#e8e0a8'); bPanel(g2, sc, [3.2 + b * 5.2, 0.02], [4.4 + b * 5.2, 0.02], y0, y0 + 2.4, f < 2 ? '#6fe08a' : f < 3 ? '#e0a25a' : '#c8ccd2'); } });
-  bPanel(g, sc, [0.01, 9.0], [0.01, 12.6], 0, 54, 'rgba(160,210,240,.4)', '#8a9098');
-  // enregistrement : comptoirs, tapis bagages, agents, file d'attente
-  quad(g, [P(0.6, 0.8), P(9.0, 0.8), P(9.0, 1.4), P(0.6, 1.4)], '#3a3f48'); it(1.2, g2 => { for (let i = 0; i < 14; i++) { const u = ((i / 14) + sc.time * 0.05) % 1, q = P(0.7 + u * 8.2, 1.1, 1); g2.fillStyle = 'rgba(255,255,255,.16)'; g2.fillRect(q[0] - 3, q[1] - 1, 6, 2); } });
-  [0, 1, 2].forEach(i => { const x = 1.0 + i * 2.8; bSlot(sc, { r: 'sit', x: x + 0.8, y: 1.9, face: 'f', arm: 1.1, shirt: '#4f7fa8' }); longBox(sc, x, 2.4, 1.8, 0.6, 16, '#c8ccd2', 0, 1.8); bPanel(g, sc, [x + 0.2, 0.01], [x + 1.6, 0.01], 36, 46, '#4f7fa8'); });
-  it(4.6 + 5.4, g2 => { g2.strokeStyle = '#4f7fa8'; g2.lineWidth = 2; [4.2, 5.6].forEach(y => { const a = P(1.0, y, 10), b = P(8.6, y, 10); g2.beginPath(); g2.moveTo(a[0], a[1]); g2.lineTo(b[0], b[1]); g2.stroke(); for (let x = 1.0; x <= 8.61; x += 2.53) { const p0 = P(x, y, 0), p1 = P(x, y, 11); g2.strokeStyle = '#8a9098'; g2.beginPath(); g2.moveTo(p0[0], p0[1]); g2.lineTo(p1[0], p1[1]); g2.stroke(); g2.strokeStyle = '#4f7fa8'; } }); });
-  for (let i = 0; i < 8; i++) pOcc(sc, { r: 'stand', x: 1.6 + i * 0.95, y: i % 2 ? 4.9 : 3.5, face: 'b', arm: 0.3, tool: pCase(pCaseCol[i % 6]), shirt: SHIRTS[(i * 3) % 8] });
-  for (let i = 0; i < 6; i++) pOcc(sc, { r: 'stand', x: 1.8 + i * 1.15, y: 6.4, face: 'b', arm: 0.3, tool: pCase(pCaseCol[(i + 2) % 6]), shirt: SHIRTS[(i * 5 + 1) % 8] });
-  // sûreté : portiques et tunnel à rayons X
-  [3.0, 5.6].forEach((y, i) => it(10.4 + y + 0.6, g2 => { sbox(g2, sc, 10.0, y, 0.15, 0.15, 40, '#c8ccd2', '#9aa0a8', '#8a9098'); sbox(g2, sc, 10.0, y + 1.0, 0.15, 0.15, 40, '#c8ccd2', '#9aa0a8', '#8a9098'); sbox(g2, sc, 10.0, y, 0.15, 1.15, 44, '#c8ccd2', '#9aa0a8', '#8a9098', 40); const on = Math.sin(sc.time * 3 + i) > 0.7; const q = P(10.07, y + 0.57, 42); g2.fillStyle = on ? '#6fe08a' : '#2a5040'; g2.fillRect(q[0] - 2, q[1] - 2, 4, 3); }));
-  it(11.6 + 2.4, g2 => { cbox(g2, sc, 10.8, 1.6, 1.6, 0.7, 10, '#3a3f48'); cbox(g2, sc, 11.2, 1.55, 0.8, 0.8, 26, '#9aa0a8', 10); });
-  bSlot(sc, { r: 'stand', x: 11.2, y: 4.2, shirt: '#2a3550', pants: '#2a3550', arm: 1.2, dir: -1 }); bSlot(sc, { r: 'stand', x: 11.4, y: 7.0, shirt: '#2a3550', pants: '#2a3550', arm: 0.4, dir: -1 });
-  // salle d'embarquement : rangées de sièges face aux pistes, comptoir de la porte
-  [2.6, 4.0, 5.4].forEach((y, r) => { for (let x = 13.2; x < 23.2; x += 0.7) { const xx = x; it(xx + y + 0.1, g2 => { cbox(g2, sc, xx - 0.28, y - 0.2, 0.56, 0.5, 8, '#3a4a6b'); cbox(g2, sc, xx - 0.28, y + 0.26, 0.56, 0.1, 18, '#2a3a5b', 8); }); }
-    for (let x = 13.2 + (r % 2) * 0.7; x < 23.2; x += 1.4) pOcc(sc, { r: 'sit', x, y: y - 0.02, face: 'b', arm: (x * 10 + r) % 3 < 1 ? 1.1 : 0.2, shirt: SHIRTS[Math.floor(x * 3 + r) % 8], tool: (x * 10) % 4 < 1 ? pSheet : null }); });
-  it(24.6 + 6.6, g2 => cbox(g2, sc, 24.0, 6.2, 1.4, 0.6, 16, '#4f7fa8')); bSlot(sc, { r: 'stand', x: 24.7, y: 5.8, shirt: '#4f7fa8', arm: 1.3, dir: -1, face: 'f' });
-  bPanel(g, sc, [23.6, 0.03], [25.4, 0.03], 4, 42, '#3a4050', '#8a9098');
-  // boutique hors taxes
-  pFloor(g, sc, 14.0, 8.4, sc.GW, sc.GH, '#c9a878', '#c09e6e');
-  [9.2, 11.2].forEach((y, r) => { longBox(sc, 15.0, y, 6.4, 0.6, 26, '#e8e4d8', 0, 1.6); it(18.2 + y + 0.62, g2 => { for (let i = 0; i < 16; i++) { const q = P(15.2 + i * 0.4, y + 0.62, 8 + (i % 3) * 7); g2.fillStyle = ['#d9b45a', '#c97a8a', '#5b7fb0', '#e8e4d8', '#7a5a8a', '#46a080'][(i + r) % 6]; g2.fillRect(q[0] - 3, q[1] - 6, 6, 6); } }); });
-  it(23.6 + 12.6, g2 => { cbox(g2, sc, 22.6, 12.2, 2.4, 0.7, 16, '#3a2a1e'); bPanel(g2, sc, [22.6, 12.9], [25.0, 12.9], 16, 22, 'rgba(200,230,250,.4)'); });
-  bSlot(sc, { r: 'stand', x: 23.8, y: 11.7, shirt: '#2a2f45', arm: 1.4, face: 'f' });
-  for (let i = 0; i < 5; i++) pOcc(sc, { r: 'walk', x: 15 + i, y: 10.2, bag: ['#d9b45a', '#c97a8a', '#e8ecff'][i % 3], shirt: SHIRTS[(i * 3 + 2) % 8], way: [[14.8 + i * 0.4, 10.3, 2 + i * 0.4, 1, 1.4], [21.8, 10.4, 1.5, 1, 1.4], [21.8, 12.4, 1.2], [15.0, 12.6, 1.6, 1, 1.4]] });
-  sc.vcfg = { door: [0.4, 10.8], max: 6, gap: 2.6, route: rnd => [[4.4 + rnd() * 3, 7.6, 0.3], [10.8, 3.6 + rnd() * 2.6, 1.2], [13.6 + rnd() * 9, 6.8, 0.6], [24.0 + rnd(), 7.2, 0.4], [24.6, 1.2, 0]], bag: rnd => pCaseCol[Math.floor(rnd() * 6)] };
-  sc.alertAt = [12, 6, 80]; sc.cap = () => `${fmt(sc.info.n)} passagers par jour (capacité ${fmt(sc.info.K.cap)}) · ${sc.info.staff} agents · un décollage toutes les quelques minutes`;
-};
-
-// ===== Mall central : galeries, boutiques vitrées, atrium et fontaine, escalator, foule
-PB.mall = (sc, g, c, D) => {
-  hallBg(sc, g, D); const P = (x, y, z) => isoP(sc, x, y, z), it = (k, f) => sc.items.push({ k, f }), wh = D.wh;
-  const SH = [['MODE', '#7a8fb0', ['#d8c8b0', '#7a8fb0', '#b04a5a', '#3a3f58']], ['MAISON', '#a08a6a', ['#d8c8b0', '#a08a6a', '#7a8f7a', '#e8e4d8']], ['HIGH-TECH', '#3a4a6b', ['#2a2f45', '#e8ecf4', '#5b6178', '#5aa0c8']], ['BEAUTÉ', '#b07a8a', ['#f4f1e8', '#c97a8a', '#d9b45a', '#e8e4d8']], ['SPORT', '#4a8a6a', ['#2f6fb0', '#c0504d', '#f4f6f8', '#46a080']], ['LIBRAIRIE', '#8a6a4a', ['#c0504d', '#5b7fb0', '#e0a25a', '#81b29a']], ['ÉPICERIE FINE', '#6a7a4a', ['#d9b45a', '#7a8f4a', '#b04a5a', '#e8e4d8']]];
-  // galerie haute (mezzanine) et vitrines de l'étage
-  for (let i = 0; i < 6; i++) bPanel(g, sc, [0.6 + i * 4.2, 0.01], [4.4 + i * 4.2, 0.01], 70, 90, 'rgba(160,200,230,.5)', '#8a8478');
-  for (let j = 0; j < 3; j++) bPanel(g, sc, [0.01, 3.6 + j * 3.4], [0.01, 6.6 + j * 3.4], 70, 90, 'rgba(160,200,230,.45)', '#8a8478');
-  // boutiques du fond (profondeur 2,4 cases) : sol, rayons, présentoir, vitrine, enseigne
-  const shop = (i, x0, w, ax) => {
-    const S0 = SH[i % SH.length], dp = 2.4;
-    if (ax === 'x') { pFloor(g, sc, x0, 0, x0 + w, dp, fshade(S0[1], 90), fshade(S0[1], 82)); pShelfX(g, sc, x0 + 0.2, x0 + w - 0.2, 40, S0[2]); bSign(sc, g, x0 + 0.3, x0 + w - 0.3, 50, 58, S0[0], S0[1], '#f4f1e8'); it(x0 + w / 2 + 1.4, g2 => cbox(g2, sc, x0 + w / 2 - 0.6, 1.0, 1.2, 0.6, 11, '#e8e4d8')); bSlot(sc, { r: 'stand', x: x0 + 0.9, y: 1.6, shirt: S0[1], arm: 1.2, face: 'f' }); pOcc(sc, { r: 'stand', x: x0 + w - 1.0, y: 1.3, face: 'b', arm: 1.4, shirt: SHIRTS[(i * 3) % 8], bag: '#e8ecff' });
-      it(x0 + w + dp + 0.05, g2 => { bPanel(g2, sc, [x0, dp], [x0 + w / 2 - 0.6, dp], 0, 48, 'rgba(170,215,240,.18)', 'rgba(230,240,250,.8)'); bPanel(g2, sc, [x0 + w / 2 + 0.6, dp], [x0 + w, dp], 0, 48, 'rgba(170,215,240,.18)', 'rgba(230,240,250,.8)'); bPanel(g2, sc, [x0, dp], [x0 + w, dp], 44, 48, '#8a8478'); }); }
-    else { pFloor(g, sc, 0, x0, dp, x0 + w, fshade(S0[1], 90), fshade(S0[1], 82)); pShelfY(g, sc, x0 + 0.2, x0 + w - 0.2, 40, S0[2]); pSignY(sc, g, x0 + 0.3, x0 + w - 0.3, 50, 58, S0[0], S0[1], '#f4f1e8'); it(1.4 + x0 + w / 2, g2 => cbox(g2, sc, 1.0, x0 + w / 2 - 0.6, 0.6, 1.2, 11, '#e8e4d8')); bSlot(sc, { r: 'stand', x: 1.6, y: x0 + 0.9, shirt: S0[1], arm: 1.2, face: 'f' });
-      it(dp + x0 + w + 0.05, g2 => { bPanel(g2, sc, [dp, x0], [dp, x0 + w / 2 - 0.6], 0, 48, 'rgba(170,215,240,.18)', 'rgba(230,240,250,.8)'); bPanel(g2, sc, [dp, x0 + w / 2 + 0.6], [dp, x0 + w], 0, 48, 'rgba(170,215,240,.18)', 'rgba(230,240,250,.8)'); bPanel(g2, sc, [dp, x0], [dp, x0 + w], 44, 48, '#8a8478'); }); }
-  };
-  for (let i = 0; i < 5; i++) shop(i, 0.4 + i * 4.6 + (i ? 0 : 2.4), i ? 4.2 : 1.8, 'x');
-  shop(5, 3.0, 4.4, 'y'); shop(6, 8.0, 4.4, 'y');
-  // balcon de la mezzanine au-dessus des boutiques
-  it(0.2, g2 => { bPanel(g2, sc, [3.0, 3.0], [sc.GW, 3.0], 60, 65, '#d8d2c4', '#b8b0a0'); bPanel(g2, sc, [3.0, 3.0], [sc.GW, 3.0], 65, 76, 'rgba(190,220,240,.22)', 'rgba(230,240,250,.8)'); bPanel(g2, sc, [3.0, 3.0], [3.0, sc.GH], 60, 65, '#c8c0b0', '#b8b0a0'); bPanel(g2, sc, [3.0, 3.0], [3.0, sc.GH], 65, 76, 'rgba(190,220,240,.22)', 'rgba(230,240,250,.8)'); });   // bord de la galerie haute (coupe : pas de dalle qui masquerait les boutiques)
-  // atrium : fontaine animée, arbres, bancs
-  const FX = 14.2, FY = 8.6; pRug(g, sc, FX, FY, 3.0, 3.0, '#d0c8b8', '#c0b8a6');
-  it(FX + FY + 1.4, g2 => { cyl(g2, sc, FX, FY, 1.3, 0, 6, '#b8b0a0', '#7fa8c8'); cyl(g2, sc, FX, FY, 0.25, 6, 22, '#c8c0b0'); const q = P(FX, FY, 22), k = sc.tw / 44; g2.strokeStyle = 'rgba(220,240,255,.85)'; g2.lineWidth = 1.4; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + sc.time * 0.3, ex = Math.cos(a) * 26 * k, ey = Math.sin(a) * 13 * k, h = 16 * k * (0.9 + 0.1 * Math.sin(sc.time * 4 + i)); g2.beginPath(); g2.moveTo(q[0], q[1]); g2.quadraticCurveTo(q[0] + ex * 0.5, q[1] + ey * 0.5 - h, q[0] + ex, q[1] + ey + 14 * k); g2.stroke(); } });
-  [[9.0, 5.2], [19.4, 5.2], [9.0, 12.4], [19.4, 12.4]].forEach(p => { it(p[0] + p[1] + 0.5, g2 => { cbox(g2, sc, p[0] - 0.5, p[1] - 0.5, 1.0, 1.0, 10, '#8a8478'); }); it(p[0] + p[1] + 0.9, g2 => bPlant(g2, sc, p[0], p[1], 2.2)); });
-  [[11.2, 6.2], [17.2, 6.2], [11.2, 11.0], [17.2, 11.0]].forEach((p, i) => { longBox(sc, p[0] - 0.7, p[1], 1.4, 0.45, 8, '#6a4a30', 0, 1.4); pOcc(sc, { r: 'sit', x: p[0] - 0.2, y: p[1] + 0.55, face: 'f', arm: 0.3, shirt: SHIRTS[(i * 5 + 3) % 8], bag: i % 2 ? '#e8ecff' : null }); });
-  // escalator vers la galerie
-  it(23.2 + 7.6, g2 => { quad(g2, [P(22.2, 7.6, 0), P(22.2, 3.0, 62), P(23.4, 3.0, 62), P(23.4, 7.6, 0)], '#8a9098'); for (let i = 0; i < 12; i++) { const u = (i / 12 + sc.time * 0.08) % 1, a = P(22.25, 7.6 - u * 4.6, u * 62 + 1), b = P(23.35, 7.6 - u * 4.6, u * 62 + 1); g2.strokeStyle = 'rgba(40,44,56,.5)'; g2.lineWidth = 1; g2.beginPath(); g2.moveTo(a[0], a[1]); g2.lineTo(b[0], b[1]); g2.stroke(); } quad(g2, [P(23.4, 7.6, 0), P(23.4, 3.0, 62), P(23.4, 3.0, 74), P(23.4, 7.6, 12)], 'rgba(190,220,240,.35)', 'rgba(230,240,250,.8)'); [0, 0.5].forEach((o, j) => { const u = (sc.time * 0.08 + o) % 1; pFigure(g2, sc, 22.8, 7.6 - u * 4.6, u * 62, { seated: false, face: 'b', arm: 0.3, i: j + 4, bag: '#e8ecff' }); }); });
-  // café au milieu de la galerie
-  it(5.4 + 9.6, g2 => { cbox(g2, sc, 4.6, 9.2, 1.6, 0.9, 16, '#6a4a30'); sbox(g2, sc, 4.7, 9.25, 1.4, 0.8, 18, '#e8e4d8', '#c8c0b0', '#b8b0a0', 16); });
-  bSlot(sc, { r: 'stand', x: 5.4, y: 8.7, shirt: '#3a2a1e', arm: 1.5, face: 'f' });
-  [[4.6, 11.6], [6.6, 11.8]].forEach((p, i) => { it(p[0] + p[1] + 0.2, g2 => { cyl(g2, sc, p[0], p[1], 0.35, 0, 12, '#c8c0b0'); }); pOcc(sc, { r: 'sit', x: p[0] - 0.55, y: p[1] + 0.1, face: 's', dir: 1, arm: 1.0, shirt: SHIRTS[(i * 3 + 1) % 8] }); pOcc(sc, { r: 'sit', x: p[0] + 0.55, y: p[1] + 0.1, face: 's', dir: -1, arm: 0.6, shirt: SHIRTS[(i * 3 + 4) % 8] }); });
-  // la foule : promeneurs avec sacs, sur des boucles entre les vitrines
-  const BAG = ['#e8ecff', '#d9b45a', '#c97a8a', '#7a8fb0', '#e8e4d8'];
-  for (let i = 0; i < 18; i++) { const r = 2.8 + (i % 3) * 1.2, ph = i * 0.7, way = []; for (let j = 0; j < 6; j++) { const a = ph + j * 1.047; way.push([clamp(FX + Math.cos(a) * r * 1.9, 3.4, 21.6), clamp(FY + Math.sin(a) * r, 3.4, 13.4), j === 2 ? 1.2 : 0.2]); }
-    pOcc(sc, { r: 'walk', x: way[0][0], y: way[0][1], bag: i % 3 ? BAG[i % 5] : null, shirt: SHIRTS[(i * 3) % 8], ks: i % 7 === 3 ? 0.66 : 1, way }); }
-  sc.vcfg = { door: [14, sc.GH + 0.5], max: 6, gap: 2.5, route: rnd => [[4 + rnd() * 18, 3.2 + rnd() * 0.4, 1.5 + rnd() * 2, 1, 0.3], [6 + rnd() * 14, 6 + rnd() * 6, 0.5], [14, sc.GH + 0.5]], bag: rnd => BAG[Math.floor(rnd() * 5)] };
-  sc.alertAt = [13, 7, 90]; sc.cap = () => `${fmt(sc.info.n)} visiteurs par jour · ${fmt(sc.info.staff)} vendeurs et agents · fréquentation ${pct(sc.info.occ)}`;
-};
 /* ---------- Plan d'usine : éditeur (mini-carte, menu d'ajout) et scène isométrique (Passe 24) ---------- */
 let planSel = -1, planMv = -1, planView = true, planPopHTML = '', planTool = '', immOn = false, immPanel = '';
 const fqp = v => v < 10 ? (Math.round(v * 100) / 100).toString().replace('.', ',') : fmt(v);
@@ -15239,10 +14608,10 @@ function planFrame(sc, c, dt) {   // une image de la scène de plan : couche de 
 }
 function sceneReset(c, keepCam) {
   const T = TYPES[c.t], isP = !!PLAN_DIM[c.t];
-  const upd = (s, c2, dt) => ({ retail: updRetail, site: updSite, fac: updFac, off: updOff, bld: updBld, plan: updPlan, pub: updPub })[s.kind](s, c2, dt);
+  const upd = (s, c2, dt) => ({ retail: updRetail, site: updSite, fac: updFac, off: updOff, bld: updBld, plan: updPlan })[s.kind](s, c2, dt);
   el('bstage').classList.toggle('plan', isP);
   const sv = keepCam ? { z: scam.z, x: scam.x, y: scam.y } : null;
-  scene = isPubCell(c) ? mkPub(c) : isP ? mkPlanScene(c) : (T.ext || c.t === 'wh' || c.t === 'ewh') ? mkSite(c) : (T.ret && c.t !== 'immo') ? mkRetail(c) : (T.rec) ? mkFac(c) : BLD[c.t] ? mkBld(c) : mkOffice(c);
+  scene = isP ? mkPlanScene(c) : (T.ext || c.t === 'wh' || c.t === 'ewh') ? mkSite(c) : (T.ret && c.t !== 'immo') ? mkRetail(c) : (T.rec) ? mkFac(c) : BLD[c.t] ? mkBld(c) : mkOffice(c);
   scene.cid = c.t + c.x + '_' + c.y; scene.H = scene.H || SCH; el('bscene').width = scene.W || SCW; el('bscene').height = scene.H; capLast = ''; el('bcap').textContent = '';
   if (isP) { facBtns(); camLayout(); if (sv) { scam.z = sv.z; scam.x = sv.x; scam.y = sv.y; camClamp(); camApply(); } else camHome(); planFrame(scene, c, 0); }
   else { const cv = el('bscene'); cv.style.width = cv.style.height = cv.style.transform = ''; scam.z = 1; scam.x = 0; scam.y = 0; const sw = el('bsw'); if (sw) setTimeout(() => { sw.scrollLeft = Math.max(0, (sw.scrollWidth - sw.clientWidth) / 2); }, 0); }
@@ -15258,9 +14627,9 @@ function sceneFrame(dt) {
   const cv = el('bscene'), g = cv.getContext('2d');
   scene.lsT = (scene.lsT || 0) - dt; if (scene.lsT <= 0 || !scene.ls) { scene.lsT = 0.6; scene.ls = clamp(cv.width / Math.max(160, cv.clientWidth || cv.width), 1, 2.6); }   // libellés de scène : taille écran constante malgré la réduction du canvas
   if (scene.kind === 'plan') planFrame(scene, c, dt);
-  ({ retail: updRetail, site: updSite, fac: updFac, off: updOff, bld: updBld, plan: updPlan, pub: updPub })[scene.kind](scene, c, dt);
+  ({ retail: updRetail, site: updSite, fac: updFac, off: updOff, bld: updBld, plan: updPlan })[scene.kind](scene, c, dt);
   g.clearRect(0, 0, cv.width, cv.height); g.textAlign = 'left';
-  ({ retail: drawRetail, site: drawSite, fac: drawFac, off: drawOff, bld: drawBld, plan: drawPlan, pub: drawBld })[scene.kind](scene, c, g);
+  ({ retail: drawRetail, site: drawSite, fac: drawFac, off: drawOff, bld: drawBld, plan: drawPlan })[scene.kind](scene, c, g);
 }
 
 function sceneLoop(ts) {
@@ -20887,7 +20256,7 @@ function mallHTML() {
   h += `<h4>Pôle commercial</h4><p class="mnote">Boutique à moins de ${MALL_R} cases du mall : +${Math.round(MALL_TRF * 100)} % de fréquentation. ${POLE_N} boutiques voisines ou plus (adjacentes ou à une case, avenue comprise) : pôle commercial, +${Math.round(POLE_TRF * 100)} % de fréquentation et frais fixes partagés −${Math.round(POLE_UPK * 100)} %. Cumul ×${f2((1 + MALL_TRF) * (1 + POLE_TRF))} au plus ; la fréquentation reste plafonnée à 100.</p>`;
   h += vvSvcHTML();   // ville vivante : commerces de quartier
   h += `<div class="r"><span>Magasins spécialisés présents</span><span>${specMallLine()}</span></div><p class="mnote">Concession, high-tech, luxe, mode, pharmacie, maison, sport, bricolage : un spécialiste ne vend que sa famille, mais la vend mieux (attrait, marge, marque). Près du mall, il profite aussi du bonus de fréquentation.</p>`;
-  h += `<div class="acts"><button class="btn" data-mall="shop">Ouvrir ma boutique près du mall</button><button class="btn" data-mall="prod">Voir les produits</button><button class="btn" data-mall="air">Aéroport : vendre aux voyageurs</button><button class="btn" data-mall="port">Importer depuis le port</button><button class="btn sec" data-mall="int">Voir l'intérieur du mall</button></div>`;
+  h += `<div class="acts"><button class="btn" data-mall="shop">Ouvrir ma boutique près du mall</button><button class="btn" data-mall="prod">Voir les produits</button><button class="btn" data-mall="air">Aéroport : vendre aux voyageurs</button><button class="btn" data-mall="port">Importer depuis le port</button></div>`;
   return h;
 }
 function mallRender() { const b = el('mallp'); if (!b) return; if (!mallOn) { b.hidden = true; return; } b.innerHTML = mallHTML(); b.hidden = false; }
@@ -20905,7 +20274,6 @@ function mallSpot(key) {   // case libre la plus proche du mall où la boutique 
 }
 function mallAct(a) {
   if (a === 'close') { mallClose(); return; }
-  if (a === 'int') { const P = mallPos(); mallClose(); if (P) openBuilding(P.x, P.y); return; }   // passe 78
   if (a === 'shop') { const sp = mallSpot('s1'); mallClose(); setTool('s1'); if (sp) { centerOn(sp.x, sp.y); fitted = true; mallHint = { x: sp.x, y: sp.y, until: performance.now() + 15000 }; say(`Case libre à ${f1(sp.d)} cases du mall marquée d'une étoile : pose ton petit marché (outil sélectionné). Près du mall : +${Math.round(MALL_TRF * 100)} % de fréquentation.`, 'info'); } else say('Plus aucune case libre près du mall : choisis une case au bord d\'une rue.', 'warn'); return; }
   if (a === 'prod') { mallClose(); const b = el('pv'); if (b) b.click(); return; }
   if (a === 'air') { mallClose(); airShow(); return; }   // passe 49
@@ -20923,7 +20291,7 @@ let airOn = false;
 function airHTML() {
   const d = airData(), pc = v => Math.round(v * 100) + ' %', f2 = v => (+v).toFixed(2).replace('.', ','), px$ = v => (v >= 100 ? fmt(v) : f2(v)) + ' $', A = S.air;
   const row = (a, b, cl) => `<div class="r"><span>${a}</span><span class="${cl || ''}">${b}</span></div>`;
-  let h = `<div class="mhd"><b>AÉROPORT</b><button class="ibtn" data-air="close" aria-label="Fermer le panneau de l'aéroport">Fermer</button></div><div class="acts"><button class="btn sec" data-air="int">Voir l'intérieur du terminal</button></div>`;
+  let h = `<div class="mhd"><b>AÉROPORT</b><button class="ibtn" data-air="close" aria-label="Fermer le panneau de l'aéroport">Fermer</button></div>`;
   h += `<p class="mnote">Les voyageurs achètent sur un coup de tête : ils paient ${pc(d.K.AIR_MK - 1)} de plus qu'en ville. L'aéroport prélève une redevance de ${pc(d.K.AIR_TAX)} du chiffre d'affaires. Le trafic est partagé entre tous les vendeurs présents : plus il y a de boutiques, moins chacune vend. Idéal pour démarrer et écouler du luxe ; pour grandir, tes propres magasins rapportent plus.</p>`;
   h += `<h4>Trafic aérien</h4>` + row('Passagers', `${fmt(d.pax)} par jour <small>(${fmt(d.pax * DM)} par mois · croît avec la ville)</small>`)
     + AIR_CLS.map(c => { const k = d.cls[c]; return row(`Rayon ${CLS_S[c]}`, `${fmt(k.D * DM)} u/mois · ${k.n} vendeur${k.n > 1 ? 's' : ''}<br><small>prix duty free ${px$(k.price)} (ville ${px$(k.shelf)})</small>`); }).join('');
@@ -20949,7 +20317,6 @@ function airClose() { airOn = false; const b = el('airp'); if (b) b.hidden = tru
 function airShow() { const P = airPos(); if (!P) { say('Pas d\'aéroport sur cette carte.', 'warn'); return false; } setTool('view'); centerOn(P.x + P.w / 2, P.y + P.h / 2); fitted = true; return airOpen(); }
 function airAct(a) {
   if (a === 'close') { airClose(); return; }
-  if (a === 'int') { const P = airPos(); airClose(); if (P) openBuilding(P.x, P.y); return; }   // passe 78
   if (a === 'open') airOpenShop(); else if (a === 'closeshop') airCloseShop(); else airShelf(a);
   airRender(); try { updateHUD(); } catch (e) { /* HUD absent */ }
 }
@@ -21027,7 +20394,7 @@ function drawWorksOver(a, p, bx, by, floors, now) {
 }
 
 
-window.WSE = { say, isCmp, chip: { G: CHIP_G, NM: CHIP_NM, K: { CHIP_RD0, CHIP_RDG, CHIP_RDC, CHIP_PAT_Y, CHIP_RAMP, CHIP_RIV_SH, CHIP_RIV_MIN, CHIP_LIC_K, CHIP_LIC_REV, CHIP_BUD, CHIP_OBS, CHIP_MAT, CHIP_LEAD, CHIP_UP, DC_GPU, DC_GPU_LIFE, DC_GPU_MIN, DC_GEN_EFF, AIB_MIN }, S: chipS, front: chipFront, nm: chipNm, nodeM: chipNodeM, up: chipUpgrade, upCost: chipUpCost, fabs: chipFabs, slow: chipSlow, san: chipSan, card: chipCardHTML, rank: chipRankHTML, eb: chipFabEb, max: chipMax, oth: chipOth, acc: chipAcc, accMax: chipAccMax, kn: chipKn, need: chipNeed, rate: chipRate, reach: chipReach, rdStep: chipRdStep, patStep: chipPatStep, licFee: chipLicFee, licBuy: chipLicBuy, answer: chipOfferAnswer, act: chipAct, next: chipNext, info: chipRdInfo, rdHTML: chipRdHTML }, aib: { at: aibAt, now: aibNow, step: aibStep, san: aibSan, PH: AIB_PH, gpuM: aibGpuM, chipM: aibChipM, dcM: aibDcM, elM: aibElM, valM: aibValM, demM: aibDemM, idx: aiIdx, tips: aibTips, dcK: dcGpuK, eff: dcEff, gpuHTML: dcGpuHTML }, pos: { prosp, rivMkt, attrDen, rivCannib, svcB2B, rivSvc, synHTML, synStep, bkRivDem, scOn, scPx, K: { PX_K, PX_T0, PX_U0, PX_MAX, RIV_CANNIB, MC_K, MC_MAX, SVC_B2B, RAW_B2B, RIV_SVC, SC_PREM, SC_DAYS } }, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle, GATE: RUB_GATE, EVAC: RUB_EVAC }, cr: { CAP: CR_CAP, COST: CR_COST, DAYS: CR_DAYS, UPK: CR_UPK, JOBS: CR_JOBS, MAX: CR_MAX, lv: crLv, cost: crCost, invest: crInvest, prog: crProg, card: crCard, depK }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML, maxAt: proMaxAt, devQuote: proDevQuote, develop: proDevelop, deals: proDeals, prog: proProg, progErr: proProgErr, progCost: proProgCost, PROG, brand: proBrand, brandK: proBrandK, demo: proDemo, syn: proSyn, attrCity: proAttrCity, liq: proLiq, mktK: proMktK, mtm: proMtm, cycle: p => proCycleStep(p || PR()), ltv: () => promoLtv(), limit: () => promoLimit(), immoIdx: () => immoIdx(), resOcc: proResOcc, port: proPortList, noSale: proNoSale, cityHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, pub: { I: PUB_I, B: PBLD, info: pubInfo, stats: pubStats, is: isPubCell, base: pubBase, name: pubName, act: (a) => { const c = bsel && cell(bsel.x, bsel.y); if (isPubCell(c)) pubAct(a, c); } }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating, lev: rivLev, rate: rivRate, gross: rivGross, canBorrow: rivCanBorrow, K2: { RIV_LEV_AV, RIV_GS_P, RIV_MAT }, tr: { R: trR, S: trS, K: trK, sup: trSup, list: supplierList, val: trVal, market: trMarket, day: trDay, power: trPower, left: trLeft, cov: trCov, M: trM, delay: trDelay, act: trCasteAct, line: trLine, joinCartel: trJoinCartel, C: { TR_DAYS, TR_STEP, TR_TM, TR_DCAP, TR_BUD, TR_FLOW, TR_ELCAP, TR_DCK, TR_ELK, TR_EXP, TR_BUY } }, lx: { R: lxR, S: lxS, quote: lxQuote, lend: lxLend, take: lxTake, day: lxDay, book: lxBook, cap: lxCap, st: lxSt, act: lxCasteAct, rescue: lxRescue, line: lxLine, meAmt: lxMeAmt, offerAmt: lxOfferAmt, C: { LX_LEV, LX_LEVMAX, LX_TERM, LX_ST } }, answerX: rvxAnswer, role: casteRoleTxt }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, rk: RK_API, openRank, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { say, isCmp, chip: { G: CHIP_G, NM: CHIP_NM, K: { CHIP_RD0, CHIP_RDG, CHIP_RDC, CHIP_PAT_Y, CHIP_RAMP, CHIP_RIV_SH, CHIP_RIV_MIN, CHIP_LIC_K, CHIP_LIC_REV, CHIP_BUD, CHIP_OBS, CHIP_MAT, CHIP_LEAD, CHIP_UP, DC_GPU, DC_GPU_LIFE, DC_GPU_MIN, DC_GEN_EFF, AIB_MIN }, S: chipS, front: chipFront, nm: chipNm, nodeM: chipNodeM, up: chipUpgrade, upCost: chipUpCost, fabs: chipFabs, slow: chipSlow, san: chipSan, card: chipCardHTML, rank: chipRankHTML, eb: chipFabEb, max: chipMax, oth: chipOth, acc: chipAcc, accMax: chipAccMax, kn: chipKn, need: chipNeed, rate: chipRate, reach: chipReach, rdStep: chipRdStep, patStep: chipPatStep, licFee: chipLicFee, licBuy: chipLicBuy, answer: chipOfferAnswer, act: chipAct, next: chipNext, info: chipRdInfo, rdHTML: chipRdHTML }, aib: { at: aibAt, now: aibNow, step: aibStep, san: aibSan, PH: AIB_PH, gpuM: aibGpuM, chipM: aibChipM, dcM: aibDcM, elM: aibElM, valM: aibValM, demM: aibDemM, idx: aiIdx, tips: aibTips, dcK: dcGpuK, eff: dcEff, gpuHTML: dcGpuHTML }, pos: { prosp, rivMkt, attrDen, rivCannib, svcB2B, rivSvc, synHTML, synStep, bkRivDem, scOn, scPx, K: { PX_K, PX_T0, PX_U0, PX_MAX, RIV_CANNIB, MC_K, MC_MAX, SVC_B2B, RAW_B2B, RIV_SVC, SC_PREM, SC_DAYS } }, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle, GATE: RUB_GATE, EVAC: RUB_EVAC }, cr: { CAP: CR_CAP, COST: CR_COST, DAYS: CR_DAYS, UPK: CR_UPK, JOBS: CR_JOBS, MAX: CR_MAX, lv: crLv, cost: crCost, invest: crInvest, prog: crProg, card: crCard, depK }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML, maxAt: proMaxAt, devQuote: proDevQuote, develop: proDevelop, deals: proDeals, prog: proProg, progErr: proProgErr, progCost: proProgCost, PROG, brand: proBrand, brandK: proBrandK, demo: proDemo, syn: proSyn, attrCity: proAttrCity, liq: proLiq, mktK: proMktK, mtm: proMtm, cycle: p => proCycleStep(p || PR()), ltv: () => promoLtv(), limit: () => promoLimit(), immoIdx: () => immoIdx(), resOcc: proResOcc, port: proPortList, noSale: proNoSale, cityHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating, lev: rivLev, rate: rivRate, gross: rivGross, canBorrow: rivCanBorrow, K2: { RIV_LEV_AV, RIV_GS_P, RIV_MAT }, tr: { R: trR, S: trS, K: trK, sup: trSup, list: supplierList, val: trVal, market: trMarket, day: trDay, power: trPower, left: trLeft, cov: trCov, M: trM, delay: trDelay, act: trCasteAct, line: trLine, joinCartel: trJoinCartel, C: { TR_DAYS, TR_STEP, TR_TM, TR_DCAP, TR_BUD, TR_FLOW, TR_ELCAP, TR_DCK, TR_ELK, TR_EXP, TR_BUY } }, lx: { R: lxR, S: lxS, quote: lxQuote, lend: lxLend, take: lxTake, day: lxDay, book: lxBook, cap: lxCap, st: lxSt, act: lxCasteAct, rescue: lxRescue, line: lxLine, meAmt: lxMeAmt, offerAmt: lxOfferAmt, C: { LX_LEV, LX_LEVMAX, LX_TERM, LX_ST } }, answerX: rvxAnswer, role: casteRoleTxt }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, rk: RK_API, openRank, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; if (o.TIER != null) CG_TIER = o.TIER; return { CG_R0, CG_P, CG_CAP, CG_REL, CG_TIER }; }, citySvcCov, citySvc: () => ({ need: CITY_SVC, have: citySvcHave().n, cov: citySvcCov() }), cityTiers: CITY_TIER, cityTierR, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
 Object.assign(window.WSE, { levelMult, pal: { DEF: PAL_DEF, POP: PAL_POP, popReq: (k, l) => palPopReq(PAL_DEF[k], l), DAYS: PAL_DAYS, DIA_D: PAL_DIA_D, MAINT: PAL_MAINT, ROUND_ACC: PAL_ROUND_ACC, of: palOf, reqs: palReqs, start: palStart, accel: palAccel, accDays: palAccDays, diaFor: palDiaFor, step: palStep, prog: palProg, left: palLeft, slots: palSlots, active: palActive, card: palCard, list: palListHTML, migrate: palMigrate, upk: palUpk, drawn: () => palBadgeN }, ent: { S: entS, san: entSan, prem: entPrem, dia: entDia, on: premOn }, coo: { LV: COO_LV, BUF: COO_BUF, set: cooSet, on: cooOn, sal: cooSal, pay: cooPay, spend: cooSpend, step: cooStep, review: cooReview, decide: cooDecide, opts: cooOpts, score: cooScoreOf, apply: cooApply, card: cooCardHTML, ins: cooIns }, scm: { S: scmS, san: scmSan, step: scmStep, score: scmScore, BADGES: SCM_BADGES, award: scmAward, rivals: scmRivals, rank: scmRankHTML, card: scmCardHTML }, p74Render, bestOffer, offerScore, supOffer, buyerQw, setPanel, setPtab });   // passe 74 : paliers, premium simulé, COO, maîtrise (tools/tests/t74, t75)
