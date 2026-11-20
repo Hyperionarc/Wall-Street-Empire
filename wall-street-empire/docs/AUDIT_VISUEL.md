@@ -68,12 +68,12 @@ Qualité : **bonne** = sprite HD seul ; **correcte** = sprite HD + petits détai
 | Entreprise de BTP (`btp`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | Agence immobilière (`immo`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | Fonderie d'or (`foundry`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
-| Petite usine (`f1`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
+| Petite usine (`f1`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | correcte | passe 78 : sprite d'origine jugé à refaire, repli usine moyenne à 80 % ; commande Cowork n° 14 (docs/REVUE_BATIMENTS.md) |
 | Usine moyenne (`f2`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
-| Grande usine (`f3`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
+| Grande usine (`f3`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | correcte | passe 78 : sprite d'origine jugé à refaire, repli deux halls d'usine moyenne ; commande Cowork n° 14 |
 | Petit marché (`s1`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
-| Supermarché (`s2`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
-| Hypermarché (`s3`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
+| Supermarché (`s2`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | correcte | passe 78 : bâtiment seul `bat_supermarche*` sur la parcelle (plus le cube au fond du parking) ; commande Cowork n° 14 |
+| Hypermarché (`s3`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | correcte | passe 78 : bâtiment seul `bat_hypermarche*` sur la parcelle ; commande Cowork n° 14 |
 | Terminal portuaire (`port`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | Tour de location (`off`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |
 | Station média (`tv`) | HD · 1 img HD, 0 atlas, 0 op. code, part code 0 % | oui | bonne | aucune |

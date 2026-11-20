@@ -52,7 +52,9 @@ exports.run = async (t, L) => {
   const cov = await pg.evaluate(() => { const W = window.WSE; return Object.keys(W.sign.SIGN_COVER).filter(n => W.sign.SIGN_COVER[n].f); });
   t.check('5 sprites à texte généré ont un bandeau de recouvrement (high-tech, sport, hôpital, supermarché, hypermarché)', ['boutique_high_tech', 'sport_loisirs', 'hopital', 'supermarche', 'hypermarche'].every(n => cov.includes(n)), cov.join(','));
   const covered = d.filter(s => s.cover).map(s => s.key);
-  t.check('au moins un bâtiment à ancienne enseigne porte sa plaque à l\'emplacement d\'origine', covered.length >= 1, covered.join(','));
+  // passe 78 : le supermarché et l'hypermarché sont dessinés avec bat_* dont le cartouche de toit est effacé au build : plus rien à recouvrir, leur plaque flotte au-dessus du toit
+  const s2bat = await pg.evaluate(() => { const W = window.WSE, c = W.S.grid.find(q => q && q.t === 's2'); return !!c && /^bat_/.test(W.vv.p2name(c)); });
+  t.check('au moins un bâtiment à ancienne enseigne porte sa plaque à l\'emplacement d\'origine (ou supermarché sans texte : bat_* effacé au build, plaque flottante)', covered.length >= 1 || (s2bat && d.some(s => s.key === 's2' && !s.cover)), covered.join(',') + (s2bat ? ' · s2 = bat_*' : ''));
   if (w0.mon.hospital) {
     await view(pg, w0.mon.hospital[0], w0.mon.hospital[1], 0.9); d = await drawn(pg);
     const h = d.find(s => s.key === 'mon:hospital');
