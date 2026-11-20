@@ -552,11 +552,13 @@ window.BOT = (function () {
     }
   }
   // ===== Passe 73 : fondeur de puces (P.chip). Usines de niveau 3 dédiées aux puces (GPU d'abord, puis CPU et DRAM), intrants achetés (silicium, câbles, plastique) ;
-  // mise à niveau du nœud de gravure dès qu'il est dépassé (course à l'armement), une fonderie de plus tant que la dernière rapporte (EBITDA ≥ P.chEb).
+  // mise à niveau du nœud de gravure dès qu'un nœud plus fin est autorisé (course à l'armement), une fonderie de plus tant que la dernière rapporte (EBITDA ≥ P.chEb).
   const CH = { last: -99, n: 0, log: [] };
   function chipFab() {
     const s = S(); if (s.day - CH.last < (P.chEvery || 20)) return; CH.last = s.day; const cp = Math.max(1, s.cpi || 1), C = W.chip; if (!C) return;
-    C.G.forEach(g => { const my = s.chip && s.chip.my && s.chip.my[g]; if (my != null && my < C.front() && s.cash > 2 * C.upCost(g)) { if (C.up(g)) CH.log.push([s.day, 'nœud', g]); } });
+    // passe 73 bis : on ne met à niveau que vers un nœud auquel on a droit (brevet propre, licence, domaine public) ; le bot finance la R&D de gravure s'il le veut (P.chBud, indice de CHIP_BUD)
+    C.G.forEach(g => { const my = s.chip && s.chip.my && s.chip.my[g]; if (my != null && C.next && C.next(g) != null && s.cash > 2 * C.upCost(g)) { if (C.up(g)) CH.log.push([s.day, 'nœud', g]); } });
+    if (P.chBud != null && C.act && s.chip && (s.chip.bud || 0) !== C.K.CHIP_BUD[P.chBud]) C.act('chipbud:' + P.chBud);
     const order = P.chOrder || ['gpu', 'cpu', 'dram', 'gpu', 'cpu', 'gpu'], prev = order[CH.n - 1];
     if (CH.n >= Math.min(order.length, P.chMax || 6) || (prev && (C.eb(prev) == null || C.eb(prev) < (P.chEb || 0.15)))) return;
     const c0 = W.TYPES.f3.cost * cp * 1.15; if (s.cash < c0) borrow(c0 + 1e5); if (s.cash < c0 || !ensurePort()) return;

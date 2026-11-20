@@ -5119,43 +5119,157 @@ function platBill(rev) {
 function dcAI() { let a = 0; eachBuilding(c => { if (c.t === 'dc' && c.conn) a += levelMult(c) * (c._avail == null ? 1 : c._avail) * dcCt(c); }); return a; }   // puissance de calcul effective (campus = 1)
 // ===== Passe 73 : PUCES (CPU, DRAM, GPU), NŒUDS DE GRAVURE ET BULLE DE L'IA =====
 // Chaîne simple : silice → silicium → processeurs, mémoire DRAM, GPU (usine de niveau 3, aucun wafer). Les produits électroniques, l'électroménager et les véhicules en consomment.
-// Nœuds de gravure (6 générations, 10 → 1 nm) : la pointe mondiale S.chip.fp avance avec le temps et la R&D (plus vite pendant la ruée sur l'IA, moins vite après l'éclatement).
-// Tes usines gravent au nœud S.chip.my[g] (fixé à la pointe du jour de ta première usine, puis mis à niveau à prix d'or : course à l'armement). Prix de tes puces :
-//  - en avance sur la pointe (centre de R&D) : prime de monopole temporaire CHIP_LEAD (en plus du pouvoir de marché) ;
-//  - à la pointe : prix du marché ; - en retard : obsolescence (1 − CHIP_OBS) par génération de retard, jusqu'au plancher des puces matures CHIP_MAT (débouché stable : voitures,
+// Nœuds de gravure (6 générations, 10 → 1 nm) : AUCUNE avance au calendrier. Chaque génération est une technologie de R&D à débloquer en dépensant (passe 73 bis,
+// correction de Rémy) : budget de R&D (trésorerie), centres de R&D affectés à la gravure, accélération payante, rivaux IA selon leur budget réel de R&D.
+// Le premier acteur (toi ou une IA) qui finance la génération suivante la grave le premier et en prend le brevet (CHIP_PAT_Y ans de jeu) ; pour graver à un nœud breveté
+// par un autre, il faut une licence (forfait + redevance sur le chiffre d'affaires des puces) ou attendre l'expiration. La pointe mondiale S.chip.fp = meilleur nœud
+// effectivement atteint par un acteur : si personne ne dépense en R&D, elle ne bouge pas. La bulle de l'IA ne fait pas avancer la technologie : elle facilite seulement
+// le financement (budgets des IA plus élevés dans l'euphorie, plus serrés après l'éclatement).
+// Tes usines gravent au nœud S.chip.my[g] (le meilleur nœud auquel tu as accès lors de ta première usine, puis mis à niveau à prix d'or). Prix de tes puces :
+//  - seul à graver au nœud de pointe (ton brevet, aucun licencié) : prime de monopole temporaire CHIP_LEAD (en plus du pouvoir de marché) ;
+//  - à la pointe partagée : prix du marché ; - en retard : obsolescence (1 − CHIP_OBS) par génération de retard, dès qu'une génération plus récente existe réellement
+//    (diffusion sur CHIP_RAMP jours), jusqu'au plancher des puces matures CHIP_MAT (débouché stable : voitures,
 //    électroménager, montres : la demande en puces matures ne disparaît jamais ; le plancher du marché garde aussi intrants + 8 %).
 // Campus de calcul : flotte de GPU c.gf (1 = complète), renouvelée chaque jour (DC_GPU par campus, durée de vie DC_GPU_LIFE) : sans GPU livrés, la capacité glisse vers DC_GPU_MIN
 // (jamais d'arrêt) ; achat = investissement (trésorerie, hors EBITDA, comme un renouvellement de serveurs). Génération moyenne c.gn : besoin électrique × DC_GEN_EFF^gn.
 // Bulle de l'IA (S.aib, déterministe : hash, aucun tirage) : CALME → HYPE → SOMMET → ÉCLATEMENT → CONSOLIDATION, puis calme et nouveau cycle. Déclenchée après le jour AIB_MIN,
 // une fois les premiers campus ou GPU apparus. Les intensités h (euphorie) et b (krach) glissent de jour en jour ; les prix suivent l'amortisseur du marché (±4 %/j).
-const CHIP_G = ['cpu', 'dram', 'gpu'], CHIP_NM = [10, 7, 5, 3, 2, 1], CHIP_GEN_D = 540, CHIP_OBS = { cpu: 0.2, dram: 0.15, gpu: 0.25 }, CHIP_MAT = 0.5, CHIP_LEAD = 0.3, CHIP_UP = 3e6;
+const CHIP_G = ['cpu', 'dram', 'gpu'], CHIP_NM = [10, 7, 5, 3, 2, 1], CHIP_OBS = { cpu: 0.2, dram: 0.15, gpu: 0.25 }, CHIP_MAT = 0.5, CHIP_LEAD = 0.3, CHIP_UP = 3e6;
+// R&D de gravure : coût de la génération n = CHIP_RD0 × CHIP_RDG^(n−1) (× indice des prix) ; centre de R&D affecté : CHIP_RDC $/j par unité ; brevet CHIP_PAT_Y ans ;
+// rivaux IA (industriel fondeur, innovateur) : CHIP_RIV_SH de leur valeur chaque mois (dès CHIP_RIV_MIN de valeur), payé sur leur trésorerie et inscrit à leur actif ; licence : CHIP_LIC_K du coût de R&D, redevance sur CHIP_LIC_REV $/j
+const CHIP_RD0 = 25e6, CHIP_RDG = 1.8, CHIP_RDC = 40000, CHIP_PAT_Y = 5, CHIP_RAMP = 360, CHIP_RIV_SH = 0.01, CHIP_RIV_MIN = 20e6, CHIP_LIC_K = 0.3, CHIP_LIC_REV = 4e5, CHIP_BUD = [0, 5e4, 2e5, 5e5, 1e6];
 const DC_GPU = 30, DC_GPU_LIFE = 900, DC_GPU_MIN = 0.75, DC_GEN_EFF = 0.9;
 const AIB_MIN = 540, AIB_PH = ['Calme', 'Ruée sur l\'IA', 'Sommet', 'Éclatement', 'Consolidation'];
 const isChip = g => CHIP_G.indexOf(g) >= 0;
 const chipNm = i => CHIP_NM[clamp(Math.floor(i || 0), 0, 5)];
-const chipS = () => S.chip || (S.chip = { fp: 0, my: {} });
-function chipSan(o) {   // sauvegarde (champ facultatif) : { fp, my: { cpu: n, ... }, gc } ; tout le reste se recalcule
-  if (!o || typeof o !== 'object') return undefined; const r = { fp: clamp(+o.fp || 0, 0, 5), my: {} };
-  CHIP_G.forEach(g => { if (o.my && o.my[g] != null && isFinite(+o.my[g])) r.my[g] = clamp(Math.round(+o.my[g]), 0, 5); }); if (+o.gc > 0) r.gc = +o.gc; return r;
+const chipS = () => { const C = S.chip || (S.chip = { fp: 0, my: {} }); if (!C.my) C.my = {}; if (!C.k) C.k = {}; if (!C.x) C.x = {}; if (!C.pt) C.pt = {}; if (!C.fd) C.fd = {}; if (C.pub == null) C.pub = 0; return C; };
+function chipSan(o) {   // sauvegarde (champ facultatif) : { fp, my, pub, k, x, pt, fd, bud, rc, of, ac, sp, roy, gc } ; tout le reste se recalcule
+  if (!o || typeof o !== 'object') return undefined;
+  const lv = v => clamp(Math.round(+v || 0), 0, 5), num = (v, a, b) => v !== null && isFinite(+v) ? clamp(+v, a, b) : 0, sid = v => String(v).slice(0, 40), obj = v => v && typeof v === 'object';
+  const r = { my: {}, k: {}, x: {}, pt: {}, fd: {} };
+  CHIP_G.forEach(g => { if (o.my && o.my[g] != null && isFinite(+o.my[g])) r.my[g] = lv(o.my[g]); });
+  // ancienne sauvegarde (pointe fractionnaire qui avançait au calendrier) : les générations déjà sorties deviennent publiques, sans brevet
+  r.pub = o.pub != null ? lv(o.pub) : lv(Math.floor(+o.fp || 0));
+  if (obj(o.k)) Object.keys(o.k).slice(0, 20).forEach(a => { r.k[sid(a)] = lv(o.k[a]); });
+  if (obj(o.x)) Object.keys(o.x).slice(0, 20).forEach(a => { r.x[sid(a)] = num(o.x[a], 0, 1e13); });
+  if (obj(o.pt)) Object.keys(o.pt).slice(0, 6).forEach(n => { const p = o.pt[n], i = lv(n); if (i < 1 || !obj(p) || !isFinite(+p.u)) return;
+    r.pt[i] = { h: sid(p.h || 'me'), hn: String(p.hn || '').slice(0, 60), s: num(p.s, 0, 1e7) | 0, u: num(p.u, 0, 1e7) | 0, w: p.w ? 1 : undefined,
+      l: Array.isArray(p.l) ? p.l.filter(l => l && l.id).slice(0, 8).map(l => ({ id: sid(l.id), name: String(l.name || '').slice(0, 60), rate: num(l.rate, 0, 0.3), fee: num(l.fee, 0, 1e12), paid: num(l.paid, 0, 1e13) })) : [] }; });
+  if (obj(o.fd)) Object.keys(o.fd).slice(0, 6).forEach(n => { if (o.fd[n] != null && isFinite(+o.fd[n])) r.fd[lv(n)] = num(o.fd[n], -1e7, 1e7) | 0; });
+  for (let i = 1; i <= r.pub; i++) if (r.fd[i] == null) r.fd[i] = -CHIP_RAMP;   // générations publiques : déjà diffusées
+  r.fp = Math.max(r.pub, ...Object.keys(r.k).map(a => r.k[a]), ...Object.keys(r.fd).map(Number));
+  if (+o.bud > 0) r.bud = num(o.bud, 0, 1e9); if (o.rc) r.rc = 1; if (+o.sp > 0) r.sp = num(o.sp, 0, 1e13); if (+o.roy > 0) r.roy = num(o.roy, 0, 1e13);
+  if (obj(o.of) && isFinite(+o.of.n)) r.of = { n: lv(o.of.n), who: sid(o.of.who), name: String(o.of.name || '').slice(0, 60), fee: num(o.of.fee, 0, 1e12), rate: num(o.of.rate, 0, 0.3), exp: num(o.of.exp, 0, 1e7) | 0 };
+  if (obj(o.ac)) r.ac = { n: lv(o.ac.n), acc: num(o.ac.acc, 0, 1e5) | 0, accD: num(o.ac.accD, 0, 1e7) | 0, accN: num(o.ac.accN, 0, 1e5) | 0 };
+  if (+o.gc > 0) r.gc = +o.gc; return r;
 }
 function aibSan(o) {   // { t0 : début de l'euphorie, sd : graine, n : n° du cycle, ls : dernière annonce }
   if (!o || typeof o !== 'object' || !isFinite(+o.t0)) return undefined; return { t0: +o.t0 | 0, sd: (+o.sd | 0) & 0xffff, n: clamp(+o.n | 0, 0, 99), ls: o.ls != null ? String(o.ls).slice(0, 8) : '' };
 }
-const chipFront = () => clamp(Math.floor(((S && S.chip) ? S.chip.fp : 0) + 1e-9), 0, 5);
+const chipFront = () => clamp(Math.floor(((S && S.chip) ? S.chip.fp : 0) + 1e-9), 0, 5);   // meilleur nœud effectivement atteint par un acteur
 function chipFabs(g) { const o = []; eachBiz(c => { if (FLEVEL[c.t] && c.prod === g && ownerOf(c) === 'me' && FLEVEL[c.t] >= 3) o.push(c); }); return o; }
 const chipRd = () => { let n = 0; eachBiz(c => { if (c.t === 'rd' && ownerOf(c) === 'me') n++; }); return n; };
-const chipMax = () => Math.min(5, chipFront() + (chipRd() > 0 ? 1 : 0));   // un centre de R&D permet de graver une génération en avance sur le monde
-// multiplicateur de prix de tes puces selon ton nœud (1 si tu n'en fabriques pas : tu achètes au cours mondial, nœud de pointe)
-function chipNodeM(g) {
-  const C = S && S.chip; if (!C || !C.my || C.my[g] == null || !(S._chipN && S._chipN[g] > 0)) return 1;
-  const my = C.my[g]; if (my > Math.floor(C.fp + 1e-9)) return 1 + CHIP_LEAD;
-  const gap = C.fp - my - 1; return gap > 0 ? Math.max(CHIP_MAT, Math.pow(1 - CHIP_OBS[g], gap)) : 1;   // l'érosion commence quand la génération suivante est sortie, puis progresse chaque jour
+// ---- R&D de gravure, brevets et licences de nœud (passe 73 bis) ----
+const chipPub = (C, n) => n <= C.pub || (C.fd[n] != null && !C.pt[n]);   // nœud public : ancienne génération ou brevet expiré
+function chipAcc(id, n) { const C = chipS(); if (n <= 0 || chipPub(C, n)) return true; const p = C.pt[n]; return !!p && (p.h === id || (p.l || []).some(l => l.id === id)); }   // droit de graver (brevet propre, licence, public)
+function chipAccMax(id) { const C = chipS(); for (let n = 5; n > 0; n--) if ((C.fd[n] != null || n <= C.pub) && chipAcc(id, n)) return n; return 0; }
+const chipKn = id => { const C = chipS(); return Math.max(C.k[id] || 0, chipAccMax(id)); };   // technologie maîtrisée (recherche propre, licence ou domaine public)
+const chipMax = () => chipAccMax('me');   // meilleur nœud que tes usines ont le droit de graver
+function chipOth() { const C = chipS(); for (let n = 5; n > 0; n--) { if (C.fd[n] == null && n > C.pub) continue; if (chipPub(C, n)) return n; const p = C.pt[n]; if (p && (p.h !== 'me' || (p.l || []).some(l => l.id !== 'me'))) return n; } return 0; }   // meilleur nœud gravé par les autres (rivaux, licenciés, public)
+const chipActName = id => id === 'me' ? 'Ta société' : (((S.rivals || []).find(r => r.id === id) || {}).name || 'Un fondeur étranger');
+function chipNeed(id, n) {   // R&D à financer pour atteindre le nœud n (le brevet du nœud précédent et la caste innovatrice réduisent la facture)
+  if (n < 1 || n > 5) return 0; const C = chipS(), p = C.pt[n - 1], rv = id === 'me' ? null : (S.rivals || []).find(r => r.id === id);
+  const inn = id === 'me' ? casteIs('innovateur') : !!(rv && rv.caste === 'innovateur');
+  return Math.round(CHIP_RD0 * Math.pow(CHIP_RDG, n - 1) * cpi() * (inn ? 0.8 : 1) * (p && p.h === id ? 0.85 : 1) / 1e4) * 1e4;
 }
+const chipLicFee = n => Math.round(CHIP_LIC_K * CHIP_RD0 * Math.pow(CHIP_RDG, n - 1) * cpi() / 1e4) * 1e4;
+function chipRate() {   // ta dépense de R&D de gravure du jour : budget (trésorerie) + centres de R&D affectés
+  const C = chipS(); if (chipKn('me') >= 5) return { bud: 0, ctr: 0, tot: 0 };
+  const bud = Math.min(C.bud || 0, Math.max(0, S.cash || 0)), ctr = C.rc ? CHIP_RDC * cpi() * (S.rdPower || 0) : 0; return { bud, ctr, tot: bud + ctr };
+}
+function chipReach(id) {   // l'acteur a-t-il financé la génération suivante ? (première fois : brevet et nouvelle pointe mondiale)
+  const C = chipS(), n = chipKn(id) + 1; if (n > 5) return false; const need = chipNeed(id, n); if (!(need > 0) || (C.x[id] || 0) < need) return false;
+  C.x[id] -= need; C.k[id] = n; const first = C.fd[n] == null && n > C.pub, nm = chipNm(n), name = chipActName(id), rv = id === 'me' ? null : (S.rivals || []).find(r => r.id === id);
+  if (first) { C.fd[n] = S.day; C.pt[n] = { h: id, hn: name, s: S.day, u: S.day + CHIP_PAT_Y * YEAR_D, l: [] }; C.fp = Math.max(chipFront(), n); }
+  if (C.ac && C.ac.n === n && id === 'me') C.ac = null;
+  const p = C.pt[n];
+  if (id === 'me') {
+    if (first) say(`Ta société grave désormais en ${nm} nm, la première au monde : brevet jusqu'au ${dateTxt(p.u)}. Mets tes fonderies à niveau (fiche de l'usine) ; les autres fondeurs devront t'acheter une licence ou attendre.`, 'gold');
+    else if (p && p.h !== 'me') say(`Ta R&D maîtrise le ${nm} nm, mais ${p.hn} en détient le brevet jusqu'au ${dateTxt(p.u)} : pour graver à ce nœud, achète une licence (${money(chipLicFee(n))}) ou attends l'expiration. Ta recherche continue vers le nœud suivant.`, 'warn');
+    else say(`Ta R&D maîtrise le ${nm} nm (technologie libre) : tes fonderies peuvent passer à ce nœud.`, 'good');
+  } else {
+    if (first) { const mine = CHIP_G.filter(g => C.my[g] != null && C.my[g] < n && S._chipN && S._chipN[g] > 0);
+      say(`${name} grave désormais en ${nm} nm (brevet jusqu'au ${dateTxt(p.u)}) : nouvelle pointe mondiale.${mine.length ? ' Tes usines de ' + mine.map(g => GOODS[g].name.toLowerCase()).join(', ') + ' gravent en ' + chipNm(C.my[mine[0]]) + ' nm : leurs prix vont s\'éroder à mesure que le ' + nm + ' nm se diffuse.' : ''}`, mine.length ? 'warn' : 'info'); }
+    if (rv) rvLog(rv, first ? `grave désormais en ${nm} nm (brevet de gravure)` : `maîtrise le ${nm} nm (brevet de ${p ? p.hn : 'domaine public'})`, true);
+  }
+  return true;
+}
+function chipRdStep() {   // chaque jour : dépenses de R&D de gravure (toi : budget et centres ; rivaux IA : budget mensuel) et percées
+  const C = chipS(), R = chipRate();
+  if (R.tot > 0) { S.cash -= R.bud; C.sp = (C.sp || 0) + R.bud; C.x.me = (C.x.me || 0) + R.tot; chipReach('me'); }
+  if (S.day % 30 !== 11) return; const a = aibNow();
+  (S.rivals || []).forEach(r => {   // les IA fondeuses et innovatrices investissent une part de leur trésorerie (la bulle facilite ou resserre le financement, sans changer la technologie)
+    if (r.sub || r.ctrl === 'human' || (r.caste !== 'industriel' && r.caste !== 'innovateur') || chipKn(r.id) >= 5) return;
+    const v = rivalValue(r); if (!(v > CHIP_RIV_MIN * cpi()) || !(r.cash > 0)) return;
+    const sp = Math.round(Math.min(0.5 * r.cash, CHIP_RIV_SH * v * clamp(1 + 0.5 * a.h - 0.3 * a.b, 0.5, 1.6))); if (!(sp > 0)) return;   // budget = part de la valeur, payé sur la trésorerie (au plus la moitié)
+    r.cash -= sp; r.as = (r.as || 0) + sp; C.x[r.id] = (C.x[r.id] || 0) + sp; chipReach(r.id);
+  });
+}
+// redevances, expirations et offres de licence des brevets de gravure (appelé par patStep)
+function chipRevAt(n) { const C = S.chip; let v = 0; CHIP_G.forEach(g => { if (C.my[g] === n) chipFabs(g).forEach(c => { v += Math.max(0, c.pRev || 0); }); }); return v; }
+function chipPatStep() {
+  const C = S && S.chip; if (!C || !C.pt) return; chipS(); const d = S.day, k = cpi(), X = rdxS();
+  Object.keys(C.pt).forEach(key => { const n = +key, p = C.pt[key]; if (!p) { delete C.pt[key]; return; }
+    const meLic = (p.l || []).find(l => l.id === 'me');
+    if (p.u <= d) { delete C.pt[key]; say(p.h === 'me' ? `Ton brevet de gravure en ${chipNm(n)} nm a expiré : tous les fondeurs peuvent graver à ce nœud.` : `Le brevet de ${p.hn} sur la gravure en ${chipNm(n)} nm a expiré : tu peux graver à ce nœud sans licence.`, p.h === 'me' ? 'warn' : 'good'); return; }
+    if (!p.w && p.u - d <= PAT_WARN_D) { p.w = 1; if (p.h === 'me' || meLic) say(`Expiration imminente : le brevet de gravure en ${chipNm(n)} nm tombe dans ${p.u - d} jours (${dateTxt(p.u)}).`, 'warn'); }
+    if (p.h === 'me') (p.l || []).forEach(l => { const a = l.rate * CHIP_LIC_REV * k; l.paid = (l.paid || 0) + a; C.roy = (C.roy || 0) + a; S.cash += a; X.earn += a;
+      const rv = (S.rivals || []).find(r => r.id === l.id); if (rv) rv.cash = (rv.cash || 0) - a + LIC_MG * CHIP_LIC_REV * k; });   // somme positive : le licencié encaisse sa marge sur les puces gravées sous licence
+    else if (meLic) { const fee = chipRevAt(n) * meLic.rate; if (fee > 0) { S.cash -= fee; meLic.paid = (meLic.paid || 0) + fee; X.paid += fee; const rv = (S.rivals || []).find(r => r.id === p.h); if (rv) rv.cash = (rv.cash || 0) + fee; } }
+  });
+  if (C.of && (C.of.exp <= d || !C.pt[C.of.n] || C.pt[C.of.n].h !== 'me')) C.of = null;
+  if (!C.of && d % PAT_OFF_EVERY === 19) [5, 4, 3, 2, 1].some(n => { const p = C.pt[n]; if (!p || p.h !== 'me' || (p.l || []).length >= PAT_LIC_MAX) return false;
+    const fee = chipLicFee(n), rs = (S.rivals || []).filter(r => !r.sub && r.ctrl !== 'human' && (r.caste === 'industriel' || r.caste === 'innovateur') && !chipAcc(r.id, n) && r.cash > 1.5 * fee);
+    if (!rs.length || hash(d, X.sd, 900 + n) > 0.4) return false; const r = rs[Math.floor(hash(d, X.sd, 910 + n) * rs.length) % rs.length], rate = Math.round((0.04 + 0.04 * hash(d, X.sd, 920 + n)) * 1000) / 1000;
+    C.of = { n, who: r.id, name: r.name, fee, rate, exp: d + 30 }; say(`Offre de licence : ${r.name} propose ${money(fee)} et ${pctTxt(rate)} de redevance pour graver en ${chipNm(n)} nm sous ton brevet. Fiche de ta fonderie ou Bureau > R&D et brevets.`, 'info'); return true; });
+}
+function chipLicBuy(n) {   // tu achètes la licence d'un brevet de gravure d'un rival : transfert de technologie, tes fonderies peuvent passer à ce nœud
+  const C = chipS(), p = C.pt[n]; if (!p || p.h === 'me' || (p.l || []).some(l => l.id === 'me')) return { ok: false, why: 'Aucun brevet de rival à licencier à ce nœud.' };
+  const fee = chipLicFee(n); if (S.cash < fee) { say(`Il faut ${money(fee)} pour la licence de gravure en ${chipNm(n)} nm.`, 'bad'); return { ok: false, why: 'cash' }; }
+  S.cash -= fee; const rv = (S.rivals || []).find(r => r.id === p.h); if (rv) rv.cash = (rv.cash || 0) + fee;
+  p.l.push({ id: 'me', name: 'Ta société', rate: PAT_ROY, fee, paid: 0 }); C.k.me = Math.max(C.k.me || 0, n);
+  say(`Licence de gravure achetée à ${p.hn} : ${chipNm(n)} nm pour ${money(fee)}, puis ${pctTxt(PAT_ROY)} du chiffre d'affaires des puces gravées à ce nœud jusqu'au ${dateTxt(p.u)}. Mets tes fonderies à niveau.`, 'good');
+  refreshStats(); updateHUD(); return { ok: true, fee };
+}
+function chipOfferAnswer(yes) {
+  const C = chipS(), o = C.of; if (!o) return false; C.of = null; const p = C.pt[o.n];
+  if (!yes || !p || p.h !== 'me') { if (!yes) say(`Offre de licence de ${o.name} refusée : tu gardes l'exclusivité du ${chipNm(o.n)} nm.`, 'info'); return false; }
+  const rv = (S.rivals || []).find(r => r.id === o.who); p.l.push({ id: o.who, name: o.name, rate: o.rate, fee: o.fee, paid: 0 }); S.cash += o.fee; rdxS().earn += o.fee; if (rv) rv.cash = (rv.cash || 0) - o.fee; C.k[o.who] = Math.max(C.k[o.who] || 0, o.n);
+  say(`Licence de gravure accordée à ${o.name} : +${money(o.fee)} tout de suite, puis ${pctTxt(o.rate)} de ses ventes de puces en ${chipNm(o.n)} nm (≈ ${mj(o.rate * CHIP_LIC_REV * cpi())}/mois). Il grave désormais à ton nœud : fin de ta prime de monopole.`, 'good'); return true;
+}
+function chipAct(a) {   // boutons de la fiche de fonderie (data-act) et du panneau R&D et brevets (data-rdp)
+  const C = chipS(), [k, v] = a.split(':');
+  if (k === 'chipbud') { const b = CHIP_BUD[clamp(+v | 0, 0, CHIP_BUD.length - 1)]; C.bud = b; say(b ? `Budget de R&D de gravure : ${money(b)} par jour (${mj(b)}/mois).` : 'Budget de R&D de gravure arrêté : ta gravure n\'avance plus que par tes centres de R&D affectés.', 'info'); return true; }
+  if (k === 'chiprc') { C.rc = C.rc ? 0 : 1; say(C.rc ? `Centres de R&D affectés à la gravure : ${money(CHIP_RDC * cpi() * (S.rdPower || 0))} de recherche par jour.` : 'Centres de R&D retirés de la gravure.', 'info'); return true; }
+  if (k === 'chiplic') { chipLicBuy(+v); return true; }
+  if (k === 'chipof') { chipOfferAnswer(v === '1'); return true; }
+  return false;
+}
+// multiplicateur de prix de tes puces selon ton nœud (1 si tu n'en fabriques pas : tu achètes au cours mondial)
+function chipNodeM(g) {
+  const C = S && S.chip; if (!C || !C.my || C.my[g] == null || !(S._chipN && S._chipN[g] > 0)) return 1; chipS();
+  const my = C.my[g], fr = chipFront();
+  if (my >= fr) return chipOth() >= my ? 1 : 1 + CHIP_LEAD;   // seul à graver au nœud de pointe (ton brevet, sans licencié) : prime de monopole
+  const fd = C.fd[fr], rp = fd == null ? 1 : clamp((S.day - fd) / CHIP_RAMP, 0, 1), lag = fr - my - 1 + rp;   // l'érosion commence quand la génération plus récente existe, puis progresse avec sa diffusion
+  return lag > 0 ? Math.max(CHIP_MAT, Math.pow(1 - CHIP_OBS[g], lag)) : 1;
+}
+const chipNext = g => { const C = chipS(), my = C.my[g]; if (my == null) return null; for (let n = my + 1; n <= 5; n++) if ((C.fd[n] != null || n <= C.pub) && chipAcc('me', n)) return n; return null; };   // prochain nœud autorisé pour tes fonderies
 function chipUpCost(g) { const n = Math.max(1, chipFabs(g).length); return Math.round(CHIP_UP * n * cpi() * (casteIs('innovateur') ? 0.8 : 1) * (chipRd() > 0 ? 0.85 : 1) * (1 + 0.25 * ((S.chip && S.chip.my[g]) || 0)) / 1e4) * 1e4; }
 function chipUpgrade(g) {
-  const C = chipS(); if (!isChip(g) || C.my[g] == null) return false; if (C.my[g] >= chipMax()) { say(`Tes usines de ${GOODS[g].name.toLowerCase()} gravent déjà au nœud le plus fin possible (${chipNm(C.my[g])} nm)${chipRd() ? '' : ' : un centre de R&D permet de prendre une génération d\'avance'}.`, 'info'); return false; }
-  const cost = chipUpCost(g); if (S.cash < cost) { say(`Mise à niveau en ${chipNm(C.my[g] + 1)} nm : il faut ${money(cost)}.`, 'bad'); return false; }
-  S.cash -= cost; C.my[g]++; say(`Tes usines de ${GOODS[g].name.toLowerCase()} passent en ${chipNm(C.my[g])} nm (${money(cost)}) : ${C.my[g] > chipFront() ? 'une génération d\'avance sur le monde, prime de monopole tant que les autres n\'ont pas rattrapé' : 'retour à la pointe, plus d\'obsolescence'}.`, 'gold'); return true;
+  const C = chipS(); if (!isChip(g) || C.my[g] == null) return false; const nx = chipNext(g);
+  if (nx == null) { const n = chipKn('me') + 1; say(`Tes usines de ${GOODS[g].name.toLowerCase()} gravent déjà au nœud le plus fin auquel tu as droit (${chipNm(C.my[g])} nm). ${n <= 5 ? `Le ${chipNm(n)} nm demande ${C.pt[n] && C.pt[n].h !== 'me' ? 'une licence (' + money(chipLicFee(n)) + ') de ' + C.pt[n].hn : 'de la R&D : ' + money(Math.max(0, chipNeed('me', n) - (C.x.me || 0))) + ' restants'}.` : ''}`, 'info'); return false; }
+  const cost = chipUpCost(g); if (S.cash < cost) { say(`Mise à niveau en ${chipNm(nx)} nm : il faut ${money(cost)}.`, 'bad'); return false; }
+  S.cash -= cost; C.my[g] = nx; say(`Tes usines de ${GOODS[g].name.toLowerCase()} passent en ${chipNm(C.my[g])} nm (${money(cost)}) : ${C.my[g] >= chipFront() && chipOth() < C.my[g] ? 'seul au monde à ce nœud, prime de monopole tant que les autres n\'ont pas de licence' : C.my[g] >= chipFront() ? 'retour à la pointe, plus d\'obsolescence' : 'moins de retard sur la pointe'}.`, 'gold'); return true;
 }
 // ---- Bulle de l'IA ----
 function aibDur(sd, n) { return { H: 720 + Math.round(360 * hash(sd, n, 731)), P: 120 + Math.round(120 * hash(sd, n, 732)), B: 240 + Math.round(180 * hash(sd, n, 733)), C: 360 + Math.round(360 * hash(sd, n, 734)), G: 540 + Math.round(360 * hash(sd, n, 735)) }; }
@@ -5198,12 +5312,10 @@ function aibStep() {
     if (dc > 0 || (S.cm && S.cm.gpu) || (innov && S.day >= 1440)) { const sd = (((S.rs | 0) ^ (S.day * 2654435761)) >>> 0) & 0xffff; S.aib = { t0: S.day + 30 + Math.round(60 * hash(sd, 7, 736)), sd, n: 0, ls: '' }; S._aib = null; }
   }
   const a = aibNow(), A = S.aib;
-  // pointe mondiale de la gravure : une génération tous les CHIP_GEN_D jours, plus vite dans l'euphorie, plus lentement après l'éclatement, plus vite avec la R&D de la ville
-  const f0 = chipFront(); C.fp = clamp(C.fp + (1 + 0.6 * a.h - 0.4 * a.b + 0.1 * Math.min(3, S.rdPower || 0)) / CHIP_GEN_D, 0, 5);
-  if (chipFront() > f0) { const nm = chipNm(chipFront()), mine = CHIP_G.filter(g => C.my[g] != null && C.my[g] < chipFront() && S._chipN && S._chipN[g] > 0);
-    say(`Gravure en ${nm} nm : ${chipFront() >= 2 ? 'les GPU d\'ancienne génération se bradent' : 'la nouvelle génération de puces arrive'}.${mine.length ? ' Tes usines de ' + mine.map(g => GOODS[g].name.toLowerCase()).join(', ') + ' gravent encore en ' + chipNm(C.my[mine[0]]) + ' nm : leurs prix vont s\'éroder (fiche de l\'usine : mise à niveau).' : ''}`, mine.length ? 'warn' : 'info'); }
+  // pointe mondiale de la gravure : aucune avance au calendrier ; seules les dépenses de R&D (toi, rivaux IA) font sortir une génération (passe 73 bis)
+  chipRdStep();
   const N0 = {}; eachBiz(c => { if (FLEVEL[c.t] && isChip(c.prod) && ownerOf(c) === 'me') N0[c.prod] = (N0[c.prod] || 0) + 1; }); S._chipN = N0; S._aibT = aibTech();
-  CHIP_G.forEach(g => { if (N0[g] && C.my[g] == null) C.my[g] = chipFront(); });   // ta première usine de puces grave au nœud de pointe du jour
+  CHIP_G.forEach(g => { if (N0[g] && C.my[g] == null) C.my[g] = chipMax(); });   // ta première usine de puces grave au meilleur nœud auquel tu as droit (brevet, licence, public)
   if (!A) return;
   const ph = String(a.ph) + (a.ph === 1 && a.h > 0.5 ? 'b' : '') + (a.ph === 1 && a.h > 0.75 ? 'c' : '');
   if (ph !== A.ls && !(a.ph === 0 && !A.ls)) { A.ls = ph; const M = {
@@ -5227,7 +5339,7 @@ function aibCrash() {   // éclatement : dépréciation des actifs IA des rivaux
 // campus : renouvellement des GPU (appelé par dcDay) ; renvoie { cost (trésorerie), q (unités), imp (importées) }
 function dcGpuDay(c, A) {
   const n = DC_GPU * levelMult(c), C = chipS(); if (c.gf == null) c.gf = 1; if (c.gn == null) c.gn = 0;
-  let q = 0, cost = 0, gd = chipFront(), imp = 0;
+  let q = 0, cost = 0, gd = chipOth(), imp = 0;   // le fondeur livre au meilleur nœud qu'il a le droit de graver
   if (c.gpb !== 0 && A > 0) {
     const w = n * (c.gf < 0.999 ? 2 : 1), own = Math.max(0, (S.stock.gpu || 0) - 5), q1 = Math.min(w, own);   /* flotte incomplète : rattrapage au double du rythme */ if (q1 > 0) { S.stock.gpu -= q1; q += q1; gd = C.my.gpu != null ? C.my.gpu : gd; }   // tes GPU d'abord (aucun achat)
     const q2 = w - q1; if (q2 > 0 && S.cash > 0) { const px = emsPx('gpu') * (1 + EMS_FR); cost = q2 * px; emsPay(cost); q += q2; imp = q2; }   // sinon le fondeur (industriel) au prix de gros mondial
@@ -5250,15 +5362,34 @@ function chipRivDay() {
 // ---- Interface ----
 function chipFabEb(g) { let ca = 0, eb = 0; chipFabs(g).forEach(c => { (c._m || []).forEach(v => { ca += v[0]; eb += v[1]; }); }); return ca > 0 ? eb / ca : null; }
 const chipX2 = v => v.toFixed(2).replace('.', ',');
+// état de la course à la gravure : pointe mondiale, détenteur, ton prochain nœud (R&D requise, avancement, rythme), licences et offres
+function chipRdInfo() {
+  const C = chipS(), fr = chipFront(), p = C.pt[fr], kn = chipKn('me'), n = kn + 1, R = chipRate(), need = n <= 5 ? chipNeed('me', n) : 0, x = C.x.me || 0;
+  const who = fr <= 0 ? '' : p ? p.hn : fr <= C.pub ? 'le marché mondial' : 'plusieurs fondeurs';
+  return { C, fr, p, who, kn, n, need, x, R, eta: R.tot > 0 && need > x ? Math.ceil((need - x) / R.tot) : null, blk: n <= 5 && C.pt[n] && C.pt[n].h !== 'me' ? C.pt[n] : null };
+}
+function chipRdHTML(da) {   // da : attribut des boutons (« act » dans la fiche d'usine, « rdp » dans le panneau R&D et brevets)
+  const I = chipRdInfo(), C = I.C, cur = CHIP_BUD.indexOf(C.bud || 0), rd = S.rdPower || 0;
+  let h = `<small>Nœud de pointe : <b>${chipNm(I.fr)} nm</b>${I.fr > 0 ? `, atteint par <b>${I.who}</b> ${I.p ? `(brevet jusqu'au ${dateTxt(I.p.u)}${(I.p.l || []).length ? ', licenciés : ' + I.p.l.map(l => l.name).join(', ') : ''})` : '(technologie libre)'}` : ' (personne n\'a encore financé la génération suivante)'} · ton droit de graver : <b>${chipNm(chipMax())} nm</b></small>`;
+  if (I.n <= 5) h += `<small>Prochain nœud : <b>${chipNm(I.n)} nm</b> · R&D requise <b>${money(I.need)}</b> · ton avancement ${money(Math.min(I.x, I.need))} (${pct(I.need > 0 ? Math.min(1, I.x / I.need) : 0)}) · ${I.R.tot > 0 ? `${mj(I.R.tot)}/mois → ≈ ${I.eta} j` : '<b class="neg">aucune dépense : ta gravure n\'avance pas</b>'}${I.blk ? ` · <b class="neg">${I.blk.hn} a déjà le brevet</b> : ta R&D te donnera la technologie, pas le droit de graver (licence ou expiration le ${dateTxt(I.blk.u)})` : ' · le premier qui finance cette génération prend le brevet'}</small>`;
+  else h += '<small>Tu maîtrises le nœud le plus fin (1 nm) : la limite physique.</small>';
+  if (I.n <= 5) h += `<div class="seg2">${CHIP_BUD.map((b, i) => `<button class="btn ${i === cur ? '' : 'sec'}" data-${da}="chipbud:${i}" aria-pressed="${i === cur}">${b ? mj(b) + '/mois' : 'Budget 0'}</button>`).join('')}<button class="btn sec" data-${da}="chiprc" aria-pressed="${!!C.rc}" ${rd ? '' : 'disabled'}>Centres de R&D sur la gravure : ${C.rc ? 'oui' : 'non'}${rd ? ' (' + mj(CHIP_RDC * cpi() * rd) + '/mois)' : ' (aucun centre)'}</button></div>`;
+  [1, 2, 3, 4, 5].forEach(n => { const p = C.pt[n]; if (!p || p.h === 'me' || (p.l || []).some(l => l.id === 'me')) return; const fee = chipLicFee(n);
+    h += `<div class="seg2"><button class="btn sec" data-${da}="chiplic:${n}" ${S.cash >= fee ? '' : 'disabled'}>Licence ${chipNm(n)} nm de ${p.hn} · ${money(fee)} + ${pctTxt(PAT_ROY)} du CA des puces</button></div>`; });
+  if (C.of) h += `<small><b>Offre de licence</b> : ${C.of.name} propose ${money(C.of.fee)} et ${pctTxt(C.of.rate)} de redevance pour graver en ${chipNm(C.of.n)} nm (fin de ta prime de monopole, jusqu'au ${dateTxt(C.of.exp)}).</small><div class="seg2"><button class="btn" data-${da}="chipof:1">Accepter</button><button class="btn sec" data-${da}="chipof:0">Refuser</button></div>`;
+  const race = [['me', 'Toi']].concat((S.rivals || []).filter(r => !r.sub && (C.k[r.id] || C.x[r.id])).map(r => [r.id, r.name])).map(([id, nm]) => `${nm} ${chipNm(chipKn(id))} nm${chipKn(id) < 5 ? ' (' + pct(Math.min(1, (C.x[id] || 0) / Math.max(1, chipNeed(id, chipKn(id) + 1)))) + ' vers ' + chipNm(chipKn(id) + 1) + ' nm)' : ''}`).join(' · ');
+  return h + `<small>Course à la gravure : ${race}. Seule la R&D fait avancer la technologie : si personne ne dépense, la pointe ne bouge pas.${C.sp ? ' Tu as investi ' + money(C.sp) + ' en R&D de gravure.' : ''}${C.roy ? ' Redevances reçues : ' + money(C.roy) + '.' : ''}</small>`;
+}
 function chipCardHTML(c) {
-  const g = c.prod, C = chipS(), my = C.my[g], fr = chipFront(), m = chipNodeM(g), up = my != null && my < chipMax(), a = aibNow();
-  const st = my == null ? 'tes usines graveront au nœud de pointe du jour' : my > fr ? `<b class="pos">une génération d'avance</b> : prime de monopole ×${chipX2(1 + CHIP_LEAD)}` : my === fr ? (m < 0.999 ? `génération suivante sortie, prix ×${chipX2(m)}` : '<b class="pos">à la pointe</b>') : `<b class="neg">${fr - my} génération${fr - my > 1 ? 's' : ''} de retard</b> : prix ×${chipX2(m)} (puces matures, plancher ×${chipX2(CHIP_MAT)})`;
+  const g = c.prod, C = chipS(), my = C.my[g], fr = chipFront(), m = chipNodeM(g), nx = my == null ? null : chipNext(g), a = aibNow();
+  const st = my == null ? 'tes usines graveront au meilleur nœud auquel tu as droit' : my >= fr ? (m > 1.001 ? `<b class="pos">seul au monde à ce nœud</b> : prime de monopole ×${chipX2(m)}` : '<b class="pos">à la pointe</b>') : m < 0.999 ? `<b class="neg">${fr - my} génération${fr - my > 1 ? 's' : ''} de retard</b> : prix ×${chipX2(m)} (puces matures, plancher ×${chipX2(CHIP_MAT)})` : `génération plus récente sortie (${chipNm(fr)} nm), diffusion en cours`;
   const eb = chipFabEb(g), lm = S._lm && S._lm[g];
   return `<div class="levers"><div class="lever wide"><h4>Fonderie de puces · ${GOODS[g].name}</h4>
-    <small>Gravure de tes usines : <b>${chipNm(my == null ? fr : my)} nm</b> · pointe mondiale <b>${chipNm(fr)} nm</b> (${Math.round(100 * (C.fp - fr))} % vers ${fr < 5 ? chipNm(fr + 1) + ' nm' : 'la limite physique'}) · ${st}</small>
+    <small>Gravure de tes usines : <b>${chipNm(my == null ? chipMax() : my)} nm</b> · pointe mondiale <b>${chipNm(fr)} nm</b> · ${st}</small>
+    ${chipRdHTML('act')}
     <small>Cours du jour ${f1(S.price[g] || 0)} $ (base ${f1(GOODS[g].base * cpi())} $) · ${AIB_PH[a.ph]}${a.ph ? ' : effet de la bulle ×' + chipX2(aibPx(g)) : ''}${lm ? ' · part du marché local ' + pct(lm.sh || 0) : ''}${eb != null ? ' · EBITDA de tes fonderies (30 j) ' + pct(eb) : ''}</small>
-    <small>Chaque génération donne plus de performance par watt et fait vieillir la précédente : les clients basculent vers les nœuds récents, les anciens deviennent des puces matures bon marché (voitures, électroménager, montres).</small>
-    <div class="seg2"><button class="btn" data-act="chipup" ${up && S.cash >= chipUpCost(g) ? '' : 'disabled'}>${my == null ? 'Mise à niveau possible dès le premier jour de production' : up ? `Passer en ${chipNm(my + 1)} nm · ${money(chipUpCost(g))}` : (chipRd() ? 'Nœud le plus fin possible' : 'À la pointe (un centre de R&D donne une génération d\'avance)')}</button></div></div></div>`;
+    <small>Chaque génération donne plus de performance par watt et fait vieillir la précédente dès qu'elle existe sur le marché : les clients basculent vers les nœuds récents, les anciens deviennent des puces matures bon marché (voitures, électroménager, montres). La bulle de l'IA facilite le financement, elle ne fait pas avancer la technologie.</small>
+    <div class="seg2"><button class="btn" data-act="chipup" ${nx != null && S.cash >= chipUpCost(g) ? '' : 'disabled'}>${my == null ? 'Mise à niveau possible dès le premier jour de production' : nx != null ? `Passer en ${chipNm(nx)} nm · ${money(chipUpCost(g))}` : 'Nœud le plus fin auquel tu as droit (R&D ou licence pour aller plus loin)'}</button></div></div></div>`;
 }
 function dcGpuHTML(c) {
   const a = aibNow(), gf = c.gf == null ? 1 : c.gf, n = DC_GPU * levelMult(c);
@@ -5275,10 +5406,10 @@ function aibTips() {
   return t;
 }
 function chipRankHTML() {
-  const C = chipS(), fr = chipFront(), a = aibNow(), r = emsRiv();
+  const C = chipS(), fr = chipFront(), a = aibNow(), r = emsRiv(), I = chipRdInfo();
   const rows = CHIP_G.map(g => { const lm = S._lm && S._lm[g], eb = chipFabEb(g), my = C.my[g], n = (S._chipN && S._chipN[g]) || 0;
     return `<tr><td>${GOODS[g].name}</td><td>${n ? n + ' usine' + (n > 1 ? 's' : '') + ' · ' + chipNm(my) + ' nm' : '—'}</td><td>${n && lm ? pct(lm.sh || 0) : '—'}</td><td>${eb != null ? pct(eb) : '—'}</td><td>${f1(S.price[g] || 0)} $</td></tr>`; }).join('');
-  return `<div class="tpanel" style="margin-top:10px"><h4>Fondeurs de puces · pointe mondiale ${chipNm(fr)} nm · ${AIB_PH[a.ph]} · indice IA/énergie ${Math.round(aiIdx())}</h4><table class="fint"><tr><th>Puce</th><th>Tes fonderies</th><th>Part locale</th><th>EBITDA 30 j</th><th>Cours</th></tr>${rows}</table><small class="note">${r ? r.name + ' grave au nœud de pointe et vend en gros (sous-traitance et export) : marge ≈ ' + mj(C.rv || 0) + '/mois.' : 'Les importateurs mondiaux gravent au nœud de pointe.'} Les puces de pointe profitent de la prime de monopole ; les anciennes générations deviennent des puces matures.</small></div>`;
+  return `<div class="tpanel" style="margin-top:10px"><h4>Fondeurs de puces · pointe mondiale ${chipNm(fr)} nm · ${AIB_PH[a.ph]} · indice IA/énergie ${Math.round(aiIdx())}</h4><table class="fint"><tr><th>Puce</th><th>Tes fonderies</th><th>Part locale</th><th>EBITDA 30 j</th><th>Cours</th></tr>${rows}</table><small class="note">${I.fr > 0 ? `Nœud de pointe atteint par ${I.who}${I.p ? ' (brevet)' : ''}. ` : 'Personne n\'a encore financé le 7 nm. '}${I.n <= 5 ? `Ton prochain nœud ${chipNm(I.n)} nm : R&D requise ${money(I.need)}, ton avancement ${pct(I.need > 0 ? Math.min(1, I.x / I.need) : 0)}${I.R.tot > 0 ? '' : ' (aucune dépense)'}. ` : ''}${r ? r.name + ' grave en ' + chipNm(chipOth()) + ' nm et vend en gros (sous-traitance et export) : marge ≈ ' + mj(C.rv || 0) + '/mois.' : 'Les importateurs mondiaux gravent en ' + chipNm(chipOth()) + ' nm.'} Les puces de pointe brevetées profitent de la prime de monopole ; les anciennes générations deviennent des puces matures.</small></div>`;
 }
 // --- Chocs exogènes (énergie, pandémie, crise du crédit) : état dans S.macro.sh[id] = { t0, d, k } ; intensité 0..1 (montée, plateau, retombée) ---
 const SHOCKS = {
@@ -10937,6 +11068,7 @@ function bAct(a) {
   else if (a === 'dctr' && c.t === 'dc') { c.tb = c.tb ? 0 : 1; say(c.tb ? `Appoint négociant activé : ${trR() ? trR().name : 'le négociant'} comble les heures sans courant au prix fort quand l'appoint réseau est coupé.` : 'Appoint négociant désactivé.', 'info'); }
   else if (a === 'dcgpu' && c.t === 'dc') { c.gpb = c.gpb === 0 ? 1 : 0; say(c.gpb ? 'Renouvellement des GPU repris : la flotte retrouve sa pleine capacité de calcul.' : 'Renouvellement des GPU suspendu : la flotte vieillit, la capacité de calcul baisse lentement (jamais sous 75 %).', 'info'); }   // passe 73
   else if (a === 'chipup' && FLEVEL[c.t] && isChip(c.prod)) { chipUpgrade(c.prod); }
+  else if (a.indexOf('chip') === 0 && chipAct(a)) { /* passe 73 bis : R&D de gravure, licences de nœud */ }
   else if (a === 'dcgrid' && c.t === 'dc') { c.gb = c.gb === 0 ? 1 : 0; say(c.gb ? 'Appoint réseau activé : le réseau comble les heures sans production (tarif data center).' : 'Appoint réseau coupé : le campus ne vit plus que de tes centrales et de ses batteries.', c.gb ? 'info' : 'warn'); }
   else if (a === 'bull') { place(c.x, c.y, 'bull'); closeBuilding(); return; }
   else if (a === 'recycle') { recycleSite(c); bvHtml = ''; renderBuilding(true); return; }
@@ -18542,6 +18674,7 @@ function patStep() {
     if (r.holder === 'me') (r.licensees || []).forEach(l => { const a = patLicDay(pk, l) * k; if (a <= 0) return; l.paid = (l.paid || 0) + a; r.roy = (r.roy || 0) + a; const rv = l.id[0] === 'x' ? (S.rivals || []).find(x => 'x' + x.id === l.id) : null; if (rv) rv.cash = (rv.cash || 0) - a + LIC_MG * a / Math.max(0.01, (l.rate || r.rate) * (casteIs('innovateur') ? 1.5 : 1)); });   // passe 67 (somme positive) : le licencié encaisse sa marge sur les ventes sous licence, redevance déduite
     else if (patIsLic(r, 'me')) { const ps = S.prod[pk], me = r.licensees.find(l => l.id === 'me'); if (ps.st === 'on' && !ps.res && ps.rev > 0) { const fee = ps.rev * me.rate; S.cash -= fee; me.paid = (me.paid || 0) + fee; r.roy = (r.roy || 0) + fee; X.paid += fee; const rv = (S.rivals || []).find(x => x.id === r.holder); if (rv) rv.cash = (rv.cash || 0) + fee; } }
   });
+  chipPatStep();   // passe 73 bis : brevets de gravure (expirations, redevances, offres de licence)
   // offres de licence reçues sur tes brevets (une chance sur ~2,5 par mois et par brevet, au plus 4 en attente)
   X.off = X.off.filter(o => o.exp > d && patMine(o.pk));
   if (d % PAT_OFF_EVERY === 7) Object.keys(P).forEach(pk => {
@@ -18577,6 +18710,9 @@ function accList() {
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps.st !== 'rnd') return; const pr = PRODUCTS[pk], rt = accRate('p', pk), tot = Math.max(1, ps.rdT || pr.days);
     L.push({ k: 'p:' + pk, kind: 'p', id: pk, n: pr.name, sub: 'Produit · gamme ' + patQn(ps.q), left: Math.max(0, ps.rnd) / rt, total: tot / rt, cost: pr.free ? 0 : pr.rnd * QTIER[ps.q].rnd, rate: rt, o: ps }); });
   if (S.research && TECH_BY[S.research.id]) { const R = S.research, T = TECH_BY[R.id], rt = accRate('t'); L.push({ k: 't:' + R.id, kind: 't', id: R.id, n: T.n, sub: 'Technologie', left: Math.max(0, R.left) / rt, total: Math.max(1, R.total) / rt, cost: T.c, rate: rt, o: R }); }
+  // passe 73 bis : nœud de gravure en recherche (taux = ta dépense de R&D par jour ; un jour accéléré = un jour de dépense ajouté à l'avancement)
+  if (S.chip) { const C = chipS(), n = chipKn('me') + 1, rt = chipRate().tot; if (n <= 5 && rt > 0) { const need = chipNeed('me', n); if (!C.ac || C.ac.n !== n) C.ac = { n, acc: 0 };
+    L.push({ k: 'n:chip', kind: 'n', id: 'chip', n: `Gravure en ${chipNm(n)} nm`, sub: 'Nœud de gravure des puces (CPU, DRAM, GPU)', left: Math.max(0, need - (C.x.me || 0)) / rt, total: Math.max(1, need / rt), cost: need, rate: rt, o: C.ac }); } }
   return L;
 }
 function accInfo(k) {
@@ -18593,7 +18729,7 @@ function accelerate(k, d, pay) {
   else if (pay === 'cash') { if (S.cash < Q.cash) return { ok: false, why: `Il faut ${money(Q.cash)} de trésorerie.` }; S.cash -= Q.cash; X.cashAcc += Q.cash; paid = money(Q.cash); }
   else if (pay === 'lab') { if (X.cred < Q.d) return { ok: false, why: `Crédits labo insuffisants (${X.cred} j).` }; X.cred -= Q.d; paid = Q.d + ' j de crédits labo'; }
   else return { ok: false, why: 'Mode de paiement inconnu.' };
-  if (I.kind === 'p') o.rnd = Math.max(0, o.rnd - Q.d * I.rate); else o.left = Math.max(0, o.left - Q.d * I.rate);
+  if (I.kind === 'p') o.rnd = Math.max(0, o.rnd - Q.d * I.rate); else if (I.kind === 'n') { const C = chipS(); C.x.me = (C.x.me || 0) + Q.d * I.rate; C.ac = o; o.acc = (o.acc || 0) + Q.d; if (o.accD !== S.day) { o.accD = S.day; o.accN = 0; } o.accN += Q.d; chipReach('me'); say(`Recherche accélérée : ${I.n} −${Q.d} jour${Q.d > 1 ? 's' : ''} (${paid}).`, 'good'); updateHUD(); saveSoon(); return { ok: true, d: Q.d, pay, gem: pay === 'gem' ? Q.gem : 0, cash: pay === 'cash' ? Q.cash : 0 }; } else o.left = Math.max(0, o.left - Q.d * I.rate);
   o.acc = (o.acc || 0) + Q.d; if (o.accD !== S.day) { o.accD = S.day; o.accN = 0; } o.accN += Q.d;
   say(`Recherche accélérée : ${I.n} −${Q.d} jour${Q.d > 1 ? 's' : ''} (${paid}).`, 'good'); updateHUD(); saveSoon();
   return { ok: true, d: Q.d, pay, gem: pay === 'gem' ? Q.gem : 0, cash: pay === 'cash' ? Q.cash : 0 };
@@ -18667,7 +18803,7 @@ function rdpAccHTML(I) {
 }
 function renderRdp(force) {
   if (!S || !rdpOpen()) return; const X = rdxS(), st = window._rdp, P = S.pat || {}, L = accList();
-  const sig = S.day + '|' + (S.rdFocus || '') + '|' + X.gem + '|' + X.cred + '|' + JSON.stringify(st) + '|' + Object.keys(P).length + '|' + X.off.length + '|' + Math.round(S.cash / 1000) + '|' + L.map(x => x.k + Math.ceil(x.left)).join(',');
+  const sig = S.day + '|' + (S.rdFocus || '') + '|' + X.gem + '|' + X.cred + '|' + JSON.stringify(st) + '|' + Object.keys(P).length + '|' + X.off.length + '|' + Math.round(S.cash / 1000) + '|' + L.map(x => x.k + Math.ceil(x.left)).join(',') + '|' + (S.chip ? JSON.stringify([S.chip.fp, S.chip.bud, S.chip.rc, S.chip.of, Math.round((S.chip.x && S.chip.x.me) / 1e5), S.chip.pt]) : '');
   const box = el('rdp'); if (!force && box.dataset.h === sig) return; box.dataset.h = sig;
   const mine = Object.keys(P).filter(pk => patMine(pk)), riv = Object.keys(P).filter(pk => patentHeld(pk) && P[pk].holder !== 'me');
   const roy = patRevDay() * cpi(), val = mine.reduce((a, pk) => a + patValue(pk), 0);
@@ -18683,6 +18819,8 @@ function renderRdp(force) {
       <div class="acts"><button class="btn ${open ? '' : 'sec'}" data-rdp="sel:${it.k}">${open ? 'Fermer' : 'Accélérer'}</button></div>${open ? rdpAccHTML(I) : ''}</div>`;
     if (open && st.conf) { const Q = accQuote(it.k, Math.min(st.d, I.max)); if (Q && Q.d > 0) h += `<div class="conf"><b>Confirmer l'accélération ?</b><p class="note">${it.n} : −${Q.d} jour${Q.d > 1 ? 's' : ''} pour ${st.conf === 'gem' ? Q.gem + ' ' + GEM_N + ' (solde après : ' + (X.gem - Q.gem) + ')' : st.conf === 'cash' ? money(Q.cash) + ' de trésorerie' : Q.d + ' j de crédits labo'}.</p><div class="acts" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-rdp="go">Confirmer</button><button class="btn sec" data-rdp="no">Annuler</button></div></div>`; }
   });
+  // passe 73 bis : course à la gravure des puces (nœuds = technologies de R&D, brevets et licences)
+  h += `<h3>GRAVURE DES PUCES (CPU, DRAM, GPU)</h3><div class="rdrow">${chipRdHTML('rdp')}</div>`;
   // technologie des produits lancés : projet prioritaire (règle R3) et rattrapage (R4)
   { const TR = rdTechRows(); h += `<h3>TECHNOLOGIE DE TES PRODUITS</h3>`;
     if (!TR.length) h += '<p class="note">Aucun produit lancé.</p>';
@@ -18727,6 +18865,7 @@ el('rdp').addEventListener('click', e => {
   else if (k === 'shop') st.shop = !st.shop;
   else if (k === 'foc') rdSetFocus(v);
   else if (k === 'iap') iapPurchase(v);
+  else if (k.indexOf('chip') === 0) chipAct(k + (v != null ? ':' + v : ''));
   renderRdp(true); saveSoon();
 });
 // produits que tu peux encore breveter, classés par valeur potentielle ; gamme minimale = une au-dessus de la meilleure du marché (marché mûr)
@@ -19662,7 +19801,7 @@ function drawWorksOver(a, p, bx, by, floors, now) {
   ctx.restore();
 }
 
-window.WSE = { say, isCmp, chip: { G: CHIP_G, NM: CHIP_NM, K: { CHIP_GEN_D, CHIP_OBS, CHIP_MAT, CHIP_LEAD, CHIP_UP, DC_GPU, DC_GPU_LIFE, DC_GPU_MIN, DC_GEN_EFF, AIB_MIN }, S: chipS, front: chipFront, nm: chipNm, nodeM: chipNodeM, up: chipUpgrade, upCost: chipUpCost, fabs: chipFabs, slow: chipSlow, san: chipSan, card: chipCardHTML, rank: chipRankHTML, eb: chipFabEb }, aib: { at: aibAt, now: aibNow, step: aibStep, san: aibSan, PH: AIB_PH, gpuM: aibGpuM, chipM: aibChipM, dcM: aibDcM, elM: aibElM, valM: aibValM, demM: aibDemM, idx: aiIdx, tips: aibTips, dcK: dcGpuK, eff: dcEff, gpuHTML: dcGpuHTML }, pos: { prosp, rivMkt, attrDen, rivCannib, svcB2B, rivSvc, synHTML, synStep, bkRivDem, scOn, scPx, K: { PX_K, PX_T0, PX_U0, PX_MAX, RIV_CANNIB, MC_K, MC_MAX, SVC_B2B, RAW_B2B, RIV_SVC, SC_PREM, SC_DAYS } }, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML, maxAt: proMaxAt, devQuote: proDevQuote, develop: proDevelop, deals: proDeals, prog: proProg, progErr: proProgErr, progCost: proProgCost, PROG, brand: proBrand, brandK: proBrandK, demo: proDemo, syn: proSyn, attrCity: proAttrCity, liq: proLiq, mktK: proMktK, mtm: proMtm, cycle: p => proCycleStep(p || PR()), ltv: () => promoLtv(), limit: () => promoLimit(), immoIdx: () => immoIdx(), resOcc: proResOcc, port: proPortList, noSale: proNoSale, cityHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating, lev: rivLev, rate: rivRate, gross: rivGross, canBorrow: rivCanBorrow, K2: { RIV_LEV_AV, RIV_GS_P, RIV_MAT }, tr: { R: trR, S: trS, K: trK, sup: trSup, list: supplierList, val: trVal, market: trMarket, day: trDay, power: trPower, left: trLeft, cov: trCov, M: trM, delay: trDelay, act: trCasteAct, line: trLine, joinCartel: trJoinCartel, C: { TR_DAYS, TR_STEP, TR_TM, TR_DCAP, TR_BUD, TR_FLOW, TR_ELCAP, TR_DCK, TR_ELK, TR_EXP, TR_BUY } }, lx: { R: lxR, S: lxS, quote: lxQuote, lend: lxLend, take: lxTake, day: lxDay, book: lxBook, cap: lxCap, st: lxSt, act: lxCasteAct, rescue: lxRescue, line: lxLine, meAmt: lxMeAmt, offerAmt: lxOfferAmt, C: { LX_LEV, LX_LEVMAX, LX_TERM, LX_ST } }, answerX: rvxAnswer, role: casteRoleTxt }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, rk: RK_API, openRank, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
+window.WSE = { say, isCmp, chip: { G: CHIP_G, NM: CHIP_NM, K: { CHIP_RD0, CHIP_RDG, CHIP_RDC, CHIP_PAT_Y, CHIP_RAMP, CHIP_RIV_SH, CHIP_RIV_MIN, CHIP_LIC_K, CHIP_LIC_REV, CHIP_BUD, CHIP_OBS, CHIP_MAT, CHIP_LEAD, CHIP_UP, DC_GPU, DC_GPU_LIFE, DC_GPU_MIN, DC_GEN_EFF, AIB_MIN }, S: chipS, front: chipFront, nm: chipNm, nodeM: chipNodeM, up: chipUpgrade, upCost: chipUpCost, fabs: chipFabs, slow: chipSlow, san: chipSan, card: chipCardHTML, rank: chipRankHTML, eb: chipFabEb, max: chipMax, oth: chipOth, acc: chipAcc, accMax: chipAccMax, kn: chipKn, need: chipNeed, rate: chipRate, reach: chipReach, rdStep: chipRdStep, patStep: chipPatStep, licFee: chipLicFee, licBuy: chipLicBuy, answer: chipOfferAnswer, act: chipAct, next: chipNext, info: chipRdInfo, rdHTML: chipRdHTML }, aib: { at: aibAt, now: aibNow, step: aibStep, san: aibSan, PH: AIB_PH, gpuM: aibGpuM, chipM: aibChipM, dcM: aibDcM, elM: aibElM, valM: aibValM, demM: aibDemM, idx: aiIdx, tips: aibTips, dcK: dcGpuK, eff: dcEff, gpuHTML: dcGpuHTML }, pos: { prosp, rivMkt, attrDen, rivCannib, svcB2B, rivSvc, synHTML, synStep, bkRivDem, scOn, scPx, K: { PX_K, PX_T0, PX_U0, PX_MAX, RIV_CANNIB, MC_K, MC_MAX, SVC_B2B, RAW_B2B, RIV_SVC, SC_PREM, SC_DAYS } }, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML, maxAt: proMaxAt, devQuote: proDevQuote, develop: proDevelop, deals: proDeals, prog: proProg, progErr: proProgErr, progCost: proProgCost, PROG, brand: proBrand, brandK: proBrandK, demo: proDemo, syn: proSyn, attrCity: proAttrCity, liq: proLiq, mktK: proMktK, mtm: proMtm, cycle: p => proCycleStep(p || PR()), ltv: () => promoLtv(), limit: () => promoLimit(), immoIdx: () => immoIdx(), resOcc: proResOcc, port: proPortList, noSale: proNoSale, cityHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating, lev: rivLev, rate: rivRate, gross: rivGross, canBorrow: rivCanBorrow, K2: { RIV_LEV_AV, RIV_GS_P, RIV_MAT }, tr: { R: trR, S: trS, K: trK, sup: trSup, list: supplierList, val: trVal, market: trMarket, day: trDay, power: trPower, left: trLeft, cov: trCov, M: trM, delay: trDelay, act: trCasteAct, line: trLine, joinCartel: trJoinCartel, C: { TR_DAYS, TR_STEP, TR_TM, TR_DCAP, TR_BUD, TR_FLOW, TR_ELCAP, TR_DCK, TR_ELK, TR_EXP, TR_BUY } }, lx: { R: lxR, S: lxS, quote: lxQuote, lend: lxLend, take: lxTake, day: lxDay, book: lxBook, cap: lxCap, st: lxSt, act: lxCasteAct, rescue: lxRescue, line: lxLine, meAmt: lxMeAmt, offerAmt: lxOfferAmt, C: { LX_LEV, LX_LEVMAX, LX_TERM, LX_ST } }, answerX: rvxAnswer, role: casteRoleTxt }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, rk: RK_API, openRank, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; if (o.TIER != null) CG_TIER = o.TIER; return { CG_R0, CG_P, CG_CAP, CG_REL, CG_TIER }; }, citySvcCov, citySvc: () => ({ need: CITY_SVC, have: citySvcHave().n, cov: citySvcCov() }), cityTiers: CITY_TIER, cityTierR, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)

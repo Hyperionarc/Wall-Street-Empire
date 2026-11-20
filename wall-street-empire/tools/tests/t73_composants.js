@@ -2,7 +2,8 @@
 // A. recettes : silice → silicium → puces (silicium + câbles + plastique, sans or ni wafer, usine de niveau 3) ; produits électroniques, électroménager et véhicules en consomment ;
 //    moteur électrique inchangé. B. économie isolée : fonderies de puces rentables (EBITDA 22-35 %), smartphone et portable cohérents (≈ 21-27 %).
 // C. campus : renouvellement des GPU (stock du joueur d'abord), capacité réduite sans GPU mais jamais d'arrêt. D. bulle : phases enchaînées, prix du GPU, électricité, déterminisme.
-// E. nœuds : progression, érosion des anciennes générations (plancher des puces matures), efficacité des campus. F. pénurie de puces matures pour les voitures.
+// E. nœuds (passe 73 bis) : aucune avance au calendrier, R&D seule (joueur et IA selon leur budget), brevet au premier, licence, accélération payante,
+//    érosion des anciennes générations quand une plus récente existe (plancher des puces matures), déterminisme. F. pénurie de puces matures pour les voitures.
 // G. sauvegarde : champs facultatifs relus, ancienne sauvegarde chargée sans erreur.
 const fs = require('fs'), path = require('path');
 exports.name = 'Puces, nœuds de gravure et bulle de l\'IA (passe 73)';
@@ -63,17 +64,48 @@ exports.run = async (t, L) => {
   t.check('électricité : flambe pendant la ruée, se détend après, reste au-dessus de la normale (gagnant structurel)', D.elPeak > 1.3 && D.elAfter < D.elPeak && D.elAfter > 1.02, `pic ×${D.elPeak.toFixed(2)}, après ×${(D.elAfter || 0).toFixed(2)}`);
   t.check('bulle : déterministe (même graine, même cycle)', D.det, '');
 
-  // E. nœuds de gravure
+  // E. nœuds de gravure (passe 73 bis) : la technologie n'avance QUE par la R&D (aucune horloge) ; brevet au premier, licence pour les autres
   const E = await pg.evaluate(() => {
-    const W = window.WSE, S = W.S, o = {}, keepC = S.chip, keepN = S._chipN;
-    S.chip = { fp: 0, my: {} }; for (let i = 0; i < 600; i++) { W.aib.step(); } o.front = W.chip.front(); o.fp = S.chip.fp;
-    S._chipN = { gpu: 1, cpu: 1 }; S.chip = { fp: 2.0, my: { gpu: 2, cpu: 0 } }; o.at = W.chip.nodeM('gpu'); S.chip.fp = 4.0; o.m15 = W.chip.nodeM('gpu'); o.mOld = W.chip.nodeM('cpu');
-    S.chip.my.gpu = 5; o.lead = W.chip.nodeM('gpu'); S._chipN = {}; o.none = W.chip.nodeM('gpu');
-    S.chip = keepC; S._chipN = keepN; return o; });
-  t.check('nœuds : la pointe mondiale avance avec le temps (≥ 1 génération en 600 j)', E.front >= 1, `pointe ${E.fp.toFixed(2)}`);
-  t.check('nœuds : à la pointe = prix du marché ; dépassé par deux générations = prix érodé', E.at === 1 && E.m15 < 0.8 && E.m15 > 0.5, `×${E.at} → ×${E.m15.toFixed(2)}`);
-  t.check('nœuds : vieilles puces = puces matures (plancher ×0,5, jamais zéro)', E.mOld >= 0.5 && E.mOld < E.m15 + 1e-9, `×${E.mOld.toFixed(2)}`);
-  t.check('nœuds : une génération d\'avance (R&D) = prime de monopole ; sans fonderie, cours mondial', E.lead > 1.2 && E.none === 1, `×${E.lead}`);
+    const W = window.WSE, S = W.S, T = window.T, o = {}, keepC = S.chip, keepN = S._chipN, keepR = S.rivals, keepCash = S.cash;
+    const rdc = T.inP('rd'); o.rd = !!rdc;
+    // E1. personne ne dépense (budget 0, centres non affectés, aucune IA fondeuse ou innovatrice) : la pointe ne bouge pas pendant 9 ans de jeu
+    S.chip = { fp: 0, my: {} }; S.rivals = keepR.filter(r => r.caste !== 'industriel' && r.caste !== 'innovateur'); const d0 = S.day;
+    T.stepN(1080, true); o.zero = { days: S.day - d0, fp: S.chip.fp, front: W.chip.front(), x: S.chip.x.me || 0, pt: Object.keys(S.chip.pt).length, rd: S.rdPower || 0 };
+    S.rivals = keepR;
+    // E2. forte dépense du joueur (1 M$/j) : il passe en premier, prend le brevet, la nouvelle est publiée
+    S.chip = { fp: 0, my: {} }; S.cash = 5e10; S._sayBuf = []; W.chip.act('chipbud:4'); o.need1 = W.chip.need('me', 1); const d1 = S.day; let dReach = null;
+    for (let i = 0; i < 60 && dReach == null; i++) { T.stepN(1, true); if (W.chip.front() >= 1) dReach = S.day - d1; }
+    o.spend = { dReach, fp: S.chip.fp, h: S.chip.pt[1] && S.chip.pt[1].h, max: W.chip.max(), news: (S._sayBuf || []).join(' | ') };
+    // accélération payante : un jour accéléré = un jour de dépense ajouté à l'avancement du nœud suivant
+    const L = W.rd.list(), it = L.find(x => x.k === 'n:chip'), x0 = S.chip.x.me || 0, acc = it ? W.rd.accelerate('n:chip', 5, 'cash') : null;
+    o.acc = { listed: !!it, ok: acc && acc.ok, d: acc && acc.d, dx: (S.chip.x.me || 0) - x0, rate: it ? it.rate : 0 };
+    W.chip.act('chipbud:0'); o.budOff = W.chip.rate().tot;
+    // prime de monopole tant que personne d'autre ne grave à ce nœud ; une licence accordée y met fin
+    S._chipN = { gpu: 1 }; S.chip.my.gpu = 1; o.lead = W.chip.nodeM('gpu');
+    const rv = keepR.find(r => r.caste === 'innovateur' && !r.sub) || keepR.find(r => !r.sub); S.chip.of = { n: 1, who: rv.id, name: rv.name, fee: 1e6, rate: 0.05, exp: S.day + 30 };
+    o.ofOk = W.chip.answer(true); o.afterLic = W.chip.nodeM('gpu'); o.rvAcc = W.chip.acc(rv.id, 1);
+    // E3. brevet d'un rival au nœud suivant : sans licence, pas de mise à niveau ; avec licence, accès ; obsolescence quand une génération plus récente existe réellement
+    const d = S.day; S.chip = { fp: 2, my: { gpu: 1, cpu: 0 }, pub: 0, k: { me: 1, [rv.id]: 2 }, x: {}, fd: { 1: d - 900, 2: d - 10 }, pt: { 2: { h: rv.id, hn: rv.name, s: d - 10, u: d + 590, l: [] } } }; S._chipN = { gpu: 1, cpu: 1 };
+    o.m0 = W.chip.nodeM('gpu'); S.chip.fd[2] = d - 400; o.m1 = W.chip.nodeM('gpu'); o.mOld = W.chip.nodeM('cpu'); S.chip.fd[2] = d - 10;
+    o.maxNoLic = W.chip.max(); o.upNoLic = W.chip.up('gpu'); const cash0 = S.cash, rc0 = rv.cash; o.lic = W.chip.licBuy(2); o.licPaid = cash0 - S.cash; o.rvGot = rv.cash - rc0;
+    o.maxLic = W.chip.max(); o.upLic = W.chip.up('gpu'); o.myLic = S.chip.my.gpu; o.atFront = W.chip.nodeM('gpu');
+    o.card = W.chip.rdHTML('act'); S._chipN = {}; o.none = W.chip.nodeM('gpu');
+    // E4. IA : elles avancent selon leur budget réel (part de leur valeur, payée sur leur trésorerie) ; sans budget, rien
+    S.chip = { fp: 0, my: {} }; const ri = keepR.filter(r => !r.sub && (r.caste === 'industriel' || r.caste === 'innovateur')), cs = ri.map(r => r.cash), as0 = ri.map(r => r.as || 0);
+    ri.forEach(r => { r.cash = 3e9; }); const da = S.day; S.day = Math.ceil((S.day - 11) / 30) * 30 + 11; W.chip.rdStep(); o.riv = { n: ri.length, k: ri.map(r => W.chip.kn(r.id)), fp: S.chip.fp, h: S.chip.pt[1] && S.chip.pt[1].h, spent: ri.map((r, i) => Math.round((3e9 - r.cash) / 1e6)) };
+    // déterminisme : même état, même résultat
+    const snap = JSON.stringify(S.chip); S.chip = { fp: 0, my: {} }; ri.forEach((r, i) => { r.cash = 3e9; r.as = as0[i]; }); W.chip.rdStep(); o.det = JSON.stringify(S.chip) === snap;
+    S.chip = { fp: 0, my: {} }; ri.forEach(r => { r.cash = 1e5; }); W.chip.rdStep(); o.poor = S.chip.fp; S.day = da;
+    ri.forEach((r, i) => { r.cash = cs[i]; r.as = as0[i]; });
+    S.chip = keepC; S._chipN = keepN; S.cash = keepCash; return o; });
+  t.check('nœuds : à zéro dépense de R&D, la pointe reste fixe pendant 9 ans de jeu (aucune avance au calendrier)', E.zero.front === 0 && E.zero.fp === 0 && E.zero.x === 0 && E.zero.pt === 0 && E.zero.days >= 1000, JSON.stringify(E.zero));
+  t.check('nœuds : forte dépense (1 M$/j) : le joueur grave le premier en 7 nm et en prend le brevet ; actualité « grave désormais en 7 nm »', E.spend.dReach != null && E.spend.dReach <= Math.ceil(E.need1 / 1e6) + 2 && E.spend.h === 'me' && E.spend.max === 1 && /grave désormais en 7 nm/.test(E.spend.news), JSON.stringify(E.spend) + ' besoin ' + Math.round(E.need1 / 1e6) + ' M$');
+  t.check('nœuds : l\'accélération payante s\'applique au nœud suivant (chaque jour accéléré = un jour de dépense ajouté) ; budget à 0 = plus de dépense', E.acc.listed && E.acc.ok && E.acc.d > 0 && Math.abs(E.acc.dx - E.acc.d * E.acc.rate) < 1 && E.budOff === 0, JSON.stringify(E.acc));
+  t.check('nœuds : seul à graver au nœud de pointe = prime de monopole ; licence accordée = fin de la prime, le licencié a accès', E.lead > 1.2 && E.ofOk && E.afterLic === 1 && E.rvAcc, `×${E.lead} → ×${E.afterLic}`);
+  t.check('nœuds : génération plus récente qui vient de sortir = érosion naissante ; diffusée = prix érodé ; vieilles puces = puces matures (plancher ×0,5)', E.m0 < 1 && E.m0 > 0.95 && E.m1 < 0.8 && E.m1 > 0.6 && E.mOld >= 0.5 && E.mOld <= E.m1, `×${E.m0.toFixed(3)} → ×${E.m1.toFixed(2)} · ancien ×${E.mOld.toFixed(2)}`);
+  t.check('nœuds : brevet d\'un rival = pas de mise à niveau sans licence ; licence achetée (payée au rival) = accès et mise à niveau', E.maxNoLic === 1 && E.upNoLic === false && E.lic.ok && E.licPaid > 0 && Math.abs(E.rvGot - E.lic.fee) < 1 && E.maxLic === 2 && E.upLic === true && E.myLic === 2 && E.atFront === 1, JSON.stringify({ a: E.maxNoLic, b: E.upNoLic, l: E.lic, m: E.maxLic, u: E.upLic }));
+  t.check('fiche : « Nœud de pointe atteint par X (brevet) », « R&D requise », avancement (sans NaN)', /Nœud de pointe/.test(E.card) && /atteint par/.test(E.card) && /brevet/.test(E.card) && /R&amp;D requise|R&D requise/.test(E.card) && /avancement/.test(E.card) && !/NaN|undefined|Infinity/.test(E.card) && E.none === 1, E.card.replace(/<[^>]+>/g, '').slice(0, 220));
+  t.check('IA : avancent selon leur budget réel de R&D (riches : nouveau nœud et brevet ; pauvres : rien) ; déterministe', E.riv.n > 0 && E.riv.fp >= 1 && E.riv.h != null && E.riv.h !== 'me' && E.poor === 0 && E.det, JSON.stringify(E.riv) + ' pauvres ' + E.poor);
 
   // F. pénurie de puces matures : voitures pendant la ruée
   const F = await pg.evaluate(() => {
@@ -83,10 +115,12 @@ exports.run = async (t, L) => {
   t.check('pénurie de puces matures (ruée sur l\'IA) : voitures ralenties et puces plus chères ; ta propre fonderie t\'en protège', F.h > 0.5 && F.car < 0.9 && F.chipM > 1.1 && F.carOwn === 1 && F.phone === 1, JSON.stringify(F));
 
   // G. sauvegarde : aller-retour et ancienne sauvegarde
-  const G = await pg.evaluate(() => { const W = window.WSE, S = W.S; S.chip = { fp: 2.3, my: { gpu: 2 } }; S.aib = { t0: 900, sd: 77, n: 0, ls: '1' }; let dc = null; S.grid.forEach(c => { if (c && c.t === 'dc') dc = c; }); if (dc) { dc.gf = 0.8; dc.gn = 1.5; dc.gpb = 0; } W.save(); return { has: !!dc }; });
+  const G = await pg.evaluate(() => { const W = window.WSE, S = W.S; S.chip = { fp: 2, my: { gpu: 2 }, pub: 1, k: { me: 2 }, x: { me: 1234567 }, fd: { 2: S.day - 10 }, pt: { 2: { h: 'me', hn: 'Ta société', s: S.day - 10, u: S.day + 500, l: [{ id: 'r6', name: 'Novatek', rate: 0.05, fee: 1e6, paid: 10 }] } }, bud: 2e5, rc: 1 }; S.aib = { t0: 900, sd: 77, n: 0, ls: '1' }; let dc = null; S.grid.forEach(c => { if (c && c.t === 'dc') dc = c; }); if (dc) { dc.gf = 0.8; dc.gn = 1.5; dc.gpb = 0; } W.save(); return { has: !!dc }; });
   await pg.reload(); await pg.waitForTimeout(900);
   const G2 = await pg.evaluate(() => { const W = window.WSE, S = W.S; let dc = null; S.grid.forEach(c => { if (c && c.t === 'dc') dc = c; }); return { chip: S.chip, aib: S.aib, gf: dc && dc.gf, gn: dc && dc.gn, gpb: dc && dc.gpb }; });
-  t.check('sauvegarde : nœuds, cycle de l\'IA et GPU du campus relus', G2.chip && Math.abs(G2.chip.fp - 2.3) < 1e-6 && G2.chip.my.gpu === 2 && G2.aib && G2.aib.t0 === 900 && G2.aib.sd === 77 && (!G.has || (Math.abs(G2.gf - 0.8) < 1e-3 && Math.abs(G2.gn - 1.5) < 1e-3 && G2.gpb === 0)), JSON.stringify(G2));
+  t.check('sauvegarde : nœuds, cycle de l\'IA et GPU du campus relus', G2.chip && G2.chip.fp === 2 && G2.chip.pub === 1 && G2.chip.my.gpu === 2 && G2.chip.k.me === 2 && G2.chip.x.me >= 1234567 && G2.chip.pt[2] && G2.chip.pt[2].h === 'me' && G2.chip.pt[2].l.length === 1 && G2.chip.bud === 2e5 && G2.chip.rc === 1 && G2.aib && G2.aib.t0 === 900 && G2.aib.sd === 77 && (!G.has || (Math.abs(G2.gf - 0.8) < 1e-3 && Math.abs(G2.gn - 1.5) < 1e-3 && G2.gpb === 0)), JSON.stringify(G2));
+  { const O = await pg.evaluate(() => { const W = window.WSE, S = W.S, keep = S.chip; const o = W.chip.san({ fp: 2.3, my: { gpu: 2 } }); S.chip = o; const r = { pub: o.pub, fp: o.fp, max: W.chip.max(), pt: Object.keys(o.pt).length }; S.chip = keep; return r; });
+    t.check('ancienne sauvegarde (pointe fractionnaire au calendrier) : générations déjà sorties publiques, aucun brevet', O.pub === 2 && O.fp === 2 && O.max === 2 && O.pt === 0, JSON.stringify(O)); }
   { const save = fs.readFileSync(path.join(__dirname, 'fixtures', 'save_v8_avant_passe33.json'), 'utf8');
     const b = await L.browser(), ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
     await ctx.addInitScript(s => { try { if (!sessionStorage.getItem('wse_fx')) { localStorage.setItem('wse-city-v8', s); sessionStorage.setItem('wse_fx', '1'); } } catch (e) { } }, save);
