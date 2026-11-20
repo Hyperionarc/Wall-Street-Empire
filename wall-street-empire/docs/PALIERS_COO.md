@@ -80,3 +80,38 @@ Champs facultatifs dans l'extra de la cellule : `pa` (chantier : niveau visé, d
 au niveau de la partie : `ent` (droits simulés, Diamants, COO) et `scm` (historique de maîtrise). Une ancienne sauvegarde (sans `ent.pv`) est migrée : un magasin
 agrandi à l'ancienne garde le niveau que son coût historique paie au nouveau barème, sinon il revient au **niveau 1 au coût historique** (son `invest` est conservé).
 Exemple testé : supermarché agrandi deux fois pour 1,1 M$ → niveau 1 ; petit marché qui avait payé 1,15 M$ → niveau 3 (0,3 + 0,8 M$).
+
+## 2. COO à acheter (premium simulé)
+
+Menu > Chaîne, carte « Directeur des opérations (COO) ». Sans droit premium simulé, le recrutement est refusé ; le pilotage manuel et les automatismes de base
+(« Tout lancer automatiquement », import automatique, politique « Chercher de meilleurs fournisseurs ») restent exactement comme avant.
+
+| Niveau | Rôle | Revue | Seuil de changement | Rémunération |
+|---|---|---|---|---|
+| Bronze | aide au pilotage : répare ce qui est cassé (rupture, source qui ne peut pas livrer), **propose** le reste (bouton « Appliquer les conseils ») | 10 jours | 10 % | 2 k$/mois + 0,4 % des achats pilotés |
+| Argent | pilote les achats : fournisseurs au coût livré corrigé de la qualité, mix propre production / port / négociant, stocks tampons (5 jours), ruptures | 5 jours, ruptures tous les 2 jours | 6 % | 4 k$/mois + 1 % |
+| Or | pilotage complet et continu : Argent + équilibrage des chaînes (une usine libre prend un composant acheté faute de production), surplus (journal), prix confiés au directeur des prix existant (option) | 2 jours, ruptures chaque jour | 3 % | 6 k$/mois + 1,5 % |
+
+- **Mêmes leviers que le joueur** : le COO ne change que `c.src` (sources), l'affectation d'une usine libre et la politique « Prix des produits » du directeur des prix.
+  Il évalue chaque source avec la règle du jeu (`offerScore` : coût livré pondéré par le fret, corrigé de la qualité, capacité des fournisseurs) ; aucun bonus caché.
+- **Jamais meilleur qu'un expert** : il ne revoit ses choix que tous les 2 à 10 jours, ne change que si le gain dépasse son seuil, et il coûte une rémunération qui suit la
+  taille de la chaîne (comme un service d'achats externalisé).
+- **Ce qu'il affiche** : journal des décisions (raison, économie estimée), économies estimées cumulées et rythme mensuel (décisions des 90 derniers jours), rémunération
+  versée, score supply chain (même mesure que pour un joueur manuel).
+
+### Mesure : chaîne mal réglée, COO contre expert manuel (t75, 120 jours, même graine)
+Chaîne ferme de blé → moulin → boulangerie → petit marché + supermarché + port. Dérèglage de débutant : blé et farine rachetés au port alors qu'on les produit, produits
+courants du supermarché en « Mon réseau » sans stock. Le bot « expert manuel » applique **chaque jour, sans seuil**, la meilleure source que le joueur voit dans la vue
+fournisseurs (gratuit). Résultat net de la chaîne (EBE cumulé − rémunération du COO) :
+
+| Pilotage | Net (120 j) | % de l'expert | Brut avant rémunération |
+|---|---|---|---|
+| Chaîne mal réglée, sans COO | 0,26 M$ | 21 % | 0,26 M$ |
+| COO Bronze (conseils non appliqués) | 0,47 M$ | 37 % | 0,50 M$ |
+| COO Argent | 1,20 M$ | 93,9 % | 1,24 M$ |
+| COO Or | 1,19 M$ | **93,3 %** | 1,26 M$ (98,6 %) |
+| Expert manuel | 1,27 M$ | 100 % | 1,27 M$ |
+
+Le COO récupère 92 % du gain de l'expert et reste à ≈ 93 % de son résultat (cible 90-95 %). Sans COO, aucune source ne change (manuel intact).
+Dans ce scénario statique Or et Argent font les mêmes choix (l'avance d'Or apparaît quand les cours bougent, quand un fournisseur sature ou quand une usine libre
+peut équilibrer la chaîne) ; Or coûte plus cher.

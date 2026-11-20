@@ -1384,6 +1384,7 @@ body.cmp #pclose{margin-left:auto;flex:0 0 auto}
     <h3>CHAÎNE D'APPROVISIONNEMENT</h3>
     <p class="note">Toute ta chaîne de valeur sur un écran : extraction, transformation, entrepôts, distribution. Les flux sont animés, les goulots détectés et signalés en rouge.</p>
     <div id="chainsum"></div>
+    <div id="cooBox"></div>
     <button class="btn" id="openChain">Ouvrir la vue d'ensemble</button>
     </section>
     <section data-sec="prods" hidden>
@@ -4551,7 +4552,7 @@ function upgradeSpent(c) {
   if (palOf(c)) { let t = 0; for (let l = 0; l < (c.lvl || 0); l++) t += palOf(c).cost[l]; return t; }
   let t = 0; for (let l = 0; l < (c.lvl || 0); l++) t += Math.round(TYPES[c.t].cost * LVL_COST[l]); return t;
 }
-/* ===== Passe 74 : paliers par chantier, Diamants simulés.
+/* ===== Passe 74 : paliers par chantier, Diamants simulés, COO à acheter (premium SIMULÉ).
    AUCUN paiement réel n'est branché : « Premium » est un droit simulé (S.ent.prem, bouton de démonstration dans Menu > Partie) ; les Diamants sont une monnaie
    simulée. Le pilotage manuel de la supply chain reste gratuit, complet et jamais bridé ; le COO ne fait
    qu'actionner les mêmes leviers que le joueur (sources, fournisseurs, directeur des prix), avec un temps de réaction et une prudence qui le gardent sous
@@ -4574,7 +4575,7 @@ function entSan(d) {
 }
 const premOn = () => !!(S && S.ent && S.ent.prem);
 const DIA = '◆';
-function entPrem(on) { const E = entS(); E.prem = on ? 1 : 0; if (on && !E.giftD) { E.giftD = 1; E.dia += 300; } say(on ? `Premium SIMULÉ activé (aucun paiement réel) : tu reçois 300 Diamants de démonstration.` : 'Premium simulé désactivé.', 'info'); updateHUD(); saveSoon(); }
+function entPrem(on) { const E = entS(); E.prem = on ? 1 : 0; if (on && !E.giftD) { E.giftD = 1; E.dia += 300; } say(on ? `Premium SIMULÉ activé (aucun paiement réel) : le COO peut être recruté et tu reçois 300 Diamants de démonstration.` : 'Premium simulé désactivé : le COO est mis en pause, le pilotage manuel reste complet et gratuit.', 'info'); updateHUD(); saveSoon(); }
 function entDia(n) { const E = entS(); E.dia += n; say(`+${n} Diamants (monnaie SIMULÉE, démonstration) : tu en as ${fmt(E.dia)}.`, 'info'); updateHUD(); saveSoon(); }
 
 // ---- paliers (chantiers)
@@ -4663,21 +4664,129 @@ function palListHTML() {
     L.slice(0, 40).map(c => `<div class="cm" data-p74="open:${c.x},${c.y}"><i style="background:${TYPES[c.t].color}"></i><span>${TYPES[c.t].name} (${c.x + 1}, ${c.y + 1})</span><b>Niveau ${(c.lvl || 0) + 1}/5</b>${c.pal ? `<div class="bar" style="grid-column:2/4"><i style="width:${Math.round(palProg(c) * 100)}%;background:#ffb347"></i></div><small style="grid-column:2/4">Chantier vers le niveau ${c.pal.to + 1} : ${Math.round(palProg(c) * 100)} %, ${Math.ceil(palLeft(c))} j</small>` : ''}</div>`).join('') + '</div>';
 }
 
-function p74Step() { palStep(); }
+// ---- COO à acheter (droit premium simulé + salaire)
+const COO_LV = [null,
+  { n: 'Bronze', d: 'Aide au pilotage : il règle les ruptures et te propose le reste (tu appliques d\'un clic).', every: 10, rupt: 10, hyst: 0.10, sal: 2000, fee: 0.004, auto: { rupt: 1 } },
+  { n: 'Argent', d: 'Pilote les achats : fournisseurs selon le coût livré corrigé de la qualité, mix propre production / port / négociant, stocks tampons, ruptures.', every: 5, rupt: 2, hyst: 0.06, sal: 4000, fee: 0.01, auto: { rupt: 1, sup: 1, buf: 1, own: 1 } },
+  { n: 'Or', d: 'Pilotage complet et continu : achats, équilibrage des chaînes (usines libres affectées), surplus, et prix confiés au directeur des prix si tu le veux.', every: 2, rupt: 1, hyst: 0.03, sal: 6000, fee: 0.015, auto: { rupt: 1, sup: 1, buf: 1, own: 1, bal: 1 } }];
+// Rémunération : fixe mensuel + part des achats pilotés (comme un service d'achats externalisé, 0,4 à 1,5 % de la dépense) : elle suit la taille de ta chaîne.
+const COO_BUF = 5;   // stock tampon visé (jours) avant de passer une source « Mon réseau » en « Auto »
+const cooOn = () => !!(S && S.ent && S.ent.coo && S.ent.coo.lv > 0 && S.ent.prem);
+const cooL = () => cooOn() ? COO_LV[S.ent.coo.lv] : null;
+function cooSpend() { let a = 0; eachBuilding(c => { if (!c.conn || c.t === 'npc' || !TYPES[c.t]) return; if (FLEVEL[c.t] || c.t === 'foundry') a += c.inCost || 0; else if (TYPES[c.t].ret) a += c._cogs || 0; }); return a; }   // achats pilotés par jour (intrants des usines, marchandises des magasins)
+const cooSal = lv => Math.round(COO_LV[lv].sal * Math.max(1, cpi()));   // fixe mensuel
+const cooPay = lv => cooSal(lv) / 30 + COO_LV[lv].fee * cooSpend();   // coût du jour : fixe + part des achats
+function cooSet(lv) {
+  const E = entS(); lv = clamp(lv | 0, 0, 3);
+  if (lv > 0 && !E.prem) { say('Le COO est une option premium SIMULÉE : active-la d\'abord (bouton de démonstration, aucun paiement réel). Le pilotage manuel reste complet et gratuit.', 'warn'); return false; }
+  const was = E.coo.lv; E.coo.lv = lv; E.coo.nx = S.day; if (lv && !was) E.coo.t0 = S.day;
+  if (!lv && E.coo.pxSet && S.pol) { S.pol.px = 'man'; E.coo.pxSet = 0; }
+  say(lv ? `COO ${COO_LV[lv].n} recruté (${money(cooSal(lv))}/mois + ${f1(COO_LV[lv].fee * 100)} % des achats pilotés) : ${COO_LV[lv].d}` : 'COO remercié : tu pilotes la supply chain toi-même (tous les leviers manuels restent gratuits).', lv ? 'gold' : 'info');
+  updateHUD(); saveSoon(); return true;
+}
+function cooLog(t, sv, adv) { const C = entS().coo; C.log.unshift([S.day, t, +(sv || 0).toFixed(2), adv ? 1 : 0]); if (C.log.length > 40) C.log.length = 40; if (sv > 0 && !adv) { C.dec.push([S.day, sv]); if (C.dec.length > 80) C.dec.shift(); } }
+const cooRupt = (c, g) => c.limit === g || (TYPES[c.t].ret && c.limit === 'stock' && (S.stock[g] || 0) < 5);
+function cooIns(c) {   // intrants achetés par un bâtiment et besoin par jour
+  const T = TYPES[c.t]; if (!c.conn || c.t === 'npc' || !T) return [];
+  if ((FLEVEL[c.t] || c.t === 'foundry') && recOf(c)) { const r = recOf(c), u = c._u || c._un || 0; return Object.keys(r.in).filter(g => GOODS[g]).map(g => [g, r.in[g] * u]); }
+  if (T.ret && c.t !== 'immo') return T.ret.sells.filter(g => g !== 'estate' && GOODS[g]).map(g => [g, (c._lc && c._lc[g]) || 0]);
+  return [];
+}
+// coût équivalent par unité (coût livré corrigé de la qualité, même règle que le choix automatique du jeu : offerScore) de chaque source pour CET acheteur
+function cooOpts(c, g, needTot, ownQ) {
+  const qw = buyerQw(c), loc = offerScore(supOffer(g, 'local'), qw), imp = offerScore(supOffer(g, 'import', c.haul), qw), share = needTot > 0 ? clamp(ownQ / needTot, 0, 1) : 0;
+  const best = bestOffer(g, c.haul, qw, FLEVEL[c.t] || c.t === 'foundry' ? c : null), days = needTot > 0 ? (S.stock[g] || 0) / needTot : 99;
+  return { qw, loc, imp, share, best, days, auto: share * loc + (1 - share) * imp, covered: needTot > 0 && ownQ >= 0.98 * needTot };
+}
+function cooScoreOf(c, g, mode, o) {
+  if (mode === 'auto') return o.auto;
+  if (mode === 'local') return o.covered || o.days >= COO_BUF ? o.loc : Infinity;   // « Mon réseau » sans production suffisante : rupture annoncée
+  if (mode === 'port' || mode === 'import') return o.imp;
+  if (mode.indexOf('co:') === 0) { const sc = offerScore(supOffer(g, mode.slice(3), c.haul), o.qw); return c._supS && c._supS[g] > 0.01 ? 0.5 * sc + 0.5 * o.imp : sc; }   // fournisseur saturé : le reliquat part au port
+  return o.auto;
+}
+function cooDecide(c, g, q, needTot, ownQ, L, onlyRupt) {
+  const mode = (c.src && c.src[g]) || 'auto', o = cooOpts(c, g, needTot, ownQ), rupt = cooRupt(c, g);
+  const cands = [['auto', o.auto]]; if (o.best && o.best.id !== 'import' && !o.covered) cands.push([o.best.id, o.best.sc]);
+  cands.sort((a, b) => a[1] - b[1]); const [want, ws] = cands[0], cs = cooScoreOf(c, g, mode, o);
+  if (want === mode || (mode === 'port' && want === 'import')) return null;
+  const T = TYPES[c.t], nm = GOODS[g].name.toLowerCase(), who = `${T.name.toLowerCase()} (${c.x + 1}, ${c.y + 1})`;
+  const lab = m => m === 'auto' ? (o.covered ? 'ta propre production (Auto)' : 'Auto : ton stock puis le port ou le négociant') : m.indexOf('co:') === 0 ? (supplierList(g).find(s => 'co:' + s.id === m) || { name: 'un fournisseur' }).name : m === 'local' ? 'Mon réseau' : 'le port';
+  const deLab = m => { const x = lab(m); return x.indexOf('le ') === 0 ? 'du ' + x.slice(3) : 'de ' + x; };
+  const sv = isFinite(cs) ? Math.max(0, (cs - ws) * q) : q * (S.price[g] || GOODS[g].base) * 0.3;
+  let why = '';
+  if (rupt && L.auto.rupt) why = `rupture de ${nm}`;
+  else if (onlyRupt) { if (!isFinite(cs)) why = `${lab(mode)} ne peut pas livrer de ${nm} (stock nul, rupture annoncée)`; else { if (cs > ws * (1 + L.hyst)) cooAdvise(c, g, want, `${who} : ${nm} via ${lab(want)} au lieu ${deLab(mode)} (−${Math.round((1 - ws / cs) * 100)} % sur le coût livré)`, sv); return null; } }   // Bronze : il répare ce qui est cassé, il conseille le reste
+  else if (!isFinite(cs) && L.auto.buf) why = `stock tampon de ${nm} sous ${COO_BUF} jours`;
+  else if (o.covered && L.auto.own && mode !== 'auto' && cs > ws * (1 + L.hyst)) why = `ta production de ${nm} couvre le besoin : on l'utilise au lieu de la racheter (le surplus ne part plus à l'export à perte)`;
+  else if (L.auto.sup && cs > ws * (1 + L.hyst)) why = `coût livré corrigé de la qualité −${Math.round((1 - ws / cs) * 100)} %`;
+  if (!why) return null;
+  c.src = c.src || {}; c.src[g] = want === 'import' ? 'port' : want; if (c._autoBuy) delete c._autoBuy[g];
+  cooLog(`${who} : ${nm} → ${lab(want)} (${why}).`, sv); return want;
+}
+function cooAdvise(c, g, want, t, sv) {
+  const C = entS().coo; if (C.adv.some(a => a[0] === c.x && a[1] === c.y && a[2] === g)) return;
+  C.adv.unshift([c.x, c.y, g, want, sv]); if (C.adv.length > 12) C.adv.length = 12; cooLog('Conseil : ' + t + '.', sv, 1);
+}
+function cooApply() {   // le joueur applique les conseils du COO Bronze (action manuelle, gratuite)
+  const C = entS().coo; let n = 0; C.adv.forEach(a => { const c = cell(a[0], a[1]); if (!c || !c.conn) return; c.src = c.src || {}; c.src[a[2]] = a[3] === 'import' ? 'port' : a[3]; n++; C.dec.push([S.day, a[4]]); });
+  C.adv = []; say(n ? `${n} conseil${n > 1 ? 's' : ''} du COO appliqué${n > 1 ? 's' : ''}.` : 'Aucun conseil en attente.', 'info'); updateHUD(); saveSoon();
+}
+function cooReview(L, onlyRupt) {
+  const need = {}, list = []; eachBuilding(c => { cooIns(c).forEach(([g, q]) => { need[g] = (need[g] || 0) + q; list.push([c, g, q]); }); });
+  const own = (S.flow && S.flow.own) || {}; let n = 0;
+  list.forEach(([c, g, q]) => { if (onlyRupt === 'r' && !cooRupt(c, g)) return; if (q <= 0.001 && !cooRupt(c, g)) return; if (cooDecide(c, g, q, need[g], own[g] || 0, L, onlyRupt === 'b')) n++; });
+  if (!onlyRupt && L.auto.bal) cooBalance(need, own);
+  return n;
+}
+function cooBalance(need, own) {   // Or : une usine libre de bon niveau prend en charge un composant que ta chaîne achète faute de production
+  const C = entS().coo; C.bal = C.bal || {};
+  Object.keys(need).forEach(g => { if (!RECIPES[g] || need[g] <= 0 || (own[g] || 0) >= 0.5 * need[g] || (C.bal[g] || -99) > S.day - 30) return;
+    let fr = null; eachBiz(c => { if (!fr && FLEVEL[c.t] && c.conn && freeFact(c) && FLEVEL[c.t] >= RECIPES[g].lvl) fr = c; }); if (!fr) return;
+    C.bal[g] = S.day; if (assignRecipe(g, 1, true)) cooLog(`Équilibrage : une usine libre fabrique désormais ${RECIPES[g].name.toLowerCase()} (ta chaîne en achetait ${f1(need[g])}/j faute de production).`, 0); });
+}
+function cooStep() {
+  const E = S.ent; if (!E || !E.coo || !E.coo.lv) return; const C = E.coo;
+  if (!E.prem) { if (!C.paused) { C.paused = 1; cooLog('COO en pause : droit premium simulé désactivé.', 0); } return; } C.paused = 0;
+  const L = COO_LV[C.lv], sal = cooPay(C.lv); S.cash -= sal; C.sal += sal;
+  C.dec = C.dec.filter(d => d[0] > S.day - 90); C.run = C.dec.reduce((a, d) => a + d[1], 0); C.sav += C.run;   // économies estimées : décisions des 90 derniers jours
+  if (S.day >= C.nx) { C.nx = S.day + L.every; cooReview(L, C.lv === 1 ? 'b' : ''); if (C.lv === 3 && C.px && S.pol && cooPol() === 'man') { S.pol.px = 'norm'; C.pxSet = 1; cooLog('Prix confiés au directeur des prix (politique Normale : note globale de la concurrence, ±2 %/jour, jamais sous le coût).', 0); } }
+  else if (S.day % L.rupt === 0) cooReview(L, 'r');
+  if (C.lv === 3 && !C.px && C.pxSet && S.pol) { S.pol.px = 'man'; C.pxSet = 0; }
+  if (C.lv === 3 && S.day % 30 === 0 && S._xs) { const ex = Object.keys(S._xs).filter(g => S._xs[g] > 1 && GOODS[g]).sort((a, b) => (S._xv[b] || 0) - (S._xv[a] || 0)).slice(0, 3); if (ex.length) cooLog(`Surplus : ${ex.map(g => GOODS[g].name.toLowerCase() + ' ' + f1(S._xs[g]) + '/j').join(', ')} part à l'export au meilleur débouché disponible (rivaux puis port) ; tes usines l'utilisent d'abord.`, 0); }
+}
+function p74Step() { palStep(); cooStep(); }
 
+function cooCardHTML() {
+  const E = entS(), C = E.coo;
+  let h = `<h3>DIRECTEUR DES OPÉRATIONS (COO) · OPTION PREMIUM SIMULÉE</h3><p class="note">Optimiser ta supply chain à la main est <b>gratuit, complet et jamais bridé</b>. Si tu préfères déléguer, un COO l'optimise en continu avec les mêmes leviers que toi (sources, fournisseurs, directeur des prix) : il est correct, jamais meilleur qu'un expert manuel. Aucun paiement réel : droit premium simulé + salaire dans le jeu.</p>`;
+  h += `<div class="seg2 coolv">${[0, 1, 2, 3].map(l => `<button class="btn ${C.lv === l ? '' : 'sec'}" data-p74="coo:${l}" aria-pressed="${C.lv === l}" ${l && !E.prem ? 'disabled' : ''}>${l ? COO_LV[l].n + ' · ' + kMoney(cooSal(l) + 30 * COO_LV[l].fee * cooSpend()) + '/mois' : 'Sans COO (manuel)'}</button>`).join('')}</div>`;
+  if (!E.prem) h += `<p class="note">Option premium non activée. <button class="btn sec" data-p74="prem" style="min-height:30px;padding:2px 10px">Activer Premium (simulé)</button></p>`;
+  if (C.lv) {
+    const L = COO_LV[C.lv];
+    h += `<p class="note"><b>${L.n}</b> : ${L.d} Rémunération : ${kMoney(cooSal(C.lv))}/mois + ${f1(L.fee * 100)} % des achats pilotés. Revue tous les ${L.every} jours${L.rupt < L.every ? ', ruptures vérifiées ' + (L.rupt > 1 ? 'tous les ' + L.rupt + ' jours' : 'chaque jour') : ''}.${E.prem ? '' : ' <span class="neg">En pause (premium simulé désactivé).</span>'}</p>`;
+    h += `<div class="kpis" style="grid-template-columns:repeat(3,1fr)"><div><small>Économies estimées</small><b class="pos">${kMoney(C.sav)}</b></div><div><small>Rythme actuel</small><b>${kMoney(C.run * 30)}/mois</b></div><div><small>Salaire versé</small><b class="neg">${kMoney(C.sal)}</b></div></div>`;
+    if (C.lv === 3) h += `<div class="seg2"><button class="btn ${C.px ? '' : 'sec'}" data-p74="coopx" aria-pressed="${!!C.px}">Prix confiés au directeur des prix : ${C.px ? 'oui' : 'non'}</button></div>`;
+    if (C.lv === 1 && C.adv.length) h += `<div class="seg2"><button class="btn" data-p74="cooapply">Appliquer les ${C.adv.length} conseil${C.adv.length > 1 ? 's' : ''} du COO</button></div>`;
+  }
+  if (C.log.length) h += `<h3>JOURNAL DU COO</h3><div class="rvlog coolog">${C.log.slice(0, 10).map(l => `<div><small>Jour ${l[0]}</small> ${l[1]}${l[2] > 0 ? ` <small class="${l[3] ? 'note' : 'pos'}">${l[3] ? 'gain possible' : 'économie'} ≈ ${kMoney(l[2] * 30)}/mois</small>` : ''}</div>`).join('')}</div>`;
+  return h;
+}
 function entCardHTML() {
   const E = entS();
-  return `<h3>PREMIUM ET DIAMANTS (SIMULÉS)</h3><p class="note">Démonstration : aucun paiement réel n'est branché. Les Diamants simulés accélèrent un chantier de palier (jamais obligatoire, plafonné à la moitié du chantier en Round).</p>
+  return `<h3>PREMIUM ET DIAMANTS (SIMULÉS)</h3><p class="note">Démonstration : aucun paiement réel n'est branché. Le premium simulé permet de recruter un COO qui délègue la supply chain ; les Diamants simulés accélèrent un chantier de palier (jamais obligatoire, plafonné à la moitié du chantier en Round).</p>
   <div class="kpis" style="grid-template-columns:repeat(2,1fr)"><div><small>Premium</small><b>${E.prem ? 'activé (simulé)' : 'non'}</b></div><div><small>Diamants</small><b>${DIA} ${fmt(E.dia)}</b></div></div>
   <div class="actions"><button class="btn ${E.prem ? 'sec' : ''}" data-p74="prem">${E.prem ? 'Désactiver Premium (simulé)' : 'Activer Premium (simulé)'}</button><button class="btn sec" data-p74="dia">+100 Diamants (simulé)</button></div>`;
 }
 function p74Render() {
   const put = (id, fn) => { const b = el(id); if (!b) return; const sec = b.closest('section'); if (sec && sec.hidden) return; const h = fn(); if (b.dataset.h !== h) { b.innerHTML = h; b.dataset.h = h; } };   // calcul seulement pour une section visible
-  if (!S) return; put('entBox', entCardHTML); put('palList', palListHTML);
+  if (!S) return; put('cooBox', cooCardHTML); put('entBox', entCardHTML); put('palList', palListHTML);
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-p74]'); if (!b || !S) return; const a = b.dataset.p74;
-  if (a === 'prem') entPrem(!premOn()); else if (a === 'dia') entDia(100);
+  if (a === 'prem') entPrem(!premOn()); else if (a === 'dia') entDia(100); else if (a.indexOf('coo:') === 0) cooSet(+a.slice(4));
+  else if (a === 'coopx') { const C = entS().coo; C.px = C.px ? 0 : 1; if (!C.px && C.pxSet && S.pol) { S.pol.px = 'man'; C.pxSet = 0; } updateHUD(); saveSoon(); }
+  else if (a === 'cooapply') cooApply();
   else if (a.indexOf('open:') === 0) { const [x, y] = a.slice(5).split(',').map(Number); setPanel(false); openBuilding(x, y); }
   p74Render();
 });
@@ -19830,7 +19939,7 @@ function drawWorksOver(a, p, bx, by, floors, now) {
 window.WSE = { say, isCmp, chip: { G: CHIP_G, NM: CHIP_NM, K: { CHIP_GEN_D, CHIP_OBS, CHIP_MAT, CHIP_LEAD, CHIP_UP, DC_GPU, DC_GPU_LIFE, DC_GPU_MIN, DC_GEN_EFF, AIB_MIN }, S: chipS, front: chipFront, nm: chipNm, nodeM: chipNodeM, up: chipUpgrade, upCost: chipUpCost, fabs: chipFabs, slow: chipSlow, san: chipSan, card: chipCardHTML, rank: chipRankHTML, eb: chipFabEb }, aib: { at: aibAt, now: aibNow, step: aibStep, san: aibSan, PH: AIB_PH, gpuM: aibGpuM, chipM: aibChipM, dcM: aibDcM, elM: aibElM, valM: aibValM, demM: aibDemM, idx: aiIdx, tips: aibTips, dcK: dcGpuK, eff: dcEff, gpuHTML: dcGpuHTML }, pos: { prosp, rivMkt, attrDen, rivCannib, svcB2B, rivSvc, synHTML, synStep, bkRivDem, scOn, scPx, K: { PX_K, PX_T0, PX_U0, PX_MAX, RIV_CANNIB, MC_K, MC_MAX, SVC_B2B, RAW_B2B, RIV_SVC, SC_PREM, SC_DAYS } }, dc: { K: { DC_MWH, DC_TARIFF, DC_LEG, DC_PER, DC_EFF, DC_CT_MIN, DC_BAT, DC_BATC }, need: dcNeed, batCap: dcBatCap, tariff: dcTariff, profiles: dcProfiles, ai: dcAI, up30: c => dcUp30(c), tips: c => dcTips(c), card: c => dcCard(c), migrate: dcMigrate, gridMask: () => gridMask() }, CROPS, LIVE, SEASON, FEED_FLOOR, zn: { ZSUB, ZN_MAX, ZN_FULL, ZN_END, ZN_LEVY, occ: znOcc, rate: znRate, rate0: znRate0, stage: znStage, bf: znBf, bud: znBud, inc: znInc, levy: znLevy, txt: znTxt, card: znCardTxt, of: znOf, um: znUm, wm: znWm, buildAid: znBuildAid, st: znS, cells: znCellsOf, rivalSettle: znRivalSettle, step: znStep, ban: renderZnBan }, rub: { st: rubS, add: rubAdd, of: rubbleOf, crushers: rubCrushers, recycle: recycleSite, bullRefund, bottleneck, convCost: recyConvCost, refund: recyRefund, REC_Y, RECY_FROM, unlocked: recyUnlocked, step: stepRecycle }, pro: { value: proValue, valueAt: proValueAt, ask: proAsk, fiche: proFiche, devPlan: proDevPlan, keep: proKeep, sell: proSellMarket, sellExec: proSellExec, list: proList, upgrade: proUpgrade, terra: proTerra, terraPlan, zone: proZone, zoneErr, zoneDem, state: proState, GOALS: PRO_GOALS, cap: proCap, quote: proQuote, buyCheck: proBuyCheck, matCost: contractMatCost, autoContract, ZEXT, TERRA, ZN, maxFl, floorCost, fee: proFee, level: proLevel, roadFee: proRoadFee, roadErr: proRoadErr, PR, attr: proAttr, stepZones, stepRentRes, check: checkPro, open: proOpen, render: renderOps, tip: proTipHTML, maxAt: proMaxAt, devQuote: proDevQuote, develop: proDevelop, deals: proDeals, prog: proProg, progErr: proProgErr, progCost: proProgCost, PROG, brand: proBrand, brandK: proBrandK, demo: proDemo, syn: proSyn, attrCity: proAttrCity, liq: proLiq, mktK: proMktK, mtm: proMtm, cycle: p => proCycleStep(p || PR()), ltv: () => promoLtv(), limit: () => promoLimit(), immoIdx: () => immoIdx(), resOcc: proResOcc, port: proPortList, noSale: proNoSale, cityHTML }, CO_SRC, DEPOSITS, DEP_NEW, NEW_DEP_KINDS, GRADE_K, gradeOf, usesTxt, LOCAL_D, EL_RAW, RIV_USE, MINE_K, FAMS, CATS, ICONS, ICON_OF, chainTree, RES_COST, acq: { MISSIONS, plan: acqPlan, exec: acqExec, ownerOf, ownerName, value: acqValue, rent: bldRent, buyoutCost, demandeAchat, repondreAchat, evalOffer, reserve: sellerReserve, stepReqs, rivalRents, rivalCells, open: acqOpen, close: acqClose, negOpen, negOffer, state: () => ({ acq, nw }), NEG_ROUNDS, NEG_CD, REQ_DELAY }, mk: { on: mkOn, setMat: v => { S.mat = v ? 1 : 0; S.matPop = S.pop; mkInv(); }, inv: mkInv, offers: mkOffers, offerAt, best: mkBest, sim: mkSim, suggest: mkSuggest, buy: mkBuy, make: mkMake, both: mkBoth, makeCost, src: mkSrc, srcTxt: mkSrcTxt, unmet: mkUnmet, comp: mkComp, demand: mkDemandDay, trialPlan, trialStart, trialDecide, trialStep, stepBuy: mkStepBuy, open: mkOpen, act: sgAct, renderSug, sgList, ROY, LIC_K, RDX_K, TRIAL_MAX, TRIAL_DAYS }, CMODELS, chainNeeds, chainLeaves, unitsOn, sourceInfo, facCounts, prodRoom, RAW_SRC, FLEVEL, tierNow, compIcon, cmpEval, cmpCreate, cmSuggest, syncCustom, famOf, GLY, P25, FAM_ORDER, PROD_W, NECESS, DEMAND_PC, OBSO, SUCC, PKEYS, QTIER, quickProduce, save, load, easyLaunch, quickProduce, planOf, planEvalC, planEval, planSet, planAdd, planDel, planMove, planQuick, planNext, planFree, planDefault, planUnitCost, planPreview, planBase, robotRoi, robotPrice, planDaily, ROBOTS, PLAN_DIM, slotsN, tileToScreen, stuckInfo, tutoCur, compIcon, sceneFrame, sceneReset, siteInfo, sitePremium, reRefresh, mediaNeed, stepProcure, productSVG, trueQ, prodModelHTML, stdPrice, affordOf, slowOf, techFront, get S() { return S; }, get scene() { return scene; }, bkLend, bkUp, setCaste, showCaste, landPrice, setTool, centerOn, zoomTo, zlv, openTerm, tradeShares, launchOpa, cartelOn, embargoOn, seats: seatsApi, riv: { CASTE: RIV_CASTE, ORDER: RIV_ORDER, EL: RIV_EL, value: rivalValue, eff: rivEff, pm: rivPm, pxRel: rivPxRel, prof: rivP, diff: rivDiff, state: rvS, war: rivWar, endStrat: rivEndStrat, decide: rivDecide, casteAct: rivCasteAct, expand: rivExpand, opa: rivalOpa, buyTarget: rivBuyTarget, answer: rvAnswer, buySale: rvBuySale, stratTxt: rivStratTxt, cartelK: rvCartelK, squeeze: rvSqueeze, playerPx, sync: syncRivals, attr: rivalAttr, fab: { plan: fabPlan, build: fabBuild, decide: rivFabDecide, day: fabDay, kin: fabKin, fill: fabFill, max: fabMax, val: fabVal, line: fabLine, mr: rivMr, K: { FAB_LAB, FAB_GAIN, FAB_HURDLE, FAB_CAPEX, FAB_DAYS, FAB_SHARE, FAB_PAY, RIV_DEBT_MAX }, C: RIV_FABC }, rating: rivRating, lev: rivLev, rate: rivRate, gross: rivGross, canBorrow: rivCanBorrow, K2: { RIV_LEV_AV, RIV_GS_P, RIV_MAT }, tr: { R: trR, S: trS, K: trK, sup: trSup, list: supplierList, val: trVal, market: trMarket, day: trDay, power: trPower, left: trLeft, cov: trCov, M: trM, delay: trDelay, act: trCasteAct, line: trLine, joinCartel: trJoinCartel, C: { TR_DAYS, TR_STEP, TR_TM, TR_DCAP, TR_BUD, TR_FLOW, TR_ELCAP, TR_DCK, TR_ELK, TR_EXP, TR_BUY } }, lx: { R: lxR, S: lxS, quote: lxQuote, lend: lxLend, take: lxTake, day: lxDay, book: lxBook, cap: lxCap, st: lxSt, act: lxCasteAct, rescue: lxRescue, line: lxLine, meAmt: lxMeAmt, offerAmt: lxOfferAmt, C: { LX_LEV, LX_LEVMAX, LX_TERM, LX_ST } }, answerX: rvxAnswer, role: casteRoleTxt }, openChain, openGuide, startResearch, producePlan, askProduce, fabConfirm, fabCancel, TECHS, TECH_ERA, EVENTS, openBuilding, closeBuilding, bAct, auditShop, creditLimit, acceptContract, dropContract, offerContract, addNpcTower, ZONE, ZEXT, CITY, CITY0, PORT, inCity, cityExtend, cityBlockState, cityGrow, cityMetrics, cityScan, cityAttract, popE, citySizeName, CITY_MS, autoConnect, changeTier, autoChain, assignRecipe, productSVG, place, step, setTool, inspect, setSpeed, resize, evaluate, refreshStats, footprintError, TYPES, GOODS, N, upgradeCost, PRODUCTS, RECIPES, GOODS, launchProduct, assignProduct, unassignProduct, stopProduct, setPview, prodPrice, productInputs, startMode, endGame, ranking, valuation, enterpriseValue, taxSvc, taxDrag, raiseAmt, SCN, ROUND_DAYS, DAY_MS_RND, catchUp, creditLimit, loanRateNow, stakeOf, curMilestone, rankPlayers, rk: RK_API, openRank, expectedVal, modeDays, dayMs, minToDays, daysToMin, subCount, grp: GRP_API, showModes, scoreParts, tutoCur, modeLocked, xmF, PLAN_U, unitsOf, unitsBase, jobsOf, fillOf, recOf, planMkScene: mkPlanScene, updPlan, drawPlan, planReplace, planRefund, planMove, setPlanView: v => { planView = !!v; }, setPlanSel: v => { planSel = v; }, FLEVEL };
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; if (o.TIER != null) CG_TIER = o.TIER; return { CG_R0, CG_P, CG_CAP, CG_REL, CG_TIER }; }, citySvcCov, citySvc: () => ({ need: CITY_SVC, have: citySvcHave().n, cov: citySvcCov() }), cityTiers: CITY_TIER, cityTierR, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
-Object.assign(window.WSE, { levelMult, pal: { DEF: PAL_DEF, POP: PAL_POP, popReq: (k, l) => palPopReq(PAL_DEF[k], l), DAYS: PAL_DAYS, DIA_D: PAL_DIA_D, MAINT: PAL_MAINT, ROUND_ACC: PAL_ROUND_ACC, of: palOf, reqs: palReqs, start: palStart, accel: palAccel, accDays: palAccDays, diaFor: palDiaFor, step: palStep, prog: palProg, left: palLeft, slots: palSlots, active: palActive, card: palCard, list: palListHTML, migrate: palMigrate, upk: palUpk, drawn: () => palBadgeN }, ent: { S: entS, san: entSan, prem: entPrem, dia: entDia, on: premOn }, p74Render, bestOffer, offerScore, supOffer, buyerQw, setPanel, setPtab });   // passe 74 : paliers, premium simulé, COO, maîtrise (tools/tests/t74, t75)
+Object.assign(window.WSE, { levelMult, pal: { DEF: PAL_DEF, POP: PAL_POP, popReq: (k, l) => palPopReq(PAL_DEF[k], l), DAYS: PAL_DAYS, DIA_D: PAL_DIA_D, MAINT: PAL_MAINT, ROUND_ACC: PAL_ROUND_ACC, of: palOf, reqs: palReqs, start: palStart, accel: palAccel, accDays: palAccDays, diaFor: palDiaFor, step: palStep, prog: palProg, left: palLeft, slots: palSlots, active: palActive, card: palCard, list: palListHTML, migrate: palMigrate, upk: palUpk, drawn: () => palBadgeN }, ent: { S: entS, san: entSan, prem: entPrem, dia: entDia, on: premOn }, coo: { LV: COO_LV, BUF: COO_BUF, set: cooSet, on: cooOn, sal: cooSal, pay: cooPay, spend: cooSpend, step: cooStep, review: cooReview, decide: cooDecide, opts: cooOpts, score: cooScoreOf, apply: cooApply, card: cooCardHTML, ins: cooIns }, p74Render, bestOffer, offerScore, supOffer, buyerQw, setPanel, setPtab });   // passe 74 : paliers, premium simulé, COO, maîtrise (tools/tests/t74, t75)
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
 Object.assign(window.WSE, { imgAudit: { guide: k => !!GUIDEHD[k], hero: k => !!PRODHD[k], photo: k => GUIDEHD[k] || null, productSVG0, compIcon, compIconVec } });   // passe 59 : audit des images de produits (tools/audit_produits.js, t59)
 Object.assign(window.WSE, { setGuidePhoto: (k, src) => { GUIDEHD[k] = src; Object.keys(psvgCache).forEach(c => { if (c.split('|')[0] === k) delete psvgCache[c]; }); if (typeof renderGuide === 'function') renderGuide(true); }, cine: { show: (pk, why) => cineShow(pk, why || 'manuel', true), close: cineClose, get on() { return CINE.on; }, state: () => ({ on: CINE.on, pk: CINE.pk, hero: CINE.hero, frames: CINE.frames, t: CINE.last ? CINE.last.t : 0, q: CINE.q.slice(), shown: CINE.shown, opt: cineOpt(), manual: CINE.manual }), setOpt: cineSetOpt, opt: cineOpt, setHero: setProductHero, heroOf: pk => !!cineHeroOf(pk), watch: cineWatch, facts: cineFacts, setTest: v => { CINE.test = !!v; }, reset: () => { CINE.seen = {}; CINE.snap = null; CINE.q.length = 0; } } });
