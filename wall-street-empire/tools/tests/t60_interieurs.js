@@ -1,5 +1,6 @@
 // Audit des intérieurs (tools/audit_interieurs.js) : chaque type de bâtiment se construit, sa vue intérieure s'ouvre sans erreur, scène non vide, aucun NaN / undefined
 // (panneau et texte dessiné), rien hors écran, aucun onglet vide, boutons non superposés ; usines : plein écran + carnet de commandes ; Mall et Aéroport ; réseau sans faux intérieur.
+// Passe 78 : chaque équipement public de la ville (écoles, crèche, hôpital, caserne, commissariat, mairie, stades, télécom, Mall, Aéroport) a un intérieur (scène « pub »).
 // Mobile 390×844 sur un échantillon. Puis une chaîne de bout en bout (ferme -> moulin -> boulangerie -> magasin -> export) : chiffres cohérents, conseil juste, rupture expliquée.
 exports.name = 'Intérieurs de tous les bâtiments et chaîne de bout en bout';
 const fs = require('fs'), path = require('path'), os = require('os');
@@ -20,15 +21,19 @@ exports.run = async (t, L) => {
   t.check('scène intérieure dessinée pour chaque type (couverture ≥ 20 %)', ink.length === 0, ink.join(', '));
   const fac = pc.filter(r => ['f1', 'f2', 'f3', 'f4'].includes(r.key));
   t.check('usines f1–f4 : plein écran ouvert et carnet de commandes lisible', fac.length === 4 && fac.every(r => r.imm && r.imm.on && /Carnet de commandes/.test(r.book || '')), fac.map(r => r.key + ':' + (r.imm && r.imm.on)).join(' '));
+  const PUBS = ['maternelle', 'garderie', 'college', 'lycee', 'hospital', 'police', 'fire', 'hall', 'stadium', 'stadium2', 'telecom', 'mall', 'air'], pubR = pc.filter(r => /^pub:/.test(r.key));
+  const pubMiss = PUBS.filter(m => !pubR.some(r => r.key === 'pub:' + m && r.kind === 'pub' && !r.problems.length));
+  t.check(`tous les types ont un intérieur : chaque équipement public (${PUBS.length}, dont Mall et Aéroport) ouvre une scène intérieure animée, onglet « Intérieur », sans « pas d'intérieur »`, pubMiss.length === 0, pubMiss.join(', ') + ' ' + pubR.filter(r => r.problems.length).map(r => r.key + ' : ' + r.problems.join(' ; ')).join(' || ').slice(0, 400));
+  t.info('équipements publics, coût d\'une image (ms) : ' + pubR.map(r => r.key.slice(4) + ' ' + r.frameMs).join(' · '));
   const kinds = Object.fromEntries(pc.map(r => [r.key, r.kind]));
   t.check('scène cohérente avec le bâtiment : entrepôt en ligne = halle logistique, magasins = rayons, usines = plan, mines/fermes = site, réseau = pas d\'intérieur',
     kinds.ewh === 'site' && kinds.wh === 'site' && kinds.s1 === 'retail' && kinds.sauto === 'retail' && kinds.f2 === 'plan' && kinds.miron === 'site' && kinds.fcattle === 'site' && kinds.dc === 'bld' && kinds.pylon === 'msg' && kinds.cable === 'msg' && kinds.pipeline === 'msg', JSON.stringify({ ewh: kinds.ewh, pylon: kinds.pylon, sauto: kinds.sauto }));
   const slow = pc.filter(r => r.frameMs > 25 && r.key !== 'f1' && r.key !== 'f2').map(r => r.key + ' ' + r.frameMs + ' ms');   // la première usine ouverte charge ses sprites
   t.info('coût de rendu d\'une image (ms) : ' + pc.filter(r => r.frameMs != null).map(r => r.key + ' ' + r.frameMs).join(' · '));
   t.check('rendu d\'une image de scène < 25 ms (hors premier chargement des sprites d\'usine)', slow.length === 0, slow.join(', '));
-  const mob = await auditAll(L, { shots, fast: 1, w: 390, h: 844, tag: 'mob', only: ['f2', 'f4', 's1', 'sauto', 'spharma', 'dc', 'hq', 'miron', 'fcattle', 'ewh', 'port', 'res', 'mall', 'aeroport'] });
+  const mob = await auditAll(L, { shots, fast: 1, w: 390, h: 844, tag: 'mob', only: ['f2', 'f4', 's1', 'sauto', 'spharma', 'dc', 'hq', 'miron', 'fcattle', 'ewh', 'port', 'res', 'mall', 'aeroport', 'pub:hospital', 'pub:maternelle', 'pub:mall'] });
   const bm = mob.filter(r => r.problems.length);
-  t.check('mobile 390×844 (échantillon de 14 vues) : sans erreur, sans débordement, boutons non superposés', bm.length === 0 && mob.length >= 14, bm.slice(0, 4).map(r => r.key + ' : ' + r.problems.join(' ; ')).join(' || ').slice(0, 600));
+  t.check('mobile 390×844 (échantillon de 17 vues, dont 3 intérieurs publics) : sans erreur, sans débordement, boutons non superposés', bm.length === 0 && mob.length >= 17, bm.slice(0, 4).map(r => r.key + ' : ' + r.problems.join(' ; ')).join(' || ').slice(0, 600));
 
   // ---- chaîne de bout en bout
   const pg = await L.newPage({ w: 1280, h: 900 }); await L.setup(pg, { cash: 3e7 }); await L.inject(pg);

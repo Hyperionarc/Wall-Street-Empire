@@ -4,7 +4,8 @@ Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html`
 
 - Produits finis : 95 (85 photos HD, 10 vectoriels de repli : eggs, chicken, porkmeat, lambmeat, sausage, tablewine, grandcru, tableoil, cornchips, biofuel)
 - Biens, matières et composants : 98 (85 photos HD, 13 vectoriels de repli : grapes, corn, rapeseed, egg, wine, cpu, dram, gpu, cookoil, biodiesel, basic, std, lux)
-- Bâtiments constructibles : 71 types (71 vues extérieures, 67 vues intérieures) ; décor et ville : 21 éléments
+- Bâtiments constructibles : 71 types (71 vues extérieures, 67 vues intérieures) ; décor et ville : 21 éléments, dont 13 équipements publics avec intérieur (passe 78 : écoles, crèche, hôpital, caserne, commissariat, hôtel de ville, stades, télécom, Mall, Aéroport)
+- Passe 78 : les images de `CATALOGUE.html` / `CATALOGUE.pdf` (page « Décor et ville ») sont **à régénérer** : elles montrent encore « pas d’intérieur » pour les équipements publics (pas d’outil de capture du catalogue dans le dépôt ; captures disponibles avec `tools/audit_interieurs.js <dossier> pub`, fichiers `pc_pub_<équipement>.png`).
 
 ## Tableau 1 – Produits
 
@@ -296,21 +297,21 @@ Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html`
 | Maison individuelle | `house` | Ville existante | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Bâti de la ville (population, emplois, loyers) |
 | Immeuble résidentiel — bas (≤ 3 étages) | `res:bas` | Ville existante | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Bâti de la ville (population, emplois, loyers) |
 | Immeuble de bureaux — bas (≤ 3 étages) | `off:bas` | Ville existante | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Bâti de la ville (population, emplois, loyers) |
-| Caserne de pompiers | `mon:fire:bas` | Équipement public | 1×1 | dessin code (procédural) | pas d’intérieur (fiche immeuble) | Sécurité : +1,5 d'humeur |
-| Collège | `mon:college:bas` | Équipement public | 2×2 | sprite HD | pas d’intérieur (fiche immeuble) | Éducation : +1,5 d'humeur |
-| Lycée | `mon:lycee:bas` | Équipement public | 3×2 | sprite HD | pas d’intérieur (fiche immeuble) | Éducation : +1,5 d'humeur |
+| Caserne de pompiers | `mon:fire:bas` | Équipement public | 1×1 | dessin code (procédural) | scène intérieure animée (passe 78) | Sécurité : +1,5 d'humeur |
+| Collège | `mon:college:bas` | Équipement public | 2×2 | sprite HD | scène intérieure animée (passe 78) | Éducation : +1,5 d'humeur |
+| Lycée | `mon:lycee:bas` | Équipement public | 3×2 | sprite HD | scène intérieure animée (passe 78) | Éducation : +1,5 d'humeur |
 | Immeuble résidentiel — moyen (4 à 8 étages) | `res:moyen` | Ville existante | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Bâti de la ville (population, emplois, loyers) |
 | Parc — bas (≤ 3 étages) | `park:bas` | Ville existante | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Bâti de la ville (population, emplois, loyers) |
-| Commissariat de police | `mon:police:bas` | Équipement public | 1×1 | dessin code (procédural) | pas d’intérieur (fiche immeuble) | Sécurité : +2 d'humeur |
+| Commissariat de police | `mon:police:bas` | Équipement public | 1×1 | dessin code (procédural) | scène intérieure animée (passe 78) | Sécurité : +2 d'humeur |
 | Immeuble de bureaux — moyen (4 à 8 étages) | `off:moyen` | Ville existante | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Bâti de la ville (population, emplois, loyers) |
-| Stade | `mon:stadium:bas` | Équipement public | 2×2 | sprite HD | pas d’intérieur (fiche immeuble) | Loisirs : +1,5 d'humeur |
+| Stade | `mon:stadium:bas` | Équipement public | 2×2 | sprite HD | scène intérieure animée (passe 78) | Loisirs : +1,5 d'humeur |
 | Immeuble résidentiel — tour (9 à 30 étages) | `res:tour` | Ville existante | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Bâti de la ville (population, emplois, loyers) |
 | Immeuble de bureaux — tour (9 à 30 étages) | `off:tour` | Ville existante | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Bâti de la ville (population, emplois, loyers) |
-| Hôpital | `mon:hospital:bas` | Équipement public | 3×3 | sprite HD | pas d’intérieur (fiche immeuble) | Santé : +2,5 d'humeur |
-| École maternelle | `mon:maternelle:bas` | Équipement public | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Familles : +2 d'humeur |
-| Stade | `mon:stadium2:bas` | Équipement public | 2×2 | sprite HD | pas d’intérieur (fiche immeuble) | Loisirs |
-| Crèche et garderie | `mon:garderie:bas` | Équipement public | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Familles : +2 d'humeur |
-| Hôtel de ville | `mon:hall:bas` | Équipement public | 2×2 | sprite HD | pas d’intérieur (fiche immeuble) | Administration : +1,5 d'humeur |
-| Tour de télécommunications | `mon:telecom:bas` | Équipement public | 1×1 | sprite HD | pas d’intérieur (fiche immeuble) | Réseau : +2 d'humeur |
-| Mall central | `mall` | Grand équipement | 10×10 | sprite HD + détails dessinés en code | panneau dédié (pas de scène intérieure) | Vitrine du marché : boutiques des rivaux et du joueur |
-| Aéroport | `air` | Grand équipement | 6×6 | dessin code (procédural) | panneau dédié (pas de scène intérieure) | Vente hors taxes aux voyageurs (redevance aéroportuaire) |
+| Hôpital | `mon:hospital:bas` | Équipement public | 3×3 | sprite HD | scène intérieure animée (passe 78) | Santé : +2,5 d'humeur |
+| École maternelle | `mon:maternelle:bas` | Équipement public | 1×1 | sprite HD | scène intérieure animée (passe 78) | Familles : +2 d'humeur |
+| Stade | `mon:stadium2:bas` | Équipement public | 2×2 | sprite HD | scène intérieure animée (passe 78) | Loisirs |
+| Crèche et garderie | `mon:garderie:bas` | Équipement public | 1×1 | sprite HD | scène intérieure animée (passe 78) | Familles : +2 d'humeur |
+| Hôtel de ville | `mon:hall:bas` | Équipement public | 2×2 | sprite HD | scène intérieure animée (passe 78) | Administration : +1,5 d'humeur |
+| Tour de télécommunications | `mon:telecom:bas` | Équipement public | 1×1 | sprite HD | scène intérieure animée (passe 78) | Réseau : +2 d'humeur |
+| Mall central | `mall` | Grand équipement | 10×10 | sprite HD + détails dessinés en code | panneau dédié + scène intérieure animée (passe 78, bouton « Voir l’intérieur ») | Vitrine du marché : boutiques des rivaux et du joueur |
+| Aéroport | `air` | Grand équipement | 6×6 | dessin code (procédural) | panneau dédié + scène intérieure animée (passe 78, bouton « Voir l’intérieur ») | Vente hors taxes aux voyageurs (redevance aéroportuaire) |
