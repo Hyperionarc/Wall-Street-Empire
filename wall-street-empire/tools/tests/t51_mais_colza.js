@@ -54,7 +54,7 @@ exports.run = async (t, L) => {
     t.check('sprites HD : fcorn et frapeseed dans P2_TYPE et dans le build (P2_NAMES)', /P2_TYPE = \{[^}]*fcorn: 'fcorn'[^}]*frapeseed: 'frapeseed'/.test(tpl) && /'fcorn', 'frapeseed'/.test(bld), '');
     const hasHD = /"fcorn": "data:image\/png/.test(html) && /"frapeseed": "data:image\/png/.test(html);
     if (fs.existsSync(path.join(root, '..', 'assets', 'factory_hd', 'fcorn.png')) || hasHD)
-      t.check('sprites HD embarqués, losange de même largeur que la ferme de blé (2 cases)', hasHD && dw && dc && dr && dc[7] - dc[6] === dw[7] - dw[6] && dr[7] - dr[6] === dw[7] - dw[6], JSON.stringify({ dw, dc, dr }));
+      t.check('sprites HD embarqués, losange de même largeur que la ferme de blé (2 cases)', hasHD && dw && dc && dr && [dw, dc, dr].every(d => (d[7] - d[6]) / d[0] > 0.97)   /* le losange remplit la largeur de l'image : le jeu le cale sur 2 cases quelle que soit la résolution (le nouveau champ de blé de Cowork est en 768 px, maïs et colza en 512) */, JSON.stringify({ dw, dc, dr }));
     else t.info('assets/factory_hd absents : repli vectoriel (pas de sprite HD à vérifier)'); }
 
   // 3. Chaque culture se construit en campagne et produit

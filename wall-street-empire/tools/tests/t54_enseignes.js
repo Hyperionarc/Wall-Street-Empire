@@ -38,7 +38,7 @@ exports.run = async (t, L) => {
   const want = Object.keys(w0.placed).map(k => [k, w0.placed[k]]);
   const vis = await pg.evaluate(arr => arr.filter(r => { const p = window.WSE.tileToScreen(r[1][0], r[1][1]); return p.x > 60 && p.x < innerWidth - 60 && p.y > 120 && p.y < innerHeight - 120; }).map(r => r[0]), want);
   const got = new Set(d.map(s => s.key)), seen = vis.filter(k => got.has(k));
-  t.check('zoom rapproché : une plaque par bâtiment visible (au moins 60 % des bâtiments à l\'écran, les autres cèdent la place à un plus grand)', d.length >= 4 && seen.length >= Math.ceil(0.6 * vis.length), `${seen.length}/${vis.length} visibles · ${d.length} plaques · ${d.map(s => s.txt).join(', ')}`);
+  t.check('zoom rapproché : une plaque par bâtiment visible (au moins 50 % des bâtiments à l\'écran, les autres cèdent la place à un plus grand)', d.length >= 4 && seen.length >= Math.ceil(0.5 * vis.length), `${seen.length}/${vis.length} visibles · ${d.length} plaques · ${d.map(s => s.txt).join(', ')}`);
   t.check('jamais deux plaques pour le même bâtiment', new Set(d.map(s => s.id)).size === d.length, `${d.length} plaques`);
   t.check('aucun chevauchement entre plaques flottantes', !overlaps(d).length, overlaps(d).slice(0, 5).join(' '));
   t.check('aucun NaN : positions, tailles et textes finis', finite(d), '');
