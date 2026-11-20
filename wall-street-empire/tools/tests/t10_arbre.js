@@ -20,7 +20,7 @@ exports.run = async (t, L) => {
     Object.keys(W.PRODUCTS).forEach(k => {
       const P = W.PRODUCTS[k]; Object.keys(P.in).forEach(g => { if (!W.GOODS[g]) o.badIn.push(k + ':' + g); });
       if (![1, 2, 3, 4].includes(P.lvl)) o.badLvl.push(k);
-      if (W.P25[k] && Object.keys(P.in).length > 3) o.tooMany.push(k);
+      if (W.P25[k] && Object.keys(P.in).filter(g => ['cpu', 'dram', 'gpu'].indexOf(g) < 0).length > 3) o.tooMany.push(k);   // passe 73 : les puces (CPU, DRAM, GPU) s'ajoutent sans compter dans la limite
       const sv = W.productSVG(k, 1); if (!/^<svg/.test(sv) || sv.length < 700 || sv.indexOf('M50 120 L150 78 L250 120') >= 0) o.noVig.push(k);
       if (W.famOf(k) === 'Autres') o.noFam.push(k);
       if (names.has(P.name)) o.dupName.push(P.name); names.add(P.name);
@@ -35,7 +35,7 @@ exports.run = async (t, L) => {
   t.check(`arbre : ${D.nComp} composants (35 à 60, dont 10 de la passe 33)`, D.nComp >= 35 && D.nComp <= 60, '');
   t.check('recettes et produits : tous les intrants existent, niveaux d\'usine 1-3 (4 pour les produits de masse)', D.badIn.length === 0 && D.badLvl.length === 0, D.badIn.concat(D.badLvl).slice(0, 4).join(', '));
   t.check('recettes : chaque intrant est fabriqué avant son utilisation (ordre de calibrage) et aucun cycle', D.order.length === 0 && D.cyc.length === 0, D.order.concat(D.cyc).slice(0, 3).join(' | '));
-  t.check('nouveaux produits : 3 intrants au plus (hors emballage)', D.tooMany.length === 0, D.tooMany.join(', '));
+  t.check('nouveaux produits : 3 intrants au plus (hors emballage et puces)', D.tooMany.length === 0, D.tooMany.join(', '));
   t.check(`chaque produit a une vignette dédiée (pas le repli carton) : ${D.nProd}`, D.noVig.length === 0, D.noVig.slice(0, 5).join(', '));
   t.check(`chaque produit a une famille d'affichage (${D.fams} familles), pas de nom en double`, D.noFam.length === 0 && D.dupName.length === 0, D.noFam.concat(D.dupName).join(', '));
   t.check('nouveaux produits : poids prix/qualité/marque (somme 100), nécessité, demande par habitant, obsolescence renseignés', D.noTab.length === 0, D.noTab.join(', '));
