@@ -525,3 +525,13 @@ Rémy est très content des images livrées. Il manque encore de VRAIES images (
 4. **Photos à refaire (14)**, sans texte ni pseudo-texte : whisky, obesity (boîte neutre, pas de seringue), lube, antibio (boîte de médicament neutre), jacket (une VESTE, pas un pull), spirits, hygiene, tv (écran allumé), ebike (batterie visible), ingot (vrai lingot trapézoïdal), silicon (silicium cristallin), rubber (caoutchouc brut/pneu, pas une noix de coco), chrome.
 **Retiré du jeu côté intégrateur : `cornchips` (inutile à photographier).**
 Livraison : assets/guide_hd/<clé>.jpg (+ hero_* facultatifs). Revue qualité à chaque lot.
+
+## COMMANDE n° 13 bis (20 nov.) — composants électroniques : de BELLES images (Rémy : « jolies cartes graphiques, jolis processeurs, RAM »)
+Ces composants se retrouvent dans les smartphones, ordinateurs (portable et de bureau), tablettes, consoles, appareils photo numériques, télévisions, montres connectées, voitures et data centers : ils doivent avoir une vraie image soignée (dans le catalogue ils sont encore en dessin de repli vectoriel). Style « packshot produit haut de gamme », éclairage studio, fond neutre sombre ou clair uni, 512×512, **aucun texte, aucune marque, aucun logo** :
+- `cpu` : processeur (puce carrée sur socle, dissipateur métallique brillant, broches ou pastilles dorées), vue 3/4 isométrique.
+- `dram` : barrette de mémoire (circuit imprimé vert ou noir avec puces noires alignées et connecteur doré).
+- `gpu` : carte graphique (carte longue avec 2-3 ventilateurs, radiateur, connecteur doré) ; variante « accélérateur IA de data center » (carte sans ventilateur, dissipateur plat) pour les campus.
+- Composants intermédiaires à embellir aussi : `circuit` (carte électronique), `screen` (dalle d'écran), `battery` (bloc de batteries), `sensor` (capteur/optique), `silicon` (silicium cristallin).
+- Produits finis électroniques à vérifier/embellir : smartphone (`phone`), ordinateur portable (`laptop`), ordinateur de bureau (`desktop`), tablette (`tablet`), console (`console`), appareil photo (`camera`), télévision (`tv`), montre connectée (`smartwatch`).
+- Vignettes en 3 « niveaux de nœud » facultatives (ancien nœud = puce simple et grosse ; pointe = puce dense avec motifs fins).
+Livraison assets/guide_hd/<clé>.jpg ; revue qualité à chaque lot.
