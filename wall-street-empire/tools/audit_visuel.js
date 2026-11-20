@@ -116,12 +116,12 @@ const ACTION = {
   'atlas Kenney': 'remplacer par un sprite HD (ou repli sobre)', 'procédural': 'repli procédural : sobre exigé, sprite à commander', 'erreur': 'corriger', 'invisible': 'rien de dessiné à cet endroit (réseau ou rendu ailleurs)', 'cache': 'image cuite (sol ou enseigne)'
 };
 const NOTE = {   // décisions de l'audit (passe 55)
-  gravel: 'sprite HD dérivé (gisement_bauxite recoloré gris) — était disque + losanges', sand: 'sprite HD dérivé (gisement_bauxite recoloré sable) — était disque + losanges', limestone: 'sprite HD dérivé (gisement_potasse recoloré calcaire) — était disque + losanges',
+  gravel: 'gisement de granulats (gravier + sable fusionnés, passe 79) : sprite HD dérivé (gisement_bauxite recoloré gris) — était disque + losanges', limestone: 'sprite HD dérivé (gisement_potasse recoloré calcaire) — était disque + losanges',
   sulfur: 'ancien gisement converti au chargement ; sprite HD dérivé (gisement_zinc recoloré soufre)', rare: 'ancien gisement converti au chargement ; sprite HD dérivé (gisement_graphite recoloré)',
   corn: 'parcelle HD (champ_ble_vert recoloré maïs) — était aplat + traits', rapeseed: 'parcelle HD (champ_ble_mur recoloré colza)', sugar: 'parcelle HD dérivée', cotton: 'parcelle HD dérivée', rubber: 'parcelle HD dérivée', grapes: 'parcelle HD dérivée',
   'mon:fire': 'composition iso sobre (brique patinée) — commande Cowork 55-2', 'mon:police': 'composition iso sobre (pierre grise) — commande Cowork 55-3', 'mon:air': 'composition procédurale (passe 49) — commande Cowork 55-4', 'mon:telecom': 'reprend la station média HD (station_tv)', 'mon:mall': 'sprite HD + parvis animé en code (passe 45)',
   sbrico: 'composition primitives (drawSpecShop) — sprite brico_outillage commandé (n°9, rappel 55-7)', oil: 'sprite HD + geyser animé', iron: 'sprite HD + éclat animé', gold: 'sprite HD + scintillement',
-  crush: 'reprend la carrière HD — commande Cowork 55-1 (concasseur)', pylon: 'composition iso sobre (pylône HD)', cable: 'réseau (ligne tracée)', pipeline: 'réseau (conduite tracée)'
+  pylon: 'composition iso sobre (pylône HD)', cable: 'réseau (ligne tracée)', pipeline: 'réseau (conduite tracée)'
 };
 if (require.main === module) {
   (async () => {

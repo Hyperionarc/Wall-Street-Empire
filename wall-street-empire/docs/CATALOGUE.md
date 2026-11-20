@@ -118,8 +118,8 @@ Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html`
 | Cuivre | `copper` | Matière première | entre dans 4 recettes | 14,00 $ | extraction | extraction · Mine cuivre | photo HD |
 | Or brut | `gold` | Matière première | entre dans 1 recette | 90,00 $ | extraction | extraction · Mine d'or | photo HD |
 | Bois | `wood` | Matière première | entre dans 5 recettes | 9,00 $ | extraction | extraction · Camp bûcherons | photo HD |
-| Gravier | `gravel` | Matière première | entre dans 1 recette | 5,00 $ | extraction | extraction · Carrière gravier | photo HD |
-| Sable | `sand` | Matière première | entre dans 2 recettes | 4,00 $ | extraction | extraction · Sablière | photo HD |
+| Gravier | `gravel` | Matière première | entre dans 1 recette | 5,00 $ | extraction | extraction · Carrière de granulats (+ concasseur : gravats recyclés) | photo HD |
+| Sable | `sand` | Matière première | entre dans 2 recettes | 4,00 $ | extraction | coproduit · Carrière de granulats (0,7 u par u de gravier ; + concasseur) | photo HD |
 | Calcaire | `limestone` | Matière première | entre dans 3 recettes | 6,00 $ | extraction | extraction · Carrière calcaire | photo HD |
 | Nickel | `nickel` | Matière première | entre dans 1 recette | 28,00 $ | extraction | extraction · Mine de nickel-chrome | photo HD |
 | Chrome | `chrome` | Matière première | entre dans 1 recette | 20,00 $ | extraction | extraction · Mine de nickel-chrome (coproduit) | photo HD |
@@ -261,10 +261,8 @@ Version consultable : `docs/CATALOGUE.pdf` (A4 paysage) et `docs/CATALOGUE.html`
 | Élevage de porcs | `fpig` | Agriculture › Élevages | 2×2 | 800 000 $ | 20 | sprite HD | scène du site | Élevage · porc, cuir · extrait : Porc (carcasses) |
 | Élevage de moutons | `fsheep` | Agriculture › Élevages | 2×2 | 700 000 $ | 19 | sprite HD | scène du site | Élevage · laine, agneau · extrait : Laine brute |
 | Camp bûcherons | `logging` | Extraction › Bois | 1×1 | 600 000 $ | 4 | sprite HD | scène du site | Forêt · extrait : Bois |
-| Carrière gravier | `qgravel` | BTP › Carrières | 1×1 | 800 000 $ | 6 | sprite HD | scène du site | BTP · extrait : Gravier |
-| Sablière | `qsand` | BTP › Carrières | 1×1 | 700 000 $ | 5 | sprite HD | scène du site | BTP · extrait : Sable |
+| Carrière de granulats | `qgravel` | BTP › Carrières | 1×1 | 1 200 000 $ | 9 | sprite HD (+ concasseur dessiné) | scène du site | BTP · gravier et sable ; concasseur de recyclage en option (gravats → gravier, sable, ciment) |
 | Carrière calcaire | `qlime` | BTP › Carrières | 1×1 | 1 000 000 $ | 6 | sprite HD | scène du site | BTP · extrait : Calcaire |
-| Centre de concassage | `crush` | BTP › Recyclage | 1×1 | 2 400 000 $ | 7 | sprite HD | scène du site | Recyclage · gravats en gravier, sable, ciment |
 | Entreprise de BTP | `btp` | BTP › Chantiers | 2×1 | 900 000 $ | 25 | sprite HD | scène intérieure | Chantiers |
 | Agence immobilière | `immo` | Commerce › Immobilier | 1×1 | 525 000 $ | 10 | sprite HD | scène intérieure | Vente de maisons · vend : estate |
 | Fonderie d'or | `foundry` | Industrie › Fonderie | 1×1 | 2 000 000 $ | 10 | sprite HD | atelier | Or brut → lingots |
