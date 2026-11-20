@@ -1702,3 +1702,13 @@ Détail et mesures : `docs/INNOVATEUR_MONOPOLE.md` (partie « Passe 72 »). Test
 - **Électronique sous-traitée** : les composants électroniques sont achetés au prix de gros mondial (+12 %) auprès de l'industriel IA. Le smartphone, la montre et l'ordinateur ne sont plus des échecs.
 - **Valorisation** : les brevets et la plateforme comptent dans la capitalisation (valeur actualisée prudente), affichés dans le panneau Empire et le bureau de la dette.
 - **Bot** : brevets, crédit adossé, campus, centrales nucléaires reliées au réseau, campus suivant. Mesure (4 graines, 1 800 jours) : innovateur 308 → 1 008 M$ (1,10 → 2,54 de la moyenne). Les autres castes varient de −5 % à +5 %. 3 parties sur 4 gagnent le Round avant le jour 1 800.
+
+## Passe 74 : paliers par chantier, COO à acheter (premium simulé), score de maîtrise de la supply chain
+
+Détail, barèmes et mesures : `docs/PALIERS_COO.md`. Tests : `tools/tests/t74_paliers.js`. Exports : `WSE.pal`, `WSE.ent`.
+**Aucun paiement réel n'est branché** : le premium est un droit simulé (`S.ent.prem`, bouton « Activer Premium (simulé) » dans Menu > Partie), les Diamants une monnaie simulée.
+- **Paliers 1 → 5 par chantier** (système générique `PAL_DEF`, appliqué aux magasins s1-s4 et spécialisés) : barre de progression dans la fiche, l'intérieur, au-dessus du
+  bâtiment sur la carte et dans la liste « Niveau n/5 » (Menu > Empire) ; durée croissante (4 jours → 5 semaines) ; supermarché 3, 8, 20, 40 M$, hypermarché 20, 40, 70, 100 M$ ;
+  le magasin vend pendant les travaux ; prérequis (palier d'entreprise, population, trésorerie) ; un chantier par bâtiment, 1 à 5 en parallèle selon le palier ; accélération
+  en Diamants proportionnelle au temps restant (plafond de 50 % du chantier en Round) ; capacité, emplois, sprite et densité de l'intérieur suivent le niveau ; anciennes
+  parties : niveau payé par le coût historique, sinon niveau 1.
