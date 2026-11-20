@@ -1693,3 +1693,12 @@ Détail et mesures : `docs/INNOVATEUR_MONOPOLE.md`. Test : `tools/tests/t67_inno
   prioritaire ; pari de long terme sur la pilule contre l'obésité ; licences en fin de fenêtre.
 - Mesure (18 parties, 1 800 jours) : innovateur 142 → 262 M$ (0,66 → 1,06 de la moyenne, 6e → 3e), variance la plus forte (208-386 M$) ; autres castes inchangées sauf le
   baron (+24 %, il développe aussi des médicaments). Cible 1,5-3 × non atteinte : le data center campus reste hors de portée du crédit avant le jour 1 800.
+
+## Passe 72 (innovateur) : brevets en garantie, plateforme cloud, électronique sous-traitée
+
+Détail et mesures : `docs/INNOVATEUR_MONOPOLE.md` (partie « Passe 72 »). Test : `tools/tests/t72_plateforme.js`. API `window.WSE.ip`. Aucun champ de sauvegarde nouveau.
+- **Crédit adossé aux brevets** : la valeur prudente des brevets et des contrats cloud est prêtée à 50 % (Innovateur) ou 35 % (autres castes). Dès 3 brevets, un **financement de projet** couvre 65 % d'un campus ; il est versé à la construction, hors ligne de crédit.
+- **Plateforme cloud et IA à rendements croissants** : qualité des modèles × (1 + 2,5 % par brevet) × (1 + 0,1 ln(1 + campus)), demande × (1 + 0,15 ln(1 + campus)). 20 % du calcul est facturé aux autres castes, qui en gagnent 1,6 fois plus.
+- **Électronique sous-traitée** : les composants électroniques sont achetés au prix de gros mondial (+12 %) auprès de l'industriel IA. Le smartphone, la montre et l'ordinateur ne sont plus des échecs.
+- **Valorisation** : les brevets et la plateforme comptent dans la capitalisation (valeur actualisée prudente), affichés dans le panneau Empire et le bureau de la dette.
+- **Bot** : brevets, crédit adossé, campus, centrales nucléaires reliées au réseau, campus suivant. Mesure (4 graines, 1 800 jours) : innovateur 308 → 1 008 M$ (1,10 → 2,54 de la moyenne). Les autres castes varient de −5 % à +5 %. 3 parties sur 4 gagnent le Round avant le jour 1 800.

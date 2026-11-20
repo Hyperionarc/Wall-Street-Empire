@@ -475,7 +475,24 @@ window.BOT = (function () {
   // tant que la fenêtre de monopole tient → centres de R&D (avance technologique, priorité au produit phare) → licences en fin de fenêtre → produit suivant avant l'érosion.
   // Les data centers (campus alimentés) et le commerce restent choisis par pick() (familles P.fam).
   const IN = { last: -99, log: [], fac: {}, bad: {} };
-  const INNOV_PRODS = ['headache', 'cough', 'phone', 'antibio', 'tv', 'camera', 'smartwatch', 'headphones', 'desktop', 'etoys', 'powertools', 'solarpanel', 'ebike', 'fridge', 'washer', 'microwave'];
+  // passe 72 : l'électronique se fabrique avec des composants sous-traités au prix de gros (W.ip.ems) : priorité aux produits à forte valeur ajoutée (montre, ordinateur, smartphone, appareil photo)
+  const INNOV_PRODS = ['headache', 'cough', 'antibio', 'smartwatch', 'desktop', 'phone', 'camera', 'tv', 'solarpanel', 'headphones', 'etoys', 'powertools', 'microwave', 'fridge', 'washer', 'ebike'];
+  // passe 72 : centrale (nucléaire, charbon, éolien...) reliée au réseau par un pylône posé en bordure de ville (point d'entrée du réseau), au plus près du port
+  function powerBuild(k) {
+    const Z = W.ZONE, T = W.TYPES[k], w = T.w || 1, h = T.h || 1, inb = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
+    const edge = (x, y) => { if (!inb(x, y) || Z[y * N + x] === 1 || cell(x, y)) return false; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (inb(x + dx, y + dy) && Z[(y + dy) * N + x + dx] === 1) return true; return false; };
+    const cand = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (cell(x, y) || W.footprintError(x, y, k)) continue; let py = null;
+      for (let X = x - 1; X <= x + w && !py; X++) for (let Y = y - 1; Y <= y + h; Y++) { if (X >= x && X < x + w && Y >= y && Y < y + h) continue; const c0 = cell(X, Y); if (c0 && (c0.t === 'pylon' || c0.t === 'cable') && edge2(X, Y)) { py = [X, Y, 1]; break; } if (edge(X, Y) && !W.footprintError(X, Y, 'pylon')) { py = [X, Y, 0]; break; } }
+      if (py) cand.push([Math.abs(x - 75) + Math.abs(y - 69), x, y, py]);
+      if (cand.length > 60) break;
+    }
+    function edge2(x, y) { for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (inb(x + dx, y + dy) && Z[(y + dy) * N + x + dx] === 1) return true; return false; }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const [, x, y, py] of cand.slice(0, 8)) { const b4 = S().cash; if (!py[2] && !W.place(py[0], py[1], 'pylon')) continue; if (!W.place(x, y, k)) continue; const c = cell(x, y); if (c && c.gridOk === false) { /* relié au prochain jour */ } const paid = b4 - S().cash; noteBuilt(k, x, y, paid); return paid; }
+    return false;
+  }
   function innov() {
     const s = S(); if (s.day - IN.last < (P.inEvery || 10)) return; IN.last = s.day;
     const M = W.mono, R = W.rd, cp = Math.max(1, s.cpi || 1), tn = W.tierNow ? W.tierNow() : 0, FKx = ['', 'f1', 'f2', 'f3', 'f4'];
@@ -497,11 +514,25 @@ window.BOT = (function () {
     }
     // 3) centres de R&D : avance technologique (fenêtre plus longue), R&D pharma plus rapide ; priorité au produit le plus rentable encore exclusif
     const nrd = s.rdPower || 0, wv = s.stats.worth || 0, wantRd = Math.min(P.inRdMax || 3, mine.length, wv > 250e6 * cp ? 3 : wv > 120e6 * cp ? 2 : wv > (P.inRdAt || 40e6) * cp ? 1 : 0), rdc = W.TYPES.rd.cost * cp * 0.75 * 1.1;
-    if (nrd < wantRd && nrd === 0 && s.cash < rdc && avail > rdc) borrow(rdc + 1e5);   // le premier centre de R&D est un investissement prioritaire (pari de long terme)
-    if (nrd < wantRd && s.cash > (nrd === 0 ? 1 : 1.3) * rdc) { const r = tryBuild('rd'); if (r > 0) IN.log.push([s.day, 'rdc', nrd + 1]); }
-    // 3 bis) premier campus data center (plateforme cloud et IA, demande portée par les brevets) : on s'endette pour l'ouvrir dès que la valeur le permet
-    const ndc = (s.stats.cn && s.stats.cn.dc) || 0;
-    if (ndc === 0 && tierOk('dc') && wv > (P.inDcAt || 70e6) * cp && P.fam.indexOf('dc') >= 0) { const c0 = W.TYPES.dc.cost * cp * 1.1, room2 = Math.max(0, Math.min(0.6 * wv, W.creditLimit()) - (s.loan || 0)); if (s.cash + room2 >= c0) { if (s.cash < c0) { const l0 = P.lev; P.lev = 0.6; borrow(c0 + 1e5); P.lev = l0; } if (s.cash >= c0) { const r = tryBuildAny('dc'); if (r > 0) IN.log.push([s.day, 'dc', Math.round(r)]); } } }
+    const saving = IN.saveDc != null && s.day - IN.saveDc < 30;   // passe 72 : le premier campus passe avant les centres de R&D et les nouveaux produits
+    if (!saving && nrd < wantRd && nrd === 0 && s.cash < rdc && avail > rdc) borrow(rdc + 1e5);   // le premier centre de R&D est un investissement prioritaire (pari de long terme)
+    if (!saving && nrd < wantRd && s.cash > (nrd === 0 ? 1 : 1.3) * rdc) { const r = tryBuild('rd'); if (r > 0) IN.log.push([s.day, 'rdc', nrd + 1]); }
+    // 3 bis) passe 72 : plateforme cloud et IA. Brevets → crédit adossé (garantie brevets + financement de projet du campus) → campus → centrales → campus suivant
+    // tant que la demande cloud non servie dépasse un campus et que le dernier campus rapporte (rendements croissants de la plateforme).
+    const ndc = (s.stats.cn && s.stats.cn.dc) || 0, I = W.ip ? W.ip.info() : { n: 0 }, sd = (s._sat || {}).dc, dcs = born.dc || [], lastDc = dcs[dcs.length - 1];
+    const nnuc0 = (s.stats.cn && s.stats.cn.nuclear) || 0, powered = ndc === 0 || nnuc0 >= Math.ceil(ndc * 2400 / 1500 - 0.3);   // campus suivant seulement quand les précédents sont alimentés
+    const lastOk = !lastDc || (powered && s.day - lastDc.day >= (P.inDcGap || 150) && (() => { const c = cell(lastDc.x, lastDc.y); const h = (c && c.hist) || []; return h.length >= 10 && h.slice(-10).reduce((a, v) => a + v, 0) > 0; })());
+    const wantDc = P.fam.indexOf('dc') >= 0 && tierOk('dc') && (ndc === 0 ? I.n >= (P.inDcPat || 3) : (sd && sd.D - sd.U >= 1.2 && lastOk && ndc < (P.inDcMax || 12)));
+    if (wantDc) { const c0 = W.TYPES.dc.cost * (s.caste === 'innovateur' ? 0.75 : 1) * cp * 1.08, room2 = Math.max(0, W.creditLimit() - (s.loan || 0)), pj = I.proj || 0;   // pj : financement de projet versé à la construction
+      if (s.cash + room2 + pj >= c0 + (P.keep || 0)) { IN.saveDc = null; if (s.cash + pj < c0) { const l0 = P.lev; P.lev = P.inDcLev || 0.85; borrow(c0 - pj + 1e5); P.lev = l0; } if (s.cash + pj >= c0) { const r = tryBuildAny('dc'); if (r > 0) IN.log.push([s.day, 'dc', Math.round(r)]); } }
+      else if (c0 - s.cash - room2 - pj < (P.inSaveD || 150) * Math.max(0, (s.fin && s.fin.net) || 0) && !(IN.saveOff > s.day)) { if (IN.saveDc == null) IN.save0 = s.day; IN.saveDc = s.day; if (s.day - IN.save0 > 180) { IN.saveDc = null; IN.saveOff = s.day + 240; } }   // le campus est à portée (≈ 150 jours de profits) : on épargne au lieu d'ouvrir commerces et centres de R&D (au plus 180 jours)
+      else IN.saveDc = null; } else IN.saveDc = null;
+    // 3 ter) énergie du campus : recherche solaire → câbles → nucléaire (bonus de caste : −20 % de coût, −30 % de durée), puis une centrale nucléaire par 1 500 MWh/j
+    // de besoin (un campus : 2 400 MWh/j), reliée au réseau ; le reste vient de l'appoint réseau au tarif data center
+    if (ndc > 0 && !s.unlockAll && !(s.tech && s.tech.nuclear) && !s.research && W.startResearch) { for (const t of ['solar', 'cables', 'nuclear']) { if (s.tech && s.tech[t]) continue; if (W.startResearch(t)) IN.log.push([s.day, 'tech', t]); break; } }
+    const nnuc = (s.stats.cn && s.stats.cn.nuclear) || 0, wantNuc = Math.ceil(ndc * 2400 / 1500 - 0.3);
+    if (ndc > 0 && nnuc < wantNuc && (s.unlockAll || (s.tech && s.tech.nuclear)) && tierOk('nuclear')) { const c1 = W.TYPES.nuclear.cost * cp * 1.1, room3 = Math.max(0, Math.min((P.inNucLev || 0.6) * wv, W.creditLimit()) - (s.loan || 0));
+      if (s.cash + room3 >= c1) { if (s.cash < c1) { const l0 = P.lev; P.lev = P.inNucLev || 0.6; borrow(c1 + 1e5); P.lev = l0; } if (s.cash >= c1) { const r = powerBuild('nuclear'); if (r > 0) IN.log.push([s.day, 'nuc', Math.round(r)]); } } }
     const foc = mine.filter(pk => s.prod[pk].st === 'on').sort((a, b) => ((M.info(b) || {}).ex || 0) * (s.prod[b].rm || 0) - ((M.info(a) || {}).ex || 0) * (s.prod[a].rm || 0))[0];
     if (foc && s.rdFocus !== foc) R.focus(foc);
     // 4) produit suivant : aucun développement en cours, et le dernier lancé est rentable ou s'érode
@@ -537,6 +568,7 @@ window.BOT = (function () {
     if (s.stats.unemp < 0.045 && s.cash > 1.5e6 && (cnt.res || 0) < P.resCap) { for (let i = 0; i < 3; i++) { const r = tryBuild('res'); if (r) { spent += r; did++; } } }
     for (let n = 0; n < P.maxPerTick; n++) {
       if (P.industry && IND.save != null && s.day - IND.save < 40) break;   // épargne pour une chaîne
+      if (P.innov && IN.saveDc != null && s.day - IN.saveDc < 30) break;   // passe 72 : épargne pour le campus de la plateforme cloud
       const b = pick(); if (!b) break;
       if (s.cash - (P.keep || 0) < b.cost) borrow(b.cost + (P.keep || 0) + 1e5);
       if (s.cash - (P.keep || 0) < b.cost) break;

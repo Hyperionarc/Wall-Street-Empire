@@ -105,3 +105,46 @@ croissants de la plateforme cloud (coût marginal décroissant par campus).
   Une vraie chaîne de composants électroniques (écrans, circuits, batteries) reste trop chère avant 100 M$.
 - Le data center campus (60 M$ pour l'innovateur) n'est presque jamais construit avant le jour 1 800 : la plateforme cloud reste une voie de fin de partie.
 - La valorisation est comptable (actifs + trésorerie) : les brevets n'y figurent pas ; la rente de monopole compte par la trésorerie qu'elle accumule.
+
+# Passe 72 (innovateur) : brevets en garantie, plateforme cloud à rendements croissants, électronique sous-traitée
+
+Test : `tools/tests/t72_plateforme.js` (18 vérifications). API : `window.WSE.ip`. Sauvegarde : aucun champ nouveau. Ce qui est ajouté (`S._ipc`, `S._plat`, `S._ems`) est dérivé et recalculé, la clé `wse-city-v8` ne change pas.
+
+## 1. Les trois freins de la passe 67, levés
+1. **Crédit adossé aux brevets** (`ipInfo`). La valeur prudente des brevets actifs (taux 12 %, décote 40 %) compte les redevances jusqu'à l'expiration. Elle compte aussi la rente de monopole, c'est-à-dire la part du chiffre d'affaires due à la prime (CA × p / (1 + p)) : seulement sur la fenêtre d'exclusivité restante, et à moitié parce qu'elle s'érode. Les contrats de la plateforme cloud s'y ajoutent. Ces actifs servent de garantie : la banque en prête 50 % à l'Innovateur et 35 % à une autre caste, en plus de la ligne de crédit (`creditLimit`). Pour éviter un double compte, ils sont retirés des fonds propres dans `creditLimit0` et `debtCapEbe`. Le banquier IA (`lxQuote`, `lxOfferAmt`) tient compte de ces garanties.
+   **Financement de projet d'un campus** : dès 3 brevets et tant que la demande cloud non servie dépasse un campus, la banque finance 65 % du campus sur les contrats cloud. Le prêt est versé à la construction (`place('dc')`) et reste hors de la ligne générale, qui ne peut donc pas être consommée par des commerces.
+2. **Électronique viable : sous-traitance** (`EMS_G`, fournisseur `ems` de `supplierList`). Les composants électroniques (cartes, écrans, batteries, capteurs, LED, aimants, moteurs, cellules PV, boîtiers) s'achètent au prix de gros mondial : référence × indice des prix × 1,12, plus 3 % de fret, quelle que soit la pénurie locale (cours local jusqu'à 1,7 × la référence et 2,3 × à l'import). Le sous-traitant est l'industriel IA, qui encaisse sa marge (`emsPay`). Mesure : un smartphone sans chaîne verticale produit 1 380 unités par jour avec un EBE d'usine positif. Avant, il ne produisait rien et le produit finissait en échec. La montre, l'ordinateur, le casque et l'outillage fonctionnent aussi.
+3. **Valorisation** : `worthOf` ajoute `ipBook()`, soit la valeur prudente des brevets et l'écart d'acquisition de la plateforme. Ce dernier est l'EBE cloud des 30 derniers jours, actualisé sur 5 ans avec une décote de 40 %, moins la valeur comptable des campus. Sans brevet ni campus, la valeur ne change pas.
+
+## 2. Plateforme cloud et IA à rendements croissants
+- La recette de chaque campus est multipliée par `platQ = (1 + 2,5 % × brevets, au plus 10 brevets) × (1 + 0,10 × ln(1 + campus))`, à coût marginal quasi nul. La demande cloud est multipliée par `(1 + 0,15 × ln(1 + campus))`, en plus des +40 % par brevet de la passe 67.
+- Saturation : la demande reste finie (`svcSat`). L'énergie compte aussi, puisque la recette suit la disponibilité électrique, de même que le calcul disponible (nombre de campus). Un 2e campus ne fait pas baisser la recette du 1er : l'effet de réseau compense le partage de la demande (t72).
+- **Somme positive** (`platBill`) : 20 % de la recette cloud est facturée aux rivaux IA en proportion de leur taille. Chacun en tire 1,6 fois plus en productivité, donc un gain net de 0,6 fois ce qu'il paie.
+- Interface : la fiche du data center (bloc « Plateforme cloud et IA ») montre la qualité, la demande, la facturation et le gain des autres castes. Le panneau Empire a un bloc « Actifs immatériels ». Le bureau de la dette détaille les garanties et le financement de projet, et la fiche de caste est mise à jour. Tout est vérifié lisible à 390 px.
+
+## 3. Bot `P.innov`
+Séquence : médicaments brevetés, puis 3 brevets, puis crédit adossé et financement de projet, puis le campus. Pendant qu'il épargne pour le campus (au plus 180 jours), le bot n'ouvre ni commerces ni centres de R&D. Il recherche ensuite le solaire, les câbles puis le nucléaire, et pose des centrales nucléaires reliées au réseau par un pylône en bordure de ville (`powerBuild`), une par 1 500 MWh/j de besoin. Un campus suivant n'est construit que si les précédents sont alimentés, que le dernier rapporte, qu'au moins 150 jours se sont écoulés et que la demande non servie dépasse 1,2 campus. L'électronique passe en priorité sur les produits à forte valeur ajoutée (montre, ordinateur, smartphone, appareil photo).
+
+## 4. Mesures (`sim_batch --native`, 1 800 jours, graines 6000 / 7000 / 8000 / 9000, 1 travailleur)
+AVANT = `9e1a056`, APRÈS = cette passe. Valeurs finales en M$ ; « (jN) » indique une partie gagnée (1 Md$) au jour N, où la simulation s'arrête.
+
+| Caste | AVANT | moy. géo. | APRÈS | moy. géo. | après / avant |
+|---|---|---:|---|---:|---:|
+| agriculteur | 282 / 331 / 293 / 305 | 302,3 | 282 / 331 / 292 / 302 | 301,2 | 1,00 |
+| banquier | 287 / 289 / 328 / 342 | 310,2 | 287 / 289 / 328 / 342 | 310,2 | 1,00 |
+| industriel | 275 / 209 / 233 / 221 | 233,1 | 283 / 238 / 230 / 229 | 244,0 | 1,05 |
+| **innovateur** | 208 / 246 / 386 / 455 | **307,7** (1,10 de la moyenne) | 969 / 1 018 (j1764) / 1 042 (j1616) / 1 006 (j1712) | **1 008** (2,54 de la moyenne) | **3,28** |
+| négociant | 240 / 266 / 253 / 289 | 261,4 | 302 / 229 / 205 / 271 | 248,9 | 0,95 |
+| promoteur | 246 / 319 / 177 / 386 | 270,5 | 246 / 319 / 177 / 386 | 270,5 | 1,00 |
+
+Moyenne des six castes : 280,9 → 397,2 M$. L'innovateur passe de 1,10 à 2,54 de la moyenne (de 3e à 1er). Hors lui-même, la moyenne des cinq autres castes vaut 275 M$, soit un rapport de 3,7.
+Trajectoire de l'innovateur (jours 300 / 600 / 900 / 1 200 / 1 500, en M$) : 34-39 / 69-124 / 144-196 / 229-333 / 431-793. Elle est convexe : la valeur double environ tous les 300 jours, puis accélère quand plusieurs campus sont alimentés. Le début de partie est inchangé (35-37 M$ au jour 300 avant).
+Somme positive dans les parties de l'innovateur : la valeur des cinq rivaux IA au jour 1 500 passe de 208-255 M$ à 319-360 M$ (+40 %).
+Décomposition, graine 7000 du réglage v4 : au jour 1 800, les actifs immatériels (brevets 13 M$, plateforme 23 M$) ne pèsent que 6 % de la valeur. Le gain vient surtout de la trésorerie (électronique sous-traitée, cloud).
+
+## 5. Limites et ce qui reste hors cible
+- **Plafond de simulation** : 3 parties sur 4 atteignent le milliard (victoire du Round) entre les jours 1 616 et 1 764 et s'arrêtent là. La valeur finale est donc plafonnée et la variance se lit surtout dans le jour de la victoire. Le rapport de 2,54 inclut l'innovateur dans la moyenne, comme dans la passe 67 ; hors lui, il vaut 3,7 et dépasse la fourchette de 1,5 à 3.
+- Les réglages intermédiaires mesurés donnent : financement de projet dans la ligne générale (v4) 856 / 555 / 1 060 / 562 (moyenne géométrique 729, soit 2,1), et plateforme plus forte (v6) une moyenne géométrique de 987. Atténuer la plateforme (`PLAT_NET` 0,12 → 0,10) change peu de chose. Le moteur, c'est l'économie existante d'un campus alimenté (plusieurs centaines de milliers de $ d'EBE par jour), désormais finançable vers les jours 500-900. Pour baisser l'innovateur, les leviers sont `DC_PROJ`, `DC_PROJ_N`, `PLAT_*` et le rythme du bot (`inDcGap`).
+- Négociant −4,8 % (graines 7000 et 8000 en baisse, 6000 en hausse), à la limite des 5 % et dans le bruit habituel (±15 % par graine). Industriel +4,7 % (sous-traitance électronique).
+- L'électronique à intrants non électroniques (inox, plastique : micro-ondes, réfrigérateur, jouets) dépend toujours du cours local et échoue souvent.
+- 4 graines par caste, avec une machine partagée par d'autres agents. Les résultats sont déterministes, mais les durées ne sont pas des mesures.
