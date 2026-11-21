@@ -419,6 +419,14 @@ window.BOT = (function () {
   // +10 % de récolte par niveau et protection contre la sécheresse : rentabilisé en quelques jours sur une ferme de 1,5 M$), puis chaîne alimentaire
   // (pain d'abord) qui transforme ses propres récoltes ; le surplus part à l'export par le port. P.foodChain (essai mesuré, écarté) : chaîne de 14 produits alimentaires
   // dimensionnée aussi sur vigne, maïs, colza et élevages : 175 M$ au jour 1 800 contre 267 M$ (graine 6000) : de petites usines alimentaires peu chargées coûtent plus qu'elles ne rapportent.
+  // Passe 87 : surface variable des fermes. Tout profil agrandit ses fermes sous le seuil de rentabilité ou quand une case de plus s'amortit vite ;
+  // l'Exploitant agricole vise plus grand (amortissement plus long accepté). Une rangée par ferme et par décision, trésorerie gardée (2× le devis).
+  function farmGrow() {
+    const s = S(), FX = W.farmx; if (!FX || s.day % 6 !== 3) return; const ag = s.caste === 'agriculteur'; let n = 0;
+    for (let i = 0; i < N * N && n < (ag ? 4 : 2); i++) { const c = s.grid[i]; if (!c || c.x + c.y * N !== i || !W.TYPES[c.t] || !W.TYPES[c.t].ext || !(W.CROPS[W.TYPES[c.t].ext] || W.TYPES[c.t].live)) continue;
+      const q = FX.quote(c); if (!q.ok || s.cash - (P.keep || 0) < 2 * q.cost) continue; const E = FX.econ(c), pay = E.marg > 0 ? q.cost / (E.marg * q.n) : Infinity;
+      if ((E.A < E.be && E.be <= FX.FARM_MAX * FX.FARM_MAX) || pay < (ag ? 900 : 500)) { if (FX.grow(c)) { n++; note('farm_grow', c.t); } } }
+  }
   function farmer() {
     const s = S(), R = CP.ag; if (s.caste !== 'agriculteur' || s.day - R.last < 5) return; R.last = s.day;
     if (P.foodChain && !R.rawk) { R.rawk = 1; Object.assign(RAWK, { grapes: 'fvine', corn: 'fcorn', rapeseed: 'frapeseed', milk: 'fcattle', egg: 'fchicken', pork: 'fpig', wool: 'fsheep' }); ['fvine', 'fcorn', 'frapeseed', 'fcattle', 'fchicken', 'fpig', 'fsheep'].forEach(k => { if (W.TYPES[k]) EXT[k] = W.TYPES[k].ext; }); }   // la chaîne alimentaire se dimensionne aussi sur la vigne, le maïs, le colza et les élevages
@@ -642,6 +650,7 @@ window.BOT = (function () {
     if (P.play === 'negociant') trader();
     if (P.play === 'industriel') baron();
     if (P.play === 'agriculteur') farmer();
+    farmGrow();
     if (P.idle > 0 && ((s.day * 2654435761) >>> 0) % 1000 < P.idle * 1000) return { did: 0, spent: 0 };
     if (s.stats.unemp < 0.045 && s.cash > 1.5e6 && (cnt.res || 0) < P.resCap) { for (let i = 0; i < 3; i++) { const r = tryBuild('res'); if (r) { spent += r; did++; } } }
     for (let n = 0; n < P.maxPerTick; n++) {

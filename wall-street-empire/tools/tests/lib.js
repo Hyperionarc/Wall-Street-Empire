@@ -107,17 +107,22 @@ async function isoExtractor1(key, dep, rank, seed) {
   const pg = await newPage({ wait: 400 }); await setup(pg, { cash: 5e10 });
   const r = await pg.evaluate(({ key, dep, rank, seed }) => {
     const W = window.WSE, S = W.S, N = W.N; S.rs = seed; const m = S.macro; m.boom = 0; m.phase = Math.PI; m.gdp = 0.03; m.infl = 0.02; m.rate = 0.04;
-    const cands = []; for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === dep && !S.grid[i] && !W.footprintError(i % N, (i / N | 0), key)) cands.push([Math.abs(i % N - 75) + Math.abs((i / N | 0) - 69), i]); }
+    // passe 87 : une ferme se mesure à sa taille de référence (FARM_REF cases, ≈ 80 ha : exploitation commerciale), pas au corps de ferme seul (petit lopin peu rentable) ;
+    // site retenu : le plus proche du port qui laisse la place de s'agrandir ; capex = corps de ferme + aménagement des cases annexées (le terrain n'est pas compté, comme pour les autres extracteurs)
+    const FX = W.farmx, farm = !!(FX && W.TYPES[key] && W.TYPES[key].ext && (W.CROPS[W.TYPES[key].ext] || W.TYPES[key].live)), REF = 36, fm = Math.ceil(Math.sqrt(REF));
+    const room = i => { if (!farm) return true; const x0 = i % N, y0 = (i / N) | 0; for (let y = y0; y < y0 + fm; y++) for (let x = x0; x < x0 + fm; x++) { if (x >= N || y >= N) return false; const j = y * N + x, d = S.dep[j]; if (W.ZONE[j] !== 0 || S.grid[j] || (d && !W.CROPS[d.k]) || (S.npcFarm && S.npcFarm[j])) return false; } return true; };
+    const cands = []; for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === dep && !S.grid[i] && !W.footprintError(i % N, (i / N | 0), key) && room(i)) cands.push([Math.abs(i % N - 75) + Math.abs((i / N | 0) - 69), i]); }
     cands.sort((a, b) => a[0] - b[0]); const pick = rank === 'near' ? cands[0] : cands[cands.length >> 1]; if (!pick) return null;
-    const c = W.place(pick[1] % N, pick[1] / N | 0, key) && S.grid[pick[1]]; try { W.autoConnect(pick[1] % N, pick[1] / N | 0); } catch (e) {}
+    const c = W.place(pick[1] % N, pick[1] / N | 0, key) && S.grid[pick[1]]; let fcap = 0; if (farm && c) { fcap = W.TYPES[key].cost; let n = 0; while (c.w * c.h < REF && n++ < 20) { const q = FX.grow(c); if (!q) break; fcap += q.build; } }
+    try { W.autoConnect(pick[1] % N, pick[1] / N | 0); } catch (e) {}
     for (let i = 0; i < 12; i++) { for (let y = 14; y < 44; y++) for (let x = 14; x < 44; x++) if (!W.footprintError(x, y, 'res') && W.place(x, y, 'res')) { y = 99; break; } }
     const pre = () => { S.macro.phase = Math.PI; S.macro.boom = 0; }; for (let i = 0; i < 30; i++) { pre(); W.step(); }
     const A = { pRev: 0, wag: 0, upk: 0, tr: 0, out: 0 }, D = 40;
     for (let i = 0; i < D; i++) { pre(); W.step(); A.pRev += c.pRev || 0; A.wag += c.wages || 0; A.upk += c.upk || 0; A.tr += c.transport || 0; A.out += c.out || 0; }
-    Object.keys(A).forEach(k => A[k] /= D); A.cost = W.TYPES[key].cost; return A;
+    Object.keys(A).forEach(k => A[k] /= D); A.cost = fcap || W.TYPES[key].cost; A.A = c.w * c.h; return A;
   }, { key, dep, rank, seed });
   await pg.context().close(); if (!r) return { key, rank, none: true };
-  const eb = r.pRev - r.wag - r.upk - r.tr; return { key, rank, eb: eb / r.pRev, payback: r.cost / Math.max(1, eb * 360) };
+  const eb = r.pRev - r.wag - r.upk - r.tr; return { key, rank, eb: eb / r.pRev, payback: r.cost / Math.max(1, eb * 360), A: r.A };
 }
 // Exécute des tâches asynchrones par lots parallèles
 async function pool(items, n, fn) { const out = new Array(items.length); let i = 0; await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k]); } })); return out; }
