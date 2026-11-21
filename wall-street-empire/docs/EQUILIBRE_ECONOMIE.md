@@ -374,3 +374,113 @@ prix = cours + 6 %, client plafonné en cas de flambée, pas de doublon, fin à 
 négociant ×0,59 à 500 jours (non soumis au seuil, voir section 2), monde > 1,2 × joueur seul pour les trois, bilan des synergies affiché et chiffré.
 Suite ciblée sur la version finale : t01, t02, t25, t27, t34 (39/39, croissance passive dans les bornes : 1 687 k au jour 7 200), t45, t63, t65, t66, t68, t70 : 0 FAIL.
 Sous une charge de 18-20, le contrôle de performance de t34 avait échoué une fois (pic 1,7 s pour 1,5 s) ; relancé à charge 6, il passe.
+
+# Passe 80 : parties à 8 joueurs, campagne d'équilibre à 4 graines, menace des rivaux (niveaux de difficulté 1 à 8)
+
+Demande de Rémy : « avance sur le GAMEPLAY ». Code : `game.template.html` (blocs « Passe 80 » : `RIV_EXTRA`/`rivK`, `DIF_LV`/`difK`, `stepMode`, `endGame`/`showEnd`),
+`tools/sim_batch.js` (`--prof`, `--lv`, `SIM_LV`, `SIM_POVR`, levier du négociant), tests `t84_huit_joueurs.js` et `t85_difficulte.js`.
+Protocole : `sim_batch --native`, 1 800 jours, Round Normal, événements, 1 travailleur par flux (2 flux au plus, machine partagée, charge 8 à 13 sur 4 cœurs : les durées ne sont
+pas des mesures). « Avant » = `528835e`. Les parties sont déterministes : une partie rejouée sur la version finale au niveau Normal donne la même valeur au dollar près
+(contrôle : baron, banquier, agriculteur, graine 6000 : identiques).
+
+## 1. Campagne d'équilibre (6 castes jouées à fond, graines 6000 / 7000 / 8000 / 9000)
+
+Valeur finale en M$ ; « (jN) » = Round gagné (1 Md$) au jour N, la partie s'arrête là (valeur plafonnée). Rapport à la moyenne des 6 castes et, entre parenthèses, à la
+moyenne des 5 castes hors innovateur.
+
+| Caste (bot) | Avant (par graine) | moy. géo. | / moy. 6 (5) | Après (par graine) | moy. géo. | / moy. 6 (5) | rang du joueur |
+|---|---|---:|---:|---|---:|---:|---|
+| agriculteur (agri) | 410 / 450 / 360 / 459 | 418 | 0,78 (0,96) | inchangé | 418 | 0,77 (0,94) | 1/6 ×4 |
+| banquier (banque) | 718 / 487 / 823 / 787 | 691 | 1,29 (1,59) | inchangé | 691 | 1,27 (1,54) | 1/6 ×4 |
+| baron industriel (baron) | 244 / 506 / 277 / 311 | 321 | 0,60 (0,74) | inchangé | 321 | 0,59 (0,72) | 1/6 ×3, 1/5 |
+| innovateur (innovateur) | 1 038 (j1364) / 1 086 (j1448) / 1 008 (j1340) / 1 022 (j1248) | 1 039 | 1,94 (—) | inchangé | 1 039 | 1,90 (—) | 1/6 ×4 |
+| négociant (negoce) | 336 / 327 / 347 / 363 | 343 | 0,64 (0,79) | **393 / 413 / 438 / 395** | **410** | 0,75 (0,92) | 1/6 ×4 |
+| promoteur (trump) | 1 000 (j1712) / 187 / 204 / 642 | 397 | 0,74 (0,91) | inchangé | 397 | 0,73 (0,89) | 1/6, 2/6, 2/6, 1/6 |
+| moyenne | | 535 (434) | | | 546 (447) | | |
+
+**Seule correction appliquée : le levier du négociant (playbook).** Le bot `negoce` empruntait au plus 50 % de sa valeur (60 % pour une chaîne), comme le bot industriel
+dont il est copié, alors que sa ligne de crédit le permettait et que ses centrales rapportent ≈ 240 %/an (passe 67) : à 65 % / 75 %, +19,5 % en moyenne géométrique,
++12 à +26 % sur **chaque** graine (même signe partout, écart > 15 %). Ce n'est pas une règle du jeu : c'est le bot qui ne jouait pas encore à fond. Aucun plafond,
+aucun bonus de caste, aucune règle de jeu modifiée : pour les autres castes, la version finale rejoue les parties d'avant au dollar près.
+
+## 2. Diagnostic et essais écartés (mesurés, non livrés)
+
+- **Innovateur (1,9 de la moyenne, 4 victoires avant le jour 1 450).** Décomposition (graines 7000 et 9000) : le moteur est la trésorerie d'exploitation (résultat net
+  1,2 M$/j au jour 900 et 3,1 M$/j au jour 1 200, contre 0,2 à 0,4 M$/j pour les autres castes) : boutiques high-tech et bureaux tech vendant ses produits brevetés
+  (prime de monopole), exportations avec prime de monopole (`monoXP`) et campus cloud ; l'écart d'acquisition de la plateforme ne pèse que 0 à 236 M$ à la fin.
+  **Pas de correction** : `docs/INNOVATEUR_MONOPOLE.md` fixe pour cette caste une cible de Rémy de 1,5 à 3 fois la moyenne (rente de monopole temporaire), en conflit
+  avec la bande 0,8-1,3 de cette campagne. À trancher par Rémy ; leviers mesurables si la bande doit s'appliquer : `DC_PROJ`, `MONO_XW`, `PLAT_*`.
+- **Baron (0,59 ; 0,72 hors innovateur).** Ses usines produisent surtout pour l'export (graine 6000, jour 900 : pain 2 968 unités exportées pour 394 vendues, montre
+  647 pour 18), des produits génériques (note ≈ 50, sans marque) vendus à l'étranger au cours − 10 points (surplus) par un seul port (82 %). Trois essais, aucun concluant
+  (la graine 7000, 506 M$ avant, varie de 235 à 506 au moindre changement) :
+
+  | Essai (non livré) | 6000 / 7000 / 8000 / 9000 | moy. géo. | avant, mêmes graines |
+  |---|---|---:|---:|
+  | levier 0,65 / 0,75 (comme le négociant) | 283 / 298 | 291 | 351 |
+  | ports supplémentaires (`P.morePorts`, jusqu'à 5) | 417 / 235 / 313 / 263 | 300 | 321 |
+  | diagnostic : surplus exporté sans décote de 10 points | 428 / 355 | 391 | 351 |
+
+  Écart < 15 % ou de signe variable selon la graine : aucune correction. Piste pour une passe dédiée : un playbook qui dimensionne les usines sur la demande des rayons et
+  choisit des produits de marque, plutôt qu'une règle de jeu.
+- **Banquier (1,27 ; 1,54 hors innovateur).** Dans la bande avec les 6 castes. Sa valeur vient d'un empire de bureaux tech et de magasins financé par un levier bon marché
+  (dette 576 à 792 M$ au jour 1 800, intérêts −40 % pour la caste, plafond 11 × les fonds propres de la banque) et de ses fonds propres mis en réserve (165 M$). Le
+  corriger toucherait un avantage de caste : non fait, à décider par Rémy.
+- **Promoteur (0,73).** Variance extrême (187 à 1 000 M$) : à 4 graines, l'écart à la borne 0,8 (−8 %) n'est pas significatif. Aucune correction.
+- Agriculteur : non modifié (décision de Rémy).
+
+## 3. Menace des rivaux : niveau de difficulté 1 à 8 (`S.opt.lv`)
+
+Mécanique (une seule famille de réglages, « compétence » k et « combativité » ag, jamais un plafond sur le joueur) : rendement des actifs hors magasins des IA
+`RIV_YIELD × k²`, rendements décroissants à partir de `3 × k³ ×` leur valeur de départ, budget de leurs actions de caste × k, marge de négoce × √k ; guerres des prix,
+prix limites, OPA et expansion × ag ; part des IA « aventureuses » (endettées, donc faillibles) de 10 à 45 %. **Début accueillant** : au-dessus de Normal, k passe de 1
+à sa valeur entre les jours 180 et 900. Normal (4) = k 1, ag 1, 25 % d'aventureuses : exactement le calibrage d'avant (les mesures des passes 67 à 79 restent valables ;
+une sauvegarde sans niveau est au niveau Normal). Notes : 28 / 50 / 74 / **100** / 178 / 225 / 283 / 336 % pour les niveaux 1 à 8. Réglage : écran Nouvelle partie
+(liste « Niveau des IA » et « Joueurs ») et Menu > paramètres de la partie ; note et niveau affichés en tête de Menu > Concurrents.
+
+| Niveau | 1 Débutant | 2 Facile | 3 Modéré | 4 Normal | 5 Difficile | 6 Expert | 7 Magnat | 8 Légendaire |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| k (compétence) | 0,5 | 0,7 | 0,85 | 1 | 2,4 | 3 | 3,8 | 4,4 |
+| ag (combativité) | 0,4 | 0,6 | 0,8 | 1 | 1,15 | 1,3 | 1,45 | 1,6 |
+
+Calibrage (joueur passif, graine 6000, valeur des 5 IA au jour 1 800) : Normal 14 à 38 M$ ; k 2,6 : 66 à 104 ; k 3,6 : 181 à 233 ; k 4,5 : 472 à 663 M$ (avec un joueur
+actif, les IA valent environ deux fois plus : prospérité de la ville).
+
+**Rang du joueur au jour 1 800 selon le niveau** (graines 6000 / 7000 × 6 castes = 12 parties par case ; « bon » = bot « bon joueur » pour toutes les castes,
+« expert » = playbooks de caste) :
+
+| Niveau | « bon » : 1er sur 12 | « bon » : meilleure IA (M$) | « expert » : 1er sur 12 | « expert » : meilleure IA (M$) | Round gagné par une IA |
+|---|---:|---|---:|---|---|
+| 4 Normal | 12 | 56 à 173 | 22 sur 24 (4 graines) | 76 à 312 | jamais |
+| 5 Difficile | 9 | 132 à 309 | 11 | 124 à 576 | jamais |
+| 6 Expert | 7 | 175 à 457 | 9 (*) | 133 à 744 | jamais |
+| 8 Légendaire | 0 (rang 5/6 ou 6/6) | 786 à 1 051 | 2 (l'innovateur) | 393 à 1 010 | « bon » 11 sur 12, expert 9 sur 12 (jours 1 484 à 1 800) |
+
+(*) Aux niveaux 6 et 8, le négociant expert jouait encore avec l'ancien levier (0,5 / 0,6).
+Lecture : au niveau Normal le joueur reste toujours premier (comme avant) ; à **Difficile**, un « bon » joueur n'est premier que 9 fois sur 12 (l'agriculteur et le négociant joués au bot de commerce sont dépassés) et un expert 11 fois sur 12 : c'est le niveau qui sépare le joueur moyen du joueur expert ; à
+**Expert**, un « bon » joueur n'est premier que 7 fois sur 12, un expert 9 fois sur 12 ; à **Légendaire**, les IA atteignent 1 Md$ avant le jour 1 800 et seul
+l'innovateur expert les devance. Somme positive : des IA plus fortes ne coûtent presque rien au joueur expert (niveau 6 contre 4, graines 6000 / 7000 : baron 244 / 506
+-> 370 / 383, banquier 718 / 487 -> 728 / 835, agriculteur 410 / 450 -> 415 / 429), car leur chiffre d'affaires nourrit la prospérité (`prosp`) et le crédit.
+Faillites spontanées d'IA : toujours 0 sur ces parties (des IA compétentes sont rentables) ; guerres des prix 3 à 9 par partie ; OPA d'une IA sur le joueur : seulement
+s'il est coté avec un flottant ≥ 25 % (les bots ne s'introduisent pas en bourse).
+
+## 4. Parties à 8 joueurs
+
+« Nombre de concurrents » : Très élevé = 7 IA (8 avant, soit 9 joueurs). Au-delà des 5 IA de caste, deux **sièges supplémentaires** : des doublons de caste aux noms
+distincts (Titan Works, industriel ; Skyline Estates, promoteur ; puis Harvest Union, agriculteur ; Helix Systems, innovateur), champ optionnel `sty` : prix, actions de
+caste et usines de leur caste ; ils n'occupent pas de siège de caste (`S.seats` garde 6 entrées) et ne dupliquent pas les systèmes uniques (banque de Luxor, négoce de
+DiscountCo). Implantation : 70 % de celle de la caste (nouvel entrant). `t84` : 3 graines, bot « bon joueur », 500 jours : 19,8 à 20,3 ms par jour simulé en moyenne
+(pic 82 à 138 ms), aucune valeur non finie, classement à 8, sauvegarde et rechargement avec les 7 IA.
+
+## 5. Fin de partie
+
+Un rival qui atteint 1 Md$ avant le joueur **remporte le Round** (défaite ; avant : rien ne se passait). Écran de fin : classement des joueurs (toi et les IA, avec leur
+caste, le niveau, le nombre de joueurs), classement avec les grands groupes, palmarès de la partie, palmarès local des 12 derniers rounds (`localStorage` `wse-rounds`),
+bouton « Continuer en bac à sable » (la partie continue en Libre, rivaux compris).
+
+## 6. Limites
+
+- 4 graines pour l'équilibre, 2 graines par niveau pour le rang : une case du tableau du rang est à ±2 parties près. Horizon 1 800 jours (le Round dure 7 200 jours) :
+  le rang au jour 1 800 n'est pas celui de la fin du Round.
+- Le niveau 7 n'est pas mesuré (interpolé entre 6 et 8).
+- Bande 0,8-1,3 non atteinte avec les 6 castes : innovateur au-dessus (cible de Rémy 1,5-3 : conflit à trancher), baron, négociant et promoteur sous 0,8 de la moyenne
+  à 6 (0,72 à 0,92 hors innovateur). Le bot `chip` (fondeur de puces, `P.chip`) n'est pas dans `--native` : non mesuré ici.

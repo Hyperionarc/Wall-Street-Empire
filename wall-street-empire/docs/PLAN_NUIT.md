@@ -36,6 +36,7 @@ Demande de Rémy : « tu prends toute la nuit pour tout mettre ce qu'on a fait e
 Un réveil par heure (message envoyé par `send_later`) reprend ce fichier, avance le premier lot non coché, pousse, puis réarme le suivant jusqu'au matin.
 
 ## Étape suivante (demande de Rémy, 19 nov.) — à lancer SEULEMENT après validation de l'étape « jeu jouable / audit graphique »
+- (Passe 80, fait en partie : parties à 8 joueurs, campagne d'équilibre à 4 graines, niveaux de difficulté 1-8 et rang du joueur par niveau ; voir docs/EQUILIBRE_ECONOMIE.md. Reste : personas ICP sur 8 joueurs, rapport PDF.)
 - Faire jouer **toutes les castes** (6 castes, jusqu'à 8 joueurs : une partie avec les 6 castes tenues par des bots + 2 sièges supplémentaires) sur plusieurs graines ; mesurer équilibre (valorisation, faillites, parts de marché, guerres des prix), ennui, soft-locks.
 - Reprendre les **profils types** déjà définis (tools/make_report_personas.py, docs/RAPPORT_GAMEPLAY_FIDELISATION.md : 3 personas + hardcore ex-Capitalism II + Farm Simulator) et en **proposer d'autres** (ICP, clients cibles) : ex. étudiant en gestion, entrepreneur curieux sur mobile, fan de city-builder (SimCity), investisseur boursier, créateur/streamer compétitif, joueur casual de tycoon mobile, enseignant de gestion. Pour chacun : objectif, durée de session, ce qui le retient, ce qui le fait partir.
 - Livrable : rapport PDF (docs/) avec recommandations, puis corrections de gameplay prioritaires.

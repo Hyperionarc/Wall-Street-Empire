@@ -31,3 +31,5 @@
 - Critère 2 : bilan « Ce que les autres castes t'apportent / ce que tu leur apportes » en tête de Menu > Concurrents (chiffres réels, relevé `S.syn`).
 - Critère 4 : trajectoire du monde convexe (166, 218, 301, 396, 546, 760 M$).
 - Reste à transformer : guerres des prix des IA et embargos de riposte ; équilibre des castes en partie normale (promoteur et banquier au-dessus de la bande).
+- Passe 80 : niveau de difficulté des IA 1-8 (compétence de gestion, jamais un plafond sur le joueur) ; des IA plus fortes ne coûtent presque rien au joueur expert
+  (niveau 6 contre 4 : baron 244 / 506 -> 370 / 383 M$, banquier 718 / 487 -> 728 / 835 M$) : leur chiffre d'affaires nourrit la prospérité et le crédit.

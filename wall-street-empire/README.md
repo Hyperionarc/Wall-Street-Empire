@@ -1030,7 +1030,7 @@ Demande du propriétaire (comme Capitalism Lab : un constructeur automobile ET s
 ## Passe : rivaux vivants (une IA par caste, prix, stratégies, sièges)
 Les rivaux étaient des attraits agrégés figés : sans prix, sans initiative. Ils deviennent des entreprises qui fixent leurs prix, s'attaquent au joueur, s'étendent, font faillite et se rachètent.
 
-**Six castes, six sièges.** Comme dans Capitalism Lab, toutes les castes sont dans la partie dès le départ. Chaque caste est un siège (`S.seats` : `{ caste, ctrl: 'ai' | 'human', pid, since }`) toujours occupé. Le joueur prend le siège de sa caste ; les 5 autres sont tenus par des IA (`S.rivals`, champ `caste`) : Mega Mart (exploitant agricole : coopératives et distribution alimentaire), Luxor & Fils (banquier : banque privée et luxe), DiscountCo (négociant : prix cassés), Vulcan Industries (baron industriel), Atlas Promotion (promoteur BTP), Novatek Labs (innovateur tech). Trésorerie de départ commune (Round : 10 M$ Normal, 100 M$ Facile). Le réglage « Nombre de concurrents » vaut 5 par défaut ; au-delà de 5 s'ajoutent des concurrents sans caste ; les scénarios gardent 3 enseignes avec leur poids d'origine.
+**Six castes, six sièges.** Comme dans Capitalism Lab, toutes les castes sont dans la partie dès le départ. Chaque caste est un siège (`S.seats` : `{ caste, ctrl: 'ai' | 'human', pid, since }`) toujours occupé. Le joueur prend le siège de sa caste ; les 5 autres sont tenus par des IA (`S.rivals`, champ `caste`) : Mega Mart (exploitant agricole : coopératives et distribution alimentaire), Luxor & Fils (banquier : banque privée et luxe), DiscountCo (négociant : prix cassés), Vulcan Industries (baron industriel), Atlas Promotion (promoteur BTP), Novatek Labs (innovateur tech). Trésorerie de départ commune (Round : 10 M$ Normal, 100 M$ Facile). Le réglage « Nombre de concurrents » vaut 5 par défaut ; au-delà de 5 s'ajoutent des sièges supplémentaires (passe 80 : doublons de caste aux noms distincts, jusqu'à 7 IA, soit 8 joueurs) ; les scénarios gardent 3 enseignes avec leur poids d'origine.
 - API `WSE.seats` : `list()` (sièges et entreprise de chacun), `claim(caste, joueur)`, `release(caste)`, `isFree(caste)`, `company(caste)`, `order(caste, { px })`.
 - `claim(caste, 'me')` au départ : l'IA de ce siège s'efface et la caste manquante entre. En cours de partie (Menu > Partie > Changer de caste), l'IA du siège visé garde son entreprise et reprend la caste que le joueur quitte.
 - `claim(caste, 'h:nom')` : un autre humain hérite de l'entreprise de l'IA telle quelle (trésorerie, magasins, actifs, marque, prix, rang). L'IA cesse aussitôt d'agir pour ce siège (prix, expansion et actions de caste figés), l'entreprise continue de vendre, l'humain fixe ses prix par `order`. `release` rend la main à l'IA sans réinitialisation : les prix reviennent par pas bornés.
@@ -1764,3 +1764,24 @@ Code : bloc « Passe 34 + passe 79 » de `game.template.html` (`rubAdd`, `crInve
 - **Rendu** : carrière HD + concasseur dessiné en code sobre tant que le gisement est exploité ; sprite HD `concasseur_recyclage` (livré pour la commande 55-1) quand
   le site vit de son concasseur. Commande Cowork n° 79 (carrière avec concasseur, sans texte) dans `tools/factory_ai/RETOURS.md`.
 - **Propositions de fusion non faites** (calcaire, argile, silice, sel ont chacun un sens propre) : voir le rapport de la passe 79.
+
+## Passe 80 : parties à 8 joueurs, niveau de difficulté des IA (1 à 8), fin de Round enrichie
+
+Détail des mesures : `docs/EQUILIBRE_ECONOMIE.md`, « Passe 80 ». Tests : `t84_huit_joueurs.js`, `t85_difficulte.js`.
+
+- **8 joueurs.** Écran Nouvelle partie, liste « Joueurs » : 3, 4, 6 (les 6 castes, par défaut) ou 8 (les 6 castes + 2 sièges supplémentaires) ; le réglage « Nombre de
+  concurrents » (Très élevé) vaut désormais 7 IA. Les sièges supplémentaires sont des doublons de caste aux noms distincts (Titan Works, industriel ; Skyline Estates,
+  promoteur ; puis Harvest Union, Helix Systems) : champ optionnel `sty` des rivaux (métier : prix, actions de caste, usines) ; `S.seats` garde ses 6 sièges de caste ;
+  API `WSE.seats.extra()` (sièges supplémentaires) et `WSE.seats.players()` (nombre de joueurs). Jour simulé à 8 joueurs : ≈ 20 ms en moyenne (t84).
+- **Niveau de difficulté des IA** (`S.opt.lv`, 1 Débutant … 4 Normal … 8 Légendaire, à la manière de Capitalism Lab) : écran Nouvelle partie (« Niveau des IA ») et
+  Menu > paramètres de la partie. Il règle la compétence de gestion des IA (rendement et réinvestissement de leurs actifs, marge de négoce) et leur combativité
+  (guerres des prix, prix limites, OPA, expansion, part d'IA endettées), jamais un plafond sur tes gains. Début accueillant à tous les niveaux : les IA ne montent en
+  compétence qu'entre les jours 180 et 900. Normal = calibrage d'avant (anciennes sauvegardes : Normal). Note de difficulté : 28 % à 336 %, affichée avec le niveau en tête
+  de Menu > Concurrents. Mesure (jour 1 800) : au niveau Normal le joueur finit toujours premier ; au niveau 5 (Difficile), un « bon » joueur est premier 9 fois sur 12 et un expert 11 fois sur 12 ; au niveau 6 un « bon » joueur n'est premier que 7 fois sur 12 ; au
+  niveau 8 les IA atteignent 1 Md$ entre les jours 1 484 et 1 800.
+- **Fin de Round.** Un rival qui atteint 1 Md$ avant toi remporte le Round (défaite). L'écran de fin montre le classement des joueurs (avec leur caste, le niveau et le
+  nombre de joueurs), le classement avec les grands groupes, le palmarès de la partie, tes 12 derniers rounds (stockage local `wse-rounds`) et le bouton « Continuer en
+  bac à sable » : la partie continue en Libre, rivaux compris.
+- **Outils** : `sim_batch.js --native --prof bon` (même bot « bon joueur » pour toutes les castes), `--lv 4,6,8` ou `SIM_LV` (niveaux), `SIM_NRIV=4` (8 joueurs),
+  `SIM_POVR` (surcharge de profil pour les ablations). Playbook du négociant : levier 0,65 / 0,75 (+19,5 % mesuré sur 4 graines, ses centrales étaient sous-financées).
+- **Sauvegarde** : `wse-city-v8` inchangée ; champs optionnels `S.opt.lv`, `sty` des rivaux, `S.mode.res.pl` (classement des joueurs).
