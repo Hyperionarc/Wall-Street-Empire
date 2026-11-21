@@ -32,7 +32,7 @@ Une case ≈ 150 m ≈ 2,25 ha (`HA_CASE`).
 
 ## Rentabilité par taille
 
-Mesure : `tools/tests/t87_fermes_surface.js` (blé, même site) et banc par type (360 jours, cours du marché). Voir le rapport de la passe 87 pour les chiffres.
+Mesure : `tools/tests/t88_fermes_surface.js` (blé, même site) et banc par type (360 jours, cours du marché). Voir le rapport de la passe 87 pour les chiffres.
 Bancs d'extracteurs (`tests/lib.js`, `isoExtractor`) : une ferme est mesurée à sa taille de référence de 36 cases (≈ 80 ha).
 
 ## Limites
