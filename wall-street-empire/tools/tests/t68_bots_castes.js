@@ -7,7 +7,7 @@ const FAMI = ['s1', 's2', 's3', 's4', 'off', 'miron', 'mcopper', 'mcoal', 'mgold
 const PRESET = {   // copie de tools/sim_batch.js (PRESET baron, negoce, banque, agri)
   agriculteur: { lev: 0.4, every: 3, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.5, bourse: false, play: 'agriculteur', fam: ['fwheat', 'fsugar', 'fcotton', 'fvine', 'fcattle', 'fchicken', 'fpig', 'fsheep', 's1', 's2', 's3'] } },
   banquier: { lev: 0.6, every: 4, p: { hurdle: 0.05, play: 'banquier' } },
-  negociant: { lev: 0.5, every: 3, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.6, bourse: false, play: 'negociant', fam: FAMI } },
+  negociant: { lev: 0.65, every: 3, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.75, bourse: false, play: 'negociant', fam: FAMI } },   // passe 80 : levier du négociant 0,65 / 0,75
   industriel: { lev: 0.5, every: 3, p: { hurdle: 0.05, industry: true, indEvery: 8, indLev: 0.6, bourse: false, play: 'industriel', prods: ['bread', 'utensils', 'bike', 'jeans', 'headache', 'cough', 'cream', 'blender', 'watch', 'perfume', 'skincare', 'jewelry', 'handbag', 'tv', 'fridge', 'washer', 'car'], fam: FAMI } }
 };
 const DAYS = 600, SEED = 6000;
