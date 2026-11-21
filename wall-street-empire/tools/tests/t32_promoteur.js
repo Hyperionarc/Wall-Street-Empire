@@ -49,7 +49,7 @@ exports.run = async (t, L) => {
     const med = hs[Math.floor(hs.length / 2)], best = hs[0]; o.mAll = hs.map(c => P.devPlan(c.x, c.y, 4).margin); o.medM = P.devPlan(med.x, med.y, 4).margin; o.bestM = P.devPlan(best.x, best.y, 4).margin;
     const h = best; o.h = [h.x, h.y]; const plan = P.devPlan(h.x, h.y, 4); o.plan = plan;
     const cash0 = S.cash; o.hover = (() => { W.setTool('buyout'); return 1; })();
-    const ok1 = W.place(h.x, h.y, 'buyout'); o.razed = ok1 && !S.grid[h.y * N + h.x]; o.paid = cash0 - S.cash; o.land = S.pland && S.pland[h.y * N + h.x];
+    o.evac = W.rub.evac(W.rub.of(h)); o.rub = W.rub.of(h); const ok1 = W.place(h.x, h.y, 'buyout'); o.razed = ok1 && !S.grid[h.y * N + h.x]; o.paid = cash0 - S.cash; o.land = S.pland && S.pland[h.y * N + h.x];
     const cash1 = S.cash; const ok2 = W.place(h.x, h.y, 'res'); const b = S.grid[h.y * N + h.x]; o.built = ok2 && b && b.t === 'res'; o.buildPaid = cash1 - S.cash; o.landCharged = o.buildPaid - Math.round(W.TYPES.res.cost * 0.85);
     o.works0 = b && b.works ? { k: b.works.k, days: b.works.due - S.day } : null; o.capBefore = null;
     // pendant le chantier : pas de loyer, on ne peut pas vendre
@@ -67,7 +67,10 @@ exports.run = async (t, L) => {
   });
   const med = B.mAll.slice().sort((a, b) => a - b)[Math.floor(B.mAll.length / 2)];
   t.info(`maisons à raser : marge médiane de la promotion à 4 étages ${(med * 100).toFixed(0)} %, meilleur site ${(B.bestM * 100).toFixed(0)} % ; achat ${B.paid} $ + construction ${B.buildPaid} $ + 3 étages ${B.upPaid} $ -> vente ${B.q && B.q.price} $ (plus-value ${B.q && B.q.gain}, impôt ${B.q && B.q.tax}, net ${B.q && B.q.net})`);
-  t.check('le rachat est facturé au prix de marché et le terrain payé n\'est pas repayé à la construction', B.razed && B.paid > 10000 && B.land === B.paid && B.landCharged < 1 && B.landCharged > -1, JSON.stringify([B.paid, B.land, B.landCharged]));
+  // passe 79 : raser l'immeuble produit des gravats (260 u pour une maison) dont l'évacuation en décharge (1,5 $/u × inflation, gratuite avec un concasseur)
+  // est débitée en plus du prix : c'est un frais de démolition, pas un prix du terrain. Le terrain enregistré (S.pland) reste le prix payé au vendeur + frais,
+  // et le débit total = terrain + évacuation, évacuation cohérente avec gravats × 1,5 $.
+  t.check('le rachat est facturé au prix de marché et le terrain payé n\'est pas repayé à la construction', B.razed && B.paid > 10000 && B.land === B.paid - B.evac && B.evac >= Math.round(B.rub * 1.5) && B.evac <= B.rub * 1.5 * 2 && B.landCharged < 1 && B.landCharged > -1, JSON.stringify([B.paid, B.land, B.evac, B.rub, B.landCharged]));
   t.check('construction : chantier visible (jours de travaux), aucun loyer avant la livraison, vente refusée pendant le chantier', B.works0 && B.works0.k === 'new' && B.works0.days >= 4 && B.rentDuring === 0 && B.sellDuring === false, JSON.stringify([B.works0, B.rentDuring, B.sellDuring]));
   t.check('après livraison : logements avec loyers qui paient leur entretien (recettes > charges)', B.delivered && B.rent1 > 0 && B.profit > 0 && B.rent4 > 2 * B.cost4, JSON.stringify([B.rent1, B.rent4, B.cost4, B.profit]));
   t.check('étage supplémentaire : coût ≈ prix du lot + du logement (plus 350 $), croît avec la hauteur, chantier de plusieurs jours', B.floorCosts.length === 3 && B.floorCosts.every(c => c > 40000) && B.floorCosts[2] > B.floorCosts[0] && B.upDays >= 4 && B.floors2 === 4, JSON.stringify([B.floorCosts, B.upDays, B.floors2]));

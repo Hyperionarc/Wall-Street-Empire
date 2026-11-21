@@ -12,7 +12,7 @@ exports.run = async (t, L) => {
     let h = null; for (let i = 0; i < N * N && !h; i++) { const c = S.grid[i]; if (c && c.t === 'npc' && c.k === 'house' && W.acq.ownerOf(c) === 'npc' && !W.footprintError(c.x, c.y, 's1', true)) h = c; }
     o.found = !!h; if (!h) return o;
     o.strict = W.footprintError(h.x, h.y, 's1'); o.acqFlag = W.footprintError(h.x, h.y, 's1', true);
-    const ap = W.acq.plan(h.x, h.y, 's1'); o.plan = ap ? { acq: ap.acqNpc, build: ap.build, total: ap.total, housing: ap.housing, groups: Object.keys(ap.groups).length } : null;
+    const ap = W.acq.plan(h.x, h.y, 's1'); o.plan = ap ? { acq: ap.acqNpc, build: ap.build, total: ap.total, evac: ap.evac, rub: ap.rub, housing: ap.housing, groups: Object.keys(ap.groups).length } : null;
     o.expect = W.acq.buyoutCost(h);
     const cash0 = S.cash, cap0 = S.stats.cap, mods0 = S.npcMods.length;
     const r0 = W.place(h.x, h.y, 's1'); o.placeFalse = r0 === false; o.bubble = !document.getElementById('acq').hidden; o.bubbleTxt = document.getElementById('acq').textContent;
@@ -24,7 +24,9 @@ exports.run = async (t, L) => {
     return o;
   });
   t.check('une maison PNJ est détectée comme acquérable (pose stricte refusée, acquisition possible)', A.found && A.strict && !A.acqFlag, `${A.strict} / "${A.acqFlag}"`);
-  t.check('plan : rachat = buyoutCost, total = rachat + construction', A.plan && A.plan.acq === A.expect && A.plan.total === A.plan.acq + A.plan.build && A.plan.housing > 0, JSON.stringify(A.plan));
+  // passe 79 : le devis inclut l'évacuation des gravats du bâti rasé (1,5 $/u × inflation, 0 avec un concasseur), débitée à la confirmation ;
+  // la confirmation vérifie ci-dessous que le montant payé = ce devis annoncé.
+  t.check('plan : rachat = buyoutCost, total = rachat + construction + évacuation des gravats', A.plan && A.plan.acq === A.expect && A.plan.total === A.plan.acq + A.plan.build + A.plan.evac && A.plan.rub === 260 && A.plan.evac >= Math.round(A.plan.rub * 1.5) && A.plan.evac <= A.plan.rub * 3 && A.plan.housing > 0, JSON.stringify(A.plan));
   t.check('la pose ouvre une bulle de confirmation sans rien débiter', A.placeFalse && A.bubble && A.cashAfterOpen && A.still && /Cette case est occupée par 1 maison/.test(A.bubbleTxt), A.bubbleTxt && A.bubbleTxt.slice(0, 90));
   t.check('confirmation : commerce construit, total payé, case PNJ démolie (npcMods)', A.built && A.paid === A.plan.total && A.mods === 1 && A.closed, `payé ${A.paid} attendu ${A.plan && A.plan.total}`);
   t.check('la capacité d\'habitat de la ville baisse du nombre d\'habitants annoncé (maison démolie)', A.cap[0] - A.cap[1] === A.plan.housing, A.cap.join(' > ') + ' / plan ' + A.plan.housing);
