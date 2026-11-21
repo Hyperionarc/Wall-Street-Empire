@@ -1,4 +1,4 @@
-// Passe 51 : maïs et colza. Cultures constructibles (2×2, sprites HD), zones fertiles sur la carte, production, chaînes
+// Passe 51 : maïs et colza. Cultures constructibles (3×3 depuis la passe 85, sprites HD), zones fertiles sur la carte, production, chaînes
 // maïs + colza -> huile de cuisine -> huile de table (LE dérivé retenu ; les chips de maïs sont retirées : passe 75), colza -> biodiesel -> biocarburant, vente en magasin,
 // rentabilité des fermes, guide, sauvegarde antérieure, déterminisme, 0 erreur de page.
 const fs = require('fs'), path = require('path');
@@ -16,7 +16,7 @@ exports.run = async (t, L) => {
     const W = window.WSE, S = W.S, o = { bad: [] };
     Object.keys(CROPS2).forEach(k => {
       const T = W.TYPES[k], g = CROPS2[k]; if (!T) { o.bad.push(k + ' absent'); return; }
-      if (T.ext !== g || T.w !== 2 || T.h !== 2 || T.live) o.bad.push(k + ' mal défini');
+      if (T.ext !== g || T.w !== 3 || T.h !== 3 || T.live)   /* passe 85 : cultures 3×3 (avant 2×2) */ o.bad.push(k + ' mal défini');
       if (!(T.cost > 0 && T.jobs > 0 && T.upkeep > 0 && T.rate > 0)) o.bad.push(k + ' coûts');
       if (!W.GOODS[g] || W.GOODS[g].grp !== 'raw') o.bad.push(g + ' pas matière brute');
       if (W.CROPS[g] !== k || W.RAW_SRC[g] !== k) o.bad.push(g + ' CROPS/RAW_SRC');
@@ -36,7 +36,7 @@ exports.run = async (t, L) => {
     o.counts = [Object.keys(W.TYPES).length, Object.keys(W.GOODS).length, Object.keys(W.RECIPES).length, Object.keys(W.PRODUCTS).length];
     return o;
   }, { CROPS2, FIN });
-  t.check('fcorn et frapeseed : fermes 2×2 du menu Agriculture, maïs et colza bruts (CROPS, RAW_SRC, gisement, offre locale, coût), icône', D.bad.length === 0, D.bad.slice(0, 4).join(' ; '));
+  t.check('fcorn et frapeseed : fermes 3×3 du menu Agriculture, maïs et colza bruts (CROPS, RAW_SRC, gisement, offre locale, coût), icône', D.bad.length === 0, D.bad.slice(0, 4).join(' ; '));
   t.check('prix de base cohérents avec le blé et la canne (maïs 5-8 $, colza 7-12 $)', D.base.corn >= 5 && D.base.corn <= 8 && D.base.rapeseed >= 7 && D.base.rapeseed <= 12, JSON.stringify(D.base));
   t.check('recettes : huile de cuisine = maïs + colza, biodiesel = colza + produits chimiques (intermédiaires « comp »)', D.rec.cookoil && D.rec.cookoil.corn > 0 && D.rec.cookoil.rapeseed > 0 && D.rec.biodiesel && D.rec.biodiesel.rapeseed > 0 && D.rec.biodiesel.chem > 0 && D.rec.grpC === 'comp' && D.rec.grpB === 'comp', JSON.stringify(D.rec));
   t.check('produits finis (huile de table, biocarburant) : intrants, prix, R&D, nécessité, demande, méga-classe, poids, obsolescence, famille, vignette',
@@ -47,7 +47,7 @@ exports.run = async (t, L) => {
   t.check('aucun nom en double (marchandises, produits, bâtiments)', D.dup.length === 0, D.dup.join(', '));
   t.info(`types ${D.counts[0]} · biens ${D.counts[1]} · recettes ${D.counts[2]} · produits ${D.counts[3]}`);
 
-  // 2. Sprites HD : branchés dans le build et calés sur 2×2 comme les autres fermes
+  // 2. Sprites HD : branchés dans le build et calés sur 3×3 comme les autres cultures (passe 85)
   { const tpl = fs.readFileSync(path.join(root, 'game.template.html'), 'utf8'), html = fs.readFileSync(path.join(root, 'city.html'), 'utf8'), bld = fs.readFileSync(path.join(root, 'tools', 'build.py'), 'utf8');
     t.check('méga-classe de marque (MEGA_OF) et technologies (PROD_TECH) : huile de table en alimentation, biocarburant en auto', /tableoil: 'food', biofuel: 'auto'/.test(tpl) && /tableoil: 8 \}/.test(tpl) && /biofuel: 10 \}, \['handtools', 'lube', 'biofuel'\]/.test(tpl), '');
     const dim = k => { const m = html.match(new RegExp('"' + k + '": \\[([0-9., ]+)\\]')); return m ? m[1].split(',').map(Number) : null; };
@@ -55,7 +55,7 @@ exports.run = async (t, L) => {
     t.check('sprites HD : fcorn et frapeseed dans P2_TYPE et dans le build (P2_NAMES)', /P2_TYPE = \{[^}]*fcorn: 'fcorn'[^}]*frapeseed: 'frapeseed'/.test(tpl) && /'fcorn', 'frapeseed'/.test(bld), '');
     const hasHD = /"fcorn": "data:image\/(png|webp)/.test(html) && /"frapeseed": "data:image\/(png|webp)/.test(html);   // passe 81 : les sprites HD sont encodés en WebP quand c'est plus léger
     if (fs.existsSync(path.join(root, '..', 'assets', 'factory_hd', 'fcorn.png')) || hasHD)
-      t.check('sprites HD embarqués, losange de même largeur que la ferme de blé (2 cases)', hasHD && dw && dc && dr && [dw, dc, dr].every(d => (d[7] - d[6]) / d[0] > 0.97)   /* le losange remplit la largeur de l'image : le jeu le cale sur 2 cases quelle que soit la résolution (le nouveau champ de blé de Cowork est en 768 px, maïs et colza en 512) */, JSON.stringify({ dw, dc, dr }));
+      t.check('sprites HD embarqués, losange de même largeur que la ferme de blé (3 cases)', hasHD && dw && dc && dr && [dw, dc, dr].every(d => (d[7] - d[6]) / d[0] > 0.97)   /* le losange remplit la largeur de l'image : le jeu le cale sur 2 cases quelle que soit la résolution (le nouveau champ de blé de Cowork est en 768 px, maïs et colza en 512) */, JSON.stringify({ dw, dc, dr }));
     else t.info('assets/factory_hd absents : repli vectoriel (pas de sprite HD à vérifier)'); }
 
   // 3. Chaque culture se construit en campagne et produit
@@ -68,7 +68,7 @@ exports.run = async (t, L) => {
       const s0 = S.stock[g] || 0; let made = 0; for (let d = 0; d < 30; d++) { T.frz(); W.step(); made += c.out || 0; }
       o.made = made; o.stockUp = (S.stock[g] || 0) > s0 || (S.locSold && S.locSold[g] > 0); o.bad = T.scan(); return o;
     }, { k, g: CROPS2[k] });
-    t.check(`${k} : posé sur une zone fertile (2×2), produit du ${CROPS2[k]} en 30 jours`, r.placed && r.wh[0] === 2 && r.wh[1] === 2 && r.made > 100 && r.stockUp, JSON.stringify({ placed: r.placed, wh: r.wh, made: r.made && Math.round(r.made) }));
+    t.check(`${k} : posé sur une zone fertile (3×3, passe 85), produit du ${CROPS2[k]} en 30 jours`, r.placed && r.wh[0] === 3 && r.wh[1] === 3 && r.made > 100 && r.stockUp, JSON.stringify({ placed: r.placed, wh: r.wh, made: r.made && Math.round(r.made) }));
     t.check(`${k} : 0 pageerror, aucun NaN`, p.errs.length === 0 && r.bad.length === 0, p.errs.concat(r.bad || []).slice(0, 2).join(';'));
     await p.context().close();
   }

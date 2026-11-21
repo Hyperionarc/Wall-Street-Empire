@@ -16,21 +16,21 @@ const FARMS = ['fwheat', 'fcorn', 'frapeseed', 'fsugar', 'fcotton', 'frubber', '
   await pg.evaluate(d => { ['caste', 'hint', 'endscr', 'modesel', 'win', 'mkview'].forEach(i => { const e = document.getElementById(i); if (e) e.hidden = true; }); window.WSE.S.cash = 3e7; window.WSE.setSpeed(1); if (d.day != null) window.WSE.S.day = +d.day; d = d.dbg; if (window.WSE.farmFx) window.WSE.farmFx.debug(d); }, { dbg: DBG, day: DAY });
   const spots = await pg.evaluate(FARMS => {
     const W = window.WSE, S = W.S, N = W.N, o = {}, CR = W.CROPS, used = new Set();
-    const ok = (x, y, k) => { for (let dy = -3; dy < 5; dy++) for (let dx = -3; dx < 5; dx++) if (used.has((x + dx) + ',' + (y + dy))) return false; return !W.footprintError(x, y, k); };
+    const ok = (x, y, k) => { for (let dy = -3; dy < 6; dy++) for (let dx = -3; dx < 6; dx++) if (used.has((x + dx) + ',' + (y + dy))) return false; return !W.footprintError(x, y, k); };
     FARMS.forEach(k => {
       const g = W.TYPES[k].ext, crop = CR[g] === k;
-      for (let i = 0; i < N * N && !o[k]; i++) { const x = i % N, y = (i / N) | 0; const d = S.dep[i]; if (crop ? !(d && d.k === g) : !!d) continue; if (x < 4 || y < 4 || x > N - 6 || y > N - 6) continue; if (!ok(x, y, k)) continue; if (W.place(x, y, k)) { o[k] = [x, y]; for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) used.add((x + dx) + ',' + (y + dy)); } }
+      for (let i = 0; i < N * N && !o[k]; i++) { const x = i % N, y = (i / N) | 0; const d = S.dep[i]; if (crop ? !(d && d.k === g) : !!d) continue; if (x < 4 || y < 4 || x > N - 6 || y > N - 6) continue; if (!ok(x, y, k)) continue; if (W.place(x, y, k)) { const T = W.TYPES[k]; o[k] = [x, y, T.w || 1, T.h || 1]; for (let dy = 0; dy < (T.h || 1); dy++) for (let dx = 0; dx < (T.w || 1); dx++) used.add((x + dx) + ',' + (y + dy)); } }
     });
     return o;
-  }, FARMS);
+  }, ONLY.length ? FARMS.filter(k => ONLY.includes(k)) : FARMS);   // seulement les fermes demandées : plus de place pour chacune
   const files = [];
   for (const k of FARMS) {
     if (ONLY.length && !ONLY.includes(k)) continue;
     const sp = spots[k]; if (!sp) { console.log('pas de place pour', k); continue; }
     for (const [nm, lv] of [['z1', 1], ['z0', 0], ['zmax', -1]]) {
-      await pg.evaluate(({ sp, lv }) => { const W = window.WSE, Z = W.zlv(); W.zoomTo(lv < 0 ? 1.8 : Z[lv], 640, 450, { x: sp[0] + 1, y: sp[1] + 1 }); }, { sp, lv });
+      await pg.evaluate(({ sp, lv }) => { const W = window.WSE, Z = W.zlv(); W.zoomTo(lv < 0 ? 1.8 : Z[lv], 640, 450, { x: sp[0] + sp[2] / 2, y: sp[1] + sp[3] / 2 }); }, { sp, lv });
       await pg.waitForTimeout(650);
-      await pg.evaluate(({ sp }) => { window.WSE.centerOn(sp[0] + 0.5, sp[1] + 0.5); }, { sp });
+      await pg.evaluate(({ sp }) => { window.WSE.centerOn(sp[0] + sp[2] / 2 - 0.5, sp[1] + sp[3] / 2 - 0.5); }, { sp });   // centre de l'emprise (2×2 ou 3×3)
       await pg.waitForTimeout(300);
       const cl = { x: 240, y: 180, width: 800, height: 600 };
       const f = path.join(OUT, `${k}_${nm}.png`); await pg.screenshot({ path: f, clip: cl }); files.push(f);

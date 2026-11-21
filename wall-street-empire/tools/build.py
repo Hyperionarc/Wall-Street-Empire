@@ -350,7 +350,7 @@ P2_PXCASE = 400   # px source par case au-delà de 480 px par case (largeur de l
 P2_FP = {'supermarche': 2, 'supermarche_n2': 2, 'supermarche_n3': 2, 'hypermarche': 3, 'hypermarche_n2': 3, 'hypermarche_n3': 3, 'bat_supermarche': 2, 'bat_supermarche_n2': 2, 'bat_supermarche_n3': 2,
          'bat_hypermarche': 3, 'bat_hypermarche_n2': 3, 'bat_hypermarche_n3': 3, 'usine_moyenne_f2': 1.5, 'usine_grande_f3': 2, 'usine_f4_mega': 3, 'mega_centre_commercial': 2, 'terminal_portuaire': 2,
          'centrale_nucleaire': 3, 'centrale_solaire': 4.5, 'data_center': 4.5, 'concession_auto': 2, 'boutique_high_tech': 1.5, 'maison_deco': 1.5, 'sport_loisirs': 1.5, 'chantier_moyen': 1.5,
-         'centrale_charbon': 1.5, 'siege_hq_n2': 2, 'siege_hq_n3': 2, 'fwheat': 2, 'fsugar': 2, 'fcotton': 2, 'frubber': 2, 'fvine': 2, 'fcorn': 2, 'frapeseed': 2, 'fcattle': 2, 'fchicken': 2, 'fpig': 2, 'fsheep': 2}
+         'centrale_charbon': 1.5, 'siege_hq_n2': 2, 'siege_hq_n3': 2, 'fwheat': 3, 'fsugar': 3, 'fcotton': 3, 'frubber': 3, 'fvine': 3, 'fcorn': 3, 'frapeseed': 3, 'fcattle': 2, 'fchicken': 2, 'fpig': 2, 'fsheep': 2}
 # Passe 78 : éclairage. Convention du jeu (mesurée sur maisons, immeubles, tours, usine moyenne, boutiques v2, dalle commune des commerces) : lumière haut-gauche,
 # flanc gauche (face sud-ouest) clair, flanc droit (face sud-est) sombre. Ces sprites sont rendus avec la lumière à DROITE (flancs de dalle et murs gauche
 # nettement plus sombres que les droits, voir tools/tests/t80_orientation.js) et n'ont ni texte ni façade orientée par le jeu : un miroir horizontal remet

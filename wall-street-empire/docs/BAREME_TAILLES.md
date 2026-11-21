@@ -70,13 +70,13 @@ Colonnes : clé du type, nom, emprise avant → après (largeur × profondeur), 
 
 | Type | Nom | Avant | Emprise | Cases | Raison |
 |---|---|---|---|---|---|
-| `fwheat` | Ferme de blé | 2 × 2 | 2 × 2 | 4 | exploitation |
-| `fsugar` | Plantation de canne | 2 × 2 | 2 × 2 | 4 | exploitation |
-| `fcotton` | Plantation de coton | 2 × 2 | 2 × 2 | 4 | exploitation |
-| `frubber` | Plantation d'hévéas | 2 × 2 | 2 × 2 | 4 | exploitation |
-| `fvine` | Vignoble | 2 × 2 | 2 × 2 | 4 | exploitation |
-| `fcorn` | Culture de maïs | 2 × 2 | 2 × 2 | 4 | exploitation |
-| `frapeseed` | Culture de colza | 2 × 2 | 2 × 2 | 4 | exploitation |
+| `fwheat` | Ferme de blé | 2 × 2 | 3 × 3 | 9 | grand champ (passe 85 : double de surface, débit et prix × 9/4) |
+| `fsugar` | Plantation de canne | 2 × 2 | 3 × 3 | 9 | grand champ (passe 85 : double de surface, débit et prix × 9/4) |
+| `fcotton` | Plantation de coton | 2 × 2 | 3 × 3 | 9 | grand champ (passe 85 : double de surface, débit et prix × 9/4) |
+| `frubber` | Plantation d'hévéas | 2 × 2 | 3 × 3 | 9 | grand champ (passe 85 : double de surface, débit et prix × 9/4) |
+| `fvine` | Vignoble | 2 × 2 | 3 × 3 | 9 | grand champ (passe 85 : double de surface, débit et prix × 9/4) |
+| `fcorn` | Culture de maïs | 2 × 2 | 3 × 3 | 9 | grand champ (passe 85 : double de surface, débit et prix × 9/4) |
+| `frapeseed` | Culture de colza | 2 × 2 | 3 × 3 | 9 | grand champ (passe 85 : double de surface, débit et prix × 9/4) |
 | `fcattle` | Élevage de bovins | 2 × 2 | 2 × 2 | 4 | exploitation |
 | `fchicken` | Élevage de poulets | 2 × 2 | 2 × 2 | 4 | exploitation |
 | `fpig` | Élevage de porcs | 2 × 2 | 2 × 2 | 4 | exploitation |

@@ -81,7 +81,7 @@ exports.run = async (t, L) => {
     o.det = JSON.stringify(F.herd(S.grid.find(c => c && c.t === 'fcattle'), 4321)) === JSON.stringify(F.herd(S.grid.find(c => c && c.t === 'fcattle'), 4321));
     return o; }, { FARMS });
   t.check(`fermes posées (${B.placed.length}/${FARMS.length})`, B.placed.length === FARMS.length, B.placed.join(','));
-  t.check('zones utiles des sprites inscrites dans l\'emprise 2×2', B.zone.length === 0, B.zone.join(','));
+  t.check('zones utiles des sprites inscrites dans l\'emprise (élevages 2×2, cultures 3×3)', B.zone.length === 0, B.zone.join(','));
   t.check('effets vivants (champs, vigne, troupeaux) : aucune valeur non finie, 4 instants, 2 zooms', B.bad.length === 0, B.bad.slice(0, 4).join(', '));
   t.check('effets dessinés dans l\'emprise (losange de la ferme, tiges et bêtes au plus 70 px au-dessus)', B.out.length === 0, B.out.slice(0, 3).join(' ; '));
   t.check('troupeaux : au moins 4 bêtes, toutes dans le pré de la ferme', B.herdOut.length === 0, B.herdOut.slice(0, 4).join(', '));
