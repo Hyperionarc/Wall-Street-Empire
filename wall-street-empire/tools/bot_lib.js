@@ -251,7 +251,11 @@ window.BOT = (function () {
     IND.dbg = { day: s.day, tn, avail: Math.round(avail), cands: cands.slice(0, 4).map(c => [c.pk, c.sc, Math.round(c.cost)]), reach: reach.map(c => c.pk) };
     const aff = reach[0];
     if (!aff) { IND.save = null; return; }
-    if (aff.cost > avail) { IND.save = s.day; return; }   // on met de côté : le commerce ne dépense plus
+    if (aff.cost > avail && W.ry) {   // passe 83 : prêt de projet du banquier IA (hors plafond ordinaire) quand il couvre l'écart ; le persona « ry » le prend
+      const q = W.ry.ppQuote(aff.cost), gap = aff.cost - avail + 1e5; IND.ppQ = { day: s.day, ok: q.ok && q.max >= gap };
+      if (IND.ppQ.ok && P.pers && P.pers.ry) { borrow(aff.cost - gap + 1e5); const g2 = aff.cost - s.cash + 1e5; if (g2 > 0 && g2 <= q.max) { const a = W.ry.ppTake(g2, 'chaîne ' + aff.pk); if (a > 0) { PS.pp++; PS.ppA += a; } } }
+    }
+    if (aff.cost > avail && s.cash < aff.cost) { IND.save = s.day; return; }   // on met de côté : le commerce ne dépense plus
     if (s.cash < aff.cost) borrow(aff.cost + 1e5); if (s.cash < aff.cost) return;
     const r = buildChain(aff.pk, aff.sc);
     if (r > 0 || r === 0) { IND.chains[aff.pk] = { sc: aff.sc, day: s.day }; IND.last = s.day; IND.log.push([s.day, aff.sc > 1 ? 'grow' : 'new', aff.pk, aff.sc, Math.round(r || 0)]); }
@@ -569,9 +573,12 @@ window.BOT = (function () {
   //  manual : période (jours) de revue À LA MAIN des fournisseurs de chaque usine et magasin (rupture traitée dès le 1er jour, meilleure offre livrée) ;
   //  accel  : accélère la R&D en Diamants dès que possible (sinon compte une « envie d'accélérer » non satisfaite) ;
   //  bored  : jours sans « victoire visible » (bâtiment, chantier, palier, ×valeur) au-delà desquels on compte un épisode d'ennui ; quit : ennui cumulé (jours) qui ferait quitter ;
-  //  up     : chantiers d'amélioration (niveaux 1→5) des bâtiments les plus rentables, période en jours.
+  //  up     : chantiers d'amélioration (niveaux 1→5) des bâtiments les plus rentables, période en jours ;
+  //  ry     : (passe 83) suit le rythme proposé par le jeu : pendant l'épargne d'une chaîne, fait le « geste utile » du Conseiller (WSE.ry.micro : chantier abordable,
+  //           sources d'une usine en rupture, crédits labo, jeton express) et demande un prêt de projet au banquier IA quand il couvre l'écart (WSE.ry.ppQuote).
+  //  Mesures passe 83 : waitD (jours d'épargne), waitIdleD (jours d'épargne où le jeu n'offrait AUCUN geste utile abordable ni prêt de projet), waitAct (gestes faits pendant l'épargne).
   // Les mesures sont dans BOT.PS (lues par tools/sim_batch.js --icp) ; aucune n'appelle le générateur aléatoire du jeu.
-  const PS = { man: { checks: 0, sw: 0, rup: 0 }, auto: { on: 0, src: 0 }, acc: { n: 0, gem: 0, days: 0, want: 0, wantD: 0 }, up: { n: 0, spent: 0 }, rd: {}, rdEp: [], ennui: 0, ennuiD: 0, gapMax: 0, quitJ: null, lastWin: 0, lastCnt: 0, lastTel: 0, waitCash: 0 };
+  const PS = { man: { checks: 0, sw: 0, rup: 0 }, auto: { on: 0, src: 0 }, acc: { n: 0, gem: 0, days: 0, want: 0, wantD: 0 }, up: { n: 0, spent: 0 }, rd: {}, rdEp: [], ennui: 0, ennuiD: 0, gapMax: 0, quitJ: null, lastWin: 0, lastCnt: 0, lastTel: 0, waitCash: 0, waitD: 0, waitIdleD: 0, waitAct: 0, pp: 0, ppA: 0, lastDay: 0 };
   const DSET = new WeakSet();   // usines déjà passées en « Sources automatiques »
   function persona() {
     const s = S(), Q = P.pers; if (!Q) return; const T = W.tel;
@@ -600,8 +607,18 @@ window.BOT = (function () {
       let best = null; for (let i = 0; i < N * N; i++) { const c = s.grid[i]; if (!c || c.x + c.y * N !== i || c.t === 'npc' || c.t === 'road' || c.t === 'res' || !c.conn || (c.lvl | 0) >= 4) continue; const cost = W.upgradeCost(c); if (!cost || cost > 0.25 * s.cash) continue; const pr = (c.profit || 0) / cost; if (pr > 0 && (!best || pr > best.pr)) best = { c, pr, cost }; }
       if (best && best.pr * 360 > 0.15) { const c0 = s.cash; if (W.place(best.c.x, best.c.y, 'up')) { PS.up.n++; PS.up.spent += c0 - s.cash; } }
     }
-    // victoires visibles : nouveau bâtiment, événement de télémétrie (chantier, palier, ×valeur, première usine) ; sinon l'ennui monte
-    const nb = Object.keys(cnt).reduce((a, k) => a + (k.indexOf('x_') !== 0 && typeof cnt[k] === 'number' ? cnt[k] : 0), 0), nt = T ? T.events().filter(e => /^(mult|tier|bn|first_|chantier)/.test(e[2])).length : 0;
+    // passe 83 : pendant l'épargne d'une chaîne, le geste utile proposé par le jeu (≤ 15 % de la trésorerie) ; jours d'épargne avec ou sans geste possible
+    const dd = Math.max(1, s.day - (PS.lastDay || 0)); PS.lastDay = s.day;
+    if (IND.save != null && s.day - IND.save < 40) {
+      PS.waitD += dd; const R = W.ry; let can = false;
+      if (R) { const L = R.micro(0.85 * s.cash).filter(m => !m.info && (m.cost || 0) <= 0.15 * Math.max(0, s.cash)); can = L.length > 0 || (IND.ppQ && s.day - IND.ppQ.day <= (P.indEvery || 12) && IND.ppQ.ok);
+        // un geste payant au plus tous les 20 jours et ≤ 10 % de la trésorerie (l'épargne de la chaîne reste prioritaire) ; les gestes gratuits à volonté
+        const G = L.find(m => !(m.cost > 0)) || (s.day - (PS.lastPaid || -99) >= 20 ? L.find(m => m.cost <= 0.1 * s.cash) : null);
+        if (Q.ry && G && R.act(G.k, 0.85 * s.cash)) { PS.waitAct++; if (G.cost > 0) PS.lastPaid = s.day; } }
+      if (!can) PS.waitIdleD += dd;
+    }
+    // victoires visibles : nouveau bâtiment, événement de télémétrie (chantier, palier, ×valeur, première usine ; passe 83 : jalons du rythme) ; sinon l'ennui monte
+    const nb = Object.keys(cnt).reduce((a, k) => a + (k.indexOf('x_') !== 0 && typeof cnt[k] === 'number' ? cnt[k] : 0), 0), nt = T ? T.events().filter(e => /^(mult|tier|bn|first_|chantier|jalon)/.test(e[2])).length : 0;
     if (nb > PS.lastCnt || nt > PS.lastTel) { PS.lastWin = s.day; PS.lastCnt = nb; PS.lastTel = nt; }
     const gap = s.day - PS.lastWin; if (gap > PS.gapMax) PS.gapMax = gap;
     if (Q.bored && gap === Q.bored) PS.ennui++;

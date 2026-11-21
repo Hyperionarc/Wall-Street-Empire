@@ -38,6 +38,26 @@ def ms_gap(r):
     ds = sorted({d for k, d in milestones(r).items() if d is not None and k != 'usine'} | {1, r['fin']['d']})
     return max(b - a for a, b in zip(ds, ds[1:])) if len(ds) > 1 else None
 
+# passe 83 : jalons du rythme de progression (télémétrie « jalon ») ; A = jalons majeurs (×valeur, palier de fortune, 1 Md$, mission, jalon de fortune, palier de ville),
+# B = A + défi de 30 jours réussi, duel du mois gagné, palier (niveau) de bâtiment terminé
+KA = {'mission', 'val', 'ville'}
+KB = KA | {'defi', 'duel', 'palier'}
+def ms_days(r, kinds):
+    ds = {d for k, d in milestones(r).items() if d is not None and k != 'usine'}
+    for e in r['icp']['ev']:
+        if e[2] == 'jalon' and isinstance(e[3], dict) and e[3].get('k') in kinds: ds.add(e[1])
+    return sorted(ds)
+
+def ms_gap_k(r, kinds):
+    ds = sorted(set(ms_days(r, kinds)) | {1, r['fin']['d']})
+    return max(b - a for a, b in zip(ds, ds[1:])) if len(ds) > 1 else None
+
+def jal_count(r):
+    c = collections.Counter()
+    for e in r['icp']['ev']:
+        if e[2] == 'jalon' and isinstance(e[3], dict): c[e[3].get('k')] += 1
+    return c
+
 def next_ms(r, day):
     ds = sorted(d for k, d in milestones(r).items() if d is not None and d > day and k != 'usine')
     return ds[0] if ds else None
@@ -62,6 +82,8 @@ def ch_proxy(r, x):
 by = collections.defaultdict(list)
 for r in R: by[r['persona']].append(r)
 seeds = sorted({r['seed'] for r in R})
+PEVERY = {'presse': 2, 'presse0': 2, 'optimiseur': 3, 'optimcoo': 3, 'optimauto': 3, 'etudiant': 6, 'streamer': 2, 'mobile': 12, 'enseignant': 8}   # jours de jeu entre deux décisions du bot (tools/sim_batch.js)
+FXK = ['produit', 'port', 'export', 'niv2', 'niv3', 'hyper', 'usine_moy', 'siege', 'ipo', 'part10', 'filiale', 'campus', 'pp']
 MS = ['usine', 'x1.5', 'x2', 'x3', 'x5', 'x10', 'T1', 'T2', 'T3']
 MSN = {'usine': '1re usine', 'x1.5': '×1,5', 'x2': '×2', 'x3': '×3', 'x5': '×5', 'x10': '×10', 'T1': 'Entrepreneur', 'T2': 'Industriel', 'T3': 'Magnat'}
 summary = {'seeds': seeds, 'n': len(R), 'days': max(r['fin']['d'] for r in R), 'personas': {}, 'ab': {}, 'hyp_chantier': CH_D}
@@ -85,6 +107,11 @@ for p in ORDER:
         'wtp_rd10': sum(a for a, b in rd1), 'wtp_rd25': sum(a for a, b in rd2), 'rd_tot': sum(b for a, b in rd1),
         'wtp_ch10': sum(a for a, b in c1), 'wtp_ch25': sum(a for a, b in c2), 'ch_tot': sum(b for a, b in c1),
         'telKo': med([r['icp']['size'] / 1000 for r in v]), 'errs': sum(len(r.get('errs') or []) for r in v),
+        'msGapA': med([ms_gap_k(r, KA) for r in v]), 'msGapB': med([ms_gap_k(r, KB) for r in v]), 'nA': med([len(ms_days(r, KA)) for r in v]), 'nB': med([len(ms_days(r, KB)) for r in v]),
+        'jal': {k: med([jal_count(r).get(k, 0) for r in v]) for k in ['mission', 'val', 'ville', 'defi', 'duel', 'palier']},
+        'every': PEVERY.get(p, 1), 'waitD': med([x.get('waitD', x.get('waitCash', 0) * PEVERY.get(p, 1)) for x in ps]), 'waitIdleD': med([x.get('waitIdleD') for x in ps]), 'waitAct': med([x.get('waitAct', 0) for x in ps]),
+        'pp': med([x.get('pp', 0) for x in ps]), 'ppA': med([x.get('ppA', 0) / 1e6 for x in ps]), 'pop': med([r['fin']['pop'] for r in v]),
+        'fx': {k: med([(r['icp'].get('fx') or {}).get(k) for r in v]) for k in FXK}, 'fx_n': {k: sum(1 for r in v if (r['icp'].get('fx') or {}).get(k) is not None) for k in FXK},
         'curve': [[s['d'], med([next((x['val'] for x in r['series'] if x['d'] >= s['d']), r['series'][-1]['val']) / 10e6 for r in v])] for s in v[0]['series']],
     }
     summary['personas'][p] = o
@@ -127,4 +154,20 @@ for p, o in summary['personas'].items():
 print()
 for k, a in summary['ab'].items():
     print(f"A/B {a['lab']} : jalons atteints >10 % plus tôt {a['faster10']}/{a['tot']} (>25 % : {a['faster25']}), >10 % plus tard {a['slower10']}/{a['tot']}, écart de valeur finale médian {f(100 * a['dval'], 1)} %")
+N = summary['days']
+print('\n### Passe 83 : rythme (jalons A = ×valeur, palier de fortune, mission, jalon de fortune, ville ; B = A + défi, duel, palier de bâtiment) ; 1 jour ≈ 0,75 s')
+print('| Persona | Creux max sans jalon (ancienne déf.) | Creux max A (j / min) | Creux max B (j / min) | Jalons A | Jalons B | Missions | Fortune | Ville | Défis | Duels | Paliers bât. | Pop. finale |')
+print('|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+for p, o in summary['personas'].items():
+    j = o['jal']; mn = lambda d: '—' if d is None else f(d * MIN_PER_DAY, 1)
+    print(f"| {o['name']} | {f(o['msGap'])} | {f(o['msGapA'])} / {mn(o['msGapA'])} | {f(o['msGapB'])} / {mn(o['msGapB'])} | {f(o['nA'])} | {f(o['nB'])} | {f(j['mission'])} | {f(j['val'])} | {f(j['ville'])} | {f(j['defi'])} | {f(j['duel'])} | {f(j['palier'])} | {f(o['pop'])} |")
+print('\n| Persona | Jours d\'épargne bloquante (% de ' + str(N) + ' j) | dont sans geste possible | Gestes faits pendant l\'épargne | Prêts de projet (M$) | Ennui (jours au-delà du seuil) | Épisodes d\'ennui | Plus long creux sans victoire visible (j) |')
+print('|---|---|---|---|---|---|---|---|')
+for p, o in summary['personas'].items():
+    pc = lambda d: '—' if d is None else f(d, 0) + ' (' + f(100 * d / N, 1) + ' %)'
+    print(f"| {o['name']} | {pc(o['waitD'])} | {pc(o['waitIdleD'])} | {f(o['waitAct'])} | {f(o['pp'])} ({f(o['ppA'], 1)}) | {f(o['ennuiD'])} | {f(o['ennui'])} | {f(o['gapMax'])} |")
+print('\n| Persona | ' + ' | '.join(FXK) + ' |')
+print('|---|' + '---|' * len(FXK))
+for p, o in summary['personas'].items():
+    print(f"| {o['name']} | " + ' | '.join(('j' + f(o['fx'][k]) + (' (' + str(o['fx_n'][k]) + '/' + str(o['n']) + ')' if o['fx_n'][k] < o['n'] else '')) if o['fx'][k] is not None else '—' for k in FXK) + ' |')
 if OUT: json.dump(summary, open(OUT, 'w'), ensure_ascii=False, indent=1); print('->', OUT)

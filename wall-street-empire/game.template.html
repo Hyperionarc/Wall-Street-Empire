@@ -678,6 +678,8 @@ body.vopen #feed{z-index:9}
 #recap[hidden]{display:none}#recap b{font-family:var(--font-d);font-weight:800;font-size:16px;letter-spacing:.03em;color:var(--gold)}#recap p{margin:0;color:var(--fg)}#recap .btn{align-self:flex-end;min-height:30px;padding:3px 12px}
 .objbar .orank{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline;margin-top:4px;padding-top:3px;border-top:1px dashed var(--line);font-size:11.5px}.objbar .orank .olbl{color:var(--mut);text-transform:uppercase;letter-spacing:.06em;font-size:10.5px}.objbar .orank .me{color:var(--gold)}.objbar .orank b{font-family:var(--font-m,monospace);font-weight:600}.objbar .orank i{font-style:normal;color:var(--mut)}.objbar .orank i.up,.objbar .orank .up{color:var(--green)}.objbar .orank i.dn{color:var(--red)}.objbar .orank .gap{color:var(--mut)}
 .objbar .ocoach2{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;margin-top:4px;padding-top:3px;border-top:1px dashed var(--line)}.objbar .ocoach2 .oph{color:var(--gold);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em}.objbar .ocoach2 .otx{flex:1 1 240px;min-width:0}.objbar .ocoach2 .otx b{color:var(--cyan)}.objbar .ocoach2 .onum{color:var(--mut);font-size:11.5px}.objbar .osub{margin-top:2px;color:var(--orange);font-size:11.5px}.objbar .osub.neg{color:var(--red)}
+.objbar .omis{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--gold);font-size:12px}
+.objbar .ory{display:flex;flex-wrap:nowrap;gap:12px;align-items:center;margin-top:2px;font-size:11.5px;line-height:1.35;color:var(--mut);white-space:nowrap;overflow:hidden}.objbar .ory .ryi{min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis}.objbar .ory .ryi.ryg{flex:0 0 auto}.objbar .ory b{color:var(--gold);font-weight:700;margin-right:4px}.objbar .ory .ryb{margin-left:4px;padding:0 7px;font-size:11px;line-height:16px;min-height:0;border-radius:8px;border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer}
 #fabview{position:absolute;z-index:32;left:50%;top:calc(var(--hud-h) + 24px);transform:translateX(-50%);width:min(520px,calc(100% - 24px));max-height:calc(100% - var(--hud-h) - 48px);overflow-y:auto;padding:14px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--gold,#f2b84b);box-shadow:0 14px 40px rgba(0,0,0,.55)}
 #fabview[hidden]{display:none}
 #fabview h3{margin:0 0 6px;font-size:17px}
@@ -1156,6 +1158,7 @@ body.cmp:not(.hx) .objbar .omode,body.cmp:not(.hx) .objbar .otmx,body.cmp:not(.h
 body.cmp:not(.hx) .objbar .ocoach2{flex-wrap:nowrap;margin-top:0;padding-top:2px}
 body.cmp:not(.hx) .objbar .ocoach2 .otx{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 body.cmp:not(.hx) .objbar .osub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.cmp:not(.hx) .objbar .ory,body.cmp:not(.hx) .objbar .omis{display:none}
 body.cmp:not(.hx) .objbar .otut span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 body.cmp .objbar .obtn{min-height:44px;min-width:44px;padding:0 10px;font-size:12px}
 body.cmp .objbar .ocoach{max-height:32vh;overflow-y:auto}
@@ -1543,7 +1546,7 @@ function telChantier(c) { if (!telOn()) return; tel('chantier', { t: c.t, l: c.t
 function telClear() { const on = telS().on; _tel = telBlank(); _tel.on = on; _telO = null; if (on) { _tel.sid = Date.now().toString(36).slice(-8); telSess(); } try { if (on) localStorage.setItem(TEL_KEY, telPack()); else localStorage.removeItem(TEL_KEY); } catch (e) { /* indisponible */ } }
 function telExport() { telS(); const X = _tel, o = JSON.parse(telPack()); o.schema = 'wse-telemetry/1 : ev = [secondes depuis la session, jour de jeu, type, données] ; cnt = compteurs ; first = première occurrence ; sess = sessions (date, secondes, jours joués)'; o.types = TEL_TYPES; return JSON.stringify(o, null, 1); }
 function telDownload() { try { const b = new Blob([telExport()], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'wse-telemetrie-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); return true; } catch (e) { return false; } }
-const TEL_TYPES = { optin: 'télémétrie activée', game: 'partie observée (mode, caste, difficulté)', first_buy: 'premier bâtiment acheté', first_factory: 'première usine', tier: 'palier de fortune atteint', mult: 'valeur ×1,5 / ×2 / ×3 / ×5 / ×10… du départ', bn: 'valeur ≥ 1 Md$', chantier: 'chantier lancé (amélioration de niveau 1→5 ou étage)', accel: 'accélération payée (Diamants, trésorerie, crédits labo)', policy: 'politique automatique changée (fournisseurs auto = seek, prix confiés au COO = px)', sc_manual: 'fournisseur choisi à la main', sc_auto: 'intrant rendu au mode automatique', sc_autosource: 'bouton « Sources automatiques »', sc_switch: 'changement de fournisseur fait par le jeu (politique automatique)', px_manual: 'prix réglé à la main', rupture: 'début de rupture d\'approvisionnement (une par bâtiment et matière au plus tous les 30 jours)', refus: 'action refusée (trésorerie, palier…)', iap: 'boutique de démonstration ouverte' };
+const TEL_TYPES = { optin: 'télémétrie activée', game: 'partie observée (mode, caste, difficulté)', first_buy: 'premier bâtiment acheté', first_factory: 'première usine', tier: 'palier de fortune atteint', mult: 'valeur ×1,5 / ×2 / ×3 / ×5 / ×10… du départ', bn: 'valeur ≥ 1 Md$', chantier: 'chantier lancé (amélioration de niveau 1→5 ou étage)', accel: 'accélération payée (Diamants, trésorerie, crédits labo)', policy: 'politique automatique changée (fournisseurs auto = seek, prix confiés au COO = px)', sc_manual: 'fournisseur choisi à la main', sc_auto: 'intrant rendu au mode automatique', sc_autosource: 'bouton « Sources automatiques »', sc_switch: 'changement de fournisseur fait par le jeu (politique automatique)', px_manual: 'prix réglé à la main', rupture: 'début de rupture d\'approvisionnement (une par bâtiment et matière au plus tous les 30 jours)', refus: 'action refusée (trésorerie, palier…)', iap: 'boutique de démonstration ouverte', jalon: 'jalon du rythme de progression (passe 83 : mission, défi, duel gagné, fortune, ville, palier de bâtiment)', pp: 'prêt de projet du banquier IA', opp: 'opportunité de marché signalée' };
 // observation quotidienne, en lecture seule, appelée à la fin de step() quand la télémétrie est active
 function telStep() {
   const st = S.stats || {}, cn = st.cn || {}, w = +st.worth || 0;
@@ -4495,7 +4498,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, lq: S.locQ || undefined, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', rdf: S.rdFocus || undefined, deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), agg: 1, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, ecom: S.ecom ? ecSave() : undefined, air: S.air ? airSan(S.air) : undefined, rk: S.rk ? rkSave() : undefined, ent: S.ent ? entSan(S.ent) : undefined, scm: S.scm ? scmSan(S.scm) : undefined, syn: S.syn ? synSan(S.syn) : undefined, chip: S.chip ? chipSan(S.chip) : undefined, aib: S.aib ? aibSan(S.aib) : undefined, rp: rpSan(S._rp), g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, lq: S.locQ || undefined, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', rdf: S.rdFocus || undefined, deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), agg: 1, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, ecom: S.ecom ? ecSave() : undefined, air: S.air ? airSan(S.air) : undefined, rk: S.rk ? rkSave() : undefined, ent: S.ent ? entSan(S.ent) : undefined, ry: S.ry ? rySan(S.ry) : undefined, scm: S.scm ? scmSan(S.scm) : undefined, syn: S.syn ? synSan(S.syn) : undefined, chip: S.chip ? chipSan(S.chip) : undefined, aib: S.aib ? aibSan(S.aib) : undefined, rp: rpSan(S._rp), g, dep }));
     localStorage.setItem(SAVE_KEY + '_gal', JSON.stringify(S.gal || {}));
   } catch (e) { /* stockage indisponible */ }
 }
@@ -4560,7 +4563,7 @@ function load() {
     S0.mode = d.md && d.md.k ? d.md : { k: 'free' }; S0.xm = Array.isArray(d.xm) ? d.xm : []; S0.xsum = d.xs && typeof d.xs === 'object' ? d.xs : {};
     S0.jpf = d.jpf > 0 ? +d.jpf : 0.88 * 0.55 * 0.85 * npcInfo.cap * K_POP * (cv2 ? S0.bassin : 1) / Math.max(1, npcInfo.offFloors);   // emplois par étage : valeur de la partie (le recalcul tient compte des cases déjà occupées)
     S0.firms = Array.isArray(d.firms) ? d.firms.filter(f => f && f.id > 0 && typeof f.name === 'string') : []; S0.grp = (d.grp && typeof d.grp === 'object') ? d.grp : null;   // passe 32 : filiales (absentes des anciennes sauvegardes)
-    S0.ent = entSan(d.ent); S0.scm = scmSan(d.scm); if (!S0.ent || !S0.ent.pv) palMigrate(grid); S0.ent = S0.ent || { pv: 1 }; S0.ent.pv = 1;   // passe 74 : droits premium simulés, Diamants, COO, score de maîtrise (facultatifs) ; anciens magasins : niveau selon leur coût historique
+    S0.ent = entSan(d.ent); S0.scm = scmSan(d.scm); S0.ry = rySan(d.ry); if (!S0.ent || !S0.ent.pv) palMigrate(grid); S0.ent = S0.ent || { pv: 1 }; S0.ent.pv = 1;   // passe 74 : droits premium simulés, Diamants, COO, score de maîtrise (facultatifs) ; anciens magasins : niveau selon leur coût historique
     S0.net = netSan(d.net); S0.edu = eduSan(d.edu); S0.ecom = ecSan(d.ecom); S0.air = airSan(d.air); S0.rk = rkSan(d.rk); S0._rp = rpSan(d.rp) || {};   // passe 71 : classements (facultatif) ; passe 49 : boutique duty free (facultatif)
     S0.syn = d.syn ? synSan(d.syn) : undefined;
     S0.chip = d.chip ? chipSan(d.chip) : undefined; S0.aib = d.aib ? aibSan(d.aib) : undefined;   // passe 73 : nœuds de gravure et cycle de l'IA (facultatifs)   // passe 68 : bilan des synergies entre castes (facultatif)
@@ -4737,7 +4740,7 @@ function palStart(c) {
   const R = palReqs(c); if (R.max) { say('Niveau maximal (5/5) atteint pour ce bâtiment.', 'info'); return false; }
   if (!R.ok) { say(`Chantier vers le niveau ${R.to + 1} impossible : ${R.why.join(' ; ')}.`, 'warn'); return false; }
   S.cash -= R.cost; c.invest = investOf(c) + R.cost; c.pspent = (c.pspent || 0) + R.cost;
-  c.pal = { to: R.to, t0: S.day, dur: R.days, acc: 0, cost: R.cost };
+  c.pal = { to: R.to, t0: S.day, dur: R.days, acc: 0, cost: R.cost }; ryPalStart();
   flyers.push({ x: c.x, y: c.y, text: '-' + fmt(R.cost), t: performance.now(), col: '#ff8a8e' });
   say(`Chantier lancé : ${TYPES[c.t].name.toLowerCase()} vers le niveau ${R.to + 1}/5 (${money(R.cost)}, ${R.days} jours). Le magasin continue de vendre pendant les travaux.`, 'gold');
   refreshStats(); updateHUD(); saveSoon(); return true;
@@ -4746,6 +4749,7 @@ function palDone(c) {
   const to = Math.min(MAX_LVL, c.pal.to); delete c.pal; c.lvl = Math.max(c.lvl || 0, to); c.born = performance.now() - 300;
   say(`Chantier terminé : ${TYPES[c.t].name.toLowerCase()} en (${c.x + 1}, ${c.y + 1}) passe au niveau ${c.lvl + 1}/5 (capacité ×${f1(levelMult(c))}, ${fmt(Math.round(jobsOf(c)))} emplois).`, 'gold');
   if (bsel && bsel.x === c.x && bsel.y === c.y && scene && TYPES[c.t].ret) { try { sceneReset(c); } catch (e) { /* vue facultative */ } }
+  try { ryPalDone(c); } catch (e) { /* passe 83 : jalon de palier */ }
 }
 function palAccel(c) {
   if (!c || !c.pal) return false; const E = entS(), d = palAccDays(c);
@@ -7709,6 +7713,7 @@ function step() {
   if (S.day % 30 === 0) xmUpdate();
   stepMode();
   try { stepCoach(); } catch (e) { /* conseiller facultatif */ }
+  try { ryStep(); } catch (e) { /* passe 83 : rythme de progression facultatif (missions, défis, jalons) */ }
   try { netDaily(); } catch (e) { /* réseau facultatif : n'affecte pas la simulation */ }
   checkMissions();
   if ((_tel || telS()).on) { try { telStep(); } catch (e) { /* télémétrie facultative : jamais bloquante */ } }
@@ -8951,7 +8956,8 @@ function loanStep() { const lim = creditLimit(), t = lim / 12; let st = LOAN_STE
 const curAssetsCL = () => Math.max(0, S.cash - (S.loan || 0)) + stockValue();   // actifs courants : trésorerie propre + stocks
 const credCycle = () => { const M = S.macro || { gdp: 0.03 }, u = (S.stats && S.stats.unemp) || 0.05; return clamp((1 + 3 * (M.gdp - 0.03) - 1.2 * Math.max(0, u - 0.07)) * (1 - 0.06 * lxSt()), 0.7, 1.25); };   // passe 66 : × posture du banquier IA (±6 % au plus)   // disponibilité du crédit selon le cycle : croissance et plein emploi = prêts généreux
 const riskPrem = () => { const M = S.macro || { gdp: 0.03, infl: 0.02 }, u = (S.stats && S.stats.unemp) || 0.05; return clamp(-0.25 * (M.gdp - 0.03) + 0.2 * Math.max(0, u - 0.06) + 0.15 * Math.max(0, (M.infl || 0.02) - 0.05) + LX_ST * lxSt() + (S && S._aibT ? -0.004 * aibNow().h + 0.012 * aibNow().b : 0), -0.008, 0.025); };   // passe 66 : + posture du banquier IA (±0,4 point au plus)   // prime de risque des banques : plus basse en boom, plus haute en récession ou en inflation
-function creditLimit() {
+function creditLimit() { return creditLimitR() + ryPPBal(); }   // passe 83 : un prêt de projet (banquier IA) est hors du plafond ordinaire
+function creditLimitR() {
   const cc = 1 - 0.35 * shockI('credit');   // crise du crédit
   if (casteIs('banquier')) { const b = bkInit(); if (b.fail || b.st === 'restr') return 0; return Math.min(creditLimitBase(), (BK_LEV - 1) * Math.max(0, b.res)) * cc; }   // la banque emprunte au plus 11 × ses fonds propres (levier 12×), jamais sur son portefeuille de crédits
   if (casteIs('promoteur')) return promoLimit() * (1 - REG_DEBT * Math.max(0, S.diff || 0)) * cc;   // promoteur : financement adossé à l'immobilier (20 % de fonds propres, LTV 80 %)
@@ -18022,7 +18028,7 @@ function startMode(k) {
   const fresh = S.mode && S.mode.pending && k === 'free' && S.day === 0;
   el('modesel').hidden = true; el('endscr').hidden = true;
   if (!fresh) { newCity(); makeDecor(); cars = []; }
-  S.mode = { k, t0: 0, done: null, n: {}, f: {} };
+  S.mode = { k, t0: 0, done: null, n: {}, f: {} }; S.ry = null;   // passe 83 : missions, défis et jalons repartent de zéro
   S.rivals = []; S.rv = null; S.seats = null; S.rivals = initRivals(); seatsSync();   // une IA par caste (3 enseignes d'origine en scénario)
   S.mat = (k === 'free' || (matChoice && (k === 'round' || k === 's3' || k === 's4' || k === 's5'))) ? 1 : 0; S.matPop = S.pop; S.trials = []; mkInv();   // marché mûr : par défaut en Libre, option pour les scénarios 3-5 et les rounds
   if (k === 'round') { S.cash = roundEasy ? ROUND_CASH.easy : ROUND_CASH.normal; S.noEv = false; S.mode.easy = roundEasy ? 1 : 0; (S.rivals || []).forEach(r => { r.cash = S.cash; }); }
@@ -18084,6 +18090,8 @@ el('objbar').addEventListener('click', e => {
   else if (a === 'ok') { tutoF().t5 = 1; }
   else if (a === 'tip') { coachOpen = !coachOpen; }
   else if (a === 'rank') { openRank('co'); }
+  else if (a.indexOf('ry:') === 0) { ryDo(a.slice(3)); }   // passe 83 : geste utile
+  else if (a === 'rypp') { const v = coachView(), c = v && (v.cur || v.nxt); if (c) ryPPTake(Math.max(0, c.cost - S.cash), c.t); }   // passe 83 : prêt de projet
   else if (a === 'hqsite') { const h = hqSite(true); say(hqSiteMsg(h), 'info'); if (h.x != null) { fitted = true; centerOn(h.x + 1, h.y + 1); } setTool('hq'); if (h.kind === 'acq') acqOpen(h.plan); }
   updObj();
 });
@@ -18092,7 +18100,7 @@ function updObj() {
   const cm = curMilestone(), pct = cm.g > 0 ? clamp(cm.v / cm.g, 0, 1) : 1, rk = rankPlayers(), cu = catchUp(), tu = tutoCur(), ck = coachOpen ? stuckInfo() : null;
   const D = modeDays(), left = D ? Math.max(0, D - S.day) : 0;
   const tm = D ? `<span class="otm ${left < D * 0.1 ? 'neg' : ''}" title="Temps restant à vitesse normale (1 an = ${YEAR_D} jours de jeu). Fin du round au jour ${fmt(D)}">⏱ ${Math.max(0, Math.round(daysToMin(left)))} min<span class="otmx"> · ${dateTxt(S.day)} (jour ${fmt(S.day)} / ${fmt(D)})</span></span>` : '';
-  const h = `<div class="orow"><span class="omode">${modeName()}</span><span class="ogoal"><b>${cm.t}</b> · ${cm.f(cm.v)} / ${cm.f(cm.g)}</span>${tm}<span class="ork" title="Classement par valorisation parmi les joueurs (monde : ${rankWorld()[0]} / ${rankWorld()[1]})">Rang ${rk[0]}/${rk[1]}</span>${cu.on ? `<span class="ocu" title="Rattrapage public : tu es à ${Math.round(cu.ratio * 100)} % du leader">Rattrapage −${Math.round(cu.disc * 100)} % crédits</span>` : ''}<button class="obtn" data-ob="tip" title="Que faire maintenant ? Conseil selon ta situation">Conseil</button>${(S.diff || 0) > 0 ? `<span class="ohot" title="Régulation : impôt +${Math.round(regTax() * 100)} pts, salaires +${Math.round(REG_WAGE * S.diff * 100)} %">Surchauffe ${S.diff}</span>` : ''}</div><div class="obar"><i style="width:${Math.round(pct * 100)}%"></i></div>${rankHTML()}${tu ? '' : coachRowHTML()}${tu ? `<div class="otut"><span><b>Tutoriel ${tu.i + 1}/${tu.n}</b> · ${tu.s.t}</span>${tu.s.btn ? `<button class="obtn" data-ob="ok">${tu.s.btn}</button>` : ''}<button class="obtn" data-ob="skip" title="Masquer le tutoriel">Passer</button></div>` : ''}${coachOpen && ck ? `<div class="ocoach"><span><b>Conseil</b> · ${ck.t}</span></div>${planHTML()}` : ''}`;
+  const h = `<div class="orow"><span class="omode">${modeName()}</span><span class="ogoal"><b>${cm.t}</b> · ${cm.f(cm.v)} / ${cm.f(cm.g)}</span>${tm}<span class="ork" title="Classement par valorisation parmi les joueurs (monde : ${rankWorld()[0]} / ${rankWorld()[1]})">Rang ${rk[0]}/${rk[1]}</span>${cu.on ? `<span class="ocu" title="Rattrapage public : tu es à ${Math.round(cu.ratio * 100)} % du leader">Rattrapage −${Math.round(cu.disc * 100)} % crédits</span>` : ''}${tu ? '' : ryChipHTML()}<button class="obtn" data-ob="tip" title="Que faire maintenant ? Conseil selon ta situation">Conseil</button>${(S.diff || 0) > 0 ? `<span class="ohot" title="Régulation : impôt +${Math.round(regTax() * 100)} pts, salaires +${Math.round(REG_WAGE * S.diff * 100)} %">Surchauffe ${S.diff}</span>` : ''}</div><div class="obar"><i style="width:${Math.round(pct * 100)}%"></i></div>${rankHTML()}${tu ? '' : coachRowHTML()}${tu || !(coachOpen || document.body.classList.contains('hx')) ? '' : ryRowHTML()}${tu ? `<div class="otut"><span><b>Tutoriel ${tu.i + 1}/${tu.n}</b> · ${tu.s.t}</span>${tu.s.btn ? `<button class="obtn" data-ob="ok">${tu.s.btn}</button>` : ''}<button class="obtn" data-ob="skip" title="Masquer le tutoriel">Passer</button></div>` : ''}${coachOpen && ck ? `<div class="ocoach"><span><b>Conseil</b> · ${ck.t}</span></div>${planHTML()}` : ''}`;
   if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
   { const k2 = coachOpen && ck && ck.hl ? ck.hl() : null, t2 = tu && tu.s.hl ? tu.s.hl() : null; applyHl(t2 || k2 || null); }
 }
@@ -18267,12 +18275,13 @@ function tierPlan(o) {
   const c = coachPick(o);
   if (c && c.gain > 0) { const tot = Math.max(1, o.net30 + c.gain), mo = gap / tot; ways.push(`Investir : « ${c.t} » (${money(c.cost)}, +${money(c.gain)} par mois) ${mo > 36 ? 'est un bon départ, mais ne suffit pas seul pour ce palier : cumule plusieurs investissements.' : `ramène le palier à ≈ ${f1c(mo)} mois (${moMin(mo)} min).`}`); }
   else ways.push('Investir : aucun bâtiment rentable (retour sous ' + ROI_MAX + ' ans) pour l\'instant : lance un nouveau produit ou une usine (Produits > Recommandé pour toi).');
+  if (c && !c.afford && c.cost > 0) { const q = ryPPQuote(c.cost); if (q.ok) ways.splice(1, 0, `Prêt de projet (banquier) : jusqu'à ${money(q.max)} pour « ${c.t} » (${Math.round(q.share * 100)} % du projet au plus, ${f1c(q.rate * 100)} %, remboursé chaque jour sur ${q.years} ans, hors plafond ordinaire).`); }   // passe 83
   const room = Math.max(0, creditLimit() - o.loan);
   if (!o.hq) ways.push('Capital : construis le siège social, puis introduis la société en bourse (30 % du capital cédé) dès ' + mM(IPO_MIN) + ' de valorisation.');
   else if (!o.listed && o.val >= IPO_MIN) ways.push(`Capital : introduis la société en bourse : ≈ ${mM(o.val * 0.3 * 1.1)} encaissés pour investir.`);
   else if (o.rival && o.rival.gain > 0) ways.push(`Capital : prends le contrôle de ${o.rival.name} (≈ ${money(o.rival.cost)}, +${money(o.rival.gain)} par mois de dividendes).`);
   else ways.push(`Capital : emprunte jusqu'à ${money(room)} (taux ${f1c(o.rate * 100)} %) uniquement pour un investissement au retour sous ${ROI_MAX} ans.`);
-  return { next: nx, gap, ways: ways.slice(0, 3), text: `Il te faut ${fmtV(gap)} de plus pour le palier ${nx.n} : voici ${Math.min(3, ways.length)} façons.` };
+  return { next: nx, gap, ways: ways.slice(0, 4), text: `Il te faut ${fmtV(gap)} de plus pour le palier ${nx.n} : voici ${Math.min(3, ways.length)} façons.` };
 }
 function coachMsg(c) { return `Phase ${c.ph + 1}/4 · ${COACH_PH[c.ph]} : ${c.t} (coût ${money(c.cost)}, gain ≈ +${money(c.gain)}/mois, ≈ ${c.min} min).`; }
 // Une proposition toutes les ≈ 5 minutes de jeu ; retrait immédiat d'un jalon devenu non rentable
@@ -18354,7 +18363,301 @@ function coachRowHTML() {
 }
 function planHTML() {
   const p = tierPlan(); if (!p) return '';
-  return `<div class="ocoach"><span><b>${p.text}</b><br>${p.ways.map((w, i) => (i + 1) + '. ' + w).join('<br>')}</span><button class="obtn" data-ob="tip">Fermer</button></div>`;
+  const pp = p.ways.some(w => w.indexOf('Prêt de projet') === 0);
+  return `<div class="ocoach"><span><b>${p.text}</b><br>${p.ways.map((w, i) => (i + 1) + '. ' + w).join('<br>')}</span>${pp ? '<button class="obtn" data-ob="rypp">Prêt de projet</button>' : ''}<button class="obtn" data-ob="tip">Fermer</button></div>`;
+}
+
+/* ---------- Passe 83 : RYTHME DE PROGRESSION (docs/RYTHME_PROGRESSION.md, test t83) ----------
+   Les personas simulés (docs/MONETISATION_GAMIFICATION.md §6) passaient 650 à 1 030 jours (8 à 13 min réelles) sans jalon, surtout après ×10, et le Presse-boutons
+   attendait l'argent d'une chaîne sans rien d'autre à faire. Ce bloc ajoute un FLUX DE JALONS dense et lisible, sans plafond sur l'argent ni effet économique automatique :
+   1. chaînes de missions par caste (leçon, objectif, récompense) suivies d'une série sans fin ; objectifs RELATIFS au moment où la mission commence (aucune n'est
+      validée gratuitement) ; deux missions actives au plus (une mission que ton style de jeu n'emprunte pas ne bloque pas la suite) ;
+   2. jalons de fortune resserrés (×1,5 … ×200, rapport ≈ 1,4 entre deux) et paliers de ville (50 000 → 5 M d'habitants) ;
+   3. défi de 30 jours (« en 30 jours ») choisi selon ton état réel, et duel du mois contre le rival le plus proche (croissance comparée) ;
+   4. gestes utiles pendant l'épargne (le Conseiller propose le prochain geste rentable et abordable : chantier d'amélioration, sources d'une usine en rupture,
+      crédits labo, jeton de chantier express) et PRÊT DE PROJET du banquier IA (financement adossé au projet, remboursé sur 5 ans, ratio de couverture 1,5) ;
+   5. opportunités de marché (cours d'une matière que tu utilises en forte hausse ou baisse sur 30 jours) : conseil seulement, au plus une tous les 45 jours.
+   Récompenses : Diamants (simulés), crédits labo (jours de R&D), jetons de chantier express (à utiliser par le joueur), confiance du banquier (prêt de projet plus
+   large), titres. AUCUNE prime en argent : l'économie (t02, t65, t70) ne bouge que si le joueur utilise lui-même un jeton ou un prêt. Aucun appel à rnd(). */
+const RY_VAL = [1.5, 2, 3, 4, 5, 7, 10, 14, 20, 30, 40, 50, 70, 100, 140, 200];   // jalons de fortune (× valeur de départ)
+const RY_POP = [50000, 100000, 150000, 200000, 300000, 500000, 750000, 1e6, 2e6, 5e6];   // paliers de ville (habitants)
+const RY_DEFI_D = 30, RY_GEM = { mis: 8, defi: 12, val: 5, pop: 4, duel: 6 }, RY_CRED = { mis: 4, defi: 5 }, RY_ACT = 2, RY_PARK = 120;   // récompenses ; missions actives en même temps ; jours avant qu'une mission non commencée passe « en réserve » (toujours réalisable, elle libère sa place)
+const RY_PP = { share: 0.5, shareMax: 0.65, years: 5, prem: 0.01, dscr: 1.5, worthK: 0.25, max: 3 };   // prêt de projet : part financée, durée, prime de taux, couverture du service, plafond (part de la valeur), prêts simultanés
+const RY_OPP = { every: 45, thr: 0.15 };   // opportunités de marché : espacement minimal (jours), variation de cours sur 30 jours
+function ryS() {
+  if (!S.ry) S.ry = { v: 1, ca: '', mi: 0, act: [], pk: [], md: {}, vi: -1, pi: -1, w0: 0, df: null, dh: [], du: null, duw: 0, ex: 0, cl: 0, tit: [], log: [], pp: [], ppI: 0, op: -99, cs: 0, cd: 0, ser: 0, rup: 0 };
+  if (!S.ry.pk) S.ry.pk = []; return S.ry;
+}
+function rySan(d) {
+  if (!d || typeof d !== 'object') return null; const n = (x, lo, hi) => clamp(Math.round(+x || 0), lo, hi), arr = (a, k) => Array.isArray(a) ? a.slice(-k) : [];
+  const o = { v: 1, ca: typeof d.ca === 'string' ? d.ca.slice(0, 16) : '', mi: n(d.mi, 0, 999), act: arr(d.act, RY_ACT).filter(a => a && typeof a.id === 'string').map(a => ({ id: a.id.slice(0, 12), d0: a.d0 | 0, b: +a.b || 0 })),
+    pk: arr(d.pk, 12).filter(a => a && typeof a.id === 'string').map(a => ({ id: a.id.slice(0, 12), d0: a.d0 | 0, b: +a.b || 0 })), md: {}, vi: n(d.vi, -1, RY_VAL.length), pi: n(d.pi, -1, RY_POP.length), w0: Math.max(0, +d.w0 || 0), df: null, dh: arr(d.dh, 12).filter(Array.isArray).map(x => [String(x[0]).slice(0, 8), x[1] ? 1 : 0, x[2] | 0]),
+    du: null, duw: n(d.duw, 0, 9999), ex: n(d.ex, 0, 99), cl: clamp(+d.cl || 0, 0, RY_PP.shareMax - RY_PP.share), tit: arr(d.tit, 12).map(x => String(x).slice(0, 40)), log: arr(d.log, 30).filter(Array.isArray).map(x => [x[0] | 0, String(x[1]).slice(0, 8), String(x[2]).slice(0, 140)]),
+    pp: arr(d.pp, RY_PP.max).filter(p => p && +p.bal > 0).map(p => ({ a: +p.a || 0, bal: +p.bal || 0, r: clamp(+p.r || 0, 0, 0.5), pay: +p.pay || 0, d0: p.d0 | 0, t: String(p.t || '').slice(0, 60) })), ppI: Math.max(0, +d.ppI || 0), op: d.op | 0, cs: n(d.cs, 0, 1e6), cd: n(d.cd, 0, 1e6), ser: n(d.ser, 0, 1e5), rup: n(d.rup, 0, 1e7) };
+  if (d.md && typeof d.md === 'object') Object.keys(d.md).slice(0, 200).forEach(k => { o.md[String(k).slice(0, 12)] = d.md[k] | 0; });
+  if (d.df && typeof d.df === 'object' && typeof d.df.k === 'string') o.df = { k: d.df.k.slice(0, 8), t: String(d.df.t || '').slice(0, 140), d0: d.df.d0 | 0, d1: d.df.d1 | 0, b: +d.df.b || 0, g: +d.df.g || 0, ok: d.df.ok ? 1 : 0 };
+  if (d.du && typeof d.du === 'object' && d.du.id != null) o.du = { id: d.du.id, n: String(d.du.n || '').slice(0, 40), d0: d.du.d0 | 0, me: +d.du.me || 0, rv: +d.du.rv || 0 };
+  return o;
+}
+// état compact lu par les missions, défis et gestes utiles (une passe sur les bâtiments)
+function ryO() {
+  const o = { shops: 0, fac: 0, ext: 0, farm: 0, live: 0, irr: 0, lvMax: 0, lvN: 0, own: 0, res: 0, floors: 0, rup: 0, prodOn: 0, prodRnd: 0, port: cnOf('port'), hq: !!hqOf(), listed: (S.float || 0) > 0, subs: subCount(), stake: 0, pop: S.pop || 0,
+    val: valuation(), exp30: ((S.fin && S.fin.revExport) || 0) * DM, loan: S.loan || 0, cd: (S.ry && S.ry.cd) || 0, cs: (S.ry && S.ry.cs) || 0, houses: S.houses || 0, cdone: S.cdone || 0, tech: Object.keys(S.tech || {}).length, pat: 0, plant: cnOf('plant') + cnOf('wind') + cnOf('solar') + cnOf('nuclear'),
+    off: cnOf('off') + cnOf('tech'), rd: cnOf('rd'), dc: cnOf('dc'), bkl: 0, sc: (S.rv && S.rv.sc && S.rv.sc.n) || 0, ca30: 0 };
+  eachBiz(c => { const T = TYPES[c.t]; if (!T) return; o.own++; if (T.ret && c.t !== 'immo') o.shops++; if (FLEVEL[c.t] || c.t === 'foundry') o.fac++;
+    if (T.ext) { o.ext++; if (T.live) o.live++; if (T.live || Object.values(CROPS).indexOf(c.t) >= 0) { o.farm++; o.irr = Math.max(o.irr, c.irr | 0); } }
+    if (palOf(c)) { o.lvMax = Math.max(o.lvMax, c.lvl | 0); if ((c.lvl | 0) >= 1) o.lvN++; }
+    if (c.t === 'res') { o.res++; o.floors += c.floors | 0; } if ((c._rup | 0) > 0) o.rup++; });
+  PKEYS.forEach(pk => { const s = S.prod[pk].st; if (s === 'on') o.prodOn++; else if (s === 'rnd') o.prodRnd++; });
+  Object.keys(S.pat || {}).forEach(pk => { if (patMine(pk)) o.pat++; });
+  (S.rivals || []).forEach(r => { if (stakeOf(r.id) >= 0.1) o.stake++; });
+  if (S.bk) { try { o.bkl = bkInit().loans || 0; } catch (e) { o.bkl = 0; } }
+  { const a = S.m30 || []; o.ca30 = a.length ? a.reduce((t, r) => t + r[0], 0) * DM / a.length : 0; }
+  o.prod = o.prodOn + o.prodRnd; return o;
+}
+// ---- 1. chaînes de missions par caste. m : mesure ; g : objectif ; rel : objectif compté depuis le début de la mission ; r : récompense
+const RYM = (id, t, l, m, g, rel, r) => ({ id, t, l, m, g, rel: !!rel, r: r || {} });
+const RY_CH = {
+  industriel: [
+    RYM('i1', 'Construis ta première usine', 'Une usine transforme des intrants en produits : sa marge dépend du coût livré de ce qu\'elle consomme.', o => o.fac, 1, 0, { cred: 3 }),
+    RYM('i2', 'Lance un produit (R&D ou production)', 'Un produit fabriqué chez toi rapporte la marge du fabricant ET celle du commerçant.', o => o.prod, 1, 1),
+    RYM('i3', 'Alimente ta chaîne : un port ou une mine', 'Produire ta matière ou importer par ton port réduit le coût livré de tes usines.', o => o.port + o.ext, 1, 1),
+    RYM('i4', 'Améliore un magasin (chantier vers le niveau 2)', 'Un chantier double ou triple la capacité d\'un magasin qui sature, pour bien moins cher qu\'un nouveau magasin.', o => o.lvMax, 1, 0, { ex: 1 }),
+    RYM('i5', 'Élargis ta gamme : 2 produits de plus', 'Plus de produits en rayon, c\'est plus de clients servis par les mêmes magasins.', o => o.prod, 2, 1),
+    RYM('i6', 'Pose 2 usines ou extracteurs de plus', 'Une chaîne verticale (mine → composants → produit) garde la marge de chaque étage.', o => o.fac + o.ext, 2, 1, { cl: 0.03 }),
+    RYM('i7', 'Termine 2 chantiers d\'amélioration', 'Les niveaux 3 à 5 demandent une ville plus grande : surveille les paliers de ville.', o => o.cd, 2, 1, { ex: 1 }),
+    RYM('i8', 'Construis ton siège social', 'Le siège ouvre la bourse, les dirigeants et la finance d\'entreprise.', o => o.hq ? 1 : 0, 1, 0, { cl: 0.03 }),
+    RYM('i9', 'Prends 10 % d\'un rival ou une filiale', 'Une participation te verse des dividendes et prépare une OPA.', o => o.stake + o.subs, 1, 1, { tit: 'Baron' })],
+  negociant: [
+    RYM('n1', 'Ouvre ton terminal portuaire', 'Le port est ta salle des marchés : il achète et vend au cours mondial.', o => o.port, 1, 0, { cred: 3 }),
+    RYM('n2', 'Pose une mine, un puits ou une carrière', 'Ta matière vendue au cours : ta marge suit le marché, achète quand c\'est bas.', o => o.ext, 1, 1),
+    RYM('n3', 'Exporte : premières ventes à l\'étranger', 'Tes deux meilleurs débouchés deviennent des marchés stables (au cours), les autres partent au spot.', o => o.exp30 > 0 ? 1 : 0, 1, 0),
+    RYM('n4', 'Améliore un magasin (niveau 2)', 'Le commerce local absorbe ce que tu n\'exportes pas.', o => o.lvMax, 1, 0, { ex: 1 }),
+    RYM('n5', 'Pose 2 extracteurs de plus', 'Plus de volume, c\'est plus de poids dans les contrats d\'approvisionnement.', o => o.ext, 2, 1, { cl: 0.03 }),
+    RYM('n6', 'Produis de l\'énergie (centrale ou éolienne)', 'L\'électricité vendue au réseau rapporte +30 % au négociant.', o => o.plant, 1, 1),
+    RYM('n7', 'Signe un contrat d\'approvisionnement', 'Prix stable et volumes garantis : tes clients ne manquent plus et tu vends plus en local.', o => o.sc, 1, 1),
+    RYM('n8', 'Construis ton siège social', 'Le siège ouvre la bourse et les dirigeants.', o => o.hq ? 1 : 0, 1, 0, { cl: 0.03 }),
+    RYM('n9', 'Prends 10 % d\'un rival ou une filiale', 'Les participations diversifient tes revenus au-delà des cours.', o => o.stake + o.subs, 1, 1, { tit: 'Roi du négoce' })],
+  agriculteur: [
+    RYM('a1', 'Pose ta première ferme ou ton premier élevage', 'Une ferme nourrit la ville et fournit les usines alimentaires.', o => o.farm, 1, 0, { cred: 3 }),
+    RYM('a2', 'Irrigue une ferme', 'L\'irrigation relève le rendement de chaque hectare (et tes fermes coûtent 25 % de moins).', o => o.irr, 1, 0),
+    RYM('a3', 'Pose 2 fermes ou élevages de plus', 'Varie les cultures : les saisons et les cours ne frappent pas toutes en même temps.', o => o.farm, 2, 1),
+    RYM('a4', 'Lance un produit (pain, biscuits, viande…)', 'Transformer ta récolte garde la marge de l\'industriel chez toi.', o => o.prod, 1, 1),
+    RYM('a5', 'Améliore un magasin (niveau 2)', 'Vendre ta production dans tes rayons, c\'est la marge du commerçant en plus.', o => o.lvMax, 1, 0, { ex: 1 }),
+    RYM('a6', 'Élève du bétail (élevage)', 'La viande vaut plus que le grain qui la nourrit.', o => o.live, 1, 1, { cl: 0.03 }),
+    RYM('a7', 'Pose 3 fermes ou élevages de plus', 'Une ville qui grossit mange plus : ton marché grandit avec elle.', o => o.farm, 3, 1),
+    RYM('a8', 'Termine 2 chantiers d\'amélioration', 'Les niveaux supérieurs suivent la population de la ville.', o => o.cd, 2, 1, { ex: 1 }),
+    RYM('a9', 'Construis ton siège social', 'Le siège ouvre la bourse pour financer tes terres.', o => o.hq ? 1 : 0, 1, 0, { tit: 'Grand exploitant' })],
+  banquier: [
+    RYM('b1', 'Ouvre ton premier commerce', 'La banque prête, le commerce encaisse : commence par une source de revenus réguliers.', o => o.shops, 1, 0, { cred: 3 }),
+    RYM('b2', 'Accorde des prêts (entreprises ou immobilier)', 'Ta banque gagne la marge d\'intérêt ; garde ton ratio CET1 au-dessus du minimum.', o => o.bkl > 0 ? 1 : 0, 1, 0),
+    RYM('b3', 'Améliore un magasin (niveau 2)', 'Un chantier rentable vaut mieux qu\'un prêt qui dort.', o => o.lvMax, 1, 0, { ex: 1 }),
+    RYM('b4', 'Prends 10 % d\'un rival (tour de table)', 'Ton rendement dépend de la croissance des autres : investis dans les meilleurs.', o => o.stake + o.subs, 1, 1, { cl: 0.03 }),
+    RYM('b5', 'Ouvre 2 commerces ou bureaux de plus', 'Des revenus réguliers rassurent les régulateurs et les marchés.', o => o.shops + o.off, 2, 1),
+    RYM('b6', 'Termine 2 chantiers d\'amélioration', 'Les niveaux supérieurs suivent la population.', o => o.cd, 2, 1, { ex: 1 }),
+    RYM('b7', 'Construis ton siège social', 'Le siège ouvre la bourse et la finance d\'entreprise.', o => o.hq ? 1 : 0, 1, 0),
+    RYM('b8', 'Introduis ta société en bourse', 'Lever du capital sans dette : le levier des grands banquiers.', o => o.listed ? 1 : 0, 1, 0, { tit: 'Banquier d\'affaires' })],
+  promoteur: [
+    RYM('p1', 'Construis tes premiers logements', 'Chaque logement ajoute des habitants : des clients pour toutes les castes.', o => o.res, 1, 0, { cred: 3 }),
+    RYM('p2', 'Ouvre un commerce au pied de tes immeubles', 'Les habitants que tu loges consomment près de chez eux.', o => o.shops, 1, 1),
+    RYM('p3', 'Ajoute 3 étages ou logements', 'La densité fait monter la valeur du terrain et les loyers.', o => o.floors, 3, 1),
+    RYM('p4', 'Améliore un magasin (niveau 2)', 'Un quartier dense remplit les grands magasins.', o => o.lvMax, 1, 0, { ex: 1 }),
+    RYM('p5', 'Vends une maison ou livre un chantier', 'Acheter, densifier, revendre : la boucle du promoteur.', o => o.houses + o.cdone, 1, 1, { cl: 0.03 }),
+    RYM('p6', 'Construis des bureaux', 'Des emplois en ville attirent de nouveaux habitants.', o => o.off, 1, 1),
+    RYM('p7', 'Ajoute 6 étages ou logements', 'Vise les paliers de ville : ils débloquent les niveaux 3 à 5 des magasins.', o => o.floors, 6, 1, { ex: 1 }),
+    RYM('p8', 'Construis ton siège social', 'Le siège ouvre la bourse pour financer tes tours.', o => o.hq ? 1 : 0, 1, 0, { tit: 'Bâtisseur' })],
+  innovateur: [
+    RYM('v1', 'Lance une recherche de produit', 'Un produit que personne ne sait faire t\'ouvre une fenêtre de monopole.', o => o.prod, 1, 0, { cred: 5 }),
+    RYM('v2', 'Ouvre ton premier commerce', 'Vendre toi-même tes inventions te garde la marge du distributeur.', o => o.shops, 1, 1),
+    RYM('v3', 'Construis un centre de R&D ou une usine', 'Les recherches avancent plus vite avec un labo ; une usine fabrique ce que tu inventes.', o => o.rd + o.fac, 1, 1, { cred: 5 }),
+    RYM('v4', 'Améliore un magasin (niveau 2)', 'Un magasin plus grand écoule plus vite ta nouveauté.', o => o.lvMax, 1, 0, { ex: 1 }),
+    RYM('v5', 'Dépose un brevet (lance un produit inédit)', 'Le brevet protège ta prime de prix ; vends des licences avant l\'érosion.', o => o.pat, 1, 1, { cl: 0.03 }),
+    RYM('v6', 'Élargis ta gamme : 2 produits de plus', 'Relance le produit suivant avant que les rivaux ne rattrapent.', o => o.prod, 2, 1, { cred: 5 }),
+    RYM('v7', 'Construis un data center ou un 2e labo', 'Le calcul et la R&D font monter la qualité de tous tes produits.', o => o.dc + o.rd, 1, 1),
+    RYM('v8', 'Construis ton siège social', 'Le siège ouvre la bourse pour financer ta R&D.', o => o.hq ? 1 : 0, 1, 0, { tit: 'Inventeur' })]
+};
+RY_CH[''] = RY_CH.industriel;   // sans caste (mode Libre) : chaîne du baron
+// série sans fin après la chaîne de caste : objectifs relatifs qui grandissent doucement (palier, bâtiments, gamme, chiffre d'affaires)
+function rySerie(n) {
+  const k = n % 4, s = 1 + Math.floor(n / 4);
+  if (k === 0) return RYM('s' + n, `Série ${n + 1} : termine ${s} chantier${s > 1 ? 's' : ''} d'amélioration`, 'Les paliers 3 à 5 rapportent plus quand la ville a grandi.', o => o.cd, s, 1, { ex: 1 });
+  if (k === 1) return RYM('s' + n, `Série ${n + 1} : pose ${s + 1} bâtiments de plus`, 'Investis là où le retour reste sous 8 ans (le Conseiller les chiffre).', o => o.own, s + 1, 1);
+  if (k === 2) return RYM('s' + n, `Série ${n + 1} : ${s > 1 ? s + ' produits' : 'un produit'} de plus en gamme`, 'Un produit de plus, ce sont des clients de plus pour tes rayons.', o => o.prod, s, 1, { cred: RY_CRED.mis });
+  return RYM('s' + n, `Série ${n + 1} : chiffre d'affaires mensuel +${10 + 5 * Math.min(4, s - 1)} %`, 'La croissance se lit dans le chiffre d\'affaires : rayons pleins, prix justes, publicité rentable.', o => o.ca30, 1 + (10 + 5 * Math.min(4, s - 1)) / 100, 2, { cl: 0.01 });
+}
+const ryChain = () => RY_CH[S.ry && S.ry.ca != null ? S.ry.ca : casteOf()] || RY_CH.industriel;
+function ryMis(id) { if (/^s\d+$/.test(id)) return rySerie(+id.slice(1)); for (const k in RY_CH) { const m = RY_CH[k].find(x => x.id === id); if (m) return m; } return null; }
+// progression d'une mission active : [valeur, objectif] (rel = 1 : différence ; rel = 2 : rapport à la valeur de départ)
+function ryProg(a, o) { const m = ryMis(a.id); if (!m) return [1, 1]; const v = m.m(o); return m.rel === 2 ? [a.b > 0 ? v / a.b : 0, m.g] : m.rel ? [v - a.b, m.g] : [v, m.g]; }
+function ryActivate(o) {
+  const R = ryS(), ch = ryChain();
+  while (R.act.length < RY_ACT) {
+    let m = null; if (R.mi < ch.length) { m = ch[R.mi]; R.mi++; } else { m = rySerie(R.ser); R.ser++; }
+    if (m.rel === 2 && !(m.m(o) > 0)) { R.ser--; break; }   // série « CA + x % » : il faut déjà un chiffre d'affaires
+    R.act.push({ id: m.id, d0: S.day, b: m.rel ? m.m(o) : 0 });
+  }
+}
+function ryReward(r, why, kind) {
+  r = r || {}; const R = ryS(), X = rdxS(), out = [];
+  if (r.gem) { X.gem = Math.min(99999, X.gem + r.gem); out.push(`+${r.gem} ${GEM_N}`); }
+  if (r.cred) { X.cred = Math.min(ACC_LAB_MAX, (X.cred || 0) + r.cred); out.push(`+${r.cred} j de crédits labo`); }
+  if (r.ex) { R.ex = Math.min(99, R.ex + r.ex); out.push(`${r.ex} jeton${r.ex > 1 ? 's' : ''} de chantier express`); }
+  if (r.cl) { R.cl = Math.min(RY_PP.shareMax - RY_PP.share, R.cl + r.cl); out.push(`confiance du banquier +${Math.round(r.cl * 100)} pts (prêt de projet)`); }
+  if (r.tit && R.tit.indexOf(r.tit) < 0) { R.tit.push(r.tit); out.push(`titre « ${r.tit} »`); }
+  return out.join(', ');
+}
+function ryJalon(kind, txt, d) { const R = ryS(); R.log.push([S.day, kind, txt.slice(0, 140)]); if (R.log.length > 30) R.log.shift(); tel('jalon', Object.assign({}, d || {}, { k: kind })); }
+function ryMissions(o) {
+  const R = ryS(); if (R.ca !== casteOf() && !Object.keys(R.md).length) { R.ca = casteOf(); R.mi = 0; R.act = []; R.pk = []; }
+  for (let i = 0; i < R.act.length; i++) { const a = R.act[i]; if (S.day - a.d0 > RY_PARK && !(ryProg(a, o)[0] > 0) && R.pk.length < 12) { R.pk.push(a); R.act.splice(i--, 1); } }   // mission que ton jeu n'emprunte pas : en réserve
+  ryActivate(o);
+  [R.act, R.pk].forEach(A => { for (let i = 0; i < A.length; i++) {
+    const a = A[i], m = ryMis(a.id); if (!m) { A.splice(i--, 1); continue; } if (S.day <= a.d0) continue;   // jamais validée le jour où elle commence
+    const p = ryProg(a, o); if (!(p[0] >= p[1])) continue;
+    R.md[a.id] = S.day; A.splice(i--, 1); const r = Object.assign({ gem: RY_GEM.mis, cred: m.r.cred || 0 }, m.r), rt = ryReward(r);
+    say(`Mission accomplie : ${m.t}. ${rt}.`, 'gold'); ryJalon('mission', m.t, { id: m.id });
+  } });
+  ryActivate(o);
+}
+// ---- 2. jalons de fortune et paliers de ville
+function ryLadders(o) {
+  const R = ryS(); if (!(R.w0 > 0)) R.w0 = (S.mode && S.mode.w0 > 0) ? S.mode.w0 : Math.max(1, o.val);
+  const x = o.val / R.w0; if (R.vi < 0) { R.vi = RY_VAL.filter(k => x >= k).length; } else while (R.vi < RY_VAL.length && x >= RY_VAL[R.vi]) { const k = RY_VAL[R.vi]; R.vi++; const rt = ryReward({ gem: RY_GEM.val }); say(`Jalon de fortune : ×${String(k).replace('.', ',')} ta valeur de départ (${fmtV(o.val)}). ${rt}.`, 'gold'); ryJalon('val', '×' + k, { x: k }); }
+  if (R.pi < 0) { R.pi = RY_POP.filter(p => o.pop >= p).length; } else while (R.pi < RY_POP.length && o.pop >= RY_POP[R.pi]) {
+    const p = RY_POP[R.pi]; R.pi++; const un = Object.keys(PAL_DEF).filter(k => TYPES[k] && [1, 2, 3].some(l => palPopReq(PAL_DEF[k], l) <= p && palPopReq(PAL_DEF[k], l) > (R.pi > 1 ? RY_POP[R.pi - 2] : 0))).map(k => TYPES[k].name.toLowerCase()).slice(0, 3);
+    const rt = ryReward({ gem: RY_GEM.pop }); say(`Palier de ville : ${fmt(p)} habitants. ${un.length ? 'Niveaux supérieurs possibles pour : ' + un.join(', ') + '. ' : ''}${rt}.`, 'gold'); ryJalon('ville', fmt(p) + ' hab.', { p });
+  }
+}
+// ---- 3. défi de 30 jours (choisi selon l'état réel, sans tirage aléatoire) et duel du mois
+const RY_DEFIS = [
+  { k: 'ca', ok: o => o.ca30 > 0, t: (o, g) => `Chiffre d'affaires mensuel +8 % en 30 jours (${money(Math.round(o.ca30))} → ${money(Math.round(g))})`, b: o => o.ca30, g: o => o.ca30 * 1.08, m: o => o.ca30 },
+  { k: 'bld', ok: () => true, t: () => 'Pose 2 bâtiments de plus en 30 jours', b: o => o.own, g: o => o.own + 2, m: o => o.own },
+  { k: 'up', ok: o => o.shops > 0, t: () => 'Lance un chantier d\'amélioration en 30 jours', b: o => o.cs, g: o => o.cs + 1, m: o => o.cs },
+  { k: 'val', ok: () => true, t: (o, g) => `Valeur +5 % en 30 jours (${fmtV(g)})`, b: o => o.val, g: o => o.val * 1.05, m: o => o.val },
+  { k: 'rup', ok: o => o.fac + o.shops > 2, t: () => 'Aucune rupture d\'approvisionnement pendant 30 jours', b: () => 0, g: () => 0, m: () => 0, zero: 1 },
+  { k: 'debt', ok: o => o.loan > 0, t: (o, g) => `Rembourse 10 % de ta dette en 30 jours (sous ${money(Math.round(g))})`, b: o => o.loan, g: o => o.loan * 0.9, m: o => o.loan, down: 1 },
+  { k: 'prod', ok: o => o.fac > 0 || o.rd > 0, t: () => 'Un produit de plus en gamme en 30 jours', b: o => o.prod, g: o => o.prod + 1, m: o => o.prod },
+  { k: 'exp', ok: o => o.exp30 > 0, t: (o, g) => `Exportations +15 % en 30 jours (${money(Math.round(g))}/mois)`, b: o => o.exp30, g: o => o.exp30 * 1.15, m: o => o.exp30 }
+];
+const ryCasteI = () => Math.max(0, Object.keys(CASTES).indexOf(casteOf()));
+function ryDefi(o) {
+  const R = ryS(), D = R.df;
+  if (D) {
+    const E = RY_DEFIS.find(x => x.k === D.k);
+    if (E && !D.ok && S.day <= D.d1) {
+      if (E.zero) { if (o.rup > 0) R.rup++; if (S.day >= D.d1 && !R.rup) D.ok = 1; } else { const v = E.m(o); if (E.down ? v <= D.g : v >= D.g) D.ok = 1; }
+      if (D.ok) { const rt = ryReward({ gem: RY_GEM.defi, cred: RY_CRED.defi }); say(`Défi réussi : ${D.t}. ${rt}.`, 'gold'); ryJalon('defi', D.t, { d: D.k }); R.dh.push([D.k, 1, S.day]); }
+    }
+    if (!E || S.day >= D.d1) { if (E && !D.ok) { say(`Défi manqué : ${D.t}. Aucune pénalité ; le prochain défi commence.`, 'info'); R.dh.push([D.k, 0, S.day]); } R.df = null; }
+  }
+  if (R.dh.length > 12) R.dh.splice(0, R.dh.length - 12);
+  if (!R.df && S.day >= RY_DEFI_D && S.day % RY_DEFI_D === 0) {
+    const L = RY_DEFIS.filter(x => x.ok(o)); if (!L.length) return; const n = Math.floor(S.day / RY_DEFI_D), E = L[(n * 5 + ryCasteI() * 3) % L.length], g = E.g(o);
+    R.df = { k: E.k, t: E.t(o, g), d0: S.day, d1: S.day + RY_DEFI_D, b: E.b(o), g, ok: 0 }; R.rup = 0;
+    say(`Défi des 30 jours : ${R.df.t}. Récompense : ${RY_GEM.defi} ${GEM_N} et ${RY_CRED.defi} j de crédits labo.`, 'info');
+  }
+}
+function ryDuel(o) {
+  const R = ryS(); if (!isTimed() || S.day < 15 || (S.day - 15) % RY_DEFI_D !== 0) return;
+  const rows = ranking().filter(r => r.kind !== 'groupe');
+  if (R.du) {
+    const rv = rows.find(r => r.id === R.du.id), me = o.val;
+    if (rv && R.du.me > 0 && R.du.rv > 0) {
+      const gm = me / R.du.me - 1, gr = rv.v / R.du.rv - 1, pct = v => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v * 1000) / 10).toString().replace('.', ',') + ' %';
+      const gs = rows.map(r => r.me ? gm : (R.du.all && R.du.all[r.id] > 0 ? r.v / R.du.all[r.id] - 1 : null)).filter(v => v != null), place = 1 + gs.filter(v => v > gm).length;
+      if (gm > gr) { R.duw++; const rt = ryReward({ gem: RY_GEM.duel }); say(`Duel du mois gagné contre ${R.du.n} : ${pct(gm)} contre ${pct(gr)}. Croissance du mois : ${place}e sur ${gs.length}. ${rt}.`, 'gold'); ryJalon('duel', R.du.n, { w: 1 }); }
+      else say(`Duel du mois perdu contre ${R.du.n} : ${pct(gm)} contre ${pct(gr)} (croissance du mois : ${place}e sur ${gs.length}). Nouveau duel lancé.`, 'info');
+    }
+    R.du = null;
+  }
+  const meV = o.val, cand = rows.filter(r => !r.me && r.v > 0).sort((a, b) => Math.abs(Math.log(a.v / Math.max(1, meV))) - Math.abs(Math.log(b.v / Math.max(1, meV))))[0];
+  if (cand) { const all = {}; rows.forEach(r => { if (!r.me) all[r.id] = r.v; }); R.du = { id: cand.id, n: cand.n, d0: S.day, me: meV, rv: cand.v, all }; }
+}
+// ---- 4. gestes utiles (pendant l'épargne) et prêt de projet du banquier IA
+function ryPPBal() { return (S && S.ry && S.ry.pp) ? S.ry.pp.reduce((a, p) => a + Math.max(0, p.bal), 0) : 0; }
+const ryPPRate = () => loanRateNow() + RY_PP.prem;
+function ryPPQuote(cost) {
+  const R = ryS(), ebe = Math.max(0, annEbe()), r = ryPPRate(), svc = R.pp.reduce((a, p) => a + p.a / RY_PP.years + p.bal * p.r, 0), share = RY_PP.share + (R.cl || 0);
+  const dscr = Math.max(0, ebe / RY_PP.dscr - svc) / (1 / RY_PP.years + r), cap = Math.max(0, RY_PP.worthK * Math.max(0, valuation()) - ryPPBal());
+  const why = []; if (R.pp.length >= RY_PP.max) why.push(`${RY_PP.max} prêts de projet déjà en cours`); if (!(ebe > 0)) why.push('il faut un EBE positif (tes recettes doivent couvrir le remboursement)'); if (shockI('credit') > 0.5) why.push('crise du crédit : les banques ne financent plus de projets');
+  const max = why.length ? 0 : Math.floor(Math.min(share * Math.max(0, cost || 0), dscr, cap) / 1000) * 1000;
+  return { max, share, rate: r, years: RY_PP.years, pay: max / (RY_PP.years * 360), why, ok: max > 0 };
+}
+function ryPPTake(amount, label) {
+  const R = ryS(), q = ryPPQuote(amount / Math.max(0.01, RY_PP.share + (R.cl || 0))); amount = Math.floor(Math.min(amount, q.max) / 1000) * 1000;
+  if (!(amount > 0)) { say('Prêt de projet refusé : ' + (q.why.join(' ; ') || 'capacité de remboursement insuffisante') + '.', 'warn'); return 0; }
+  R.pp.push({ a: amount, bal: amount, r: q.rate, pay: amount / (RY_PP.years * 360), d0: S.day, t: String(label || 'projet').slice(0, 60) }); S.loan = (S.loan || 0) + amount; S.cash += amount;
+  say(`Prêt de projet de ${money(amount)} pour « ${label || 'ton projet'} » : taux ${f1c(q.rate * 100)} %, remboursé chaque jour sur ${RY_PP.years} ans (≈ ${money(Math.round(amount / (RY_PP.years * 12)))} par mois). Hors plafond de dette ordinaire.`, 'gold');
+  tel('pp', { a: Math.round(amount) }); updateHUD(); saveSoon(); return amount;
+}
+function ryPPStep() {   // remboursement quotidien (capital) + prime de taux ; l'intérêt de base court avec la dette ordinaire (S.loan)
+  const R = S.ry; if (!R || !R.pp || !R.pp.length) return;
+  R.pp.forEach(p => { const prem = p.bal * RY_PP.prem / 360; S.cash -= prem; R.ppI += prem; const pay = Math.min(p.bal, p.pay, Math.max(0, S.cash)); if (pay > 0) { p.bal -= pay; S.cash -= pay; S.loan = Math.max(0, (S.loan || 0) - pay); } });
+  R.pp = R.pp.filter(p => p.bal > 1);
+}
+// gestes utiles : actions abordables, rentables, faisables tout de suite (reserve = argent mis de côté pour un projet)
+function ryMicro(reserve) {
+  const L = [], free = Math.max(0, S.cash - Math.max(0, reserve || 0)), X = rdxS();
+  // chantier d'amélioration le plus rentable par $ (magasin qui gagne de l'argent, prérequis remplis)
+  let best = null; eachBiz(c => { if (!palOf(c) || c.pal || !c.conn || !((c.profit || 0) > 0)) return; const R = palReqs(c); if (!R || R.max || R.why.some(w => !/^il manque/.test(w))) return; const P = palOf(c), l = c.lvl | 0, gain = c.profit * (P.mult[l + 1] / P.mult[l] - 1) * 0.5, yrs = R.cost / Math.max(1, gain * 360); if (yrs > ROI_MAX || R.cost > free) return; if (!best || yrs < best.yrs) best = { c, cost: R.cost, gain, yrs, to: R.to }; });
+  if (best) L.push({ k: 'up', t: `Améliore ${TYPES[best.c.t].name.toLowerCase()} (${best.c.x + 1}, ${best.c.y + 1}) au niveau ${best.to + 1}`, cost: best.cost, gain: best.gain * DM, yrs: best.yrs, c: best.c });
+  // usine, fonderie ou extracteur saturé (≥ 85 % de sa capacité) et rentable : agrandissement immédiat (niveaux 1→5 hors chantier)
+  let bf = null; eachBiz(c => { const T = TYPES[c.t]; if (!T || palOf(c) || !c.conn || !(FLEVEL[c.t] || c.t === 'foundry' || T.ext) || (c.lvl | 0) >= MAX_LVL || !((c.profit || 0) > 0) || !((c.util || 0) >= 0.85)) return; const cost = upgradeCost(c), l = c.lvl | 0; if (!(cost > 0) || cost > free) return; const gain = c.profit * (LVL_MULT[l + 1] / LVL_MULT[l] - 1) * 0.5, yrs = cost / Math.max(1, gain * 360); if (yrs > ROI_MAX) return; if (!bf || yrs < bf.yrs) bf = { c, cost, gain, yrs, to: l + 1 }; });
+  if (bf) L.push({ k: 'upf', t: `Agrandis ${TYPES[bf.c.t].name.toLowerCase()} (${bf.c.x + 1}, ${bf.c.y + 1}) au niveau ${bf.to + 1} : elle tourne à ${Math.round((bf.c.util || 0) * 100)} %`, cost: bf.cost, gain: bf.gain * DM, yrs: bf.yrs, c: bf.c });
+  let rup = 0; eachBiz(c => { if ((c._rup | 0) > 0 && FLEVEL[c.t] && recOf(c)) rup++; });
+  if (rup) L.push({ k: 'rup', t: `${rup} usine${rup > 1 ? 's' : ''} en rupture : règle leurs sources automatiques`, cost: 0, gain: 0 });
+  if ((X.cred || 0) >= 1) { const it = accList()[0]; if (it) L.push({ k: 'rd', t: `Utilise tes crédits labo sur « ${it.n} » (${Math.floor(X.cred)} j)`, cost: 0, gain: 0, it: it.k }); }
+  if (ryS().ex > 0) { const c = palActive().filter(c => palLeft(c) >= 2).sort((a, b) => palLeft(b) - palLeft(a))[0]; if (c) L.push({ k: 'ex', t: `Jeton de chantier express : termine plus vite ${TYPES[c.t].name.toLowerCase()} (−${Math.ceil(palLeft(c) / 2)} j)`, cost: 0, gain: 0, c }); }
+  { const w = adWasteTotal(); if (w.perMonth > Math.max(300 * K_SIZE, 1)) L.push({ k: 'ad', t: `Coupe la publicité déficitaire (${w.names.slice(0, 2).join(', ')}) : +${money(Math.round(w.perMonth))}/mois`, cost: 0, gain: w.perMonth, info: 1 }); }
+  return L;
+}
+function ryDo(k, reserve) {
+  const m = ryMicro(reserve).find(x => x.k === k); if (!m) return false;
+  if (k === 'up' || k === 'upf') return place(m.c.x, m.c.y, 'up');
+  if (k === 'rup') { let n = 0; eachBiz(c => { if ((c._rup | 0) > 0 && FLEVEL[c.t] && recOf(c)) { autoSource(c, true); n++; } }); say(`Sources automatiques réglées sur ${n} usine${n > 1 ? 's' : ''} en rupture.`, 'good'); return n > 0; }
+  if (k === 'rd') { const X = rdxS(), inf = accInfo(m.it); if (!inf || !(inf.max > 0)) return false; const d = Math.min(inf.max, Math.floor(X.cred)); const r = window.WSE.rd.accelerate(m.it, d, 'lab'); return !!(r && r.ok); }
+  if (k === 'ex') { const c = m.c, R = ryS(); if (!c.pal || R.ex < 1) return false; const d = Math.ceil(palLeft(c) / 2); R.ex--; c.pal.acc = (c.pal.acc || 0) + d; say(`Chantier express : ${TYPES[c.t].name.toLowerCase()} gagne ${d} jours (jeton gagné en mission).`, 'good'); if (palLeft(c) <= 0) palDone(c); saveSoon(); return true; }
+  return false;
+}
+// ---- 5. opportunités de marché (conseil, lecture seule)
+function ryOpp() {
+  const R = ryS(); if (S.day % 10 !== 5 || S.day - R.op < RY_OPP.every) return; const use = {};
+  eachBiz(c => { const Rc = (FLEVEL[c.t] || c.t === 'foundry') ? recOf(c) : null; if (Rc) Object.keys(Rc.in).forEach(g => { if (GOODS[g] && GOODS[g].grp === 'raw') use[g] = 'in'; }); const T = TYPES[c.t]; if (T && T.ext && GOODS[T.ext]) use[T.ext] = 'out'; });
+  let best = null; Object.keys(use).forEach(g => { const tr = trend30(g); if (Math.abs(tr) >= RY_OPP.thr && (!best || Math.abs(tr) > Math.abs(best.tr))) best = { g, tr, u: use[g] }; }); if (!best) return;
+  R.op = S.day; const n = GOODS[best.g].name.toLowerCase(), p = Math.round(Math.abs(best.tr) * 100);
+  const tip = best.tr < 0 ? (best.u === 'in' ? `bon moment pour remplir tes stocks d'intrants ou signer un contrat d'approvisionnement` : `garde ta production en stock si tu peux, ou vends-la à tes propres usines`) : (best.u === 'out' ? `vends ou exporte ta production maintenant` : `vérifie tes marges : passe par ta propre extraction ou un contrat`);
+  say(`Opportunité de marché : ${n} ${best.tr < 0 ? 'en baisse' : 'en hausse'} de ${p} % en 30 jours, ${tip}.`, 'info'); tel('opp', { g: best.g, tr: Math.round(best.tr * 100) });
+}
+// ---- pas quotidien (fin de step, après le conseiller) : aucune dépense automatique, aucun tirage aléatoire
+function ryStep() {
+  if (!S || !S.mode || S.mode.pending || (S.mode.await && !S.caste) || S.ryOff) return; const o = ryO();   // S.ryOff : témoin A/B des tests (jamais sauvegardé)
+  ryPPStep(); ryMissions(o); ryLadders(o); ryDefi(o); ryDuel(o); ryOpp();
+}
+function ryPalStart() { if (S) ryS().cs++; }
+function ryPalDone(c) { const R = ryS(); R.cd++; if (S.mode && !S.mode.pending) ryJalon('palier', (TYPES[c.t] ? TYPES[c.t].name : c.t) + ' niveau ' + ((c.lvl | 0) + 1), { l: (c.lvl | 0) + 1 }); }
+// vue d'ensemble (barre d'objectif, Conseiller) : mission(s), défi, duel, geste utile
+function ryView(reserve) {
+  if (!S || !S.mode || S.mode.pending) return null; const R = ryS(), o = ryO();
+  const mis = R.act.map(a => { const m = ryMis(a.id), p = ryProg(a, o); return m ? { id: a.id, t: m.t, l: m.l, p: p[0], g: p[1], rel: m.rel, n: ryChain().findIndex(x => x.id === a.id) + 1, N: ryChain().length } : null; }).filter(Boolean);
+  const df = R.df ? Object.assign({ left: Math.max(0, R.df.d1 - S.day) }, R.df) : null;
+  const park = R.pk.map(a => { const m = ryMis(a.id); return m ? { id: a.id, t: m.t } : null; }).filter(Boolean);
+  return { mis, park, df, du: R.du ? { n: R.du.n, left: Math.max(0, R.du.d0 + RY_DEFI_D - S.day) } : null, micro: ryMicro(reserve), ex: R.ex, cl: R.cl, pp: R.pp.slice(), tit: R.tit.slice(), log: R.log.slice(-8), done: Object.keys(R.md).length };
+}
+// pastille de la mission en cours dans la ligne d'objectif (la ligne complète s'affiche avec le bouton Conseil, ou HUD déplié sur mobile)
+function ryChipHTML() {
+  const R = S && S.ry; if (!R || !R.act || !R.act.length || !S.mode || S.mode.pending) return ''; const a = R.act[0], m = ryMis(a.id); if (!m) return '';
+  const n = ryChain().findIndex(x => x.id === a.id) + 1, df = R.df && !R.df.ok ? ` · Défi : ${R.df.t} (${Math.max(0, R.df.d1 - S.day)} j)` : '';
+  return `<span class="omis" title="${(m.t + ' · ' + m.l + df).replace(/"/g, '&quot;')}">◆ ${n > 0 ? 'Mission ' + n + '/' + ryChain().length : 'Série'} : ${m.t}</span>`;
+}
+function ryRowHTML() {
+  const v = ryView(); if (!v) return ''; const pf = (m) => m.rel === 2 ? Math.round(Math.min(1, (m.p - 1) / Math.max(0.01, m.g - 1)) * 100) + ' %' : fmt(Math.max(0, Math.min(m.g, m.p))) + ' / ' + fmt(m.g);
+  const m = v.mis[0], mi = v.micro.find(x => !x.info) || v.micro[0];
+  let h = '';
+  if (m) h += `<span class="ryi"><b>Mission${m.n > 0 ? ' ' + m.n + '/' + m.N : ''}</b> ${m.t} · ${pf(m)}</span>`;
+  if (v.df) h += `<span class="ryi"><b>Défi</b> ${v.df.ok ? '✓ ' : ''}${v.df.t} · ${v.df.left} j</span>`;
+  if (mi) h += `<span class="ryi${mi.info ? '' : ' ryg'}"><b>Geste utile</b> ${mi.t}${mi.cost ? ' (' + money(mi.cost) + ')' : ''}${mi.info ? '' : ` <button class="ryb" data-ob="ry:${mi.k}">Faire</button>`}</span>`;
+  const tt = (v.du ? `Duel du mois contre ${v.du.n} (${v.du.left} j) · ` : '') + `${v.done} mission(s) accomplie(s)` + (v.park.length ? ' · en réserve : ' + v.park.map(x => x.t).join(' ; ') : '') + (v.ex ? ` · ${v.ex} jeton(s) de chantier express` : '');
+  return h ? `<div class="ory" title="${tt.replace(/"/g, '&quot;')}">${h}</div>` : '';
 }
 
 /* ---------- Démarrage ---------- */
@@ -20419,6 +20722,7 @@ window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk,
 window.WSE.brand.setStrat = setBrandStrat;
 window.WSE.mono = { xp: monoXP, info: monoInfo, txt: monoTxt, win: monoWin, init: monoInit, step: monoStep, rx: monoRx, K: { MONO_PH, MONO_XW, MONO_W, MONO_PAT, MONO_INNOV, MONO_LIC, MONO_LIC_K, MONO_COPY, MONO_COPY_PAT, MONO_NIV, LIC_MG } };   // passe 67 : monopole temporaire de l'innovation
 window.WSE.supply = { autoSource, bestOffer, buyerQw, procure: stepProcure };
+window.WSE.ry = { S: ryS, san: rySan, o: ryO, step: ryStep, CH: RY_CH, serie: rySerie, mis: ryMis, prog: ryProg, VAL: RY_VAL, POP: RY_POP, DEFIS: RY_DEFIS, DEFI_D: RY_DEFI_D, GEM: RY_GEM, PP: RY_PP, ppQuote: ryPPQuote, ppTake: ryPPTake, ppBal: ryPPBal, micro: ryMicro, act: ryDo, view: ryView, row: ryRowHTML, opp: ryOpp };   // passe 83 : rythme de progression (tools/tests/t83_rythme.js)
 window.WSE.tel = { on: () => telOn(), enable: on => telEnable(on), log: (type, d) => tel(String(type).slice(0, 24), d), state: () => telS(), events: () => telS().ev.slice(), counts: () => Object.assign({}, telS().cnt), first: () => Object.assign({}, telS().first), export: () => telExport(), download: () => telDownload(), clear: () => telClear(), flush: () => { telS(); if (_tel.on) telFlush(); }, size: () => { telS(); return telPack().length; }, sync: () => syncTelToggle(), KEY: TEL_KEY, MAX: TEL_MAX, TYPES: TEL_TYPES };
 try { window.addEventListener('pagehide', () => { if (_tel && _tel.on) telFlush(); }); document.addEventListener('visibilitychange', () => { if (document.hidden && _tel && _tel.on) telFlush(); }); } catch (e) { /* facultatif */ }
 window.WSE.rd = { focus: rdSetFocus, focW: rdFocW, catchUp: rdCatch, techRows: rdTechRows, RD_FOC, patentHeld, held: patentHeld, mine: patMine, block: patBlock, blockMsg: patBlockMsg, grant: patGrant, value: patValue, incDay: patIncDay, licDay: patLicDay, revDay: patRevDay, licFee: patLicFee, buyLicence: patBuyLicence, opps: patOpps, develop: patDevelop, answer: patOfferAnswer, step: patStep, years: patYears, comp: patCompF, top: mkTopRaw, save: patSave, load: patLoad, st: rdxS, pat: () => S.pat || {}, list: accList, info: accInfo, quote: accQuote, accelerate, gemCost, gemAdd, render: renderRdp, edu: patEduHTML, advice: rdpAdvice, iap: { LIVE: IAP_LIVE, PACKS: IAP_PACKS, purchase: iapPurchase, log: IAP }, K: { PAT_Y, PAT_NIV_Y, PAT_ROY, PAT_LIC_SH, PAT_LIC_MAX, PAT_RIV_FROM, PAT_RIV_EVERY, PAT_OFF_EVERY, PAT_WARN_D, PAT_DISC, PAT_MONO, GEM_N, GEM_START, GEM_TIER, GEM_JAL, ACC_TOT, ACC_DAY_MAX, ACC_CASH_K, ACC_LAB_MAX, ACC_LAB_GAIN } };   // passe 47 : brevets de produit, R&D, accélération (aucun paiement réel)
