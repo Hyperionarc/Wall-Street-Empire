@@ -1734,10 +1734,10 @@ const TYPES = {
   fcorn:   { name: 'Culture de maïs',  sub: 'Champ · maïs',   cost: 2800,  color: '#f2b632', jobs: 12, upkeep: 4, w: 3, h: 3, ext: 'corn', rate: 100 },   // maïs grain : huile de cuisine, chips
   frapeseed: { name: 'Culture de colza', sub: 'Champ · colza', cost: 3000, color: '#d8d23a', jobs: 12, upkeep: 4, w: 3, h: 3, ext: 'rapeseed', rate: 70 },   // graines oléagineuses : huile et biodiesel
   // Élevages : le bien principal (ext) et les coproduits (co, par unité du principal) sortent bruts ; live = têtes, jours de croissance du troupeau, aliment (blé) par unité principale, risque quotidien de maladie
-  fcattle: { name: 'Élevage de bovins',   sub: 'Élevage · lait, bœuf, cuir',  cost: 4200, color: '#c9a87a', jobs: 14, upkeep: 5, w: 2, h: 2, ext: 'milk', co: { beef: 0.15, leather: 0.04 }, rate: 70, live: { head: 80, grow: 45, feed: 0.6, dis: 0.004, an: 'vaches' } },
+  fcattle: { name: 'Élevage de bovins',   sub: 'Élevage · lait, bœuf, cuir',  cost: 4200, color: '#c9a87a', jobs: 14, upkeep: 5, w: 2, h: 2, ext: 'milk', co: { beef: 0.15, leather: 0.04 }, rate: 70, live: { head: 8, grow: 45, feed: 0.6, dis: 0.004, an: 'vaches' } },
   fchicken: { name: 'Élevage de poulets', sub: 'Élevage · œufs, volaille',    cost: 3200, color: '#f0d27a', jobs: 12, upkeep: 4, w: 2, h: 2, ext: 'egg', co: { poultry: 0.12 }, rate: 80, live: { head: 2000, grow: 15, feed: 0.6, dis: 0.006, an: 'poules' } },
   fpig:    { name: 'Élevage de porcs',    sub: 'Élevage · porc, cuir',        cost: 3800, color: '#e8a8a0', jobs: 13, upkeep: 5, w: 2, h: 2, ext: 'pork', co: { leather: 0.03 }, rate: 50, live: { head: 300, grow: 30, feed: 1.2, dis: 0.005, an: 'porcs' } },
-  fsheep:  { name: 'Élevage de moutons',  sub: 'Élevage · laine, agneau',     cost: 3600, color: '#e6e0cf', jobs: 12, upkeep: 4, w: 2, h: 2, ext: 'wool', co: { lamb: 0.35 }, rate: 40, live: { head: 400, grow: 30, feed: 1.0, dis: 0.004, an: 'brebis' } },
+  fsheep:  { name: 'Élevage de moutons',  sub: 'Élevage · laine, agneau',     cost: 3600, color: '#e6e0cf', jobs: 12, upkeep: 4, w: 2, h: 2, ext: 'wool', co: { lamb: 0.35 }, rate: 40, live: { head: 90, grow: 30, feed: 1.0, dis: 0.004, an: 'brebis' } },
   logging: { name: 'Camp bûcherons', sub: 'Forêt',        cost: 900,  color: '#9b6b3a', jobs: 8,  upkeep: 2, ext: 'wood',      rate: 14 },
   qgravel: { name: 'Carrière de granulats', sub: 'BTP · gravier et sable', cost: 1100, color: '#9a9aa5', jobs: 10, upkeep: 2, ext: 'gravel', co: { sand: 0.7 }, coDep: 1, rate: 24 },   // passe 79 : une seule carrière (ancienne carrière de gravier + sablière) ; le sable sort en coproduit du criblage (0,7 u par u de gravier) ; coDep : le gisement s'épuise du tout-venant extrait (gravier + sable)
   qlime:   { name: 'Carrière calcaire', sub: 'BTP',       cost: 1500, color: '#e8e4d8', jobs: 10, upkeep: 2.5, ext: 'limestone', rate: 18 },
@@ -1840,6 +1840,19 @@ const CROP_AREA = 9 / 4;
 const CROP_UPK = 8 / 9;
 Object.values(CROPS).forEach(k => { TYPES[k].rate *= CROP_AREA; TYPES[k].cost *= CROP_AREA; TYPES[k].jobs = Math.round(TYPES[k].jobs * CROP_AREA); TYPES[k].upkeep *= CROP_AREA; });
 const cropAreaK = c => { const T = TYPES[c.t]; return T && CROPS[T.ext] && c.w && c.h ? (c.w * c.h) / ((T.w || 1) * (T.h || 1)) : 1; };   // 1 pour une ferme 3×3 ; 4/9 pour une ancienne ferme 2×2 gardée telle quelle
+// ===== Passe 87 (retour de Rémy : « on ne cultive pas du blé sur un enclos ») : surface variable. Une ferme = corps de ferme (emprise de base : 3×3 pour une culture, 2×2 pour un élevage)
+// + champs ou pâturages annexés par « Agrandir la ferme », vers l'est et le sud (l'ancre ne bouge jamais), jusqu'à FARM_MAX × FARM_MAX cases. Une case ≈ 150 m ≈ 2,25 ha.
+// Récolte, têtes et recettes ∝ surface (farmAreaK) ; salaires et entretien suivent farmCostK = v·A/B + (eq/B)·(1 − v) : une part fixe (cour, tracteur, grange, salle de traite)
+// et une part par case. À A = eq le coût par case est celui d'avant (passe 85) ; plus petit, la ferme porte trop de frais fixes (EBITDA faible ou négatif) ; plus grand, économies d'échelle.
+// Une ancienne ferme plus petite que sa base (fpOld) garde l'ancien calcul (au prorata).
+const FARM_MAX = 8, HA_CASE = 2.25, FARM_CORPS_K = 0.45, FARM_CELL_K = 0.8;
+const FARM_ECO = { crop: { v: 0.65, eq: 20 }, live: { v: 0.5, eq: 11 } };
+const isFarmT = t => { const T = TYPES[t]; return !!(T && T.ext && isFarmK(T.ext)); };
+const farmBaseA = T => (T.w || 1) * (T.h || 1);
+const farmEcoOf = T => FARM_ECO[T.live ? 'live' : 'crop'];
+const farmAreaK = c => { const T = TYPES[c.t]; return T && T.ext && isFarmK(T.ext) && c.w && c.h ? (c.w * c.h) / farmBaseA(T) : 1; };
+const farmCostKA = (T, A) => { const B = farmBaseA(T), e = farmEcoOf(T); return A < B ? A / B : e.v * A / B + (e.eq / B) * (1 - e.v); };
+const farmCostK = c => { const T = TYPES[c.t]; if (!T || !T.ext || !isFarmK(T.ext)) return 1; const A = (c.w || 1) * (c.h || 1); return c.fpOld ? A / farmBaseA(T) : farmCostKA(T, A); };
 const RAW_SRC = { nickel: 'mnicr', chrome: 'mnicr', bauxite: 'mbauxite', lithium: 'mlithium', silica: 'qsilica', salt: 'qsalt', sulfur: 'gwell', phosphate: 'mphos', gas: 'gwell', zinc: 'mzinc', clay: 'qclay', potash: 'mpotash', graphite: 'mgraphite', wheat: 'fwheat', sugar: 'fsugar', cotton: 'fcotton', rubber: 'frubber', grapes: 'fvine', corn: 'fcorn', rapeseed: 'frapeseed', milk: 'fcattle', beef: 'fcattle', leather: 'fcattle', egg: 'fchicken', poultry: 'fchicken', pork: 'fpig', wool: 'fsheep', lamb: 'fsheep', wood: 'logging', gravel: 'qgravel', sand: 'qgravel', limestone: 'qlime', oil: 'well', iron: 'miron', coal: 'mcoal', copper: 'mcopper', gold: 'mgold' };
 // Produits finis : catégorie de vente, niveau d'usine, composants par cycle, prix de référence, R&D
 const PRODUCTS = {
@@ -2265,6 +2278,14 @@ const rivK = r => r ? (r.caste || (r.sty && RIV_CASTE[r.sty] ? r.sty : null)) : 
 function optHTML() {
   return '<h3>PARAMÈTRES DE LA PARTIE</h3><div class="tcard"><small>Réglables à tout moment. Plus les IA sont fortes, plus le marché est disputé.</small>' + difRowHTML() + Object.keys(OPT_LBL).map(k => `<div style="margin-top:8px"><small>${OPT_LBL[k]}</small><div class="seg2" style="flex-wrap:wrap">${OPT_LV.map((l, i) => `<button class="btn ${((S.opt && S.opt[k] !== undefined) ? S.opt[k] : OPT_DEF[k]) === i ? '' : 'sec'}" data-opt="${k}:${i}" style="min-height:28px;padding:3px 8px;font-size:11px">${l}${k === 'n' ? ' · ' + OPT_NRIV[i] : ''}</button>`).join('')}</div></div>`).join('') + `<div style="margin-top:8px"><small>Présentation cinéma des nouveaux produits</small><div class="seg2" style="flex-wrap:wrap">${[[1, 'Afficher'], [0, 'Ne plus afficher']].map(o => `<button class="btn ${(cineOpt() ? 1 : 0) === o[0] ? '' : 'sec'}" data-cine="${o[0]}" style="min-height:28px;padding:3px 8px;font-size:11px">${o[1]}</button>`).join('')}</div></div></div>`;
 }
+// passe 87 : un rival agriculteur qui a déjà ses fermes les agrandit (cases voisines libres de même culture, 8 au plus par décision ; parcours déterministe, sans tirage)
+function growNpcFarm(owner) {
+  if (!S.npcFarm) return 0; const add = [], seen = new Set();
+  for (const k of Object.keys(S.npcFarm)) { const q = S.npcFarm[k]; if (!q || q.o !== owner) continue; const i = +k, x = i % N, y = (i / N) | 0;
+    for (const d of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { const X = x + d[0], Y = y + d[1]; if (!inb(X, Y)) continue; const j = idx(X, Y), dd = S.dep[j]; if (dd && dd.k === q.g && !S.grid[j] && !S.npcFarm[j] && !seen.has(j)) { seen.add(j); add.push([j, q.g]); } }
+    if (add.length >= 8) break; }
+  add.slice(0, 8).forEach(a => { S.npcFarm[a[0]] = { o: owner, g: a[1] }; }); return Math.min(8, add.length);
+}
 function placeNpcFarm(g, owner) {
   S.npcFarm = S.npcFarm || {}; const tiles = [];
   for (let i = 0; i < N * N; i++) { const d = S.dep[i]; if (d && d.k === g && !S.grid[i] && !S.npcFarm[i]) tiles.push(i); }
@@ -2631,7 +2652,7 @@ function rivCasteAct(r) {
   const RV = rvS(), room = cls => r.att[cls] < 0.7 && rivalAttr(cls) < RIV_CAP, tell = (t, kind) => { say(`${r.name} ${t}`, kind || 'info'); rvLog(r, t); }; r.acts = (r.acts || 0) + 1;
   if ((r.caste === 'industriel' || r.caste === 'negociant') && r.acts % 3 === 0 && znRivalSettle(r, bud)) return;   // passe 34 : implantation aidée en zone portuaire / industrielle
   const ks = rivK(r);   // passe 80 : un siège supplémentaire agit selon le métier de sa caste (agriculteur, promoteur, industriel, innovateur)
-  if (ks === 'agriculteur') { const cs = Object.keys(CROPS), g = cs[Math.floor(rnd() * cs.length)], ok = (r.nb || 0) < 8 && placeNpcFarm(g, r.name); if (ok) r.nb = (r.nb || 0) + 1; if (room('basic')) r.att.basic += 0.01; r.cash -= bud; r.as += bud; tell(ok ? `met en culture de nouvelles terres (${GOODS[g].name.toLowerCase()}) et pèse sur les prix alimentaires.` : 'modernise ses coopératives agricoles.'); }
+  if (ks === 'agriculteur') { const cs = Object.keys(CROPS), g = cs[Math.floor(rnd() * cs.length)], ok = (r.nb || 0) < 8 && placeNpcFarm(g, r.name), gr = ok ? 0 : growNpcFarm(r.name); if (ok) r.nb = (r.nb || 0) + 1; if (room('basic')) r.att.basic += 0.01; r.cash -= bud; r.as += bud; tell(ok ? `met en culture de nouvelles terres (${GOODS[g].name.toLowerCase()}) et pèse sur les prix alimentaires.` : gr ? `agrandit ses exploitations (+${gr} cases, ${Math.round(gr * HA_CASE)} ha) : une ferme rentable se mesure en centaines d'hectares.` : 'modernise ses coopératives agricoles.'); }
   else if (ks === 'promoteur') {
     let c = null; if (r.acts % 2) for (let t = 0; t < 40 && !c; t++) { const x = CITY.x0 + 1 + Math.floor(rnd() * (CITY.x1 - CITY.x0 - 1)), y = CITY.y0 + 1 + Math.floor(rnd() * (CITY.y1 - CITY.y0 - 1)), q = S.grid[idx(x, y)]; if (q && q.t === 'npc' && q.k !== 'mon' && q.k !== 'park' && !q.lm && ownerOf(q) === 'npc' && acqValue(q) <= bud) c = q; }
     if (c) { const v = acqValue(c); S.npcOwn = S.npcOwn || {}; S.npcOwn[c.x + ',' + c.y] = r.id; r.cash -= v; r.re += v; tell(`rachète ${c.k === 'house' ? 'une maison' : 'un ' + kindFr(c.k, 1)} en ville (${money(v)}) et encaisse ses loyers.`); }
@@ -3543,7 +3564,10 @@ const SECT_WAGE = { bank: 2, tech: 2, rd: 1.6, dc: 1.3 }, PH_W = 1.8;   // salai
   Object.values(CROPS).forEach(k => { TYPES[k].upkeep = Math.round(TYPES[k].upkeep * CROP_UPK); });   // passe 85 : une seule cour de ferme (grange, silo, tracteur) pour 9 cases au lieu de 4
   // PRIX D'ENTRÉE des extracteurs, fermes et élevages : valeurs de départ propres à chaque type de bâtiment (terrain, équipements, forage, cheptel), SANS lien avec leur production. Le débit et l'entretien restent calés sur l'EBITDA visé ; le prix d'achat, non : un bâtiment très rentable pour son prix donne envie de s'y lancer.
   const EXT_CAPEX = { well: 5200000, gwell: 4000000, miron: 4500000, mcoal: 3000000, mcopper: 4000000, mgold: 6000000, mnicr: 5000000, mbauxite: 3500000, mlithium: 4500000, mzinc: 3500000, mgraphite: 2500000, qsilica: 1200000, qclay: 800000, qsalt: 1500000, mphos: 3000000, mpotash: 4000000, qgravel: 1200000, qlime: 1000000, logging: 600000, fwheat: 2000000, fsugar: 2500000, fcotton: 2200000, frubber: 2500000, fvine: 3000000, fcorn: 2000000, frapeseed: 2600000, fcattle: 1000000, fchicken: 600000, fpig: 800000, fsheep: 700000 };
-  Object.keys(EXT_CAPEX).forEach(k => { if (TYPES[k]) TYPES[k].cost = EXT_CAPEX[k] * (CROPS[TYPES[k].ext] === k ? CROP_AREA : 1); });   // passe 85 : cultures 3×3, prix d'entrée au prorata de la surface (2×2 -> 3×3)
+  Object.keys(EXT_CAPEX).forEach(k => { if (TYPES[k]) TYPES[k].cost = EXT_CAPEX[k] * (CROPS[TYPES[k].ext] === k ? CROP_AREA : 1); });
+  // passe 87 : surface variable. Le corps de ferme d'une culture (3×3) coûte FARM_CORPS_K de l'ancien prix (entrée en jeu accessible ; seul, il est peu rentable) ;
+  // chaque case annexée coûte FARM_CELL_K de l'ancien prix par case (clôtures, drainage, plantation ou cheptel), plus le terrain. Élevage : prix du corps inchangé.
+  Object.keys(EXT_CAPEX).forEach(k => { const T = TYPES[k]; if (!T || !T.ext || !isFarmK(T.ext)) return; const old = T.cost; if (CROPS[T.ext] === k) T.cost = Math.round(old * FARM_CORPS_K / 10000) * 10000; T.cellCost = Math.round(old / farmBaseA(T) * FARM_CELL_K / 1000) * 1000; });   // passe 85 : cultures 3×3, prix d'entrée au prorata de la surface (2×2 -> 3×3)
   // Méga-centre commercial (s4, 3×3) : mêmes rayons que s3, capacité ×4, capex et effectifs en proportion (la méga-usine f4 est définie plus haut)
   TYPES.s4 = Object.assign({}, TYPES.s3, { name: 'Méga-centre commercial', sub: 'Base + manufact. + luxe, ×4 · périphérie', cost: TYPES.s3.cost * 4, upkeep: TYPES.s3.upkeep * 4, jobs: TYPES.s3.jobs * 4, w: 3, h: 3, tier: 3, color: '#ff7ad0', ret: { cap: TYPES.s3.ret.cap * 4, sells: TYPES.s3.ret.sells.slice() } });
   TIERS.forEach(x => { x.at *= SCALE_M; });
@@ -4509,6 +4533,7 @@ function cellExtra(c) {
   if (c.dry) o.dry = 1;
   if (c.hd != null) o.hd = Math.round(c.hd * 1000) / 1000; if (c.sickUntil > 0) o.sk = c.sickUntil | 0;
   if (c.fert) o.fe = 1;   // passe 33 : engrais activé sur la ferme
+  if (isFarmT(c.t) && !c.fpOld && (c.w !== (TYPES[c.t].w || 1) || c.h !== (TYPES[c.t].h || 1))) o.fw = [c.w, c.h];   // passe 87 : ferme agrandie (emprise w×h ; absent = corps de ferme seul)
   if (c.firm) o.fm = c.firm | 0; if (c.isale != null) o.is = c.isale ? 1 : 0;   // passe 32 : société propriétaire, vente interne
   if (c.ci != null) o.ci = Math.round(c.ci * 1e4) / 1e4;   // indice de fréquentation : relu par crewEff avant son recalcul
   if (c.inv) { const iv = {}; Object.keys(c.inv).forEach(g => { if (c.inv[g] > 0.5) iv[g] = Math.round(c.inv[g]); }); if (Object.keys(iv).length) o.inv = iv; }
@@ -4564,7 +4589,7 @@ function load() {
       if (r[20] && typeof r[20] === 'object') { const e2 = r[20]; if (e2.bd != null) c.bday = e2.bd | 0; if (e2.fc != null) c.fcap = +e2.fc; if (Array.isArray(e2.wk)) c.works = { k: e2.wk[0] === 2 ? 'prog' : e2.wk[0] ? 'new' : 'up', to: e2.wk[1] | 0, due: e2.wk[2] | 0, cost: +e2.wk[3] || 0, t0: e2.wk[4] | 0 }; if (e2.bn) c.bn = String(e2.bn); if (e2.pg && PROG[e2.pg]) c.prog = e2.pg; }
       if (r[20] && typeof r[20] === 'object' && Array.isArray(r[20].gp) && r[0] === 'dc') { const q = r[20].gp; c.gf = clamp(+q[0] || 0, 0, 1); c.gn = clamp(+q[1] || 0, 0, 5); if (q[2] === 0) c.gpb = 0; }   // passe 73 : GPU du campus (absent = flotte d'origine complète)
       if (r[20] && typeof r[20] === 'object' && Array.isArray(r[20].dcp) && r[0] === 'dc') { const q = r[20].dcp; c.bat = clamp(q[0] | 0, 0, 3); if (q[1] === 0) c.gb = 0; c.soc = Math.max(0, +q[2] || 0); c.ct = clamp(+q[3] || 1, DC_CT_MIN, 1); if (Array.isArray(q[4])) c.uph = q[4].slice(-30).map(v => clamp((+v || 0) / 1000, 0, 1)); if (q[5] === 1) c.tb = 1; }
-      if (r[20] && typeof r[20] === 'object') { if (r[20].fm > 0) c.firm = r[20].fm | 0; if (r[20].is != null) c.isale = r[20].is ? 1 : 0; if (r[20].fe) c.fert = 1; if (r[20].hd != null) c.hd = clamp(+r[20].hd || 0.2, 0.2, 1); if (r[20].sk > 0) c.sickUntil = r[20].sk | 0; }
+      if (r[20] && typeof r[20] === 'object') { if (r[20].fm > 0) c.firm = r[20].fm | 0; if (r[20].is != null) c.isale = r[20].is ? 1 : 0; if (r[20].fe) c.fert = 1; if (Array.isArray(r[20].fw) && isFarmT(r[0])) { const T7 = TYPES[r[0]]; c.w = clamp(r[20].fw[0] | 0, T7.w || 1, FARM_MAX); c.h = clamp(r[20].fw[1] | 0, T7.h || 1, FARM_MAX); } if (r[20].hd != null) c.hd = clamp(+r[20].hd || 0.2, 0.2, 1); if (r[20].sk > 0) c.sickUntil = r[20].sk | 0; }
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
       if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
@@ -4635,6 +4660,8 @@ function fpMigrate(grid, dep, nf) {
     let ox0 = c.x, oy0 = c.y, ox1 = c.x, oy1 = c.y; old.forEach(j => { const X = j % N, Y = (j / N) | 0; ox0 = Math.min(ox0, X); oy0 = Math.min(oy0, Y); ox1 = Math.max(ox1, X); oy1 = Math.max(oy1, Y); });
     const ow = ox1 - ox0 + 1, oh = oy1 - oy0 + 1;
     if (old.length === w * h && ow === w && oh === h && ox0 === c.x && oy0 === c.y) continue;   // emprise déjà conforme
+    if (isFarmK(T.ext) && c.w >= w && c.h >= h && (c.w > w || c.h > h) && old.length === c.w * c.h && ow === c.w && oh === c.h && ox0 === c.x && oy0 === c.y) continue;   // passe 87 : ferme agrandie, emprise sauvegardée (fw) cohérente avec ses cases
+    if (isFarmK(T.ext) && (c.w > w || c.h > h)) { c.w = w; c.h = h; }   // emprise sauvegardée incohérente : on repart du corps de ferme
     const farm = isFarmK(T.ext), mine = new Set(old), free = j => { const o = grid[j]; if (mine.has(j)) return 0; if (farm && (ZONE[j] !== 0 || (nf && nf[j]))) return -1; if (dep && dep[j] && !(farm && CROPS[dep[j].k])) return -1;   /* passe 85 : une culture 2×2 -> 3×3 s'agrandit en campagne, aussi sur une terre agricole libre */ if (!o) return ZONE[j] === 3 || isRoadPos(j % N, (j / N) | 0) ? -1 : 0; return o.t === 'npc' && o.k !== 'mon' ? 1 : -1; };
     let best = null;
     for (let ay = oy1 - h + 1; ay <= oy0; ay++) for (let ax = ox1 - w + 1; ax <= ox0; ax++) {
@@ -5050,7 +5077,7 @@ function evaluate() {
     if (T.ext) { c.piped = (T.ext === 'oil' || T.ext === 'coal' || T.ext === 'gas') && pipeAdj(c, pm); c.linked = extLinked(c, lm) || c.piped; c.conn = true; } else if (c.t === 'pipeline' || c.t === 'pylon' || c.t === 'cable') { c.conn = true; } else c.conn = footConn(c);
     if (isPlant(c.t)) gridEval(c, gm);
     cc[c.t]++;
-    upkeep += ((c.t === 'res' ? resUpk(c) + (c._ptax || 0) / cpi() : T.upkeep * m * cropAreaK(c) * (1 + 0.1 * (c.qual || 0)) * (FLEVEL[c.t] ? actF(c) * planUpk(c) : 1)) + phOvh(c)) * znUm(c);   // usine vide : entretien réduit à 25 % (mise sous cocon), comme l'effectif
+    upkeep += ((c.t === 'res' ? resUpk(c) + (c._ptax || 0) / cpi() : T.upkeep * m * farmCostK(c) * (1 + 0.1 * (c.qual || 0)) * (FLEVEL[c.t] ? actF(c) * planUpk(c) : 1)) + phOvh(c)) * znUm(c);   // usine vide : entretien réduit à 25 % (mise sous cocon), comme l'effectif
     { const bv = T.cost * (c.lg || 1) * 0.9 + upgradeSpent(c) * 0.6 + landVal(c); value += bv; if (IMMO_T.indexOf(c.t) >= 0) immo += bv; }
     if (c.conn) {
       cn[c.t]++; un[c.t] += unitsOf(c); jobs += jobsOf(c); c.haul = haulOf(c);
@@ -6337,7 +6364,7 @@ function liveStep(c, T, out, cn, TM) {
   const L = T.live;
   if (c.hd == null) c.hd = 0.2;
   c.hd = Math.min(1, c.hd + 0.8 / L.grow);
-  if (S.day > (c.sickUntil || -1) && rnd() < L.dis) { c.sickUntil = S.day + 10; c.hd = Math.max(0.2, c.hd * 0.9); c.sick = (c.sick || 0) + 1; say(`Épizootie dans ton ${T.name.toLowerCase()} (${c.x + 1}, ${c.y + 1}) : ${Math.round(L.head * c.hd * 0.1)} ${L.an} perdues, production réduite pendant 10 jours.`, 'bad'); }
+  if (S.day > (c.sickUntil || -1) && rnd() < L.dis) { c.sickUntil = S.day + 10; c.hd = Math.max(0.2, c.hd * 0.9); c.sick = (c.sick || 0) + 1; say(`Épizootie dans ton ${T.name.toLowerCase()} (${c.x + 1}, ${c.y + 1}) : ${Math.round(L.head * farmAreaK(c) * c.hd * 0.1)} ${L.an} perdues, production réduite pendant 10 jours.`, 'bad'); }
   out *= c.hd * (S.day <= (c.sickUntil || -1) ? 0.6 : 1);
   c._fimp = 0; const need = out * L.feed, wp = S.price.wheat || GOODS.wheat.base;
   let got = Math.min(need, S.stock.wheat || 0), cost = got * wp;
@@ -6347,7 +6374,7 @@ function liveStep(c, T, out, cn, TM) {
   c._feed = need > 1e-9 ? Math.min(1, got / need) : 1; c.inCost = cost;
   return out * (FEED_FLOOR + (1 - FEED_FLOOR) * c._feed);
 }
-const IRR_COST = [0, 1200, 2600, 4200], irrCost = l => Math.round(IRR_COST[l] * (casteIs('agriculteur') ? 0.7 : 1)), irrCostC = (l, c) => Math.round(irrCost(l) * (c && CROPS[TYPES[c.t].ext] === c.t ? CROP_AREA * cropAreaK(c) : 1)), droughtNow = () => Math.max(0, -Math.sin((S.macro ? S.macro.phase : 0) * 1.7 + 1));   // passe 85 : irrCostC, une culture 3×3 s'irrigue au prorata de sa surface
+const IRR_COST = [0, 1200, 2600, 4200], irrCost = l => Math.round(IRR_COST[l] * (casteIs('agriculteur') ? 0.7 : 1)), irrCostC = (l, c) => Math.round(irrCost(l) * (c && CROPS[TYPES[c.t].ext] === c.t ? CROP_AREA * farmAreaK(c) : c && isFarmT(c.t) ? farmAreaK(c) : 1)), droughtNow = () => Math.max(0, -Math.sin((S.macro ? S.macro.phase : 0) * 1.7 + 1));   // passe 85 : irrCostC, une culture 3×3 s'irrigue au prorata de sa surface
 // Saisonnalité (calendrier de 12 mois de 30 jours, moyenne 1) : pic de lactation au printemps, vendanges en septembre, tonte au printemps
 const SEASON = { milk: [0.12, 4.5], egg: [0.08, 4], wool: [0.2, 4.5], grapes: [0.45, 8.5] };
 const seasonMult = k => { const a = SEASON[k]; if (!a || !S) return 1; return 1 + a[0] * Math.cos(2 * Math.PI * ((((S.day || 0) % 360) / 30) - a[1]) / 12); };
@@ -6568,7 +6595,7 @@ const unitsOf = c => unitsBase(c) * (PLAN_DIM[c.t] ? planMk(c) : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
 const actOf = c => FLEVEL[c.t] ? clamp(c._actE == null ? (c.prod ? 1 : 0) : c._actE, 0, 1) : 1;   // activité lissée d'une usine (0 = à l'arrêt)
 const actF = c => FLEVEL[c.t] ? 0.25 + 0.75 * actOf(c) : 1;   // l'effectif d'une usine suit son activité : une usine vide n'emploie que 25 % de ses postes (gardiennage, maintenance, encadrement)
-const jobsOf = c => TYPES[c.t].jobs * cropAreaK(c) * levelMult(c) * crewOf(c) * actF(c) * planJobs(c) * (c.cr && c.dry ? CR_DRY : 1) + (c.cr ? CR_JOBS[crLv(c)] * crewOf(c) : 0);   // passe 79 : équipe du concasseur
+const jobsOf = c => TYPES[c.t].jobs * farmCostK(c) * levelMult(c) * crewOf(c) * actF(c) * planJobs(c) * (c.cr && c.dry ? CR_DRY : 1) + (c.cr ? CR_JOBS[crLv(c)] * crewOf(c) : 0);   // passe 79 : équipe du concasseur
 const fillOf = c => clamp(STAFF * wageOf(c).attr, 0, 1);
 const qualMult = c => 1 + 0.06 * (c.qual || 0) + fxQv(c);
 function haulOf(c) {
@@ -6906,7 +6933,7 @@ const firmBldgs = fid => { const a = []; eachBuilding(c => { if (c.t !== 'npc' &
 function firmDebtSet(fid, v) { const f = firmOf(fid); if (!f) return 0; const others = firmsL().reduce((a, x) => a + (x.id === fid ? 0 : (x.debt || 0)), 0), assets = firmBldgs(fid).reduce((a, c) => a + investOf(c), 0); f.debt = clamp(+v || 0, 0, Math.max(0, Math.min((S.loan || 0) - others, assets))); saveSoon(); return f.debt; }
 function firmSweep(fid) { const f = firmOf(fid); if (!f) return 0; const v = f.cash || 0; f.cash = 0; say(v >= 0 ? `${f.name} remonte ${money(v)} de dividendes à la maison mère.` : `La maison mère recapitalise ${f.name} de ${money(-v)}.`, 'info'); saveSoon(); return v; }
 const upkOf = c => upkOf0(c) * znUm(c);   // passe 34 : taxe locale exonérée / loyer foncier réduit en zone subventionnée
-const upkOf0 = c => { const T = TYPES[c.t]; return (((c.t === 'res' ? resUpk(c) : T.upkeep * cropAreaK(c) * (c.cr && c.dry ? CR_DRY : 1) * levelMult(c) * (1 + 0.1 * (c.qual || 0)) * (FLEVEL[c.t] ? actF(c) * planUpk(c) * fxUpk(c) : 1)) + phOvh(c) + (c.cr ? CR_UPK[crLv(c)] : 0)) * cpi() + (c._ptax || 0) + palUpk(c)) * (POLE_SHOPS[c.t] ? poleUm(c) : 1); };   // passe 44 : pôle commercial
+const upkOf0 = c => { const T = TYPES[c.t]; return (((c.t === 'res' ? resUpk(c) : T.upkeep * farmCostK(c) * (c.cr && c.dry ? CR_DRY : 1) * levelMult(c) * (1 + 0.1 * (c.qual || 0)) * (FLEVEL[c.t] ? actF(c) * planUpk(c) * fxUpk(c) : 1)) + phOvh(c) + (c.cr ? CR_UPK[crLv(c)] : 0)) * cpi() + (c._ptax || 0) + palUpk(c)) * (POLE_SHOPS[c.t] ? poleUm(c) : 1); };   // passe 44 : pôle commercial
 const firmsSave = () => firmsL().map(f => Object.assign({}, f, { m30: (f.m30 || []).map(r => r.map(Math.round)), cum: (f.cum || []).map(Math.round), d: f.d || null }));
 const grpSave = () => { const G = grpS(), led = {}; Object.keys(G.led).forEach(k => { const r = {}; Object.keys(G.led[k]).forEach(f => { const v = G.led[k][f]; if (v[0] > 0.01 || v[1] > 0.01) r[f] = [+v[0].toFixed(2), +v[1].toFixed(2)]; }); if (Object.keys(r).length) led[k] = r; }); return { nid: G.nid, integ: G.integ ? 1 : 0, p: G.p, led, pd: G.pd || null, pm30: (G.pm30 || []).map(r => r.map(Math.round)), pcum: (G.pcum || []).map(Math.round), pcd: G.pcd || 0 }; };
 
@@ -7374,7 +7401,7 @@ function step() {
   buildings.forEach(c => {
     const T = TYPES[c.t];
     if (!T.ext) return;
-    const d = S.dep[idx(c.x, c.y)], fill = fillOf(c), nominal = T.rate * unitsOf(c) * cropAreaK(c);
+    const d = S.dep[idx(c.x, c.y)], fill = fillOf(c), nominal = T.rate * unitsOf(c) * farmAreaK(c);
     let out = nominal * fill * (S.day <= c.alertUntil ? 0.75 : 1) * (c.linked === false ? UNLINKED_EFF : 1) * (isFarmK(T.ext) ? TM.crop * soilMult(c) * seasonMult(T.ext) : T.ext === 'wood' ? TM.wood : (T.ext === 'oil' || T.ext === 'gas') ? TM.oil : TM.ore) * gradeOf(c.x, c.y, T.ext);
     if (isFarmK(T.ext)) { /* sol renouvelable */ } else if (!d || d.k !== T.ext) out = 0; else if (unlimitedRes() && MINE_K[T.ext]) { const dk = depK(T), rem = Math.min(out, d.r / dk); d.r -= rem * dk; c._xcost = (out - rem) * unitAcq(c); indImport += c._xcost; c.inCost = c._xcost; c.dry = false; } else { const dk = depK(T); out = Math.min(out, d.r / dk); d.r -= out * dk; if (d.r < 1 && !c.dry) { c.dry = true; say(`Gisement épuisé : ${T.name.toLowerCase()} (${c.x + 1}, ${c.y + 1}) à l'arrêt.${c.t === 'qgravel' && crLv(c) ? ' Son concasseur continue de produire des granulats recyclés à partir des gravats de la ville.' : RECY_FROM[c.t] ? ' Ouvre la fiche : investis dans un concasseur (recyclage des gravats de démolition) pour continuer à produire, ou démolis-la avec remboursement partiel.' : ' Ouvre une nouvelle mine ailleurs.'}`, 'bad'); c._dryA = S.day; } else if (c.dry && RECY_FROM[c.t] && !crLv(c) && !c.crb && S.day - (c._dryA || 0) >= 60) { c._dryA = S.day; say(`Rappel : ${T.name.toLowerCase()} (${c.x + 1}, ${c.y + 1}) est épuisée et coûte encore son entretien. Investis dans un concasseur (gravats de démolition) ou démolis-la.`, 'warn'); } }
     if (CROPS[T.ext] && c.fert) { const fq = out * FERT_USE, have = Math.min(1, (S.stock.fert || 0) / Math.max(1e-9, fq)); out *= 1 + FERT_GAIN * have; S.stock.fert = Math.max(0, (S.stock.fert || 0) - fq * have); c.inCost = fq * have * (S.price.fert || GOODS.fert.base); c._fu = have; } else c._fu = 0;   // passe 33 : engrais (optionnel) = +20 % de récolte, 6 % du volume en engrais pris dans ton stock
@@ -8166,6 +8193,7 @@ function place(x, y, key) {
   flyers.push({ x, y, text: '-' + fmt(tot), t: performance.now(), col: '#ff8a8e' });
   if (T.ret) b.traffic = trafficAt(x, y);
   if (T.live) b.hd = 0.2;   // troupeau neuf : 20 % de la capacité
+  if (isFarmT(key)) say(`${T.name} : corps de ferme ${T.w}×${T.h} (${Math.round((T.w || 1) * (T.h || 1) * HA_CASE)} ha), un petit lopin. Agrandis-la depuis sa fiche (« Agrandir la ferme », vers l'est et le sud) : une ferme devient rentable avec de la surface.`, 'info');   // passe 87
   if (T.ext) { if (!extLinked(b, linkedMask())) say('Hors réseau : rendement de ' + Math.round(UNLINKED_EFF * 100) + ' %. Relie-la à la ville avec l\'outil Relier pour atteindre 100 %.', 'info'); }
   else if (key !== 'road' && !footConn(b)) say('Ce bâtiment ne touche aucune rue : il ne produira rien. Choisis une case au bord d\'un bloc.', 'warn');
   if (FLEVEL[key]) say(`${T.name} construite : elle est vide. Clique-la (outil Main) et choisis un produit à fabriquer : l'approvisionnement se règle ensuite tout seul.`, 'info');
@@ -8181,6 +8209,7 @@ function autoConnect(x, y) {
   const free = (X, Y) => inb(X, Y) && !S.grid[idx(X, Y)] && (!S.dep[idx(X, Y)] || S.dep[idx(X, Y)].k === 'wood' || CROPS[S.dep[idx(X, Y)].k]) && ZONE[idx(X, Y)] === 0;
   const ownRoad = (X, Y) => { const c = rawCell(X, Y); return !!c && c.t === 'road' && c.own; };
   const pass = (X, Y) => free(X, Y) || ownRoad(X, Y);
+  const fz = isFarmT(a.t) && !a.fpOld ? (X, Y) => (X >= a.x && X < a.x + FARM_MAX && Y >= a.y && Y < a.y + FARM_MAX && !ownRoad(X, Y) ? 2 : 0) : () => 0;   // passe 87 : la route d'une ferme évite si possible les terres où elle s'agrandira (est et sud)
   const linkedAt = (X, Y) => inb(X, Y) && lm[idx(X, Y)] === 1;
   const touchesLinked = (X, Y) => linkedAt(X, Y) || linkedAt(X + 1, Y) || linkedAt(X - 1, Y) || linkedAt(X, Y + 1) || linkedAt(X, Y - 1);
   const dist = new Map(), prev = new Map(), open = [];
@@ -8191,7 +8220,7 @@ function autoConnect(x, y) {
       const nx = a.x + ox + d[0], ny = a.y + oy + d[1];
       if (ox + d[0] >= 0 && ox + d[0] < a.w && oy + d[1] >= 0 && oy + d[1] < a.h) return;
       if (!pass(nx, ny)) return;
-      const k = key(nx, ny, di), c0 = ownRoad(nx, ny) ? 0.2 : 1;
+      const k = key(nx, ny, di), c0 = (ownRoad(nx, ny) ? 0.2 : 1) + fz(nx, ny);
       if (!dist.has(k)) { dist.set(k, c0); open.push([c0, nx, ny, di]); }
     });
   }
@@ -8204,7 +8233,7 @@ function autoConnect(x, y) {
     D.forEach((d, ndi) => {
       const nx = X + d[0], ny = Y + d[1];
       if (!pass(nx, ny)) return;
-      const nc = c + (ownRoad(nx, ny) ? 0.2 : 1) + (ndi !== di ? 0.5 : 0), k = key(nx, ny, ndi);
+      const nc = c + (ownRoad(nx, ny) ? 0.2 : 1) + fz(nx, ny) + (ndi !== di ? 0.5 : 0), k = key(nx, ny, ndi);
       if (nc < (dist.get(k) || 1e9)) { dist.set(k, nc); prev.set(k, key(X, Y, di)); open.push([nc, nx, ny, ndi]); }
     });
   }
@@ -11559,7 +11588,7 @@ function renderBuilding(force) {
     ${RECY_FROM[c.t] ? crCard(c) : ''}
     ${T.ext && c.linked === false ? `<div class="lever"><h4>Logistique</h4><small>Hors réseau : rendement 65 %, transport plus cher.</small><button class="btn" data-act="link">Relier au réseau</button></div>` : ''}
     ${T.ret ? priceCard(c) : ''}
-    ${CROPS[T.ext] ? farmCard(c) : T.live ? herdCard(c) : ''}
+    ${isFarmK(T.ext) ? farmSizeHTML(c) : ''}${CROPS[T.ext] ? farmCard(c) : T.live ? herdCard(c) : ''}
   </div>
   ${firmCard(c)}
   <div class="actions"><button class="btn sec" data-act="bull">Démolir</button></div>`;
@@ -11612,6 +11641,7 @@ function bAct(a) {
   else if (a.indexOf('train:') === 0) { const k = a.slice(6), cst = trainCost(c, k); if (cst && S.cash >= cst) { S.cash -= cst; c.invest = investOf(c) + cst; c.train = c.train || {}; c.train[k] = (c.train[k] | 0) + 1; flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cst), t: performance.now(), col: '#ff8a8e' }); } }
   else if (a.indexOf('crop:') === 0) { const g = a.slice(5), nt = CROPS[g]; if (nt && nt !== c.t && S.cash >= 400) { S.cash -= 400; c.t = nt; c.born = performance.now() - 300; refreshStats(); } }
   else if (a === 'fert') { c.fert = c.fert ? 0 : 1; }
+  else if (a === 'fgrow') farmGrowAct(c);   // passe 87 : agrandir la ferme (annexe une rangée de champs ou de pâturages)
   else if (a === 'fertbuy') { const F = farmPlan(c); if (F.toBuy > 0.5) fertBuy(Math.ceil(F.toBuy)); }   // passe 85 : achat manuel (gratuit) de l'engrais jusqu'à la récolte
   else if (a === 'irr') { const cst = irrCostC((c.irr | 0) + 1, c); if (cst && S.cash >= cst) { S.cash -= cst; c.irr = (c.irr | 0) + 1; c.invest = investOf(c) + cst; } }
   else if (a.indexOf('opensup:') === 0) { supMode = 'sup'; openSup(c, a.slice(8)); return; }
@@ -14901,7 +14931,7 @@ function fertBuy(qty, who) {   // achat d'engrais au négociant (manuel : bouton
 }
 function farmPlan(c) {   // données du bloc (aussi utilisées par les tests)
   const T = TYPES[c.t], k = T.ext, P = S.price[k] || GOODS[k].base, cal = calNext(k), irr = c.irr | 0, soil = soilMult(c), fu = c._fu || 0;
-  const base = (c.out || 0) / (1 + FERT_GAIN * fu), nom = T.rate * unitsOf(c) * cropAreaK(c) * TM.crop * soil * seasonMult(k) * gradeOf(c.x, c.y, k), b0 = Math.max(base, nom * 0.5);
+  const base = (c.out || 0) / (1 + FERT_GAIN * fu), nom = T.rate * unitsOf(c) * farmAreaK(c) * TM.crop * soil * seasonMult(k) * gradeOf(c.x, c.y, k), b0 = Math.max(base, nom * 0.5);
   const fPx = fertBuyPx(), fGain = b0 * FERT_GAIN * P, fCost = b0 * FERT_USE * (S.price.fert || GOODS.fert.base), fCostB = b0 * FERT_USE * fPx;
   const need = farmsFertNeed() + (c.fert ? 0 : b0 * FERT_USE), stk = S.stock.fert || 0, cover = need > 1e-9 ? stk / need : Infinity;
   const horizon = cal ? (cal.grow ? cal.dH : cal.dS + ((cal.harv - cal.sow + 12) % 12) * 30) : 90, toBuy = Math.max(0, need * Math.max(30, horizon) - stk);
@@ -14942,10 +14972,73 @@ function cooFarm() {   // COO Argent ou Or, hors Round : engrais activé là où
   const miss = need * hz - (S.stock.fert || 0), q = miss > need * 5 ? fertBuy(miss, 'coo') : 0;
   if (on || q) cooLog(`Fermes : ${on ? 'engrais activé sur ' + on + ' ferme' + (on > 1 ? 's' : '') + ' (il rapporte plus qu\'il ne coûte)' : ''}${on && q ? ' ; ' : ''}${q ? fmt(q) + ' u d\'engrais achetées au négociant pour tenir ' + hz + ' jours (' + money(q * fp) + ')' : ''}.`, 0);
 }
+// ---- Passe 87 : surface de la ferme. Agrandir = annexer une rangée de cases (côté est ou sud, l'ancre ne bouge pas) de terre agricole libre en campagne.
+// Prix d'une case : équipement (clôtures, drainage, plantation, cheptel : T.cellCost, réduit pour la caste Agriculteur) + foncier local (même prix que pour poser un bâtiment).
+function farmCellErr(x, y) {
+  if (!inb(x, y)) return 'le bord de la carte'; const j = idx(x, y);
+  if (ZONE[j] !== 0) return 'la ville, le port ou la mer'; const o = S.grid[j]; if (o) return o.t === 'road' ? 'une route' : 'un bâtiment';
+  const d = S.dep[j]; if (d && !CROPS[d.k]) return d.k === 'wood' ? 'une forêt' : 'un gisement'; if (S.npcFarm && S.npcFarm[j]) return 'les terres de ' + S.npcFarm[j].o; return '';
+}
+function farmGrowSides(c) {
+  if (!isFarmT(c.t) || c.fpOld) return []; const out = [];
+  [['E', c.w < FARM_MAX], ['S', c.h < FARM_MAX]].forEach(([sd, room]) => { if (!room) return; const cells = [];
+    if (sd === 'E') for (let oy = 0; oy < c.h; oy++) cells.push([c.x + c.w, c.y + oy]); else for (let ox = 0; ox < c.w; ox++) cells.push([c.x + ox, c.y + c.h]);
+    let why = ''; for (const q of cells) { why = farmCellErr(q[0], q[1]); if (why) break; } out.push({ side: sd, cells, why }); });
+  return out;
+}
+function farmCellPrice(c, X, Y) {
+  const T = TYPES[c.t], u = landUseOf(c.t) || landNatUse(X, Y), land = S.pland && S.pland[idx(X, Y)] ? 0 : Math.round(landPrice(X, Y, u) * (u === 'ext' ? LM_EXT : 1));
+  return { build: Math.round((T.cellCost || T.cost / farmBaseA(T)) * casteCost(c.t) * Math.max(1, cpi())), land };
+}
+function farmGrowQuote(c) {
+  if (!isFarmT(c.t)) return { ok: false, why: 'pas une ferme' };
+  if (c.fpOld) return { ok: false, why: 'ancienne ferme plus petite que le corps de ferme actuel : démolis-la et repose-la pour l\'agrandir' };
+  if (c.w >= FARM_MAX && c.h >= FARM_MAX) return { ok: false, max: 1, why: `taille maximale atteinte (${FARM_MAX}×${FARM_MAX} cases)` };
+  const sides = farmGrowSides(c), ok = sides.filter(q => !q.why);
+  if (!ok.length) return { ok: false, why: 'bloquée à l\'est et au sud par ' + [...new Set(sides.map(q => q.why))].join(' et ') };
+  ok.sort((a, b) => (a.side === 'E' ? c.w : c.h) - (b.side === 'E' ? c.w : c.h));   // le côté le plus court d'abord : la ferme reste ramassée
+  const q = ok[0]; let build = 0, land = 0; q.cells.forEach(p => { const v = farmCellPrice(c, p[0], p[1]); build += v.build; land += v.land; });
+  return { ok: true, side: q.side, cells: q.cells, n: q.cells.length, build, land, cost: build + land, w: c.w + (q.side === 'E' ? 1 : 0), h: c.h + (q.side === 'S' ? 1 : 0) };
+}
+function farmGrow(c, opt) {   // opt 'free' : sans paiement (bancs de mesure, tests) ; renvoie le devis exécuté ou false
+  const q = farmGrowQuote(c); if (!q.ok) return false; const free = opt === 'free';
+  if (!free) { if (S.cash < q.cost) return false; S.cash -= q.cost; c.invest = investOf(c) + q.build; if (q.land > 0) c.lp = (c.lp || 0) + q.land; }
+  const ai = idx(c.x, c.y); q.cells.forEach(p => { const j = idx(p[0], p[1]); if (S.pland) delete S.pland[j]; S.grid[j] = { t: 'part', ai, ox: p[0] - c.x, oy: p[1] - c.y }; });
+  c.w = q.w; c.h = q.h; trfDirty = true; siteC.dirty = true; return q;
+}
+function farmGrowAct(c) {
+  const q = farmGrowQuote(c); if (!q.ok) { say('Agrandissement impossible : ' + q.why + '.', 'warn'); return false; }
+  if (S.cash < q.cost) { say(`Il faut ${money(q.cost)} pour annexer ${q.n} cases (${money(q.build)} d'aménagement + ${money(q.land)} de terrain).`, 'bad'); return false; }
+  farmGrow(c); flyers.push({ x: c.x, y: c.y, text: '-' + fmt(q.cost), t: performance.now(), col: '#ff8a8e' }); c.born = performance.now() - 300;
+  say(`Ferme agrandie : ${c.w * c.h} cases (${fmt(Math.round(c.w * c.h * HA_CASE))} ha), +${q.n} cases de ${TYPES[c.t].live ? 'pâturages' : 'champs'} pour ${money(q.cost)}.`, 'good'); refreshStats(); updateHUD(); saveSoon(); return true;
+}
+// économie de la ferme selon sa surface, aux cours du jour (hors baisse du cours quand ton offre grandit) : EBITDA(A) = marge par case × A − frais × farmCostKA(A) / farmCostK
+function farmEcon(c) {
+  const T = TYPES[c.t], B = farmBaseA(T), A = (c.w || 1) * (c.h || 1), K = farmCostK(c), e = farmEcoOf(T), cp = Math.max(1, cpi());
+  let rev = c.pRev || 0, vc = Math.max(0, c.inCost || 0) + (c.transport || 0), fc = (c.wages || 0) + (c.upk || 0), est = false;
+  if (!(rev > 0)) { est = true; const P = (S.price[T.ext] || GOODS[T.ext].base) + Object.keys(T.co || {}).reduce((s, g) => s + T.co[g] * (S.price[g] || GOODS[g].base), 0), q = T.rate * farmAreaK(c);
+    rev = q * P; vc = T.live ? q * T.live.feed * (S.price.wheat || GOODS.wheat.base) : 0; fc = upkOf0(c) + jobsOf(c) * WAGE_K * cp; }
+  const m1 = (rev - vc) / A, f1 = fc / Math.max(1e-9, K), eb = A2 => m1 * A2 - f1 * farmCostKA(T, A2), den = m1 - f1 * e.v / B;
+  const be = den > 0 ? Math.max(B, Math.ceil(f1 * (e.eq / B) * (1 - e.v) / den)) : Infinity, q = farmGrowQuote(c), n = q.ok ? q.n : Math.max(c.w, c.h);
+  return { A, B, rev, vc, fc, est, eb: eb(A), ebC: eb(A) / A, be, ebAt: eb, marg: (eb(A + n) - eb(A)) / n, n, q, mx: FARM_MAX * FARM_MAX };
+}
+function farmSizeHTML(c) {
+  const T = TYPES[c.t], E = farmEcon(c), q = E.q, ha = a => fmt(Math.round(a * HA_CASE)), live = !!T.live, cap = live ? Math.round(T.live.head * farmAreaK(c)) : 0;
+  const what = live ? 'pâturages et fourrage' : T.ext === 'grapes' ? 'vignes' : 'champs';
+  const beTxt = E.be === Infinity || E.be > E.mx ? `<b>pas rentable au cours actuel, même à ${E.mx} cases</b> (cours trop bas pour couvrir les frais)` : E.be <= E.B ? `<b>rentable dès le corps de ferme</b> au cours du jour` : `<b>rentable à partir de ${E.be} cases (${ha(E.be)} ha)</b> au cours du jour`;
+  const ref = live ? (T.ext === 'milk' ? '50 vaches laitières demandent 50 à 70 ha (22 à 30 cases).' : 'Un élevage en plein air demande de la surface : les têtes suivent le pâturage.') : T.ext === 'grapes' ? 'Un domaine viticole fait 10 à 30 ha (5 à 13 cases).' : 'Une exploitation céréalière fait 100 à 200 ha (45 à 90 cases) ; 3×3 cases (20 ha) est un petit lopin.';
+  const btn = q.ok ? `<button class="btn" data-act="fgrow" ${S.cash >= q.cost ? '' : 'disabled'}>Agrandir la ferme : +${q.n} cases (${ha(q.n)} ha) · ${money(q.cost)}</button>` : `<button class="btn" data-act="fgrow" disabled>${q.max ? 'Taille maximale' : 'Agrandissement bloqué'}</button>`;
+  return `<div class="lever wide fsize" data-fsize="1"><h4>Surface de l'exploitation</h4>
+    <div class="kpis"><div><small>Surface</small><b>${E.A} cases · ${ha(E.A)} ha</b></div><div><small>Emprise</small><b>${c.w}×${c.h}</b></div>${live ? `<div><small>Têtes</small><b>${fmt(cap)} ${T.live.an}</b></div>` : ''}<div><small>EBITDA${E.est ? ' estimé' : ''}</small><b class="${E.eb >= 0 ? 'pos' : 'neg'}">${money(E.eb * DM)}/mois</b></div><div><small>Par case</small><b class="${E.ebC >= 0 ? 'pos' : 'neg'}">${money(E.ebC * DM)}/mois</b></div></div>
+    <small>Corps de ferme ${T.w}×${T.h} (${E.B} cases : ${live ? 'étable, stockage du fourrage' : T.ext === 'grapes' ? 'chai, cuverie' : 'grange, silo, tracteur'}) + ${E.A - E.B} cases de ${what}. ${live ? 'Le troupeau (et la production) suit la surface de pâturage.' : 'La récolte suit la surface cultivée.'} ${ref}</small>
+    <small>Seuil : ${beTxt}. En dessous, la cour et l'équipe (frais fixes) pèsent trop ; au-delà, chaque case de plus rapporte, jusqu'à ce que ton offre fasse baisser le cours local.</small>
+    <small>${q.ok ? `Gain marginal : +1 case ≈ <b class="${E.marg >= 0 ? 'pos' : 'neg'}">${money(E.marg * DM)}/mois</b> d'EBITDA. Prochaine annexe : ${q.n} cases côté ${q.side === 'E' ? 'est' : 'sud'} (${money(q.build)} d'aménagement + ${money(q.land)} de terrain), soit ${money(q.cost / q.n)} la case${E.marg > 0 ? `, amortie en ${fmt(Math.max(1, Math.round(q.cost / q.n / E.marg)))} jours` : ''}.` : 'Agrandissement impossible : ' + q.why + '.'}</small>
+    <div class="seg2" style="margin-top:4px">${btn}</div></div>`;
+}
 function herdCard(c) {
-  const T = TYPES[c.t], L = T.live, hd = c.hd == null ? 0.2 : c.hd, irr = c.irr | 0, dr = droughtNow(), cost = irr >= 3 ? 0 : irrCost(irr + 1), fd = c._feed == null ? 1 : c._feed, sick = S.day <= (c.sickUntil || -1), heads = Math.round(L.head * hd);
+  const T = TYPES[c.t], L = T.live, hd = c.hd == null ? 0.2 : c.hd, irr = c.irr | 0, dr = droughtNow(), cost = irr >= 3 ? 0 : irrCostC(irr + 1, c), fd = c._feed == null ? 1 : c._feed, sick = S.day <= (c.sickUntil || -1), cap = Math.round(L.head * farmAreaK(c)), heads = Math.round(cap * hd);
   const co = Object.keys(T.co || {}).map(g => gName(g).toLowerCase()).join(', ');
-  return `<div class="lever wide"><h4>Troupeau</h4><small>${T.name} : ${fmt(heads)} ${L.an} sur ${L.head} de capacité · produit ${gName(T.ext).toLowerCase()} en continu, puis ${co}.</small>
+  return `<div class="lever wide"><h4>Troupeau</h4><small>${T.name} : ${fmt(heads)} ${L.an} sur ${fmt(cap)} de capacité (${fmt(Math.round(cap / ((c.w || 2) * (c.h || 2))))} par case de pâturage) · produit ${gName(T.ext).toLowerCase()} en continu, puis ${co}.</small>
     <div class="kpis" style="margin-top:8px"><div><small>Troupeau</small><b class="${hd < 0.95 ? 'neg' : 'pos'}">${Math.round(hd * 100)} %</b></div><div><small>Alimentation (blé)</small><b class="${fd < 0.97 ? 'neg' : 'pos'}">${Math.round(fd * 100)} %</b></div><div><small>Santé</small><b class="${sick ? 'neg' : 'pos'}">${sick ? 'épizootie' : 'bonne'}</b></div><div><small>Pâturage</small><b>${Math.round(soilMult(c) * 100)} %</b></div><div><small>Irrigation</small><b>${'●'.repeat(irr)}${'○'.repeat(3 - irr)}</b></div></div>
     <div class="seg2" style="margin-top:6px"><button class="btn" data-act="irr" ${cost && S.cash >= cost ? '' : 'disabled'}>${cost ? 'Irriguer les prés · ' + money(cost) : 'Irrigation maximale'}</button></div>
     <small>Aliment : ${L.feed} blé par unité de ${gName(T.ext).toLowerCase()} (stock puis import par le port). ${fd < 0.97 ? 'Stock de blé insuffisant : la production chute jusqu\'à ' + Math.round(FEED_FLOOR * 100) + ' %. Construis une ferme de blé.' : 'Troupeau bien nourri.'} Le troupeau met ${L.grow} jours à atteindre sa pleine capacité ; un risque d'épizootie (${(L.dis * 100).toFixed(1).replace('.', ',')} % par jour) réduit la production pendant 10 jours.</small></div>`;
@@ -17003,7 +17096,9 @@ function drawTileOf(a, x, y, ox, oy, o) {
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
   if (P2_TYPE[a.t] && p2Ready(a.t) && !(a.t === 'dc' && !a.lg)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
-    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = a.t === 'f3' && a.w === 2 && a.h === 2 && vvOk(P2_F3_DUO) ? drawF3Duo(a) : p2Draw(vvP2Name(a), p, Math.min(a.w, a.h) * (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t]) ? P2_REPLI_K[a.t] || 1 : 1), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; farmFx(a, o.now); if (VV_FARM[a.t]) vvFarm(a); if ((a.t === 's2' || a.t === 's3') && a.w === a.h && !/^bat_/.test(SG.cur && SG.cur.n || '')) { const cur = SG.cur; drawCarts(a); SG.cur = cur; } }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes ; barème : sprite carré sur toute l'emprise carrée, caddies sur le parking
+    const fe = farmExt(a); if (fe && !(x < a.x + fe.bw && y < a.y + fe.bh)) farmExtTile(a, fe, x, y, p);   // passe 87 : case annexée (champ ou pâturage) dessinée à son tour
+    if (fe && x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (fe.bw - 1) / 2, a.y + (fe.bh - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(fe.bw, fe.bh), { x: q.x, y: q.y + TH / 2 }, [fe.bw, fe.bh]); a._top = ty == null ? p.y - 40 : ty; farmExtFx(a, fe, o.now); }   // corps de ferme dans le coin nord, champs et annexes devant
+    else if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = a.t === 'f3' && a.w === 2 && a.h === 2 && vvOk(P2_F3_DUO) ? drawF3Duo(a) : p2Draw(vvP2Name(a), p, Math.min(a.w, a.h) * (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t]) ? P2_REPLI_K[a.t] || 1 : 1), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; farmFx(a, o.now); if (VV_FARM[a.t]) vvFarm(a); if ((a.t === 's2' || a.t === 's3') && a.w === a.h && !/^bat_/.test(SG.cur && SG.cur.n || '')) { const cur = SG.cur; drawCarts(a); SG.cur = cur; } }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes ; barème : sprite carré sur toute l'emprise carrée, caddies sur le parking
   } else if ((a.t === 's2' || a.t === 's3') && !a.fpOld) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { drawRetailBox(a, grow); drawCarts(a); }   // repli sans sprite (jamais l'ancien atlas en losanges)
   } else if (a.t === 'npc' && vvNpc(a, p, x, y)) {
@@ -20361,7 +20456,7 @@ const HERD = { fcattle: ['animal_vache', 23, 6, 0.22, 0.16], fsheep: ['animal_mo
 // passe 85 : cultures 3×3 (sprites 768 px restaurés) : zone du champ en cases d'une emprise 3×3 (grange, silo et tracteur dans le coin nord-est : u grand, v petit) ;
 // une ancienne culture 2×2 gardée telle quelle (fpOld) affiche le même sprite réduit : même zone, mise à l'échelle par a.w / 3
 const FARM_ZONE3 = { crop: [[0.1, 0.1], [1.2, 0.1], [1.2, 0.78], [2.9, 0.78], [2.9, 2.86], [0.1, 2.86]] };
-function farmZone(a) { const T = TYPES[a.t], c3 = T && CROPS[T.ext] === a.t, Zn = c3 ? FARM_ZONE3.crop : FARM_ZONE[a.t] || (a.t === 'fvine' ? FARM_ZONE.vine : FARM_ZONE.crop), k = c3 ? 3 : 2, sx = a.w / k, sy = a.h / k; return Zn.map(q => [q[0] * sx, q[1] * sy]); }
+function farmZone(a) { if (a._zp) return a._zp; const T = TYPES[a.t], c3 = T && CROPS[T.ext] === a.t, Zn = c3 ? FARM_ZONE3.crop : FARM_ZONE[a.t] || (a.t === 'fvine' ? FARM_ZONE.vine : FARM_ZONE.crop), k = c3 ? 3 : 2, sx = a.w / k, sy = a.h / k; return Zn.map(q => [q[0] * sx, q[1] * sy]); }
 function fxFill(a, P, col) { ctx.fillStyle = col; ctx.beginPath(); P.forEach((q, i) => { const s = iso(a.x + q[0], a.y + q[1]); if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); }); ctx.closePath(); ctx.fill(); }
 const fxWind = (T, u, v) => Math.sin(T * 1.6 - (u * 1.1 + v * 0.8) * 3.4) * 0.68 + Math.sin(T * 0.85 - (v - u) * 2.3 + 1.3) * 0.32;   // vagues de vent qui traversent le champ (de -1 à 1)
 function fxField(a, now, kind) {   // blé (épis dorés) ou colza (fleurs jaunes) : tapis dense de tiges qui ploient sous le vent
@@ -20426,7 +20521,7 @@ function fxVine(a, now) {   // rangs de ceps palissés : piquets, fil, haie de f
   ctx.restore();
 }
 function herdList(a, now) {   // troupeau animé : chaque bête se promène autour de sa place (allure variable, se retourne selon son sens de marche) ; [y sol, x, y dessin, miroir, u, v], trié de l'arrière vers l'avant
-  const H = HERD[a.t]; if (!H) return []; const P = farmZone(a), T = now / 1000, n = Math.round(H[2] * a.w * a.h / 4), L = [], r = H[4];
+  const H = HERD[a.t]; if (!H) return []; const P = farmZone(a), T = now / 1000, n = a._hn != null ? a._hn : Math.round(H[2] * a.w * a.h / 4), L = [], r = H[4];
   for (let i = 0; i < n; i++) {
     let hu = 0, hv = 0; for (let t = 0; t < 12; t++) { const u = 0.15 + hash(a.x * 17 + i, a.y * 13 + t, 91) * (a.w - 0.3), v = 0.15 + hash(a.x * 19 + i, a.y * 11 + t, 92) * (a.h - 0.3); if (inPoly(P, u, v) && inPoly(P, u + r, v + r) && inPoly(P, u - r, v - r) && inPoly(P, u + r, v - r) && inPoly(P, u - r, v + r)) { hu = u; hv = v; break; } }
     if (!hu) continue;
@@ -20448,7 +20543,7 @@ function farmProbe(a, now, zz) {   // test (t59) : dessine les effets de la ferm
   function RP() { } Object.assign(RP.prototype, PM);
   const C = new Proxy({}, { get: (t, k) => k === 'drawImage' ? (im, x, y, w, h) => rec(x, y, x + w, y + h) : k === 'translate' ? (x, y) => { T.x += T.s * x; T.y += y; } : k === 'scale' ? (x) => { T.s *= Math.sign(x) || 1; } : k === 'save' ? () => st.push({ ...T }) : k === 'restore' ? () => Object.assign(T, st.pop() || { s: 1, x: 0, y: 0 }) : PM[k] || (() => {}), set: () => true });
   const c0 = ctx, z0 = z, P0 = window.Path2D; ctx = C; z = zz || 1.3; window.Path2D = RP;
-  try { farmFx(a, now); } finally { ctx = c0; z = z0; window.Path2D = P0; }
+  try { const fe = farmExt(a); if (fe) farmExtFx(a, fe, now); else farmFx(a, now); } finally { ctx = c0; z = z0; window.Path2D = P0; }
   return { bad: bad[0], box };
 }
 function farmFx(a, now) {   // appelé après le sprite HD de la ferme (case avant de l'emprise)
@@ -20457,6 +20552,42 @@ function farmFx(a, now) {   // appelé après le sprite HD de la ferme (case ava
   if (FX_DEBUG.on) { ctx.save(); ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 2; fxClipPath(a, farmZone(a)); ctx.stroke(); ctx.restore(); }
 }
 const FX_DEBUG = { on: false };
+// ---- Passe 87 : ferme agrandie. Le corps de ferme (sprite HD de base, 3×3 ou 2×2) reste dans le coin nord de l'emprise ; les cases annexées sont dessinées en champ HD
+// de la culture (drawField : blé mûr, parcelles recolorées) ou en pâturage clôturé, avec les mêmes effets vivants (tiges, rangs, vignes, troupeau) et des annexes HD
+// (granges et silos, chais, étables, bergeries, porcheries, poulaillers) le long de la bande arrière : une tous les 12 cases de culture, tous les 8 cases d'élevage (4 au plus).
+// Bêtes affichées ∝ têtes ∝ surface de pâturage. Purement visuel et déterministe (hash de la case) : rien n'est sauvegardé.
+const FARM_ANNEX = { fwheat: ['bat_ferme_hangar', 'bat_ferme_bovins'], fcorn: ['bat_ferme_hangar', 'bat_ferme_bovins'], frapeseed: ['bat_ferme_bovins', 'bat_ferme_hangar'], fsugar: ['bat_ferme_hangar', 'bat_ferme_bovins'],
+  fcotton: ['bat_ferme_hangar', 'bat_ferme_bovins'], frubber: ['bat_ferme_hangar'], fvine: ['bat_chai_vigne', 'bat_chai_vigneron'], fcattle: ['bat_ferme_stabulation_ronde', 'bat_ferme_etable_traversante', 'bat_ferme_traite'],
+  fsheep: ['bat_ferme_bergerie', 'bat_ferme_moutons'], fpig: ['bat_ferme_porcherie', 'bat_ferme_porcs'], fchicken: ['bat_ferme_poulailler', 'bat_ferme_poulets'] };
+function farmExt(a) {
+  const T = TYPES[a.t]; if (!T || !T.ext || !isFarmK(T.ext) || a.fpOld) return null; const bw = T.w || 1, bh = T.h || 1; if (!(a.w >= bw && a.h >= bh) || (a.w === bw && a.h === bh)) return null;
+  if (a._fe && a._fe.w === a.w && a._fe.h === a.h) return a._fe;
+  const A = a.w * a.h, B = bw * bh, nA = Math.min(4, Math.floor((A - B) / (T.live ? 8 : 12))), slots = [];
+  for (let k = 0; k < FARM_MAX; k++) { if (bw + 2 * k < a.w) slots.push([bw + 2 * k, 0]); if (bh + 2 * k < a.h) slots.push([0, bh + 2 * k]); }
+  const L = FARM_ANNEX[a.t] || [], o = Math.floor(hash(a.x, a.y, 87) * 7), ann = slots.slice(0, nA).map((q, i) => [q[0], q[1], L.length ? L[(i + o) % L.length] : null]), st = ann.length ? 1 : 0, e = 0.06;
+  const L6 = s0 => [[bw, e + s0], [a.w - e, e + s0], [a.w - e, a.h - e], [e + s0, a.h - e], [e + s0, bh], [bw, bh]];
+  return (a._fe = { w: a.w, h: a.h, bw, bh, A, B, ann, zp: L6(0), zh: L6(st) });   // zp : champs ou pâturage annexés ; zh : zone des bêtes (sans la bande arrière des annexes)
+}
+const farmAnnAt = (fe, u, v) => fe.ann.some(q => q[0] === u && q[1] === v);
+function farmExtTile(a, fe, x, y, p) {   // sol d'une case annexée : champ HD de la culture (pâturage : l'herbe du terrain)
+  const T = TYPES[a.t]; if (T.live || farmAnnAt(fe, x - a.x, y - a.y)) return;
+  drawField(p, { k: T.ext, r: DEPOSITS[T.ext] ? DEPOSITS[T.ext].res : 1 }, x, y);
+}
+function farmExtFx(a, fe, now) {
+  const T = TYPES[a.t], base = Object.assign({}, a, { w: fe.bw, h: fe.bh }), ext = Object.assign({}, a, { _zp: fe.zp }), hrd = Object.assign({}, a, { _zp: fe.zh });
+  farmFx(base, now); if (VV_FARM[a.t]) vvFarm(base);
+  if (z >= 0.4) { const k = FARM_FX[a.t];
+    if (k === 'wheat' || k === 'rapeseed') fxField(ext, now, k); else if (k === 'corn' || k === 'cane') fxRows(ext, now, k); else if (a.t === 'fvine') fxVine(ext, now);
+    if (T.live) {   // pâturage : prairie fauchée (teinte claire), meules de foin, clôture en bois sur le pourtour des cases annexées
+      ctx.save(); ctx.globalAlpha *= 0.38; fxFill(a, fe.zp, '#9cc85a'); ctx.restore();
+      for (let v = 0; v < a.h; v++) for (let u = 0; u < a.w; u++) { if ((u < fe.bw && v < fe.bh) || farmAnnAt(fe, u, v) || hash(a.x + u, a.y + v, 88) > 0.16) continue; const cu = u + 0.5, cv = v + 0.5; if (!inPoly(fe.zh, cu, cv)) continue; const q = iso(a.x + cu, a.y + cv), n = hash(a.x + u, a.y + v, 89) < 0.5 ? 'meule_foin' : 'balles_foin'; if (vvOk(n)) vvSpr(n, q.x, q.y, n === 'meule_foin' ? 22 : 18, hash(u, v, 90) < 0.5); }
+      const F = [[fe.bw, 0, a.w, 0], [a.w, 0, a.w, a.h], [a.w, a.h, 0, a.h], [0, a.h, 0, fe.bh]], pst = new Path2D(), rail = new Path2D();
+      F.forEach(f => { const L = Math.hypot(f[2] - f[0], f[3] - f[1]), n = Math.max(1, Math.round(L / 0.25)); for (let i = 0; i <= n; i++) { const t = i / n, b = iso(a.x + f[0] + (f[2] - f[0]) * t, a.y + f[1] + (f[3] - f[1]) * t); pst.moveTo(b.x, b.y); pst.lineTo(b.x, b.y - 7); if (i) rail.lineTo(b.x, b.y - 5); else rail.moveTo(b.x, b.y - 5); } });
+      ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = '#5a3c20'; ctx.lineWidth = 2.2; ctx.stroke(pst); ctx.strokeStyle = 'rgba(170,128,80,.95)'; ctx.lineWidth = 1.8; ctx.stroke(rail); ctx.restore();
+    } }
+  fe.ann.forEach(q => { if (!q[2] || !vvOk(q[2])) return; vvDraw(q[2], iso(a.x + q[0], a.y + q[1]), 1, null, [1, 1]); });   // annexes HD, une case chacune
+  if (T.live && z >= 0.4) { const H = HERD[a.t]; if (H && vvOk(H[0])) { hrd._hn = Math.round(H[2] * (fe.A - fe.B) / 4); fxHerd(hrd, now); } }   // troupeau des pâturages annexés : têtes ∝ surface
+}
 function fxClipPath(a, P) { ctx.beginPath(); P.forEach((q, i) => { const s = iso(a.x + q[0], a.y + q[1]); if (i) ctx.lineTo(s.x, s.y); else ctx.moveTo(s.x, s.y); }); ctx.closePath(); }
 function vvFarm(a) { const L = VV_FARM[a.t]; if (!L || a.w < 2 || a.h < 2) return; const k = a.w / 2; L.forEach((it, i) => { if (!it) return; const s = VV_SPOT[i], q = iso(a.x + s[0] * k, a.y + s[1] * k); vvSpr(it[0], q.x, q.y, it[1], hash(a.x + i, a.y, 83) < 0.5); }); }
 // Circulation : [sprite, avant vers le bas à gauche (1) ou à droite (0), utilitaire]
@@ -20816,6 +20947,7 @@ window.WSE = { say, isCmp, dif: { LV: DIF_LV, DEF: DIF_DEF, lv: difLv, k: difK, 
 Object.assign(window.WSE, { hq: HQ_IMG, vec: { sp: facSp, machine: facDrawMachine, mat: facDrawMat, truck: facDrawTruck, tree: facDrawTree, office: facDrawOffice, robotBase: facDrawRobotBase, rack: facDrawRack, item: fItem, belt: facBelt, pallet: facPallet, carton: facCarton, shadow: facShadow, cbox, sbox, cyl, quad, isoP, fshade }, ph: { vol: phVol, is: isPh, rmb: phRmb, keys: PH_KEYS, w: pk => scoreW(PRODUCTS[pk].cls, pk), setRmb: v => { S.rmb = v; }, el: elF }, fac: { links: () => (scene && scene.linkList) || [], linksOn: () => planLinksOn, setLinks: v => { planLinksOn = !!v; facBtns(); }, linkAt: planLinkAt, FG, FZ, FG_SLOTS, FAC_SPEC, FAC_IMG, FAC_NAMES, load: facLoad, unload: facUnload, img: facImg, info: planTopInfo, alertAt: facAlertAt, at: planTopAt, get expl() { return planExpl; }, get ang() { return planAng; } }, drawPlanTop, fxMake, fxSet, fxTrainBuy, fxRepair, fxDaily, fxTally, fxSkill, fxQuality, fxName, fxGoalN, FX_GOALS, shopF, fxRisk, fxRepairCost, fxTrainCost, FX_REPAIR_DAYS, PLAN_N, PLAN_FLOOR, PLAN_ORDER, slotKind, slotOk, slotOpen, planOpenN, planMigrate, planSlotXY, planSlotAt, immEnter, immExit, immLeave, camCmd, camLayout, planSetAng, planOrbit, planProj, mkPlanScene, SFX, sfxToggle, setImmPanel: v => { immPanel = v; } });
 Object.assign(window.WSE, { cityTune: o => { if (o.R0 != null) CG_R0 = o.R0; if (o.P != null) CG_P = o.P; if (o.CAP != null) CG_CAP = o.CAP; if (o.REL != null) CG_REL = o.REL; if (o.TIER != null) CG_TIER = o.TIER; return { CG_R0, CG_P, CG_CAP, CG_REL, CG_TIER }; }, citySvcCov, citySvc: () => ({ need: CITY_SVC, have: citySvcHave().n, cov: citySvcCov() }), cityTiers: CITY_TIER, cityTierR, comp: compNow, p2: { img: P2_IMG, ext: P2_EXT, type: P2_TYPE, dim: P2DIM }, centerOn, creditLimit, loanRate: loanRateNow, riskPrem, credCycle, inv: { step: stepInvites, sub: invSubscribe }, vc: { next: vcNext, raise: vcRaise, mult: vcMult, sold: vcSold, sent: mktSent } });
 Object.assign(window.WSE, { levelMult, pal: { DEF: PAL_DEF, POP: PAL_POP, popReq: (k, l) => palPopReq(PAL_DEF[k], l), DAYS: PAL_DAYS, DIA_D: PAL_DIA_D, MAINT: PAL_MAINT, ROUND_ACC: PAL_ROUND_ACC, of: palOf, reqs: palReqs, start: palStart, accel: palAccel, accDays: palAccDays, diaFor: palDiaFor, step: palStep, prog: palProg, left: palLeft, slots: palSlots, active: palActive, card: palCard, list: palListHTML, migrate: palMigrate, upk: palUpk, drawn: () => palBadgeN }, ent: { S: entS, san: entSan, prem: entPrem, dia: entDia, on: premOn }, coo: { LV: COO_LV, BUF: COO_BUF, set: cooSet, on: cooOn, sal: cooSal, pay: cooPay, spend: cooSpend, step: cooStep, review: cooReview, decide: cooDecide, opts: cooOpts, score: cooScoreOf, apply: cooApply, card: cooCardHTML, ins: cooIns }, scm: { S: scmS, san: scmSan, step: scmStep, score: scmScore, BADGES: SCM_BADGES, award: scmAward, rivals: scmRivals, rank: scmRankHTML, card: scmCardHTML }, p74Render, bestOffer, offerScore, supOffer, buyerQw, setPanel, setPtab });   // passe 74 : paliers, premium simulé, COO, maîtrise (tools/tests/t74, t75)
+Object.assign(window.WSE, { farmx: { FARM_MAX, FARM_ECO, HA_CASE, FARM_CORPS_K, FARM_CELL_K, FARM_ANNEX, areaK: farmAreaK, costK: farmCostK, costKA: (t, A) => farmCostKA(TYPES[t], A), quote: c => farmGrowQuote(c), grow: (c, o) => farmGrow(c, o), act: c => farmGrowAct(c), econ: c => farmEcon(c), html: c => farmSizeHTML(c), ext: a => farmExt(a), probe: (a, n, zz) => farmProbe(a, n, zz), npcGrow: o => growNpcFarm(o) } });   // passe 87 : surface variable des fermes (t87)
 Object.assign(window.WSE, { farm3: { CROP_AREA, CROP_UPK, cropAreaK, plan: c => farmPlan(c), html: c => farmPlanHTML(c), fertBuy: (q, w) => fertBuy(q, w), cooFarm: () => cooFarm(), calNext: g => calNext(g), fpMigrate: (g, d, n) => fpMigrate(g, d, n), FARM_ZONE3 } });   // passe 85 : cultures 3×3, bloc « ce que tu optimises » (t86)
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
 Object.assign(window.WSE, { imgAudit: { guide: k => !!GUIDEHD[k], hero: k => !!PRODHD[k], photo: k => GUIDEHD[k] || null, productSVG0, compIcon, compIconVec } });   // passe 59 : audit des images de produits (tools/audit_produits.js, t59)

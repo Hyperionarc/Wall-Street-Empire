@@ -10,7 +10,7 @@ exports.run = async (t, L) => {
   const A = await pg.evaluate(({ CROPS_T, LIVE_T, OLD_CAPEX }) => {
     const W = window.WSE, S = W.S, N = W.N, T = window.T, F3 = W.farm3, o = {};
     o.sz = CROPS_T.map(k => k + ' ' + W.TYPES[k].w + '×' + W.TYPES[k].h).filter(x => !/3×3$/.test(x)).concat(LIVE_T.map(k => k + ' ' + W.TYPES[k].w + '×' + W.TYPES[k].h).filter(x => !/2×2$/.test(x)));
-    o.capex = CROPS_T.filter(k => Math.abs(W.TYPES[k].cost / 9 - OLD_CAPEX[k] / 4) > 1).map(k => k + ' ' + W.TYPES[k].cost);
+    o.capex = CROPS_T.filter(k => Math.abs(W.TYPES[k].cost - Math.round(OLD_CAPEX[k] * 9 / 4 * W.farmx.FARM_CORPS_K / 1e4) * 1e4) > 1 || Math.abs(W.TYPES[k].cellCost - Math.round(OLD_CAPEX[k] / 4 * W.farmx.FARM_CELL_K / 1e3) * 1e3) > 1).map(k => k + ' ' + W.TYPES[k].cost);   // passe 87 : corps de ferme à 45 % de l'ancien prix 3×3, case annexée à 80 % de l'ancien prix par case
     o.area = F3.CROP_AREA; o.zone = F3.FARM_ZONE3.crop.every(q => q[0] >= 0 && q[0] <= 3 && q[1] >= 0 && q[1] <= 3);
     // une ferme de blé 3×3, 40 jours
     const c = T.onDep('fwheat', 'wheat'); o.wh = c ? [c.w, c.h] : null; if (!c) return o;
@@ -29,7 +29,7 @@ exports.run = async (t, L) => {
     o.errs = 0; return o;
   }, { CROPS_T, LIVE_T, OLD_CAPEX });
   t.check('emprises : les 7 cultures en 3×3, les 4 élevages restent en 2×2', A.sz.length === 0, A.sz.join(', '));
-  t.check('prix d\'entrée au prorata de la surface (× 9/4) : même prix par case qu\'en 2×2', A.capex.length === 0 && A.area === 2.25, A.capex.join(', '));
+  t.check('prix d\'entrée : corps de ferme 3×3 (45 % de l\'ancien prix 3×3) et case annexée (80 % de l\'ancien prix par case) ; passe 87', A.capex.length === 0 && A.area === 2.25, A.capex.join(', '));
   t.check('zone du champ (effets vivants) inscrite dans l\'emprise 3×3', A.zone, '');
   t.check('ferme de blé posée sur une terre agricole en 3×3, produit en 40 jours', A.wh && A.wh[0] === 3 && A.wh[1] === 3 && A.out3 > 100 && A.k3 === 1, JSON.stringify({ wh: A.wh, out: A.out3 && Math.round(A.out3) }));
   t.check('ancienne culture 2×2 sans place pour grandir : produit 4/9 d\'une 3×3 (rendement par case inchangé)', Math.abs(A.k2 - 4 / 9) < 1e-9 && Math.abs(A.ratio - 4 / 9) < 0.03, `k ${A.k2 && A.k2.toFixed(3)}, ratio ${A.ratio && A.ratio.toFixed(3)}`);

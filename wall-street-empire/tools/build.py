@@ -287,7 +287,9 @@ VV_NAMES = ['boulangerie', 'boutique_mode', 'cafe_de_quartier', 'restaurant_terr
             'maison_n1', 'maison_n2', 'maison_n3', 'immeuble_n1', 'immeuble_n2', 'tour_bureaux', 'tour_logements', 'tour_tech', 'tour_pnj_a', 'tour_pnj_b', 'siege_hq_n1', 'siege_hq_n2', 'siege_hq_n3', 'supermarche_n2', 'supermarche_n3', 'hypermarche_n2', 'hypermarche_n3',
             'parc_urbain', 'rochers_a', 'rochers_b', 'gisement_or', 'batiment_abandonne', 'chantier_petit',
             # passe 78 : supermarché et hypermarché, bâtiment seul occupant la parcelle (assets/factory_hd/bat_*)
-            'bat_supermarche', 'bat_supermarche_n2', 'bat_supermarche_n3', 'bat_hypermarche', 'bat_hypermarche_n2', 'bat_hypermarche_n3']
+            'bat_supermarche', 'bat_supermarche_n2', 'bat_supermarche_n3', 'bat_hypermarche', 'bat_hypermarche_n2', 'bat_hypermarche_n3',
+            # passe 87 : annexes des fermes agrandies (granges, silos, chais, étables, bergeries, porcheries, poulaillers ; assets/factory_hd/bat_*)
+            'bat_ferme_hangar', 'bat_ferme_bovins', 'bat_chai_vigne', 'bat_chai_vigneron', 'bat_ferme_stabulation_ronde', 'bat_ferme_etable_traversante', 'bat_ferme_traite', 'bat_ferme_bergerie', 'bat_ferme_moutons', 'bat_ferme_porcherie', 'bat_ferme_porcs', 'bat_ferme_poulailler', 'bat_ferme_poulets']
 P2_NAMES += [_n for _n in VV_NAMES if _n not in P2_NAMES]
 P2_NAMES += ['concasseur_recyclage']   # passe 79 : carrière de granulats dont le gisement est épuisé et qui vit de son concasseur (livré pour la commande 55-1)
 p2hd = {}; p2dim = {}
