@@ -253,7 +253,8 @@ window.BOT = (function () {
     if (!aff) { IND.save = null; return; }
     if (aff.cost > avail && W.ry) {   // passe 83 : prêt de projet du banquier IA (hors plafond ordinaire) quand il couvre l'écart ; le persona « ry » le prend
       const q = W.ry.ppQuote(aff.cost), gap = aff.cost - avail + 1e5; IND.ppQ = { day: s.day, ok: q.ok && q.max >= gap };
-      if (IND.ppQ.ok && P.pers && P.pers.ry) { borrow(aff.cost - gap + 1e5); const g2 = aff.cost - s.cash + 1e5; if (g2 > 0 && g2 <= q.max) { const a = W.ry.ppTake(g2, 'chaîne ' + aff.pk); if (a > 0) { PS.pp++; PS.ppA += a; } } }
+      const g2 = aff.cost - s.cash + 1e5;   // le prêt de projet couvre TOUT ce qui manque en trésorerie (pas de dette ordinaire en plus) : au plus la moitié du projet
+      if (IND.ppQ.ok && P.pers && P.pers.ry && g2 > 0 && g2 <= q.max) { const a = W.ry.ppTake(g2, 'chaîne ' + aff.pk); if (a > 0) { PS.pp++; PS.ppA += a; } }
     }
     if (aff.cost > avail && s.cash < aff.cost) { IND.save = s.day; return; }   // on met de côté : le commerce ne dépense plus
     if (s.cash < aff.cost) borrow(aff.cost + 1e5); if (s.cash < aff.cost) return;
@@ -612,8 +613,9 @@ window.BOT = (function () {
     if (IND.save != null && s.day - IND.save < 40) {
       PS.waitD += dd; const R = W.ry; let can = false;
       if (R) { const L = R.micro(0.85 * s.cash).filter(m => !m.info && (m.cost || 0) <= 0.15 * Math.max(0, s.cash)); can = L.length > 0 || (IND.ppQ && s.day - IND.ppQ.day <= (P.indEvery || 12) && IND.ppQ.ok);
-        // un geste payant au plus tous les 20 jours et ≤ 10 % de la trésorerie (l'épargne de la chaîne reste prioritaire) ; les gestes gratuits à volonté
-        const G = L.find(m => !(m.cost > 0)) || (s.day - (PS.lastPaid || -99) >= 20 ? L.find(m => m.cost <= 0.1 * s.cash) : null);
+        // un geste payant au plus tous les 30 jours et ≤ 5 % de la trésorerie (l'épargne de la chaîne reste prioritaire) ; les gestes gratuits à volonté
+        if (Q.manual) L.splice(0, L.length, ...L.filter(m => m.k !== 'rup'));   // l'optimiseur règle ses sources à la main : il ne les rend pas à l'automatique
+        const G = L.find(m => !(m.cost > 0)) || (s.day - (PS.lastPaid || -99) >= 30 ? L.find(m => m.cost <= 0.05 * s.cash) : null);
         if (Q.ry && G && R.act(G.k, 0.85 * s.cash)) { PS.waitAct++; if (G.cost > 0) PS.lastPaid = s.day; } }
       if (!can) PS.waitIdleD += dd;
     }
