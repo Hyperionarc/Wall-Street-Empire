@@ -116,10 +116,11 @@ exports.run = async (t, L) => {
     const p5 = await L.newPage({ ctx, wait: 1200 }); await L.inject(p5);
     const r = await p5.evaluate(({ oldDep }) => {
       const W = window.WSE, S = W.S, N = W.N, T = window.T, o = { day: S.day, nb: T.bldgs().length, moved: 0 };
-      Object.keys(oldDep).forEach(i => { const d = S.dep[i]; if (!d || d.k !== oldDep[i]) o.moved++; });
+      // passe 79 : les gisements de sable sont fusionnés en granulats (sand → gravel, migration voulue) ; toute autre case doit être inchangée
+      o.sand = 0; Object.keys(oldDep).forEach(i => { const d = S.dep[i], k0 = oldDep[i] === 'sand' ? 'gravel' : oldDep[i]; if (oldDep[i] === 'sand' && d && d.k === 'gravel') o.sand++; if (!d || d.k !== k0) o.moved++; });
       o.wine = S.stock.wine; o.milk = S.stock.milk; o.farm = T.bldgs().filter(c => W.TYPES[c.t].live).length;
       const d0 = S.day; T.stepN(30, true); o.adv = S.day - d0; o.bad = T.scan(); W.save(); o.v = JSON.parse(localStorage.getItem('wse-city-v8')).v; return o; }, { oldDep });
-    t.check('ancienne sauvegarde : chargée au même jour avec ses bâtiments, cartes (gisements) inchangées', r.day === old.day && r.nb >= 10 && r.moved === 0, `jour ${r.day}/${old.day} · ${r.nb} bâtiments · ${r.moved} cases modifiées`);
+    t.check('ancienne sauvegarde : chargée au même jour avec ses bâtiments, cartes (gisements) inchangées', r.day === old.day && r.nb >= 10 && r.moved === 0 && r.sand === old.dep.filter(a => a[1] === 'sand').length, `jour ${r.day}/${old.day} · ${r.nb} bâtiments · ${r.moved} cases modifiées · ${r.sand} sable → granulats`);
     t.check('ancienne sauvegarde : le stock d\'alcools devient du vin, le lait reste du lait, 30 jours sans NaN, réenregistrée en v8', Math.round(r.wine) === 321 && r.milk >= 11 && r.adv === 30 && r.bad.length === 0 && r.v === 8 && p5.errs.length === 0, `vin ${Math.round(r.wine)} · lait ${Math.round(r.milk)} · ${r.bad.slice(0, 2).join(';')} · ${p5.errs.slice(0, 2).join(';')}`);
     await ctx.close(); }
 

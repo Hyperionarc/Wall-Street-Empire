@@ -53,7 +53,7 @@ exports.run = async (t, L) => {
     const dim = k => { const m = html.match(new RegExp('"' + k + '": \\[([0-9., ]+)\\]')); return m ? m[1].split(',').map(Number) : null; };
     const dw = dim('fwheat'), dc = dim('fcorn'), dr = dim('frapeseed');
     t.check('sprites HD : fcorn et frapeseed dans P2_TYPE et dans le build (P2_NAMES)', /P2_TYPE = \{[^}]*fcorn: 'fcorn'[^}]*frapeseed: 'frapeseed'/.test(tpl) && /'fcorn', 'frapeseed'/.test(bld), '');
-    const hasHD = /"fcorn": "data:image\/png/.test(html) && /"frapeseed": "data:image\/png/.test(html);
+    const hasHD = /"fcorn": "data:image\/(png|webp)/.test(html) && /"frapeseed": "data:image\/(png|webp)/.test(html);   // passe 81 : les sprites HD sont encodés en WebP quand c'est plus léger
     if (fs.existsSync(path.join(root, '..', 'assets', 'factory_hd', 'fcorn.png')) || hasHD)
       t.check('sprites HD embarqués, losange de même largeur que la ferme de blé (2 cases)', hasHD && dw && dc && dr && [dw, dc, dr].every(d => (d[7] - d[6]) / d[0] > 0.97)   /* le losange remplit la largeur de l'image : le jeu le cale sur 2 cases quelle que soit la résolution (le nouveau champ de blé de Cowork est en 768 px, maïs et colza en 512) */, JSON.stringify({ dw, dc, dr }));
     else t.info('assets/factory_hd absents : repli vectoriel (pas de sprite HD à vérifier)'); }
@@ -119,11 +119,12 @@ exports.run = async (t, L) => {
     const p5 = await L.newPage({ ctx, wait: 1200 }); await L.inject(p5);
     const r = await p5.evaluate(({ oldDep }) => {
       const W = window.WSE, S = W.S, N = W.N, T = window.T, o = { day: S.day, nb: T.bldgs().length, moved: 0, f: {}, onBld: 0 };
-      Object.keys(oldDep).forEach(i => { const d = S.dep[i]; if (!d || d.k !== oldDep[i]) o.moved++; });
+      // passe 79 : les gisements de sable sont fusionnés en granulats (sand → gravel, migration voulue) ; toute autre case doit être inchangée
+      o.sand = 0; Object.keys(oldDep).forEach(i => { const d = S.dep[i], k0 = oldDep[i] === 'sand' ? 'gravel' : oldDep[i]; if (oldDep[i] === 'sand' && d && d.k === 'gravel') o.sand++; if (!d || d.k !== k0) o.moved++; });
       S.dep.forEach((d, i) => { if (d && (d.k === 'corn' || d.k === 'rapeseed')) { o.f[d.k] = (o.f[d.k] || 0) + 1; const c = S.grid[i]; if (c && c.t !== 'road') o.onBld++; } });
       o.stock = [S.stock.corn, S.stock.cookoil, S.prod.tableoil && S.prod.tableoil.st];
       const d0 = S.day; T.stepN(30, true); o.adv = S.day - d0; o.bad = T.scan(); W.save(); const sv = JSON.parse(localStorage.getItem('wse-city-v8')); o.v = sv.v; o.savedCorn = sv.dep.filter(a => a[1] === 'corn').length; return o; }, { oldDep });
-    t.check('ancienne sauvegarde : même jour, bâtiments conservés, anciennes cases de gisement inchangées', r.day === old.day && r.nb >= 10 && r.moved === 0, `jour ${r.day}/${old.day} · ${r.nb} bâtiments · ${r.moved} cases modifiées`);
+    t.check('ancienne sauvegarde : même jour, bâtiments conservés, anciennes cases de gisement inchangées', r.day === old.day && r.nb >= 10 && r.moved === 0 && r.sand === old.dep.filter(a => a[1] === 'sand').length, `jour ${r.day}/${old.day} · ${r.nb} bâtiments · ${r.moved} cases modifiées · ${r.sand} sable → granulats`);
     t.check('ancienne sauvegarde : zones de maïs et de colza ajoutées sur des cases libres, stocks à zéro, nouveaux produits verrouillés ou disponibles', r.f.corn > 20 && r.f.rapeseed > 20 && r.onBld === 0 && r.stock[0] === 0 && r.stock[1] === 0 && !!r.stock[2], JSON.stringify(r.f) + ' ' + JSON.stringify(r.stock));
     t.check('ancienne sauvegarde : 30 jours sans NaN, réenregistrée en v8 avec ses champs de maïs, 0 pageerror', r.adv === 30 && r.bad.length === 0 && r.v === 8 && r.savedCorn > 20 && p5.errs.length === 0, `${r.bad.slice(0, 2).join(';')} · ${p5.errs.slice(0, 2).join(';')}`);
     await ctx.close(); }

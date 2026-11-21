@@ -59,7 +59,9 @@ exports.run = async (t, L) => {
     const R = await pg.evaluate(() => { const W = window.WSE, S = W.S; W.step(); S.bk = { res: 100e6, lvl: 0, loans: 50e6, coll: 0, inc: 0 }; W.save(); const d = JSON.parse(localStorage.getItem('wse-city-v8')); const had = d.bk && !d.bk.lt; return { had, v: d.v }; });
     await pg.reload(); await pg.waitForTimeout(600); await L.inject(pg);
     const R2 = await pg.evaluate(() => { const W = window.WSE, S = W.S; const b = W.bank.init(); return { loans: b.loans, corp: b.lt.corp, ratio: W.bank.ratio(), caste: S.caste, cap: W.bank.cap() }; });
-    t.check('ancienne banque (sans types de crédits) rechargée : portefeuille en crédits aux entreprises, ratio fini', R.v === 8 && Math.abs(R2.corp - 50e6) < 1 && Number.isFinite(R2.ratio) && R2.caste === 'banquier', JSON.stringify([R, R2]));
+    // Le jeu tourne en temps réel entre le rechargement et l'appel : sur une machine chargée, un jour peut s'écouler et amortir quelques milliers de $
+  // du portefeuille (vu : 49 998 051 $). La migration est vérifiée par l'égalité crédits aux entreprises = encours, encours ≈ 50 M$ (à 0,2 % près).
+  t.check('ancienne banque (sans types de crédits) rechargée : portefeuille en crédits aux entreprises, ratio fini', R.v === 8 && Math.abs(R2.corp - R2.loans) < 1 && R2.loans <= 50e6 + 1 && R2.loans > 49.9e6 && Number.isFinite(R2.ratio) && R2.caste === 'banquier', JSON.stringify([R, R2]));
     t.check('aucune erreur de page', pg.errs.length === 0, pg.errs.slice(0, 2).join(' | '));
     await pg.context().close();
   }
