@@ -1149,7 +1149,7 @@ body.cmp.hx .ctrl{flex-wrap:wrap;justify-content:flex-end}
 body.cmp #hud .ibtn{min-width:44px;height:44px;padding:0 9px;font-size:12px}
 body.cmp #hud .cgrp{padding:0;gap:3px;background:none}
 body.cmp .zpips,body.cmp .loupe{display:none}
-body.cmp:not(.hx) #lyr,body.cmp:not(.hx) #rst,body.cmp:not(.hx) #zgrp{display:none}
+body.cmp:not(.hx) #lyr,body.cmp:not(.hx) #occb,body.cmp:not(.hx) #rst,body.cmp:not(.hx) #zgrp{display:none}
 body.cmp #hudx[aria-pressed="true"]{color:var(--gold);border-color:var(--gold)}
 /* indicateurs : trésorerie, capitalisation, date sur une ligne (le reste en dépliant) */
 body.cmp:not(.hx) .stats{display:flex;gap:4px}
@@ -1236,6 +1236,7 @@ body.cmp #pclose{margin-left:auto;flex:0 0 auto}
           <button class="ibtn" id="pn" aria-label="Ouvrir le menu" aria-pressed="false">☰ Menu</button>
           <button class="ibtn" id="pv" aria-label="Ouvrir la vue Produits" aria-pressed="false">Produits</button>
           <button class="ibtn" id="lyr" title="Calque de la carte : fréquentation, terrain, logistique">Calque : Auto</button>
+          <button class="ibtn" id="occb" aria-pressed="true" title="Transparence des bâtiments devant">Transparence : Auto</button>
           <button class="ibtn" id="rst" aria-label="Nouvelle ville">Reset</button>
           <button class="ibtn" id="hudx" aria-label="Afficher tout le tableau de bord" aria-pressed="false" title="Tableau de bord complet : indicateurs, classement, calque, zoom">▾</button>
         </div>
@@ -16898,7 +16899,7 @@ function signFlush() {   // dessine les plaques à plat, en pixels physiques ent
           if (r[0] > W * dpr || r[1] > H * dpr || r[2] < 0 || r[3] < 0) continue;
           if (r[0] < 0 || r[1] < 0 || r[2] > W * dpr || r[3] > H * dpr || ui.some(u => hit(r, u, m))) { SG.hidden++; SG.lost.ui++; continue; }
           if (acc.some(u => hit(r, u, m))) { SG.hidden++; SG.lost.col++; continue; }   // l'enseigne de façade compte comme une plaque
-          acc.push(r); ctx.globalAlpha = 1; ctx.drawImage(fc, x0, y0); SG.faces++;
+          acc.push(r); ctx.globalAlpha = s.oa || 1; ctx.drawImage(fc, x0, y0); SG.faces++;   // passe 100 : bâtiment devant rendu transparent → son enseigne aussi
           const sp = sc(F.spr[0], F.spr[1]), sq = sc(F.spr[2], F.spr[3]);
           SG.drawn.push({ id: s.id, key: s.key, txt: ft, name: txt, x: x0 / dpr, y: y0 / dpr, w: fc.width / dpr, h: fc.height / dpr, fs: px / dpr, al: 1, cover: false, face: F.f, foc: s.foc, imp: signImp(s),
             quad: fc._q.map(c => [(x0 + c[0]) / dpr, (y0 + c[1]) / dpr]), spr: [sp[0] / dpr, sp[1] / dpr, sq[0] / dpr, sq[1] / dpr] });
@@ -16913,7 +16914,7 @@ function signFlush() {   // dessine les plaques à plat, en pixels physiques ent
     if (r[0] > W * dpr || r[1] > H * dpr || r[2] < 0 || r[3] < 0) continue;
     if (r[0] < 0 || r[1] < 0 || r[2] > W * dpr || r[3] > H * dpr || ui.some(q => hit(r, q, m))) { SG.hidden++; SG.lost.ui++; continue; }   // jamais coupée par le bord ni sous l'interface
     if (acc.some(q => hit(r, q, m))) { SG.hidden++; SG.lost.col++; continue; }   // jamais deux plaques l'une sur l'autre
-    acc.push(r); ctx.globalAlpha = al; ctx.drawImage(cv, r[0], r[1]);
+    acc.push(r); ctx.globalAlpha = al * (s.oa || 1); ctx.drawImage(cv, r[0], r[1]);
     SG.drawn.push({ id: s.id, key: s.key, txt, x: r[0] / dpr, y: r[1] / dpr, w: w / dpr, h: h / dpr, fs, al, cover, foc: s.foc, imp: signImp(s) });
   }
   ctx.restore(); ctx.globalAlpha = 1;
@@ -17724,6 +17725,111 @@ function updateSiteTip() {
   else if (i.kind === 'wh') h += row('Distance au port', `${i.dPort} cases`) + '<div class="adv2">Plus près du port : imports et exports moins chers.</div>';
   tip.innerHTML = h; tip.hidden = false;
 }
+/* ---------- Passe 100 : transparence des bâtiments devant (occlusion de la vue isométrique) ----------
+   Comme SimCity / Cities Skylines : la cible (bâtiment survolé ou sélectionné, emprise de pose, objet visé par Rachat / Démolir / Améliorer…) est cherchée derrière
+   les bâtiments dessinés APRÈS elle (ordre de profondeur iso) dont la silhouette la recouvre ; ces seuls bâtiments sont rendus semi-transparents (fondu ~120 ms),
+   avec un liseré clair qui garde leur silhouette. Sol, routes, véhicules et personnages restent opaques. Alt (Option) maintenu : tous les bâtiments à ≈ 4 cases du
+   curseur ; au doigt : appui long. Réglage mémorisé (wse-occ) : Auto (survol / sélection), Toujours (aussi sur une case vide ou une route), Jamais.
+   L'ensemble des masquants n'est recalculé qu'au changement de cible (ou toutes les 250 ms) ; chaque masquant est dessiné dans un calque hors écran limité à son cadre,
+   puis recomposé avec globalAlpha : les sprites HD comme le dessin vectoriel de repli, les chantiers, les ombres et les enseignes suivent sans rien changer à leur code. */
+const OCC_KEY = 'wse-occ', OCC_A = 0.38, OCC_AX = 0.3, OCC_FADE = 120, OCC_R = 4, OCC_MODES = { auto: 'Auto', always: 'Toujours', never: 'Jamais' };
+const OCC = { mode: 'auto', alt: false, touch: null, touchT: 0, lp: null, set: new Map(), fade: new Map(), key: '', t: 0, last: 0, tg: [], lay: null, lg: null, rg: null, M: null, ms: 0, drawn: 0 };
+try { const v = localStorage.getItem(OCC_KEY); if (OCC_MODES[v]) OCC.mode = v; } catch (e) { /* stockage indisponible : Auto */ }
+function occSetMode(m) {
+  if (!OCC_MODES[m]) return false; OCC.mode = m; OCC.key = ''; try { localStorage.setItem(OCC_KEY, m); } catch (e) { /* réglage pour la session seulement */ }
+  occBtn(); return true;
+}
+function occBtn() { const b = document.getElementById('occb'), m = OCC.mode; if (!b) return; b.textContent = 'Transparence : ' + OCC_MODES[m]; b.title = 'Transparence des bâtiments devant : ' + OCC_MODES[m] + (m === 'auto' ? ' (survol / sélection)' : m === 'always' ? ' (toute case survolée)' : '') + ' — clic : réglage suivant · Alt maintenu : voir à travers autour du curseur · au doigt : appui long'; b.setAttribute('aria-label', b.title); b.setAttribute('aria-pressed', m === 'never' ? 'false' : 'true'); }
+const occMall = () => { const MP = mallPos(); return MP && MP.w >= 10 ? MP : null; };   // grand mall : dessiné en entier depuis sa case avant
+const occObj = rc => { if (!rc || rc.t === 'road') return null; if (isMall(rc)) { const MP = occMall(); if (MP) return S.grid[idx(MP.x + MP.w - 1, MP.y + (MP.h || MP.w) - 1)] || null; } return monMulti(rc) ? monV(rc) : anchorOf(rc); };   // objet tel que la boucle de dessin le trie (équipement de plusieurs cases : cellule virtuelle)
+const occSkip = a => !a || (a.t === 'npc' && (a.k === 'park' || (a.k === 'mon' && a.m === 'air'))) || (farmOn(a) && a.w * a.h > 4);   // plats : parc, aéroport (pistes), grandes fermes (champs) restent opaques
+const occKey = a => a.x + a.y + (a.w + a.h) / 2 - 1;   // même clé de profondeur que la passe 2 (centre de l'emprise)
+function occBox(a) {   // cadre monde approché de la silhouette : colonne de l'emprise, du sommet du dessin (a._top, image précédente) au coin bas
+  const MP = isMall(a) ? occMall() : null; if (MP) { const h = MP.h || MP.w, B = iso(MP.x + MP.w, MP.y + h).y; return [iso(MP.x, MP.y + h).x, iso(MP.x, MP.y).y - 420, iso(MP.x + MP.w, MP.y).x, B]; }   // grand mall : toute son emprise, dôme compris
+  const L = iso(a.x, a.y + a.h).x, R = iso(a.x + a.w, a.y).x, B = iso(a.x + a.w, a.y + a.h).y;
+  let t = a._top; if (a.vm) { t = Infinity; for (let y = a.y; y < a.y + a.h; y++) for (let x = a.x; x < a.x + a.w; x++) { const c = rawCell(x, y); if (c && Number.isFinite(c._top)) t = Math.min(t, c._top); } }
+  if (!Number.isFinite(t)) t = B - TH - 300;
+  return [L, Math.min(t, B - TH * 0.6), R, B];
+}
+function occTargets() {   // cibles de l'image : [{ box, d, self }] ; rayon Alt / appui long : out.ray = { x, y }
+  const out = []; if (!S || !S.grid) return out;
+  const tch = OCC.touch && performance.now() < OCC.touchT ? OCC.touch : null;
+  if ((OCC.alt && hover) || tch) { const c = tch || hover; out.ray = { x: c.x, y: c.y }; return out; }
+  if (OCC.mode === 'never') return out;
+  const add = (a, box, d) => { if (box && Number.isFinite(box[0])) out.push({ box, d, self: a }); };
+  if (selected && tool === 'view' && inb(selected.x, selected.y)) { const a = occObj(rawCell(selected.x, selected.y)); if (a && !occSkip(a)) add(a, occBox(a), occKey(a)); }
+  if (hover && inb(hover.x, hover.y)) {
+    const T = TYPES[tool], build = T && tool !== 'view' && tool !== 'road' && ['up', 'bull', 'link', 'buyout', 'keep', 'terra', 'zone'].indexOf(tool) < 0;
+    if (build) {   // emprise de pose (grille recalée, comme l'aperçu) : le losange au sol et le bas du futur bâtiment doivent rester visibles
+      const hv = snapAt(hover.x, hover.y, tool), w = T.w || 1, h = T.h || 1, L = iso(hv.x, hv.y + h).x, R = iso(hv.x + w, hv.y).x, B = iso(hv.x + w, hv.y + h).y;
+      add(null, [L, B - TH * (w + h) / 2 - 60, R, B], hv.x + hv.y + (w + h) / 2 - 1);
+    } else {
+      const a = occObj(rawCell(hover.x, hover.y));
+      if (a && !occSkip(a)) add(a, occBox(a), occKey(a));
+      else if (!a && (OCC.mode === 'always' || tool !== 'view')) { const p = iso(hover.x, hover.y); add(null, [p.x - TW / 2, p.y - 90, p.x + TW / 2, p.y + TH], hover.x + hover.y); }
+    }
+  }
+  return out;
+}
+function occCompute() {   // ensemble des masquants : objets plus en avant (clé de profondeur) dont la silhouette recouvre au moins 18 % de celle de la cible
+  // (cadres arrêtés aux sommets latéraux du losange, TH / 2 au-dessus du coin bas : une maison basse posée en biais devant un immeuble ne compte pas, une tour oui)
+  const tg = occTargets(), set = new Map(); OCC.tg = tg;
+  if (tg.ray) { const { x: cx, y: cy } = tg.ray, R = OCC_R;
+    for (let y = cy - R; y <= cy + R; y++) for (let x = cx - R; x <= cx + R; x++) { if (!inb(x, y) || (x - cx) * (x - cx) + (y - cy) * (y - cy) > (R + 0.5) * (R + 0.5)) continue; const a = occObj(S.grid[idx(x, y)]); if (a && !occSkip(a) && !set.has(a)) set.set(a, OCC_AX); }
+    OCC.set = set; return; }
+  for (const t of tg) {
+    const [L, T0, R] = t.box, B = t.box[3] - TH / 2, At = Math.max(1, (R - L) * (B - T0)), u0 = Math.floor(L / (TW / 2)) - 1, u1 = Math.ceil(R / (TW / 2)) + 1, d0 = Math.floor(t.d), seen = new Set();
+    for (let d = d0; d <= d0 + 34; d++) for (let u = u0; u <= u1; u++) {
+      if ((d + u) & 1) continue; const x = (d + u) / 2, y = (d - u) / 2; if (!inb(x, y)) continue;
+      const a = occObj(S.grid[idx(x, y)]); if (!a || a === t.self || seen.has(a)) continue; seen.add(a);
+      if (occSkip(a) || occKey(a) <= t.d) continue;
+      const b = occBox(a), ow = Math.min(R, b[2]) - Math.max(L, b[0]), oh = Math.min(B, b[3] - TH / 2) - Math.max(T0, b[1]);
+      if (ow > 0 && oh > 0 && ow * oh >= 0.18 * At) set.set(a, OCC_A);
+    }
+  }
+  OCC.set = set;
+}
+function occTick(now) {   // une fois par image, avant la passe 2 : cible, masquants, fondu
+  const t0 = performance.now(), dt = Math.min(100, now - (OCC.last || now)); OCC.last = now;
+  const sk = (OCC.alt ? 'A' : '') + (OCC.touch && t0 < OCC.touchT ? 'T' + OCC.touch.x + ',' + OCC.touch.y : '') + OCC.mode + '|' + tool + '|' + (hover ? hover.x + ',' + hover.y : '-') + '|' + (selected ? selected.x + ',' + selected.y : '-');
+  if (sk !== OCC.key || now - OCC.t > 250) { OCC.key = sk; OCC.t = now; occCompute(); }
+  const st = dt / OCC_FADE * (1 - OCC_AX);
+  OCC.set.forEach((A, a) => { const f = OCC.fade.has(a) ? OCC.fade.get(a) : 1; OCC.fade.set(a, f > A ? Math.max(A, f - st) : Math.min(A, f + st)); });
+  OCC.fade.forEach((f, a) => { if (!OCC.set.has(a)) { const g = f + st; if (g >= 1) OCC.fade.delete(a); else OCC.fade.set(a, g); } });
+  OCC.M = OCC.fade.size ? ctx.getTransform() : null; OCC.drawn = 0; OCC.ms = performance.now() - t0;
+}
+function occBegin(a) {   // redirige le dessin de l'objet vers un petit calque à la taille du cadre élargi de sa silhouette (pixels physiques) ; renvoie ce cadre, ou null
+  const M = OCC.M; if (!M) return null; const b = occBox(a), sx = v => M.a * v + M.e, sy = v => M.d * v + M.f;
+  const x0 = Math.max(0, Math.floor(sx(b[0] - TW / 2))), x1 = Math.min(cvs.width, Math.ceil(sx(b[2] + TW / 2))), y0 = Math.max(0, Math.floor(sy(b[1] - 130))), y1 = Math.min(cvs.height, Math.ceil(sy(b[3] + TH / 2)));
+  if (x1 - x0 < 1 || y1 - y0 < 1) return null;
+  const w = x1 - x0, h = y1 - y0;   // calque réutilisé, agrandi au besoin (jamais plein écran : la recopie vers la vue ne coûte que la surface du bâtiment)
+  if (!OCC.lay || OCC.lay.width < w || OCC.lay.height < h) { const c = document.createElement('canvas'); c.width = Math.max(w, OCC.lay ? OCC.lay.width : 0, 256); c.height = Math.max(h, OCC.lay ? OCC.lay.height : 0, 256); OCC.lay = c; OCC.lg = c.getContext('2d'); }
+  const g = OCC.lg; g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, w, h); g.save(); g.beginPath(); g.rect(0, 0, w, h); g.clip();
+  g.setTransform(M.a, M.b, M.c, M.d, M.e - x0, M.f - y0); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  const r = { x0, y0, w, h, main: ctx, sg: SG.list.length }; ctx = g; return r;
+}
+function occEnd(a, r, f) {   // recompose le calque sur la vue à l'opacité f, puis le liseré de silhouette (anneau de 1 px physique)
+  ctx = r.main; const g = OCC.lg, L = OCC.lay; g.restore();
+  for (let i = r.sg; i < SG.list.length; i++) SG.list[i].oa = f;   // enseigne de l'objet : même opacité, posée plus tard par signFlush
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
+  ctx.globalAlpha = f; ctx.drawImage(L, 0, 0, r.w, r.h, r.x0, r.y0, r.w, r.h);
+  const ra = OCC.noRing || (OCC.tg && OCC.tg.ray) ? 0 : Math.min(1, (1 - f) / (1 - OCC_A)) * 0.8;   // rayon Alt / appui long : pas de liseré (des dizaines de bâtiments : lisibilité et coût)
+  if (ra > 0.03) {
+    const P = 2, s = Math.max(1, Math.round(dpr)), w = r.w + 2 * P, h = r.h + 2 * P;
+    if (!OCC.rg || OCC.rg.canvas.width < w || OCC.rg.canvas.height < h) { const c = document.createElement('canvas'); c.width = Math.max(w, OCC.rg ? OCC.rg.canvas.width : 0); c.height = Math.max(h, OCC.rg ? OCC.rg.canvas.height : 0); OCC.rg = c.getContext('2d'); }
+    const q = OCC.rg; q.setTransform(1, 0, 0, 1, 0, 0); q.globalCompositeOperation = 'source-over'; q.globalAlpha = 1; q.clearRect(0, 0, w, h);
+    [[-s, 0], [s, 0], [0, -s], [0, s]].forEach(o => q.drawImage(L, 0, 0, r.w, r.h, P + o[0], P + o[1], r.w, r.h));
+    q.globalCompositeOperation = 'source-in'; q.fillStyle = '#f4f7ff'; q.fillRect(0, 0, w, h);
+    q.globalCompositeOperation = 'destination-out'; q.drawImage(L, 0, 0, r.w, r.h, P, P, r.w, r.h); q.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = ra; ctx.drawImage(q.canvas, 0, 0, w, h, r.x0 - P, r.y0 - P, w, h);
+  }
+  ctx.restore(); ctx.globalAlpha = 1; OCC.drawn++;
+}
+function occDraw(a, fn) {   // dessine l'objet a (fn) : directement s'il est opaque, sinon à travers le calque de transparence
+  const f = OCC.M ? OCC.fade.get(a) : undefined; if (f === undefined || f >= 0.999) return fn();
+  const t0 = performance.now(), r = occBegin(a); if (!r) return fn();
+  try { fn(); } finally { occEnd(a, r, f); OCC.ms += performance.now() - t0; }
+}
 function frame(now) {
   if (S && now - (frame.tipT || 0) > 120) { frame.tipT = now; try { updateSiteTip(); } catch (e) {} }
   requestAnimationFrame(frame);
@@ -17823,7 +17929,7 @@ function frame(now) {
     if (selected && tool === 'view') { ctx.lineWidth = 4; if (monMulti(selected)) { const f = selected, L = iso(f.mx, f.my + f.mh), R = iso(f.mx + f.mw, f.my), T = iso(f.mx, f.my), B = iso(f.mx + f.mw, f.my + f.mh); poly([T, R, B, L], null, 'rgba(242,184,75,.95)'); } else poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }   // équipement de plusieurs cases : tout son contour
 
     // passe 2 : arbres et bâtiments dans l'ordre de profondeur
-    const treeCol = 1; signReset();
+    const treeCol = 1; signReset(); occTick(now);   // passe 100 : masquants de la cible (transparence des bâtiments devant)
     // passe 57 : tri de profondeur des bâtiments de plusieurs cases. Un bâtiment w×h est dessiné (toutes ses cases, la case avant en dernier) juste après la diagonale
     // de son CENTRE (x + y + (w + h) / 2 - 1) au lieu de celle de sa case avant : les voisins posés devant ses flancs (cases x + w ou y + h) passent désormais après lui
     // et ne sont plus masqués par sa hauteur. Les bâtiments d'une case gardent l'ordre d'origine.
@@ -17842,7 +17948,7 @@ function frame(now) {
       while (PB.length && PB[0].k - 0.5 <= dmax) { const a = PB.shift().a, vis = [];
         for (let d = a.x + a.y; d <= a.x + a.y + a.w + a.h - 2; d++) for (let x = Math.max(a.x, d - (a.y + a.h - 1)); x <= Math.min(a.x + a.w - 1, d - a.y); x++) { const y = d - x; if (x >= vr.x0 && x <= vr.x1 && y >= vr.y0 && y <= vr.y1) vis.push(x, y); }
         const L = vis.length, fv = L && vis[L - 2] === a.x + a.w - 1 && vis[L - 1] === a.y + a.h - 1; a._frv = !fv && L && a.w * a.h > 9 && farmOn(a) ? [vis[L - 2], vis[L - 1]] : null;
-        for (let i = 0; i < L; i += 2) bTile(a, vis[i], vis[i + 1]); a._frv = null; }
+        occDraw(a, () => { for (let i = 0; i < L; i += 2) bTile(a, vis[i], vis[i + 1]); }); a._frv = null; }   // passe 100 : masquant d'une cible → semi-transparent
     };
     let curD = -1e9;
     eachVisible(vr, (x, y) => {
@@ -17852,7 +17958,7 @@ function frame(now) {
         if (rc.t !== 'road') {
           const a = monMulti(rc) ? monV(rc) : anchorOf(rc);   // équipement de la ville de plusieurs cases : trié comme un grand bâtiment (centre de son emprise)
           if (a && a.w * a.h > 1) { if (!PBs.has(a)) { PBs.add(a); PB.push({ a, k: bKey(a) }); } }
-          else if (a) bTile(a, x, y);
+          else if (a) { if (OCC.M) occDraw(a, () => bTile(a, x, y)); else bTile(a, x, y); }
         }
       } else if (ZONE[i] === 4) {
         drawQuayDecor(p, x, y, now);
@@ -18049,6 +18155,19 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowDown') cam.y += st;
 });
 window.addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
+// passe 100 : transparence des bâtiments devant — Alt (Option) maintenu : voir à travers autour du curseur ; appui long au doigt ; bouton du HUD : Auto / Toujours / Jamais
+window.addEventListener('keydown', e => { if (e.key === 'Alt' && !(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) { OCC.alt = true; e.preventDefault(); } });
+window.addEventListener('keyup', e => { if (e.key === 'Alt') { OCC.alt = false; e.preventDefault(); } });
+window.addEventListener('blur', () => { OCC.alt = false; });
+cvs.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') OCC.alt = !!e.altKey; if (OCC.lp && Math.abs(e.clientX - OCC.lp.x) + Math.abs(e.clientY - OCC.lp.y) > 10) { clearTimeout(OCC.lp.to); OCC.lp = null; } if (OCC.touch && OCC.touch.id === e.pointerId) { const t = screenToTile(pos(e).x, pos(e).y); if (t) { OCC.touch = { id: e.pointerId, x: t.x, y: t.y }; OCC.touchT = 1e15; } } });
+cvs.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return; if (OCC.lp) { clearTimeout(OCC.lp.to); OCC.lp = null; } if (pointers.size > 1) return;
+  const p = pos(e), id = e.pointerId; OCC.lp = { x: e.clientX, y: e.clientY, to: setTimeout(() => { OCC.lp = null; if (pointers.size !== 1 || !pointers.has(id)) return; const t = screenToTile(p.x, p.y); if (!t) return; OCC.touch = { id, x: t.x, y: t.y }; OCC.touchT = 1e15; gesture = null; lastTile = null; }, 450) };   // appui long : ni pose ni fiche au relâcher
+});
+const occUp = e => { if (OCC.lp) { clearTimeout(OCC.lp.to); OCC.lp = null; } if (OCC.touch && OCC.touch.id === e.pointerId) OCC.touchT = performance.now() + 1200; };   // la transparence reste 1,2 s après le relâcher
+cvs.addEventListener('pointerup', occUp); cvs.addEventListener('pointercancel', occUp);
+el('occb').onclick = () => { const K = Object.keys(OCC_MODES); occSetMode(K[(K.indexOf(OCC.mode) + 1) % K.length]); };
+occBtn();
 window.addEventListener('resize', resize);
 // Passe 23 : la scène intérieure suit la rotation / le redimensionnement (échelle des libellés, centrage conservé sur mobile)
 (function () {
@@ -21321,6 +21440,9 @@ Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp
 Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ecomStep, list: ewhList, site: ecSite, cat: ecCatalog, delay: ecDelay, attract: ecAttract, pool: ecPool, val: ecVal, tier: () => tierOf((S.stats && S.stats.worth) || 0), raise: ecRaise, set: ecSet, kpi: ecKpi, advice: ecAdvice, save: ecSave, san: ecSan, render: renderEcom, show: ecShow, html: ecomHTML, edu: ecEduHTML, shipCap: ecShipCap, storeCap: ecStoreCap, used: ecUsed, CLS: EC_CLS, MIX: EC_MIX, RET: EC_RET, WORLD: EC_WORLD, FREQ: EC_FREQ, BASKET: EC_BASKET, EL: EC_EL, SHIP: EC_SHIP, STORE: EC_STORE, HOST: EC_HOST, DC: EC_DC, RESV: EC_RESV, LAUNCH: EC_LAUNCH } });   // passe 46 : commerce en ligne
 Object.assign(window.WSE, { audit: { solo: auditSolo, before: auditBefore, iso, TW, TH, mkCell }, sign: { SIGN, SIGN_COVER, SIGN_ST, SIGN_SZ, txt: signTxt, key: signKey, get drawn() { return SG.drawn.slice(); }, get queued() { return SG.list.length; }, get hidden() { return SG.hidden; }, get lost() { return Object.assign({}, SG.lost); }, get ui() { return SG.ui.slice(); }, IMP: SIGN_IMP, minImp: signMinImp, get ms() { return SG.last || 0; }, get avg() { return SG.avg; }, get on() { return SG.on; }, set on(v) { SG.on = !!v; }, get cacheN() { return SG.cache.size; }, FACE: SIGN_FACE, FACE_MIN: SIGN_FACE_MIN, get faces() { return SG.faces; } } });   // passe 54 : enseignes dessinées par le code
 Object.assign(window.WSE, { gfx: { use(g, fn) { const m = ctx; ctx = g; try { return fn(); } finally { ctx = m; } }, tile: drawTileOf, overlay: drawOverlay, dep: drawDeposit, depProc, spr: vvSpr, drawFlat: vvDraw, field: drawField, forest: drawForest, tree: drawDecorTree, rock: vvRock, quay: drawQuayDecor, ship: drawShip, car: drawCar, crane: drawCrane, containers: drawContainers, gtTile, gtPatch, gtKind, iso, mkCell, ATLAS, P2_IMG, P2DIM, P2_DEP, P2_RECOL, CROP_SPR, recolor: p2Recolor, VV_FARM, VV_CARS, VV_GOODS, PROC_IND, SPEC_T, CROP_COL, CITY_IMG, HQ_IMG, FAC_IMG } });   // passe 55 : audit visuel (tools/audit_visuel.js)
+Object.assign(window.WSE, { occ: { OCC, A: OCC_A, AX: OCC_AX, R: OCC_R, FADE: OCC_FADE, MODES: OCC_MODES, setMode: occSetMode, get mode() { return OCC.mode; }, box: occBox, key: occKey, obj: occObj, compute: occCompute,
+  hover: (x, y) => { hover = x == null ? null : { x, y }; }, select: (x, y) => { selected = x == null ? null : { x, y }; }, alt: v => { OCC.alt = !!v; }, touch: (x, y, ms) => { OCC.touch = x == null ? null : { id: -1, x, y }; OCC.touchT = performance.now() + (ms || 1e9); },
+  list: () => [...OCC.set.keys()].map(a => ({ x: a.x, y: a.y, w: a.w, h: a.h, t: a.t, k: a.k || null, A: OCC.set.get(a), f: OCC.fade.has(a) ? OCC.fade.get(a) : 1 })), get drawn() { return OCC.drawn; }, get ms() { return OCC.ms; } } });   // passe 100 : transparence des bâtiments devant (tests t100)
 Object.assign(window.WSE, { ground: { GT, ROAD_SPR, GT_NAMES, kind: gtKind, active: gtActive, roadSpr: (x, y) => ROAD_SPR[roadMask(x, y)], clearing: gtClearing, tex: gtTex }, view: { get z() { return z; }, setZ: v => { fitted = true; z = clamp(v, 0.03, 1.8); }, centerOn, get dpr() { return dpr; } } });   // passe sol et routes
 Object.assign(window.WSE.fac, { book: facBook, carnet: carnetHTML, advice: facAdvice, officeHit: planOfficeHit, openBook: () => { immPanel = 'carnet'; alMenu = null; planSel = -1; bvHtml = ''; renderBuilding(true); } });   // bureau de l'usine (carnet de commandes)
 window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMILY, famOf: pFamOf, byFam: SPEC_BY_FAM, of: specOf, tab: specTab, share: specShare, famShare: specFamShare, mk: specMk, known: specKnown, locked: specLocked, need: specNeedTxt, shelfOk: specShelfOk, bcT: specBcT, stats: specStats, card: specCard, mall: specMallLine, edu: eduSpecHTML, PASS: SPEC_PASS, PRI: SPEC_PRI, day: () => S._spec || {} };   // passe 46 : magasins spécialisés
