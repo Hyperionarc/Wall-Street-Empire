@@ -291,6 +291,7 @@ VV_NAMES = ['boulangerie', 'boutique_mode', 'cafe_de_quartier', 'restaurant_terr
             # passe 87 : annexes des fermes agrandies (granges, silos, chais, étables, bergeries, porcheries, poulaillers ; assets/factory_hd/bat_*)
             'bat_ferme_hangar', 'bat_ferme_bovins', 'bat_chai_vigne', 'bat_chai_vigneron', 'bat_ferme_stabulation_ronde', 'bat_ferme_etable_traversante', 'bat_ferme_traite', 'bat_ferme_bergerie', 'bat_ferme_moutons', 'bat_ferme_porcherie', 'bat_ferme_porcs', 'bat_ferme_poulailler', 'bat_ferme_poulets']
 P2_NAMES += [_n for _n in VV_NAMES if _n not in P2_NAMES]
+P2_NAMES += ['aeroport_terminal']   # passe 94 : aérogare HD (commande 55-4), visuel d'en-tête de la vue intérieure de l'aéroport (la carte garde le dessin animé : avions fixes et socle épais dans l'image)
 P2_NAMES += ['concasseur_recyclage']   # passe 79 : carrière de granulats dont le gisement est épuisé et qui vit de son concasseur (livré pour la commande 55-1)
 p2hd = {}; p2dim = {}
 # Sol et routes (losanges 396x198 sans couture) : pas de palette 256 couleurs (bandes visibles sur l'herbe) mais un JPEG de qualité ;
@@ -349,7 +350,7 @@ def _ground_tile(name, im, path=None):
 # Seules les sources au-delà de 480 px par case sont ramenées à 400 px par case. WSE_P2_ENC=png256 rétablit l'ancien encodage (comparaisons, tools/tests/t81_encodage.js).
 P2_ENC = os.environ.get('WSE_P2_ENC', 'webp')
 P2_PXCASE = 400   # px source par case au-delà de 480 px par case (largeur de la dalle / nombre de cases de large)
-P2_FP = {'supermarche': 2, 'supermarche_n2': 2, 'supermarche_n3': 2, 'hypermarche': 3, 'hypermarche_n2': 3, 'hypermarche_n3': 3, 'bat_supermarche': 2, 'bat_supermarche_n2': 2, 'bat_supermarche_n3': 2,
+P2_FP = {'aeroport_terminal': 2, 'supermarche': 2, 'supermarche_n2': 2, 'supermarche_n3': 2, 'hypermarche': 3, 'hypermarche_n2': 3, 'hypermarche_n3': 3, 'bat_supermarche': 2, 'bat_supermarche_n2': 2, 'bat_supermarche_n3': 2,
          'bat_hypermarche': 3, 'bat_hypermarche_n2': 3, 'bat_hypermarche_n3': 3, 'usine_moyenne_f2': 1.5, 'usine_grande_f3': 2, 'usine_f4_mega': 3, 'mega_centre_commercial': 2, 'terminal_portuaire': 2,
          'centrale_nucleaire': 3, 'centrale_solaire': 4.5, 'data_center': 4.5, 'concession_auto': 2, 'boutique_high_tech': 1.5, 'maison_deco': 1.5, 'sport_loisirs': 1.5, 'chantier_moyen': 1.5,
          'centrale_charbon': 1.5, 'siege_hq_n2': 2, 'siege_hq_n3': 2, 'fwheat': 3, 'fsugar': 3, 'fcotton': 3, 'frubber': 3, 'fvine': 3, 'fcorn': 3, 'frapeseed': 3, 'fcattle': 2, 'fchicken': 2, 'fpig': 2, 'fsheep': 2}
