@@ -64,6 +64,7 @@ exports.run = async (t, L) => {
   const xy = await pg.evaluate(() => { const W = window.WSE, M = W.mall.pos(), p = W.tileToScreen(M.x + 8, M.y + 8); return [p.x, p.y]; });
   await pg.mouse.click(xy[0], xy[1]); await pg.waitForTimeout(500);
   const pn = await pg.evaluate(() => { const W = window.WSE, S = W.S, box = document.getElementById('mallp'), d = W.mall.data();
+    box.querySelectorAll('details').forEach(x => { x.open = true; });   // passe 94 : statistiques en sections repliables (vue intérieure du Mall)
     const cards = [...box.querySelectorAll('[data-mriv]')].map(e => e.dataset.mriv), txt = box.innerText;
     // cohérence avec S.mkt : part pondérée par la demande de chaque rayon
     const dw = S._dw.cls, cl = ['basic', 'std', 'lux'], Dt = cl.reduce((a, c) => a + dw[c].Dc, 0);
