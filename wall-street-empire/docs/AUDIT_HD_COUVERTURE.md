@@ -70,8 +70,8 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | Usine moyenne (`f2`) | HD | `usine_moyenne_f2` | usine_moyenne_f2 |  |
 | Grande usine (`f3`) | HD | `usine_moyenne_f2` | usine_moyenne_f2 |  |
 | Petit marché (niveau 0) (`s1:n0`) | HD | `petit_marche_n1` | petit_marche_n1 |  |
-| Petit marché (niveau 2) (`s1:n2`) | HD | `petit_marche_n1` | petit_marche_n1 |  |
-| Petit marché (niveau 4) (`s1:n4`) | HD | `petit_marche_n1` | petit_marche_n1 |  |
+| Petit marché (niveau 2) (`s1:n2`) | HD | `petit_marche_n2` | petit_marche_n1 |  |
+| Petit marché (niveau 4) (`s1:n4`) | HD | `petit_marche_n2` | petit_marche_n1 |  |
 | Supermarché (niveau 0) (`s2:n0`) | HD | `bat_supermarche` | bat_supermarche |  |
 | Supermarché (niveau 2) (`s2:n2`) | HD | `bat_supermarche_n2` | bat_supermarche_n2 |  |
 | Supermarché (niveau 4) (`s2:n4`) | HD | `bat_supermarche_n3` | bat_supermarche_n3 |  |
@@ -216,16 +216,16 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | Dossier | PNG | Embarqué dans city.html | Raison |
 |---|---|---|---|
 | factory_hd | `aeroport_terminal` | non | aéroport : chantier d'un autre agent |
-| factory_hd | `arbre` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `arbre` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
 | factory_hd | `armoire_electrique` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `bac_calcaire` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `bac_charbon` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `bac_gravier` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `bac_minerai_cuivre` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `bac_minerai_fer` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `bac_sable` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `bac_calcaire` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `bac_charbon` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `bac_gravier` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `bac_minerai_cuivre` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `bac_minerai_fer` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `bac_sable` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
 | factory_hd | `banque_neoclassique` | oui | pièce d'or géante sur le toit (style jeu mobile) : remplacée par banque.png |
-| factory_hd | `barres_acier` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `barres_acier` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
 | factory_hd | `bat_chai_vigne` | oui | annexe des fermes agrandies (dessinée quand une ferme grandit, passe 87 ; l'inventaire rend les fermes à leur taille de départ) |
 | factory_hd | `bat_chai_vigneron` | oui | annexe des fermes agrandies (dessinée quand une ferme grandit, passe 87 ; l'inventaire rend les fermes à leur taille de départ) |
 | factory_hd | `bat_drugstore` | non | ancienne pharmacie sans parking (17/11) : remplacée par pharmacie.png |
@@ -252,8 +252,8 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `bobine_fil` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `bobineuse_filature` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `boutique_high_tech_n2` | non | niveau 2 de la boutique high-tech (pas de niveaux pour les spécialistes) |
-| factory_hd | `brownstone_new_yorkais` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `buisson` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `brownstone_new_yorkais` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `buisson` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
 | factory_hd | `bureau_vitre` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `caisse_verre` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `caisses_composants` | oui | intérieur d'usine (vue immersive) ou marchandise |
@@ -266,7 +266,7 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `camion_rouge` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `camion_rouge_face` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `camion_rouge_ouvert` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `chalet_savoyard` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `chalet_savoyard` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `chariot_elevateur` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `chariot_elevateur_charge` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `coin_mur_e` | oui | intérieur d'usine (vue immersive) ou marchandise |
@@ -288,38 +288,38 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `ferme_traditionnelle` | non | ferme de style rustique : les fermes 2×2 / 3×3 ont leurs sprites (fwheat…) |
 | factory_hd | `four_industriel` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `four_rotatif_ciment` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `futs_petrole` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `futs_plastique` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `futs_petrole` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `futs_plastique` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
 | factory_hd | `fwheat_test` | non | essai du producteur |
-| factory_hd | `gare_ferroviaire` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `gratte_ciel_25_etages_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `gratte_ciel_25_etages_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `gratte_ciel_40_etages_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `gratte_ciel_40_etages_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `gratte_ciel_60_etages_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `gratte_ciel_60_etages_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `gare_ferroviaire` | oui | plus de gare pour l'instant (consigne de Rémy) |
+| factory_hd | `gratte_ciel_25_etages_a` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `gratte_ciel_25_etages_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `gratte_ciel_40_etages_a` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `gratte_ciel_40_etages_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `gratte_ciel_60_etages_a` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `gratte_ciel_60_etages_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `hypermarche` | oui | remplacé par bat_hypermarche |
 | factory_hd | `hypermarche_n2` | oui | remplacé par bat_hypermarche_n2 |
 | factory_hd | `hypermarche_n3` | oui | remplacé par bat_hypermarche_n3 |
-| factory_hd | `immeuble_haussmannien` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `immeuble_n2` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `immeuble_pnj_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `immeuble_residentiel_6_etages_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `immeuble_residentiel_6_etages_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `immeuble_haussmannien` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `immeuble_n2` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `immeuble_pnj_a` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `immeuble_residentiel_6_etages_a` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `immeuble_residentiel_6_etages_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `ligne_conditionnement` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `lingots_acier` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `lingots_cuivre` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `lingots_or` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `lingots_acier` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `lingots_cuivre` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `lingots_or` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
 | factory_hd | `machine_a_coudre_cuir` | non | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `machine_a_coudre_industrielle` | non | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `machine_assemblage` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `machine_decoupe_laser` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `machine_injection_plastique` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `maison_bois_nordique` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `maison_n2` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `maison_n3` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `maison_pnj_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `maison_pnj_c` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `maison_bois_nordique` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `maison_n2` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `maison_n3` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `maison_pnj_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `maison_pnj_c` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `malaxeur_industriel` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `mall_central` | non | NE PAS BRANCHER : le mall « effet Guggenheim » dessiné en code est l'extérieur voulu |
 | factory_hd | `mall_central_moderne` | non | NE PAS BRANCHER : idem (extérieur du mall conservé) |
@@ -343,21 +343,21 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `palette_vide` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `panneau_securite` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `panneaux_osb` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `pavillon_banlieue` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `pavillon_banlieue` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `peaux_cuir` | non | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `planches_bois` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `plaques_acier` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `pneus_empiles` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_bateau_peche` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_cavalier_straddle` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_entrepot_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_navire_cargo_se` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_piles_conteneurs_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_piles_conteneurs_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_portique_quai` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_reach_stacker` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_reservoirs` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `port_terminal_vrac` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `port_bateau_peche` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
+| factory_hd | `port_cavalier_straddle` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
+| factory_hd | `port_entrepot_a` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
+| factory_hd | `port_navire_cargo_se` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
+| factory_hd | `port_piles_conteneurs_a` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
+| factory_hd | `port_piles_conteneurs_b` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
+| factory_hd | `port_portique_quai` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
+| factory_hd | `port_reach_stacker` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
+| factory_hd | `port_reservoirs` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
+| factory_hd | `port_terminal_vrac` | oui | décor du port tiré par case de quai ou navire (hors échantillon de l'inventaire) ; vérifié sur capture du port |
 | factory_hd | `portant_vetements` | non | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `poste_couture_ouvriere_1` | non | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `poste_couture_ouvriere_2` | non | intérieur d'usine (vue immersive) ou marchandise |
@@ -376,12 +376,12 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `robot_6_axes_bras_3` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `rouleaux_caoutchouc` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `rouleaux_tissu` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `sacs_beton` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `sacs_ble` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `sacs_ciment` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `sacs_coton` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `sacs_farine` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `sacs_sucre` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `sacs_beton` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `sacs_ble` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `sacs_ciment` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `sacs_coton` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `sacs_farine` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| factory_hd | `sacs_sucre` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
 | factory_hd | `scie_industrielle` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `scierie_exterieure` | non | pas de scierie dans le jeu |
 | factory_hd | `station_recharge_rapide_autoroute` | non | pas d'autoroute sur la carte |
@@ -390,114 +390,113 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `supermarche_n3` | oui | remplacé par bat_supermarche_n3 |
 | factory_hd | `table_de_coupe_tissu` | non | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `torchere_raffinerie` | non | pas de raffinerie dans le jeu |
-| factory_hd | `tour_bureaux_12_etages_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `tour_de_verre` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `tour_bureaux_12_etages_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `tour_de_verre` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `transpalette` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `unite_couture` | non | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `unite_maroquinerie` | non | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `villa_mediterraneenne` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `aimants_terres_rares` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `arbre_isole_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `arbre_isole_c` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `arbre_isole_d` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `arbre_ville` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_argile` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_bauxite` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_chrome` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_graphite` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_lithium` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_nickel` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_phosphate` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_potasse` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_sel` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_silice` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_soufre` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_terres_rares` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `bac_zinc` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `barres_galva` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `barres_inox` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `briques_palette` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `buisson_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `buisson_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `champ_ble_mur` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `champ_ble_vert` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `chantier_petit` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `chassis_aluminium` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `concasseur_recyclage` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `conteneur_bleu` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `conteneur_rouge` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `eau_calme` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `eau_rivage_quai` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `foret_dense_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `foret_dense_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `foret_dense_c` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `foret_sapins_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `foret_sapins_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `futs_gaz` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `gisement_argile` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_bauxite` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_charbon` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_cuivre` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_fer` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_gaz` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_graphite` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_lithium` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_nickel_chrome` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_or` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_petrole` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_phosphate` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_potasse` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_sel` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_silice` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `gisement_zinc` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
+| factory_hd | `villa_mediterraneenne` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| phase2_hd | `aimants_terres_rares` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `arbre_isole_b` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `arbre_isole_c` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `arbre_isole_d` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `arbre_ville` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `bac_argile` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_bauxite` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_chrome` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_graphite` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_lithium` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_nickel` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_phosphate` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_potasse` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_sel` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_silice` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_soufre` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_terres_rares` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `bac_zinc` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `barres_galva` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `barres_inox` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `briques_palette` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `buisson_a` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `buisson_b` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `champ_ble_mur` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `champ_ble_vert` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `chantier_petit` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| phase2_hd | `chassis_aluminium` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `concasseur_recyclage` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `conteneur_bleu` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `conteneur_rouge` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `eau_calme` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `eau_rivage_quai` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `foret_dense_a` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `foret_dense_b` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `foret_dense_c` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `foret_sapins_a` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `foret_sapins_b` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `futs_gaz` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `gisement_argile` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_bauxite` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_charbon` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_cuivre` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_fer` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_gaz` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_graphite` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_lithium` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_nickel_chrome` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_or` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_petrole` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_phosphate` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_potasse` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_sel` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_silice` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `gisement_zinc` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
 | phase2_hd | `hangar_ferme` | non | grange rouge isolée : les sprites de ferme contiennent déjà grange et silo |
-| phase2_hd | `herbe_a` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `herbe_b` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `herbe_c` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `herbe_d` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `immeuble_n2` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `immeuble_pnj_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `lingots_aluminium` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `lingots_laiton` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `maison_n2` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `maison_n3` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `maison_pnj_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `maison_pnj_c` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| phase2_hd | `herbe_a` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `herbe_b` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `herbe_c` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `herbe_d` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `immeuble_n2` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| phase2_hd | `immeuble_pnj_a` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| phase2_hd | `lingots_aluminium` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `lingots_laiton` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `maison_n2` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| phase2_hd | `maison_n3` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| phase2_hd | `maison_pnj_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| phase2_hd | `maison_pnj_c` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | phase2_hd | `mega_centre_commercial` | oui | ancien méga-centre (petit bâtiment au fond d'un parking de voitures-cubes) : remplacé par bat_mega_centre_commercial |
-| phase2_hd | `meule_foin` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `petit_marche_n2` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `porcelaine_caisses` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `rivage_sable` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `rochers_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `rochers_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `route_bout_ne` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_bout_nw` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_bout_se` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_bout_sw` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_coude_ne_nw` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_coude_ne_se` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_coude_se_sw` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_coude_sw_nw` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_croix` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_droite_ne` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_droite_nw` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_isolee` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_t_ne` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_t_nw` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_t_se` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `route_t_sw` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `sacs_alumine` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `sacs_engrais` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `sol_port_asphalte` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `sol_quai_beton_a` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `sol_quai_beton_b` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `sol_ville_pave` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `terre_a` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `terre_b` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `terre_c` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `terre_d` | oui | sol, route, gisement ou végétation (rendus par la carte, hors inventaire des bâtiments) |
-| phase2_hd | `tour_pnj_a` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| phase2_hd | `tour_pnj_b` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| phase2_hd | `meule_foin` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `porcelaine_caisses` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `rivage_sable` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `rochers_a` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `rochers_b` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_bout_ne` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_bout_nw` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_bout_se` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_bout_sw` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_coude_ne_nw` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_coude_ne_se` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_coude_se_sw` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_coude_sw_nw` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_croix` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_droite_ne` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_droite_nw` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_isolee` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_t_ne` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_t_nw` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_t_se` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `route_t_sw` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `sacs_alumine` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `sacs_engrais` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `sol_port_asphalte` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `sol_quai_beton_a` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `sol_quai_beton_b` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `sol_ville_pave` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `terre_a` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `terre_b` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `terre_c` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `terre_d` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
+| phase2_hd | `tour_pnj_a` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| phase2_hd | `tour_pnj_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | phase2_hd | `tracteur` | non | tracteur : déjà présent dans les sprites de culture 3×3 (coin nord-est) |
 | phase2_hd | `usine_grande_f3` | oui | jugée confuse (passe 78) : deux halls f2 en attendant la commande n° 14 |
 | phase2_hd | `usine_petite_f1` | oui | jugée « abri de jardin » (passe 78) : repli usine_moyenne_f2 en attendant la commande n° 14 |
