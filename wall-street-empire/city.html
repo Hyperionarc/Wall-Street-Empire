@@ -1288,6 +1288,17 @@ body.cmp:not(.hx) #decBtn:not([hidden]) ~ #jrBtn{display:none}
 .xinj{position:sticky;top:6px;float:right;z-index:40;margin:0 0 4px 8px;background:rgba(14,20,46,.96);box-shadow:0 2px 10px rgba(0,0,0,.4)}
 .xsticky{position:sticky!important;top:0;z-index:30;background:var(--panel-hi)}
 .xinj{margin-left:auto;align-self:flex-end}
+/* sélecteur de calque */
+#lyrmenu{position:absolute;z-index:27;width:min(280px,calc(100% - 16px));max-height:calc(100% - var(--hud-h) - 20px);overflow-y:auto;padding:6px;border-radius:12px;background:rgba(12,17,38,.97);border:1px solid var(--line);box-shadow:0 12px 36px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:2px}
+#lyrmenu .lmh{padding:4px 8px 6px}#lyrmenu .lmh b{display:block;font-size:13px;color:var(--gold)}#lyrmenu .lmh small{color:var(--mut);font-size:11px}
+#lyrmenu .lmi{min-height:38px;text-align:left;padding:6px 10px 6px 28px;border:0;border-radius:8px;background:none;color:var(--fg);font-size:13px;position:relative}
+#lyrmenu .lmi:hover{background:rgba(255,255,255,.06)}
+#lyrmenu .lmi[aria-checked="true"]{background:rgba(242,184,75,.14);color:var(--gold)}
+#lyrmenu .lmi[aria-checked="true"]::before{content:'●';position:absolute;left:10px;font-size:10px;top:50%;transform:translateY(-50%)}
+#lyrmenu .lmc{display:flex;gap:4px;padding:2px 8px 6px 28px}#lyrmenu .lmc .btn{min-height:34px;padding:2px 8px;font-size:12px}
+/* barre du haut sobre : « Nouvelle ville » (Reset) reste dans Menu > Partie et dans le tableau déplié */
+body:not(.hx) #rst{display:none}
+.hud-in{max-width:1060px}
 </style>
 </head>
 <body>
@@ -17868,7 +17879,8 @@ function frame(now) {
     { const zk = znToolZone(); if (zk) { const rt = znRate(zk), s0 = rt / ZN_MAX; eachVisible(vr, (x, y) => { if (ZONE[idx(x, y)] !== ZSUB[zk].z || S.grid[idx(x, y)] || isRoadPos(x, y)) return; poly(tilePts(iso(x, y), 0.96), rt > 0 ? `rgba(70,211,154,${(0.10 + 0.2 * s0).toFixed(2)})` : 'rgba(255,90,95,.10)', null); }); } }   // passe 34 : surbrillance de la zone subventionnée
     // calques : fréquentation, valeur du terrain, logistique
     { const T0 = TYPES[tool], lay = curLayer(); setLeg(lay);
-      if (lay !== 'none' && z >= SAT_Z) {
+      if (LYR_NEW[lay] && z >= SAT_Z) lyrDraw(vr, lay);   // passe 99 : calques d'implantation (population, pouvoir d'achat, demande, concurrence, emploi)
+      else if (lay !== 'none' && z >= SAT_Z) {
         const key = (T0 && (FLEVEL[tool] || tool === 'foundry')) ? tool : 'f1', rec = TYPES[key].rec, lu = layUse(lay);
         eachVisible(vr, (x, y) => { const zn = ZONE[idx(x, y)]; if (zn === 3 || S.grid[idx(x, y)]) return; let v, h;
           if (lay === 'traffic') { if (zn !== 1) return; v = trafficAt(x, y); h = 120 - 120 * v; }
@@ -21670,6 +21682,57 @@ document.addEventListener('pointerdown', e => {   // clic sur la carte : ferme l
   L.forEach(q => { if (q.o.id !== 'selTag') try { q.o.close(); } catch (er) { /* facultatif */ } });
 }, true);
 window.WSE.ui = { XC, top: xcTop, open: xcOpenList, ensure: xcEnsure, pick: pickAt, selShow: selTagShow, selHide: selTagHide, selInfo, selOpen, decList, decAnswer, decSync, xpOpen, jrRender, jrCatOf, jrSan, helpRender, ecoRender, openCatalog, openSup, mkOpen, grpOpen };   // passe 99 : accès des tests (t98)
+// ---- Passe 99 (6) : CALQUES D'IMPLANTATION. Sélecteur « Calque » (menu au lieu du défilement) : densité de population, pouvoir d'achat, demande par classe,
+// concurrence / saturation, valeur du foncier, fréquentation, emploi. Données existantes seulement : habitants (5 × K_POP par étage de logements, comme refreshStats),
+// emplois (étages de bureaux × S.jpf, jobsOf pour tes bâtiments), valeur résidentielle (landRaw 'res'), panier par habitant (DEM_PER_POP), commerces (les tiens,
+// ceux des rivaux, les commerces de quartier). Chaque source est diffusée sur 6 cases (noyau exp(−d/3)) puis normalisée sur la ville ; seules les cases libres et les rues sont colorées.
+const LYR_NEW = { pop: 'Densité de population', rich: 'Pouvoir d\'achat', dem: 'Demande par classe', comp: 'Concurrence / saturation', jobs: 'Emploi' };
+const LYR_MENU = [['auto', 'Auto (selon l\'outil)'], ['pop', LYR_NEW.pop], ['rich', LYR_NEW.rich], ['dem', LYR_NEW.dem], ['comp', LYR_NEW.comp], ['landc', 'Valeur du foncier (commerce)'], ['landr', 'Valeur du foncier (logement)'], ['traffic', 'Fréquentation'], ['jobs', LYR_NEW.jobs], ['logi', 'Logistique (port, marché)'], ['none', 'Aucun']];
+Object.assign(LAYER_N, { pop: 'Population', rich: 'Pouvoir d\'achat', dem: 'Demande', comp: 'Concurrence', jobs: 'Emploi' });
+Object.assign(LAYER_F, LYR_NEW);
+let lyrCls = 'std'; const LYR_CLS = { basic: 'Essentiel', std: 'Confort', lux: 'Luxe' };
+const LYR_RAMP = 'linear-gradient(90deg,hsla(220,70%,45%,.9),hsla(170,75%,45%,.9),hsla(60,85%,52%,.95),hsla(20,90%,55%,1))';
+Object.assign(LEG, { pop: ['Densité de population', 'peu d\'habitants', 'très dense', LYR_RAMP], rich: ['Pouvoir d\'achat', 'modeste', 'aisé', LYR_RAMP], dem: ['Demande', 'faible', 'forte', LYR_RAMP], comp: ['Concurrence / saturation', 'peu de commerces', 'saturé', 'linear-gradient(90deg,hsla(120,70%,45%,.9),hsla(55,85%,52%,.95),hsla(0,85%,52%,1))'], jobs: ['Emploi (bureaux, usines, commerces)', 'peu d\'emplois', 'beaucoup', LYR_RAMP] });
+const LYR_K = (() => { const k = new Float32Array(13 * 13); for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const d = Math.hypot(dx, dy); k[(dy + 6) * 13 + dx + 6] = d <= 6.5 ? Math.exp(-d / 3) : 0; } return k; })();
+let lyrC = { k: '', f: null };
+function lyrSources(lay) {   // [x, y, poids] selon le calque
+  const src = [], resV = (x, y) => { try { return landNorm('res', landRaw(x, y, 'res')); } catch (e) { return 0.5; } };
+  const pop = c => c.t === 'npc' ? (c.k === 'res' ? 5 * K_POP * (c.floors || 1) : c.k === 'house' ? 5 * K_POP : 0) : c.t === 'res' ? 5 * K_POP * (c.floors || 1) : 0;
+  if (lay === 'comp') { siteIndex().stores.forEach(q => src.push([q[0], q[1], 1])); try { rivalCells().forEach(r => src.push([r[0], r[1], 1])); } catch (e) { /* rivaux facultatifs */ } vvSvcMap(); (VV.list || []).forEach(q => { if (VV_SVC[q[2]] && VV_SVC[q[2]][1] !== 'p' && !/hlm|construction|abandonne|eglise/.test(q[2])) src.push([q[0], q[1], 0.5]); }); return src; }
+  eachBuilding(c => {
+    if (lay === 'jobs') { const j = c.t === 'npc' ? (c.k === 'off' ? (c.floors || 1) * (S.jpf || 1) : 0) : (TYPES[c.t] && TYPES[c.t].jobs ? jobsOf(c) : 0); if (j > 0) src.push([c.x, c.y, j]); return; }
+    const p = pop(c); if (!(p > 0)) return;
+    if (lay === 'pop') src.push([c.x, c.y, p]);
+    else { const v = resV(c.x, c.y); if (lay === 'rich') src.push([c.x, c.y, p * (0.25 + 0.75 * v)]); else { const w = lyrCls === 'lux' ? 0.1 + v * v : lyrCls === 'std' ? 0.3 + 0.7 * v : 1; src.push([c.x, c.y, p * DEM_PER_POP[lyrCls] * w]); } }
+  });
+  return src;
+}
+function lyrField(lay) {
+  const key = lay + ':' + lyrCls + ':' + S.day + ':' + (S.grid ? S.grid.length : 0) + ':' + (siteC.day || 0); if (lyrC.k === key) return lyrC.f;
+  const f = new Float32Array(N * N), src = lyrSources(lay);
+  for (const q of src) { const qx = q[0], qy = q[1], w = q[2]; for (let y = Math.max(0, qy - 6); y <= Math.min(N - 1, qy + 6); y++) for (let x = Math.max(0, qx - 6); x <= Math.min(N - 1, qx + 6); x++) { const kv = LYR_K[(y - qy + 6) * 13 + x - qx + 6]; if (kv) f[y * N + x] += w * kv; } }
+  const vals = []; for (let i = 0; i < f.length; i++) if (f[i] > 0) vals.push(f[i]); vals.sort((a, b) => a - b);
+  const hi = vals.length ? vals[Math.floor(vals.length * 0.97)] || vals[vals.length - 1] : 1; for (let i = 0; i < f.length; i++) f[i] = Math.min(1, f[i] / Math.max(1e-9, hi));
+  lyrC = { k: key, f }; return f;
+}
+function lyrDraw(vr, lay) {   // appelé par le rendu de la carte pour les calques ajoutés
+  const f = lyrField(lay), hot = lay === 'comp';
+  eachVisible(vr, (x, y) => { const i = idx(x, y), c = S.grid[i]; if (ZONE[i] === 3 || (c && c.t !== 'road')) return; const v = f[i]; if (v < 0.02) return;
+    const h = hot ? 120 - 120 * v : 220 - 200 * v; poly(tilePts(iso(x, y), c ? 0.9 : 0.96), `hsla(${h.toFixed(0)},85%,52%,${(0.12 + 0.42 * v).toFixed(2)})`, null); });
+}
+function lyrMenuRender() {
+  const m = el('lyrmenu'); if (!m) return; const cur = layer;
+  m.innerHTML = `<div class="lmh"><b>Calque de la carte</b><small>pour choisir où ouvrir un commerce</small></div>` + LYR_MENU.map(([k, n]) => `<button class="lmi" role="menuitemradio" aria-checked="${k === cur}" data-lyr="${k}">${n}</button>${k === 'dem' && cur === 'dem' ? `<div class="lmc" role="group" aria-label="Classe">${Object.keys(LYR_CLS).map(c => `<button class="btn ${c === lyrCls ? '' : 'sec'}" data-lcls="${c}" aria-pressed="${c === lyrCls}">${LYR_CLS[c]}</button>`).join('')}</div>` : ''}`).join('');
+}
+function lyrMenuPos() { const m = el('lyrmenu'), b = el('lyr'); if (!m || m.hidden) return; const r = b.offsetParent ? b.getBoundingClientRect() : el('hud').getBoundingClientRect(); m.style.top = Math.round(r.bottom + 6) + 'px'; m.style.left = Math.round(clamp(r.right - m.offsetWidth, 8, innerWidth - m.offsetWidth - 8)) + 'px'; }
+el('lyr').onclick = e => { if (e) e.stopPropagation(); const m = el('lyrmenu'); m.hidden = !m.hidden; if (!m.hidden) { lyrMenuRender(); lyrMenuPos(); } };
+el('lyrmenu').addEventListener('click', e => {
+  const c = e.target.closest('[data-lcls]'); if (c) { lyrCls = c.dataset.lcls; legLast = null; LEG.dem[0] = 'Demande ' + LYR_CLS[lyrCls].toLowerCase() + ' (estimée)'; lyrMenuRender(); return; }
+  const b = e.target.closest('[data-lyr]'); if (!b) return; setLayer(b.dataset.lyr); legLast = null; if (b.dataset.lyr === 'dem') { LEG.dem[0] = 'Demande ' + LYR_CLS[lyrCls].toLowerCase() + ' (estimée)'; lyrMenuRender(); } else el('lyrmenu').hidden = true;
+});
+['pointerdown', 'pointerup', 'wheel'].forEach(t => el('lyrmenu').addEventListener(t, ev => ev.stopPropagation(), { passive: true }));
+document.addEventListener('pointerdown', e => { const m = el('lyrmenu'); if (m && !m.hidden && !e.target.closest('#lyrmenu,#lyr')) m.hidden = true; }, true);
+window.WSE.lyr = { field: lyrField, sources: lyrSources, menu: lyrMenuRender, cls: v => { if (v) lyrCls = v; return lyrCls; }, NEW: LYR_NEW };
 })();
 </script>
 </body>
