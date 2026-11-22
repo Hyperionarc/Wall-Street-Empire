@@ -8471,8 +8471,11 @@ const feed = $('#feed');
 function say(text, kind) {
   if (_tel && _tel.on && (kind === 'bad' || kind === 'warn') && TEL_REFUS.test(String(text))) { try { telCount('refus_n', 1); const d = telDay(); if (_tel._rf == null || d - _tel._rf >= 10) { _tel._rf = d; tel('refus', { m: String(text).replace(/[0-9][0-9 ,.]*/g, '#').slice(0, 60) }); } } catch (e) { /* facultatif */ } }
   try { if (typeof S !== 'undefined' && S) { (S._sayBuf = S._sayBuf || []).push(String(text).slice(0, 90)); if (S._sayBuf.length > 4) S._sayBuf.shift(); } } catch (e) {}
+  // dépêches : plus rien sur l'écran d'action (décision de Rémy). Tout va au journal (liste en mémoire, lue par le panneau Journal) ; seules les erreurs d'action brèves (kind 'bad') s'affichent ~2 s.
+  try { const J = (window._jr = window._jr || []); J.push({ d: (typeof S !== 'undefined' && S) ? S.day : 0, t: String(text), k: kind || '' }); if (J.length > 400) J.shift(); const jb = document.getElementById('jrBadge'); if (jb) jb.hidden = false; } catch (e) {}
+  if (kind !== 'bad') return;
   // passe 64 : file courte. Téléphone : une seule notification (4,5 s) ; bureau : deux au plus (6,5 s) ; un message identique déjà affiché est prolongé au lieu d'être répété
-  const cm = isCmp(), life = cm ? 4500 : 6500, last = feed.lastElementChild;
+  const cm = isCmp(), life = 2200, last = feed.lastElementChild;
   if (last && last.textContent === String(text) && !last.classList.contains('fade')) { clearTimeout(last._t); last._t = setTimeout(() => { last.classList.add('fade'); setTimeout(() => last.remove(), 520); }, life); return; }
   const d = document.createElement('div');
   d.className = 'msg ' + (kind || '');
@@ -15423,9 +15426,9 @@ function shelfCard(c) {
   if (bPick >= 0 && bPick < N) { const placed = keys.filter(Boolean), opts = all.filter(i => placed.indexOf(i.key) < 0);
     pick = `<div class="pickbox"><b>Emplacement ${bPick + 1}</b> : choisis le produit à mettre en rayon ${keys[bPick] ? `<button class="btn sec" data-act="clrslot:${bPick}" style="min-height:28px;padding:2px 10px">Vider</button>` : ''}<div class="rlist" style="margin-top:6px">${opts.map(i => `<button class="chip2 shelf" data-act="setslot:${bPick}:${i.key}"><b>${i.name}</b><small>${f1(i.price)} $ · ${i.stock > 0.5 ? 'stock ' + fmt(i.stock) : (i.gen && c.imp !== false ? 'grossiste local' : 'rupture')}</small></button>`).join('') || '<small>Aucun autre produit disponible : lance de nouveaux produits dans les usines.</small>'}</div></div>`; }
   const vk = (bPick >= 0 && keys[bPick]) ? keys[bPick] : keys.find(Boolean), view = vk && by[vk] ? prodView(c, vk, by[vk]) : '';
-  return view + `<div class="lever wide" style="margin:8px 0"><h4>Rayons · ${N} emplacements <span class="pip">${keys.filter(Boolean).length} / ${N}</span></h4><small>Un magasin ne présente qu'un nombre limité de produits selon sa taille : 4 (petit marché), 8 (supermarché), 12 (hypermarché). Clique un emplacement pour choisir le produit. Barres : stock (jaune) et ventes (orange).</small><div class="slots">${slots}</div>${pick}
+  return `<div class="lever wide" style="margin:8px 0"><h4>Rayons · ${N} emplacements <span class="pip">${keys.filter(Boolean).length} / ${N}</span></h4><small>Un magasin ne présente qu'un nombre limité de produits selon sa taille : 4 (petit marché), 8 (supermarché), 12 (hypermarché). Clique un emplacement pour choisir le produit. Barres : stock (jaune) et ventes (orange).</small><div class="slots">${slots}</div>${pick}
     <div class="seg2" style="margin-top:6px"><button class="btn sec" data-act="autoslots">Remplissage automatique</button><button class="btn sec" data-act="imp" aria-pressed="${c.imp !== false}">Livraison par les grossistes locaux : ${c.imp === false ? 'coupée' : 'active'}</button></div>
-    <small>Les marchandises du marché local (base, manufacturé, luxe) sont livrées par les grossistes et producteurs de la ville au cours du marché + 5 %. Tes propres produits de marque passent avant sur le rayon.</small></div>`;
+    <small>Les marchandises du marché local (base, manufacturé, luxe) sont livrées par les grossistes et producteurs de la ville au cours du marché + 5 %. Tes propres produits de marque passent avant sur le rayon.</small></div>` + view;   // sélection des produits TOUT EN HAUT, la fiche détaillée du produit dessous
 }
 function whTab(c) {
   const used = Object.keys(c.inv || {}).reduce((a, g) => a + c.inv[g], 0), cap = whCap(c);
@@ -15474,7 +15477,7 @@ function renderSlotPick() {
       .sort((a, b) => a.rp - b.rp).slice(0, 30);
     mkCards = cand.length ? `<div class="sh" style="margin-top:6px"><span>PRODUITS PROPOSÉS PAR D'AUTRES SOCIÉTÉS (${cand.length})</span></div>` + cand.map(x => `<div class="sc" style="cursor:default;grid-template-columns:84px 1fr 118px"><div style="width:84px;height:84px;background:#fff;border-radius:6px;overflow:hidden;display:grid;place-items:center">${slotThumb(x.pk)}</div><div><h5>${PRODUCTS[x.pk].name}</h5><div class="sg"><span>Prix livré<b>${f(x.best.total)} $</b></span><span>Prix en rayon<b>${f(x.rp)} $</b></span><span>Offreurs<b>${x.offs.length}</b></span></div><select data-spo="${x.pk}" style="margin-top:4px;width:100%">${x.offs.map(o => `<option value="${o.id}">${o.name} · ${f(o.total)} $ livré · délai ${o.delay} j</option>`).join('')}</select></div><button class="btn" data-s="mkput:${x.pk}" style="white-space:normal;line-height:1.2;padding:6px 8px">Acheter et mettre ici</button></div>`).join('') : '';
   }
-  const emptyMsg = mkCards ? '' : '<p class="note">Aucun autre produit à proposer pour ce type de magasin pour l\'instant. Lance un produit (vue Produits) ou choisis un fournisseur de marchandises du marché local.</p>';
+  const emptyMsg = mkCards ? '' : '<p class="note">Rien d\'autre à mettre ici pour l\'instant : ce magasin ne vend que les catégories de son type, et elles sont déjà en rayon. Pour remplir cet emplacement, lance un produit de marque (menu Produits) ou attends qu\'une société en propose.</p>';
   el('supview').innerHTML = `<div class="sh"><span>EMPLACEMENT ${spI + 1} : CHOISIS LE PRODUIT ET LE FOURNISSEUR</span></div>${cards || emptyMsg}${mkCards}<div class="sb"><span></span><button class="btn sec" data-s="cancel">Annuler</button></div>`;
 }
 function renderSup() {
@@ -18076,7 +18079,8 @@ const L2 = L1.concat(['off', 'tv', 'well', 'miron', 'mcoal', 'mcopper', 'mgold',
 const L3 = L2.concat(['sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico', 'solar', 'wind', 'cable', 'nuclear', 'dc', 'tech', 'rd', 'f4', 's4', 'mnicr', 'mlithium', 'mgraphite']);
 const L4 = L3.concat(['bank', 'hq']);
 const SCN_LOCK = { s1: L1, s2: L2, s3: L3, s4: L4, s5: null };
-const modeLocked = k => { if (!isScn()) return false; const L = SCN_LOCK[modeK()]; return !!L && TYPES[k] && L.indexOf(k) < 0; };
+const modeLocked = k => { return false;   // décision de Rémy : aucun verrou de scénario, tout est jouable tout de suite (les castes ont seulement des avantages)
+  if (!isScn()) return false; const L = SCN_LOCK[modeK()]; return !!L && TYPES[k] && L.indexOf(k) < 0; };
 const unlockScn = k => { for (let i = 1; i <= 5; i++) { const L = SCN_LOCK['s' + i]; if (!L || L.indexOf(k) >= 0) return i; } return 5; };
 const lockLabel = k => modeLocked(k) ? 'Scénario ' + unlockScn(k) : (TYPES[k] && TYPES[k].tier && tierNow() < TYPES[k].tier && TIERS[TYPES[k].tier]) ? TIERS[TYPES[k].tier].n : specLocked(k) ? 'Famille à vendre' : (TYPES[k] && TIERS[TYPES[k].tier] ? TIERS[TYPES[k].tier].n : '');
 // Tutoriels guidés : chaque étape a un texte, une détection (ok), l'outil concerné (tool) et le prochain élément d'interface à cliquer (hl : sélecteur ou null)
@@ -18866,7 +18870,7 @@ function rankHTML() {
 function recap(title, lines, kind) {
   const box = el('recap'); if (!box) return;
   say(title + ' ' + lines[0], kind || 'info');
-  box.innerHTML = `<b>${title}</b>${lines.map(l => `<p>${l}</p>`).join('')}<button class="btn sec" data-rc="1">OK</button>`; box.hidden = false;
+  box.innerHTML = `<b>${title}</b>${lines.map(l => `<p>${l}</p>`).join('')}<button class="btn sec" data-rc="1">OK</button>`; box.hidden = true;   // plus de fenêtre d'événement : le récap part au journal (S.lastRecap)
   S.lastRecap = { t: title, l: lines, day: S.day };
   clearTimeout(recap._t); recap._t = setTimeout(() => { box.hidden = true; }, 30000);
 }
