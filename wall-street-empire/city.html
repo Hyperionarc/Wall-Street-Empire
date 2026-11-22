@@ -2271,7 +2271,11 @@ function libCheck() {
   const bad = []; GKEYS.forEach(g => { const p = S.price[g], s = S.stock[g]; if (!(p > 0) || !isFinite(p)) bad.push('price.' + g + '=' + p); if (!(s >= 0) || !isFinite(s)) bad.push('stock.' + g + '=' + s); });
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps && (!(ps.stock >= 0) || !isFinite(ps.stock))) bad.push('prod.' + pk + '=' + ps.stock); });
   if (!isFinite(S.cash)) bad.push('cash=' + S.cash); (S.rivals || []).forEach(r => { if (!isFinite(r.cash)) bad.push('riv.' + r.id + '.cash'); });
-  const L = S._lib || (S._lib = { n: 0, bad: [] }); if (bad.length) { L.n++; L.bad = bad.slice(0, 12); L.d = S.day; } return bad;
+  const L = S._lib || (S._lib = { n: 0, bad: [] }); if (bad.length) { L.n++; L.bad = bad.slice(0, 12); L.d = S.day; }
+  // Oscillation des cours : variations journalières de log(P) (somme des carrés, maximum), alternances hausse/baisse consécutives (dents de scie) ; non sauvegardé
+  const X = S._pxs || (S._pxs = {}); GKEYS.forEach(g => { const p = S.price[g]; if (!(p > 0)) return; const o = X[g] || (X[g] = { p, n: 0, s2: 0, mx: 0, alt: 0, malt: 0, sg: 0 }); const r = Math.log(p / o.p), sg = r > 2e-4 ? 1 : r < -2e-4 ? -1 : 0;
+    o.n++; o.s2 += r * r; o.mx = Math.max(o.mx, Math.abs(r)); if (sg && o.sg && sg !== o.sg) { o.alt++; o.malt = Math.max(o.malt, o.alt); } else if (sg) o.alt = 0; if (sg) o.sg = sg; o.p = p; });
+  return bad;
 }
 // Marché industriel local : acheteurs PNJ de la ville pour chaque matière ; le premier arrivé rafle tout, puis des producteurs locaux s'installent
 // Élasticité-prix (valeurs absolues, plus modérées que dans la vraie vie comme dans Capitalism Lab) : une hausse de 10 % du prix réduit la demande de ε × 10 %
@@ -2313,6 +2317,7 @@ function stepLocalMarket(made, want) {
     if (!GOODS[g]) return;
     const Dl = LOCAL_D[g] * (ROBOTS[g] ? 1 + 0.12 * Math.min(3, (S.rivals || []).length) : RIV_USE[g] ? 1 + 0.06 * Math.min(5, (S.rivals || []).length) : rawB2B) * (popE() / 10000) * gdpm * clamp(Math.pow(Math.max(0.2, (S.price[g] || GOODS[g].base) / (GOODS[g].base * cpi() * (isChip(g) ? aibPx(g) : 1))), -elRaw(g)), 0.4, 1.8) * (isChip(g) ? aibDemM(g) : 1), n = npcs[g] || (npcs[g] = { cap: 0, days: 0 });
     if (n.cap > 0) { const c0 = n.cap; n.cap = Math.min(Dl * ROOM * (NPC_CAP + 0.03 * dif) * (1 + 0.35 * Math.max(0, (n.k || 1) - 1)), n.cap * (1 + 0.004 * (1 + dif))); if (CROPS[g] && Math.floor(n.cap / (Dl * 0.2)) > Math.floor(c0 / (Dl * 0.2)) && rnd() < 0.6) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); }   // passe 46 : chaque concurrent de plus agrandit l'offre locale
+    if (n.cap > 0) { const pc = marketBounds(g).base; if ((S.price[g] || pc) < 0.8 * pc) { n.lo = (n.lo || 0) + 1; if (n.lo > 14) n.cap *= 0.985; } else n.lo = 0; }   // lot 5 : un producteur PNJ qui vend sous son coût plus de 14 jours réduit sa capacité (veille, fermetures) : plancher naturel du cours
     const hadSale = (S.locSold[g] || 0) > 5; n.days = hadSale ? n.days + 1 : Math.max(0, n.days - 1);
     mpEntry(g, n, Dl);   // passe 46 : appel d'air (déterministe)
     if (!n.cap && n.days > 18 && rnd() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * ROOM * 0.15; if (n.k != null) n.k = Math.max(1, n.k); if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
@@ -2365,15 +2370,24 @@ function placeNpcFarm(g, owner) {
 // Générateur pseudo-aléatoire déterministe (mulberry32) : la simulation ne doit jamais appeler Math.random (rejouable côté serveur)
 let _RS0 = 0x1badf00d;
 function rnd() { let a = (S ? (S.rs = ((S.rs == null ? _RS0 : S.rs) + 0x6D2B79F5) | 0) : (_RS0 = (_RS0 + 0x6D2B79F5) | 0)); let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
-// Prix unique par bien : ancrage (base × répercussion du coût des intrants × inflation × primes), plancher (jamais sous le coût réel des intrants + 8 %) et plafond (×1,6 de l'ancrage)
+// Prix unique par bien (lot 5, économie libérale) : plus de plancher ni de plafond administrés. Trois repères de marché :
+//  - base : coût marginal domestique = prix de référence × répercussion du coût réel des intrants (sans borne) × inflation × chocs ;
+//  - imp : parité d'importation = prix mondial (référence × inflation × chocs mondiaux) × (1 + droits de douane) × (1 + fret) : au-dessus, l'import comble la pénurie (plafond naturel) ;
+//  - fl / cap : garde-fous techniques (anti-explosion numérique), 0,05 et 20 × la référence, comptés par bnd().
+// Le plancher naturel vient des vendeurs : liquidation d'un stock dormant, producteurs PNJ qui ferment quand le cours passe sous leur coût, usines déficitaires mises à l'arrêt par leur propriétaire.
+const MKT_FRET = USM.fret0;   // fret d'importation de la ville (port public) : la parité vaut ×1,30 la référence mondiale, comme l'ancien plafond de pénurie
 function marketBounds(g) {
   const G = GOODS[g], P = S.price; let pass = 1;
-  if (G.inp) { let a = 0, b = 0; Object.keys(G.inp).forEach(h => { a += G.inp[h] * P[h] / cpi(); b += G.inp[h] * GOODS[h].base; }); pass = 1 - G.inS + G.inS * clamp(a / b, 0.7, 1.5); }   // répercussion du coût des intrants
-  const base = G.base * pass * cpi() * modOf('px_' + g) * shockPx(g) * trM(g) * (isChip(g) ? aibPx(g) * chipNodeM(g) : 1) * (G.grp === 'raw' ? 1 + Math.max(0, S.macro.gdp - 0.03) * 3 : 1);
-  let fl = base * (G.inp ? 0.86 : 0.75);
-  if (G.inp && G.inO) { let ci = 0; Object.keys(G.inp).forEach(h => { ci += G.inp[h] * P[h]; }); fl = Math.min(base * 1.4, Math.max(fl, 1.08 * ci / G.inO)); }   // un produit transformé ne se vend jamais durablement sous le coût réel de ses intrants + 8 %
-  return { base, fl, cap: Math.max(fl, base * 1.6 * mpM(g)), pass };   // passe 46 : le plafond de pénurie s'applique au prix de pouvoir de marché (pas de plafond de marge)
+  if (G.inp) { let a = 0, b = 0; Object.keys(G.inp).forEach(h => { a += G.inp[h] * P[h] / cpi(); b += G.inp[h] * GOODS[h].base; }); pass = 1 - G.inS + G.inS * bnd('B41', a / Math.max(1e-9, b), 0.05, 20); }   // répercussion du coût des intrants (coût marginal), sans borne administrée
+  const wld = G.base * cpi() * modOf('px_' + g) * shockPx(g) * (isChip(g) ? aibPx(g) * chipNodeM(g) : 1);   // prix mondial (les nœuds de gravure ne viennent que de la R&D : chipNodeM)
+  const base = wld * pass * trM(g), imp = wld * (1 + USM.tariff) * (1 + MKT_FRET);
+  const ref = G.base * cpi();
+  return { base, imp, fl: ref * 0.05, cap: Math.max(imp, ref * 20), pass, wld };
 }
+// Plafond naturel : part de la demande servie par l'import, sigmoïde douce autour de la parité (0 bien en dessous, 1 au-dessus)
+const impShare = (p, imp) => 1 / (1 + Math.exp(-(p / Math.max(1e-9, imp) - 1) / 0.04));
+// Minimum lissé (le prix d'un bien rare tend vers la parité d'importation sans la dépasser durablement)
+const sMin = (a, b, k = 8) => Math.pow(Math.pow(Math.max(1e-12, a), -k) + Math.pow(Math.max(1e-12, b), -k), -1 / k);
 /* ---------- Passe 46 : POUVOIR DE MARCHÉ. Les marges sont le résultat de la concurrence, pas un plafond.
    Nombre équivalent de vendeurs n = 1 (toi) + concurrents actifs + substituts (import, sans marque), part équivalente s = 1 / n.
    Prime de prix = P × max(0, s − 0,10) / 0,90 × √couverture (part de la demande locale que tu sers) ; P dépend de la filière (commodité 0,7 · standard 0,9 · spécialité 1,25 : plastique, chimie, électronique, pharmacie).
@@ -2392,8 +2406,11 @@ const mpK = g => { const n = S && S.npcSup && S.npcSup[g]; return n ? (n.k != nu
 // Composant g : prime du jour d'après les concurrents installés, l'import et la part de la demande que tu couvres (my = ta production, want = demande totale)
 function mpGood(g, my, want) {
   if (!mpOn(g)) return { m: 1, p: 0, k: 0, n: 1, cov: 0 };
-  const k = mpK(g), n = 1 + k + MP_IMP, cov = clamp((my || 0) / Math.max(1e-6, want || 0), 0, 1), p = mpPrime(mpPg(g), n) * Math.sqrt(cov);   // couverture : part de la demande que tu sers (√ : l'import, plus cher, laisse de la marge à un producteur local même partiel)
-  return { m: 1 + p, p, k, n, cov };
+  const k = mpK(g), n = 1 + k + MP_IMP, cov = clamp((my || 0) / Math.max(1e-6, want || 0), 0, 1), p0 = mpPrime(mpPg(g), n) * Math.sqrt(cov);   // couverture : part de la demande que tu sers (√ : l'import, plus cher, laisse de la marge à un producteur local même partiel)
+  // Lot 5 : prime dynamique. Capacités tendues (taux d'utilisation u > 0,9) : prime pleine ; capacités oisives (u < 0,6) : aucune. Stock dormant (plus de 15 jours de demande) : la prime s'annule.
+  const u = S._ut && S._ut[g] != null ? S._ut[g] : 1, sd = (S.stock[g] || 0) / Math.max(1, want || 0), sst = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+  const gu = sst((u - 0.6) / 0.3), hs = sst((15 - sd) / 10), p = p0 * gu * hs;
+  return { m: 1 + p, p, k, n, cov, u, sd, p0 };
 }
 // Produit fini : rivaux présents dans la catégorie (1 s'il a copié ton produit, sinon son attrait / 0,2), copies étrangères, substituts sans marque ; une marque forte réduit la pression
 function mpProdOf(pk) {
@@ -2495,8 +2512,8 @@ function mpTxt(o) {
 function trend30(g) { const a = S.ph && S.ph[g]; if (!a || a.length < 3) return 0; const n = a.length, ref = a[Math.max(0, n - 31)]; return ref > 0 ? a[n - 1] / ref - 1 : 0; }
 function mktState(g) {
   const mb = marketBounds(g), p = S.price[g], ratio = (S.rat && S.rat[g] != null) ? S.rat[g] : 1;
-  if (p <= mb.fl * 1.03 && mb.cap > mb.fl * 1.05) return { k: 'floor', t: 'Saturé · prix plancher', c: 'neg' };
-  if (p >= mb.cap * 0.97 && mb.cap > mb.fl * 1.05) return { k: 'cap', t: 'Pénurie · prix plafond', c: 'neg' };
+  if (p <= mb.base * 0.8) return { k: 'floor', t: 'Saturé · cours sous le coût de production', c: 'neg' };   // lot 5 : plus de plancher administré, les producteurs perdent de l'argent
+  if (p >= mb.imp * 0.97) return { k: 'cap', t: 'Pénurie · parité d\'importation (l\'import comble)', c: 'neg' };
   if (ratio > 1.3) return { k: 'short', t: 'Pénurie', c: 'neg' };
   if (ratio < 0.75) return { k: 'glut', t: 'Saturé (offre abondante)', c: 'warn' };
   return { k: 'ok', t: 'Équilibré', c: 'pos' };
@@ -2659,7 +2676,7 @@ function seatRelease(k) {
   return { ok: true, seat: seatsSync().find(x => x.caste === k) };
 }
 // Ordre d'un humain tenant le siège d'une IA (prix relatif par classe) : seule action exposée avant le multijoueur
-function seatOrder(k, o) { const r = (S.rivals || []).find(x => x.caste === k); if (!r || r.ctrl !== 'human' || !o) return false; if (o.px) RIV_CLS.forEach(c => { if (o.px[c] > 0) r.px[c] = clamp(+o.px[c], 0.6, 1.6); }); return true; }
+function seatOrder(k, o) { const r = (S.rivals || []).find(x => x.caste === k); if (!r || r.ctrl !== 'human' || !o) return false; if (o.px) RIV_CLS.forEach(c => { if (o.px[c] > 0) r.px[c] = pxFree(+o.px[c]); }); return true; }
 const seatsApi = { list: () => seatsSync().map(s => Object.assign({}, s, { company: companyOf(s.caste) })), claim: seatClaim, release: seatRelease, isFree: k => { const s = seatsSync().find(x => x.caste === k); return !!s && s.ctrl === 'ai'; }, company: companyOf, order: seatOrder,
   extra: () => (S.rivals || []).filter(r => !r.caste).map(r => ({ id: r.id, name: r.name, sty: r.sty || null, ctrl: r.ctrl === 'human' ? 'human' : 'ai', sub: !!r.sub })),   // passe 80 : sièges supplémentaires (au-delà des 6 castes)
   players: () => 1 + (S.rivals || []).filter(r => !r.sub).length };
@@ -2701,7 +2718,7 @@ function rivPrice(r) {
     if (RV.cartel && RV.cartel.cls === cls) f('entente', RV.cartel.rid === r.id ? RV.cartel.m : 1 + (RV.cartel.m - 1) / 2);
     const war = st.k === 'war' && st.cls === cls, cb = r.cb && r.cb[cls], fl = cb > 0 && r.fab && r.fab.length ? b * (cb + (war ? -0.04 : 0.02)) : 0;   // « ne jamais vendre sous le coût » (politique du COO de Capitalism Lab), sauf guerre des prix : jusqu'à 4 % sous le coût
     if (fl > b * t) why.push(['coût', fl / (b * t)]);
-    const tgt = clamp(Math.max(b * t, fl), b * 0.7, b * 1.3); r.px[cls] = +(r.px[cls] + clamp(tgt - r.px[cls], -0.03 * b, 0.015 * b)).toFixed(4);
+    const liq = r.sm[cls] > 0.005 && mine < 0.8 * r.sm[cls], tgt = bnd('B52', Math.max(b * t, liq ? fl * 0.85 : fl), b * 0.4, b * 2.5);   // lot 5 : un rival qui perd ses clients liquide jusqu'à 15 % sous son coût, comme le joueur peut le faire ; bornes élargies (garde-fou) r.px[cls] = +(r.px[cls] + clamp(tgt - r.px[cls], -0.03 * b, 0.015 * b)).toFixed(4);
     // journal explicatif : un mouvement de prix d'au moins 6 % depuis le dernier relevé est expliqué par son facteur principal (au plus une fois par mois et par rival)
     r.pxL = r.pxL || {}; if (r.pxL[cls] == null) r.pxL[cls] = r.px[cls];
     const dv = r.px[cls] / r.pxL[cls] - 1;
@@ -2748,7 +2765,7 @@ function rivCasteAct(r) {
    elle entre dans riskPrem (±0,4 point au plus) et credCycle (±6 % au plus). Le resserrement du crédit d'un joueur endetté (+1,5 point, 60 jours) est conservé mais suspendu
    en récession et en crise du crédit (pas de spirale). Elle organise les tours de table des rivaux à court de trésorerie mais rentables (40 % pour elle, 2 % de commission,
    invitation au joueur) et propose au joueur d'organiser sa levée. État S.rv.lx (optionnel) : { st, me ({ amt, r, until, up }), loss ([jour, montant]), fees, n (compteurs) }. */
-const TR_DAYS = 12, TR_STEP = 0.0025, TR_TM = 0.06, TR_DCAP = 0.04, TR_BUD = 0.22, TR_FLOW = 0.06, TR_HOLD = 0.00025, TR_BUY = 0.96, TR_EXP = 1.15, TR_ELK = 1.3, TR_DCK = 1.25, TR_ELCAP = 0.12;
+const TR_DAYS = 12, TR_STEP = 0.0025, TR_TM = 0.06, TR_DCAP = 0.10, TR_BUD = 0.22, TR_FLOW = 0.06, TR_HOLD = 0.00025, TR_BUY = 0.96, TR_EXP = 1.15, TR_ELK = 1.3, TR_DCK = 1.25, TR_ELCAP = 0.12;
 const LX_LEV = 8, LX_LEVMAX = 0.55, LX_TERM = 720, LX_ST = 0.004;
 let _trG = null;
 const trGoods = () => _trG || (_trG = Object.keys(LOCAL_D).filter(g => GOODS[g] && GOODS[g].grp === 'raw' && !ROBOTS[g]));
@@ -3405,7 +3422,7 @@ function compOv(pk) {
 const cooPol = () => (S && S.pol && COO_GAP[S.pol.px] != null) ? S.pol.px : 'man';
 // Prix qui donne la note visée (bissection sur ps.pf, bornes du curseur 60-160 %)
 function cooTargetPf(pk, target) {
-  const ps = S.prod[pk]; let lo = 0.6, hi = 1.6; const ov = pf => productScore(pk, Object.assign({}, ps, { pf })).overall;
+  const ps = S.prod[pk]; let lo = 0.2, hi = 5; const ov = pf => productScore(pk, Object.assign({}, ps, { pf })).overall;
   if (ov(lo) <= target) return lo; if (ov(hi) >= target) return hi;
   for (let i = 0; i < 18; i++) { const m = (lo + hi) / 2; if (ov(m) >= target) lo = m; else hi = m; }
   return (lo + hi) / 2;
@@ -3424,9 +3441,9 @@ function stepCooPrice() {
   const k = cooPol(); if (k === 'man') return; const gap = COO_GAP[k], pd = (S._dw && S._dw.pd) || {};
   PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps.st !== 'on' || ps.pxm) return;
     const need = pd[pk] || 0, sold = ps.sold || 0, short = need > 0.5 && sold > 0.05 * need && sold < 0.9 * need && (ps.stock || 0) < 2 * need;   // goulot : tu vends tout ce que tu livres et des clients repartent (sans production, rien à relever)
-    let t = short ? Math.min(1.6, ps.pf * (1 + COO_UP)) : cooTargetPf(pk, compOv(pk) + gap);
-    const fl = cooUnitFloor(pk); t = Math.max(t, Math.min(1.6, polOn('noLoss') ? fl : fl / 1.05));   // le COO ne vend jamais sous le coût des intrants (+5 % avec « Ne jamais vendre sous le coût »)
-    const pf = clamp(ps.pf + clamp(t - ps.pf, -COO_STEP, COO_STEP), 0.6, 1.6);
+    let t = short ? ps.pf * (1 + COO_UP) : cooTargetPf(pk, compOv(pk) + gap);
+    if (polOn('noLoss')) t = Math.max(t, cooUnitFloor(pk));   // lot 5 : le COO suit le marché ; il ne refuse de vendre sous le coût des intrants (+5 %) que si tu as choisi « Ne jamais vendre sous le coût »
+    const pf = pxFree(ps.pf + clamp(t - ps.pf, -COO_STEP, COO_STEP));
     ps._coo = { d: S.day, short: short ? 1 : 0, t: +t.toFixed(3), cmp: Math.round(compOv(pk)), gap };
     if (Math.abs(pf - ps.pf) > 1e-4) ps.pf = +pf.toFixed(4); });
 }
@@ -4745,13 +4762,13 @@ function load() {
       if (r[17] && typeof r[17] === 'object') c.cfg = r[17]; c.irr = clamp(r[18] | 0, 0, 3); if (r[19] && typeof r[19] === 'object') c.src = r[19];
       if (r[20] && typeof r[20] === 'object') palLoad(c, r[20]);   // passe 74 : chantier de palier (champ facultatif)
       if (r[0] === 'qgravel') { const e = r[20] && typeof r[20] === 'object' ? r[20] : {}; if (e.cr > 0) c.cr = clamp(e.cr | 0, 0, CR_MAX); if (Array.isArray(e.crb) && e.crb[0] > 0) c.crb = { to: clamp(e.crb[0] | 0, 1, CR_MAX), t0: e.crb[1] | 0, dur: Math.max(1, e.crb[2] | 0), cost: +e.crb[3] || 0 }; if (t0 === 'crush' && !(c.cr > 0)) { c.cr = c.lvl >= 1 ? 3 : 2; c.lvl = 0; } }   // passe 79 : concasseur ; ancien centre de concassage (2 250 u/jour) = carrière de granulats avec concasseur de niveau 2 (2 000 u/jour), niveau 3 s'il avait été agrandi
-      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = clamp(+e.pk[k] || 1, 0.6, 2.2); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.mb != null) c.mr = clamp(+e.mb, 0, 3); if (e.ap != null) c.adp = clamp(+e.ap || 1, 0.4, 2); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; if (e.lv > 0) c.lpv = +e.lv; } if (e.aq > 0) c.acq = +e.aq; if (e.fx && typeof e.fx === 'object' && PLAN_DIM[r[0]]) { const x = e.fx, f = fxMake(c); if (Array.isArray(x.s) && x.s.length === 3) f.s = x.s.map(v => clamp(+v || 0, 0, 100)); if (Array.isArray(x.w)) f.w = x.w.slice(0, 9).map(v => clamp(v | 0, 0, FX_TMAX)); if (x.g && typeof x.g === 'object') FX_GOALS.forEach(g => { if (x.g[g.id]) f.g[g.id] = +x.g[g.id] || 1; }); f.tot = Math.max(0, +x.tot || 0); f.run = Math.max(0, +x.run || 0); f.brk = Math.max(0, x.brk | 0); f.bn = x.bn | 0; f.ok = x.ok | 0; f.ins = x.ins | 0; f.ir = x.ir === 'ok' || x.ir === 'warn' ? x.ir : ''; f.st = x.st | 0; f.rep = x.rep | 0; } if (typeof e.pl === 'string' && PLAN_DIM[r[0]]) { const pa = e.pl.split(','), dm = PLAN_LEG[r[0]]; if ((pa.length === PLAN_N || pa.length === dm[0] * dm[1]) && pa.every(k => k === '' || PLAN_KEYS.indexOf(k) >= 0)) { c.plan = pa; if (e.rb && typeof e.rb === 'object') { c.rb = {}; Object.keys(e.rb).forEach(i => { const v = e.rb[i]; if (pa[i] === 'robot' && Array.isArray(v) && ROBOTS[v[0]]) c.rb[i] = { k: v[0], w: clamp(+v[1] || 0, 0, 1) }; }); } } } }
+      if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = pxFree(+e.pk[k] || 1); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.mb != null) c.mr = clamp(+e.mb, 0, 3); if (e.ap != null) c.adp = clamp(+e.ap || 1, 0.4, 2); if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; if (e.lv > 0) c.lpv = +e.lv; } if (e.aq > 0) c.acq = +e.aq; if (e.fx && typeof e.fx === 'object' && PLAN_DIM[r[0]]) { const x = e.fx, f = fxMake(c); if (Array.isArray(x.s) && x.s.length === 3) f.s = x.s.map(v => clamp(+v || 0, 0, 100)); if (Array.isArray(x.w)) f.w = x.w.slice(0, 9).map(v => clamp(v | 0, 0, FX_TMAX)); if (x.g && typeof x.g === 'object') FX_GOALS.forEach(g => { if (x.g[g.id]) f.g[g.id] = +x.g[g.id] || 1; }); f.tot = Math.max(0, +x.tot || 0); f.run = Math.max(0, +x.run || 0); f.brk = Math.max(0, x.brk | 0); f.bn = x.bn | 0; f.ok = x.ok | 0; f.ins = x.ins | 0; f.ir = x.ir === 'ok' || x.ir === 'warn' ? x.ir : ''; f.st = x.st | 0; f.rep = x.rep | 0; } if (typeof e.pl === 'string' && PLAN_DIM[r[0]]) { const pa = e.pl.split(','), dm = PLAN_LEG[r[0]]; if ((pa.length === PLAN_N || pa.length === dm[0] * dm[1]) && pa.every(k => k === '' || PLAN_KEYS.indexOf(k) >= 0)) { c.plan = pa; if (e.rb && typeof e.rb === 'object') { c.rb = {}; Object.keys(e.rb).forEach(i => { const v = e.rb[i]; if (pa[i] === 'robot' && Array.isArray(v) && ROBOTS[v[0]]) c.rb[i] = { k: v[0], w: clamp(+v[1] || 0, 0, 1) }; }); } } } }
       if (r[20] && typeof r[20] === 'object') { const e2 = r[20]; if (e2.bd != null) c.bday = e2.bd | 0; if (e2.fc != null) c.fcap = +e2.fc; if (Array.isArray(e2.wk)) c.works = { k: e2.wk[0] === 2 ? 'prog' : e2.wk[0] ? 'new' : 'up', to: e2.wk[1] | 0, due: e2.wk[2] | 0, cost: +e2.wk[3] || 0, t0: e2.wk[4] | 0 }; if (e2.bn) c.bn = String(e2.bn); if (e2.pg && PROG[e2.pg]) c.prog = e2.pg; }
       if (r[20] && typeof r[20] === 'object' && Array.isArray(r[20].gp) && r[0] === 'dc') { const q = r[20].gp; c.gf = clamp(+q[0] || 0, 0, 1); c.gn = clamp(+q[1] || 0, 0, 5); if (q[2] === 0) c.gpb = 0; }   // passe 73 : GPU du campus (absent = flotte d'origine complète)
       if (r[20] && typeof r[20] === 'object' && Array.isArray(r[20].dcp) && r[0] === 'dc') { const q = r[20].dcp; c.bat = clamp(q[0] | 0, 0, 3); if (q[1] === 0) c.gb = 0; c.soc = Math.max(0, +q[2] || 0); c.ct = clamp(+q[3] || 1, DC_CT_MIN, 1); if (Array.isArray(q[4])) c.uph = q[4].slice(-30).map(v => clamp((+v || 0) / 1000, 0, 1)); if (q[5] === 1) c.tb = 1; }
       if (r[20] && typeof r[20] === 'object') { if (r[20].fm > 0) c.firm = r[20].fm | 0; if (r[20].is != null) c.isale = r[20].is ? 1 : 0; if (r[20].fe) c.fert = 1; if (Array.isArray(r[20].fw) && isFarmT(r[0])) { const T7 = TYPES[r[0]]; c.w = clamp(r[20].fw[0] | 0, T7.w || 1, N - (i % N)); c.h = clamp(r[20].fw[1] | 0, T7.h || 1, N - ((i / N) | 0)); } if (r[20].hd != null) c.hd = clamp(+r[20].hd || 0.2, 0.2, 1); if (r[20].sk > 0) c.sickUntil = r[20].sk | 0; }
       if (Array.isArray(r[15])) { c.train = {}; DEPTS.forEach(([k], i) => { c.train[k] = clamp(r[15][i] | 0, 0, 3); }); }
-      if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = clamp(+r[13][1], 0.7, 1.4); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
+      if (Array.isArray(r[13])) { if (r[13][0] === 0) c.imp = false; if (r[13][1] > 0) c.pf = pxFree(+r[13][1]); if (Array.isArray(r[13][2]) && r[13][2].length) { c.shelf = {}; r[13][2].forEach(k => { c.shelf[k] = false; }); } } c.born = 0; c.x = i % N; c.y = Math.floor(i / N); return c;
     });
     dcMigrate(grid);   // passe 55 : anciens data centers (1×1 ou 2×2) gardés à leur emprise d'origine, comptés pour ¼ de campus
     const cv2 = d.cv === 2;   // passe 35 : ville de départ « petite ville » + croissance ; sinon l'ancienne ville (288 000 habitants) est régénérée à l'identique
@@ -6431,7 +6448,7 @@ function shelfKeys(c) {
   if (c.shelf) items = items.filter(k => c.shelf[k] !== false);
   return items.slice(0, slotsN(c));
 }
-const pkOf = (c, key) => { const v = (c.pk && c.pk[key]) || 1, cl = key.indexOf('g_') === 0 ? key.slice(2) : (PRODUCTS[key] && PRODUCTS[key].cls); return cl === 'basic' ? Math.min(v, 1.5) : v; };   // un bien de base ne se vend pas durablement à plus de 150 % du prix de rayon
+const pkOf = (c, key) => { const v = (c.pk && c.pk[key]) || 1, cl = key.indexOf('g_') === 0 ? key.slice(2) : (PRODUCTS[key] && PRODUCTS[key].cls); void cl; return v; };   /* lot 5 : prix libre (avant : un bien de base plafonné à 150 %) */   // un bien de base ne se vend pas durablement à plus de 150 % du prix de rayon
 const pfOfK = (c, key) => pfOf(c) * pkOf(c, key);
 const pfOf = c => (c.pf || 1) * (1 - 0.08 * ((S && S.pol && S.pol.price) || 0)) * (c._nl || 1) * polInfP();
 // Politiques du COO / options du PDG : prix de rayon indexés (ou non) sur l'inflation, jamais sous le coût, recherche de fournisseurs
@@ -7619,7 +7636,7 @@ function step() {
   // 1b. Recyclage : les centres de concassage transforment les gravats en gravier, sable et ciment
   stepRecycle(buildings, made);
   // 2. Industrie : fonderie, composants, puis produits finis. Une usine sans produit ne fabrique rien (les marchandises de rayon viennent du marché local).
-  const supU = S._supU = {};   // CapLab : capacité des fournisseurs nommés, partagée par tous leurs clients du jour
+  const supU = S._supU = {}; S._ut = {};   // CapLab : capacité des fournisseurs nommés, partagée par tous leurs clients du jour
   const runRecipe = (list, inp, tgt) => {
     if (!list.length) return;
     let units = 0;
@@ -7630,9 +7647,9 @@ function step() {
       const impR = impRate(cn.port) * TM.buy * modOf('buy');
       let tot = 0; list.forEach(c => { tot += c._u * inp[g]; });
       const outV = tgt.good ? tgt.qty * S.price[tgt.good] : tgt.prod ? tgt.qty * prodPrice(tgt.prod) : 0, inV = Object.keys(inp).reduce((a, k) => a + inp[k] * (EMS_G[k] && list.some(c => c.src && c.src[k] === 'co:ems') ? emsPx(k) * (1 + EMS_FR) * TM.buy * modOf('buy') : S.price[k] * impR * 1.1), 0);   // passe 72 : un composant sous-traité se compte à son prix de gros
-      let short = inV > outV * 0.85 ? 0 : Math.max(0, tot - S.stock[g]);   // l'import automatique n'a lieu que si la fabrication reste rentable
-      list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0; if (mode === 'auto' && inV > outV * 0.85 && need > S.stock[g] + 0.01) c._noAuto = GOODS[g].name.toLowerCase();   // audit : l'import automatique refusé est expliqué au joueur
-        if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) { if (c._autoBuy && c._autoBuy[g] && inV > outV * 0.85) { c._noBuy = GOODS[g].name.toLowerCase(); q = 0; } else q = need; } else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }   // achat choisi par l'auto-production : suspendu tant que les prix du marché rendent la fabrication déficitaire (un choix manuel reste respecté). Audit intérieurs : la branche « auto » (stock local puis port) était tombée dans ce commentaire depuis la passe 21, l'import automatique ne se faisait plus jamais
+      let short = Math.max(0, tot - S.stock[g]); void inV; void outV;   // lot 5 (économie libérale) : l'import automatique comble toujours ; fabriquer à perte est permis (le résultat, c'est la faillite) : le joueur arrête lui-même une usine déficitaire
+      list.forEach(c => { const mode = (c.src && c.src[g]) || 'auto', need = c._u * inp[g]; let q = 0;    // audit : l'import automatique refusé est expliqué au joueur
+        if (mode === 'port' || mode === 'import' || mode.indexOf('co:') === 0) { q = need; } else if (mode === 'auto' && short > 0.01) { q = Math.min(need, short); short -= q; }   // achat choisi par l'auto-production : suspendu tant que les prix du marché rendent la fabrication déficitaire (un choix manuel reste respecté). Audit intérieurs : la branche « auto » (stock local puis port) était tombée dans ce commentaire depuis la passe 21, l'import automatique ne se faisait plus jamais
         let qS = q, qP = 0; if (q > 0.01 && mode.indexOf('co:') === 0) { const sid = mode.slice(3), k = g + ':' + sid, s = supplierList(g).find(x => x.id === sid), cap = supCap(g, s); qS = Math.min(q, Math.max(0, cap - (supU[k] || 0))); qP = q - qS; supU[k] = (supU[k] || 0) + qS; (c._supT || (c._supT = {}))[k] = qS;
           if (qP > 0.01) { (c._supS || (c._supS = {}))[g] = qP; if ((c._supSay || -99) <= S.day - 30) { c._supSay = S.day; say(`${s ? s.name : 'Ton fournisseur'} est à court de ${GOODS[g].name.toLowerCase()} (${fmt(Math.round(cap))} u/j pour tous ses clients) : ${TYPES[c.t].name.toLowerCase()} complète ${fmt(Math.round(qP))} u/j au port, plus cher. Choisis un second fournisseur ou produis-le.`, 'warn'); } } else if (c._supS) delete c._supS[g]; }
         let qT = 0, kT = 0; if (q > 0.01 && mode === 'auto' && trOn(g)) { kT = trK(g) * TM.buy * modOf('buy'); if (kT < impR) { const kk = g + ':neg'; qT = Math.min(q, Math.max(0, (S.rv.tr.stk[g] || 0) - (supU[kk] || 0))); supU[kk] = (supU[kk] || 0) + qT; } }   // passe 66 : en mode auto, l'import passe d'abord par le stock du négociant quand il est moins cher que le port
@@ -7642,6 +7659,7 @@ function step() {
     Object.keys(inp).forEach(g => { want[g] += units * inp[g]; const rr = S.stock[g] / inp[g]; if (rr < r) { r = rr; lim = g; } });
     if (tgt.good) { const room = roomFor(tgt.good) / tgt.qty; if (room < r) { r = room; lim = '_full'; } }   // l'atelier s'arrête quand le stock est plein
     r = Math.max(0, r);
+    if (tgt.good) { const nom = list.reduce((a, c) => a + (c._un || 0), 0); S._ut[tgt.good] = nom > 0 ? r / nom : 0; }   // lot 5 : taux d'utilisation des capacités du secteur (pouvoir de marché)
     if (FGD && units > 0) Object.keys(inp).forEach(g => { list.forEach(c => fDraw(c, g, r * c._u / units * inp[g])); });   // passe 32 : qui consomme le stock de qui (cessions internes)
     Object.keys(inp).forEach(g => { S.stock[g] -= r * inp[g]; fFlush(g); used[g] = (used[g] || 0) + r * inp[g]; });
     const wavg = units > 0 ? list.reduce((a, c) => a + (c._u / units) * wasteOf(c), 0) : 0;
@@ -7748,7 +7766,10 @@ function step() {
       const vRet = got * it.price * retailMk(cls) * (car.length ? car.reduce((a, c) => a + (c.sales[key] || 0) * pfOfK(c, key) * specMk(c), 0) / Math.max(1e-9, car.reduce((a, c) => a + (c.sales[key] || 0), 0)) : 1);
       sold[cls] += got; revRetVal += vRet; if (RK_ON && got > 1e-6) rkRet(key, gen ? null : it.k, cls, got, vRet, car, it.price);   // passe 71 : relevé des ventes pour les classements (lecture seule)
     });
-    if (cls !== 'estate') { want[cls] += dem[cls] * 0.5; made[cls] += dem[cls] * 0.47; }   // fournisseurs extérieurs : la ville n'est jamais en pénurie permanente
+    if (cls !== 'estate') {   // lot 5 : industrie PNJ des marchandises de rayon (capacité qui suit la demande avec ≈ 30 jours de retard, qui ferme quand le cours passe sous son coût) + importations au-dessus de la parité
+      const nb = S.macro.nb || (S.macro.nb = {}), D = Math.max(0, Dc), mbc = marketBounds(cls), pr = S.price[cls], c0 = nb[cls] > 0 ? nb[cls] : 0.97 * D, below = pr < mbc.base * 0.85;
+      nb[cls] = Math.max(0, c0 + (below ? Math.min(0, 0.97 * D - c0) / 30 - 0.01 * c0 : (0.97 * D - c0) / 30));
+      want[cls] += D; made[cls] += nb[cls] + impShare(pr, mbc.imp) * Math.max(0, D - nb[cls]); }
   });
   buildings.forEach(c => {
     const R = TYPES[c.t].ret; if (!R) return;
@@ -7881,14 +7902,20 @@ function step() {
   { const lr = S.m30 && S.m30[S.m30.length - 1]; if (lr && lr.length === 15) lr.push(REC.profit, REC.pInt, REC.inLoc, REC.pCash, REC.inImp, REC.wag, REC.upk, REC.tra, REC.ad); }   // détail du jour pour les moyennes mensuelles (écrans Finances et Empire)
 
   GKEYS.forEach(g => { if (!(S.stock[g] > 0)) S.stock[g] = 0; });   // bruit numérique : jamais de stock négatif ni NaN
-  // 7. Prix : offre et demande. Le cours vise base × f(demande / offre) : f = 1 à l'équilibre, jusqu'à ×1,3 en pénurie et ×0,82 en surproduction (courbe douce, jamais collée aux bornes)
+  // 7. Prix (lot 5, économie libérale) : offre et demande, coûts et importations, sans plancher ni plafond administrés.
+  //    Pc = coût marginal domestique × prime de pouvoir de marché ; en pénurie le cours monte de Pc vers la parité d'importation (l'import comble au-delà),
+  //    en surproduction il baisse avec l'excès d'offre (élasticité d'offre ≈ 1,2), sans plancher : sous le coût, les producteurs perdent de l'argent et ferment.
+  //    Lissage : rapport demande / offre en moyenne mobile ≈ 3 jours, cours en moyenne mobile ≈ 6 jours ; amortisseur ±10 %/j et bornes 0,05-20 × la référence = garde-fous techniques comptés.
   GKEYS.forEach(g => {
-    const G = GOODS[g], mb = marketBounds(g), base = mb.base, fl = mb.fl;
-    const r0 = (want[g] + 1) / (made[g] + 1), rt = S.rat || (S.rat = {}), ratio = rt[g] = rt[g] == null ? r0 : rt[g] + (r0 - rt[g]) * 0.25;   // rapport demande / offre lissé
-    const f = ratio >= 1 ? 1 + 0.30 * Math.tanh(0.7 * (ratio - 1)) : 1 - (G.inp ? 0.12 : 0.18) * Math.tanh(1.4 * (1 - ratio));
+    const G = GOODS[g], mb = marketBounds(g), base = mb.base;
+    const r0 = (want[g] + 1) / (made[g] + 1), rt = S.rat || (S.rat = {}), ratio = rt[g] = rt[g] == null ? r0 : rt[g] + (r0 - rt[g]) / 3;   // rapport demande / offre lissé
     const mp = mpGood(g, OWN[g], want[g]); (S._mp || (S._mp = {}))[g] = mp;   // passe 46 : pouvoir de marché (1 sur un marché concurrentiel ou si tu ne produis pas ce bien)
-    const p0 = P[g], r1 = p0 / (G.base * cpi()); let nx = p0 + (base * f * mp.m - p0) * 0.10; if (r1 > 0.5 && r1 < 2) nx = clamp(nx, p0 * (1 - TR_DCAP), p0 * (1 + TR_DCAP));   // passe 66 : amortisseur, variation du cours bornée à ±4 % par jour (hors manipulations extrêmes)
-    P[g] = clamp(nx, fl, Math.max(fl, base * 1.6 * mp.m));
+    const Pc = base * mp.m, ceil = Math.max(Pc, mb.imp);
+    const tgt = sMin(ratio >= 1 ? Pc + (ceil - Pc) * Math.tanh(0.9 * (ratio - 1)) : Pc * Math.pow(Math.max(1e-3, ratio), 1 / 1.2), mb.imp, 10);   // l'import plafonne naturellement, même un producteur dominant
+    const p0 = P[g]; let nx = p0 + (tgt - p0) * 0.15;
+    nx = bnd('B44', nx, p0 * (1 - TR_DCAP), p0 * (1 + TR_DCAP));   // amortisseur : ±10 %/j au plus (garde-fou)
+    P[g] = bnd('B38', nx, mb.fl, mb.cap);
+    (S._pxr || (S._pxr = {}))[g] = { Pc, imp: mb.imp, tgt, ratio, sh: impShare(P[g], mb.imp) };   // relevé (panneaux « Pourquoi », bureau de l'usine), non sauvegardé
     const h = S.ph[g]; h.push(P[g]); if (h.length > 60) h.shift();
   });
   mktAlerts(); cineWatch();
@@ -10137,7 +10164,7 @@ function autoSource(c, quiet) {
     const outV = R.qty * (PRODUCTS[R.out] ? prodPrice(R.out) : S.price[R.out]), T0 = TYPES[c.t];
     let inV = 0; Object.keys(R.in).forEach(g => { const b = bought.find(x => x[0] === g); inV += R.in[g] * (b ? b[1].o.total : S.price[g]); });
     const fix = (T0.jobs * WAGE_K * 1.2 + T0.upkeep) * cpi() / (3.2 * K_SIZE * 0.85 * (T0.capK || 1));
-    if (inV + fix > 0.8 * outV) { bought.forEach(b => { c.src[b[0]] = 'local'; }); c._noBuy = bought.map(b => GOODS[b[0]].name.toLowerCase()).join(', '); rows.unshift('achats suspendus (' + c._noBuy + ') : trop chers pour que la production reste rentable, construis ta propre production'); } else delete c._noBuy;
+    if (inV + fix > 0.8 * outV) { rows.unshift('attention : aux prix actuels, ces achats (' + bought.map(b => GOODS[b[0]].name.toLowerCase()).join(', ') + ') rendent la production déficitaire ; à toi de décider (vendre à perte mène à la faillite)'); delete c._noBuy; } else delete c._noBuy;
   } else delete c._noBuy;
   if (!quiet) say(`Auto-production ${recipeOf(c.prod) ? recipeOf(c.prod).name.toLowerCase() : ''} : ${rows.slice(0, 4).join(' ; ')}.`, 'good');
   return rows.length;
@@ -10718,7 +10745,7 @@ function sheetHTML(pk) {
         <div><small>Stock</small><b>${fmt(ps.stock)}</b></div><div><small>CA / mois</small><b>${mj(ps.rev)}</b></div></div>
       <div class="kv2"><div><small>Source</small><b>${mkSrcTxt(pk) || '—'}</b></div><div><small>Redevance de licence</small><b>${ps.lic ? mj(ps.rev * ROY) + ' /mois' : 'aucune'}</b></div></div>${nOf ? offBtn : ''}
       <span class="lbl">Prix : ${Math.round(ps.pf * 100)} % de ${money(pr.ref * T.ref)}</span>
-      <input type="range" id="pd-pf" min="60" max="160" step="5" value="${Math.round(ps.pf * 100)}" aria-label="Prix du produit">
+      <input type="range" id="pd-pf" min="20" max="400" step="5" value="${Math.round(ps.pf * 100)}" aria-label="Prix du produit">
       ${cooLineHTML(pk)}
       ${padHtml(pk)}
       <canvas id="pd-spark" width="480" height="92"></canvas>
@@ -10972,7 +10999,7 @@ function reAttr(c) { const dist = Math.hypot(c.x - CBD.x, c.y - CBD.y), cbd = 1 
   return { dist, cbd, am, tr, attr: clamp(0.55 + 0.35 * cbd + 0.35 * am + 0.25 * tr, 0.5, 1.5) }; }
 // Loyer : 100 % = loyer du marché ; les locataires réagissent sur plusieurs mois (baux)
 function stepRent(c) {
-  const A = reAttr(c), idx = reIdxAt(c.x, c.y), r = clamp(c.rent == null ? 1 : c.rent, 0.6, 1.6);
+  const A = reAttr(c), idx = reIdxAt(c.x, c.y), r = pxFree(c.rent == null ? 1 : c.rent);
   c._rEff = c._rEff == null ? r : c._rEff + (r - c._rEff) / 60;
   const tgt = clamp(1.05 - 0.6 * idx - 0.9 * (c._rEff - 1), 0.05, 1); c._occ = c._occ == null ? tgt : c._occ + (tgt - c._occ) / 45;
   const fl = lvFloors(c), fillS = 0.5 + 0.5 * fillOf(c);
@@ -11076,7 +11103,7 @@ const proAsk = c => Math.round(proValue(c).v * (0.97 + 0.1 * hash(c.x, c.y, 79))
 const proFees = price => Math.round(price * (casteIs('promoteur') ? 0.005 : 0.015));
 // Loyer des logements du joueur : occupation = marché − effet du niveau de loyer, baux lissés ; pendant les travaux, un nouvel immeuble ne rapporte rien et un étage en chantier réduit les loyers de 60 %
 function stepRentRes(c) {
-  const v = proValue(c), r = clamp(c.rent == null ? 1 : c.rent, 0.6, 1.6);
+  const v = proValue(c), r = pxFree(c.rent == null ? 1 : c.rent);
   c._rEff = c._rEff == null ? r : c._rEff + (r - c._rEff) / 60;
   const tgt = clamp(v.occ - 0.9 * (c._rEff - 1), 0.05, 1); c._occ = c._occ == null ? tgt : c._occ + (tgt - c._occ) / 45;
   const wk = c.works ? (c.works.k === 'new' ? 0 : 0.4) : 1;
@@ -11865,7 +11892,7 @@ function bAct(a) {
   else if (a.indexOf('slot:') === 0) { const i = +a.slice(5); bPick = i; supB = { x: c.x, y: c.y }; spI = i; supMode = 'slot'; el('supview').hidden = false; renderSlotPick(); return; }   // un clic sur un emplacement ouvre directement la page de sélection du produit et du fournisseur
   else if (a.indexOf('setslot:') === 0) { const [, i, k] = a.split(':'); const N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[+i] = k; bPick = -1; }
   else if (a.indexOf('clrslot:') === 0) { const i = +a.slice(8), N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[i] = null; bPick = -1; }
-  else if (a.indexOf('raise:') === 0) { const [, k, v] = a.split(':'); c.pk = c.pk || {}; c.pk[k] = clamp(+v / 100, 0.6, 2.2); }
+  else if (a.indexOf('raise:') === 0) { const [, k, v] = a.split(':'); c.pk = c.pk || {}; c.pk[k] = pxFree(+v / 100); }
   else if (a === 'pf100') c.pf = 1;
   else if (a === 'autoslots') { c.slots = null; c.shelf = null; bPick = -1; }
   else if (a.indexOf('tab:') === 0) { /* géré plus haut */ }
@@ -14936,7 +14963,7 @@ function sceneStart() { if (!scRaf) { scLast = performance.now(); scRaf = reques
 function priceCard(c) {
   const pf = c.pf || 1;
   return `<div class="lever"><h4>Prix de vente <span class="pip">${Math.round(pf * 100)} %</span></h4><small>Du prix du marché. Bas : plus de clients mais moins de marge. Haut : marge élevée mais les clients vont ailleurs. Élasticité réaliste : biens de base quasi inélastiques à court terme (≈ −0,1 à −0,3), mais à long terme les clients vont ailleurs (≈ −1) ; manufacturés ≈ −0,4 → −2 ; luxe : effet Veblen limité à +12 % de prix, puis la demande s'effondre. Les habitudes mettent ~2-3 mois à s'ajuster : la rentabilité maximale se situe vers 105-120 % du prix de référence.</small>
-    <input type="range" data-pf="1" min="70" max="140" step="5" value="${Math.round(pf * 100)}" aria-label="Prix de vente"><div class="finrow"><span>Attractivité prix</span><b>${pf <= 1 ? '+' : '−'}${Math.abs(Math.round((Math.pow(1 / pf, 1.6) - 1) * 100))} %</b></div></div>`;
+    <input type="range" data-pf="1" min="20" max="400" step="5" value="${Math.round(pf * 100)}" aria-label="Prix de vente"><div class="finrow"><span>Attractivité prix</span><b>${pf <= 1 ? '+' : '−'}${Math.abs(Math.round((Math.pow(1 / pf, 1.6) - 1) * 100))} %</b></div></div>`;
 }
 function hasSource(g) {
   let ok = false;
@@ -15452,7 +15479,7 @@ function prodView(c, k, it) {
    ${it.gen ? '' : prodModelHTML(k)}<div class="finrow"><span>Poids d'achat ${it.gen ? 'de la catégorie' : 'du produit'}</span><b>prix ${Math.round(w.price * 100)} % · qualité ${Math.round(w.quality * 100)} % · marque ${Math.round(w.brand * 100)} %</b></div>
    ${it.gen ? '' : `<div class="finrow"><span>Adoption du produit · ${lifeStage(ps)}</span><b>${Math.round(adoptOf(ps) * 100)} %</b></div><div class="bar" style="margin:2px 0 6px"><i style="width:${Math.round(adoptOf(ps) * 100)}%"></i></div>`}
    <div class="finrow" title="${costNote}"><span>Coût d'approvisionnement <small>(${costNote})</small></span><b>${f(cost)} $</b></div>${it.gen ? '' : `<div class="finrow"><span>Source du produit</span><b>${mkSrcTxt(k) || 'à définir'}</b></div>`}<div class="finrow"><span>Marge unitaire</span><b class="${mg >= 0 ? 'pos' : 'neg'}">${mg >= 0 ? '+' : '−'}${f(Math.abs(mg))} $ (${Math.round(100 * mg / Math.max(0.01, price))} %)</b></div><div class="finrow"><span>Ventes / jour · par mois</span><b>${f1(sold)} · ${fmt(Math.round((c.sm && c.sm[k]) || 0))}</b></div><div class="finrow"><span>Stock · offre / demande</span><b>${fmt(it.stock)} · ${it.stock > sold * 3 ? 'offre abondante' : it.stock < sold ? 'pénurie' : 'équilibré'}</b></div>
-   <div class="lever" style="margin-top:8px"><h4>Prix de vente de ce produit <span class="pip" id="pkv">${Math.round(((c.pk && c.pk[k]) || 1) * 100)} %</span></h4><input type="range" data-pk="${k}" min="60" max="220" step="5" value="${Math.round(((c.pk && c.pk[k]) || 1) * 100)}" aria-label="Prix de vente"><small>100 % = prix de référence du magasin. Plus bas : plus de clients ; plus haut : plus de marge, moins de ventes — progressivement (habitudes ~2-3 mois), très peu pour un bien de base sans substitut, et effet Veblen pour le luxe.</small></div>
+   <div class="lever" style="margin-top:8px"><h4>Prix de vente de ce produit <span class="pip" id="pkv">${Math.round(((c.pk && c.pk[k]) || 1) * 100)} %</span></h4><input type="range" data-pk="${k}" min="20" max="400" step="5" value="${Math.round(((c.pk && c.pk[k]) || 1) * 100)}" aria-label="Prix de vente"><small>100 % = prix de référence du magasin. Plus bas : plus de clients ; plus haut : plus de marge, moins de ventes — progressivement (habitudes ~2-3 mois), très peu pour un bien de base sans substitut, et effet Veblen pour le luxe.</small></div>
    ${it.gen ? `<p class="note" style="margin:8px 0">Les marchandises du marché local n'ont pas de marque : lance ton propre produit dans Produits.</p>` : padHtml(k)}
    ${it.gen ? `<button class="btn" data-act="opensup:${cls}" style="margin-top:6px">Voir les fournisseurs…</button>` : ''}</div>`;
 }
@@ -19989,7 +20016,7 @@ function eduAct(a) {
   const [k, x, y] = a.split(':');
   if (k === 'camp') eduCamp(x);
   else if (k === 'cut') eduCut(x);
-  else if (k === 'price') { const ps = S.prod[x]; if (ps && ps.st === 'on') { ps.pf = clamp(Math.round((ps.pf + 0.05) * 100) / 100, 0.6, 1.6); say(`${PRODUCTS[x].name} : prix relevé à ${Math.round(ps.pf * 100)} % du prix de référence. La demande baisse, la marge par unité monte.`, 'info'); } }
+  else if (k === 'price') { const ps = S.prod[x]; if (ps && ps.st === 'on') { ps.pf = pxFree(Math.round((ps.pf + 0.05) * 100) / 100); say(`${PRODUCTS[x].name} : prix relevé à ${Math.round(ps.pf * 100)} % du prix de référence. La demande baisse, la marge par unité monte.`, 'info'); } }
   else if (k === 'shock') { const r = eduShock(window._eduPk, x); if (!r.ok) say(r.why, 'warn'); }
   else if (k === 'open' || k === 'unit') { const [cx, cy] = x.split(',').map(Number), c = S.grid[cy * N + cx]; if (!c) return; if (k === 'open') { setPanel(false); openBuilding(c.x, c.y); return; } alrAct('alr:addunit:' + y, c); }
   else if (k === 'copy') { eduCopy(); return; }
@@ -21162,7 +21189,7 @@ el('pfiche').addEventListener('click', e => {
   else if (a === 'dev') { const r = proDevelop(x, y); if (!r.ok) say(r.why, 'warn'); }
   else if (a === 'list') { const r = proList(x, y, +b.dataset.m); if (!r.ok) say(r.why, 'warn'); }
   else if (a === 'unlist') proList(x, y, 0);
-  else if (a === 'rentdn' || a === 'rentup') c.rent = clamp(Math.round(((c.rent == null ? 1 : c.rent) + (a === 'rentup' ? 0.05 : -0.05)) * 100) / 100, 0.6, 1.6);
+  else if (a === 'rentdn' || a === 'rentup') c.rent = pxFree(Math.round(((c.rent == null ? 1 : c.rent) + (a === 'rentup' ? 0.05 : -0.05)) * 100) / 100);
   else if (a === 'keep') proKeep(x, y);
   else if (a === 'buyraze') { if (place(x, y, 'buyout')) proCloseFiche(); }
   else if (a === 'raze') { if (place(x, y, 'buyout')) proCloseFiche(); }
