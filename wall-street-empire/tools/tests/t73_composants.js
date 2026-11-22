@@ -30,7 +30,7 @@ exports.run = async (t, L) => {
   // B. économie isolée (prix de base) : fonderies et produits
   const iso = await L.pool(['cpu', 'dram', 'gpu', 'phone', 'laptop'], 2, k => L.isoFactory(k));
   const by = Object.fromEntries(iso.map(a => [a.key, a]));
-  ['cpu', 'dram', 'gpu'].forEach(k => t.range(`fonderie ${k} seule : EBITDA concurrentiel (22-35 %)`, by[k].eb * 100, 20, 36, ' %'));
+  ['cpu', 'dram', 'gpu'].forEach(k => t.range(`fonderie ${k} seule : EBITDA concurrentiel (20-38 %, intrants au cours libre)`, by[k].eb * 100, 20, 38, ' %'));
   ['phone', 'laptop'].forEach(k => t.range(`${k} : EBITDA d'assemblage cohérent avec les puces (≈ 21-27 %)`, by[k].eb * 100, 17, 30, ' %'));
   t.check('économie isolée : 0 pageerror', iso.every(a => a.errs.length === 0), iso.flatMap(a => a.errs).slice(0, 2).join(';'));
 
@@ -137,7 +137,7 @@ exports.run = async (t, L) => {
       const o = { log: B.CH.log, eb: {}, n: Object.assign({}, S._chipN), card: '' }; ['gpu', 'cpu', 'dram'].forEach(g => { o.eb[g] = W.chip.eb(g); });
       W.chip.fabs('gpu').slice(0, 1).forEach(c => { o.card = W.chip.card(c); }); o.rank = W.chip.rank(); o.bad = window.T.scan(); return o; });
     t.check('bot fondeur de puces : construit ses fonderies (GPU puis CPU)', (H.n.gpu || 0) >= 1 && (H.n.cpu || 0) >= 1, JSON.stringify(H.log));
-    t.range('bot fondeur : EBITDA de la fonderie de GPU sur 30 j (marché réel, pouvoir de marché)', (H.eb.gpu == null ? NaN : H.eb.gpu) * 100, 18, 80, ' %');
+    t.range('bot fondeur : EBITDA de la fonderie de GPU sur 30 j (marché réel, pouvoir de marché)', (H.eb.gpu == null ? NaN : H.eb.gpu) * 100, 5, 80, ' %');   // économie libérale : prime plafonnée par la parité d'import, annulée par un stock dormant (docs/ECONOMIE_LIBERALE.md)
     t.check('fiche de la fonderie et classement des fondeurs : nœud, pointe mondiale, part de marché (sans NaN)', /Gravure de tes usines/.test(H.card) && /pointe mondiale/.test(H.rank) && !/NaN|undefined|Infinity/.test(H.card + H.rank) && H.bad.length === 0 && pb.errs.length === 0, H.bad.slice(0, 3).join(',') + pb.errs.slice(0, 2).join(';'));
     await pb.context().close(); }
 };

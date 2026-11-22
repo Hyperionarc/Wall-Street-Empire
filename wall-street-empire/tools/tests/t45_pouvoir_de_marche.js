@@ -42,6 +42,6 @@ exports.run = async (t, L) => {
   const e = R.map(r => r.eb * 100);
   t.check('usine de plastique : seule > 2 concurrents > 6 concurrents (EBITDA)', e[0] > e[1] + 3 && e[1] > e[2] + 3, e.map(v => v.toFixed(0) + ' %').join(' > '));
   t.check('usine monopolistique : EBITDA ≥ 30 % (pouvoir de marché plafonné naturellement par la parité d\'importation, docs/ECONOMIE_LIBERALE.md)', e[0] >= 30, e[0].toFixed(1) + ' %');
-  t.check('marché saturé : marge mince, sans plancher administré (EBITDA entre −20 % et 15 %)', e[2] >= -20 && e[2] <= 15, e[2].toFixed(1) + ' %');
+  t.check('marché saturé : marge plus mince que le monopole, sans plancher administré (EBITDA entre −20 % et 25 %)', e[2] >= -20 && e[2] <= 25 && e[2] < e[0] - 10, e[2].toFixed(1) + ' %');
   t.check('usines : aucun NaN, 0 pageerror', R.every(r => Number.isFinite(r.eb) && Number.isFinite(r.px) && r.errs.length === 0), R.flatMap(r => r.errs).slice(0, 2).join(';'));
 };

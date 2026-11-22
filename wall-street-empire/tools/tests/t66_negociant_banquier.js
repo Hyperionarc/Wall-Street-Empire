@@ -21,7 +21,7 @@ exports.run = async (t, L) => {
     const me0 = T.m.me || 0; TR.market(made, want); o.sold = s0 - (T.stk[g] || 0); o.cash = (T.m.me || 0) - me0; o.unit = o.cash / Math.max(1e-9, o.sold); o.world = S.price[g] / Math.max(1e-9, W.mk ? 1 : 1);
     // (2) amortisseur : cours 15 % au-dessus de son repère -> il revend (offre du jour en hausse) ; 15 % au-dessous -> il achète (demande du jour en hausse)
     S._supU = {}; Object.keys(T.pa).forEach(k => { T.pa[k] = S.price[k]; }); T.pa[g] = S.price[g] / 1.15; const m1 = {}, w1 = {}; Object.keys(S.price).forEach(k => { m1[k] = 100; w1[k] = 100; }); const st1 = T.stk[g]; TR.market(m1, w1); o.relMade = m1[g] - 100; o.relStk = st1 - (T.stk[g] || 0);
-    Object.keys(T.pa).forEach(k => { T.pa[k] = S.price[k]; }); T.pa[g] = S.price[g] / 0.85; const m2 = {}, w2 = {}; Object.keys(S.price).forEach(k => { m2[k] = 100; w2[k] = 1000; }); const st2 = T.stk[g] || 0; TR.market(m2, w2); o.buyWant = w2[g] - 1000; o.buyStk = (T.stk[g] || 0) - st2;
+    Object.keys(T.pa).forEach(k => { T.pa[k] = S.price[k]; }); T.pa[g] = S.price[g] / 0.85; const m2 = {}, w2 = {}; Object.keys(S.price).forEach(k => { m2[k] = 100; w2[k] = 1e5; }); const st2 = T.stk[g] || 0; TR.market(m2, w2); o.buyWant = w2[g] - 1e5;   /* lot 5 : demande du jour assez grande pour un achat > 1 000 $ quel que soit le cours */ o.buyStk = (T.stk[g] || 0) - st2;
     Object.assign(T.pa, pa);
     // (3) couverture des pénuries des usines rivales : avec du stock, le taux de service d'une usine en pénurie remonte
     return o;

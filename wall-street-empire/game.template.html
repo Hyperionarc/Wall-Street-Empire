@@ -5344,14 +5344,14 @@ const wageMkt = () => { const u = (S && S.stats && S.stats.unemp != null) ? S.st
    calibré pour que la demande du jour 0 soit celle d'avant (même κ pour la ville, la ville de 100 000 habitants et le bourg : le budget est par habitant).
    prosp() garde son nom (services, crédit, bilan des synergies) : v = b, fr = part du revenu versée par les autres entreprises. */
 const HH_RIV = 0.25, HH_ME = 0.06, HH_U0 = 0.07, HH_TAU = 0.6, HH_ACT = 0.55;
-let _px = { d: -1 }, _pxG = null;
+let _px = { d: -1 }, _pxG = null, _pxS = null, _pxM = null;
 function hhInc(pe, u, wm, rw, k, ubN, ext) {   // revenu disponible des ménages (avant épargne), $/jour
   const wage = WAGE_RATE / (1 + USM.payroll) * wm * rw * k, W = pe * HH_ACT * (1 - u) * wage, UB = USM.ubRate * wage * ubN;
   return { wage, W, UB, Y: (W + UB + ext) * (1 - USM.hhTax) };
 }
 function prosp() {
   if (!S) return { v: 1, e: 1, w: 1, f: 1, f0: 1, f1: 1, me: 0, riv: 0, fr: 0, b: 1, Y: 0 };
-  if (_px.d === S.day && _pxG === S.grid) return _px;
+  if (_px.d === S.day && _pxG === S.grid && _pxS === S && _pxM === S.macro) return _px;   // cache du jour (une nouvelle partie au même jour ne le réutilise pas)
   const st = S.stats || {}, m = S.macro || {}, pe = Math.max(1, popE()), u = st.unemp != null ? st.unemp : HH_U0, k = cpi(), rw = S.rw || 1, wm = wageMkt();
   const me = Math.max(0, st.income || 0), riv = (S.rivals || []).reduce((a, r) => a + (r.sub ? 0 : Math.max(0, r.rev || 0)), 0), div = Math.max(0, (S.fin && S.fin.div) || 0);   // chiffres d'affaires de la veille : toi, IA (une filiale est comptée avec toi)
   const eRiv = HH_RIV * riv, eMe = HH_ME * me + 0.5 * div, ubN = m.ubN != null ? m.ubN : pe * HH_ACT * u * 0.75;
@@ -5359,7 +5359,7 @@ function prosp() {
   const sav = bnd('B6', USM.save0 + 0.6 * (u - (m.nairu || 0.045)) - 0.5 * ((m.gdp == null ? 0.03 : m.gdp) - 0.03), -0.05, 0.3), sav0 = USM.save0 + 0.6 * (HH_U0 - 0.045);
   const bN = I.Y * (1 - sav) / Math.max(1e-9, R0.Y * (1 - sav0)), b = bN / Math.max(1e-9, k);   // indice de budget réel (prix constants)
   const f0 = hhInc(pe, u, wm, rw, k, ubN, eMe).Y / Math.max(1e-9, I.Y), f1 = hhInc(pe, u, wm, rw, k, ubN, eRiv).Y / Math.max(1e-9, I.Y);
-  _pxG = S.grid; _px = { d: S.day, v: b, b, bN, e: (1 - u) / (1 - HH_U0), w: wm * rw / wageTgt(HH_U0), f: 1, f0, f1, me, riv, fr: Math.max(0, 1 - f0), Y: I.Y, W: I.W, UB: I.UB, ext: eRiv + eMe, sav, wage: I.wage };
+  _pxG = S.grid; _pxS = S; _pxM = S.macro; _px = { d: S.day, v: b, b, bN, e: (1 - u) / (1 - HH_U0), w: wm * rw / wageTgt(HH_U0), f: 1, f0, f1, me, riv, fr: Math.max(0, 1 - f0), Y: I.Y, W: I.W, UB: I.UB, ext: eRiv + eMe, sav, wage: I.wage };
   S._px = b; return _px;
 }
 // Budget de référence des rayons (par habitant et par jour, prix de référence TTC, humeur 60) : SPEND0 = basique + courant + luxe d'avant le lot 3 ; part du luxe dans le discrétionnaire WL0
