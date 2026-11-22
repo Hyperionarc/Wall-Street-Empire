@@ -2309,24 +2309,44 @@ const RIV_USE = { lithium: 1, rare: 1, nickel: 1, chrome: 1, aluminium: 1, stain
 const NPC_IMP = 0.4, NPC_CAP = 0.3;   // offre de base (importations) et capacité maximale des producteurs PNJ, en part de la demande locale : offre PNJ mûre ≈ 70 % de la demande : une usine du joueur couvre le reste
 const LOCAL_CO = { oil: 'Lone Star Oil', coal: 'Black Hills Coal', iron: 'Mesabi Iron Works', copper: 'Arizona Copper', steel: 'Great Lakes Steel', plastic: 'Gulf Polymers', nickel: 'Taiga Nickel', chrome: 'Urals Chrome', bauxite: 'Guinea Alumina', lithium: 'Atacama Brine', silica: 'Quartz Valley', salt: 'Saline du Nord', sulfur: 'Sicily Sulphur', phosphate: 'Atlas Phosphates', gas: 'Caspian Gas', rare: 'Mongolia Rare Metals', zinc: 'Silesia Zinc', clay: 'Cornwall Kaolin', potash: 'Prairie Potash', graphite: 'Malagasy Graphite', aluminium: 'Nordic Aluminium', stainless: 'Helsinki Steelworks' };
 let OWN = {};
+/* Lot 4a (économie libérale) : chaîne B2B réelle. La demande locale d'un bien intermédiaire n'est plus « population × coefficient » mais :
+   1. les plans de production des usines PNJ de la ville, qui fabriquent les marchandises de rayon (S.macro.nb : capacité qui suit ce que les ménages achètent,
+      avec retard et fermetures) : nomenclature × production (LOCAL_D sert de nomenclature, calibrée une fois pour que la demande du jour 0 soit celle d'avant : S.macro.b2bK) ;
+   2. la reconstitution de leur stock tampon d'intrants (cible B2B_BUF jours de consommation, rattrapée en B2B_TAU jours : effet « coup de fouet » quand la production varie) ;
+   3. une demande finale directe pour les biens que les ménages ou les chantiers achètent eux-mêmes (énergie, matériaux de construction : part FDIR, par habitant × revenu réel) ;
+   4. les achats des usines rivales (S.rv.inD) et les tiennes (want, calculé par runRecipe) ;
+   chaque acheteur PNJ arbitre entre le local et l'import au prix livré (sigmoïde autour de la parité d'importation). */
+const B2B_BUF = 7, B2B_TAU = 5;
+const FDIR = { oil: 0.5, gas: 0.6, coal: 0.3, wood: 0.3, gravel: 0.7, sand: 0.7, limestone: 0.4, clay: 0.4, cement: 0.6, concrete: 0.8, brick: 0.7, plank: 0.4, stud: 0.4, osb: 0.4, glass: 0.3, paint: 0.4, salt: 0.3, fert: 0.5, essence: 0.6, paper: 0.3 };
+const npcProd = () => { const nb = (S.macro && S.macro.nb) || {}; let a = 0; ['basic', 'std', 'lux'].forEach(k => { a += (nb[k] || 0) * GOODS[k].base; }); return a; };   // production des usines PNJ de marchandises de rayon (valeur aux prix de référence)
+function b2bAct() {   // activité industrielle aval, en habitants-équivalents (= popE au calibrage)
+  const m = S.macro || {}, pe = popE(), np = npcProd(); if (!(np > 0)) return pe;
+  if (!(m.b2bK > 0)) m.b2bK = pe / np;   // calibrage unique (champ facultatif de la sauvegarde, absent = recalé au chargement)
+  return np * m.b2bK;
+}
 function stepLocalMarket(made, want) {
-  const rev = { v: 0 }, npcs = S.npcSup || (S.npcSup = {}); S.locSold = S.locSold || {};
-  const gdpm = clamp(1 + 4 * ((S.macro ? S.macro.gdp : 0.03) - 0.03), 0.8, 1.5) * Math.sqrt(prosp().v), dif = Math.max(0, S.diff || 0), rawB2B = 1 + RAW_B2B * (svcB2B() - 1) / SVC_B2B;   // passe 68 : la demande locale de matières suit la prospérité et l'activité des entreprises de la ville (chantiers, entretien, énergie)
+  const rev = { v: 0 }, npcs = S.npcSup || (S.npcSup = {}); S.locSold = S.locSold || {}; void rev;
+  const act = b2bAct(), pe = popE(), bb = Math.max(0.05, prosp().b), used = S._usedT || {}, dif = Math.max(0, S.diff || 0);
   let v = 0;
   Object.keys(LOCAL_D).forEach(g => {
     if (!GOODS[g]) return;
-    const Dl = LOCAL_D[g] * (ROBOTS[g] ? 1 + 0.12 * Math.min(3, (S.rivals || []).length) : RIV_USE[g] ? 1 + 0.06 * Math.min(5, (S.rivals || []).length) : rawB2B) * (popE() / 10000) * gdpm * clamp(Math.pow(Math.max(0.2, (S.price[g] || GOODS[g].base) / (GOODS[g].base * cpi() * (isChip(g) ? aibPx(g) : 1))), -elRaw(g)), 0.4, 1.8) * (isChip(g) ? aibDemM(g) : 1), n = npcs[g] || (npcs[g] = { cap: 0, days: 0 });
-    if (n.cap > 0) { const c0 = n.cap; n.cap = Math.min(Dl * ROOM * (NPC_CAP + 0.03 * dif) * (1 + 0.35 * Math.max(0, (n.k || 1) - 1)), n.cap * (1 + 0.004 * (1 + dif))); if (CROPS[g] && Math.floor(n.cap / (Dl * 0.2)) > Math.floor(c0 / (Dl * 0.2)) && rnd() < 0.6) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); }   // passe 46 : chaque concurrent de plus agrandit l'offre locale
-    if (n.cap > 0) { const pc = marketBounds(g).base; if ((S.price[g] || pc) < 0.8 * pc) { n.lo = (n.lo || 0) + 1; if (n.lo > 14) n.cap *= 0.985; } else n.lo = 0; }   // lot 5 : un producteur PNJ qui vend sous son coût plus de 14 jours réduit sa capacité (veille, fermetures) : plancher naturel du cours
+    const fd = FDIR[g] || 0, mb = marketBounds(g), pr = S.price[g] || GOODS[g].base, el = bnd('B29', Math.pow(Math.max(0.05, pr / (GOODS[g].base * cpi() * (isChip(g) ? aibPx(g) : 1))), -elRaw(g)), 0.1, 4);
+    const ind = LOCAL_D[g] * (1 - fd) * (ROBOTS[g] ? 1 + 0.12 * Math.min(3, (S.rivals || []).length) : 1) * (act / 10000) * el * (isChip(g) ? aibDemM(g) : 1);   // 1. plans de production PNJ (robots : parc des usines rivales)
+    const fin = LOCAL_D[g] * fd * (pe / 10000) * Math.sqrt(bb) * el;   // 3. demande finale directe (énergie, chantiers)
+    const n = npcs[g] || (npcs[g] = { cap: 0, days: 0 }), U = ind * ROOM;   // consommation du jour des usines PNJ
+    const buf = n.b != null && isFinite(n.b) ? n.b : B2B_BUF * U, rep = (B2B_BUF * U - buf) / B2B_TAU; n.b = Math.max(0, buf + rep);   // 2. stock tampon (champ facultatif npcSup[g].b)
+    const ls = 1 - impShare(pr, mb.imp), Dl = Math.max(0, (U + rep) / ROOM + fin) * ls;   // part achetée localement (le reste est importé au prix livré)
+    if (n.cap > 0) { const c0 = n.cap; n.cap = Math.min(Dl * ROOM * (NPC_CAP + 0.03 * dif) * (1 + 0.35 * Math.max(0, (n.k || 1) - 1)), n.cap * (1 + 0.004 * (1 + dif))); if (CROPS[g] && Math.floor(n.cap / Math.max(1e-9, Dl * 0.2)) > Math.floor(c0 / Math.max(1e-9, Dl * 0.2)) && rnd() < 0.6) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); }   // passe 46 : chaque concurrent de plus agrandit l'offre locale
+    if (n.cap > 0) { const pc = mb.base; if (pr < 0.8 * pc) { n.lo = (n.lo || 0) + 1; if (n.lo > 14) n.cap *= 0.985; } else n.lo = 0; }   // lot 5 : un producteur PNJ qui vend sous son coût plus de 14 jours réduit sa capacité (veille, fermetures) : plancher naturel du cours
     const hadSale = (S.locSold[g] || 0) > 5; n.days = hadSale ? n.days + 1 : Math.max(0, n.days - 1);
     mpEntry(g, n, Dl);   // passe 46 : appel d'air (déterministe)
     if (!n.cap && n.days > 18 && rnd() < (0.03 + 0.015 * dif) * optV('local', OPT_LOC) * forcesCoef('entrants')) { n.cap = Dl * ROOM * 0.15; if (n.k != null) n.k = Math.max(1, n.k); if (CROPS[g]) placeNpcFarm(g, LOCAL_CO[g] || 'Heartland ' + GOODS[g].name); say(`${LOCAL_CO[g] || 'Un producteur local'} s'installe sur le marché du ${GOODS[g].name.toLowerCase()} : la concurrence s'annonce.`, 'warn'); }
-    const myCap = Math.max(1, made[g] + Math.max(0, S.stock[g] - 750) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1;
+    const res = Math.max(ROBOTS[g] ? 2 : 50, B2B_BUF * (used[g] || 0)), myCap = Math.max(1, made[g] + Math.max(0, S.stock[g] - res) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1;   // réserve = 7 jours de ta propre consommation (avant : 750 u. fixes)
     const Dr = (S.rv && S.rv.inD && S.rv.inD[g]) || 0;   // achats d'intrants des usines rivales : clients du marché local, donc aussi du joueur ; les importateurs suivent au rapport offre / demande du jour (cours inchangé)
     want[g] += Dl * ROOM; made[g] += n.cap + NPC_IMP * Dl * ROOM; if (Dr > 0) { const k = made[g] / Math.max(1e-6, want[g]); want[g] += Dr; made[g] += Dr * k; }
-    const avail = Math.max(0, S.stock[g] - Math.max(ROBOTS[g] ? 2 : 750, FGD ? ledRes(g) : 0) - (g === 'coal' ? PLANT_COAL * (((S.stats && S.stats.cn) || {}).plant || 0) : g === 'gpu' ? (S._gpuRes || 0) : 0)), q =   // passe 67 : le charbon du lendemain de tes centrales n'est pas vendu au marché local (avant : selon l'ordre des cases, une centrale sur deux restait sans combustible)
+    const avail = Math.max(0, S.stock[g] - Math.max(res, FGD ? ledRes(g) : 0) - (g === 'coal' ? PLANT_COAL * (((S.stats && S.stats.cn) || {}).plant || 0) : g === 'gpu' ? (S._gpuRes || 0) : 0)), q =   // passe 67 : le charbon du lendemain de tes centrales n'est pas vendu au marché local
       Math.min(avail, (Dl * ROOM + Dr) * share);   // passe 32 : le stock réservé à la vente interne n'est jamais vendu au marché
-    S.locSold[g] = q; (S._lm || (S._lm = {}))[g] = { D: Dl * ROOM + Dr, npc: n.cap + NPC_IMP * Dl * ROOM, sh: share, riv: Dr, rivMe: Dr > 0 ? q * Dr / (Dl * ROOM + Dr) : 0 };   // relevé pour le bureau de l'usine (aucun effet) ; rivMe : ventes du joueur aux usines rivales
+    S.locSold[g] = q; (S._lm || (S._lm = {}))[g] = { D: Dl * ROOM + Dr, npc: n.cap + NPC_IMP * Dl * ROOM, sh: share, riv: Dr, rivMe: Dr > 0 ? q * Dr / (Dl * ROOM + Dr) : 0, ind: U, buf: rep, fin: fin * ROOM, ls, res };   // relevé pour le bureau de l'usine et « Pourquoi la demande » (aucun effet)
     if (q > 0.01) { fSellExt(g, q, q * S.price[g] * 0.97); S.stock[g] -= q; v += q * S.price[g] * 0.97; }
   });
   if (S.rv && S.rv.inD) Object.keys(S.rv.inD).forEach(g => { if (!LOCAL_D[g] && GOODS[g]) { const k = (made[g] || 0) / Math.max(1e-6, want[g] || 0) || 1; want[g] = (want[g] || 0) + S.rv.inD[g]; made[g] = (made[g] || 0) + k * S.rv.inD[g]; } });   // intrants sans marché local : même règle (cours inchangé)
@@ -7831,7 +7851,7 @@ function step() {
   // Migration : une ville prospère attire des habitants et se densifie (nouvelles tours résidentielles)
   if (!S.cityV && S.day > 0 && S.day % 10 === 0 && S.pop > 0.72 * cap && cap < 900000) { const pm = clamp(0.25 + 4 * (S.macro.gdp - 0.02) + (((S.stats && S.stats.happy) || 60) - 60) / 100, 0.05, 0.9); if (rnd() < pm) { addNpcTower('res', 6 + Math.floor(rnd() * 6)); if (rnd() < 0.85) addNpcTower('off', 8 + Math.floor(rnd() * 8)); } }
   // 4. Surplus exporté au-delà du plafond de stock
-  let revExp = stepLocalMarket(made, want);
+  S._usedT = used; let revExp = stepLocalMarket(made, want);
   trMarket(made, want);   // passe 66 : le négociant IA livre, amortit, réassortit (avant la formation des cours)
   const portN = cn.port || 0, expRate = Math.min(0.95, (EXP_BASE + EXP_PORT * portN) * TM.export); S._dw.xr = expRate;   // passe 21 : l'export réalise 82 % du cours au 1er port (+4 points par port), moins la congestion du marché étranger
   { const wr = stepWarehouses(portN, expRate); importCost += wr.imp; revExp += wr.rev; }
@@ -9374,16 +9394,19 @@ const effC = x => Math.abs(x) < 0.005 ? '' : x > 0 ? 'pos' : 'neg';
 const fq2 = v => v >= 100 ? fmt(v) : f1(v);
 const whyRow = (l, note, eff, txt) => `<div class="finrow"><span>${l}<small style="display:block;color:var(--mut);font-size:10.5px">${note || ''}</small></span><b class="${eff == null ? '' : effC(eff)}">${txt != null ? txt : pctS(eff)}</b></div>`;
 const verdictOf = m => m > 1.08 ? 'forte' : m < 0.92 ? 'faible' : 'normale';
-function demandWhyRaw(g) {
-  const G = GOODS[g], D0 = LOCAL_D[g] * (popE() / 10000), gdpm = clamp(1 + 4 * ((S.macro ? S.macro.gdp : 0.03) - 0.03), 0.8, 1.5), rel = Math.max(0.2, S.price[g] / (G.base * cpi())), el1 = clamp(Math.pow(rel, -elRaw(g)), 0.4, 1.8);
-  const n = (S.npcSup || {})[g] || { cap: 0 }, Dl = D0 * gdpm * el1, myCap = Math.max(1, ((S.flow && S.flow.own && S.flow.own[g]) || 0) + Math.max(0, S.stock[g] - 750) * 0.1), share = n.cap > 0 ? myCap / (myCap + n.cap) : 1, sold = (S.locSold || {})[g] || 0, avail = Math.max(0, S.stock[g] - 750), served = Dl * ROOM * share;
-  const m = gdpm * el1;
-  return `<h4 style="margin:8px 0 4px">Pourquoi la demande ${dEl(G.name.toLowerCase())} est ${verdictOf(m)}</h4><small class="note">Besoin industriel de la ville (hors besoins des habitants). Demande = population × coefficient du bien × cycle macro × élasticité au prix.</small>`
-    + whyRow('Population', `${fmt(S.pop)} habitants × ${fmt(Math.round(LOCAL_D[g] * bassin()))} u. pour 10 000 hab.`, null, fq2(D0 * ROOM * DM) + ' u/mois')
-    + whyRow('Cycle macro (PIB)', `croissance ${((S.macro ? S.macro.gdp : 0.03) * 100).toFixed(1).replace('.', ',')} %`, gdpm - 1)
-    + whyRow('Prix relatif', `prix ${rel.toFixed(2).replace('.', ',')} × la référence · élasticité ${elRaw(g)} : cher = on achète moins`, el1 - 1)
-    + whyRow('Concurrence locale', n.cap > 0 ? `producteurs locaux ${fq2(n.cap * DM)} u/mois · ta part de la demande ${Math.round(share * 100)} %` : 'aucun producteur local installé (100 % de la demande te revient)', share - 1, n.cap > 0 ? pctS(share - 1) : '0 %')
-    + whyRow('Disponibilité', `stock vendable ${fmt(avail)} u. (réserve de 750 u. non vendue) · demande servie ${fq2(Math.min(avail, served) * DM)} / ${fq2(served * DM)} u/mois`, avail >= served ? 0 : -(1 - avail / Math.max(1e-9, served)), avail >= served ? 'servie' : pctS(-(1 - avail / Math.max(1e-9, served))));
+function demandWhyRaw(g) {   // lot 4a : la demande de matières vient des usines clientes (relevé S._lm du moteur, jamais recalculé)
+  const G = GOODS[g], L = (S._lm || {})[g]; if (!L) return '<small class="note">La demande s\'affiche après le premier jour de simulation.</small>';
+  const ownU = (S._usedT && S._usedT[g]) || 0, sold = (S.locSold || {})[g] || 0, n = (S.npcSup || {})[g] || { cap: 0 }, mo = v => fq2(v * DM) + ' u/mois', tot = Math.max(1e-9, L.D);
+  const m = L.D / Math.max(1e-9, (L.ind + L.fin + L.riv) || 1);
+  return `<h4 style="margin:8px 0 4px">Pourquoi la demande ${dEl(G.name.toLowerCase())} est ${verdictOf(m)}</h4><small class="note">Ta demande = besoins des usines clientes (plans de production) + reconstitution de leurs stocks + consommation finale directe ; chaque acheteur compare ton prix au prix livré de l'import.</small>`
+    + whyRow('Usines PNJ de la ville', `elles fabriquent ce que les ménages achètent en rayon : nomenclature × production du jour`, null, mo(L.ind))
+    + whyRow('Stock tampon des usines', `cible ${B2B_BUF} jours de consommation, rattrapée en ${B2B_TAU} jours (coup de fouet quand la production varie)`, L.buf / Math.max(1e-9, L.ind || 1), mo(L.buf))
+    + (L.fin > 0.001 ? whyRow('Consommation finale directe', 'ménages et chantiers (énergie, matériaux) : par habitant × revenu réel', null, mo(L.fin)) : '')
+    + (L.riv > 0.001 ? whyRow('Usines rivales', 'leurs achats d\'intrants', null, mo(L.riv)) : '')
+    + (ownU > 0.001 ? whyRow('Tes usines', `tu consommes ${mo(ownU)} ; réserve gardée : ${fmt(Math.round(L.res || 0))} u. (${B2B_BUF} jours)`, null, '') : '')
+    + whyRow('Local ou import', `prix ${f1(S.price[g])} $ contre ${f1(marketBounds(g).imp)} $ livré depuis l'étranger : ${Math.round(100 * (L.ls == null ? 1 : L.ls))} % achetés localement`, (L.ls == null ? 1 : L.ls) - 1)
+    + whyRow('Concurrence locale', n.cap > 0 ? `producteurs locaux ${fq2(n.cap * DM)} u/mois · ta part de la demande ${Math.round(L.sh * 100)} %` : 'aucun producteur local installé (100 % de la demande te revient)', L.sh - 1, n.cap > 0 ? pctS(L.sh - 1) : '0 %')
+    + whyRow('Tes ventes', `${mo(sold)} vendues sur ${mo(tot)} demandées`, null, Math.round(100 * sold / tot) + ' %');
 }
 const CLS_ROLE = { basic: ['Besoin vital', 'nourrit la croissance de la population (60 % de la satisfaction)'], std: ['Confort', 'bonheur et richesse (25 % de la satisfaction)'], lux: ['Luxe', 'richesse et prestige (15 % de la satisfaction)'], estate: ['Logement', 'demande immobilière'] };
 function demandWhyCls(cls) {   // lot 3 : cascade du budget fermé des ménages (valeurs lues dans S._dw, jamais recalculées : l'écran dit ce que le moteur a fait)
@@ -9410,7 +9433,7 @@ function renderMarketDet() {
   const box = el('mkdet'); if (!box || box.closest('section').hidden) return; const g = mkSel; if (!GOODS[g] || !S.price[g]) return;
   const G = GOODS[g], mb = marketBounds(g), p = S.price[g], t30 = trend30(g), ms = mktState(g), ratio = (S.rat && S.rat[g] != null) ? S.rat[g] : 1;
   let anchor = `prix de base ${px1(G.base * cpi())} (inflation incluse)`; if (G.inp) { let ci = 0; Object.keys(G.inp).forEach(h => { ci += G.inp[h] * S.price[h]; }); anchor = `ancrage ${px1(mb.base)} : ${Object.keys(G.inp).length} intrant(s) à ${px1(ci / Math.max(1, G.inO || 1))} par unité, répercutés à ${Math.round(G.inS * 100)} %`; }
-  const why = (G.grp === 'goods' && CLS_ROLE[g]) ? demandWhyCls(g) : LOCAL_D[g] ? demandWhyRaw(g) : '<small class="note">Ce bien n\'a pas de demande urbaine directe : il se vend à tes usines, à tes magasins et à l\'export.</small>';
+  const why = (G.grp === 'goods' && CLS_ROLE[g]) ? demandWhyCls(g) : LOCAL_D[g] ? demandWhyRaw(g) : '<small class="note">Ce bien n\'a pas de demande urbaine directe : il se vend à tes usines, à celles des rivaux, à tes magasins et à l\'export.</small>';
   const h = `<div class="tcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>${G.name}</b><span><b class="${t30 >= 0 ? 'pos' : 'neg'}">${px1(p)} ${t30 >= 0.005 ? '↑' : t30 <= -0.005 ? '↓' : '→'} ${Math.abs(t30 * 100).toFixed(0)} % / 30 j</b></span></div>
     <div class="finrow"><span>État du marché</span><b class="${ms.c}">${ms.t}</b></div>
     <div class="finrow"><span>Demande / offre</span><b>${ratio.toFixed(2).replace('.', ',')}</b></div>
