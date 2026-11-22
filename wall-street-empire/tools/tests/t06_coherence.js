@@ -78,7 +78,7 @@ exports.run = async (t, L) => {
   // 8. Population
   rep('population', [{ s: 'état', v: C.pop }, { s: 'HUD', v: pn(C.hud.pop) }, ...vals(E, /^Habitants/i).slice(0, 1).map(v => ({ s: 'Empire', v })), ...(() => { const m = Mk.match(/([\d\s  ]+)\s*habitants ×/); return m ? [{ s: 'Bourse', v: parseFloat(m[1].replace(/[\s  ]/g, '')) }] : []; })()]);
   // 9. Fiche produit d'un magasin vs écran Produits (mêmes définitions : prix, moyenne, marque, qualité, note globale)
-  const fiche = await pg.evaluate(() => { const W = window.WSE, S = W.S, N = W.N; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 's2' && c.x + c.y * N === i && c.conn) { W.openBuilding(c.x, c.y); return document.getElementById('bview').innerText; } } return ''; });
+  const fiche = await pg.evaluate(() => { const W = window.WSE, S = W.S, N = W.N; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 's2' && c.x + c.y * N === i && c.conn) { W.openBuilding(c.x, c.y); W.bAct('pvdet'); return document.getElementById('bview').innerText;   /* fiche magasin : la fiche détaillée du produit est repliée sous l'emplacement sélectionné */ } } return ''; });
   const fm = fiche.match(/\n([^\n]+?) · ([\d,]+) \$\nfiche produit([\s\S]*?)Voir les parts de marché/);
   if (!fm) t.check('fiche produit de magasin trouvée', false, 'bloc « fiche produit » absent');
   else {
