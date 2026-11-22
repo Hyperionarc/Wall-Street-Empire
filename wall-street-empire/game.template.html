@@ -17604,34 +17604,80 @@ function refreshRoadList() {
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') roadList.push([i % N, Math.floor(i / N)]); }
   urbanRoads = roadList.filter(r => { const z = ZONE[idx(r[0], r[1])]; return z === 1 || z === 2; });
 }
+/* Passe 99 (Rémy : « des voitures l'une sur l'autre ») : circulation déterministe et espacée.
+   Avant : marche aléatoire (Math.random) sans aucune règle : apparition sur une case déjà occupée, voitures qui se rattrapent dans la même voie, carrefours où
+   plusieurs voitures se superposent. Maintenant : graine propre à la circulation (jamais le hasard de la simulation), apparition seulement sur une case libre,
+   distance minimale CAR_GAP dans une même voie (la voiture de derrière s'arrête et forme une file), ligne d'arrêt CAR_HOLD avant chaque carrefour, réservé
+   par une seule voiture à la fois (elle le traverse puis le libère), entrée dans la rue suivante seulement si son début est libre. Une voiture bloquée plus de
+   CAR_WAIT s (embouteillage en boucle) repart quand même : jamais de blocage définitif. Coût : un index par voie et par carrefour à chaque image (≤ 150 voitures). */
+const CAR_GAP = 0.56, CAR_HOLD = 0.8, CAR_EXIT = 0.32, CAR_WAIT = 6, CAR_SEED0 = 0x2545f491;
+let carSeed = CAR_SEED0;
+const carRnd = () => { carSeed = (Math.imul(carSeed, 1664525) + 1013904223) >>> 0; return carSeed / 4294967296; };
+const carEdgeK = (x, y, nx, ny) => (y * N + x) * N * N + ny * N + nx, carEdge = c => carEdgeK(c.x, c.y, c.nx, c.ny), carNode = (x, y) => y * N + x;
+function carFree(x, y) { for (const o of cars) if ((o.x === x && o.y === y && (o.t < CAR_GAP || (o.x === o.nx && o.y === o.ny))) || (o.nx === x && o.ny === y && o.t > 1 - CAR_GAP)) return false; return true; }
+function carPlace(c) {   // pose la voiture, à l'arrêt, sur une case de route libre (au plus 12 essais) ; false si aucune
+  const src = urbanRoads.length ? urbanRoads : roadList; if (!src.length) return false;
+  for (let k = 0; k < 12; k++) { const r = src[Math.floor(carRnd() * src.length)]; if (carFree(r[0], r[1])) { c.x = c.nx = r[0]; c.y = c.ny = r[1]; c.px = c.py = -1; c.t = 0; c.q = null; c.wait = 0; return true; } }
+  return false;
+}
+function carNext(fx, fy, x, y) {   // rue suivante depuis (x, y) quand on arrive de (fx, fy) : tout droit ou en tournant, demi-tour seulement en cul-de-sac
+  const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(d => [x + d[0], y + d[1]]).filter(a => isRoad(a[0], a[1]));
+  const fwd = opts.filter(a => !(a[0] === fx && a[1] === fy)), L = fwd.length ? fwd : opts; return L.length ? L[Math.floor(carRnd() * L.length)] : null;
+}
 function spawnCars() {
+  if (!cars.length) carSeed = CAR_SEED0;   // nouvelle ville (ou remise à zéro) : même circulation à chaque fois
   const want = Math.min(150, Math.floor(urbanRoads.length * 0.12));
-  while (cars.length < want && roadList.length) {
-    const src = urbanRoads.length ? urbanRoads : roadList, r = src[Math.floor(Math.random() * src.length)];
-    cars.push({ x: r[0], y: r[1], nx: r[0], ny: r[1], px: -1, py: -1, t: 1, sp: 0.5 + Math.random() * 0.6, m: CAR_MODELS[Math.floor(Math.random() * CAR_MODELS.length)] });
+  for (let k = 0; cars.length < want && roadList.length && k < 20; k++) {
+    const c = { x: 0, y: 0, nx: 0, ny: 0, px: -1, py: -1, t: 0, sp: 0.5 + carRnd() * 0.6, m: CAR_MODELS[Math.floor(carRnd() * CAR_MODELS.length)], q: null, wait: 0 };
+    if (!carPlace(c)) break; cars.push(c);
   }
   if (cars.length > want) cars.length = want;
 }
 const speedFactor = () => speed === 0 ? 0 : speed === 1 ? 1 : 2.2;
 function updateCars(dt) {
   if (!S) return;
-  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  spawnCars();
+  spawnCars(); const sf = speedFactor(); if (!sf) return;
+  const lane = new Map(), node = new Map(), add = c => { const k = carEdge(c); (lane.get(k) || lane.set(k, []).get(k)).push(c); };
+  cars.forEach((c, i) => { c._i = i; if (c.x === c.nx && c.y === c.ny) return; add(c); if (c.t >= CAR_HOLD) node.set(carNode(c.nx, c.ny), c); });
+  for (const c of cars) if ((c.x !== c.nx || c.y !== c.ny) && c.t < CAR_EXIT) { const n = carNode(c.x, c.y); if (!node.has(n)) node.set(n, c); }
   for (const c of cars) {
-    if (!isRoad(c.x, c.y)) {
-      if (!roadList.length) continue;
-      const r = roadList[Math.floor(Math.random() * roadList.length)]; c.x = c.nx = r[0]; c.y = c.ny = r[1]; c.t = 1;
+    if (!isRoad(c.x, c.y) || !isRoad(c.nx, c.ny)) { if (!carPlace(c)) continue; }
+    const adv = c.sp * dt * sf;
+    if (c.x === c.nx && c.y === c.ny) {   // à l'arrêt (vient d'apparaître) : part dans une rue dont le début et le carrefour sont libres
+      const q = carNext(-9, -9, c.x, c.y), n = carNode(c.x, c.y);
+      if (q && !(lane.get(carEdgeK(c.x, c.y, q[0], q[1])) || []).some(o => o.t < CAR_GAP) && !node.has(n)) { c.nx = q[0]; c.ny = q[1]; c.t = 0; add(c); node.set(n, c); }
+      continue;
     }
-    c.t += c.sp * dt * speedFactor();
+    let lim = 1;
+    for (const o of lane.get(carEdge(c)) || []) if (o !== c && (o.t > c.t || (o.t === c.t && o._i < c._i))) lim = Math.min(lim, o.t - CAR_GAP);   // file : jamais plus près que CAR_GAP de la voiture de devant
+    const nd = carNode(c.nx, c.ny), h = node.get(nd);
+    if (c.t < CAR_HOLD && h && h !== c) lim = Math.min(lim, CAR_HOLD - 1e-3);   // carrefour occupé : arrêt à la ligne
+    else if (c.t + adv >= CAR_HOLD) {   // s'engage : choisit la rue suivante ; attend au carrefour si son début est encombré
+      if (!c.q) c.q = carNext(c.x, c.y, c.nx, c.ny);
+      if (c.q && (lane.get(carEdgeK(c.nx, c.ny, c.q[0], c.q[1])) || []).some(o => o.t < CAR_GAP)) lim = Math.min(lim, Math.max(c.t, CAR_HOLD + 0.1));
+      if (lim >= CAR_HOLD) node.set(nd, c);   // carrefour réservé
+    }
+    let nt = Math.max(c.t, Math.min(c.t + adv, lim));
+    c.wait = nt - c.t < adv * 0.05 ? (c.wait || 0) + dt * sf : 0;
+    if (c.wait > CAR_WAIT) { nt = c.t + adv; c.wait = 0; }   // embouteillage en boucle : repart (jamais de blocage définitif)
+    c.t = nt;
     if (c.t >= 1) {
-      c.px = c.x; c.py = c.y; c.x = c.nx; c.y = c.ny; c.t = 0;
-      const opts = dirs.map(d => [c.x + d[0], c.y + d[1]]).filter(a => isRoad(a[0], a[1]));
-      const fwd = opts.filter(a => !(a[0] === c.px && a[1] === c.py));
-      const list = fwd.length ? fwd : opts;
-      const pick = list[Math.floor(Math.random() * list.length)];
-      if (pick) { c.nx = pick[0]; c.ny = pick[1]; } else { c.nx = c.x; c.ny = c.y; c.t = 1; }
+      const Lo = lane.get(carEdge(c)), q = c.q || carNext(c.x, c.y, c.nx, c.ny); if (Lo) Lo.splice(Lo.indexOf(c), 1);
+      c.px = c.x; c.py = c.y; c.x = c.nx; c.y = c.ny; c.q = null;
+      if (q) { c.nx = q[0]; c.ny = q[1]; c.t = Math.min(c.t - 1, 0.2); add(c); } else c.t = 0;
     }
   }
+}
+function carPos(c) {   // position dessinée (monde) d'une voiture : milieu de sa voie, comme drawCar
+  const a = iso(c.x, c.y), b = iso(c.nx, c.ny), dx = c.nx - c.x, dy = c.ny - c.y, dir = dx > 0 ? 'SE' : dx < 0 ? 'NW' : dy > 0 ? 'SW' : 'NE', t = clamp(c.t, 0, 1), lane = CAR_LANE[dir];
+  return [lerp(a.x, b.x, t) + lane[0], lerp(a.y, b.y, t) + TH / 2 + lane[1], dir];
+}
+const CAR_LANE = { SE: [-9, 4], NW: [9, -4], SW: [9, 4], NE: [-9, -4] };
+function carsClose(dmin) {   // paires de voitures dont les positions dessinées sont à moins de dmin px monde (superposées à l'écran)
+  const P = cars.map(carPos), G = new Map(), cs = 40; let n = 0;
+  P.forEach((p, i) => { const k = Math.floor(p[0] / cs) + ',' + Math.floor(p[1] / cs); (G.get(k) || G.set(k, []).get(k)).push(i); });
+  P.forEach((p, i) => { const gx = Math.floor(p[0] / cs), gy = Math.floor(p[1] / cs); for (let ax = -1; ax <= 1; ax++) for (let ay = -1; ay <= 1; ay++) (G.get((gx + ax) + ',' + (gy + ay)) || []).forEach(j => { if (j > i && Math.hypot(P[j][0] - p[0], (P[j][1] - p[1]) * 2) < dmin) n++; }); });
+  return n;
 }
 function drawCar(c) {
   const a = iso(c.x, c.y), b = iso(c.nx, c.ny);
@@ -21353,7 +21399,8 @@ window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMIL
 window.WSE.air = { pos: airPos, ensure: airEnsure, pax: airPax, data: airData, html: airHTML, open: airOpen, close: airClose, isOpen: () => airOn, show: airShow, act: airAct, openShop: airOpenShop, closeShop: airCloseShop, shelf: airShelf, price: airPrice, step: airStep, san: airSan, K: { AIR_W, AIR_H, AIR_PAX0, AIR_BUY, AIR_MK, AIR_TAX, AIR_ENTRY, AIR_RENT, AIR_L } };   // passe 49 : aéroport et duty free
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
-window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
+window.WSE.traffic = { cars: () => cars, reset: () => { cars = []; }, update: updateCars, refresh: refreshRoadList, pos: carPos, close: carsClose };   // passe 99 : espacement des voitures (tools/voitures_espacement.js, t99)
+window.WSE.vv = { SPR: VV_SVC_SPR, dcVec, svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.brand.setStrat = setBrandStrat;
 window.WSE.mono = { xp: monoXP, info: monoInfo, txt: monoTxt, win: monoWin, init: monoInit, step: monoStep, rx: monoRx, K: { MONO_PH, MONO_XW, MONO_W, MONO_PAT, MONO_INNOV, MONO_LIC, MONO_LIC_K, MONO_COPY, MONO_COPY_PAT, MONO_NIV, LIC_MG } };   // passe 67 : monopole temporaire de l'innovation
 window.WSE.supply = { autoSource, bestOffer, buyerQw, procure: stepProcure };
