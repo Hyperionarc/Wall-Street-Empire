@@ -41,9 +41,9 @@ exports.run = async (t, L) => {
   const q = C.find(c => c.n === 'restaurant_terrasse') || C[0];
   const xy = await pg.evaluate(q => { const W = window.WSE; W.setTool('view'); W.centerOn(q.x, q.y); return null; }, q); await pg.waitForTimeout(500);
   const pxy = await pg.evaluate(q => { const p = window.WSE.tileToScreen(q.x, q.y); return [p.x, p.y]; }, q);
-  await pg.mouse.click(pxy[0], pxy[1]); await pg.waitForTimeout(400);
+  await pg.mouse.click(pxy[0], pxy[1]); await pg.waitForTimeout(400); await pg.evaluate(() => { const b = document.querySelector('#selTag [data-st="open"]'); if (b && !document.getElementById('selTag').hidden) b.click(); }); await pg.waitForTimeout(300);   // passe 99 : clic = étiquette, « Ouvrir » ouvre la fiche
   const fi = await pg.evaluate(() => { const b = document.getElementById('pfiche'); return b && !b.hidden ? b.textContent : ''; });
-  t.check('clic sur un restaurant de la ville : la fiche de l\'immeuble s\'ouvre avec le nom du service', /Restaurant en terrasse/.test(fi), fi.slice(0, 90) + (xy || ''));
+  t.check('clic sur un restaurant de la ville puis « Ouvrir » : la fiche de l\'immeuble s\'ouvre avec le nom du service', /Restaurant en terrasse/.test(fi), fi.slice(0, 90) + (xy || ''));
   const mh = await pg.evaluate(() => window.WSE.vv.html());
   t.check('panneau du Mall : section « Commerces de quartier autour du mall »', /Commerces de quartier/.test(mh) && /Café de quartier ×\d/.test(mh), mh.replace(/<[^>]+>/g, ' ').slice(0, 140));
 

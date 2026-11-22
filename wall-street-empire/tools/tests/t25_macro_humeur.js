@@ -45,7 +45,7 @@ exports.run = async (t, L) => {
       const fr = () => { S.macro.boom = 0; S.macro.phase = Math.PI; }; for (let d = 0; d < 40; d++) { fr(); W.step(); }
       const snap = () => ({ gdp: S.macro.gdp, h: S.stats.happy, u: S.stats.unemp, infl: S.macro.infl, rate: W.macro.loanRateNow(), lim: M.creditLimit(), oil: M.marketBounds('oil').base / (W.GOODS.oil.base * S.cpi), prem: S.prem, dem: M.shockDemand(), px: S.price.oil / (W.GOODS.oil.base * S.cpi) });
       o.s0 = snap(); const feed0 = document.getElementById('feed') ? document.getElementById('feed').children.length : 0;
-      if (shock) { S.noEv = false; S.event = id; M.showEvent(); o.card = !document.getElementById('evcard').hidden; document.querySelector('#evcard [data-ev="' + choice + '"]').click(); S.noEv = true; o.toast = [...document.querySelectorAll('#feed .msg')].slice(feed0 > 0 ? 0 : 0).some(e => /Choc énergétique|Pandémie|Crise du crédit/.test(e.textContent)); }
+      if (shock) { S.noEv = false; S.event = id; M.showEvent(); o.card = window.WSE.ui.decList().some(d => d.id === 'ev') && document.getElementById('evcard').hidden; document.querySelector('#evcard [data-ev="' + choice + '"]').click(); S.noEv = true; o.toast = (S.jr || []).some(e => /Choc énergétique|Pandémie|Crise du crédit/.test(e.t)); }
       const ser = { h: [], u: [], g: [], i: [], px: [], dem: [], rate: [], lim: [], prem: [] }; let bar = false;
       for (let d = 0; d < 75; d++) { fr(); W.step(); const c = snap(); ser.h.push(c.h); ser.u.push(c.u); ser.g.push(c.gdp); ser.i.push(c.infl); ser.px.push(c.px); ser.dem.push(c.dem); ser.rate.push(c.rate); ser.lim.push(c.lim); ser.prem.push(c.prem); if (d === 30) o.bar = !document.getElementById('shockbar').hidden && document.getElementById('shockbar').textContent.length > 8; }
       o.ser = ser;
@@ -61,7 +61,7 @@ exports.run = async (t, L) => {
   t.info(`témoin : PIB ${(ctl.ser.g[74] * 100).toFixed(1)} %, humeur ${ctl.ser.h[74].toFixed(0)} (départ ${ctl.s0.h.toFixed(0)}), chômage ${(ctl.ser.u[74] * 100).toFixed(1)} %, inflation ${(ctl.ser.i[74] * 100).toFixed(1)} %`);
   const all = [['énergie', en], ['pandémie', pa], ['crédit', cr]];
   all.forEach(([n, r]) => {
-    t.check(`choc ${n} : carte d'événement, toast et bandeau visibles`, r.card && r.toast && r.bar && r.errs === 0, `carte ${r.card}, toast ${r.toast}, bandeau ${r.bar}, erreurs ${r.errs}`);
+    t.check(`choc ${n} : décision en attente (sans fenêtre), annonce au journal, état visible`, r.card && r.toast && r.bar && r.errs === 0, `carte ${r.card}, toast ${r.toast}, bandeau ${r.bar}, erreurs ${r.errs}`);
     t.check(`choc ${n} : humeur −8 à −25 points par rapport au témoin en quelques semaines (${gap(r, 'h', -1).toFixed(1)})`, gap(r, 'h', -1) >= 8 && gap(r, 'h', -1) <= 25, '');
     t.check(`choc ${n} : PIB plus bas que le témoin (−${(gap(r, 'g', -1) * 100).toFixed(1)} pts)`, gap(r, 'g', -1) > 0.01, '');
     t.check(`choc ${n} : chômage plus haut que le témoin (+${(gap(r, 'u') * 100).toFixed(1)} pts)`, gap(r, 'u') > 0.008, '');

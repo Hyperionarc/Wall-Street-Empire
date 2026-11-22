@@ -51,7 +51,7 @@ exports.run = async (t, L) => {
   });
   t.check('guerre des prix déclenchée contre le joueur dominant', w.started && w.cls === 'basic', `classe ${w.cls}, essais ${w.tries}`);
   t.range('profondeur de la guerre entre 10 et 25 %', w.d * 100, 10, 25, ' %');
-  t.check('guerre signalée : toast et bandeau', /Guerre des prix/.test(w.toast + w.ban) && w.banShown && /guerre des prix contre toi/.test(w.txt), w.txt);
+  t.check('guerre signalée : au journal, sans bannière en bas de l\'écran (passe 99)', /Guerre des prix/.test(w.toast + w.ban) && !w.banShown && /guerre des prix contre toi/.test(w.txt), w.txt);
   t.check('pendant la guerre : prix du rival en baisse, sa part monte, la part de clientèle adressée au joueur recule', w.pxWar < 0.93 && w.shWar > 1.05 && w.attWar < 0.97 && w.youWar < 1.05, `prix ×${w.pxWar.toFixed(2)}, part rivale ×${w.shWar.toFixed(2)}, clientèle du joueur ×${w.attWar.toFixed(2)}, ventes du joueur ×${w.youWar.toFixed(2)} (magasins à pleine capacité)`);
   t.check('guerre terminée à l\'échéance, trêve ensuite', w.ended && w.warNull && w.endDay <= w.until + 1 && w.cd > 60, `jour ${w.endDay} (échéance ${w.until}), trêve ${w.cd} j`);
   t.check('après la guerre, le prix remonte vers son niveau normal', w.pxAfter > w.pxWar + 0.04, `×${w.pxAfter.toFixed(2)} contre ×${w.pxWar.toFixed(2)}`);

@@ -28,14 +28,14 @@ exports.run = async (t, L) => {
   await chooseCaste(); await pg.waitForTimeout(1800);
   const d1 = await ev(() => ({ day: window.WSE.S.day, caste: window.WSE.S.caste, k: window.WSE.S.mode.k }));
   t.check('caste choisie par clics : le temps repart, scénario 1', d1.caste === 'industriel' && d1.k === 's1' && d1.day >= 1, JSON.stringify(d1));
-  t.check('barre d\'objectif : scénario, jalon, temps et tutoriel visibles', await ev(() => { const o = document.getElementById('objbar').innerText; return /SCÉNARIO 1/.test(o) && /Ouvrir 3 commerces/.test(o) && /60 min/.test(o) && /Tutoriel 1\/5/.test(o); }), '');
+  t.check('barre d\'objectif : scénario, jalon, temps et tutoriel visibles', await ev(() => { const o = document.getElementById('objbar').textContent; return /SCÉNARIO 1/i.test(o) && /Ouvrir 3 commerces/.test(o) && /60 min/.test(o) && /Tutoriel 1\/5/.test(o); }), '');
 
   // 3. Verrous : l'industrie est fermée au scénario 1, l'étiquette indique le scénario d'ouverture
   await pg.click('.cat[data-c="indus"]'); await pg.click('.tool.fam[data-f="0"]');
   const lk = await ev(() => { const b = document.querySelector('#flyout .tool[data-k="f1"] small'); return b ? b.textContent : null; });
-  t.check('usine verrouillée au scénario 1 : étiquette « Scénario 2 »', lk === 'Scénario 2', String(lk));
+  t.check('plus de verrou de scénario (décision de Rémy) : l\'usine affiche son prix', lk !== 'Scénario 2', String(lk));
   const c0 = await ev(() => window.WSE.S.cash); const placed = await ev(() => window.WSE.place(68, 56, 'f1'));
-  t.check('placer une usine au scénario 1 est refusé (pas de débit)', !placed && (await ev(() => window.WSE.S.cash)) >= c0 - 5e5, '');
+  t.check('plus de verrou de scénario : une usine se pose au scénario 1', !!placed, '');
 
   // 4. Tutoriel du scénario 1 : 5 étapes avec de vrais clics, flèche sur le bon bouton
   await ev(() => { window.WSE.setSpeed(0); });
@@ -50,8 +50,8 @@ exports.run = async (t, L) => {
   await clickPulse();   // Main
   const sp = await ev(() => { const W = window.WSE; for (let i = 0; i < W.N * W.N; i++) { const c = W.S.grid[i]; if (c && c.t === 's1') return [c.x, c.y]; } });
   await ev(([x, y]) => window.WSE.centerOn(x, y), sp); await pg.waitForTimeout(150);
-  const pt = await ev(([x, y]) => window.WSE.tileToScreen(x, y), sp); await pg.mouse.click(pt.x, pt.y); await pg.waitForTimeout(400);
-  t.check('étape 2 : ouvrir le commerce (Main + clic) valide l\'étape', (await tu()) === 3, 'étape ' + (await tu()));
+  const pt = await ev(([x, y]) => window.WSE.tileToScreen(x, y), sp); await pg.mouse.click(pt.x, pt.y); await pg.waitForTimeout(400); if (await vis('#selTag [data-st="open"]')) { await pg.click('#selTag [data-st="open"]'); await pg.waitForTimeout(300); }
+  t.check('étape 2 : ouvrir le commerce (Main, clic, « Ouvrir » sur l\'étiquette) valide l\'étape', (await tu()) === 3, 'étape ' + (await tu()));
   await ev(() => window.WSE.closeBuilding()); await pg.waitForTimeout(600);
   const hl3 = await ev(() => { const p = document.querySelector('.pulse'); return p ? p.id : null; });
   t.check('étape 3 : la flèche désigne le bouton Menu', hl3 === 'pn', String(hl3));
@@ -60,26 +60,27 @@ exports.run = async (t, L) => {
   await pg.click('#pclose'); await pg.waitForTimeout(200);
   for (let k = 0; k < 2; k++) { for (let i = 0; i < 4; i++) { const pu = await ev(() => { const p = document.querySelector('.pulse'); return p ? p.dataset.k : null; }); if (pu === 's1') break; await clickPulse(); } await clickPulse(); await buildAt('s1'); }
   t.check('étape 4 : 3 commerces valident l\'étape', (await tu()) === 5, 'étape ' + (await tu()));
-  const texte = await ev(() => document.getElementById('objbar').innerText);
-  t.check('étape 5 : texte clair et bouton « Compris »', /Tutoriel 5\/5/.test(texte) && await vis('[data-ob="ok"]'), '');
-  await pg.click('[data-ob="ok"]'); await pg.waitForTimeout(200);
+  await pg.click('#helpBtn'); await pg.waitForTimeout(200); const texte = await ev(() => document.getElementById('helpp').innerText);
+  t.check('étape 5 : texte clair et bouton « Compris » (panneau d\'aide « ? »)', /Tutoriel 5\/5/.test(texte) && await vis('#helpp [data-hp="ok"]'), '');
+  await pg.click('#helpp [data-hp="ok"]'); await pg.waitForTimeout(200);
   t.check('fin du tutoriel : plus de ligne de tutoriel', (await tu()) === 0 && !(await ev(() => /Tutoriel \d\/5/.test(document.getElementById('objbar').innerText))), '');
-  const blocks = await ev(() => { const r = document.getElementById('objbar').getBoundingClientRect(); return r.bottom < 260; });
-  t.check('le tutoriel reste dans la barre du haut (ne cache pas la carte)', blocks, '');
+  const blocks = await ev(() => { const r = document.getElementById('helpp').getBoundingClientRect(); return r.width <= 420 && r.left > innerWidth / 2; });
+  t.check('le tutoriel est dans un petit panneau « ? » sur le côté (ne cache pas le centre de la carte)', blocks, '');   // passe 99 : plus de bloc permanent
+  await ev(() => window.WSE.ui.xpOpen('helpp', false));
 
   // 5. Conseil contextuel : plus d'argent
   await ev(() => { const S = window.WSE.S; S.cash = 1000; S.loan = window.WSE.creditLimit(); S.fin = S.fin || {}; });
   const k1 = await ev(() => window.WSE.stuckInfo());
   t.check('anti-frustration : « plus d\'argent » détecté avec une explication', k1 && k1.block && /argent/i.test(k1.t), k1 && k1.t);
-  await pg.click('[data-ob="tip"]'); await pg.waitForTimeout(200);
-  t.check('bouton Conseil : encart affiché dans la barre d\'objectif', await vis('.ocoach'), '');
-  await pg.click('[data-ob="tip"]'); await ev(() => { window.WSE.S.cash = 3e6; window.WSE.S.loan = 0; });
+  await pg.click('#helpBtn'); await pg.waitForTimeout(200);
+  t.check('aide « ? » : le conseil s\'affiche dans le petit panneau', await vis('#helpp') && /argent/i.test(await ev(() => document.getElementById('helpp').innerText)), '');
+  await pg.click('#helpp [data-xclose]'); await ev(() => { window.WSE.S.cash = 3e6; window.WSE.S.loan = 0; });
 
   // 6. Sauvegarde et reprise au milieu du scénario
   await ev(() => { const W = window.WSE; W.setSpeed(0); while (W.S.day % 5 !== 0 || W.S.day < 30) W.step(); });
   const sv = await ev(() => ({ day: window.WSE.S.day, cash: Math.round(window.WSE.S.cash), n: window.WSE.S.stats.cn.s1 || 0, k: window.WSE.S.mode.k, tdone: !!window.WSE.S.mode.f.tdone }));
   await pg.reload(); await pg.waitForTimeout(4000);
-  const rl = await ev(() => ({ day: window.WSE.S.day, cash: Math.round(window.WSE.S.cash), n: window.WSE.S.stats.cn.s1 || 0, k: window.WSE.S.mode.k, tdone: !!window.WSE.S.mode.f.tdone, modes: !document.getElementById('modesel').hidden, caste: window.WSE.S.caste, obj: /SCÉNARIO 1/.test(document.getElementById('objbar').innerText) }));
+  const rl = await ev(() => ({ day: window.WSE.S.day, cash: Math.round(window.WSE.S.cash), n: window.WSE.S.stats.cn.s1 || 0, k: window.WSE.S.mode.k, tdone: !!window.WSE.S.mode.f.tdone, modes: !document.getElementById('modesel').hidden, caste: window.WSE.S.caste, obj: /SCÉNARIO 1/i.test(document.getElementById('objbar').textContent) }));
   t.check('reprise après rechargement : scénario 1, jour, trésorerie, commerces, tutoriel terminé conservés', rl.k === 's1' && rl.day >= sv.day && rl.day <= sv.day + 12 && Math.abs(rl.cash - sv.cash) < 2e5 && rl.n === sv.n && rl.tdone && !rl.modes && rl.caste === 'industriel' && rl.obj, JSON.stringify([sv, rl]));
   await pg.evaluate(() => { document.getElementById('hint').hidden = true; });
 
@@ -89,7 +90,7 @@ exports.run = async (t, L) => {
   t.check('victoire du scénario 1 : écran VICTOIRE, score enregistré, scénario 2 annoncé', win.done === 'win' && /VICTOIRE/.test(win.txt) && /Scénario 2 débloqué/.test(win.txt) && win.prog.s1 > 0, JSON.stringify(win.prog));
   await pg.click('[data-end="next"]'); await pg.waitForTimeout(500);
   const n2 = await ev(() => ({ k: window.WSE.S.mode.k, day: window.WSE.S.day, caste: window.WSE.S.caste, lockHq: window.WSE.modeLocked('hq'), lockPort: window.WSE.modeLocked('port'), lockF1: window.WSE.modeLocked('f1'), tuto: window.WSE.SCN.s2.tuto.length }));
-  t.check('« Scénario suivant » lance le scénario 2 : usines ouvertes, siège fermé, tutoriel de 5 étapes', n2.k === 's2' && n2.day === 0 && !n2.lockF1 && !n2.lockPort && n2.lockHq && n2.tuto === 5, JSON.stringify(n2));
+  t.check('« Scénario suivant » lance le scénario 2 : usines ouvertes, tutoriel de 5 étapes (plus de verrous)', n2.k === 's2' && n2.day === 0 && !n2.lockF1 && !n2.lockPort && n2.tuto === 5, JSON.stringify(n2));
   await chooseCaste(); await ev(() => window.WSE.setSpeed(0));
 
   // 8. Tutoriel du scénario 2 : chaque étape désigne un élément d'interface existant
@@ -116,7 +117,7 @@ exports.run = async (t, L) => {
   // 9. Défaite au temps écoulé, jalons manqués, réessayer
   await pg.click('[data-mode="s3"]'); await pg.waitForTimeout(300); await chooseCaste(); await ev(() => window.WSE.setSpeed(0));
   const lock3 = await ev(() => ({ nuc: window.WSE.modeLocked('nuclear'), bank: window.WSE.modeLocked('bank'), hq: window.WSE.modeLocked('hq'), solar: window.WSE.modeLocked('solar'), term: (() => { window.WSE.openTerm(); return !document.getElementById('tview').hidden; })() }));
-  t.check('scénario 3 : énergie et services ouverts, banque et siège fermés, bourse fermée', !lock3.nuc && !lock3.solar && lock3.bank && lock3.hq && !lock3.term, JSON.stringify(lock3));
+  t.check('scénario 3 : énergie et services ouverts (plus de verrous)', !lock3.nuc && !lock3.solar, JSON.stringify(lock3));
   await ev(() => { const W = window.WSE; W.S.day = W.modeDays() - 1; W.step(); W.step(); });
   const lose = await ev(() => ({ done: window.WSE.S.mode.done, txt: document.getElementById('endscr').innerText, prog: JSON.parse(localStorage.getItem('wse-prog') || '{}') }));
   t.check('défaite : écran « OBJECTIF MANQUÉ » avec jalons manqués et bouton Réessayer', lose.done === 'lose' && /OBJECTIF MANQUÉ/.test(lose.txt) && /jalons manqués/i.test(lose.txt) && /Réessayer/.test(lose.txt), lose.txt.slice(0, 60));
@@ -126,7 +127,7 @@ exports.run = async (t, L) => {
   await chooseCaste(); await ev(() => window.WSE.setSpeed(0));
 
   // 10. Retour au menu depuis la partie (bouton Reset confirmé) puis annulation
-  await pg.click('#rst'); await pg.click('#rst'); await pg.waitForTimeout(300);
+  await ev(() => { document.getElementById('rst').click(); document.getElementById('rst').click(); }); await pg.waitForTimeout(300);
   t.check('Reset (confirmé) : retour au menu des modes', await vis('#modesel'), '');
   await pg.click('#modesel [data-mode=""]'); await pg.waitForTimeout(200);
   t.check('Annuler : la partie en cours reste en place', !(await vis('#modesel')) && (await ev(() => window.WSE.S.mode.k)) === 's3', '');
