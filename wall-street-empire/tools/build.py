@@ -200,7 +200,7 @@ for _gd in (os.path.join(ROOT, 'assets', 'guide_hd'), os.path.join(ROOT, '..', '
 # GUIDE_SUBST : la photo propre au produit est mauvaise (pseudo-texte, sujet faux) et une photo existante convient mieux -> remplacée (retirer la ligne quand la commande Cowork est livrée).
 # GUIDE_FILL : pas de photo pour la clé -> photo existante fidèle d'un bien voisin (ne s'applique pas si une photo propre arrive).
 GUIDE_SUBST = {'whisky': 'spirit'}   # whisky.jpg : grande étiquette en pseudo-lettres ; spirit.jpg : carafe de spiritueux ambré, sans texte
-GUIDE_FILL = {'sweater': 'jacket', 'beefmeat': 'meat', 'drinkmilk': 'milk'}   # jacket.jpg montre un pull plié ; meat.jpg une pièce de bœuf persillée ; milk.jpg un pichet et un verre de lait
+GUIDE_FILL = {'sweater': 'jacket', 'beefmeat': 'meat', 'porkmeat': 'meat', 'drinkmilk': 'milk'}   # jacket.jpg montre un pull plié ; meat.jpg une pièce de viande rouge persillée sur planche (bœuf, et porc en attendant porkmeat.jpg, passe 18 d'audit) ; milk.jpg un pichet et un verre de lait
 for _k, _s in GUIDE_SUBST.items():
     if _s in guidehd: guidehd[_k] = guidehd[_s]
 for _k, _s in GUIDE_FILL.items():
