@@ -53,7 +53,7 @@ exports.run = async (t, L) => {
     T.inC('s3'); const m = T.inC('smode'), ph = T.inC('spharma'), au = T.inC('sauto');
     ['jeans', 'headache', 'phone'].forEach(pk => { try { W.quickProduce(pk); } catch (e) {} });
     T.stepN(60, true);
-    const sk = c => { W.openBuilding(c.x, c.y); const t = document.getElementById('bview').innerText; W.closeBuilding(); return t; };
+    const sk = c => { W.openBuilding(c.x, c.y); W.bAct('shopdet'); const t = document.getElementById('bview').innerText; W.closeBuilding(); return t; };   // fiche magasin : la carte du spécialiste est dans « Détails du magasin » (replié par défaut)
     const fams = c => Object.keys(c.sales || {}).filter(k => k.indexOf('g_') !== 0).map(k => W.spec.famOf(k));
     const f0 = { m: fams(m), ph: fams(ph), au: fams(au) };
     // un produit hors famille forcé dans un rayon est ignoré (sauvegarde trafiquée)

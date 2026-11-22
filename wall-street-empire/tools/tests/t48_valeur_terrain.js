@@ -70,14 +70,14 @@ exports.run = async (t, L) => {
     for (const k of ['landc', 'landr', 'traffic']) { W.land.setLayer(k); await new Promise(x => setTimeout(x, 350)); const e = document.getElementById('lyrleg'), r = e.getBoundingClientRect(); o.leg[k] = { txt: e.innerText, vis: !e.hidden && r.width > 0, grad: (e.querySelector('i') || {}).style ? e.querySelector('i').style.background : '', fit: r.right <= innerWidth && r.left >= 0, btn: document.getElementById('lyr').textContent }; }
     CanvasRenderingContext2D.prototype.fillText = f0; o.drawn = [...drawn].filter(s => /^[A-ZÉÈ ]{5,}$/.test(s));
     // clic réel sur le bouton : le calque suivant
-    W.land.setLayer('auto'); document.getElementById('lyr').click(); document.getElementById('lyr').click(); o.afterClicks = W.land.layer();
+    W.land.setLayer('auto'); document.getElementById('lyr').click(); document.querySelector('#lyrmenu [data-lyr="landc"]').click(); o.afterClicks = W.land.layer();
     // info-bulle de construction : valeur du terrain pour l'usage de l'outil et décomposition
     W.land.setLayer('auto'); W.setTool('s1'); const sp = W.mall.spot('s1'), p = W.tileToScreen(sp.x, sp.y); return { o, p, sp }; });
   const L0 = ly.o; t.info(`calques : ${L0.names.join(', ')} ; noms dessinés : ${L0.drawn.slice(0, 8).join(', ')}`);
   t.check('calques « Valeur du terrain (commerce) », « Valeur résidentielle (vue, calme) », « Fréquentation » dans le sélecteur', ['landc', 'landr', 'traffic'].every(k => L0.names.includes(k)) && /Valeur du terrain \(commerce\)/.test(L0.leg.landc.txt) && /Valeur résidentielle \(vue, calme\)/.test(L0.leg.landr.txt) && /Fréquentation/.test(L0.leg.traffic.txt), '');
   t.check('légende en $/case avec dégradé froid → chaud, lisible en 1280x720', ['landc', 'landr'].every(k => L0.leg[k].vis && L0.leg[k].fit && /\$\/case/.test(L0.leg[k].txt) && /^linear-gradient\(90deg,(hsl\(235|rgb\(29,46,237)/.test(L0.leg[k].grad.replace(/\s/g, '')) && /(hsl\(0,|rgb\(237,29,29\))\)$/.test(L0.leg[k].grad.replace(/\s/g, ''))) && /Commerce \$/.test(L0.leg.landc.btn), JSON.stringify(L0.leg.landc));
   t.check('noms des quartiers affichés sur la carte avec le calque', L0.drawn.includes('MIDTOWN') && L0.drawn.length >= 3, L0.drawn.join(', '));
-  t.check('le bouton Calque fait défiler les calques', L0.afterClicks === 'landc', L0.afterClicks);
+  t.check('le bouton Calque ouvre le sélecteur, « Valeur du foncier (commerce) » active le calque (passe 99)', L0.afterClicks === 'landc', L0.afterClicks);
   await pg.mouse.move(ly.p.x, ly.p.y); await pg.waitForTimeout(500);
   const tip = await pg.evaluate(() => { const e = document.getElementById('sitetip'), r = e.getBoundingClientRect(); return { vis: !e.hidden, txt: e.innerText, fit: r.right <= innerWidth + 1 && r.left >= -1 && r.bottom <= innerHeight }; });
   t.check('info-bulle de construction : valeur du terrain (commerce) en $/case, quartier et décomposition (centralité, trafic, distance)', tip.vis && /Valeur du terrain \(commerce\)/.test(tip.txt) && /\/case/.test(tip.txt) && /Midtown/.test(tip.txt) && /centralité/.test(tip.txt) && /trafic/.test(tip.txt) && /distance/.test(tip.txt) && tip.fit, tip.txt.replace(/\s+/g, ' ').slice(0, 220));

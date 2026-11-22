@@ -52,7 +52,7 @@ exports.run = async (t, L) => {
   t.check('teneur du minerai : varie selon la région (0,85 à 1,15), jamais hors bornes, sauf le gaz', KINDS.every(k => D.kinds[k].gmin >= 0.85 && D.kinds[k].gmax <= 1.15) && KINDS.some(k => D.kinds[k].gmax - D.kinds[k].gmin > 0.1), '');
   t.check('chaque gisement : matière brute, mine reliée par RAW_SRC, offre locale (LOCAL_D) et élasticité (EL_RAW)', D.bad.length === 0 && D.tables.length === 0, D.bad.concat(D.tables).join(', '));
   t.check('chaque mine a une icône vectorielle, une couleur et un dessin propres (aucun doublon)', D.icons.length === 0 && new Set(D.colors).size === D.colors.length && new Set(D.iconStr).size === D.iconStr.length, D.icons.join(', '));
-  t.check('catalogue des mines : familles Énergie, Métaux, Minéraux industriels, Chimie de base ; les mines y figurent', D.fams.length === 0 && ['Énergie', 'Métaux', 'Minéraux industriels', 'Chimie de base'].every(f => D.famNames.includes(f)), D.fams.join(', ') + ' | ' + D.famNames.join(', '));
+  t.check('catalogue des mines (passe 95) : outil automatique « Extraction » d\'abord, toutes les mines sous « Outils avancés »', D.fams.length === 0 && D.famNames[0] === 'Extraction' && D.famNames.includes('Outils avancés'), D.fams.join(', ') + ' | ' + D.famNames.join(', '));
   t.check('aucun nom en double (marchandises, bâtiments, produits, composants)', D.names.length === 0, D.names.join(', '));
   t.check('aucune chaîne orpheline : chaque matière et chaque composant nouveau est consommé, chaque recette a ses intrants', D.orphan.length === 0, D.orphan.join(', '));
   t.check('toute chaîne remonte à une mine, un puits ou une ferme (aucune feuille sans extracteur)', D.leaf.length === 0, D.leaf.join(', '));
