@@ -70,7 +70,7 @@ exports.run = async (t, L) => {
     const e = await pg.evaluate(() => { const W = window.WSE, S = W.S, E = W.EVENTS, keep = E.filter(x => x.id === 'rival'); E.length = 0; keep.forEach(x => E.push(x)); S.noEv = false; S.cash = 5e8;
       let c = null; for (let y = 24; y < 44 && !c; y++) for (let x = 14; x < 44 && !c; x++) if (!W.footprintError(x, y, 's1') && W.place(x, y, 's1')) c = S.grid[y * W.N + x];
       const box = document.getElementById('evcard'), o = { soft: [], modal: [] }; let last = null;
-      const run = n => { for (let i = 0; i < n; i++) { W.step(); if (!box.hidden && S.event) { o.modal.push(S.day); box.querySelector('[data-ev="1"]').click(); } if (S.evR && S.evR !== last) { last = S.evR; o.soft.push(S.day); } } };
+      const run = n => { for (let i = 0; i < n; i++) { W.step(); if (S.event && W.ui.decList().some(d => d.id === 'ev')) { o.modal.push(S.day); if (!box.hidden) o.win = (o.win || 0) + 1; box.querySelector('[data-ev="1"]').click(); } if (S.evR && S.evR !== last) { last = S.evR; o.soft.push(S.day); } } };
       run(60); o.softBan = !!document.querySelector('#rvban [data-rve="0"]') || /Offensive/.test(W.evRiv.html('rve')); o.n1 = o.modal.length;
       if (S.evR) { const c0 = S.cash, m0 = (S.mods || []).length; o.ans = W.evRiv.answer(0); o.paid = c0 - S.cash; o.mod = (S.mods || []).slice(m0).map(m => m.k + ':' + m.v); o.left = !!S.evR; }
       W.evRiv.tune({ W: 0 }); run(150); W.evRiv.tune({ W: 0.05 });   // enjeu toujours « grave » : fenêtres, au plus une par mois
@@ -79,7 +79,7 @@ exports.run = async (t, L) => {
     t.info(`offensives : ${e.soft.length} sans fenêtre (jours ${e.soft.join(', ')}), ${e.modal.length} fenêtres (jours ${e.modal.join(', ')})`);
     t.check('offensive à enjeu faible : aucune fenêtre, ligne du journal et réponse dans le bandeau des rivaux', e.n1 === 0 && e.soft.length >= 1 && e.softBan, JSON.stringify(e));
     t.check('réponse depuis le bandeau : mêmes effets que la fenêtre (Riposter : coût débité, demande +5 % pendant 15 jours), offensive close', e.ans === true && e.paid > 0 && e.mod.join() === 'demand:1.05' && !e.left, JSON.stringify({ ans: e.ans, paid: e.paid, mod: e.mod }));
-    t.check('offensive grave : fenêtre, au plus une tous les 30 jours', e.modal.length >= 2 && e.gap >= 30, `${e.modal.length} fenêtres, écart minimal ${e.gap} j`);
+    t.check('offensive grave : décision en attente sans fenêtre (passe 99), au plus une tous les 30 jours', e.modal.length >= 2 && e.gap >= 30 && !e.win, `${e.modal.length} fenêtres, écart minimal ${e.gap} j`);
     t.check('offensives : 0 erreur de page', pg.errs.length === 0, pg.errs.slice(0, 2).join(' ; '));
     await pg.context().close();
   }

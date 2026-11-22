@@ -34,7 +34,7 @@ exports.run = async (t, L) => {
   // ---- 1. Téléphone 390×844 (portrait)
   let pg = await start(L, 390, 844, true);
   let m = await pg.evaluate(MEAS); await shot(pg, 'mob_carte');
-  t.check('390×844 : HUD compact actif (body.cmp), trésorerie, capitalisation et date sur une ligne (3 indicateurs)', m.cmp && m.chips === 3, `${m.chips} indicateurs`);
+  t.check('390×844 : HUD compact actif (body.cmp), trésorerie et date sur une ligne (2 indicateurs, HUD sobre)', m.cmp && m.chips === 2, `${m.chips} indicateurs`);
   t.range('390×844 : hauteur de carte visible et atteignable au doigt', m.frac * 100, 60, 100, ' %', 0);
   t.check('390×844 : aucun débordement horizontal sur la carte', m.sw <= m.W, `${m.sw} px pour ${m.W}`);
   t.check('390×844 : commandes du haut, catégories et outils visibles ≥ 44×44 px', m.small.length === 0, m.small.slice(0, 6).join(', '));
@@ -42,7 +42,7 @@ exports.run = async (t, L) => {
   const ctr = await pg.evaluate(() => (document.elementFromPoint(innerWidth / 2, innerHeight / 2) || {}).id);
   t.check('390×844 : un tap au centre de l\'écran tombe sur la carte', ctr === 'view', ctr);
   // notifications : file courte, en bas au-dessus de la barre, non bloquantes
-  await pg.evaluate(() => { const W = window.WSE; W.say('Mission accomplie : Ouvrir un petit marché en ville (+200 000 $)', 'gold'); W.say('Zone industrielle : subventions 40 % jusqu\'à 30 % d\'occupation · construction, taxe locale exonérée, loyer foncier réduit.', 'info'); W.say('Troisième message de test assez long pour voir s\'il tient sur deux lignes au plus dans la file de notifications.', 'warn'); });
+  await pg.evaluate(() => { const W = window.WSE; window._uiAct = performance.now(); W.say('Mission accomplie : Ouvrir un petit marché en ville (+200 000 $)', 'bad'); W.say('Zone industrielle : subventions 40 % jusqu\'à 30 % d\'occupation · construction, taxe locale exonérée, loyer foncier réduit.', 'bad'); W.say('Troisième message de test assez long pour voir s\'il tient sur deux lignes au plus dans la file de notifications.', 'bad'); });
   await pg.waitForTimeout(400); m = await pg.evaluate(MEAS); await shot(pg, 'mob_notif');
   const ms = m.msgs, cy = m.H / 2;
   t.check('390×844 : au plus 1 notification visible à la fois', ms.length >= 1 && ms.length <= 1, `${ms.length} visibles`);
@@ -51,14 +51,14 @@ exports.run = async (t, L) => {
   t.range('390×844 : carte visible avec une notification affichée', m.frac * 100, 60, 100, ' %', 0);
   const gone = await pg.evaluate(() => new Promise(r => setTimeout(() => r(document.querySelectorAll('#feed .msg').length), 5300)));
   t.check('notifications auto-masquées en ≈ 5 s sur téléphone', gone === 0, `${gone} restantes après 5,3 s`);
-  await pg.evaluate(() => { const W = window.WSE; W.say('Doublon', 'info'); W.say('Doublon', 'info'); });
+  await pg.evaluate(() => { const W = window.WSE; window._uiAct = performance.now(); W.say('Doublon', 'bad'); W.say('Doublon', 'bad'); });
   const dup = await pg.evaluate(() => document.querySelectorAll('#feed .msg').length);
   t.check('un message identique n\'est pas empilé deux fois', dup === 1, `${dup}`);
   // tableau de bord dépliable
   await pg.tap2('#hudx'); const mx = await pg.evaluate(MEAS); await shot(pg, 'mob_deplie');
-  t.check('bouton ▾ : le tableau de bord complet se déplie (6 indicateurs, classement du Round, calque, reset)', mx.chips === 6 && mx.rank && await pg.evaluate(() => !!document.getElementById('lyr').offsetParent && !!document.getElementById('rst').offsetParent), `${mx.chips} indicateurs, classement ${mx.rank}`);
+  t.check('bouton ▾ : le tableau de bord complet se déplie (6 indicateurs, calque, reset)', mx.chips === 6 && await pg.evaluate(() => !!document.getElementById('lyr').offsetParent && !!document.getElementById('rst').offsetParent), `${mx.chips} indicateurs, classement ${mx.rank}`);
   await pg.tap2('#hudx'); const mc = await pg.evaluate(MEAS);
-  t.check('second appui : retour au HUD compact, carte ≥ 60 %', mc.chips === 3 && !mc.rank && mc.frac >= 0.6, `${mc.chips} indicateurs, carte ${Math.round(mc.frac * 100)} %`);
+  t.check('second appui : retour au HUD compact, carte ≥ 60 %', mc.chips === 2 && !mc.rank && mc.frac >= 0.6, `${mc.chips} indicateurs, carte ${Math.round(mc.frac * 100)} %`);
   // vues plein écran : bouton Fermer évident (≥ 44 px, en haut), pas de débordement
   const views = [['Menu (bureau du PDG)', '#pn', '#pclose'], ['vue Produits', '#pv', '#pvclose']];
   for (const [n, open, close] of views) {
@@ -108,9 +108,9 @@ exports.run = async (t, L) => {
 
   // ---- 3. Bureau 1280×800 : tableau de bord complet, au plus 2 notifications
   pg = await start(L, 1280, 800, false);
-  await pg.evaluate(() => { const W = window.WSE; ['A', 'B', 'C', 'D'].forEach(x => W.say('Message ' + x, 'info')); });
+  await pg.evaluate(() => { const W = window.WSE; window._uiAct = performance.now(); ['A', 'B', 'C', 'D'].forEach(x => W.say('Message ' + x, 'bad')); });
   const d = await pg.evaluate(MEAS); await shot(pg, 'bureau');
-  t.check('bureau : HUD complet (6 indicateurs, pas de mode compact), au plus 2 notifications, aucune erreur JS', !d.cmp && d.chips === 6 && d.msgs.length <= 2 && pg.errs.length === 0, `${d.chips} indicateurs, ${d.msgs.length} notifications`);
+  t.check('bureau : HUD sobre (2 indicateurs, pas de mode compact), au plus 2 notifications, aucune erreur JS', !d.cmp && d.chips === 2 && d.msgs.length <= 2 && pg.errs.length === 0, `${d.chips} indicateurs, ${d.msgs.length} notifications`);
   t.range('bureau 1280×800 : hauteur de carte visible', d.frac * 100, 55, 100, ' %', 0);
   await pg.context().close();
 };
