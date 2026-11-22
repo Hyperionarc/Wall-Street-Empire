@@ -16285,6 +16285,7 @@ function drawCrane(cx, cy, seed, now) {
   ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.arc(cx - 14, cy - 104, 4, 0, 7); ctx.fill();
 }
 function drawShip(px, py, seed) {
+  const sm = SHIP_SPR[seed % SHIP_SPR.length]; if (sm && vvOk(sm[0]) && vvSpr(sm[0], px - 20, py - 8, sm[1], false) != null) return;   // passe 99 : navire HD propre à chaque bateau
   if (vvSpr('navire_cargo', px - 20, py - 8, 250, false) != null) return;   // ville vivante : porte-conteneurs HD (proue vers le bas à gauche, dans l'axe y de la carte)
   // coque le long de l'axe y de la carte (vers le bas à gauche à l'écran)
   isoBox(px, py, 0.95, 3.1, 16, '#3a456f', '#202a50', '#161d3b');
@@ -16310,7 +16311,21 @@ function drawWater(p, now, x, y) {
     ctx.beginPath(); ctx.moveTo(cx - 68, cy); ctx.lineTo(cx, cy - 35); ctx.stroke();
   }
 }
+let QUAY_TIP = null;   // passe 99 : case de quai la plus au nord (phare)
+function quayTip() { if (QUAY_TIP) return QUAY_TIP; for (let i = 0; i < N * N; i++) if (ZONE[i] === 4) return (QUAY_TIP = [i % N, (i / N) | 0]); return (QUAY_TIP = [-1, -1]); }
 function drawQuayDecor(p, x, y, now) {
+  /* Passe 99 : décor HD du port livré mais jamais branché (assets/factory_hd/port_*) : phare à la pointe du quai, réservoirs, trémie de vrac et hangar sur quelques cases,
+     piles de conteneurs HD sur la moitié des cases (le reste garde les conteneurs dessinés), engins (cavalier, chariot porte-conteneurs), portiques de quai en alternance avec les grues. */
+  const T = quayTip(), cr = y % 6 === 3 && (x % 2 === 0 || !vvOk('grue_portique')), cy = p.y + TH / 2;
+  if (x === T[0] && y === T[1] && vvOk('port_phare')) { vvSpr('port_phare', p.x, cy + 14, 34, false); return; }
+  if (!cr) { const hb = hash(x, y, 27), big = hb < 0.05 ? 'port_reservoirs' : hb < 0.09 ? 'port_terminal_vrac' : hb < 0.12 ? 'port_entrepot_a' : null;
+    if (big && vvOk(big)) { vvSpr(big, p.x, cy + 26, big === 'port_entrepot_a' ? 112 : 100, hash(x, y, 29) < 0.5); return; } }
+  const hp = hash(x, y, 28), pn = hp < 0.25 ? 'port_piles_conteneurs_a' : hp < 0.5 ? 'port_piles_conteneurs_b' : null;
+  if (pn && !(hash(x, y, 23) < 0.25) && vvOk(pn)) { vvSpr(pn, p.x + (hash(x, y, 26) - 0.5) * 16, cy + 22, 62, hash(x, y, 2) < 0.5);
+    const en = hash(x, y, 31) < 0.3 ? (hash(x, y, 32) < 0.5 ? 'port_reach_stacker' : 'port_cavalier_straddle') : null; if (en && vvOk(en)) vvSpr(en, p.x + 30, cy + 28, 26, hash(x, y, 33) < 0.5);
+    if (cr) { const cn = x % 4 === 0 && vvOk('port_portique_quai') ? 'port_portique_quai' : null; if (cn) vvSpr(cn, p.x + 20, p.y + 40, 96, false); else drawCrane(p.x + 20, p.y + 40, y, now); }
+    return; }
+  if (cr && x % 4 === 0 && vvOk('port_portique_quai')) { drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35); vvSpr('port_portique_quai', p.x + 20, p.y + 40, 96, false); return; }
   const gn = VV_GOODS[Math.floor(hash(x, y, 24) * VV_GOODS.length)];   // ville vivante : un quai sur quatre porte des marchandises (bacs de matières, lingots, sacs, barres)
   if (!(hash(x, y, 23) < 0.25 && vvSpr(gn, p.x + (hash(x, y, 26) - 0.5) * 30, p.y + 40, 50, hash(x, y, 25) < 0.5) != null)) drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35);
   if (y % 6 === 3 && (x % 2 === 0 || !vvOk('grue_portique'))) drawCrane(p.x + 20, p.y + 40, y, now);   // grues HD : une case sur deux de la rangée (sinon elles se chevauchent)
@@ -16439,8 +16454,13 @@ function gtWaves(p, now, x, y) {   // vaguelettes animées par-dessus l'eau text
   const cx = p.x, cy = p.y + 33; ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
   for (let k = 0; k < 2; k++) { const ph = now / 900 + x * 0.7 + y * 0.5 + k * 2.1, ox = Math.sin(ph) * 10, oy = (k - 0.5) * 18; ctx.beginPath(); ctx.moveTo(cx - 24 + ox, cy + oy); ctx.quadraticCurveTo(cx + ox, cy + oy - 5 + Math.cos(ph) * 2, cx + 24 + ox, cy + oy); ctx.stroke(); }
 }
+/* Passe 99 : navires HD variés (assets/factory_hd/port_*, jamais branchés : seul navire_cargo était dessiné, cinq fois). Deux couloirs, une vitesse par couloir
+   (avant : vitesses différentes dans un même couloir, les navires se rattrapaient et se superposaient), espacement régulier sur la boucle de N + 12 cases.
+   Couloir ouest, vers le bas à gauche (proue en bas à gauche sur les sprites) : porte-conteneurs, pétrolier, remorqueur, vraquier ; couloir est, vers le haut à droite : ferry, voilier. */
+const SHIP_SPR = [['navire_cargo', 250], ['port_navire_petrolier', 250], ['port_remorqueur_ne', 105], ['port_navire_cargo_ne', 260], ['port_navire_vraquier', 245], ['port_ferry', 215], ['port_voilier', 62]];
 const ships = [];
-for (let i = 0; i < 5; i++) ships.push({ x: 91 + (i % 2) * 2.4, y: 8 + i * 17, v: (i % 2 ? 1 : -1) * (0.22 + 0.06 * i), seed: i });
+for (let i = 0; i < 5; i++) ships.push({ x: 91.2, y: -6 + i * (N + 12) / 5, v: 0.26, seed: i, spr: i });
+for (let i = 0; i < 2; i++) ships.push({ x: 93.6, y: -6 + (i + 0.3) * (N + 12) / 2, v: -0.2, seed: 5 + i, spr: 5 + i });
 function updateShips(dt) { ships.forEach(s => { s.y += s.v * dt * speedFactor(); if (s.y > N + 6) s.y = -6; if (s.y < -6) s.y = N + 6; }); }
 
 // --- Forêts et camps de bûcherons ---
@@ -16880,7 +16900,7 @@ const SIGN = { s1: { st: 'com', sz: 1 }, s2: { st: 'com', sz: 2 }, s3: { st: 'co
   'mon:hospital': { st: 'svc', sz: 2, ac: '#b8474d' }, 'mon:lycee': { st: 'svc', sz: 1 }, 'mon:college': { st: 'svc', sz: 1 }, 'mon:maternelle': { st: 'svc', sz: 1 }, 'mon:garderie': { st: 'svc', sz: 1, txt: 'CRÈCHE' },
   'mon:hall': { st: 'svc', sz: 2 }, 'mon:air': { st: 'svc', sz: 4, txt: 'AÉROPORT' },
   'sv:station_service': { st: 'svc', sz: 1 }, 'sv:station_recharge_electrique': { st: 'svc', sz: 1, txt: 'RECHARGE ÉLECTRIQUE' },
-  'sv:boulangerie': { st: 'com', sz: 1, ac: '#c98a3e' }, 'sv:cafe_de_quartier': { st: 'com', sz: 1, txt: 'CAFÉ' }, 'sv:restaurant_terrasse': { st: 'com', sz: 1, txt: 'RESTAURANT' }, 'sv:boutique_mode': { st: 'com', sz: 1 } };   // passe 77 : commerces de la ville vivante
+  'sv:boulangerie': { st: 'com', sz: 1, ac: '#c98a3e' }, 'sv:drugstore': { st: 'com', sz: 1, ac: '#4f9e6a', txt: 'PHARMACIE' }, 'mon:police': { st: 'svc', sz: 1, txt: 'POLICE' }, 'mon:fire': { st: 'svc', sz: 1, txt: 'POMPIERS' }, 'sv:cafe_de_quartier': { st: 'com', sz: 1, txt: 'CAFÉ' }, 'sv:restaurant_terrasse': { st: 'com', sz: 1, txt: 'RESTAURANT' }, 'sv:boutique_mode': { st: 'com', sz: 1 } };   // passe 77 : commerces de la ville vivante
 // Anciennes enseignes générées (texte illisible) : centre c, demi-axes u (sens de lecture) et v (vers le bas du texte) en px de l'image d'origine, couleur du bandeau uni
 const SIGN_COVER = { boutique_high_tech: { c: [99, 52], u: [35, 15], v: [0, 10], f: '#3b4452' }, sport_loisirs: { c: [266, 94], u: [58, 23], v: [0, 10.5], f: '#3f4a58' },
   hopital: { c: [159, 91], u: [54, -32], v: [50, 35], f: '#c81e28' }, supermarche: { c: [319.6, 75.3], u: [43, -24.5], v: [22.5, 13], f: '#b4bcc1' },
@@ -16909,7 +16929,7 @@ const SF = {
 };
 const SIGN_FACE = { spharma: { pharmacie: SF.pharmacie }, s1: { petit_marche_n1: SF.petit_marche_n1 }, slux: { boutique_luxe: SF.boutique_luxe },
   smode: { boutique_mode_luxe: SF.boutique_mode_luxe, boutique_mode: SF.boutique_mode }, stech: { boutique_high_tech: SF.boutique_high_tech }, shome: { maison_deco: SF.maison_deco },
-  ssport: { sport_loisirs: SF.sport_loisirs }, sauto: { concession_auto: SF.concession_auto }, 'sv:boulangerie': { boulangerie: SF.boulangerie }, 'sv:cafe_de_quartier': { cafe_de_quartier: SF.cafe_de_quartier },
+  ssport: { sport_loisirs: SF.sport_loisirs }, sauto: { concession_auto: SF.concession_auto }, 'sv:boulangerie': { boulangerie: SF.boulangerie }, 'sv:drugstore': { pharmacie: SF.pharmacie }, 'sv:cafe_de_quartier': { cafe_de_quartier: SF.cafe_de_quartier },
   'sv:boutique_mode': { boutique_mode: SF.boutique_mode }, 'mon:hall': { mairie: SF.mairie }, 'mon:lycee': { ecole: SF.ecole }, 'mon:college': { ecole: SF.ecole }, 'mon:maternelle': { ecole: SF.ecole }, 'mon:garderie': { ecole: SF.ecole } };
 const SIGN_FACE_MIN = 9;   // px écran : en dessous, l'enseigne de façade serait illisible
 const SG = { on: true, list: [], drawn: [], obst: [], bb: [], ord: 0, ui: [], uiT: -1e9, uiW: 0, uiH: 0, lost: {}, cur: null, cache: new Map(), tw: new Map(), fo: false, foT: 0, ms: 0, avg: 0, n: 0, hidden: 0, faces: 0 };
@@ -16919,7 +16939,7 @@ function signTxt(key) {   // nom affiché : celui de l'interface (TYPES, PUB, VV
   return nm.split(' · ')[0].toUpperCase();
 }
 function signKey(a) {
-  if (a.t === 'npc') { if (a.k === 'mon') return a.m === 'mall' || a.m === 'air' || !monFront(a) ? null : 'mon:' + a.m;   /* équipement de plusieurs cases : une seule plaque, sur la case avant */ const n = SG.cur && SG.cur.a === a && SG.cur.n; return n && VV_SVC[n] ? 'sv:' + n : null; }
+  if (a.t === 'npc') { if (a.k === 'mon') return a.m === 'mall' || a.m === 'air' || !monFront(a) ? null : 'mon:' + a.m;   /* équipement de plusieurs cases : une seule plaque, sur la case avant */ const n0 = SG.cur && SG.cur.a === a && SG.cur.n, n = n0 && (VV_SVC[n0] ? n0 : VV_SVC_OF[n0]); return n && VV_SVC[n] ? 'sv:' + n : null; }
   return SIGN[a.t] ? a.t : null;
 }
 const signFs = D => { const Z = SIGN_SZ[D.sz] || SIGN_SZ[1]; return Math.min(Z[1], Z[0] * z); };   // taille de police en px écran
@@ -17539,7 +17559,7 @@ function mbLayout() {   // agencement statique du marché de rue (déterministe)
   for (let i = 0; i < 22; i++) walk.push({ ax: 'u', c: M.EE.v0 + 0.1 + hash(i, 2, 311) * (M.EE.v1 - M.EE.v0 - 0.2), a: 7.25, b: 9.9 });
   for (let i = 0; i < 24; i++) { const j = i % 3; walk.push({ ax: 'u', c: 7.86 + j * 0.6, a: 0.25, b: M.ES.u0 - 0.1 }); }
   for (let i = 0; i < 18; i++) { const j = i % 3; walk.push({ ax: 'v', c: 7.86 + j * 0.6, a: 6.5, b: 9.9 }); }
-  walk.forEach((w, i) => { w.ph = hash(i, 7, 312); w.sp = 9000 + hash(i, 8, 312) * 9000; w.col = MB_WALK[Math.floor(hash(i, 9, 312) * MB_WALK.length)]; });
+  walk.forEach((w, i) => { w.ph = hash(i, 7, 312); w.sp = 9000 + hash(i, 8, 312) * 9000; w.col = MB_WALK[Math.floor(hash(i, 9, 312) * MB_WALK.length)]; w.pp = MB_PPL[Math.floor(hash(i, 10, 312) * MB_PPL.length)]; });
   return (_mbL = { it, walk });
 }
 function drawMallBig(a, x, y, now) {
@@ -17559,7 +17579,7 @@ function drawMallBig(a, x, y, now) {
   mbLive(Q, now);
   // --- éléments de l'avant (marché, tour de parking, stations, passerelles, passants), dans l'ordre de profondeur
   const front = []; L.it.forEach(o => { if (!o.back) front.push(o); });
-  L.walk.forEach(w => { const t = ((now / w.sp + w.ph) % 2), f = t < 1 ? t : 2 - t, p = w.a + (w.b - w.a) * f, u = w.ax === 'u' ? p : w.c, v = w.ax === 'u' ? w.c : p; front.push({ k: 'walk', u, v, key: u + v, w0: w, st: (now / 180 + w.ph * 10) | 0 }); });
+  L.walk.forEach(w => { const t = ((now / w.sp + w.ph) % 2), f = t < 1 ? t : 2 - t, p = w.a + (w.b - w.a) * f, u = w.ax === 'u' ? p : w.c, v = w.ax === 'u' ? w.c : p; front.push({ k: 'walk', u, v, key: u + v, w0: w, st: (now / 220 + w.ph * 10) | 0, fl: (w.ax === 'u') === (t < 1) }); });   // fl : marche vers la droite de l'écran (sprite miroir)
   front.sort((p, q) => p.key - q.key);
   front.forEach(o => mbItem(o, Q, prism, fL, fR, flat, quad, now, blink));
   // banderoles de fanions au-dessus des allées du marché
@@ -17617,10 +17637,35 @@ function mbBlade(q, txt, col, on) {   // petite enseigne verticale (stations) : 
   if (on) { ctx.shadowColor = 'rgba(255,210,140,.9)'; ctx.shadowBlur = 8; } ctx.fillStyle = on ? col : shade(col, 0.7); ctx.font = '500 15px "IBM Plex Sans", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (let i = 0; i < n; i++) ctx.fillText(txt[i], x, y - hgt + 14 + i * 18); ctx.shadowBlur = 0;
 }
+/* Passe 99 (Rémy : « les commerçants et clients qui bougent en bas et le parking, des cubes et des carrés, dégueulasse » ; le bâtiment et l'enseigne ne changent pas) :
+   personnages HD (assets/factory_hd/poses : poses de marche et debout, ombre au sol, hauteur fixe MB_PH px monde, miroir selon le sens de marche) et voitures HD (veh_*, voiture_ville_*)
+   garées sur des places tracées. Les clients civils, vendeurs en tablier, caddies et voitures vues de face/dos n'existent pas encore : commande n° 17 bis. */
+const MB_PPL = ['h1', 'h2', 'h3', 'f1', 'f2', 'f3'], MB_PH = 21;
+function mbPerson(q, who, pose, fl, h) {   // personnage HD debout en q (pieds), hauteur h px monde ; false si le sprite manque
+  const n = 'poses/ouvrier_' + who + '_' + pose, e = P2_IMG[n], d = P2DIM[n]; if (!e || !e.ok || !d) return false;
+  const k = h / Math.max(1, d[5] - d[3]), ax = (d[2] + d[4]) / 2, ay = d[5];
+  ctx.fillStyle = 'rgba(24,22,30,.26)'; ctx.beginPath(); ctx.ellipse(q[0], q[1], h * 0.24, h * 0.09, 0, 0, 7); ctx.fill();
+  if (fl) { ctx.save(); ctx.translate(q[0], q[1]); ctx.scale(-1, 1); ctx.drawImage(e.im, -ax * k, -ay * k, d[0] * k, d[1] * k); ctx.restore(); } else ctx.drawImage(e.im, q[0] - ax * k, q[1] - ay * k, d[0] * k, d[1] * k);
+  return true;
+}
+const mbCarsOk = () => VV_CARS.slice(0, 10).every(m => vvOk(m[0]));
+function mbCar(q, seed, ax, w, noSh) {   // voiture HD garée en q (contact au sol), alignée sur l'axe u ou v de la carte, avec son ombre ; false si les sprites manquent
+  const L = VV_CARS.slice(0, 10), m = L[Math.abs(seed | 0) % L.length]; if (!m || !vvOk(m[0])) return false;
+  if (!noSh) { ctx.fillStyle = 'rgba(20,22,30,.3)'; ctx.beginPath(); ctx.ellipse(q[0], q[1] - 2, w * 0.5, w * 0.24, 0, 0, 7); ctx.fill(); }
+  return vvSpr(m[0], q[0], q[1], w, ax === 'u' ? m[1] === 1 : m[1] === 0) != null;   // ax = axe de la carte le long duquel la voiture est garée
+}
+function mbRoofPark(o, Q, H) {   // deux rangées de places le long de u (voitures dans l'axe v), lignes blanches, voitures dessinées de l'arrière vers l'avant
+  const u0 = o.u0 + 0.22, u1 = o.u1 - 0.62, bw = 0.5, rows = [o.v0 + 0.45, o.v1 - 0.55], nb = Math.floor((u1 - u0) / bw);
+  ctx.strokeStyle = 'rgba(245,246,240,.85)'; ctx.lineWidth = 1.2; ctx.beginPath();
+  rows.forEach(vr => { for (let k = 0; k <= nb; k++) { const a = Q(u0 + k * bw, vr - 0.26, H + 0.6), b = Q(u0 + k * bw, vr + 0.26, H + 0.6); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); } });
+  ctx.stroke();
+  rows.forEach((vr, r) => { for (let k = 0; k < nb; k++) if (hash(k, r, 336) < 0.7) mbCar(Q(u0 + (k + 0.5) * bw, vr + 0.08, H + 0.6), k * 3 + r * 5 + 1, 'v', 26); });
+}
 function mbItem(o, Q, prism, fL, fR, flat, quad, now, blink) {
   const M = MB, s = o.s || 0;
   if (o.k === 'stall') {   // étal couvert : comptoir, marchandises colorées, toile rayée
     const c = MB_AWN[Math.floor(s * MB_AWN.length)], sd = Math.round(s * 100);
+    mbPerson(Q(o.u0 + 0.2, o.v0 + 0.12, 0), MB_PPL[Math.floor(hash(sd, 4, 337) * MB_PPL.length)], 'debout', hash(sd, 5, 337) < 0.5, MB_PH);   // passe 99 : commerçant HD derrière son comptoir (le comptoir lui cache les jambes)
     prism({ u0: o.u0 + 0.04, v0: o.v0 + 0.04, u1: o.u1 - 0.04, v1: o.v1 - 0.04 }, 0, 10, s > 0.5 ? '#b07a4a' : '#8a6a52');
     for (let i = 0; i < 5; i++) { const q = Q(o.u0 + 0.08 + hash(i, sd, 331) * 0.28, o.v0 + 0.08 + hash(i, sd, 332) * 0.28, 11); ctx.fillStyle = MB_NEON[(i + sd) % MB_NEON.length]; ctx.fillRect(q[0] - 2.5, q[1] - 2.5, 5, 4); }
     [[o.u0 + 0.04, o.v1 - 0.06], [o.u1 - 0.06, o.v1 - 0.06], [o.u1 - 0.06, o.v0 + 0.04]].forEach(p => { const a = Q(p[0], p[1], 0), b = Q(p[0], p[1], 24); ctx.strokeStyle = '#5b4a3a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); });
@@ -17636,6 +17681,7 @@ function mbItem(o, Q, prism, fL, fR, flat, quad, now, blink) {
       ctx.fillStyle = '#1a1a22'; ctx.beginPath(); ctx.arc(a[0], a[1] + 2, 2.6, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(b[0], b[1] + 2, 2.6, 0, 7); ctx.fill();
       ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(a[0], a[1] - 3); ctx.lineTo(b[0], b[1] - 3); ctx.stroke(); ctx.lineCap = 'butt';
       ctx.fillStyle = '#222'; ctx.fillRect((a[0] + b[0]) / 2 - 2, (a[1] + b[1]) / 2 - 8, 4, 3); }
+  } else if (o.k === 'tuk' && mbCar(Q(o.u0 + 0.22, o.v0 + 0.26, 0), Math.floor(s * 97), 'v', 30)) {   // passe 99 : petite voiture HD garée (avant : tuk-tuk en cubes)
   } else if (o.k === 'tuk') {   // tuk-tuk : caisse colorée, toit, roues
     const col = ['#2fbf71', '#2f9be0', '#f4c430', '#e8394d'][Math.floor(s * 4)], r = { u0: o.u0 + 0.06, v0: o.v0 + 0.1, u1: o.u0 + 0.38, v1: o.v0 + 0.32 };
     const w1 = Q(r.u0 + 0.04, r.v1, 0), w2 = Q(r.u1 - 0.04, r.v1, 0); ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(w1[0], w1[1], 3, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(w2[0], w2[1], 3, 0, 7); ctx.fill();
@@ -17646,16 +17692,20 @@ function mbItem(o, Q, prism, fL, fR, flat, quad, now, blink) {
     const te = P2_IMG.arbre_ville && P2_IMG.arbre_ville.ok ? P2_IMG.arbre_ville : P2_IMG.arbre_isole_a, b = Q(o.u0 + 0.23, o.v0 + 0.23, 7);
     if (te && te.ok) { const hh = 62, ww = hh * te.im.width / te.im.height; ctx.drawImage(te.im, b[0] - ww / 2, b[1] - hh + 4, ww, hh); }
     else { ctx.fillStyle = '#6b4a2a'; ctx.fillRect(b[0] - 1.5, b[1] - 14, 3, 14); ctx.fillStyle = s > 0.5 ? '#2f7a45' : '#3f9a55'; ctx.beginPath(); ctx.arc(b[0], b[1] - 22, 12, 0, 7); ctx.fill(); }
-  } else if (o.k === 'walk') {   // passant (petit point coloré animé)
-    const q = Q(o.u, o.v, 0), w = o.w0, ph = o.st % 2; ctx.fillStyle = '#2a2430'; ctx.fillRect(q[0] - 2 + (ph ? 1 : -1), q[1] - 5, 2, 5); ctx.fillRect(q[0] + (ph ? -1 : 1), q[1] - 5, 2, 5);
+  } else if (o.k === 'walk') {   // passant : personnage HD (passe 99), deux poses alternées (marche / debout) et ombre portée ; repli : petit personnage dessiné
+    const q = Q(o.u, o.v, 0), w = o.w0, ph = o.st % 2;
+    if (mbPerson(q, w.pp, ph ? 'marche' : 'debout', o.fl, MB_PH)) return; ctx.fillStyle = '#2a2430'; ctx.fillRect(q[0] - 2 + (ph ? 1 : -1), q[1] - 5, 2, 5); ctx.fillRect(q[0] + (ph ? -1 : 1), q[1] - 5, 2, 5);
     ctx.fillStyle = w.col; ctx.fillRect(q[0] - 3, q[1] - 13, 6, 8); ctx.fillStyle = '#f0c8a0'; ctx.beginPath(); ctx.arc(q[0], q[1] - 15.5, 2.6, 0, 7); ctx.fill();
   } else if (o.k === 'tower') {   // tour de parking à rampes accolée
     const H = M.TL * M.TZ; prism(o, 0, H, '#bfc4d0');
     for (let l = 0; l < M.TL; l++) { const z = l * M.TZ; fL(o.v1, o.u0 + 0.05, o.u1 - 0.05, z + 6, z + 19, '#2a2f40'); fR(o.u1, o.v0 + 0.05, o.v1 - 0.05, z + 6, z + 19, '#232838');
-      for (let i = 0; i < 6; i++) { const q = Q(o.u0 + 0.25 + i * 0.36, o.v1, z + 10); ctx.fillStyle = MB_AWN[(i + l) % MB_AWN.length]; if (hash(i, l, 334) < 0.7) ctx.fillRect(q[0] - 7, q[1] - 3, 14, 7); }
+      if (mbCarsOk()) { ctx.save(); mbPoly([Q(o.u0 + 0.05, o.v1, z + 19), Q(o.u1 - 0.05, o.v1, z + 19), Q(o.u1 - 0.05, o.v1, z + 6), Q(o.u0 + 0.05, o.v1, z + 6)]); ctx.clip();   // passe 99 : voitures HD garées, vues par l'ouverture du niveau (avant : rectangles de couleur)
+        for (let i = 0; i < 6; i++) if (hash(i, l, 334) < 0.7) mbCar(Q(o.u0 + 0.25 + i * 0.36, o.v1 - 0.12, z + 6), i * 7 + l, 'v', 24, true); ctx.restore(); }
+      else for (let i = 0; i < 6; i++) { const q = Q(o.u0 + 0.25 + i * 0.36, o.v1, z + 10); ctx.fillStyle = MB_AWN[(i + l) % MB_AWN.length]; if (hash(i, l, 334) < 0.7) ctx.fillRect(q[0] - 7, q[1] - 3, 14, 7); }
       const a = Q(o.u1, o.v1 - 0.1, z + 2), b = Q(o.u1, o.v0 + 0.1, z + M.TZ - 2); ctx.strokeStyle = '#f4c430'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }   // rampes
     flat(o.u0 + 0.05, o.v0 + 0.05, o.u1 - 0.05, o.v1 - 0.05, H + 0.5, '#9aa0ae');
-    for (let i = 0; i < 5; i++) { const u = o.u0 + 0.3 + hash(i, 1, 335) * (o.u1 - o.u0 - 0.7), v = o.v0 + 0.3 + hash(i, 2, 335) * (o.v1 - o.v0 - 0.6); prism({ u0: u, v0: v, u1: u + 0.3, v1: v + 0.16 }, H, H + 8, MB_AWN[i % MB_AWN.length]); }
+    if (mbCarsOk()) mbRoofPark(o, Q, H);   // passe 99 : toit-parking : places tracées, une voiture HD par place occupée (jamais deux sur une place), ombres
+    else for (let i = 0; i < 5; i++) { const u = o.u0 + 0.3 + hash(i, 1, 335) * (o.u1 - o.u0 - 0.7), v = o.v0 + 0.3 + hash(i, 2, 335) * (o.v1 - o.v0 - 0.6); prism({ u0: u, v0: v, u1: u + 0.3, v1: v + 0.16 }, H, H + 8, MB_AWN[i % MB_AWN.length]); }
     const q = Q(o.u1 - 0.3, o.v1 - 0.3, H); ctx.fillStyle = '#1f5fd0'; ctx.fillRect(q[0] - 15, q[1] - 46, 30, 30); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(q[0] - 15, q[1] - 46, 30, 30); ctx.fillRect(q[0] - 1, q[1] - 16, 2, 16);
     ctx.fillStyle = '#fff'; ctx.font = '900 22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('P', q[0], q[1] - 30);
   } else if (o.k === 'pav') {   // pavillon d'arrivée des passerelles (station) : verre bleu-gris et titane, petite enseigne blanc chaud
@@ -17719,7 +17769,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
   const p = iso(x, y);
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
-  if (P2_TYPE[a.t] && p2Ready(a.t) && !(a.t === 'dc' && !a.lg)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
+  if (P2_TYPE[a.t] && p2Ready(a.t) && !dcVec(a)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
     const fe = farmExt(a); if (fe && !(x < a.x + fe.bw && y < a.y + fe.bh)) farmExtTile(a, fe, x, y, p);   // passe 87 : case annexée (champ ou pâturage) dessinée à son tour
     if (fe && (o.fr || (x === a.x + a.w - 1 && y === a.y + a.h - 1))) { const q = iso(a.x + (fe.bw - 1) / 2, a.y + (fe.bh - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(fe.bw, fe.bh), { x: q.x, y: q.y + TH / 2 }, [fe.bw, fe.bh]); a._top = ty == null ? p.y - 40 : ty; farmExtFx(a, fe, o.now); }   // corps de ferme dans le coin nord, champs et annexes devant
     else if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = a.t === 'f3' && a.w === 2 && a.h === 2 && vvOk(P2_F3_DUO) ? drawF3Duo(a) : p2Draw(vvP2Name(a), p, Math.min(a.w, a.h) * (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t]) ? P2_REPLI_K[a.t] || 1 : 1), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; farmFx(a, o.now); if (VV_FARM[a.t]) vvFarm(a); if ((a.t === 's2' || a.t === 's3') && a.w === a.h && !/^bat_/.test(SG.cur && SG.cur.n || '')) { const cur = SG.cur; drawCarts(a); SG.cur = cur; } }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes ; barème : sprite carré sur toute l'emprise carrée, caddies sur le parking
@@ -17803,7 +17853,7 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
   ctx.globalAlpha = alpha;
   const T = TYPES[a.t];
   let topY = a._top == null ? p.y - 28 : a._top;
-  if (P2_TYPE[a.t] && p2Ready(a.t) && !(a.t === 'dc' && !a.lg)) {
+  if (P2_TYPE[a.t] && p2Ready(a.t) && !dcVec(a)) {
     topY = a._top == null ? topY : a._top;   // sprite HD : pas de cheminée ni d'enseigne vectorielle
   } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') {
     if ((a.t === 'tech' || a.t === 'off' || a.t === 'tv') && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
@@ -17875,34 +17925,80 @@ function refreshRoadList() {
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'road') roadList.push([i % N, Math.floor(i / N)]); }
   urbanRoads = roadList.filter(r => { const z = ZONE[idx(r[0], r[1])]; return z === 1 || z === 2; });
 }
+/* Passe 99 (Rémy : « des voitures l'une sur l'autre ») : circulation déterministe et espacée.
+   Avant : marche aléatoire (Math.random) sans aucune règle : apparition sur une case déjà occupée, voitures qui se rattrapent dans la même voie, carrefours où
+   plusieurs voitures se superposent. Maintenant : graine propre à la circulation (jamais le hasard de la simulation), apparition seulement sur une case libre,
+   distance minimale CAR_GAP dans une même voie (la voiture de derrière s'arrête et forme une file), ligne d'arrêt CAR_HOLD avant chaque carrefour, réservé
+   par une seule voiture à la fois (elle le traverse puis le libère), entrée dans la rue suivante seulement si son début est libre. Une voiture bloquée plus de
+   CAR_WAIT s (embouteillage en boucle) repart quand même : jamais de blocage définitif. Coût : un index par voie et par carrefour à chaque image (≤ 150 voitures). */
+const CAR_GAP = 0.56, CAR_HOLD = 0.8, CAR_EXIT = 0.32, CAR_WAIT = 6, CAR_SEED0 = 0x2545f491;
+let carSeed = CAR_SEED0;
+const carRnd = () => { carSeed = (Math.imul(carSeed, 1664525) + 1013904223) >>> 0; return carSeed / 4294967296; };
+const carEdgeK = (x, y, nx, ny) => (y * N + x) * N * N + ny * N + nx, carEdge = c => carEdgeK(c.x, c.y, c.nx, c.ny), carNode = (x, y) => y * N + x;
+function carFree(x, y) { for (const o of cars) if ((o.x === x && o.y === y && (o.t < CAR_GAP || (o.x === o.nx && o.y === o.ny))) || (o.nx === x && o.ny === y && o.t > 1 - CAR_GAP)) return false; return true; }
+function carPlace(c) {   // pose la voiture, à l'arrêt, sur une case de route libre (au plus 12 essais) ; false si aucune
+  const src = urbanRoads.length ? urbanRoads : roadList; if (!src.length) return false;
+  for (let k = 0; k < 12; k++) { const r = src[Math.floor(carRnd() * src.length)]; if (carFree(r[0], r[1])) { c.x = c.nx = r[0]; c.y = c.ny = r[1]; c.px = c.py = -1; c.t = 0; c.q = null; c.wait = 0; return true; } }
+  return false;
+}
+function carNext(fx, fy, x, y) {   // rue suivante depuis (x, y) quand on arrive de (fx, fy) : tout droit ou en tournant, demi-tour seulement en cul-de-sac
+  const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(d => [x + d[0], y + d[1]]).filter(a => isRoad(a[0], a[1]));
+  const fwd = opts.filter(a => !(a[0] === fx && a[1] === fy)), L = fwd.length ? fwd : opts; return L.length ? L[Math.floor(carRnd() * L.length)] : null;
+}
 function spawnCars() {
+  if (!cars.length) carSeed = CAR_SEED0;   // nouvelle ville (ou remise à zéro) : même circulation à chaque fois
   const want = Math.min(150, Math.floor(urbanRoads.length * 0.12));
-  while (cars.length < want && roadList.length) {
-    const src = urbanRoads.length ? urbanRoads : roadList, r = src[Math.floor(Math.random() * src.length)];
-    cars.push({ x: r[0], y: r[1], nx: r[0], ny: r[1], px: -1, py: -1, t: 1, sp: 0.5 + Math.random() * 0.6, m: CAR_MODELS[Math.floor(Math.random() * CAR_MODELS.length)] });
+  for (let k = 0; cars.length < want && roadList.length && k < 20; k++) {
+    const c = { x: 0, y: 0, nx: 0, ny: 0, px: -1, py: -1, t: 0, sp: 0.5 + carRnd() * 0.6, m: CAR_MODELS[Math.floor(carRnd() * CAR_MODELS.length)], q: null, wait: 0 };
+    if (!carPlace(c)) break; cars.push(c);
   }
   if (cars.length > want) cars.length = want;
 }
 const speedFactor = () => speed === 0 ? 0 : speed === 1 ? 1 : 2.2;
 function updateCars(dt) {
   if (!S) return;
-  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  spawnCars();
+  spawnCars(); const sf = speedFactor(); if (!sf) return;
+  const lane = new Map(), node = new Map(), add = c => { const k = carEdge(c); (lane.get(k) || lane.set(k, []).get(k)).push(c); };
+  cars.forEach((c, i) => { c._i = i; if (c.x === c.nx && c.y === c.ny) return; add(c); if (c.t >= CAR_HOLD) node.set(carNode(c.nx, c.ny), c); });
+  for (const c of cars) if ((c.x !== c.nx || c.y !== c.ny) && c.t < CAR_EXIT) { const n = carNode(c.x, c.y); if (!node.has(n)) node.set(n, c); }
   for (const c of cars) {
-    if (!isRoad(c.x, c.y)) {
-      if (!roadList.length) continue;
-      const r = roadList[Math.floor(Math.random() * roadList.length)]; c.x = c.nx = r[0]; c.y = c.ny = r[1]; c.t = 1;
+    if (!isRoad(c.x, c.y) || !isRoad(c.nx, c.ny)) { if (!carPlace(c)) continue; }
+    const adv = c.sp * dt * sf;
+    if (c.x === c.nx && c.y === c.ny) {   // à l'arrêt (vient d'apparaître) : part dans une rue dont le début et le carrefour sont libres
+      const q = carNext(-9, -9, c.x, c.y), n = carNode(c.x, c.y);
+      if (q && !(lane.get(carEdgeK(c.x, c.y, q[0], q[1])) || []).some(o => o.t < CAR_GAP) && !node.has(n)) { c.nx = q[0]; c.ny = q[1]; c.t = 0; add(c); node.set(n, c); }
+      continue;
     }
-    c.t += c.sp * dt * speedFactor();
+    let lim = 1;
+    for (const o of lane.get(carEdge(c)) || []) if (o !== c && (o.t > c.t || (o.t === c.t && o._i < c._i))) lim = Math.min(lim, o.t - CAR_GAP);   // file : jamais plus près que CAR_GAP de la voiture de devant
+    const nd = carNode(c.nx, c.ny), h = node.get(nd);
+    if (c.t < CAR_HOLD && h && h !== c) lim = Math.min(lim, CAR_HOLD - 1e-3);   // carrefour occupé : arrêt à la ligne
+    else if (c.t + adv >= CAR_HOLD) {   // s'engage : choisit la rue suivante ; attend au carrefour si son début est encombré
+      if (!c.q) c.q = carNext(c.x, c.y, c.nx, c.ny);
+      if (c.q && (lane.get(carEdgeK(c.nx, c.ny, c.q[0], c.q[1])) || []).some(o => o.t < CAR_GAP)) lim = Math.min(lim, Math.max(c.t, CAR_HOLD + 0.1));
+      if (lim >= CAR_HOLD) node.set(nd, c);   // carrefour réservé
+    }
+    let nt = Math.max(c.t, Math.min(c.t + adv, lim));
+    c.wait = nt - c.t < adv * 0.05 ? (c.wait || 0) + dt * sf : 0;
+    if (c.wait > CAR_WAIT) { nt = c.t + adv; c.wait = 0; }   // embouteillage en boucle : repart (jamais de blocage définitif)
+    c.t = nt;
     if (c.t >= 1) {
-      c.px = c.x; c.py = c.y; c.x = c.nx; c.y = c.ny; c.t = 0;
-      const opts = dirs.map(d => [c.x + d[0], c.y + d[1]]).filter(a => isRoad(a[0], a[1]));
-      const fwd = opts.filter(a => !(a[0] === c.px && a[1] === c.py));
-      const list = fwd.length ? fwd : opts;
-      const pick = list[Math.floor(Math.random() * list.length)];
-      if (pick) { c.nx = pick[0]; c.ny = pick[1]; } else { c.nx = c.x; c.ny = c.y; c.t = 1; }
+      const Lo = lane.get(carEdge(c)), q = c.q || carNext(c.x, c.y, c.nx, c.ny); if (Lo) Lo.splice(Lo.indexOf(c), 1);
+      c.px = c.x; c.py = c.y; c.x = c.nx; c.y = c.ny; c.q = null;
+      if (q) { c.nx = q[0]; c.ny = q[1]; c.t = Math.min(c.t - 1, 0.2); add(c); } else c.t = 0;
     }
   }
+}
+function carPos(c) {   // position dessinée (monde) d'une voiture : milieu de sa voie, comme drawCar
+  const a = iso(c.x, c.y), b = iso(c.nx, c.ny), dx = c.nx - c.x, dy = c.ny - c.y, dir = dx > 0 ? 'SE' : dx < 0 ? 'NW' : dy > 0 ? 'SW' : 'NE', t = clamp(c.t, 0, 1), lane = CAR_LANE[dir];
+  return [lerp(a.x, b.x, t) + lane[0], lerp(a.y, b.y, t) + TH / 2 + lane[1], dir];
+}
+const CAR_LANE = { SE: [-9, 4], NW: [9, -4], SW: [9, 4], NE: [-9, -4] };
+function carsClose(dmin) {   // paires de voitures dont les positions dessinées sont à moins de dmin px monde (superposées à l'écran)
+  const P = cars.map(carPos), G = new Map(), cs = 40; let n = 0;
+  P.forEach((p, i) => { const k = Math.floor(p[0] / cs) + ',' + Math.floor(p[1] / cs); (G.get(k) || G.set(k, []).get(k)).push(i); });
+  P.forEach((p, i) => { const gx = Math.floor(p[0] / cs), gy = Math.floor(p[1] / cs); for (let ax = -1; ax <= 1; ax++) for (let ay = -1; ay <= 1; ay++) (G.get((gx + ax) + ',' + (gy + ay)) || []).forEach(j => { if (j > i && Math.hypot(P[j][0] - p[0], (P[j][1] - p[1]) * 2) < dmin) n++; }); });
+  return n;
 }
 function drawCar(c) {
   const a = iso(c.x, c.y), b = iso(c.nx, c.ny);
@@ -21066,8 +21162,9 @@ function citySpr(a, grp, fl) {   // sprite HD pour un immeuble (choix détermini
 const P2HD = __P2HD_JSON__, P2DIM = __P2DIM_JSON__, P2_IMG = {};   // sprites de la phase 2 (gisements, mines, puits, carrières) ; dim = [largeur, hauteur, x0, y0, x1, y1] de l'image d'origine, la parcelle est calée sur le losange de la case
 const P2_DEP = { oil: 'gisement_petrole', iron: 'gisement_fer', coal: 'gisement_charbon', gas: 'gisement_gaz', copper: 'gisement_cuivre', nickel: 'gisement_nickel_chrome', chrome: 'gisement_nickel_chrome', bauxite: 'gisement_bauxite', lithium: 'gisement_lithium', zinc: 'gisement_zinc', graphite: 'gisement_graphite', phosphate: 'gisement_phosphate', potash: 'gisement_potasse', salt: 'gisement_sel', silica: 'gisement_silice', clay: 'gisement_argile' };
 const P2_TYPE = { ewh: 'entrepot', fwheat: 'fwheat', fsugar: 'fsugar', fcotton: 'fcotton', frubber: 'frubber', fvine: 'fvine', fcorn: 'fcorn', frapeseed: 'frapeseed', fcattle: 'fcattle', fchicken: 'fchicken', fpig: 'fpig', fsheep: 'fsheep', wh: 'entrepot', solar: 'centrale_solaire', wind: 'eolienne', plant: 'centrale_charbon', nuclear: 'centrale_nucleaire', pylon: 'pylone_electrique', rd: 'centre_rd', dc: 'data_center', btp: 'chantier_moyen', immo: 'agence_immo', foundry: 'fonderie', f1: 'usine_petite_f1', f2: 'usine_moyenne_f2', f3: 'usine_grande_f3', f4: 'usine_f4_mega', s1: 'petit_marche_n1', s2: 'supermarche', s3: 'hypermarche', s4: 'mega_centre_commercial', port: 'terminal_portuaire', tv: 'station_tv', sport: 'stade_sport' };
-{ const SPEC_SPR = { sauto: ['concession_auto'], stech: ['boutique_high_tech'], slux: ['boutique_luxe'], smode: ['boutique_mode_luxe', 'boutique_mode'], spharma: ['pharmacie', 'drugstore'], shome: ['maison_deco'], ssport: ['sport_loisirs'], sbrico: ['brico_outillage'] };   // passe 46 : sprite HD commandé (n° 9) s'il est livré, sinon sprite existant (assets/factory_hd), sinon composition en primitives (drawSpecShop)
+{ const SPEC_SPR = { sauto: ['concession_auto'], stech: ['boutique_high_tech'], slux: ['boutique_luxe'], smode: ['boutique_mode_luxe', 'boutique_mode'], spharma: ['pharmacie'], shome: ['maison_deco'], ssport: ['sport_loisirs'], sbrico: ['brico_outillage'] };   // passe 46 : sprite HD commandé (n° 9) s'il est livré, sinon sprite existant (assets/factory_hd), sinon composition en primitives (drawSpecShop)
   Object.keys(SPEC_SPR).forEach(k => { const n = SPEC_SPR[k].find(x => P2HD[x]); if (n) P2_TYPE[k] = n; }); }
+if (P2HD.banque) P2_TYPE.bank = 'banque';   // passe 99 : banque HD (péristyle de pierre, assets/phase2_hd/banque.png) à tous les niveaux ; avant : banque_neoclassique (pièce d'or géante sur le toit) jusqu'à 8 étages puis l'atlas Kenney empilé
 const p2Ready = t => { const n = P2_TYPE[t] || P2_EXT[t]; return !!(n && P2_IMG[n] && P2_IMG[n].ok); };
 const P2_EXT = { well: 'puits_petrole', gwell: 'puits_gaz', miron: 'mine_fer', mcoal: 'mine_charbon', mcopper: 'mine_cuivre', mgold: 'mine_or', mnicr: 'mine_nickel_chrome', mbauxite: 'mine_bauxite', mlithium: 'mine_lithium', mzinc: 'mine_zinc', mgraphite: 'mine_graphite', qsilica: 'carriere_silice', qclay: 'carriere_argile', qsalt: 'mine_sel', mphos: 'mine_phosphate', mpotash: 'mine_potasse', qgravel: 'carriere', qlime: 'carriere', logging: 'camp_bucherons' };   // passe 79 : le concasseur fait partie de la carrière de granulats (dessin code par-dessus le sprite, commande Cowork n° 79-1)
 Object.keys(P2HD).forEach(n => { const im = new Image(), e = P2_IMG[n] = { im, ok: false }; im.onload = () => { e.ok = true; }; im.src = P2HD[n]; });
@@ -21142,10 +21239,14 @@ const VV = { n: 0, day: -1, g: null, svc: {}, list: [] };
 // Services de quartier : [libellé, couronne (c centre, m entre-deux, p périphérie), nombre visé, règle]
 const VV_SVC = {
   restaurant_terrasse: ['Restaurant en terrasse', 'c', 3], cafe_de_quartier: ['Café de quartier', 'c', 3], boulangerie: ['Boulangerie', 'c', 3], boutique_mode: ['Boutique de mode', 'c', 3],
-  drugstore: ['Drugstore', 'm', 2], barre_hlm: ['Barre HLM', 'm', 4, 'hlm'], immeuble_en_construction: ['Immeuble en construction', 'm', 2, 'up'],
+  drugstore: ['Pharmacie', 'm', 2], barre_hlm: ['Barre HLM', 'm', 4, 'hlm'], immeuble_en_construction: ['Immeuble en construction', 'm', 2, 'up'],
   eglise_de_village: ['Église', 'p', 2], station_service: ['Station-service', 'p', 3, 'road'], station_recharge_electrique: ['Station de recharge électrique', 'p', 2, 'road'], batiment_abandonne: ['Immeuble abandonné (friche)', 'p', 1]
 };
-const VV_MON = { telecom: 'station_tv', hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport' };   // équipements publics existants : sprite HD
+/* Passe 99 (Rémy : « la pharmacie, tu me l'as fait apparaître dans la TRÈS ANCIENNE version ») : le service de quartier « drugstore » dessinait assets/factory_hd/drugstore.png
+   (cube blanc à croix sur un parking de voitures-cubes, livré le 17/11), alors que la pharmacie voulue est pharmacie.png (croix verte lumineuse, 19/11, enseigne PHARMACIE peinte en façade).
+   Le service garde sa clé (sauvegardes, tests) mais emprunte le sprite de la pharmacie ; VV_SVC_OF fait le chemin inverse pour l'enseigne. */
+const VV_SVC_SPR = { drugstore: 'pharmacie' }, VV_SVC_OF = { pharmacie: 'drugstore' };
+const VV_MON = { telecom: 'station_tv', hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport', police: 'commissariat', fire: 'caserne_pompiers' };   // passe 99 : caserne et commissariat HD (livrés dans assets/phase2_hd, jamais branchés : dessin vectoriel jusque-là) ; écoles : un seul PNG (ecole) pour les quatre, rendus distincts commandés (n° 17 bis)   // équipements publics existants : sprite HD
 Object.keys(CITY_SVC).forEach(b => { if (VV_MON[b]) for (let k = 2; k <= 60; k++) VV_MON[b + '_' + k] = VV_MON[b]; });   // passe 60 : équipements ajoutés par la croissance, même sprite que l'original
 P2_DEP.gold = 'gisement_or';
 /* Passe 55 (audit visuel) : sprites HD dérivés. Les gisements sans rendu propre (gravier, sable, calcaire, soufre, terres rares) et les parcelles
@@ -21200,7 +21301,7 @@ function vvNpc(a, p, x, y) {   // bâtiment PNJ en HD (équipement, parc, chanti
     a._top = vvDraw(n, p, 1, null, [1, 1]); return true; }
   if (a.k === 'park') { if (!vvOk('parc_urbain')) return false; a._top = vvDraw('parc_urbain', p, 1, null, [1, 1]); return true; }
   if (!a.lm && a.cd != null && S.day - a.cd < 6) { const n = a.k === 'house' ? 'chantier_petit' : 'immeuble_en_construction'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // chantier : 6 jours après une construction ou une surélévation par la ville
-  vvSvcMap(); if (a._sv && vvOk(a._sv)) { a._top = vvDraw(a._sv, p, 1, null, [1, 1]); return true; }
+  vvSvcMap(); { const sn = a._sv && (VV_SVC_SPR[a._sv] || a._sv); if (sn && vvOk(sn)) { a._top = vvDraw(sn, p, 1, null, [1, 1]); return true; } }
   if (a.k === 'house' && hash(a.x, a.y, 84) < 0.3) { const n = ['maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c'][Math.floor(hash(a.x, a.y, 85) * 3)]; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // maisons et petits immeubles PNJ de la phase 2 mêlés aux autres
   if (a.k !== 'house' && !a.lm && a.floors >= 3 && a.floors <= 8 && hash(a.x, a.y, 86) < 0.3) { const n = a.k === 'off' || hash(a.x, a.y, 87) < 0.5 ? 'immeuble_pnj_b' : 'immeuble_pnj_a'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }
   if (a.k !== 'house' && !a.lm && a.floors >= 12 && a.floors <= 30 && hash(a.x, a.y, 77) < 0.35) { const n = hash(a.x, a.y, 78) < 0.5 ? 'tour_pnj_a' : 'tour_pnj_b'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }
@@ -21224,10 +21325,10 @@ function vvSvcHTML() {   // panneau du Mall : commerces et services de quartier 
   return `<h4>Commerces de quartier autour du mall</h4><p class="mnote">${ks.map(n => `${VV_SVC[n][0]} ×${by[n].length}`).join(' · ')}. Ce sont les commerces indépendants de la ville : ils animent les rues et attirent les passants.</p>`;
 }
 // Niveaux des bâtiments du joueur : logements (étages), tours, siège, supermarché et hypermarché (niveau d'amélioration)
-const VV_LVL = { s2: ['supermarche', 'supermarche', 'supermarche_n2', 'supermarche_n2', 'supermarche_n3'], s3: ['hypermarche', 'hypermarche', 'hypermarche_n2', 'hypermarche_n2', 'hypermarche_n3'] };
+const VV_LVL = { s1: ['petit_marche_n1', 'petit_marche_n1', 'petit_marche_n2', 'petit_marche_n2', 'petit_marche_n2'], s2: ['supermarche', 'supermarche', 'supermarche_n2', 'supermarche_n2', 'supermarche_n3'], s3: ['hypermarche', 'hypermarche', 'hypermarche_n2', 'hypermarche_n2', 'hypermarche_n3'] };
 /* Passe 78 (revue des bâtiments, Rémy : « supermarchés : angle inversé, toits qui s'effondrent ») : le supermarché et l'hypermarché sont le bâtiment seul sur sa dalle
    (bat_*, cartouche de toit effacé au build), qui occupe toute la parcelle, au lieu d'un petit cube dans le coin d'un grand parking de voitures criardes. Repli : anciens sprites. */
-const VV_LVL_BAT = { s2: ['bat_supermarche', 'bat_supermarche', 'bat_supermarche_n2', 'bat_supermarche_n2', 'bat_supermarche_n3'], s3: ['bat_hypermarche', 'bat_hypermarche', 'bat_hypermarche_n2', 'bat_hypermarche_n2', 'bat_hypermarche_n3'] };
+const VV_LVL_BAT = { s2: ['bat_supermarche', 'bat_supermarche', 'bat_supermarche_n2', 'bat_supermarche_n2', 'bat_supermarche_n3'], s3: ['bat_hypermarche', 'bat_hypermarche', 'bat_hypermarche_n2', 'bat_hypermarche_n2', 'bat_hypermarche_n3'], s4: ['bat_mega_centre_commercial'] };   // passe 99 : méga-centre seul sur sa dalle (au lieu d'un petit bâtiment au fond d'un parking de voitures-cubes)
 /* Passe 78 : petite usine (f1) et grande usine (f3) jugées « n'importe quoi » par Rémy (f1 : hangar à toit de bardeaux sans dalle, aspect abri de jardin ;
    f3 : halls aux toits confus), l'usine moyenne (f2) étant jugée satisfaisante. En attendant la commande Cowork n° 14 (tools/factory_ai/RETOURS.md) :
    f1 = l'usine moyenne (brique, tôle, cheminée, quai) recalée sur sa case ; f3 = deux halls de l'usine moyenne côte à côte sur ses 2×2 cases (drawF3Duo).
@@ -21237,7 +21338,8 @@ function drawF3Duo(a) {   // grande usine : deux halls f2 (2×1) sur les deux ra
   let top = null; for (let r = 0; r < a.h; r++) { const q = iso(a.x + (a.w - 1) / 2, a.y + r), t = p2Draw(P2_F3_DUO, null, 1, { x: q.x, y: q.y + TH / 2 }, [a.w, 1]); if (t != null) top = top == null ? t : Math.min(top, t); }
   return top;
 }
-function vvP2Name(a) { if (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t])) return P2_REPLI[a.t]; for (const T of [VV_LVL_BAT, VV_LVL]) { const L = T[a.t]; if (L) { const n = L[Math.min(L.length - 1, a.lvl || 0)]; if (vvOk(n)) return n; } } return P2_TYPE[a.t]; }
+const dcVec = a => a.t === 'dc' && !a.lg && !vvOk('data_center_campus');   // passe 99 : le campus 5×4 a son sprite HD (data_center_campus) ; l'ancien data center compact (a.lg) garde data_center
+function vvP2Name(a) { if (a.t === 'dc') return a.lg || !vvOk('data_center_campus') ? 'data_center' : 'data_center_campus'; if (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t])) return P2_REPLI[a.t]; for (const T of [VV_LVL_BAT, VV_LVL]) { const L = T[a.t]; if (L) { const n = L[Math.min(L.length - 1, a.lvl || 0)]; if (vvOk(n)) return n; } } return P2_TYPE[a.t]; }
 function vvHq(a) { const n = ['siege_hq_n1', 'siege_hq_n1', 'siege_hq_n2', 'siege_hq_n2', 'siege_hq_n3'][Math.min(4, a.lvl || 0)]; return vvOk(n) ? n : null; }
 function vvLvl(a, fl) {   // sprite de niveau d'un immeuble du joueur, ou null
   let n = null;
@@ -21823,7 +21925,7 @@ Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDail
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ecomStep, list: ewhList, site: ecSite, cat: ecCatalog, delay: ecDelay, attract: ecAttract, pool: ecPool, val: ecVal, tier: () => tierOf((S.stats && S.stats.worth) || 0), raise: ecRaise, set: ecSet, kpi: ecKpi, advice: ecAdvice, save: ecSave, san: ecSan, render: renderEcom, show: ecShow, html: ecomHTML, edu: ecEduHTML, shipCap: ecShipCap, storeCap: ecStoreCap, used: ecUsed, CLS: EC_CLS, MIX: EC_MIX, RET: EC_RET, WORLD: EC_WORLD, FREQ: EC_FREQ, BASKET: EC_BASKET, EL: EC_EL, SHIP: EC_SHIP, STORE: EC_STORE, HOST: EC_HOST, DC: EC_DC, RESV: EC_RESV, LAUNCH: EC_LAUNCH } });   // passe 46 : commerce en ligne
 Object.assign(window.WSE, { audit: { solo: auditSolo, before: auditBefore, iso, TW, TH, mkCell }, sign: { SIGN, SIGN_COVER, SIGN_ST, SIGN_SZ, txt: signTxt, key: signKey, get drawn() { return SG.drawn.slice(); }, get queued() { return SG.list.length; }, get hidden() { return SG.hidden; }, get lost() { return Object.assign({}, SG.lost); }, get ui() { return SG.ui.slice(); }, IMP: SIGN_IMP, minImp: signMinImp, get ms() { return SG.last || 0; }, get avg() { return SG.avg; }, get on() { return SG.on; }, set on(v) { SG.on = !!v; }, get cacheN() { return SG.cache.size; }, FACE: SIGN_FACE, FACE_MIN: SIGN_FACE_MIN, get faces() { return SG.faces; } } });   // passe 54 : enseignes dessinées par le code
-Object.assign(window.WSE, { gfx: { use(g, fn) { const m = ctx; ctx = g; try { return fn(); } finally { ctx = m; } }, tile: drawTileOf, overlay: drawOverlay, dep: drawDeposit, depProc, spr: vvSpr, drawFlat: vvDraw, field: drawField, forest: drawForest, tree: drawDecorTree, rock: vvRock, quay: drawQuayDecor, ship: drawShip, car: drawCar, crane: drawCrane, containers: drawContainers, gtTile, gtPatch, gtKind, iso, mkCell, ATLAS, P2_IMG, P2DIM, P2_DEP, P2_RECOL, CROP_SPR, recolor: p2Recolor, VV_FARM, VV_CARS, VV_GOODS, PROC_IND, SPEC_T, CROP_COL, CITY_IMG, HQ_IMG, FAC_IMG } });   // passe 55 : audit visuel (tools/audit_visuel.js)
+Object.assign(window.WSE, { gfx: { use(g, fn) { const m = ctx; ctx = g; try { return fn(); } finally { ctx = m; } }, tile: drawTileOf, overlay: drawOverlay, dep: drawDeposit, depProc, spr: vvSpr, drawFlat: vvDraw, field: drawField, forest: drawForest, tree: drawDecorTree, rock: vvRock, quay: drawQuayDecor, ship: drawShip, car: drawCar, crane: drawCrane, containers: drawContainers, gtTile, gtPatch, gtKind, iso, mkCell, ATLAS, P2_IMG, P2DIM, P2_DEP, P2_RECOL, CROP_SPR, recolor: p2Recolor, VV_FARM, VV_CARS, VV_GOODS, PROC_IND, SPEC_T, CROP_COL, CITY_IMG, HQ_IMG, FAC_IMG, mallPeople: p => mbPerson([p.x, p.y], 'h2', 'marche', false, MB_PH) && mbPerson([p.x + 20, p.y], 'f1', 'debout', true, MB_PH), mallPark: p => mbCar([p.x, p.y], 3, 'v', 30) } });   // passe 55 : audit visuel (tools/audit_visuel.js)
 Object.assign(window.WSE, { occ: { OCC, A: OCC_A, AX: OCC_AX, R: OCC_R, FADE: OCC_FADE, MODES: OCC_MODES, setMode: occSetMode, get mode() { return OCC.mode; }, box: occBox, key: occKey, obj: occObj, compute: occCompute,
   hover: (x, y) => { hover = x == null ? null : { x, y }; }, select: (x, y) => { selected = x == null ? null : { x, y }; }, alt: v => { OCC.alt = !!v; }, touch: (x, y, ms) => { OCC.touch = x == null ? null : { id: -1, x, y }; OCC.touchT = performance.now() + (ms || 1e9); },
   list: () => [...OCC.set.keys()].map(a => ({ x: a.x, y: a.y, w: a.w, h: a.h, t: a.t, k: a.k || null, A: OCC.set.get(a), f: OCC.fade.has(a) ? OCC.fade.get(a) : 1 })), get drawn() { return OCC.drawn; }, get ms() { return OCC.ms; } } });   // passe 100 : transparence des bâtiments devant (tests t100)
@@ -21833,7 +21935,8 @@ window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMIL
 window.WSE.air = { timeline: airTimeline, state: airState, anim: t => { AIRANIM.t = t == null ? null : +t; return AIRANIM.t; }, drawn: () => AIRANIM.drawn || null, cycle: airCycle, lvl: airLvl, slots: airVendorsLite, L: AIR_L, pos: airPos, ensure: airEnsure, pax: airPax, data: airData, html: airHTML, open: airOpen, close: airClose, isOpen: () => airOn, show: airShow, act: airAct, openShop: airOpenShop, closeShop: airCloseShop, shelf: airShelf, price: airPrice, step: airStep, san: airSan, K: { AIR_W, AIR_H, AIR_PAX0, AIR_BUY, AIR_MK, AIR_TAX, AIR_ENTRY, AIR_RENT, AIR_L } };   // passe 49 : aéroport et duty free
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
-window.WSE.vv = { svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
+window.WSE.traffic = { cars: () => cars, reset: () => { cars = []; }, update: updateCars, refresh: refreshRoadList, pos: carPos, close: carsClose };   // passe 99 : espacement des voitures (tools/voitures_espacement.js, t99)
+window.WSE.vv = { SPR: VV_SVC_SPR, dcVec, svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.brand.setStrat = setBrandStrat;
 window.WSE.mono = { xp: monoXP, info: monoInfo, txt: monoTxt, win: monoWin, init: monoInit, step: monoStep, rx: monoRx, K: { MONO_PH, MONO_XW, MONO_W, MONO_PAT, MONO_INNOV, MONO_LIC, MONO_LIC_K, MONO_COPY, MONO_COPY_PAT, MONO_NIV, LIC_MG } };   // passe 67 : monopole temporaire de l'innovation
 window.WSE.supply = { autoSource, bestOffer, buyerQw, procure: stepProcure };
