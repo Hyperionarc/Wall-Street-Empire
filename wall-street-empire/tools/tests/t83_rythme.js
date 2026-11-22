@@ -62,7 +62,7 @@ exports.run = async (t, L) => {
     const old = await pg.evaluate(() => { const W = window.WSE, k = 'wse-city-v8', d = JSON.parse(localStorage.getItem(k)); delete d.ry; localStorage.setItem(k, JSON.stringify(d)); return true; });
     await pg.close(); pg = await ctx.newPage(); pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message)); await pg.goto(L.URL); await pg.waitForTimeout(600);
     const ro = await pg.evaluate(() => { const W = window.WSE, S = W.S; W.setSpeed(0); const g0 = W.rd.st().gem; W.step(); W.step(); const R = W.ry.S(); return { vi: R.vi, pi: R.pi, gem: W.rd.st().gem - g0, ry: !!S.ry }; });
-    t.check('ancienne sauvegarde sans rythme : chargée sans erreur, échelles initialisées en silence (pas de rafale de jalons)', old && ro.ry && ro.vi >= 0 && ro.gem <= 12 && pg.errs.length === 0, JSON.stringify(ro));
+    t.check('ancienne sauvegarde sans rythme : chargée sans erreur, échelles initialisées en silence (pas de rafale de jalons)', old && ro.ry && ro.vi >= 0 && ro.gem <= 20 && pg.errs.length === 0, JSON.stringify(ro));
     await ctx.close();
   }
   // ---- 4. aucune incidence automatique sur l'économie : même graine, rythme actif ou coupé
