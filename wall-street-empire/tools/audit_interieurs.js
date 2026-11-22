@@ -77,7 +77,7 @@ async function auditAll(L, o = {}) {
     const p = pos[k]; if (!p || p.err) { r.problems.push('non construit : ' + (p && p.err)); continue; }
     try {
       if (NET.includes(k)) {   // réseau : pas d'intérieur, un message d'information à la place
-        const n = await pg.evaluate(p => { window.WSE.closeBuilding(); window.WSE.openBuilding(p.x, p.y); const f = document.getElementById('feed'); return { open: !document.getElementById('bview').hidden, msg: f ? f.lastChild && f.lastChild.textContent : '' }; }, p);
+        const n = await pg.evaluate(p => { window.WSE.closeBuilding(); window.WSE.openBuilding(p.x, p.y); const f = document.getElementById('feed'), J = window.WSE.S.jr || [], tg = document.getElementById('selTag'); return { open: !document.getElementById('bview').hidden, msg: (f && f.lastChild && f.lastChild.textContent) || (J.length ? J[J.length - 1].t : '') || (tg && !tg.hidden ? tg.textContent : '') }; }, p);   // passe 99 : message au journal (et étiquette de sélection)
         r.kind = 'msg'; r.name = n.msg; if (n.open) r.problems.push('le réseau ouvre une vue intérieure'); if (!n.msg || /NaN|undefined/.test(n.msg)) r.problems.push('message absent ou suspect : ' + n.msg);
         const er = err0(); if (er.length) r.problems.push('erreurs JS : ' + er.join(' || ').slice(0, 300)); continue;
       }

@@ -1264,6 +1264,17 @@ body.cmp:not(.hx) #decBtn:not([hidden]) ~ #jrBtn{display:none}
 .ecog .eco b{font:700 19px/1.15 var(--font-m)}
 .ecog .eco em{font-style:normal;font-size:11.5px;color:var(--mut);overflow-wrap:anywhere}
 .ecog .eco .btn{min-height:30px;padding:2px 8px;font-size:11px;margin-top:2px}
+/* sélection légère : petite étiquette au-dessus du bâtiment cliqué */
+#selTag{position:absolute;z-index:8;display:flex;align-items:center;gap:8px;max-width:min(360px,calc(100% - 16px));padding:4px 4px 4px 8px;border-radius:12px;background:rgba(12,17,38,.95);border:1px solid var(--gold);box-shadow:0 6px 20px rgba(0,0,0,.45);font-size:12px;color:var(--fg)}
+#selTag .sti svg{width:22px;height:22px;display:block;color:var(--gold)}
+#selTag .stt{display:flex;flex-direction:column;min-width:0}
+#selTag .stt b{font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#selTag .stt small{color:var(--mut);font-size:11px;line-height:1.25}
+#selTag .stopen{min-height:40px;padding:4px 12px;white-space:nowrap}
+#selTag .stx{width:44px;height:44px;flex:0 0 auto;border:0;background:none;color:var(--mut);font-size:24px;line-height:1;padding:0;border-radius:10px}
+#selTag .stx:hover{color:var(--gold)}
+#pfiche details.pfd{margin:6px 0;border-top:1px solid var(--line);padding-top:4px}
+#pfiche details.pfd>summary{cursor:pointer;color:var(--cyan);font-size:12px;padding:4px 0;list-style:revert}
 </style>
 </head>
 <body>
@@ -8509,6 +8520,9 @@ function inspect(x, y) {
     else say(`Terrain libre (${x + 1}, ${y + 1}).`, 'info');
     return;
   }
+  if (c.t === 'road') { selTagHide(); say(c.own ? 'Route de desserte : entretien 12 $/mois.' : 'Rue publique, entretenue par la mairie.', 'info'); return; }
+  if (NET_PIECE[c.t]) say(NET_PIECE[c.t] + ' Entretien ' + money(TYPES[c.t].upkeep * DM) + '/mois.', 'info');
+  selTagShow(c); return;   // passe 99 : un clic = sélection légère et petite étiquette (nom, type, « Ouvrir ») ; le détail économique est dans la fenêtre du bâtiment
   if (c.t === 'res' || (c.t === 'npc' && c.k !== 'mon')) { proOpen(c.x, c.y); return; }   // passe 34 : fiche d'immeuble (valeur, loyer, rendement, plus-value, actions)
   if (c.t === 'npc' && c.k !== 'mon' && ownerOf(c) !== 'npc' && ownerOf(c) !== 'me') { say(`${kindFr(c.k, 1).replace(/^./, m => m.toUpperCase())} de ${ownerName(ownerOf(c))} : rapporte ${money(bldRent(c) * DM)}/mois, valeur estimée ${money(acqValue(c))}. Pose un commerce dessus pour négocier le rachat.`, 'info'); return; }
   if (c.t === 'npc') { say(c.k === 'mon' ? `${PUB[c.m][0]} : ${PUB[c.m][2]}. Les services publics sont financés par la mairie.` : c.k === 'park' ? 'Parc public de la ville : il valorise les quartiers voisins.' : c.k === 'house' ? 'Maison de la ville existante (5 habitants).' : `Immeuble de la ville existante (${c.floors} étages, ${c.k === 'res' ? 'logements' : 'bureaux'}).`, 'info'); return; }
@@ -18078,13 +18092,14 @@ function endPtr(e) {
   pointers.delete(e.pointerId);
   if (gesture && gesture.mode === 'pend' && p && e.type === 'pointerup') { const p0 = gesture.p0; gesture = null; lastTile = null; applyAt(p0); }   // passe 64 : tap au doigt = pose
   if (gesture && gesture.mode === 'pan' && !gesture.moved && p && gesture.tool === 'view') {
-    const t = screenToTile(p.x, p.y);
+    const t = pickAt(p.x, p.y);   // passe 99 : le bâtiment dessiné sous le pointeur (silhouette), pas la case au sol derrière
     if (t) {
       const a = cell(t.x, t.y), key = a ? a.x + ',' + a.y : '', now = performance.now();
       if (a && PLAN_DIM[a.t] && typeof immOn !== 'undefined' && !immOn) {   // double-clic / double-tape : entrer dans l'usine ; un clic simple ouvre la fiche après un court délai
         if (immTap.k === key && now - immTap.t < 450) { clearTimeout(immTap.to); immTap.k = ''; immEnter(a, 'city'); }
         else { clearTimeout(immTap.to); immTap.k = key; immTap.t = now; immTap.to = setTimeout(() => { immTap.k = ''; inspect(t.x, t.y); }, 320); }
-      } else inspect(t.x, t.y);
+      } else if (a && a.t !== 'road' && immTap.k === key && now - immTap.t < 450) { immTap.k = ''; selOpen(a); }   // double-clic : ouvre la fenêtre du bâtiment
+      else { immTap.k = key; immTap.t = now; inspect(t.x, t.y); }
     }
   }
   if (pointers.size < 2 && gesture && gesture.mode === 'pinch') { gesture = null; zoomTo(zlv()[zoomLevel()]); }
@@ -18166,7 +18181,7 @@ const tutoNavPanel = (tab, sel) => { const pn = el('panel'); if (pn.hidden) retu
 const tutoF = () => (S.mode.f || (S.mode.f = {}));
 const TUTO_S1 = [
   { t: 'Pose un Petit marché : menu Commerce, famille Magasins, Petit marché, puis clique une case libre au bord d\'une rue.', ok: () => anyShop() > 0, tool: 's1', hl: () => tutoNavTool('s1') },
-  { t: 'Ouvre ton commerce : outil Main, puis clique le bâtiment. L\'onglet Prix règle le prix de rayon, Effectifs les salaires.', ok: () => !!tutoF().open, hl: () => tool === 'view' ? null : '.tool[data-k="view"]' },
+  { t: 'Ouvre ton commerce : outil Main, clique le bâtiment puis « Ouvrir » sur son étiquette (ou double-clic). L\'onglet Prix règle le prix de rayon, Effectifs les salaires.', ok: () => !!tutoF().open, hl: () => tool === 'view' ? (el('selTag').hidden ? null : '#selTag [data-st="open"]') : '.tool[data-k="view"]' },
   { t: 'Emprunte à la banque : Menu > Finances > Emprunter. Le plafond et le taux sont affichés ; rembourse dès que tu peux.', ok: () => (S.loan || 0) > 0, hl: () => tutoNavPanel('fin', '#loanUp') },
   { t: 'Pose 2 autres commerces (Petit marché ou Supermarché) pour vendre plus : il t\'en faut 3 au total.', ok: () => anyShop() >= 3, tool: 's1', hl: () => tutoNavTool('s1') },
   { t: 'Suis ton jalon et ton rang dans la barre d\'objectif : le bouton Conseil t\'aide si tu es bloqué. Le reste est à toi.', ok: () => !!tutoF().t5, btn: 'Compris', hl: () => null }
@@ -18174,7 +18189,7 @@ const TUTO_S1 = [
 const TUTO_S2 = [
   { t: 'Pose une mine ou un puits sur un gisement (taches de couleur) : menu Extraction. Relie-la à la route avec l\'outil Route.', ok: () => { let n = 0; eachBuilding(c => { if (TYPES[c.t].ext) n++; }); return n > 0; }, tool: 'miron', hl: () => tutoNavTool('miron') },
   { t: 'Construis une usine dans la zone du port (menu Industrie > Usines), à l\'est de la carte.', ok: () => cnOf('f1') + cnOf('f2') + cnOf('f3') + cnOf('foundry') > 0, tool: 'f1', hl: () => tutoNavTool('f1') },
-  { t: 'Ouvre l\'usine (Main puis clic) et choisis sa production : les fournisseurs et imports se règlent seuls (sources automatiques).', ok: () => { let n = 0; eachBuilding(c => { if (FLEVEL[c.t] && c.prod) n++; }); return n > 0; }, hl: () => tool === 'view' ? null : '.tool[data-k="view"]' },
+  { t: 'Ouvre l\'usine (Main, clic puis « Ouvrir ») et choisis sa production : les fournisseurs et imports se règlent seuls (sources automatiques).', ok: () => { let n = 0; eachBuilding(c => { if (FLEVEL[c.t] && c.prod) n++; }); return n > 0; }, hl: () => tool === 'view' ? null : '.tool[data-k="view"]' },
   { t: 'Ouvre Produits (bouton en haut) et lance la R&D de 2 produits : il t\'en faut 2 en vente pour gagner.', ok: () => PKEYS.filter(pk => S.prod[pk].st !== 'locked').length >= 2, hl: () => el('pview').hidden ? '#mProd' : null },
   { t: 'Pose un commerce en ville pour vendre tes produits aux habitants (menu Commerce).', ok: () => anyShop() > 0, tool: 's1', hl: () => tutoNavTool('s1') }
 ];
@@ -20779,7 +20794,12 @@ function vvSvcMap() {   // une passe par jour de jeu : chaque service va aux cas
   });
   VV.svc = out; VV.list = list; return out;
 }
-function vvNpc(a, p, x, y) {   // bâtiment PNJ en HD (équipement, parc, chantier de la croissance, service de quartier, tour) ; true si dessiné ; (x, y) = case dessinée (par défaut celle de a)
+function vvNpc(a, p, x, y) {   // passe 99 : retient le sprite réellement dessiné (a._spr) : le titre et l'icône de la fiche suivent ce que le joueur voit
+  const c0 = SG.cur; SG.cur = null; const r = vvNpc0(a, p, x, y);
+  if (SG.cur && SG.cur.n) a._spr = SG.cur.n; else { if (!r) a._spr = null; SG.cur = c0; }
+  return r;
+}
+function vvNpc0(a, p, x, y) {   // bâtiment PNJ en HD (équipement, parc, chantier de la croissance, service de quartier, tour) ; true si dessiné ; (x, y) = case dessinée (par défaut celle de a)
   if (x == null) { x = a.x; y = a.y; }
   if (a.k === 'mon') { const n = VV_MON[a.m]; if (!n || !vvOk(n)) return false;
     if (monMulti(a)) {   // barème des tailles : équipement de plusieurs cases, sol de l'emprise (depuis le coin nord, dessiné en premier) puis sprite recalé (sprFit) sur le plus grand carré de l'emprise (depuis la case avant)
@@ -20808,7 +20828,13 @@ function monGround(a) {   // sol d'un équipement de plusieurs cases : parvis cl
   }
   if (hos) { const c = PP(x + 0.55, y + h - 0.55, 0.6); ctx.fillStyle = '#4a7f4a'; ctx.beginPath(); ctx.ellipse(c[0], c[1], 22, 11, 0, 0, 7); ctx.fill(); }   // pelouse d'entrée
 }
-const vvSvcName = c => { if (!c || c.t !== 'npc') return ''; vvSvcMap(); return c._sv && VV_SVC[c._sv] ? VV_SVC[c._sv][0] : ''; };
+const vvSvcName = c => {   // passe 99 (bug « je clique sur un immeuble et ça apparaît comme une boulangerie ») : le nom du service ne s'affiche que si son sprite est celui qui est dessiné
+  if (!c || c.t !== 'npc') return ''; vvSvcMap();
+  if (c._spr !== undefined) return c._spr && VV_SVC[c._spr] ? VV_SVC[c._spr][0] : '';   // case déjà dessinée : le sprite vu par le joueur fait foi
+  const site = !c.lm && c.cd != null && S.day - c.cd < 6;   // jamais dessinée (hors écran) : mêmes règles que vvNpc (chantier prioritaire, sprite chargé)
+  return !site && c._sv && VV_SVC[c._sv] && vvOk(c._sv) ? VV_SVC[c._sv][0] : '';
+};
+const vvSvcSub = c => { const n = c && (c._spr !== undefined ? c._spr : c._sv) || ''; return /hlm/.test(n) ? 'logements sociaux' : /construction/.test(n) ? 'chantier de la ville' : /abandonne/.test(n) ? 'friche' : /eglise/.test(n) ? 'lieu de culte' : /station/.test(n) ? 'station' : 'commerce de quartier'; };
 function vvSvcHTML() {   // panneau du Mall : commerces et services de quartier de la ville
   vvSvcMap(); const by = {}; VV.list.forEach(q => { (by[q[2]] = by[q[2]] || []).push(q); }); const ks = Object.keys(by).filter(n => VV_SVC[n][1] !== 'p' && n !== 'barre_hlm' && n !== 'immeuble_en_construction'); if (!ks.length) return '';
   return `<h4>Commerces de quartier autour du mall</h4><p class="mnote">${ks.map(n => `${VV_SVC[n][0]} ×${by[n].length}`).join(' · ')}. Ce sont les commerces indépendants de la ville : ils animent les rues et attirent les passants.</p>`;
@@ -21127,7 +21153,7 @@ const pfSign = v => (v >= 0 ? '+' : '−') + money(Math.abs(v));
 function proOpen(x, y) { pfSel = { x, y }; renderFiche(); }
 function proCloseFiche() { pfSel = null; const b = el('pfiche'); if (b) b.hidden = true; }
 const proOwnerTxt = c => c.t === 'res' ? 'à toi' : ({ npc: 'la ville', me: 'à toi' }[ownerOf(c)] || ownerName(ownerOf(c)));
-const proKindTxt = c => c.t === 'res' ? 'Logements' : (vvSvcName(c) ? vvSvcName(c) + ' · ' : '') + ({ house: 'Maison', res: 'Immeuble de logements', off: 'Immeuble de bureaux', park: 'Parc' }[c.k] || 'Bâtiment');   // ville vivante : nom du service de quartier
+const proKindTxt = c => c.t === 'res' ? 'Logements' : (vvSvcName(c) ? vvSvcName(c) + ' (' + vvSvcSub(c) + ')' : ({ house: 'Maison', res: 'Immeuble de logements', off: 'Immeuble de bureaux', park: 'Parc' }[c.k] || 'Bâtiment'));   // ville vivante : nom du service de quartier
 const proMood = () => { const h = PR().hype || 0; return h > 0.45 ? 'euphorie (prix tirés par la demande)' : h > 0.15 ? 'marché porteur' : h < -0.45 ? 'retournement (prix en baisse)' : h < -0.15 ? 'marché morose' : 'marché équilibré'; };
 function proFicheHTML(c) {
   const F = proFiche(c), v = F.v, row = (a, b, cl, t) => `<div class="r"${t ? ' title="' + t + '"' : ''}><span>${a}</span><span class="${cl || ''}">${b}</span></div>`;
@@ -21136,9 +21162,10 @@ function proFicheHTML(c) {
   if (c.t === 'res' && c.bn) h += row('Prime de marque', '+' + Math.round(100 * (proBrandK(c) - 1)) + ' % de loyer et de valeur', 'pos', 'Tour baptisée de ta marque : prime selon la notoriété de la marque, la hauteur et l\'âge de la tour.');
   if (casteIs('promoteur')) h += row('Droits à bâtir', proMaxAt(c.x, c.y) + ' étages', '', 'Hauteur que la ville vise sur ce lot (+15 % de dérogations) : elle monte avec la population.');
   h += row('Valeur marchande', money(F.value), '', 'Loyers nets capitalisés : étages × loyer de marché × occupation × (1 − 22 % de charges) × 365 ÷ taux de capitalisation. Plancher : 80 % de la valeur du lot.');
+  h += row('Loyers', money(F.rentDay * DM) + '/mois', 'pos') + '<details class="pfd"><summary>Détails financiers (loyer de marché, charges, rendement, plus-value…)</summary>';   // passe 99 : l'essentiel d'abord, le détail sur demande
   h += row('Loyer de marché', money(v.rentFl * DM) + ' par étage et par mois', '', `Attractivité du quartier ${pfPct(v.attr)} (CBD, commodités, fréquentation, densité voisine, boulevards, vue sur mer).`);
   h += row('Occupation (marché)', pfPct(v.occ) + (v.idx > 0.05 ? ' · offre excédentaire' : v.idx < -0.05 ? ' · pénurie de logements' : ''), v.idx > 0.05 ? 'neg' : v.idx < -0.05 ? 'pos' : '');
-  h += row('Loyers', money(F.rentDay * DM) + '/mois', 'pos'); h += row('Charges et taxe foncière', '−' + money(F.costDay * DM) + '/mois', 'neg');
+  h += row('Charges et taxe foncière', '−' + money(F.costDay * DM) + '/mois', 'neg');
   h += row('Cash-flow', pfSign(F.cashDay * DM) + '/mois', F.cashDay >= 0 ? 'pos' : 'neg', 'Si le bien est vacant, les charges et la taxe foncière continuent : le flux devient négatif.');
   h += row('Rendement net', pfPct(F.yieldNet) + ' · taux de capitalisation ' + pf1(F.cap * 100) + ' %', '', `Taux directeur ${pf1(((S.macro && S.macro.rate) || 0) * 100)} % · ${proMood()}.`);
   h += row('Terrain (lot)', money(v.lot));
@@ -21155,6 +21182,7 @@ function proFicheHTML(c) {
     else if (!k.ok) h += `<div class="adv2" style="color:var(--red)">${k.why}</div>`;
     if (ow === 'npc' && c.k !== 'mon') { [4, maxFl()].filter((q, i, a) => a.indexOf(q) === i).forEach(f => { const d = proDevPlan(c.x, c.y, f); h += `<div class="adv2">Si tu rases et construis ${f} étages : coût ${money(d.cost)} (rachat ${money(d.buy)} + construction ${money(d.build)}), valeur ${money(d.value)}, plus-value nette ${pfSign(d.gain)} (${Math.round(d.margin * 100)} %) après ${d.days} jours de chantier.</div>`; }); }
   }
+  h += '</details>';
   if (c.works) { const w = c.works, pr = clamp((S.day - w.t0) / Math.max(1, w.due - w.t0), 0, 1); h += `<div class="bar"><i style="width:${Math.round(pr * 100)}%"></i></div><small>${w.k === 'new' ? 'Construction' : w.k === 'prog' ? 'Aménagement du programme' : 'Étage supplémentaire'} : livraison dans ${Math.max(0, w.due - S.day)} jours. ${w.k === 'new' ? 'Aucun loyer avant la livraison.' : 'Loyers réduits de 60 % pendant les travaux.'}</small>`; }
   let acts = '';
   if (c.t === 'res') {
@@ -21507,6 +21535,54 @@ function ecoRender(force) {
 }
 el('ecoBox').addEventListener('click', e => { const t = e.target.closest('[data-eco]'); if (t && t.dataset.eco === 'tax') setPtab('fin'); });
 document.querySelectorAll('#panel [data-ptab="city"]').forEach(b => b.addEventListener('click', () => ecoRender(true)));
+// ---- Passe 99 (3, 5) : SÉLECTION LÉGÈRE. Un clic sur un bâtiment : contour + petite étiquette (icône, nom, type, propriétaire, « Ouvrir ») au-dessus du bâtiment ;
+// le détail économique (valeur, loyers, cash-flow, rendement, plus-value, résultat) n'est que dans la fenêtre du bâtiment (« Ouvrir » ou double-clic).
+// Identité : on prend le bâtiment DESSINÉ sous le pointeur (silhouettes SG.bb dans l'ordre de profondeur) et le nom du sprite réellement dessiné (a._spr).
+function pickAt(px, py) {
+  const t = screenToTile(px, py), wx = (px - vx) / z + cam.x, wy = (py - vy) / z + cam.y, B0 = (SG && SG.bb) || [];
+  for (let i = B0.length - 1; i >= 0; i--) {   // du plus en avant au plus en arrière
+    const b = B0[i], a = b[5]; if (!a || a.t === 'road' || wx < b[1] || wx > b[3] || wy < b[2] || wy > b[4]) continue;
+    const f = monMulti(a) ? { x: a.mx, y: a.my, w: a.mw, h: a.mh } : { x: a.x, y: a.y, w: a.w || 1, h: a.h || 1 }, L = iso(f.x, f.y + f.h), Bt = iso(f.x + f.w, f.y + f.h), R = iso(f.x + f.w, f.y);
+    const yb = wx <= Bt.x ? L.y + (wx - L.x) * (Bt.y - L.y) / Math.max(1e-6, Bt.x - L.x) : Bt.y + (wx - Bt.x) * (R.y - Bt.y) / Math.max(1e-6, R.x - Bt.x);
+    if (wy > yb + 1) continue;   // sous l'arête basse de l'emprise : c'est le sol devant, pas le bâtiment
+    if (!inb(a.x, a.y) || anchorOf(rawCell(a.x, a.y)) !== a) continue;   // bâtiment démoli depuis l'image
+    return { x: a.x, y: a.y };
+  }
+  return t;
+}
+const NPC_KIND = { house: 'Maison', res: 'Immeuble de logements', off: 'Immeuble de bureaux', park: 'Parc' };
+function selInfo(c) {   // { ico, n (titre), s (sous-titre), open (fonction) } : titre, icône et description suivent le bâtiment cliqué
+  const ic = k => ICONS[k] ? `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>` : '';
+  if (c.t === 'npc') {
+    if (c.k === 'mon') { const P = PUB[c.m] || PUB[String(c.m).replace(/_\d+$/, '')]; return { ico: ic('bank'), n: P ? P[0] : 'Équipement public', s: (P && P[2] ? P[2] + ' · ' : '') + 'financé par la mairie', open: null, kind: 'mon' }; }
+    const sv = vvSvcName(c), base = NPC_KIND[c.k] || 'Bâtiment', o = ownerOf(c), own = o === 'npc' ? 'la ville' : o === 'me' ? 'à toi' : ownerName(o);
+    const sub = sv ? vvSvcSub(c) : '';
+    return { ico: ic(sv ? (/logements/.test(sub) ? 'res' : 's1') : c.k === 'off' ? 'tech' : 'res'), n: sv || base, s: `${sv ? sub : (c.floors || 1) + ' étage' + ((c.floors || 1) > 1 ? 's' : '')} · propriétaire : ${own}`, open: c.k === 'park' ? null : () => proOpen(c.x, c.y), kind: 'npc' };
+  }
+  const T = TYPES[c.t] || { name: c.t, sub: '' };
+  if (c.t === 'res') return { ico: ic('res'), n: c.bn ? c.bn : 'Logements', s: `${c.floors || 1} étage${(c.floors || 1) > 1 ? 's' : ''} · à toi`, open: () => proOpen(c.x, c.y), kind: 'res' };
+  if (NET_PIECE[c.t]) return { ico: ic(ICON_OF[c.t] || c.t), n: T.name, s: `réseau · entretien ${money(T.upkeep * DM)}/mois`, open: null, kind: 'net' };
+  return { ico: ic(ICON_OF[c.t] || c.t), n: T.name, s: (T.sub || '') + (c.conn === false ? ' · non relié à une route' : ''), open: () => openBuilding(c.x, c.y), kind: 'bld' };
+}
+let selTagC = null;
+function selOpen(c) { const I = selInfo(c); selTagHide(); if (I.open) I.open(); else selTagShow(c); }
+function selTagShow(c) {
+  const b = el('selTag'); if (!b || !c) return; const I = selInfo(c); selTagC = { x: c.x, y: c.y, a: c }; selected = { x: c.x, y: c.y };
+  b.innerHTML = `<span class="sti">${I.ico}</span><span class="stt"><b>${I.n}</b><small>${I.s}</small></span>${I.open ? '<button class="btn stopen" data-st="open">Ouvrir</button>' : ''}<button class="stx" data-st="x" aria-label="Désélectionner" title="Désélectionner (Échap)">×</button>`;
+  b.dataset.kind = I.kind; b.hidden = false; selTagPos();
+}
+function selTagHide() { const b = el('selTag'); selTagC = null; if (b && !b.hidden) b.hidden = true; }
+function selTagPos() {
+  const b = el('selTag'); if (!b || b.hidden || !selTagC) return; const a = selTagC.a;
+  if (!S || !inb(a.x, a.y) || anchorOf(rawCell(a.x, a.y)) !== a || !(el('bview').hidden && el('pfiche').hidden)) { selTagHide(); return; }   // démoli, ou fenêtre ouverte
+  const f = monMulti(a) ? { x: a.mx, y: a.my, w: a.mw, h: a.mh } : { x: a.x, y: a.y, w: a.w || 1, h: a.h || 1 }, q = iso(f.x + f.w / 2, f.y + f.h / 2), top = Number.isFinite(a._top) ? Math.min(a._top, q.y) : q.y - 40;
+  const sx = (q.x - cam.x) * z + vx, sy = (top - cam.y) * z + vy, w = b.offsetWidth, h = b.offsetHeight, hud = el('hud').getBoundingClientRect().bottom, bar = el('bar').getBoundingClientRect().top;
+  const x = clamp(sx - w / 2, 8, innerWidth - w - 8), y = clamp(sy - h - 10, hud + 6, Math.max(hud + 6, bar - h - 8));
+  b.style.left = Math.round(x) + 'px'; b.style.top = Math.round(y) + 'px';
+}
+el('selTag').addEventListener('click', e => { const t = e.target.closest('[data-st]'); if (!t || !selTagC) return; if (t.dataset.st === 'open') selOpen(selTagC.a); else { selTagHide(); selected = null; } });
+['pointerdown', 'pointerup', 'wheel'].forEach(t => el('selTag').addEventListener(t, ev => ev.stopPropagation(), { passive: true }));
+setInterval(() => { try { selTagPos(); } catch (e) { /* facultatif */ } }, 100);
 })();
 </script>
 </body>
