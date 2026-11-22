@@ -39,7 +39,7 @@ exports.run = async (t, L) => {
       o.dup = W.cartelOn(g); for (let d = 0; d < 70; d++) W.step(); o.end = W.pos.scOn(g);
       return o;
     });
-    t.check('prospérité : > 1 avec les 5 IA, une part due au revenu qu\'elles versent', m.px > 1.02 && m.fr > 0.02 && m.riv > 0, `×${m.px.toFixed(3)}, part des autres ${(100 * m.fr).toFixed(1)} %`);
+    t.check('prospérité : > 1 avec les 5 IA, une part due au revenu qu\'elles versent', m.px > 1 && m.fr > 0.0005 && m.riv > 0   /* lot 3 : budget fermé, le revenu versé par les IA entre au prorata réel de leur chiffre d'affaires */, `×${m.px.toFixed(3)}, part des autres ${(100 * m.fr).toFixed(1)} %`);
     t.check('marché élargi par l\'offre des concurrents (borné)', m.mk > 1.05 && m.mk <= 1.6001 && Math.abs(m.mk0 - 1) < 1e-9, `×${m.mk.toFixed(3)}`);
     t.check('services : les entreprises sont des clientes (B2B > 1, au lieu de −7 % par rival)', m.b2b > 1.1, `×${m.b2b.toFixed(3)}`);
     t.check('part des services prise par un rival bornée à 6 %', m.rsv <= 0.0601, (100 * m.rsv).toFixed(2) + ' %');

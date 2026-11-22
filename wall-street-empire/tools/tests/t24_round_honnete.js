@@ -20,7 +20,7 @@ exports.run = async (t, L) => {
   const c2 = await pg.evaluate(() => {
     const W = window.WSE, S = W.S; const hap = tx => { S.tax = tx; S.taxEff = null; T.stepN(3); return S.stats.happy; };
     const lo = hap(0.05), hi = hap(0.45);
-    const f = x => { S.taxEff = x; return W.taxSvc(); }, n = (S.taxEff = null, W.taxSvc()), a = f(0.05), b = f(0.25), c = f(0.45), d = f(0.8), z = f(50);
+    const f = x => { S.taxEff = x; return W.taxSvc(); }, n = (S.taxEff = null, W.taxSvc()), a = f(0.05), b = f(W.lib.USM.corpTax), c = f(0.45)   /* lot 1 : référence = taux fixe américain */, d = f(0.8), z = f(50);
     return { lo, hi, n, a, b, c, d, z, d25: W.taxDrag(0.25), d45: W.taxDrag(0.45) };
   });
   t.check('maximiser l\'impôt n\'achète pas l\'humeur : écart 45 % vs 5 % ≤ 4 points (avant : 24)', c2.hi - c2.lo <= 4, JSON.stringify(c2));

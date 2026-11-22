@@ -46,7 +46,7 @@ exports.run = async (t, L) => {
     t.range('croissance : quelques milliers d\'habitants à 6 mois (jour 180)', g.at[180], 1500, 15000, ' hab.', 0);
     t.range('croissance : des dizaines de milliers d\'habitants à 2 ans (jour 720)', g.at[720], 10000, 150000, ' hab.', 0);
     t.check('croissance continue (jour 30 < 180 < 360 < 720), aucune valeur non finie, 0 erreur', g.at[30] < g.at[180] && g.at[180] < g.at[360] && g.at[360] < g.at[720] && !g.bad.length && pg.errs.length === 0, g.bad.join(' ') + pg.errs.slice(0, 2).join(' ; '));
-    const sv = await pg.evaluate(() => { const W = window.WSE, S = W.S; W.save(); let nb = 0; S.grid.forEach(c => { if (c && c.t === 'npc') nb++; }); return { st: S.opt.start, hk: S.cg.hk, pop: S.pop, day: S.day, nb, cap: Math.round(S.stats.cap) }; });
+    const sv = await pg.evaluate(() => { const W = window.WSE, S = W.S; W.save(); let nb = 0; S.grid.forEach(c => { if (c && c.t === 'npc') nb++; }); W.refreshStats(); return { st: S.opt.start, hk: S.cg.hk, pop: S.pop, day: S.day, nb, cap: Math.round(S.stats.cap) }; });   // capacité relevée après la croissance du dernier jour (comme au rechargement)
     await pg.close();
     const p2 = await ctx.newPage(); p2.errs = []; p2.on('pageerror', e => p2.errs.push(e.message)); await p2.goto(L.URL); await p2.waitForTimeout(800);
     const re = await p2.evaluate(() => { const W = window.WSE, S = W.S; W.setSpeed(0); let nb = 0; S.grid.forEach(c => { if (c && c.t === 'npc') nb++; }); const o = { st: S.opt && S.opt.start, hk: S.cg && S.cg.hk, pop: S.pop, day: S.day, nb }; W.refreshStats(); o.cap = Math.round(S.stats.cap); const p0 = S.pop; for (let i = 0; i < 20; i++) W.step(); o.after = S.pop - p0; return o; });

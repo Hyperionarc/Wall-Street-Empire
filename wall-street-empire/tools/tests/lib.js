@@ -117,12 +117,12 @@ async function isoExtractor1(key, dep, rank, seed) {
     try { W.autoConnect(pick[1] % N, pick[1] / N | 0); } catch (e) {}
     for (let i = 0; i < 12; i++) { for (let y = 14; y < 44; y++) for (let x = 14; x < 44; x++) if (!W.footprintError(x, y, 'res') && W.place(x, y, 'res')) { y = 99; break; } }
     const pre = () => { S.macro.phase = Math.PI; S.macro.boom = 0; }; for (let i = 0; i < 30; i++) { pre(); W.step(); }
-    const A = { pRev: 0, wag: 0, upk: 0, tr: 0, out: 0 }, D = 40;
-    for (let i = 0; i < D; i++) { pre(); W.step(); A.pRev += c.pRev || 0; A.wag += c.wages || 0; A.upk += c.upk || 0; A.tr += c.transport || 0; A.out += c.out || 0; }
+    const A = { pRev: 0, wag: 0, upk: 0, tr: 0, out: 0, sm: 0, px: 0 }, D = 40, ext = W.TYPES[key].ext, smF = () => (W.lib && W.lib.season && W.CROPS[ext]) ? Math.max(0.05, W.lib.season(ext)) : 1;   // lot 4b : récolte saisonnière, CA désaisonnalisé (moyenne annuelle)
+    for (let i = 0; i < D; i++) { pre(); W.step(); const sm = smF(); A.pRev += (c.pRev || 0) / sm; A.wag += c.wages || 0; A.upk += c.upk || 0; A.tr += c.transport || 0; A.out += (c.out || 0) / sm; A.sm += sm; A.px += S.price[ext] / (W.GOODS[ext].base * (S.cpi || 1)); }
     Object.keys(A).forEach(k => A[k] /= D); A.cost = fcap || W.TYPES[key].cost; A.A = c.w * c.h; return A;
   }, { key, dep, rank, seed });
   await pg.context().close(); if (!r) return { key, rank, none: true };
-  const eb = r.pRev - r.wag - r.upk - r.tr; return { key, rank, eb: eb / r.pRev, payback: r.cost / Math.max(1, eb * 360), A: r.A };
+  const eb = r.pRev - r.wag - r.upk - r.tr; return { key, rank, eb: eb / r.pRev, payback: r.cost / Math.max(1, eb * 360), A: r.A, px: r.px, sm: r.sm };
 }
 // Exécute des tâches asynchrones par lots parallèles
 async function pool(items, n, fn) { const out = new Array(items.length); let i = 0; await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) { const k = i++; out[k] = await fn(items[k]); } })); return out; }

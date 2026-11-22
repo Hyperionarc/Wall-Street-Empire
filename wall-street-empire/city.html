@@ -2395,6 +2395,7 @@ function rnd() { let a = (S ? (S.rs = ((S.rs == null ? _RS0 : S.rs) + 0x6D2B79F5
 //  - imp : parité d'importation = prix mondial (référence × inflation × chocs mondiaux) × (1 + droits de douane) × (1 + fret) : au-dessus, l'import comble la pénurie (plafond naturel) ;
 //  - fl / cap : garde-fous techniques (anti-explosion numérique), 0,05 et 20 × la référence, comptés par bnd().
 // Le plancher naturel vient des vendeurs : liquidation d'un stock dormant, producteurs PNJ qui ferment quand le cours passe sous leur coût, usines déficitaires mises à l'arrêt par leur propriétaire.
+const MKT_EPS = 2.5;   // élasticité de la réponse du cours à l'excès d'offre (mesurée : ratio 0,5 → cours ×0,76) ; la demande réagit en plus au prix (élasticités EL_RAW)
 const MKT_FRET = USM.fret0;   // fret d'importation de la ville (port public) : la parité vaut ×1,30 la référence mondiale, comme l'ancien plafond de pénurie
 function marketBounds(g) {
   const G = GOODS[g], P = S.price; let pass = 1;
@@ -2739,7 +2740,7 @@ function rivPrice(r) {
     if (RV.cartel && RV.cartel.cls === cls) f('entente', RV.cartel.rid === r.id ? RV.cartel.m : 1 + (RV.cartel.m - 1) / 2);
     const war = st.k === 'war' && st.cls === cls, cb = r.cb && r.cb[cls], fl = cb > 0 && r.fab && r.fab.length ? b * (cb + (war ? -0.04 : 0.02)) : 0;   // « ne jamais vendre sous le coût » (politique du COO de Capitalism Lab), sauf guerre des prix : jusqu'à 4 % sous le coût
     if (fl > b * t) why.push(['coût', fl / (b * t)]);
-    const liq = r.sm[cls] > 0.005 && mine < 0.8 * r.sm[cls], tgt = bnd('B52', Math.max(b * t, liq ? fl * 0.85 : fl), b * 0.4, b * 2.5);   // lot 5 : un rival qui perd ses clients liquide jusqu'à 15 % sous son coût, comme le joueur peut le faire ; bornes élargies (garde-fou) r.px[cls] = +(r.px[cls] + clamp(tgt - r.px[cls], -0.03 * b, 0.015 * b)).toFixed(4);
+    const liq = cr < 0.04 && r.sm[cls] > 0.005 && mine < 0.8 * r.sm[cls], tgt = bnd('B52', Math.max(b * t, liq ? fl * 0.85 : fl), b * 0.4, b * 2.5);   // lot 5 : un rival à court de trésorerie qui perd ses clients liquide jusqu'à 15 % sous son coût (vente forcée), comme le joueur peut le faire ; bornes élargies (garde-fou) r.px[cls] = +(r.px[cls] + clamp(tgt - r.px[cls], -0.03 * b, 0.015 * b)).toFixed(4);
     // journal explicatif : un mouvement de prix d'au moins 6 % depuis le dernier relevé est expliqué par son facteur principal (au plus une fois par mois et par rival)
     r.pxL = r.pxL || {}; if (r.pxL[cls] == null) r.pxL[cls] = r.px[cls];
     const dv = r.px[cls] / r.pxL[cls] - 1;
@@ -3424,7 +3425,19 @@ const COO_GAP = { norm: 0, agr: 10, tagr: 20 }, COO_UP = 0.01, COO_STEP = 0.02, 
 // d'autant plus vite que leur compétence (paramètre de partie) est élevée ; elle ne descend jamais sous la qualité de départ de la ville. Champ optionnel S.locQ (sauvegarde clé lq).
 const LQ_HL = 540, LQ_K = 0.6;
 const locQ = cls => (S && S.locQ && S.locQ[cls] != null) ? S.locQ[cls] : (CITY_Q[cls] || 50);
-const locAttr = cls => 0.5 * clamp(Math.pow((50 + SCORE_W[cls].quality * (locQ(cls) - (CITY_Q[cls] || 50))) / 50, 1.6), 0.5, 2);   // même courbe que attractiveness : (note / 50)^1,6
+/* Lot 6 (économie libérale) : sensibilité des clients à l'écart de note (prix relatif, réputation, qualité) par classe : le basique se joue sur le prix (α = 2,2),
+   le courant comme avant (1,6), le luxe sur la marque plus que sur le prix (0,6). Même exposant pour le partage entre magasins (c.pw) et entre produits (attractiveness). */
+const ALPHA = { basic: 2.2, std: 1.6, lux: 0.6, estate: 1.6 }, alphaOf = cls => ALPHA[cls] || 1.6;
+// Bonus de gamme : chaque produit de ta marque dans une catégorie élargit la demande (1 + 0,17 ln(1 + n), sans plafond de 4 produits), dilué par la qualité moyenne pondérée par le CA
+// (un produit bas de gamme qui fait beaucoup de chiffre abaisse l'image de toute la gamme).
+const BRAND_K = 0.17;
+function brandBoost(cls, mine) {
+  const n = mine.length; if (!n) return { b: 1, q: 1, n: 0 }; let w = 0, a = 0, u = 0;
+  mine.forEach(pk => { const ps = S.prod[pk], q = ps.rt == null ? QTIER[ps.q].q : ps.rt, r = Math.max(0, ps.rm || 0) + 1e-6; w += r; a += r * q; u += q; });
+  const qd = bnd('B27', (a / w) / Math.max(1e-6, u / n), 0.3, 3);
+  return { b: 1 + BRAND_K * Math.log(1 + n) * qd, q: qd, n };
+}
+const locAttr = cls => 0.5 * bnd('B18', Math.pow((50 + SCORE_W[cls].quality * (locQ(cls) - (CITY_Q[cls] || 50))) / 50, alphaOf(cls)), 0.2, 5);   // même courbe que attractiveness : (note / 50)^α
 function stepLocQ(Dtot) {
   const L = S.locQ || (S.locQ = {}), comp = optV('local', OPT_LOC);
   ['basic', 'std', 'lux'].forEach(cls => { const q0 = CITY_Q[cls], cur = L[cls] == null ? q0 : L[cls], D = Math.max(1e-6, (Dtot && Dtot[cls]) || 0); let a = 0, w = 0;
@@ -3484,7 +3497,7 @@ function stepAdoption() {
 function attractiveness(pk, ps0) {
   const ps = ps0 || S.prod[pk], pr = PRODUCTS[pk], happy = (S.stats && S.stats.happy != null ? S.stats.happy : 60);
   const wealth = 1 + (ps.q - 1) * (happy - 60) / 250;   // une population heureuse préfère le haut de gamme
-  return Math.pow(productScore(pk, ps).overall / 50, 1.6) * brandVolM(pk, ps) * 1.6 * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth * (0.2 + 0.8 * adoptOf(ps)) * typeW(pk) * (ps.obs == null ? 1 : ps.obs) * outMul(pk) * mkComp(pk);
+  return Math.pow(productScore(pk, ps).overall / 50, alphaOf(pr.cls)) * brandVolM(pk, ps) * 1.6 * (pr.cls === 'estate' ? 1 : PACK[ps.pack].attr) * wealth * (0.2 + 0.8 * adoptOf(ps)) * typeW(pk) * (ps.obs == null ? 1 : ps.obs) * outMul(pk) * mkComp(pk);
 }
 // --- Passe 10 : logique du modèle produit
 // Pharmacie = catégorie à part (ni première nécessité ni luxe) : accès contrôlé (AMM, ordonnance), très peu sensible au prix jusqu'à un seuil, forte part de marque et de qualité (princeps face aux copies).
@@ -7779,7 +7792,7 @@ function step() {
     c._lcI = Object.assign({}, c._lc);
     c._left = c._cap; c._sold = 0; c._rev = 0; c._cogs = 0; c._cl = 0; c._imp = 0; c.sales = {}; } });
   let pfMean = 0, pfW = 0; buildings.forEach(c => { if (TYPES[c.t].ret) { pfMean += (c._cap || 1) * pfOf(c); pfW += c._cap || 1; } }); pfMean = pfW > 0 ? pfMean / pfW : 1;   // le prix de rayon agit une seule fois sur la demande totale (élasticité), ici seul l'écart relatif entre magasins compte
-  buildings.forEach(c => { if (TYPES[c.t].ret) { c.pw = Math.pow((1 + 0.002 * (c.rt || 0)) / (pfOf(c) / pfMean), 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (c.ci = custIndex(c).idx, 0.6 + 0.9 * c.ci); const st = brandStrat(); c.aw = clamp((c.aw || 0) + (adTarget(c) * (st === 'corp' ? 1.15 : st === 'unique' ? 0.9 : 1) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c);
+  buildings.forEach(c => { if (TYPES[c.t].ret) { c._pwr = (1 + 0.002 * (c.rt || 0)) / (pfOf(c) / pfMean); c.pw = Math.pow(c._pwr, 1.6) * (1 + 0.06 * (c.qual || 0)) * deptMult(c).sell * TM.attract * (c.ci = custIndex(c).idx, 0.6 + 0.9 * c.ci); const st = brandStrat(); c.aw = clamp((c.aw || 0) + (adTarget(c) * (st === 'corp' ? 1.15 : st === 'unique' ? 0.9 : 1) - (c.aw || 0)) * 0.07, 0, 100); c.adF = adFactor(c);
     const rtT = clamp(0.5 * 100 * clamp(adRt(c) / 1.2, 0, 1) + 0.5 * (prodQualityScore() + 8 * (c.qual || 0)), 0, 100) * (st === 'unique' ? 1.15 : 1);
     c.rt = clamp((c.rt == null ? 30 : c.rt) + (rtT - (c.rt == null ? 30 : c.rt)) * (adOf(c).press > 0 ? 0.045 : 0.03), 0, 100);
     c.loy = clamp((c.loy == null ? 20 : c.loy) + ((0.5 * c.rt + 0.3 * 100 * clamp(fillOf(c), 0, 1) + 0.2 * clamp(120 - 100 * pfOf(c), 0, 100)) - (c.loy == null ? 20 : c.loy)) * 0.012, 0, 100);
@@ -7808,8 +7821,8 @@ function step() {
     let pbar = 1; if (cls === 'std' || cls === 'lux') { let wq = 0, wp = 0; items.forEach(it => { const w = it.attr / totalAttr; wq += w; wp += w * it.price / Math.max(1e-9, S.price[cls]); });
       if (rivSh > 0) { let ra = 0, rp = 0; (S.rivals || []).forEach(r => { const e = r.sub ? 0 : rivEff(r, cls); ra += e; rp += e * ((r.px && r.px[cls]) || 1); }); wq += rivSh; wp += rivSh * (ra > 0 ? rp / ra : 1); }
       pbar = wq > 0 ? wp / wq : 1; }
-    const pfEl = sh0.length ? bnd('B19', elF(cls, pfAvg, pfdAvg, true), 0.2, 3) : 1, boostN = 1 + 0.12 * Math.min(4, mine.length), Dc = dem[cls] * boostN * (cls === 'std' || cls === 'lux' ? 1 / Math.max(1e-6, pbar) : pfEl) * mkC;   // passe 68 : les rayons et marques des concurrents élargissent le marché (rivMkt)
-    S._dw.cls[cls] = { Dc, pfEl, pbar, boost: boostN, pfAvg, nProd: mine.length, rivShare: rivSh, rivCl: RIVAL > 0 ? rivCannib() * RIVAL / Math.max(1e-6, P0 + rivCannib() * RIVAL) : 0, nShops: sh0.length, mkC };   // rivCl : poids des rivaux sur TA clientèle (pouvoir de marché)
+    const pfEl = sh0.length ? bnd('B19', elF(cls, pfAvg, pfdAvg, true), 0.2, 3) : 1, BB = brandBoost(cls, mine), boostN = BB.b, Dc = dem[cls] * boostN * (cls === 'std' || cls === 'lux' ? 1 / Math.max(1e-6, pbar) : pfEl) * mkC;   // passe 68 : les rayons et marques des concurrents élargissent le marché (rivMkt)
+    S._dw.cls[cls] = { Dc, pfEl, pbar, boost: boostN, bq: BB.q, pfAvg, nProd: mine.length, rivShare: rivSh, rivCl: RIVAL > 0 ? rivCannib() * RIVAL / Math.max(1e-6, P0 + rivCannib() * RIVAL) : 0, nShops: sh0.length, mkC };   // rivCl : poids des rivaux sur TA clientèle (pouvoir de marché)
     Dtot[cls] = Dc; rivalPart[cls] = Dc * rivSh;
     items.sort((a, b) => (a.k === 'g' ? 1 : 0) - (b.k === 'g' ? 1 : 0));   // tes produits d'abord, les marchandises du marché local ensuite
     buildings.forEach(c => { const R = TYPES[c.t].ret; if (!R || R.sells.indexOf(cls) < 0 || !c._lc) return; let s = 0; items.forEach(it => { if (shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)) s += it.attr; }); (c._sa || (c._sa = {}))[cls] = s || 1; (c._na || (c._na = {}))[cls] = items.filter(it => shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)).length; });
@@ -7824,11 +7837,11 @@ function step() {
       if (!gen) S._dw.pd[it.k] = need;
       let pcap = 0; const pool = {}; if (gen) Object.keys(SPX).forEach(f => { pool[f] = need * specShare(f, cls); });   // passe 46 : un spécialiste ne vend du panier de classe que la part de sa famille
       for (let pass = 0; pass < 2 && need > 1e-6; pass++) {
-        const ws = car.reduce((a, c) => a + ((c._lc[cls] || 0) > 0.01 ? c._cap * c.adF * c.pw * specW(c) : 0), 0); if (ws <= 0) break;
+        const pwK = c => c.pw * Math.pow(Math.max(1e-6, c._pwr || 1), alphaOf(cls) - 1.6), ws = car.reduce((a, c) => a + ((c._lc[cls] || 0) > 0.01 ? c._cap * c.adF * pwK(c) * specW(c) : 0), 0);   // lot 6 : exposant prix/réputation par classe if (ws <= 0) break;
         const n0 = need;
         car.forEach(c => {
           if ((c._lc[cls] || 0) <= 0.01) return;
-          const share = n0 * c._cap * c.adF * c.pw * specW(c) / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * shEl(elF(cls, Math.max(0.4, pkOf(c, key)), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1, nec, !gen && isPh(it.k)), bsh) - (c.sales[key] || 0); if (pass === 0 && !gen) pcap += Math.max(0, Math.min(capItem, c._lcI[cls] || 0)); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem)); const sD = gen ? specOf(c) : null; if (sD) q = Math.min(q, Math.max(0, pool[sD.fam] || 0));
+          const share = n0 * c._cap * c.adF * pwK(c) * specW(c) / ws, capItem = (c._lcI[cls] || 0) * (it.attr / ((c._sa && c._sa[cls]) || 1)) * shEl(elF(cls, Math.max(0.4, pkOf(c, key)), c.pkd[key].d, ((c._na && c._na[cls]) || 1) <= 1, nec, !gen && isPh(it.k)), bsh) - (c.sales[key] || 0); if (pass === 0 && !gen) pcap += Math.max(0, Math.min(capItem, c._lcI[cls] || 0)); let q = Math.max(0, Math.min(share, c._lc[cls] || 0, capItem)); const sD = gen ? specOf(c) : null; if (sD) q = Math.min(q, Math.max(0, pool[sD.fam] || 0));
           const fs = Math.min(q, stockLeft), rest = q - fs;
           const sm = (c.src && c.src[cls]) || 'auto'; if (rest > 1e-9) { if (gen && c.imp !== false && sm !== 'local') { c._imp += rest; importUnits += rest; const so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null; const ic = so ? rest * so.total / deptMult(c).buy * TM.buy * modOf('buy') : rest * it.price * PNJ_MK / deptMult(c).buy * TM.buy * modOf('buy'); importCost += ic; c.inCost = (c.inCost || 0) + ic; } else q = fs; }
           if (!gen && q > fs) q = fs;   // audit (stock négatif du dentifrice) : un reliquat sous 1e-9 était compté vendu sans stock ; un produit de marque ne se vend que sur son stock
@@ -7992,7 +8005,7 @@ function step() {
     const mp = mpGood(g, OWN[g], want[g]); (S._mp || (S._mp = {}))[g] = mp;   // passe 46 : pouvoir de marché (1 sur un marché concurrentiel ou si tu ne produis pas ce bien)
     const Pc = base * mp.m, ceil = Math.max(Pc, mb.imp);
     const xs = (S._xs && S._xs[g]) || 0, fgn = Math.max(4000, (LOCAL_D[g] || 100) * 4 * (popE() / 10000) * 0.1), xpar = mb.wld * EXP_BASE / (1 + EXP_CONG * xs / fgn);   // parité d'exportation : ce que paie l'étranger, nette du fret et de la congestion de ses marchés
-    const tgt = sMax(sMin(ratio >= 1 ? Pc + (ceil - Pc) * Math.tanh(0.9 * (ratio - 1)) : Pc * Math.pow(Math.max(1e-3, ratio), 1 / 1.2), mb.imp, 10), xpar, 10);   // l'import plafonne, l'export (liquidation à l'étranger) soutient : bande naturelle d'une économie ouverte
+    const tgt = sMax(sMin(ratio >= 1 ? Pc + (ceil - Pc) * Math.tanh(0.9 * (ratio - 1)) : Pc * Math.pow(Math.max(1e-3, ratio), 1 / MKT_EPS), mb.imp, 10), xpar, 10);   // l'import plafonne, l'export (liquidation à l'étranger) soutient : bande naturelle d'une économie ouverte
     const p0 = P[g]; let nx = p0 + (tgt - p0) * 0.15;
     nx = bnd('B44', nx, p0 * (1 - TR_DCAP), p0 * (1 + TR_DCAP));   // amortisseur : ±10 %/j au plus (garde-fou)
     P[g] = bnd('B38', nx, mb.fl, mb.cap);
@@ -9447,7 +9460,7 @@ function demandWhyCls(cls) {   // lot 3 : cascade du budget fermé des ménages 
     + whyRow(cls === 'lux' ? 'Part du luxe (Engel)' : 'Part du courant (Engel)', 'plus le revenu réel est élevé, plus la part du luxe monte', null, Math.round(100 * (cls === 'lux' ? B.wl : 1 - B.wl)) + ' %')
     + whyRow('Prix réellement payés', `panier à ${f1(pT[cls] || 0)} $ TTC · prix moyen des offres ×${(c.pbar || 1).toFixed(2).replace('.', ',')} : un produit cher consomme son vrai prix`, 1 / Math.max(1e-6, c.pbar || 1) - 1);
   else h += whyRow('Logement', `besoin par habitant × revenu réel × coût du crédit · bonheur ${Math.round(W.happy)} / 100`, B.b - 1);
-  h += whyRow('Produits lancés', `${c.nProd} produit(s) de ta marque dans cette catégorie`, (c.boost || 1) - 1);
+  h += whyRow('Produits lancés', `${c.nProd} produit(s) de ta marque dans cette catégorie (+17 % × ln(1 + n), sans plafond) · qualité de la gamme pondérée par le CA ×${(c.bq || 1).toFixed(2).replace('.', ',')}`, (c.boost || 1) - 1);
   if (cls === 'basic' || cls === 'estate') h += whyRow('Prix en rayon', c.nShops ? `ton prix moyen ×${c.pfAvg.toFixed(2).replace('.', ',')} de la référence (élasticité)` : 'aucun magasin ne vend cette catégorie', c.pfEl - 1);
   h += whyRow('Marché élargi par les concurrents', 'leurs rayons et leurs marques amènent de nouveaux clients', (c.mkC || 1) - 1)
     + whyRow('Concurrence', `les rivaux captent ${Math.round(c.rivShare * 100)} % des ventes de la catégorie`, -c.rivShare, '−' + Math.round(c.rivShare * 100) + ' %')
@@ -21459,7 +21472,7 @@ Object.assign(window.WSE, { start: { of: startOf, hk: hkNow, K: { START_K, START
 Object.assign(window.WSE, { levelMult, pal: { DEF: PAL_DEF, POP: PAL_POP, popReq: (k, l) => palPopReq(PAL_DEF[k], l), DAYS: PAL_DAYS, DIA_D: PAL_DIA_D, MAINT: PAL_MAINT, ROUND_ACC: PAL_ROUND_ACC, of: palOf, reqs: palReqs, start: palStart, accel: palAccel, accDays: palAccDays, diaFor: palDiaFor, step: palStep, prog: palProg, left: palLeft, slots: palSlots, active: palActive, card: palCard, list: palListHTML, migrate: palMigrate, upk: palUpk, drawn: () => palBadgeN }, ent: { S: entS, san: entSan, prem: entPrem, dia: entDia, on: premOn }, coo: { LV: COO_LV, BUF: COO_BUF, set: cooSet, on: cooOn, sal: cooSal, pay: cooPay, spend: cooSpend, step: cooStep, review: cooReview, decide: cooDecide, opts: cooOpts, score: cooScoreOf, apply: cooApply, card: cooCardHTML, ins: cooIns }, scm: { S: scmS, san: scmSan, step: scmStep, score: scmScore, BADGES: SCM_BADGES, award: scmAward, rivals: scmRivals, rank: scmRankHTML, card: scmCardHTML }, p74Render, bestOffer, offerScore, supOffer, buyerQw, setPanel, setPtab });   // passe 74 : paliers, premium simulé, COO, maîtrise (tools/tests/t74, t75)
 Object.assign(window.WSE, { farmx: { FXV, FX_CAP, ask: a => buyoutCost(a), FARM_MAX, FARM_COST, FCLEAR, WOOD_SELL, HA_CASE, costs: (t, w, h) => farmCosts(TYPES[t], w, h), jobsK: farmJobsK, plan: (c, n, m, b) => farmPlanRaw(c, n == null ? 1 : n, m || 'free', b), exec: (c, n, m, o) => farmGrowExec(c, n, m, o), qopen: (c, m) => farmQOpen(c, m), qok: () => farmQOk(), hl: () => FARM_HL, setRows: v => { fgN = v; }, FARM_CORPS_K, FARM_CELL_K, FARM_ANNEX, areaK: farmAreaK, costK: farmCostK, costKA: (t, A) => farmCostKA(TYPES[t], A), quote: (c, o) => farmGrowQuote(c, o), grow: (c, o) => farmGrow(c, o), act: c => farmGrowAct(c), econ: c => farmEcon(c), html: c => farmSizeHTML(c), ext: a => farmExt(a), probe: (a, n, zz) => farmProbe(a, n, zz), npcGrow: o => growNpcFarm(o) } });   // passe 87 : surface variable des fermes (t87)
 Object.assign(window.WSE, { farm3: { CROP_AREA, CROP_UPK, cropAreaK, plan: c => farmPlan(c), html: c => farmPlanHTML(c), fertBuy: (q, w) => fertBuy(q, w), cooFarm: () => cooFarm(), calNext: g => calNext(g), fpMigrate: (g, d, n) => fpMigrate(g, d, n), FARM_ZONE3 } });   // passe 85 : cultures 3×3, bloc « ce que tu optimises » (t86)
-Object.assign(window.WSE, { lib: { USM: US_MACRO_CONFIG, bnd, check: libCheck, PX_LO, PX_HI, why: demandWhyCls, whyRaw: demandWhyRaw, mb: marketBounds, hh: () => prosp(), get B() { return S._bnd || {}; } } });   // économie libérale (t97, tools/bnd_report.js)
+Object.assign(window.WSE, { lib: { USM: US_MACRO_CONFIG, bnd, check: libCheck, PX_LO, PX_HI, why: demandWhyCls, whyRaw: demandWhyRaw, mb: marketBounds, hh: () => prosp(), season: seasonMult, perish: stepPerish, PERISH, get B() { return S._bnd || {}; } } });   // économie libérale (t97, tools/bnd_report.js)
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
 Object.assign(window.WSE, { imgAudit: { guide: k => !!GUIDEHD[k], hero: k => !!PRODHD[k], photo: k => GUIDEHD[k] || null, productSVG0, compIcon, compIconVec } });   // passe 59 : audit des images de produits (tools/audit_produits.js, t59)
 Object.assign(window.WSE, { setGuidePhoto: (k, src) => { GUIDEHD[k] = src; Object.keys(psvgCache).forEach(c => { if (c.split('|')[0] === k) delete psvgCache[c]; }); if (typeof renderGuide === 'function') renderGuide(true); }, cine: { show: (pk, why) => cineShow(pk, why || 'manuel', true), close: cineClose, get on() { return CINE.on; }, state: () => ({ on: CINE.on, pk: CINE.pk, hero: CINE.hero, frames: CINE.frames, t: CINE.last ? CINE.last.t : 0, q: CINE.q.slice(), shown: CINE.shown, opt: cineOpt(), manual: CINE.manual }), setOpt: cineSetOpt, opt: cineOpt, setHero: setProductHero, heroOf: pk => !!cineHeroOf(pk), watch: cineWatch, facts: cineFacts, setTest: v => { CINE.test = !!v; }, reset: () => { CINE.seen = {}; CINE.snap = null; CINE.q.length = 0; } } });
