@@ -5274,7 +5274,9 @@ function worthOf(ev) { return S.cash + ev.value + (S.capAdj || 0) + bkEquity() +
 let STAFF = 1;
 const sectWage = c => { const pr = c.prod && PRODUCTS[c.prod]; return SECT_WAGE[c.t] || (pr && pr.pharma ? PH_W : 1); };
 const WAGE = [{ n: 'Bas', m: 0.8, attr: 0.85, prod: 0.93 }, { n: 'Normal', m: 1, attr: 1, prod: 1 }, { n: 'Élevé', m: 1.35, attr: 1.12, prod: 1.08 }];
-const wageMkt = () => clamp(1 + 1.5 * (0.125 - ((S && S.stats && S.stats.unemp != null) ? S.stats.unemp : 0.125)), 0.8, 1.4);   // chômage bas = salaires plus chers
+const wageTgt = u => 1 + 1.5 * (0.125 - u);   // tension du marché du travail : chômage bas = salaires plus chers
+// Lot 2 (économie libérale) : le salaire de marché suit la tension avec inertie (moyenne mobile de 45 jours, S.macro.wm, champ facultatif) ; garde-fou technique 0,5-2,5 (compté).
+const wageMkt = () => { const u = (S && S.stats && S.stats.unemp != null) ? S.stats.unemp : 0.125, m = S && S.macro; return bnd('B61', m && m.wm > 0 ? m.wm : wageTgt(u), 0.5, 2.5); };
 /* ===== Passe 68 : économie à somme positive (docs/PRINCIPE_JEU_POSITIF.md) =====
    Multiplicateur de prospérité : la consommation par habitant suit le revenu créé dans la ville. Chaque entreprise (toi et chaque IA) verse des salaires, paie ses
    sous-traitants locaux et distribue des dividendes : une part de son chiffre d'affaires redevient du pouvoir d'achat local, et une économie urbaine plus grosse paie
@@ -6793,7 +6795,8 @@ const unitsBase = c => ((FLEVEL[c.t] || c.t === 'foundry') ? FAC_U * powerMult()
 const unitsOf = c => unitsBase(c) * (PLAN_DIM[c.t] ? planMk(c) : 1);
 const modOf = k => { let v = 1; (S && S.mods || []).forEach(x => { if (x.k === k && x.until >= S.day) v *= x.v; }); return v; };
 const actOf = c => FLEVEL[c.t] ? clamp(c._actE == null ? (c.prod ? 1 : 0) : c._actE, 0, 1) : 1;   // activité lissée d'une usine (0 = à l'arrêt)
-const actF = c => FLEVEL[c.t] ? 0.25 + 0.75 * actOf(c) : 1;   // l'effectif d'une usine suit son activité : une usine vide n'emploie que 25 % de ses postes (gardiennage, maintenance, encadrement)
+const ACT_MIN = 0.08;   // lot 2 : une usine à l'arrêt garde une équipe de maintenance (8 % des postes) ; avant 25 %
+const actF = c => FLEVEL[c.t] ? ACT_MIN + (1 - ACT_MIN) * actOf(c) : 1;   // l'effectif d'une usine suit son activité
 const jobsOf = c => TYPES[c.t].jobs * farmJobsK(c) * levelMult(c) * crewOf(c) * actF(c) * planJobs(c) * (c.cr && c.dry ? CR_DRY : 1) + (c.cr ? CR_JOBS[crLv(c)] * crewOf(c) : 0);   // passe 79 : équipe du concasseur
 const fillOf = c => clamp(STAFF * wageOf(c).attr, 0, 1);
 const qualMult = c => 1 + 0.06 * (c.qual || 0) + fxQv(c);
@@ -7565,7 +7568,7 @@ function step() {
   const { cc, cn, un, cap, jobs, upkeep, value, polluted, nres } = ev;
   { const d0 = S._cashEnd == null ? 0 : S.cash - S._cashEnd; if (Math.abs(d0) > 1000) { (S.cflog = S.cflog || []).push([S.day, Math.round(d0), (S._sayBuf || []).slice(-2).join(' | ')]); if (S.cflog.length > 40) S.cflog.shift(); } S._sayBuf = []; }
   if (!S.fix1 && S.cash < 0) { S.fix1 = 1; S.cash = 1e8; S.loan = 0; S._cashEnd = S.cash; S.capAdj = Math.max(0, 1e9 - (S.cash + ev.value)); say('Remise à niveau : trésorerie 100 M$, capitalisation 1 Md$.', 'gold'); }
-  S.day++;
+  S.day++; S._sevD = 0;
   S.rdPower = un.rd || 0; S.aiBoost = Math.min(0.12, 0.06 * dcAI());   // passe 55 : 6 % par campus alimenté (un ancien data center : 1,5 %, comme avant)
   S.patRev = patRevDay();   // passe 47 : redevances des brevets (plus de rente fixe)
   stepTalent(); stepMacro(); aibStep(); chipRivDay(); stepInvites(); stepDifficulty(); TM = techMults(); if (!S.cityV) stepDevs(); stepReqs(); if (S.cityV) stepCity(); else stepNpcDensify(); proStep(); stepPolicy(); try { p74Step(); } catch (e) { if (!S._p74Err) { S._p74Err = 1; console.error('paliers/COO', e); } } stepSites(); mkStepBuy();
@@ -7580,7 +7583,9 @@ function step() {
   const workforce = popE() * 0.55;
   const employed = Math.min(workforce, jobs);
   const unTarget = unempTarget(jobs, workforce), uPrev = S.stats && S.stats.unemp;   // chômage : cible (vacances, cycle, qualifications) lissée sur ~15 jours, jamais sous 3 %
-  const unemp = Math.max(0.03, uPrev == null || !(uPrev > 0) ? unTarget : uPrev + (unTarget - uPrev) * 0.1);
+  const unemp = bnd('B62', uPrev == null || !(uPrev > 0) ? unTarget : uPrev + (unTarget - uPrev) * 0.1, 0.03, 0.95);   // chômage frictionnel ≥ 3 % (borne physique, comptée)
+  { const m = S.macro; m.wm = m.wm > 0 ? m.wm + (wageTgt(unemp) - m.wm) / 45 : wageTgt(unemp);   // lot 2 : inertie des salaires (≈ 45 jours)
+    const nU = workforce * unemp, nP = m.uN == null ? nU : m.uN; m.ubN = Math.max(0, Math.min(nU, (m.ubN == null ? nU * 0.75 : m.ubN) * (1 - 1 / USM.ubDays) + Math.max(0, nU - nP))); m.uN = nU; }   // allocataires : chaque nouveau chômeur ouvre ses droits (35 % du salaire), épuisés au plus tard après 180 jours
   const staff = jobs > 0 ? employed / jobs : 0;
   STAFF = staff;
   const boom = S.day <= S.boomUntil ? 0.25 : 0;
@@ -7810,7 +7815,7 @@ function step() {
     if (c.t === 'tech') { c.pRev = jobsOf(c) * 1650 * (0.3 + 0.7 * fill) * qualMult(c) * mult * cpi() * SAT.tech.m; revTech += c.pRev; }
     if (c.t === 'bank') { c.pRev = (TYPES.bank.jobs * levelMult(c) * crewEff(c) * 1500 + Math.min(Math.max(0, S.cash - (S.loan || 0)), TYPES.bank.jobs * levelMult(c) * crewEff(c) * 4e6) * 0.0001) * qualMult(c) * cpi() * SAT.bank.m; revBank += c.pRev; }   // intérêts sur un encours de prêts plafonné par la taille de la banque (≈ 4 M$ de crédits par employé), pas sur toute la trésorerie
     if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && c.t !== 'ewh' && !T.ext && !T.rec && !T.ret) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
-    if (T.jobs) { if (FLEVEL[c.t]) { const a0 = actOf(c); c._actE = a0 + (clamp(c.util || 0, 0, 1) - a0) * 0.05; } c.wages = jobsOf(c) * crewWage(c) * sectWage(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); c._wb = c.wages; c.wages *= znWm(c); if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
+    if (T.jobs) { let jPrev = 0; if (FLEVEL[c.t]) { const a0 = actOf(c), u0 = clamp(c.util || 0, 0, 1); jPrev = jobsOf(c); c._actE = a0 + (u0 - a0) * (u0 < a0 ? 0.5 : 0.15); } c.wages = jobsOf(c) * crewWage(c) * sectWage(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); c._wb = c.wages; c.wages *= znWm(c); if (jPrev > 0) { const jN = jobsOf(c), cut = jPrev - jN; if (cut > 1e-6 && jN > 0) { const sev = cut * (c.wages / jN) * 30 * USM.fireMonths; c.wages += sev; c._sev = sev; S._sevD = (S._sevD || 0) + sev; } else c._sev = 0; }   /* lot 2 : licenciement en 1 à 3 jours, indemnité ≈ 0,2 mois de salaire par poste supprimé ; embauche plus lente (≈ 7 jours) */ if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
     if (c.t === 'wh' || c.t === 'ewh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
     c.transport = (c.out + (c._co || 0)) * TRANS * (c.haul || 0) * (c.linked === false ? 1.5 : 1) * (c.piped ? 0.2 : 1) / deptMult(c).stock * TM.transport * cpi();
     c.adCost = adSpend(c); adTotal += c.adCost;
