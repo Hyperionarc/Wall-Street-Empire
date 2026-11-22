@@ -2428,7 +2428,7 @@ function foreignHTML() {
 const US_MACRO_CONFIG = { corpTax: 0.24, lossUse: 0.8, salesTax: 0.06, payroll: 0.08, tariff: 0.04, fret0: 0.25, fretPort: 0.05, fretMin: 0.01, energyK: 0.85,
   fireMonths: 0.2, ubRate: 0.35, ubDays: 180, hhTax: 0.15, save0: 0.05 };
 const USM = US_MACRO_CONFIG;
-const LIBX = { season: 1, perish: 1, eps: 2.5, xpar: 1, fgnAg: 4, sk: 1, pxc: 1 };   // commutateurs de mesure A/B (WSE.lib.X), sans effet en jeu
+const LIBX = { season: 1, perish: 1, eps: 2.5, xpar: 1, fgnAg: 4, sk: 1, pxc: 1, kap: 1, b2b: 1 };   // commutateurs de mesure A/B (WSE.lib.X), sans effet en jeu
 // Parité d'importation : droits de douane × fret (les ports réduisent le fret : 25 % sans port, 1 % au mieux). Sans port : ×1,30 ; cinq ports : ×1,05 (comme avant, décomposé).
 const impRate = ports => (1 + USM.tariff) * (1 + Math.max(USM.fretMin, USM.fret0 - USM.fretPort * (ports || 0)));
 // Garde-fous techniques : bnd(id, v, lo, hi) borne une valeur (anti-NaN, anti-explosion) ET compte chaque contact (S._bnd[id] = [appels, en bas, en haut, dernier jour]).
@@ -2492,12 +2492,14 @@ let OWN = {};
    4. les achats des usines rivales (S.rv.inD) et les tiennes (want, calculé par runRecipe) ;
    chaque acheteur PNJ arbitre entre le local et l'import au prix livré (sigmoïde autour de la parité d'importation). */
 const B2B_BUF = 7, B2B_TAU = 5;
+// Amorçage : nomenclature calée sur la PREMIÈRE ANNÉE de l'ancienne demande industrielle (supercycle de départ et activité des entreprises compris, ≈ +25 % sur le jour 0), comme κ pour les ménages
+const B2B_K0 = 1.6;   // mesuré : fermier à 360 j ≈ avant le lot 4a
 const FDIR = { oil: 0.5, gas: 0.6, coal: 0.3, wood: 0.3, gravel: 0.7, sand: 0.7, limestone: 0.4, clay: 0.4, cement: 0.6, concrete: 0.8, brick: 0.7, plank: 0.4, stud: 0.4, osb: 0.4, glass: 0.3, paint: 0.4, salt: 0.3, fert: 0.5, essence: 0.6, paper: 0.3 };
 const npcProd = () => { const nb = (S.macro && S.macro.nb) || {}; let a = 0; ['basic', 'std', 'lux'].forEach(k => { a += (nb[k] || 0) * GOODS[k].base; }); return a; };   // production des usines PNJ de marchandises de rayon (valeur aux prix de référence)
 function b2bAct() {   // activité industrielle aval, en habitants-équivalents (= popE au calibrage)
-  const m = S.macro || {}, pe = popE(), np = npcProd(); if (!(np > 0)) return pe;
-  if (!(m.b2bK > 0)) m.b2bK = pe / np;   // calibrage unique (champ facultatif de la sauvegarde, absent = recalé au chargement)
-  return np * m.b2bK;
+  const m = S.macro || {}, pe = popE(), np = npcProd(); if (!(np > 0)) return pe * B2B_K0 * LIBX.b2b;
+  if (!(m.b2bK > 0)) m.b2bK = pe / np;
+  return np * m.b2bK * B2B_K0 * LIBX.b2b;   // b2bK : calibrage unique (champ facultatif de la sauvegarde, absent = recalé au chargement)
 }
 function stepLocalMarket(made, want) {
   const rev = { v: 0 }, npcs = S.npcSup || (S.npcSup = {}); S.locSold = S.locSold || {}; void rev;
@@ -5524,6 +5526,8 @@ const wageMkt = () => { const u = (S && S.stats && S.stats.unemp != null) ? S.st
    calibré pour que la demande du jour 0 soit celle d'avant (même κ pour la ville, la ville de 100 000 habitants et le bourg : le budget est par habitant).
    prosp() garde son nom (services, crédit, bilan des synergies) : v = b, fr = part du revenu versée par les autres entreprises. */
 const HH_RIV = 0.25, HH_ME = 0.06, HH_U0 = 0.07, HH_TAU = 0.6, HH_ACT = 0.55;
+// κ de départ : le budget de référence des rayons est calé sur la PREMIÈRE ANNÉE de l'ancienne demande (en supercycle de départ, le courant et le luxe y valaient ≈ 1,3 × le jour 0), pas sur le seul jour 0 : début accueillant
+const HH_KAPPA = 1.45;   // mesuré (sim_batch --native, 2 graines, 360 j) : demande de courant et de luxe de la 1re année ≈ celle d'avant le lot 3
 let _px = { d: -1 }, _pxG = null, _pxS = null, _pxM = null;
 function hhInc(pe, u, wm, rw, k, ubN, ext) {   // revenu disponible des ménages (avant épargne), $/jour
   const wage = WAGE_RATE / (1 + USM.payroll) * wm * rw * k, W = pe * HH_ACT * (1 - u) * wage, UB = USM.ubRate * wage * ubN;
@@ -5550,8 +5554,12 @@ function spend0() {
   return { sb, ss, sl, tot: sb + (ss + sl) / hf0, wl0: sl / (ss + sl), hf0 };   // recalculé à chaque appel (les prix de référence dépendent de la partie)
 }
 // Cascade du jour : basique (saturation physique) → résiduel × bonheur → courant / luxe (Engel). Prix TTC moyens des paniers de rayon : px = { basic, std, lux }. Renvoie des unités de panier.
+// Crédit à la consommation (remplace l'ancien multiplicateur de chiffre d'affaires des banques, audit B14) : les banques de la ville prêtent aux ménages, qui dépensent
+// plus que leur revenu courant (épargne négative) ; l'effet dépend du coût du crédit (plus faible quand les taux montent ou en crise du crédit) et sature (rendements décroissants).
+const HH_CRED = 0.3;
+function hhCredit() { const cn = (S && S.stats && S.stats.cn) || {}, nb = (cn.bank || 0) + 0.5 * (S.rivals || []).filter(r => !r.sub && rivK(r) === 'banquier').length; return 1 + HH_CRED * (1 - Math.exp(-nb / 2.5)) * bnd('B14', 1 - 6 * rateGap(), 0.2, 1.3); }
 function hhDemand(pe, dMul, happy, px) {
-  const X = prosp(), Z = spend0(), Bc = Z.tot * pe * X.b * cpi() * dMul, hf = 0.82 + 0.18 * happy / 100;   // budget des rayons ($/j)
+  const X = prosp(), Z = spend0(), Bc = Z.tot * HH_KAPPA * LIBX.kap * pe * X.b * cpi() * dMul * hhCredit(), hf = 0.82 + 0.18 * happy / 100;   // budget des rayons ($/j)
   const qB = pe * DEM_PER_POP.basic * dMul, sB = Math.min(qB * px.basic, 0.8 * Bc);   // basique : on ne mange pas plus quand on gagne plus (saturation), on rogne le reste quand le budget se resserre
   const Rz = Math.max(0, Bc - sB) * hf, L0 = Math.log(Z.wl0 / (1 - Z.wl0)), wl = 1 / (1 + Math.exp(-(L0 + Math.log(Math.max(1e-3, X.b)) / HH_TAU)));   // Engel : la part du luxe monte avec le revenu réel
   return { Bc, sB, R: Rz, wl, hf, b: X.b, basic: sB / Math.max(1e-9, px.basic), std: Rz * (1 - wl) / Math.max(1e-9, px.std), lux: Rz * wl / Math.max(1e-9, px.lux), sat: sB >= qB * px.basic - 1e-6 };
@@ -6840,7 +6848,8 @@ const IRR_COST = [0, 1200, 2600, 4200], irrCost = l => Math.round(IRR_COST[l] * 
 // Saisonnalité (calendrier de 12 mois de 30 jours, moyenne 1) : pic de lactation au printemps, vendanges en septembre, tonte au printemps
 const SEASON = { milk: [0.12, 4.5], egg: [0.08, 4], wool: [0.2, 4.5], grapes: [0.45, 8.5],
   // lot 4b (économie libérale) : récolte saisonnière des cultures (même production annuelle, pic au mois de récolte du calendrier FCROPS ; variétés et régions étalent la moisson)
-  wheat: [0.6, 5.5], corn: [0.6, 9.5], cotton: [0.6, 8.5], rapeseed: [0.6, 6.5], sugar: [0.5, 10.5], rubber: [0.35, 10.5] };
+  // amplitude mesurée : 0,6 ralentissait de 40 % le premier an des castes qui achètent des fermes (récoltes encore à venir, stocks à porter) ; 0,22 = récolte ±22 %, étalée par les variétés et les régions
+  wheat: [0.22, 5.5], corn: [0.22, 9.5], cotton: [0.22, 8.5], rapeseed: [0.22, 6.5], sugar: [0.18, 10.5], rubber: [0.12, 10.5] };
 /* Lot 4b : périssabilité. Durée de vie d'un stock (jours) ; un entrepôt qui stocke le bien (silo, chambre froide) la multiplie par PER_WH pour la part qu'il abrite.
    Le stock est suivi par lots datés (S.flots[g] = [[quantité, jour], …], champ facultatif : absent = tout le stock est daté du chargement), consommés dans l'ordre (premier entré, premier sorti).
    Un lot à moins de PER_LIQ de sa vie restante est soldé (vente locale puis export, de 97 % à 40 % du cours selon l'urgence) ; ce qui périme malgré tout est détruit (perte comptée). */
