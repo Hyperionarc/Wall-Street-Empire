@@ -1257,6 +1257,13 @@ body.cmp:not(.hx) #spd3{display:none}
 body.cmp #pn .mt{display:none}
 body.cmp #hud .icob{min-width:44px;padding:0 6px}
 body.cmp:not(.hx) #decBtn:not([hidden]) ~ #jrBtn{display:none}
+/* Menu > Ville / Économie : tuiles d'indicateurs */
+.ecog{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:4px 0 10px}
+.ecog .eco{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.04);min-width:0}
+.ecog .eco small{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.ecog .eco b{font:700 19px/1.15 var(--font-m)}
+.ecog .eco em{font-style:normal;font-size:11.5px;color:var(--mut);overflow-wrap:anywhere}
+.ecog .eco .btn{min-height:30px;padding:2px 8px;font-size:11px;margin-top:2px}
 </style>
 </head>
 <body>
@@ -21482,6 +21489,24 @@ el('decp').addEventListener('click', e => { const b = e.target.closest('[data-de
 function uiTick() { if (!S) return; try { jrBadgeSync(); jrRender(); decSync(); } catch (e) { /* interface facultative */ } try { if (typeof helpSync === 'function') helpSync(); } catch (e) { /* facultatif */ } try { if (typeof ecoRender === 'function') ecoRender(); } catch (e) { /* facultatif */ } }
 setInterval(uiTick, 500);
 ['pointerdown', 'keydown'].forEach(t => window.addEventListener(t, () => { window._uiAct = performance.now(); }, { capture: true, passive: true }));   // geste du joueur : ses erreurs d'action s'affichent ~2 s
+// ---- Passe 99 (2) : Menu > Ville / Économie. Les indicateurs retirés du HUD (population, postes pourvus, humeur, capitalisation, impôt) et la conjoncture, lisibles en un coup d'œil
+function ecoRender(force) {
+  const b = el('ecoBox'); if (!b || !S || !S.stats || (!force && (el('panel').hidden || b.closest('[hidden]')))) return;
+  const st = S.stats, M = S.macro || {}, p1 = v => (Math.round(v * 1000) / 10).toString().replace('.', ',') + ' %', hp = Math.round(st.happy == null ? 60 : st.happy), un = st.unemp || 0;
+  const tile = (l, v, sub, cl, tip) => `<div class="eco"${tip ? ` title="${tip}"` : ''}><small>${l}</small><b class="${cl || ''}">${v}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
+  const px = S.float > 0 ? (st.raw || 0) * (S.prem || 1.1) / SHARES : 0;
+  const h = `<div class="ecog">`
+    + tile('Population', fmt(st.pop || 0), (S.cityV && S.city ? S.city.name + ' · ' : '') + 'capacité ' + fmt(st.cap || 0), '', 'Habitants de la ville et logements disponibles')
+    + tile('Postes pourvus', `${fmt(st.employed || 0)} / ${fmt(st.jobs || 0)}`, 'chômage ' + p1(un), un > 0.09 ? 'neg' : '', 'Postes pourvus / postes disponibles dans la ville')
+    + tile('Humeur', hp + ' %', hp >= 65 ? 'ville contente : dépenses généreuses' : hp < 45 ? 'ville morose : on dépense moins' : 'ville dans la moyenne', hp >= 65 ? 'pos' : hp < 45 ? 'neg' : '', 'Satisfaction des habitants : elle pèse sur leurs dépenses')
+    + tile('Capitalisation', money(st.worth || S.cash), S.float > 0 ? `action ${fx2(px)} $` : 'société non cotée', 'gold', 'Valeur de ton groupe')
+    + tile('Impôt', Math.round((S.tax || 0) * 100) + ' %', '<button class="btn sec" data-eco="tax">Régler (Finances)</button>', '', 'Taux d\'impôt de la ville')
+    + tile('Conjoncture', macroState(), `PIB ${pctD(M.gdp || 0)} · inflation ${p1(M.infl || 0)} · taux ${p1(M.rate || 0)}`, (M.gdp || 0) < 0 ? 'neg' : '', 'Cycle économique : il fait varier la demande, les prix et le crédit')
+    + `</div>` + (shockAny() ? shockHTML() : '');
+  if (b.dataset.h !== h) { b.dataset.h = h; b.innerHTML = h; }
+}
+el('ecoBox').addEventListener('click', e => { const t = e.target.closest('[data-eco]'); if (t && t.dataset.eco === 'tax') setPtab('fin'); });
+document.querySelectorAll('#panel [data-ptab="city"]').forEach(b => b.addEventListener('click', () => ecoRender(true)));
 })();
 </script>
 </body>
