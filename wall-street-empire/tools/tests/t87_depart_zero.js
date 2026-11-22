@@ -4,7 +4,7 @@
 //  3. un petit marché posé près de la halle gagne de l'argent dès le premier mois ;
 //  4. croissance avec le bot (tools/bot_lib.js) : quelques milliers d'habitants à 6 mois, des dizaines de milliers à 2 ans, croissance continue ;
 //  5. sauvegarde : S.opt.start, la densité du bourg et la population relus à l'identique, la partie continue ;
-//  6. écran Nouvelle partie : 3 départs, « De zéro » présélectionné, choix appliqué au Round ; téléphone 390×844 sans défilement horizontal ;
+//  6. écran Nouvelle partie : 4 départs (passe 88 : « Ville de 100 000 habitants » présélectionnée), le Bourg choisi est appliqué au Round ; téléphone 390×844 sans défilement horizontal ;
 //  7. offensive d'un concurrent : sans enjeu grave, pas de fenêtre (ligne du journal, réponse depuis le bandeau) ; grave : fenêtre, au plus une par mois.
 exports.name = 'Départ de zéro et offensives des concurrents';
 const START = ([st, seed, bot]) => {
@@ -59,8 +59,8 @@ exports.run = async (t, L) => {
     const pg = await L.newPage({ wait: 600, w: vw[0], h: vw[1] });
     const u = await pg.evaluate(async () => { const W = window.WSE; W.showModes(); const r = [...document.querySelectorAll('#modesel input[name="start"]')], o = { radios: r.map(x => x.value + (x.checked ? '*' : '')), txt: r.map(x => x.parentElement.textContent.trim().split(' · ')[0]) };
       const box = document.querySelector('#modesel .mbox') || document.getElementById('modesel'); o.over = Math.max(document.documentElement.scrollWidth - innerWidth, box.scrollWidth - box.clientWidth);
-      document.querySelector('#modesel [data-mode="round"]').click(); o.st = W.S.opt && W.S.opt.start; o.pop = Math.round(W.S.pop); return o; });
-    t.check(`écran Nouvelle partie ${vw[0]}×${vw[1]} : « De zéro (recommandé) / Petite ville / Ville établie », « De zéro » présélectionné et appliqué au Round, sans défilement horizontal`, u.radios.join(',') === 'zero*,petite,ville' && /De zéro/.test(u.txt[0]) && /Petite ville/.test(u.txt[1]) && /Ville établie/.test(u.txt[2]) && u.st === 'zero' && u.pop < 1000 && u.over <= 1 && pg.errs.length === 0, JSON.stringify(u) + pg.errs.slice(0, 2).join(' ; '));
+      const z = r.find(x => x.value === 'zero'); z.checked = true; z.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('#modesel [data-mode="round"]').click(); o.st = W.S.opt && W.S.opt.start; o.pop = Math.round(W.S.pop); return o; });
+    t.check(`écran Nouvelle partie ${vw[0]}×${vw[1]} : « Ville de 100 000 habitants » présélectionnée, « Bourg (défi, 600 habitants) / Petite ville / Ville établie » proposés, le Bourg choisi est appliqué au Round, sans défilement horizontal`, u.radios.join(',') === 'moyenne*,zero,petite,ville' && /100 000/.test(u.txt[0]) && /Bourg/.test(u.txt[1]) && /Petite ville/.test(u.txt[2]) && /Ville établie/.test(u.txt[3]) && u.st === 'zero' && u.pop < 1000 && u.over <= 1 && pg.errs.length === 0, JSON.stringify(u) + pg.errs.slice(0, 2).join(' ; '));
     await pg.context().close();
   }
   // ---- 7 : offensive d'un concurrent (seul événement possible pendant le test)
