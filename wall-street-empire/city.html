@@ -2254,6 +2254,7 @@ function foreignHTML() {
 const US_MACRO_CONFIG = { corpTax: 0.24, lossUse: 0.8, salesTax: 0.06, payroll: 0.08, tariff: 0.04, fret0: 0.25, fretPort: 0.05, fretMin: 0.01, energyK: 0.85,
   fireMonths: 0.2, ubRate: 0.35, ubDays: 180, hhTax: 0.15, save0: 0.05 };
 const USM = US_MACRO_CONFIG;
+const LIBX = { season: 1, perish: 1, eps: 2.5, xpar: 1, fgnAg: 4, sk: 1 };   // commutateurs de mesure A/B (WSE.lib.X), sans effet en jeu
 // Parité d'importation : droits de douane × fret (les ports réduisent le fret : 25 % sans port, 1 % au mieux). Sans port : ×1,30 ; cinq ports : ×1,05 (comme avant, décomposé).
 const impRate = ports => (1 + USM.tariff) * (1 + Math.max(USM.fretMin, USM.fret0 - USM.fretPort * (ports || 0)));
 // Garde-fous techniques : bnd(id, v, lo, hi) borne une valeur (anti-NaN, anti-explosion) ET compte chaque contact (S._bnd[id] = [appels, en bas, en haut, dernier jour]).
@@ -6663,8 +6664,12 @@ const SEASON = { milk: [0.12, 4.5], egg: [0.08, 4], wool: [0.2, 4.5], grapes: [0
    Un lot à moins de PER_LIQ de sa vie restante est soldé (vente locale puis export, de 97 % à 40 % du cours selon l'urgence) ; ce qui périme malgré tout est détruit (perte comptée). */
 const PERISH = { wheat: 360, corn: 360, rapeseed: 300, sugar: 360, cotton: 720, rubber: 720, wool: 720, grapes: 10, milk: 5, egg: 25, beef: 10, pork: 10, poultry: 8, lamb: 10, meat: 12, flour: 180, leather: 360 };
 const PER_WH = 4, PER_LIQ = 0.2;
+// Demande étrangère d'un bien (export) : les marchés mondiaux des denrées agricoles sont profonds (bourses de Chicago, contrats à terme) : congestion bien plus faible
+const AG_GOODS = new Set(['wheat', 'corn', 'rapeseed', 'sugar', 'cotton', 'rubber', 'wool', 'grapes', 'milk', 'egg', 'beef', 'pork', 'poultry', 'lamb', 'meat', 'flour', 'leather']);
+const fgnDem = g => Math.max(4000, (LOCAL_D[g] || 100) * 4 * (popE() / 10000) * 0.1) * (AG_GOODS.has(g) ? LIBX.fgnAg : 1);
 function perishLife(g) { const L = PERISH[g]; if (!L) return 0; const w = Math.max(0, capFor(g) - baseCap()), q = Math.max(1, S.stock[g] || 0); return L * (1 + (PER_WH - 1) * Math.min(1, w / q)); }
 function stepPerish() {   // renvoie { rev, lost } du jour ; appelé après les ventes et l'export (le stock restant vieillit)
+  if (!LIBX.perish) return (S._perD = { rev: 0, lost: 0 });
   const F = S.flots || (S.flots = {}); let rev = 0, lost = 0; S._perish = {};
   Object.keys(PERISH).forEach(g => { if (!GOODS[g]) return; const st = Math.max(0, S.stock[g] || 0), lots = F[g] || (F[g] = []);
     let q = lots.reduce((a, l) => a + l[0], 0);
@@ -6680,7 +6685,7 @@ function stepPerish() {   // renvoie { rev, lost } du jour ; appelé après les 
   S._perD = { rev, lost }; return S._perD;
 }
 const flotsSan = o => { if (!o || typeof o !== 'object') return undefined; const r = {}; Object.keys(o).forEach(g => { if (!PERISH[g] || !Array.isArray(o[g])) return; const a = o[g].filter(l => Array.isArray(l) && l[0] > 0 && isFinite(l[0]) && isFinite(l[1])).slice(-200).map(l => [+(+l[0]).toFixed(2), l[1] | 0]); if (a.length) r[g] = a; }); return r; };
-const seasonMult = k => { const a = SEASON[k]; if (!a || !S) return 1; return 1 + a[0] * Math.cos(2 * Math.PI * ((((S.day || 0) % 360) / 30) - a[1]) / 12); };
+const seasonMult = k => { const a = SEASON[k]; if (!a || !S || (!LIBX.season && CROPS[k] && k !== 'grapes')) return 1; return 1 + a[0] * (CROPS[k] && k !== 'grapes' ? LIBX.sk : 1) * Math.cos(2 * Math.PI * ((((S.day || 0) % 360) / 30) - a[1]) / 12); };
 function soilMult(c) { const k = TYPES[c.t].ext, irr = c.irr | 0, dr = droughtNow(); return fertility(c.x, c.y, k) * (casteIs('agriculteur') ? 1.08 : 1) * (1 + 0.1 * irr) * (1 - 0.35 * dr * (casteIs('agriculteur') ? 0.5 : 1) * (1 - irr / 3)); }
 const wasteOf = c => Math.max(0, 0.05 * TM.waste / deptMult(c).stock + fxWaste(c));
 const FAC_U = 3.2 * K_SIZE;   // une usine traite FAC_U cycles de recette par jour
@@ -7894,7 +7899,7 @@ function step() {
   { const wr = stepWarehouses(portN, expRate); importCost += wr.imp; revExp += wr.rev; }
   { const tp = 30000 * (1 + 2.5 * portN) * (1 + 0.25 * (cn.wh || 0)); let used = 0;   // débit portuaire total par jour
     S._xs = {}; S._xv = {}; GKEYS.forEach(g => { const thr = Math.max(7500, 0.5 * capFor(g)); let ex = Math.max(0, S.stock[g] - (FGD ? Math.max(thr, ledRes(g)) : thr)); if (!(ex > 0)) return;
-      const foreign = Math.max(4000, (LOCAL_D[g] || 100) * 4 * (popE() / 10000) * 0.1), q = Math.min(ex, Math.max(0, tp - used), foreign * 1.5); if (q <= 0) return; used += q;
+      const foreign = fgnDem(g), q = Math.min(ex, Math.max(0, tp - used), foreign * 1.5); if (q <= 0) return; used += q;
       S.stock[g] -= q; if (g === 'basic' || g === 'std' || g === 'lux') want[g] += q; S.xsum = S.xsum || {}; S.xsum[g] = (S.xsum[g] || 0) + q * S.price[g]; { const xv = xmF(g) * q * S.price[g] / mpM(g) * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)) / (1 + EXP_CONG * q / foreign); revExp += xv; fSellExt(g, q, xv, 1); S._xv[g] = xv; } S._xs[g] = q; S.expSold = S.expSold || {}; S.expSold[g] = q; });
     fTrimAll();
     S._portUse = used; S._portCap = tp; }
@@ -8004,8 +8009,8 @@ function step() {
     const r0 = (want[g] + 1) / (made[g] + 1), rt = S.rat || (S.rat = {}), ratio = rt[g] = rt[g] == null ? r0 : rt[g] + (r0 - rt[g]) / 3;   // rapport demande / offre lissé
     const mp = mpGood(g, OWN[g], want[g]); (S._mp || (S._mp = {}))[g] = mp;   // passe 46 : pouvoir de marché (1 sur un marché concurrentiel ou si tu ne produis pas ce bien)
     const Pc = base * mp.m, ceil = Math.max(Pc, mb.imp);
-    const xs = (S._xs && S._xs[g]) || 0, fgn = Math.max(4000, (LOCAL_D[g] || 100) * 4 * (popE() / 10000) * 0.1), xpar = mb.wld * EXP_BASE / (1 + EXP_CONG * xs / fgn);   // parité d'exportation : ce que paie l'étranger, nette du fret et de la congestion de ses marchés
-    const tgt = sMax(sMin(ratio >= 1 ? Pc + (ceil - Pc) * Math.tanh(0.9 * (ratio - 1)) : Pc * Math.pow(Math.max(1e-3, ratio), 1 / MKT_EPS), mb.imp, 10), xpar, 10);   // l'import plafonne, l'export (liquidation à l'étranger) soutient : bande naturelle d'une économie ouverte
+    const xs = (S._xs && S._xs[g]) || 0, fgn = fgnDem(g), xpar = mb.wld * EXP_BASE / (1 + EXP_CONG * xs / fgn);   // parité d'exportation : ce que paie l'étranger, nette du fret et de la congestion de ses marchés
+    const tgt = sMax(sMin(ratio >= 1 ? Pc + (ceil - Pc) * Math.tanh(0.9 * (ratio - 1)) : Pc * Math.pow(Math.max(1e-3, ratio), 1 / LIBX.eps), mb.imp, 10), xpar * LIBX.xpar, 10);   // l'import plafonne, l'export (liquidation à l'étranger) soutient : bande naturelle d'une économie ouverte
     const p0 = P[g]; let nx = p0 + (tgt - p0) * 0.15;
     nx = bnd('B44', nx, p0 * (1 - TR_DCAP), p0 * (1 + TR_DCAP));   // amortisseur : ±10 %/j au plus (garde-fou)
     P[g] = bnd('B38', nx, mb.fl, mb.cap);
@@ -21472,7 +21477,7 @@ Object.assign(window.WSE, { start: { of: startOf, hk: hkNow, K: { START_K, START
 Object.assign(window.WSE, { levelMult, pal: { DEF: PAL_DEF, POP: PAL_POP, popReq: (k, l) => palPopReq(PAL_DEF[k], l), DAYS: PAL_DAYS, DIA_D: PAL_DIA_D, MAINT: PAL_MAINT, ROUND_ACC: PAL_ROUND_ACC, of: palOf, reqs: palReqs, start: palStart, accel: palAccel, accDays: palAccDays, diaFor: palDiaFor, step: palStep, prog: palProg, left: palLeft, slots: palSlots, active: palActive, card: palCard, list: palListHTML, migrate: palMigrate, upk: palUpk, drawn: () => palBadgeN }, ent: { S: entS, san: entSan, prem: entPrem, dia: entDia, on: premOn }, coo: { LV: COO_LV, BUF: COO_BUF, set: cooSet, on: cooOn, sal: cooSal, pay: cooPay, spend: cooSpend, step: cooStep, review: cooReview, decide: cooDecide, opts: cooOpts, score: cooScoreOf, apply: cooApply, card: cooCardHTML, ins: cooIns }, scm: { S: scmS, san: scmSan, step: scmStep, score: scmScore, BADGES: SCM_BADGES, award: scmAward, rivals: scmRivals, rank: scmRankHTML, card: scmCardHTML }, p74Render, bestOffer, offerScore, supOffer, buyerQw, setPanel, setPtab });   // passe 74 : paliers, premium simulé, COO, maîtrise (tools/tests/t74, t75)
 Object.assign(window.WSE, { farmx: { FXV, FX_CAP, ask: a => buyoutCost(a), FARM_MAX, FARM_COST, FCLEAR, WOOD_SELL, HA_CASE, costs: (t, w, h) => farmCosts(TYPES[t], w, h), jobsK: farmJobsK, plan: (c, n, m, b) => farmPlanRaw(c, n == null ? 1 : n, m || 'free', b), exec: (c, n, m, o) => farmGrowExec(c, n, m, o), qopen: (c, m) => farmQOpen(c, m), qok: () => farmQOk(), hl: () => FARM_HL, setRows: v => { fgN = v; }, FARM_CORPS_K, FARM_CELL_K, FARM_ANNEX, areaK: farmAreaK, costK: farmCostK, costKA: (t, A) => farmCostKA(TYPES[t], A), quote: (c, o) => farmGrowQuote(c, o), grow: (c, o) => farmGrow(c, o), act: c => farmGrowAct(c), econ: c => farmEcon(c), html: c => farmSizeHTML(c), ext: a => farmExt(a), probe: (a, n, zz) => farmProbe(a, n, zz), npcGrow: o => growNpcFarm(o) } });   // passe 87 : surface variable des fermes (t87)
 Object.assign(window.WSE, { farm3: { CROP_AREA, CROP_UPK, cropAreaK, plan: c => farmPlan(c), html: c => farmPlanHTML(c), fertBuy: (q, w) => fertBuy(q, w), cooFarm: () => cooFarm(), calNext: g => calNext(g), fpMigrate: (g, d, n) => fpMigrate(g, d, n), FARM_ZONE3 } });   // passe 85 : cultures 3×3, bloc « ce que tu optimises » (t86)
-Object.assign(window.WSE, { lib: { USM: US_MACRO_CONFIG, bnd, check: libCheck, PX_LO, PX_HI, why: demandWhyCls, whyRaw: demandWhyRaw, mb: marketBounds, hh: () => prosp(), season: seasonMult, perish: stepPerish, PERISH, slm: stepLocalMarket, popE, get B() { return S._bnd || {}; } } });   // économie libérale (t97, tools/bnd_report.js)
+Object.assign(window.WSE, { lib: { X: LIBX, USM: US_MACRO_CONFIG, bnd, check: libCheck, PX_LO, PX_HI, why: demandWhyCls, whyRaw: demandWhyRaw, mb: marketBounds, hh: () => prosp(), season: seasonMult, perish: stepPerish, PERISH, slm: stepLocalMarket, popE, get B() { return S._bnd || {}; } } });   // économie libérale (t97, tools/bnd_report.js)
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
 Object.assign(window.WSE, { imgAudit: { guide: k => !!GUIDEHD[k], hero: k => !!PRODHD[k], photo: k => GUIDEHD[k] || null, productSVG0, compIcon, compIconVec } });   // passe 59 : audit des images de produits (tools/audit_produits.js, t59)
 Object.assign(window.WSE, { setGuidePhoto: (k, src) => { GUIDEHD[k] = src; Object.keys(psvgCache).forEach(c => { if (c.split('|')[0] === k) delete psvgCache[c]; }); if (typeof renderGuide === 'function') renderGuide(true); }, cine: { show: (pk, why) => cineShow(pk, why || 'manuel', true), close: cineClose, get on() { return CINE.on; }, state: () => ({ on: CINE.on, pk: CINE.pk, hero: CINE.hero, frames: CINE.frames, t: CINE.last ? CINE.last.t : 0, q: CINE.q.slice(), shown: CINE.shown, opt: cineOpt(), manual: CINE.manual }), setOpt: cineSetOpt, opt: cineOpt, setHero: setProductHero, heroOf: pk => !!cineHeroOf(pk), watch: cineWatch, facts: cineFacts, setTest: v => { CINE.test = !!v; }, reset: () => { CINE.seen = {}; CINE.snap = null; CINE.q.length = 0; } } });
