@@ -113,9 +113,21 @@ t44 (encart du mall), t59 (photo porkmeat).
   chômage 4-9 %. Croissance exponentielle, pas d'effondrement systémique, 0 erreur. Avant (1 080 j) : 221, 80, 119, 297, 211, 287 M$ : à 1 080 j les castes restent du même ordre
   de grandeur ; le démarrage (≤ 360 j) est 20 à 40 % plus lent pour l'industriel, l'agriculteur et le négociant (marges de marché plus minces que les anciens planchers).
 
+## Début de partie (amorçage, après la fusion avec ccr-d9ba3623-415kh0)
+Consigne permanente « début accueillant », sans plancher administré ni changement des règles de marché. Leviers d'amorçage mesurés (sim_batch `--native`, 2 graines, 360 j) :
+- `HH_KAPPA` = 1,45 : budget des rayons calé sur la première année de l'ancienne demande (le supercycle de départ y gonflait le courant et le luxe de ≈ 30 %), pas sur le seul jour 0 ;
+- `B2B_K0` = 1,6 : nomenclature des usines PNJ calée sur la première année de l'ancienne demande industrielle (boom de départ et activité des entreprises compris) ; sans lui la demande de matières tombait de 35 % ;
+- crédit à la consommation (`hhCredit`, remplace l'ancien multiplicateur de chiffre d'affaires des banques B14) : jusqu'à +30 % de budget avec les banques de la ville, selon le coût du crédit ;
+- récoltes étalées : amplitude saisonnière 0,22 (au lieu de 0,6 : les castes qui achètent des fermes perdaient 40 % la première année).
+Valeur moyenne à 360 j (M$), branche de départ fusionnée → moteur libéral : banquier 47 → 58, négociant 46 → 46, agriculteur 96 → 93, innovateur 54 → 60, promoteur 37 → 31, industriel 36 → 28.
+L'industriel reste ≈ 20 % plus lent au départ : à 100 jours, ses magasins vendent autant d'unités mais avec une part de marché et une marge de rayon plus faibles (la demande, plus forte, est servie par les rivaux),
+son EBE plus bas limite son crédit (3 ans d'EBE) ; le multiplicateur B14 n'y est pour rien (mesuré : identique avec ou sans).
+
+## Déterminisme
+Trois caches de module étaient indexés sur le seul jour (ou sur une grille précédente) et réutilisés par la partie suivante dans la même page : `compNow` (curseur de concurrence),
+`siteIndex` (magasins et extracteurs), le trafic (`trf`, utilisé par la valeur des terrains). Ils sont maintenant liés à la partie (S, S.grid) : t27 repasse.
+
 ## Limites connues et suite
-- Déterminisme entre deux parties successives dans la même page (t27) : après ≈ 650 jours, la trésorerie d'un rival diffère d'environ 1 $ (état conservé hors de S, apparu dès le lot 1 ;
-  une partie seule rejouée est identique). À isoler (caches de module indexés sur le seul jour, comme `compNow`).
 - La demande B2B des usines PNJ utilise `LOCAL_D` comme nomenclature calibrée (par bien, pas par recette de panier) ; une vraie nomenclature par classe de panier est la suite logique.
 - `rivMkt` (marché élargi par les concurrents) est gardé (effet de variété), il pourrait disparaître si la somme positive tient par le seul budget.
 - Calibration des bots : voir la section du rapport de passe (sim_batch `--native`, comparaison avant/après).

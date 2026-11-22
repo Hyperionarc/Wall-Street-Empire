@@ -35,7 +35,7 @@ exports.run = async (t, L) => {
       for (let d = 0; d < 120; d++) W.step();
       const X = W.pos.prosp(), o = { px: X.v, fr: X.fr, riv: X.riv, mk: W.pos.rivMkt('std'), mk0: W.pos.rivMkt('std', 0), b2b: W.pos.svcB2B(), rsv: Math.max(W.pos.rivSvc('bank'), W.pos.rivSvc('dc'), W.pos.rivSvc('tech')) };
       // contrat d'approvisionnement sur le fer : prix stable (cours + 6 %), client protégé d'une flambée
-      S.cash = Math.max(S.cash, 1e8); const g = 'iron', p0 = S.price[g]; o.ok = W.cartelOn(g); o.sc = W.pos.scOn(g); o.cp = S.rv.sc && S.rv.sc.p / p0; S.price[g] = p0 * 1.5; o.cap = W.pos.scPx(g) / p0; S.price[g] = p0;
+      S.cash = Math.max(S.cash, 1e8); const g = 'iron'; S.mods = (S.mods || []).filter(x => x.k !== 'px_' + g); const p0 = S.price[g];   /* un épisode étranger en cours sur le fer (pénurie) empêcherait la signature : la mesure porte sur le contrat seul */ o.ok = W.cartelOn(g); o.sc = W.pos.scOn(g); o.cp = S.rv.sc && S.rv.sc.p / p0; S.price[g] = p0 * 1.5; o.cap = W.pos.scPx(g) / p0; S.price[g] = p0;
       o.dup = W.cartelOn(g); for (let d = 0; d < 70; d++) W.step(); o.end = W.pos.scOn(g);
       return o;
     });

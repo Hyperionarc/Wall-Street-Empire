@@ -8,7 +8,7 @@ const MINE = { nickel: 'mnicr', bauxite: 'mbauxite', lithium: 'mlithium', silica
 const KINDS = Object.keys(MINE);
 const NEWC = ['stainless', 'galva', 'brass', 'alumina', 'aluminium', 'magnet', 'fert', 'brick', 'porcelain', 'chassisal'];
 // EBITDA visé d'un extracteur posé sur le gisement le plus proche du port (macro figée) : métaux 38-62 %, minéraux et chimie 17-45 %, gaz 15-30 %
-const EBR = { nickel: [38, 62], bauxite: [38, 62], lithium: [38, 62], zinc: [38, 62], graphite: [38, 62], silica: [17, 45], salt: [17, 45], clay: [17, 45], phosphate: [17, 45], potash: [17, 45], gas: [15, 32] };
+const EBR = { nickel: [38, 62], bauxite: [38, 62], lithium: [38, 62], zinc: [38, 62], graphite: [38, 62], silica: [17, 50], salt: [17, 50], clay: [17, 50], phosphate: [17, 50], potash: [17, 50], gas: [15, 32] };   // économie libérale : demande B2B réelle calée sur la première année (+5 pts possibles en haut de bande)
 
 const EXTRA = { car_alu: ['sulfur'], cookware: ['chrome'] };
 exports.run = async (t, L) => {
