@@ -2246,6 +2246,33 @@ function foreignHTML() {
   const fs = S.foreign || []; if (!fs.length) return '';
   return `<h3>PUISSANCES ÉTRANGÈRES (IA)</h3><div class="tcard"><small>Des groupes d'ailleurs pèsent sur les cours mondiaux. Ils agissent davantage quand tu t'enrichis trop vite.</small>${fs.map(f => `<div class="finrow"><span><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${f.col};margin-right:6px"></i><b>${f.name}</b> · ${f.city} · ${GOODS[f.g].name}</span><b class="${f.stance === 'dump' ? 'neg' : f.stance === 'squeeze' ? 'gold' : ''}">${f.stance === 'dump' ? 'Dumping' : f.stance === 'squeeze' ? 'Pénurie' : money(f.cash)}</b></div>`).join('')}</div>`;
 }
+/* ===== Économie libérale (docs/ECONOMIE_LIBERALE.md, docs/AUDIT_MOTEUR_LIBERAL.md) =====
+   Fiscalité et règles du marché du travail américaines, fixes et centralisées (le joueur dirige une entreprise, pas la ville) :
+   impôt sur les sociétés fédéral + États ≈ 24 %, report des pertes illimité imputable sur 80 % du bénéfice ; sales tax ≈ 6 % incluse dans le prix de rayon ;
+   charges patronales ≈ 8 % comprises dans le coût du travail ; droits de douane ≈ 4 % ; énergie ×0,85 (électricité moins chère qu'en Europe) ;
+   licenciement ≈ 0,2 mois de salaire par poste, allocations chômage ≈ 35 % du salaire pendant 180 jours au plus. */
+const US_MACRO_CONFIG = { corpTax: 0.24, lossUse: 0.8, salesTax: 0.06, payroll: 0.08, tariff: 0.04, fret0: 0.25, fretPort: 0.05, fretMin: 0.01, energyK: 0.85,
+  fireMonths: 0.2, ubRate: 0.35, ubDays: 180, hhTax: 0.15, save0: 0.05 };
+const USM = US_MACRO_CONFIG;
+// Parité d'importation : droits de douane × fret (les ports réduisent le fret : 25 % sans port, 1 % au mieux). Sans port : ×1,30 ; cinq ports : ×1,05 (comme avant, décomposé).
+const impRate = ports => (1 + USM.tariff) * (1 + Math.max(USM.fretMin, USM.fret0 - USM.fretPort * (ports || 0)));
+// Garde-fous techniques : bnd(id, v, lo, hi) borne une valeur (anti-NaN, anti-explosion) ET compte chaque contact (S._bnd[id] = [appels, en bas, en haut, dernier jour]).
+// Une borne touchée plus de 1 % des appels en partie normale cache un mécanisme : tools/bnd_report.js les mesure. Compteurs non sauvegardés.
+function bnd(id, v, lo, hi) {
+  const B = S ? (S._bnd || (S._bnd = {})) : null, o = B ? (B[id] || (B[id] = [0, 0, 0, 0])) : null; if (o) o[0]++;
+  if (!(v === v)) { if (o) { o[1]++; o[3] = S.day; } return lo; }
+  if (v < lo) { if (o) { o[1]++; o[3] = S.day; } return lo; } if (v > hi) { if (o) { o[2]++; o[3] = S.day; } return hi; } return v;
+}
+// Prix fixés par le joueur : libres. Seul un garde-fou contre les fautes de saisie (5 % à 20 × la référence) ; le marché (les clients qui partent) punit un prix absurde.
+const PX_LO = 0.05, PX_HI = 20;
+const pxFree = v => bnd('PXJ', +v, PX_LO, PX_HI);
+// Invariants quotidiens (hors interface) : NaN/Infinity, stock négatif, prix nul. S._lib = { bad: [..] } (dernier relevé), relevé par t97 et bnd_report.js.
+function libCheck() {
+  const bad = []; GKEYS.forEach(g => { const p = S.price[g], s = S.stock[g]; if (!(p > 0) || !isFinite(p)) bad.push('price.' + g + '=' + p); if (!(s >= 0) || !isFinite(s)) bad.push('stock.' + g + '=' + s); });
+  PKEYS.forEach(pk => { const ps = S.prod[pk]; if (ps && (!(ps.stock >= 0) || !isFinite(ps.stock))) bad.push('prod.' + pk + '=' + ps.stock); });
+  if (!isFinite(S.cash)) bad.push('cash=' + S.cash); (S.rivals || []).forEach(r => { if (!isFinite(r.cash)) bad.push('riv.' + r.id + '.cash'); });
+  const L = S._lib || (S._lib = { n: 0, bad: [] }); if (bad.length) { L.n++; L.bad = bad.slice(0, 12); L.d = S.day; } return bad;
+}
 // Marché industriel local : acheteurs PNJ de la ville pour chaque matière ; le premier arrivé rafle tout, puis des producteurs locaux s'installent
 // Élasticité-prix (valeurs absolues, plus modérées que dans la vraie vie comme dans Capitalism Lab) : une hausse de 10 % du prix réduit la demande de ε × 10 %
 const EL_CLS = { basic: 0.9, std: 1.4, lux: 2.2, estate: 1.6 };   // ordre de grandeur long terme avec substituts (rivaux, IA)
@@ -2496,7 +2523,7 @@ function supOffer(g, id, haul) {
 function supOffer0(g, id, haul) {
   const base = (S.price[g] || GOODS[g].base) / (id === 'local' ? 1 : mpM(g));   // passe 46 : fournisseurs extérieurs et import au cours mondial ; le stock local au prix du marché local
   if (id === 'local') return { unit: base, freight: 0, total: base, name: 'Mon réseau (stock local)', q: 60 };
-  if (id === 'import') { const pr = Math.max(1.05, 1.3 - 0.05 * ((S.stats && S.stats.cn && S.stats.cn.port) || 0)), k = base * FREIGHT, seg = [k * 15, k * 29, k * (1 + (haul || 0) * 0.3)], fr = seg[0] + seg[1] + seg[2]; return { unit: base * pr, freight: fr, total: base * pr + fr, name: 'Import par le port', q: 55, seg, segN: ['producteur → port d\'origine', 'port → port (mer)', 'port → ton site'] }; }
+  if (id === 'import') { const pr = impRate((S.stats && S.stats.cn && S.stats.cn.port) || 0), k = base * FREIGHT, seg = [k * 15, k * 29, k * (1 + (haul || 0) * 0.3)], fr = seg[0] + seg[1] + seg[2]; return { unit: base * pr, freight: fr, total: base * pr + fr, name: 'Import par le port', q: 55, seg, segN: ['producteur → port d\'origine', 'port → port (mer)', 'port → ton site'] }; }
   if (id === 'ems' && EMS_G[g]) { const u = emsPx(g), fr = u * EMS_FR; return { unit: u, freight: fr, total: u + fr, name: emsName() + ' (sous-traitance)', q: EMS_Q, dist: 30, ems: 1 }; }   // passe 72 : prix de gros mondial du sous-traitant
   const s = supplierList(g).find(x => x.id === id) || supplierList(g)[0];
   // Achat inter-villes (puissance étrangère) : 3 segments, fournisseur → port, port → port (mer), port → acheteur
@@ -4625,7 +4652,7 @@ function newCity(start) {
   const grid = new Array(N * N).fill(null);
   const S0 = {
     cash: 40000, pop: 40, day: 0, grid, dep: genDeposits(), hist: [], boomUntil: -1, milestone: 99, lastWarn: -99,
-    tax: 0.25, stock: {}, price: {}, ph: {}, fix1: 1,   // fix1 : remise à niveau unique réservée aux anciennes sauvegardes à trésorerie négative ; jamais active dans une nouvelle partie
+    tax: USM.corpTax, stock: {}, price: {}, ph: {}, fix1: 1,   // fix1 : remise à niveau unique réservée aux anciennes sauvegardes à trésorerie négative ; jamais active dans une nouvelle partie
     sold: 0, made: { ingot: 0 }, done: [], won: false, stats: {}
   };
   GKEYS.forEach(g => { S0.stock[g] = 0; S0.price[g] = GOODS[g].base; S0.ph[g] = [GOODS[g].base]; });
@@ -4744,7 +4771,7 @@ function load() {
     fpRz.push(...fpMigrate(grid, dep, d.npcFarm));   // barème des tailles : bâtiments du joueur agrandis à leur nouvelle emprise (supermarché 2×1 → 2×2, hypermarché 2×2 → 3×3), sans en perdre aucun
     const S0 = {
       cash: +d.cash, pop: +d.pop, day: d.day | 0, grid, dep, hist: Array.isArray(d.hist) ? d.hist.slice(-80) : [], boomUntil: d.boomUntil == null ? -1 : (+d.boomUntil | 0),
-      milestone: 99, lastWarn: -99, tax: clamp(+d.tax || 0.25, 0.05, 0.45),
+      milestone: 99, lastWarn: -99, tax: USM.corpTax,   /* ancien curseur d'impôt lu sans effet : taux fixe */
       stock: {}, price: {}, ph: {}, sold: +d.sold || 0, made: d.made || { ingot: 0 },
       done: Array.isArray(d.done) ? d.done : [], won: !!d.won, stats: {}
     };
@@ -5699,7 +5726,7 @@ function stepDevs() {
 const BOOM_DAYS = 420;
 const boomOn = () => !!(S && S.macro && S.macro.boom);
 // Réseau électrique : un opérateur historique couvre la demande de la ville ; ton industrie l'élargit. Déficit = coupures qui ralentissent les usines ; tes centrales vendent au réseau au prix du marché.
-const ELEC_BASE = 30, PLANT_MWH = 0.6, PLANT_COAL = 500, MWH_SOLAR = 370, MWH_WIND = 195, MWH_NUC = 1000;   // MWh par tonne de charbon ; charbon brûlé par jour et par centrale ; MWh/j des autres centrales
+const ELEC_BASE = 30 * USM.energyK, PLANT_MWH = 0.6, PLANT_COAL = 500, MWH_SOLAR = 370, MWH_WIND = 195, MWH_NUC = 1000;   // MWh par tonne de charbon ; charbon brûlé par jour et par centrale ; MWh/j des autres centrales
 function gridMask() {
   const dist = new Int16Array(N * N).fill(-1), loss = new Float64Array(N * N), over = new Uint8Array(N * N), q = [], isL = c => c && (c.t === 'pylon' || c.t === 'cable'), rate = c => c.t === 'cable' ? 0.002 : 0.006;
   for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!isL(c)) continue; const x = i % N, y = (i / N) | 0; let edge = false; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (inb(x + dx, y + dy) && ZONE[idx(x + dx, y + dy)] === 1) edge = true; if (edge) { dist[i] = 0; loss[i] = rate(c); over[i] = c.t === 'pylon' ? 1 : 0; q.push(i); } }
@@ -6179,12 +6206,12 @@ function stepDifficulty() {
   if (S.day % 10 !== 0 || S.day < 30) return;
   const ex = expectedVal(S.day), v = isTimed() ? valuation() : ((S.stats && S.stats.worth) || ex), ratio = v / Math.max(1, ex);
   const T = isTimed() ? DIFF_T : [1.5, 2.2, 3.2, 0.85];
-  const d = ratio > T[2] ? 3 : ratio > T[1] ? 2 : ratio > T[0] ? 1 : ratio < T[3] ? -1 : 0;
+  const d = ratio < T[3] ? -1 : 0;   // économie libérale : la réussite n'est plus taxée (niveaux 1-3 de surchauffe supprimés)
   if (d !== (S.diff || 0)) {
     const msg = { 3: 'Surchauffe : régulation, impôts, salaires et rivaux montent d\'un cran. L\'indécence a un prix !', 2: 'Tu t\'enrichis très vite : les rivaux contre-attaquent et les coûts montent.', 1: 'Belle croissance : la concurrence se réveille.', 0: 'Le marché retrouve son équilibre.', '-1': 'Les conditions s\'assouplissent pour t\'aider à décoller.' }[String(d)];
     say(msg + (isTimed() && d > 0 ? ` (impôt +${Math.round(REG_TAX * d * 100)} pts, salaires +${Math.round(REG_WAGE * d * 100)} %, plafond de dette −${Math.round(REG_DEBT * d * 100)} %)` : ''), d > 0 ? 'warn' : 'good');
   }
-  S.diff = d;
+  S.diff = Math.min(0, d);   // économie libérale : plus de « surchauffe » (impôt, salaires, plafond de dette durcis quand on réussit) ; seul reste le coup de pouce à un joueur qui stagne
 }
 const DIFF_T = [1.4, 2.0, 2.8, 0.7];   // seuils (valorisation / courbe attendue) des niveaux 1, 2, 3 et du coup de pouce
 const diffMult = () => 1 + REG_WAGE * Math.max(0, (S && S.diff) || 0);
@@ -6542,7 +6569,7 @@ function liveStep(c, T, out, cn, TM) {
   let got = Math.min(need, S.stock.wheat || 0), cost = got * wp;
   S.stock.wheat = Math.max(0, (S.stock.wheat || 0) - got);
   const lack = need - got;
-  if (lack > 0.01 && (cn.port || 0) > 0 && !(c.src && c.src.wheat === 'local')) { const impR = Math.max(1.05, 1.3 - 0.05 * (cn.port || 0)) * TM.buy, ic = lack * wp * impR; got += lack; cost += ic; c._fimp = ic; }
+  if (lack > 0.01 && (cn.port || 0) > 0 && !(c.src && c.src.wheat === 'local')) { const impR = impRate(cn.port) * TM.buy, ic = lack * wp * impR; got += lack; cost += ic; c._fimp = ic; }
   c._feed = need > 1e-9 ? Math.min(1, got / need) : 1; c.inCost = cost;
   return out * (FEED_FLOOR + (1 - FEED_FLOOR) * c._feed);
 }
@@ -7189,7 +7216,7 @@ function firmDay(o) {
 }
 // Impôt par société : chacune a ses pertes reportables. Intégration fiscale : la mère et les filiales éligibles (détention ≥ 95 %, ≥ 30 jours) sont imposées sur leur résultat d'ensemble.
 function firmTax(FD, preTax, rate) {
-  const G = grpS(), la = (pre, loss) => { loss = loss || 0; if (pre < 0) return [0, Math.min(loss - pre, 5e7)]; const u = Math.min(loss, pre); return [pre - u, loss - u]; };
+  const G = grpS(), la = (pre, loss) => { loss = loss || 0; if (pre < 0) return [0, loss - pre]; const u = Math.min(loss, pre * USM.lossUse); return [pre - u, loss - u]; };   // report illimité, 80 % du bénéfice
   let sub = 0; FD.rows.forEach(r => { sub += r.pre; }); const P = FD.p = { id: 0, pre: preTax - sub, tax: 0, integ: !!G.integ };
   const mem = [P], out = []; FD.rows.forEach(r => { r.tax = 0; r.integ = !!(G.integ && firmElig(r.f)); (r.integ ? mem : out).push(r); });
   let tot = 0;
@@ -7595,7 +7622,7 @@ function step() {
     list.forEach(c => { c._impCost = 0; c._impIn = 0; c._impV = 0; c._noAuto = ''; c._supT = {}; });
     // fournisseurs : chaque usine choisit pour chaque intrant Auto (stock local puis port), Port (import) ou Local (stock seulement)
     Object.keys(inp).forEach(g => {
-      const impR = Math.max(1.05, 1.3 - 0.05 * (cn.port || 0)) * TM.buy * modOf('buy');
+      const impR = impRate(cn.port) * TM.buy * modOf('buy');
       let tot = 0; list.forEach(c => { tot += c._u * inp[g]; });
       const outV = tgt.good ? tgt.qty * S.price[tgt.good] : tgt.prod ? tgt.qty * prodPrice(tgt.prod) : 0, inV = Object.keys(inp).reduce((a, k) => a + inp[k] * (EMS_G[k] && list.some(c => c.src && c.src[k] === 'co:ems') ? emsPx(k) * (1 + EMS_FR) * TM.buy * modOf('buy') : S.price[k] * impR * 1.1), 0);   // passe 72 : un composant sous-traité se compte à son prix de gros
       let short = inV > outV * 0.85 ? 0 : Math.max(0, tot - S.stock[g]);   // l'import automatique n'a lieu que si la fabrication reste rentable
@@ -7796,7 +7823,7 @@ function step() {
   S.loan = S.loan || 0;
   const loanRate = loanRateNow();
   const od = odLimit(), interest = loanInt(loanRate) + (Math.min(od, Math.max(0, -S.cash)) * (loanRate + 0.04) + Math.max(0, -S.cash - od) * (loanRate + 0.12)) / 360;   // découvert limité (1 % de la valeur) à taux + 4 pts, au-delà taux + 12 pts (pas de défaite automatique)
-  const rate = S.tax + regTax();
+  const rate = USM.corpTax; S.tax = rate;   // économie libérale : taux fixe (fédéral + États), plus de surtaxe de « surchauffe »
   let upkeepI = upkeep * cpi();
   upkeepI += AD.fee;   // passe 49 : redevance et loyer de l'aéroport
   // passe 32 : comptes par société (filiales) ; la maison mère est le solde du consolidé, l'impôt est calculé par société (ou sur le périmètre d'intégration fiscale)
@@ -7805,13 +7832,14 @@ function step() {
   const preTax = revRetail + revExport + revTech + revBank - wagesTotal - upkeepI - transportTotal - advCost - interest - importCost;
   S.lossC = S.lossC || 0; let corpTax;
   if (FD && FD.rows.length) corpTax = firmTax(FD, preTax, rate);
-  else { let taxable = preTax; if (preTax < 0) { S.lossC = Math.min(S.lossC - preTax, 5e7); taxable = 0; } else { const used = Math.min(S.lossC, preTax); S.lossC -= used; taxable = preTax - used; } corpTax = Math.max(0, taxable) * rate; }
+  else { let taxable = preTax; if (preTax < 0) { S.lossC = S.lossC - preTax; taxable = 0; } else { const used = Math.min(S.lossC, preTax * USM.lossUse); S.lossC -= used; taxable = preTax - used; } corpTax = Math.max(0, taxable) * rate; }   // report des pertes illimité, imputable sur 80 % du bénéfice (régime fédéral)
   if (preTax > 1) S.taxEff = S.taxEff == null ? rate : S.taxEff * 0.92 + rate * 0.08;   // taux perçu les jours bénéficiaires (lissé) : sans bénéfice, pas de recettes, donc pas de nouveaux services
   const net = preTax - corpTax;
   S.cash += net;
   const div = ((S.float > 0 && net > 0 && execOn('cfo')) ? S.float * net * (S.payout || 0) : 0) + ((S._ecDay && S._ecDay.mi) || 0); S.cash -= div;   // + part des investisseurs de la startup en ligne (passe 46) S._cashEnd = S.cash;
   { const caD = revRetail + revExport + revTech + revBank, ebeD = caD - wagesTotal - upkeepI - transportTotal - advCost - importCost; S.m30 = S.m30 || []; S.m30.push([caD, ebeD, net, revRetail, revExport, revTech, revBank, wagesTotal, upkeepI, transportTotal, advCost, interest, importCost, div, corpTax]); if (S.m30.length > 30) S.m30.shift(); }
   S.fin = { revRetail, revExport, revTech, revBank, wages: wagesTotal, upkeep: upkeepI, transport: transportTotal, adv: advCost, interest, imports: importCost, div, tax: corpTax, net };
+  S.fin.salesTax = revRetail * USM.salesTax; S.fin.payroll = wagesTotal * USM.payroll / (1 + USM.payroll);   // relevé : sales tax payée par les clients (prix de rayon TTC), charges patronales comprises dans le coût salarial
   try { synStep(revRetail, buildings); } catch (e) { if (!S._synErr) { S._synErr = 1; console.error('synergies', e); } }   // passe 68 : ce que les autres castes t'apportent / ce que tu leur apportes (relevé, aucun effet)
   if (FD) firmBook(FD, S.fin, preTax);
 
@@ -7953,6 +7981,7 @@ function step() {
   try { netDaily(); } catch (e) { /* réseau facultatif : n'affecte pas la simulation */ }
   checkMissions();
   if ((_tel || telS()).on) { try { telStep(); } catch (e) { /* télémétrie facultative : jamais bloquante */ } }
+  libCheck();   // invariants du moteur libéral (relevé, aucun effet)
   if (S.day % 5 === 0) save();
   updateHUD();
 }
@@ -8639,7 +8668,7 @@ function updateHUD() {
       el('polNote3').textContent = 'Sans ajustement, tes prix de rayon et ton budget publicitaire perdent du terrain à chaque point d\'inflation (' + Math.round((cpi() - 1) * 1000) / 10 + ' % depuis le début). Les options automatiques réalignent tout tous les 30 jours.'; }
     el('tax').value = Math.round(S.tax * 100);
     el('taxV').textContent = Math.round(S.tax * 100) + ' %';
-    el('taxNote').textContent = S.tax > 0.3 ? 'Impôt élevé : les recettes financent des services publics (humeur + plafonnée, rendements décroissants), mais tes bénéfices fondent et l\'investissement comme l\'afflux d\'habitants reculent au-delà de 25 %.' : S.tax < 0.2 ? 'Impôt bas : tu gardes plus de bénéfices, mais les services publics, donc l\'humeur, en pâtissent.' : 'Impôt équilibré.';
+    el('tax').disabled = true; el('taxNote').textContent = `Fiscalité américaine fixe : impôt sur les sociétés ${Math.round(USM.corpTax * 100)} % (fédéral + États), pertes reportables sans limite sur 80 % du bénéfice ; sales tax ${Math.round(USM.salesTax * 100)} % incluse dans les prix de rayon ; charges patronales ${Math.round(USM.payroll * 100)} % comprises dans les salaires ; droits de douane ${Math.round(USM.tariff * 100)} % sur les importations.`;
     const h = S.hist;
     if (h.length) {
       const last = h[h.length - 1], prev = h.length > 1 ? h[h.length - 2] : last;
@@ -15864,7 +15893,7 @@ el('hudx').onclick = () => { const on = document.body.classList.toggle('hx'); el
 el('lyr').onclick = () => { const L = Object.keys(LAYER_N); setLayer(L[(L.indexOf(layer) + 1) % L.length]); };
 function setLayer(k) { if (!LAYER_N[k]) return false; layer = k; el('lyr').textContent = 'Calque : ' + LAYER_N[k]; el('lyr').title = 'Calque de la carte : ' + LAYER_F[k] + ' (clic : calque suivant)'; el('lyr').setAttribute('aria-label', 'Calque : ' + LAYER_F[k]); return true; }
 el('winok').onclick = () => { el('win').hidden = true; };
-el('tax').addEventListener('input', e => { S.tax = clamp(+e.target.value / 100, 0.05, 0.45); updateHUD(); });
+el('tax').addEventListener('input', e => { e.target.value = Math.round(USM.corpTax * 100); updateHUD(); });   // taux fixe (économie américaine) : le curseur n'agit plus
 let rstTimer = 0;
 el('rst').onclick = () => {
   const b = el('rst');
@@ -18479,7 +18508,7 @@ const REG_TAX = 0.05, REG_WAGE = 0.08, REG_DEBT = 0.15;   // par niveau de surch
 // nul hors bénéfice) financent des services publics : bonus d'humeur plafonné à TAX_SVC_MAX points au total, à rendements décroissants (1 − e^(−0,7 x), x = taux effectif / 25 %),
 // nul au taux de référence de 25 % (réglage par défaut) ; moins de recettes = moins de services (jusqu'à −2,2 pts à 5 %), plus de recettes = +1,3 pt à 45 % (jamais plus de +3).
 // Au-delà de 25 %, l'impôt décourage l'investissement privé et l'installation d'habitants : cible de population réduite de 60 % de l'écart (−12 % à 45 %).
-const TAX_SVC_MAX = 6, TAX_REF = 0.25, TAX_SVC_K = 0.7;
+const TAX_SVC_MAX = 6, TAX_REF = US_MACRO_CONFIG.corpTax, TAX_SVC_K = 0.7;
 const taxSvc = () => { const f = x => 1 - Math.exp(-TAX_SVC_K * x); return TAX_SVC_MAX * (f((S.taxEff == null ? TAX_REF : S.taxEff) / TAX_REF) - f(1)); };
 const taxDrag = rate => 1 - 0.6 * Math.max(0, rate - 0.25);
 const regTax = () => REG_TAX * Math.max(0, (S && S.diff) || 0);
@@ -21310,6 +21339,7 @@ Object.assign(window.WSE, { start: { of: startOf, hk: hkNow, K: { START_K, START
 Object.assign(window.WSE, { levelMult, pal: { DEF: PAL_DEF, POP: PAL_POP, popReq: (k, l) => palPopReq(PAL_DEF[k], l), DAYS: PAL_DAYS, DIA_D: PAL_DIA_D, MAINT: PAL_MAINT, ROUND_ACC: PAL_ROUND_ACC, of: palOf, reqs: palReqs, start: palStart, accel: palAccel, accDays: palAccDays, diaFor: palDiaFor, step: palStep, prog: palProg, left: palLeft, slots: palSlots, active: palActive, card: palCard, list: palListHTML, migrate: palMigrate, upk: palUpk, drawn: () => palBadgeN }, ent: { S: entS, san: entSan, prem: entPrem, dia: entDia, on: premOn }, coo: { LV: COO_LV, BUF: COO_BUF, set: cooSet, on: cooOn, sal: cooSal, pay: cooPay, spend: cooSpend, step: cooStep, review: cooReview, decide: cooDecide, opts: cooOpts, score: cooScoreOf, apply: cooApply, card: cooCardHTML, ins: cooIns }, scm: { S: scmS, san: scmSan, step: scmStep, score: scmScore, BADGES: SCM_BADGES, award: scmAward, rivals: scmRivals, rank: scmRankHTML, card: scmCardHTML }, p74Render, bestOffer, offerScore, supOffer, buyerQw, setPanel, setPtab });   // passe 74 : paliers, premium simulé, COO, maîtrise (tools/tests/t74, t75)
 Object.assign(window.WSE, { farmx: { FXV, FX_CAP, ask: a => buyoutCost(a), FARM_MAX, FARM_COST, FCLEAR, WOOD_SELL, HA_CASE, costs: (t, w, h) => farmCosts(TYPES[t], w, h), jobsK: farmJobsK, plan: (c, n, m, b) => farmPlanRaw(c, n == null ? 1 : n, m || 'free', b), exec: (c, n, m, o) => farmGrowExec(c, n, m, o), qopen: (c, m) => farmQOpen(c, m), qok: () => farmQOk(), hl: () => FARM_HL, setRows: v => { fgN = v; }, FARM_CORPS_K, FARM_CELL_K, FARM_ANNEX, areaK: farmAreaK, costK: farmCostK, costKA: (t, A) => farmCostKA(TYPES[t], A), quote: (c, o) => farmGrowQuote(c, o), grow: (c, o) => farmGrow(c, o), act: c => farmGrowAct(c), econ: c => farmEcon(c), html: c => farmSizeHTML(c), ext: a => farmExt(a), probe: (a, n, zz) => farmProbe(a, n, zz), npcGrow: o => growNpcFarm(o) } });   // passe 87 : surface variable des fermes (t87)
 Object.assign(window.WSE, { farm3: { CROP_AREA, CROP_UPK, cropAreaK, plan: c => farmPlan(c), html: c => farmPlanHTML(c), fertBuy: (q, w) => fertBuy(q, w), cooFarm: () => cooFarm(), calNext: g => calNext(g), fpMigrate: (g, d, n) => fpMigrate(g, d, n), FARM_ZONE3 } });   // passe 85 : cultures 3×3, bloc « ce que tu optimises » (t86)
+Object.assign(window.WSE, { lib: { USM: US_MACRO_CONFIG, bnd, check: libCheck, PX_LO, PX_HI, get B() { return S._bnd || {}; } } });   // économie libérale (t97, tools/bnd_report.js)
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
 Object.assign(window.WSE, { imgAudit: { guide: k => !!GUIDEHD[k], hero: k => !!PRODHD[k], photo: k => GUIDEHD[k] || null, productSVG0, compIcon, compIconVec } });   // passe 59 : audit des images de produits (tools/audit_produits.js, t59)
 Object.assign(window.WSE, { setGuidePhoto: (k, src) => { GUIDEHD[k] = src; Object.keys(psvgCache).forEach(c => { if (c.split('|')[0] === k) delete psvgCache[c]; }); if (typeof renderGuide === 'function') renderGuide(true); }, cine: { show: (pk, why) => cineShow(pk, why || 'manuel', true), close: cineClose, get on() { return CINE.on; }, state: () => ({ on: CINE.on, pk: CINE.pk, hero: CINE.hero, frames: CINE.frames, t: CINE.last ? CINE.last.t : 0, q: CINE.q.slice(), shown: CINE.shown, opt: cineOpt(), manual: CINE.manual }), setOpt: cineSetOpt, opt: cineOpt, setHero: setProductHero, heroOf: pk => !!cineHeroOf(pk), watch: cineWatch, facts: cineFacts, setTest: v => { CINE.test = !!v; }, reset: () => { CINE.seen = {}; CINE.snap = null; CINE.q.length = 0; } } });
