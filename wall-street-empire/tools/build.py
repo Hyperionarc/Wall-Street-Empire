@@ -250,7 +250,7 @@ def _sy(path):
     return 1.0
 # Bâtiments de la ville en HD : assets/city_hd/<nom>.png (+ ancres.json : largeur, hauteur, ancre_x, ancre_y, emprise_px) ; vide = atlas Kenney
 CITY_NAMES = ['maison_moderne_cubique', 'maison_de_ville_briques', 'pavillon_banlieue', 'brownstone_new_yorkais', 'immeuble_londonien_briques', 'immeuble_haussmannien', 'immeuble_art_deco', 'immeuble_residentiel_6_etages_a', 'immeuble_residentiel_6_etages_b', 'immeuble_residentiel_moderne', 'tour_de_verre', 'immeuble_bureaux_vitre', 'tour_bureaux_12_etages_a', 'tour_bureaux_12_etages_b', 'banque_neoclassique', 'hotel_de_luxe', 'gratte_ciel_25_etages_a', 'gratte_ciel_25_etages_b', 'gratte_ciel_40_etages_a', 'gratte_ciel_40_etages_b', 'gratte_ciel_60_etages_a', 'gratte_ciel_60_etages_b', 'chalet_savoyard', 'maison_japonaise', 'villa_mediterraneenne', 'maison_bois_nordique', 'immeuble_residentiel_6_etages_b']
-cityhd = {}; cityanch = {}
+cityhd = {}; cityanch = {}; CITY_DEFRINGE = []
 for _cd in (os.path.join(ROOT, 'assets', 'city_hd'), os.path.join(ROOT, '..', 'assets', 'city_hd')):
     if os.path.isdir(_cd):
         _aj = os.path.join(_cd, 'ancres.json')
@@ -263,6 +263,7 @@ for _n in CITY_NAMES:   # les bâtiments produits par le Mac sont dans assets/fa
     _f = os.path.join(_hd_dir, _n + '.png')
     if _n not in cityhd and os.path.exists(_f):
         cityhd[_n] = 'data:image/png;base64,' + base64.b64encode(open(_f, 'rb').read()).decode()
+        CITY_DEFRINGE.append(_n)   # passe 99 : liseré sombre corrigé plus bas (_defringe, défini avec les sprites de la phase 2)
         _aa = json.load(open(os.path.join(_hd_dir, 'ancres.json'))).get(_n + '.png')
         if _aa and _n not in cityanch: cityanch[_n] = _aa
         try:   # emprise réelle (pixels opaques) : la parcelle du sprite est calée sur le losange de la case, pas sur l'ancre approximative
@@ -395,6 +396,27 @@ def _unlabel(im, box):
     wgt = np.maximum(wgt, dil(m, 21)[..., None].astype(np.float32))
     out = a.copy(); out[..., :3] = a[..., :3] * (1 - wgt) + plane * wgt
     return Image.fromarray(np.uint8(np.clip(out, 0, 255)), 'RGBA')
+# Passe 99 (artefacts, Rémy : « plein d'artefacts sur les images ») : liseré sombre autour des sprites. Les rendus livrés ont un bord semi-transparent de 1-2 px dont la couleur
+# a été mélangée au fond noir du rendu (couleur prémultipliée laissée en alpha droit) : -90 à -120 niveaux de luminance contre le pixel opaque voisin sur centre_rd, stade,
+# bat_mega_centre_commercial, tours, banque… -> halo sombre autour de chaque bâtiment, surtout sur le sol clair. Correction : sur ce seul liseré (pixel semi-transparent qui touche à
+# la fois l'objet opaque et le vide, à 2 px près) et seulement s'il est nettement plus sombre que l'objet, la couleur est remplacée par celle des pixels opaques voisins
+# (moyenne pondérée) ; l'alpha ne change pas. Les ombres portées (larges zones semi-transparentes) et les vitrages ne sont pas touchés.
+def _defringe(im):
+    import numpy as np
+    from PIL import ImageFilter as _F
+    a = np.asarray(im, np.float32); al = a[..., 3]
+    op = al >= 250; tr = al < 10
+    mx = lambda m: np.asarray(Image.fromarray(np.uint8(m * 255)).filter(_F.MaxFilter(5))) > 0
+    fr = (al >= 10) & (al < 250) & mx(op) & mx(tr)
+    if not fr.any(): return im, 0
+    bl = lambda x: np.asarray(Image.fromarray(np.uint8(np.clip(x, 0, 255))).filter(_F.GaussianBlur(1.6)), np.float32)
+    w = bl(op * 255.0) / 255.0; C = np.stack([bl(a[..., c] * op) for c in range(3)], -1) / np.maximum(w, 1e-3)[..., None]
+    L = lambda x: x[..., :3] @ np.array([0.299, 0.587, 0.114], np.float32)
+    fix = fr & (w > 0.04) & (L(a) < L(C) - 30)
+    if not fix.any(): return im, 0
+    out = a.copy(); out[fix, :3] = C[fix]
+    return Image.fromarray(np.uint8(np.clip(out, 0, 255)), 'RGBA'), int(fix.sum())
+P2_DEFRINGE = {}
 def _p2enc(name, im, dim):
     import io
     if P2_ENC == 'png256':
@@ -414,6 +436,7 @@ for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', '
             _im = _I.open(_f).convert('RGBA')
             if _n in P2_FLIP: _im = _im.transpose(_I.FLIP_LEFT_RIGHT)
             if _n in P2_UNLABEL: _im = _unlabel(_im, P2_UNLABEL[_n])
+            if _n not in GROUND_TILES and os.environ.get('WSE_DEFRINGE', '1') != '0': _im, P2_DEFRINGE[_n] = _defringe(_im)
             p2dim[_n] = [_im.width, _im.height] + list(_im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox() or (0, 0, _im.width, _im.height)) + _diamond(_im) + [_sy(_f)]
             _a = _anc.get(_n + '.png')   # indices 10 et 11 : ancre (pieds, contact au sol) d'ancres.json, -1 si absente ; sert aux objets posés (véhicules, animaux, personnages, grue, navire)
             p2dim[_n] += [(_im.width - _a['ancre_x']) if _n in P2_FLIP else _a['ancre_x'], _a['ancre_y']] if _a and 'ancre_x' in _a and 'ancre_y' in _a else [-1, -1]
@@ -421,6 +444,13 @@ for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', '
                 _bf = io.BytesIO(); _ground_tile(_n, _im, _f).save(_bf, 'JPEG', quality=88, optimize=True, subsampling=0); p2hd[_n] = 'data:image/jpeg;base64,' + base64.b64encode(_bf.getvalue()).decode(); continue
             p2hd[_n] = _p2enc(_n, _im, p2dim[_n])
         except Exception as _e: print('phase2 ignoré', _n, _e)
+for _n in CITY_DEFRINGE:
+    try:
+        import io
+        _im, _k = _defringe(Image.open(os.path.join(_hd_dir, _n + '.png')).convert('RGBA'))
+        if _k: _bf = io.BytesIO(); _im.save(_bf, 'WEBP', quality=92, alpha_quality=100, method=4); cityhd[_n] = 'data:image/webp;base64,' + base64.b64encode(_bf.getvalue()).decode(); P2_DEFRINGE['city:' + _n] = _k
+    except Exception as _e: print('liseré', _n, _e)
+print('liseré sombre corrigé :', sum(1 for v in P2_DEFRINGE.values() if v), 'sprites,', sum(P2_DEFRINGE.values()), 'px')
 print('sprites phase 2 :', len(p2hd), ' poids', sum(len(v) for v in p2hd.values()) // 1024, 'Ko')
 print('sprites usine :', len(fac), 'sur', len(FAC_NAMES) + len(facextra), '(dont HD :', len(_hd['png']), ')', '(repli vectoriel pour les autres)')
 out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__GUIDEHD_JSON__', json.dumps(guidehd)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__CITYHD_JSON__', json.dumps(cityhd)).replace('__P2HD_JSON__', json.dumps(p2hd)).replace('__P2DIM_JSON__', json.dumps(p2dim)).replace('__CITYANCH_JSON__', json.dumps(cityanch)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
