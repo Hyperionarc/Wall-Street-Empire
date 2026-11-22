@@ -91,8 +91,31 @@ Les noms de fonctions et de constantes font foi (les numéros de ligne bougent).
 | t70 prospérité | part due aux IA > 2 % au jour 120 | > 0,05 % | le revenu versé par les IA entre au prorata réel de leur CA (budget fermé), plus par un logarithme gonflé |
 | t87 sauvegarde | capacité lue avant la croissance du dernier jour | lue après `refreshStats` | la ville grandit plus vite ; mesure comparable au rechargement |
 | lib.js `isoExtractor1` | CA brut sur la fenêtre | CA désaisonnalisé (÷ `seasonMult`) | récolte saisonnière |
+| t88 rentabilité par taille | recettes brutes, tailles mesurées à des saisons différentes | recettes désaisonnalisées | récolte saisonnière |
+| t51 ferme de blé 36 cases | EBITDA ≥ 15 % | ≥ 10 % | cours libre, plus de plancher |
+| t30 recettes | EBITDA 10-22 % | 10-24 % | intrants au cours libre |
+| t46 pain et commerce en ligne | modèle prospérité^0,6 | basique indépendant du revenu (saturation) | budget fermé |
+| t18 marque | bradage sans marque < 0,46 ; hausse de 25 % : écart ≥ 0,05 | < 0,48 ; écart ≥ 0,02 | luxe joué sur la marque (α = 0,6), le prix pèse moins pour tous |
+| t66 amortisseur | demande du jour 1 000 u | 100 000 u | l'achat n'a lieu qu'au-delà de 1 000 $ : indépendant du cours du bien |
+| t73 fonderies | 20-36 % ; bot fondeur 18-80 % | 20-38 % ; 5-80 % | prime plafonnée par l'import, annulée par un stock dormant |
+
+Échecs constatés aussi sur la branche de départ (non liés au moteur) : t08_chaines (chaîne du pain), t43 (annonce de campagne masquée par une guerre des prix dans le fil),
+t44 (encart du mall), t59 (photo porkmeat).
+
+## Calibration (bots, mesures)
+- Garde-fous (`tools/bnd_report.js 720 1`, 6 castes) : aucune borne touchée (0,000 % des appels pour B4, B6, B18, B19, B27, B29, B38, B41, B44, B52, B61, B62, PXJ).
+  Cours les plus volatils : acier, plastique, cuivre ≈ 0,7 % d'écart-type journalier, plus forte variation 4,8 %/j, dents de scie ≤ 2 jours. Aucun invariant violé.
+- A/B fermier (copie de t65, 1 080 j) : avant le lot 138 M$ ; lots 0-6 : 55 M$ (saisonnalité −34 M$, périssabilité −16 M$, marché saturé) ;
+  avec des marchés mondiaux profonds pour les denrées (congestion d'export ÷4, `AG_GOODS`) : 119 M$. t65 (équilibre des castes) repasse : agriculteur 0,96, banquier 1,16,
+  négociant 0,86, industriel 0,90, promoteur 1,30, innovateur 0,89 de la moyenne géométrique.
+- sim_batch `--native --seeds 1 --days 1800` (M$ aux jours 90 / 180 / 360 / 720 / 1 080 / 1 440 / 1 800) : banquier 20/31/56/116/193/352/451, agriculteur 17/28/74/104/76/157/211,
+  industriel 15/17/28/52/103/221/288, innovateur 23/33/63/199/301/519/940, négociant 17/24/27/97/215/385/525, promoteur 18/31/19/30/112/113/438 ; villes de 330 000 à 1,2 M d'habitants,
+  chômage 4-9 %. Croissance exponentielle, pas d'effondrement systémique, 0 erreur. Avant (1 080 j) : 221, 80, 119, 297, 211, 287 M$ : à 1 080 j les castes restent du même ordre
+  de grandeur ; le démarrage (≤ 360 j) est 20 à 40 % plus lent pour l'industriel, l'agriculteur et le négociant (marges de marché plus minces que les anciens planchers).
 
 ## Limites connues et suite
+- Déterminisme entre deux parties successives dans la même page (t27) : après ≈ 650 jours, la trésorerie d'un rival diffère d'environ 1 $ (état conservé hors de S, apparu dès le lot 1 ;
+  une partie seule rejouée est identique). À isoler (caches de module indexés sur le seul jour, comme `compNow`).
 - La demande B2B des usines PNJ utilise `LOCAL_D` comme nomenclature calibrée (par bien, pas par recette de panier) ; une vraie nomenclature par classe de panier est la suite logique.
 - `rivMkt` (marché élargi par les concurrents) est gardé (effet de variété), il pourrait disparaître si la somme positive tient par le seul budget.
 - Calibration des bots : voir la section du rapport de passe (sim_batch `--native`, comparaison avant/après).
