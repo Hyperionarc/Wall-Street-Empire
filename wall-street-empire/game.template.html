@@ -2773,13 +2773,13 @@ const rivP = r => RIV_CASTE[rivK(r)] || RIV_GEN[r.id === 'r3' ? 0 : r.id === 'r1
 const rivBase = () => (S && S.mode && S.mode.easy) ? { m: 0.85, aggr: 0.6, warTh: 0.4, depth: 0.75, dur: 0.7, ma: 0.5, fineP: 0.05, exp: 0.8 } : { m: 1, aggr: 1, warTh: 0.3, depth: 1, dur: 1, ma: 1, fineP: 0.07, exp: 1 };
 // Curseur de concurrence : accueillant pour un débutant, il monte avec la strate du joueur (palier de fortune et profondeur de ses chaînes : voitures, ordinateurs = 3 à 4 rangs d'usines),
 // et les rivaux pressent davantage un joueur qui les a très largement distancés (investisseurs, copies de ta stratégie). Valeurs mises en cache par jour ; aucun aléa.
-let _cmp = { d: -1, c: 0.4, g: 0, t: 0, dp: 0 };
+let _cmp = { d: -1, c: 0.4, g: 0, t: 0, dp: 0 }, _cmpS = null, _cmpT = null;
 function compNow() {
-  if (!S || _cmp.d === S.day) return _cmp;
+  if (!S || (_cmp.d === S.day && _cmpS === S && _cmpT === S.stats)) return _cmp;   // cache du jour lié à la partie (déterminisme : une nouvelle partie au même jour ne le réutilise pas)
   const w = (S.stats && S.stats.worth) || 0; let t = 0; TIERS.forEach((x, i) => { if (w >= x.at) t = i; });
   let dp = 0; Object.keys(S.made || {}).forEach(k => { if (PRODUCTS[k] && S.made[k] > 0) dp = Math.max(dp, PRODUCTS[k].lvl || 1); });
   const rv = (S.rivals || []).filter(r => !r.sub), mean = rv.length ? rv.reduce((a, r) => a + rivalValue(r), 0) / rv.length : 0, ratio = mean > 0 ? w / mean : 1;
-  _cmp = { d: S.day, t, dp, c: clamp(0.4 + 0.12 * t + 0.10 * Math.max(0, dp - 1), 0.4, 1.3), g: 0.5 * clamp(Math.log10(Math.max(1, ratio)) - 0.4, 0, 1.2) };
+  _cmpS = S; _cmpT = S.stats; _cmp = { d: S.day, t, dp, c: clamp(0.4 + 0.12 * t + 0.10 * Math.max(0, dp - 1), 0.4, 1.3), g: 0.5 * clamp(Math.log10(Math.max(1, ratio)) - 0.4, 0, 1.2) };
   return _cmp;
 }
 /* Passe 80 : NIVEAU DE DIFFICULTÉ 1 à 8 (comme le curseur de difficulté de Capitalism Lab), S.opt.lv (optionnel ; absent = niveau par défaut DIF_DEF).
@@ -7128,6 +7128,7 @@ function landPole() { const R = mallRect(); return R || { x0: CBD.x, y0: CBD.y, 
 const DISTRICTS = ['Midtown', 'Parktown', 'Uptown', 'Eastside', 'Southside', 'Westend', 'Faubourg', 'Harborside', 'Zone industrielle', 'Ceinture verte', 'La Côte', 'Campagne'];
 function landCache() {   // champs partagés (vue sur la mer, parcs, hauteurs, quartiers) : recalculés seulement quand la ville ou les bâtiments changent
   if (!S || !S.grid) return null;
+  if (trf && rebuildTraffic.g !== S.grid) trfDirty = true;
   if (LMC && !trfDirty && trf && LMC.g === S.grid && LMC.day === S.day && LMC.pcv === (S._pcv | 0)) return LMC;   // chemin rapide (rendu : une consultation par case visible)
   if (trfDirty || !trf) rebuildTraffic();
   const M = mallPos(), key = trfGen + '|' + (S.cityExt ? S.cityExt.length : 0) + '|' + (S.pzm ? Object.keys(S.pzm).length : 0) + '|' + (M ? M.x + ',' + M.y + ',' + M.w : '-') + '|' + (S._pcv | 0) + '|' + ((S.day / 30) | 0);
@@ -7196,8 +7197,8 @@ const LM_EXT = 0.3;   // extraction et stockage : droit d'exploitation du sol se
 function landFoot(x, y, key) { const T = TYPES[key], u = landUseOf(key) || landNatUse(x, y); let s = 0; for (let ox = 0; ox < (T.w || 1); ox++) for (let oy = 0; oy < (T.h || 1); oy++) if (inb(x + ox, y + oy)) s += landPrice(x + ox, y + oy, u); return Math.round(s * (u === 'ext' ? LM_EXT : 1)); }   // valeur de marché de l'emprise aujourd'hui (revalorisation)
 function landCostFor(x, y, key, own) { const T = TYPES[key]; if (!T || key === 'road') return 0; const u = landUseOf(key) || landNatUse(x, y); let s = 0; for (let ox = 0; ox < (T.w || 1); ox++) for (let oy = 0; oy < (T.h || 1); oy++) { const X = x + ox, Y = y + oy; if (!inb(X, Y) || (S.pland && S.pland[idx(X, Y)]) || (own && own.some(c => c.x === X && c.y === Y))) continue; s += landPrice(X, Y, u); } return Math.round(s * (u === 'ext' ? LM_EXT : 1)); }   // passe 34 : un terrain déjà payé (racheté, remblayé) ne se repaie pas ; passe 48 : prix selon l'usage (landModel)
 function siteIndex() {
-  if (!siteC.dirty && siteC.day === S.day) return siteC;
-  siteC = { day: S.day, dirty: false, ext: {}, stores: [] };
+  if (!siteC.dirty && siteC.day === S.day && siteC.g === S.grid) return siteC;   // cache lié à la partie (déterminisme)
+  siteC = { day: S.day, g: S.grid, dirty: false, ext: {}, stores: [] };
   eachBuilding(b => { if (!b.conn || b.t === 'npc') return; const T = TYPES[b.t]; if (T.ext) (siteC.ext[T.ext] = siteC.ext[T.ext] || []).push([b.x, b.y]); else if (FLEVEL[b.t] || b.t === 'foundry') { const r = (b.t === 'foundry' ? T.rec : recOf(b)); if (r && r.out) { const o = typeof r.out === 'string' ? r.out : Object.keys(r.out)[0]; (siteC.ext[o] = siteC.ext[o] || []).push([b.x, b.y]); } } if (T.ret) siteC.stores.push([b.x, b.y]); });
   return siteC;
 }
@@ -7210,7 +7211,7 @@ function facHaul(x, y, rec) {
 }
 let TRF_K = null;
 function rebuildTraffic() {
-  trfDirty = false; trfGen++; trf = new Float32Array(N * N); const src = [];
+  trfDirty = false; trfGen++; rebuildTraffic.g = S.grid; trf = new Float32Array(N * N);   /* grille de la partie (déterminisme : jamais le trafic d'une partie précédente) */ const src = [];
   eachBuilding(b => { if (b.t === 'npc') { if (b.k === 'res') src.push([b.x, b.y, 5 * b.floors]); else if (b.k === 'house') src.push([b.x, b.y, 5]); else src.push([b.x, b.y, 1.5 * b.floors]); } else if (b.t === 'res') src.push([b.x, b.y, 6 + 4 * b.floors]); else if (b.t === 'tech' || b.t === 'bank' || b.t === 'hq') src.push([b.x, b.y, 4 * b.floors]); });
   let mx = 1; const X0 = Math.max(0, CITY.x0 - 6), X1 = Math.min(N - 1, CITY.x1 + 6), Y0 = Math.max(0, CITY.y0 - 6), Y1 = Math.min(N - 1, CITY.y1 + 6);
   // passe 60 : chaque source répand son trafic sur les cases à moins de 13 cases (noyau précalculé) au lieu de sommer toutes les sources pour chaque case : même champ, coût
@@ -11405,7 +11406,7 @@ function stepMedia(list) {
   });
 }
 // Terrain : le prix suit l'inflation, le trafic et les commerces voisins
-function landMult(x, y) { const tr = clamp(trf ? trf[idx(x, y)] : 0.3, 0, 1.2), st = siteIndex().stores; let n = 0; for (let i = 0; i < st.length; i++) if (Math.abs(st[i][0] - x) + Math.abs(st[i][1] - y) <= 7) n++; return cpi() * (0.92 + 0.5 * tr + 0.025 * Math.min(8, n)); }
+function landMult(x, y) { if (!trf || trfDirty || rebuildTraffic.g !== S.grid) rebuildTraffic(); const tr = clamp(trf ? trf[idx(x, y)] : 0.3, 0, 1.2), st = siteIndex().stores; let n = 0; for (let i = 0; i < st.length; i++) if (Math.abs(st[i][0] - x) + Math.abs(st[i][1] - y) <= 7) n++; return cpi() * (0.92 + 0.5 * tr + 0.025 * Math.min(8, n)); }
 const landVal = c => !c.lp ? 0 : c.lpv > 0 ? c.lp * clamp(landFoot(c.x, c.y, c.t) / c.lpv, 0.6, 5) : c.lp * clamp(landMult(c.x, c.y) / (c.lpm || 1), 0.6, 5);   // passe 48 : revalorisation sur le même modèle que l'achat (c.lpv = valeur de l'emprise le jour de l'achat) ; anciennes sauvegardes : ancien indice
 /* ---------- Passe 34 : le promoteur « à la Trump » — valeur de marché, spéculation, terrains ex nihilo, zonage ---------- */
 // Prix d'un bien = loyers nets capitalisés : valeur = (étages × loyer de marché × occupation × (1 − charges)) × 365 / taux de capitalisation.
@@ -22337,7 +22338,7 @@ Object.assign(window.WSE, { start: { of: startOf, hk: hkNow, K: { START_K, START
 Object.assign(window.WSE, { levelMult, pal: { DEF: PAL_DEF, POP: PAL_POP, popReq: (k, l) => palPopReq(PAL_DEF[k], l), DAYS: PAL_DAYS, DIA_D: PAL_DIA_D, MAINT: PAL_MAINT, ROUND_ACC: PAL_ROUND_ACC, of: palOf, reqs: palReqs, start: palStart, accel: palAccel, accDays: palAccDays, diaFor: palDiaFor, step: palStep, prog: palProg, left: palLeft, slots: palSlots, active: palActive, card: palCard, list: palListHTML, migrate: palMigrate, upk: palUpk, drawn: () => palBadgeN }, ent: { S: entS, san: entSan, prem: entPrem, dia: entDia, on: premOn }, coo: { LV: COO_LV, BUF: COO_BUF, set: cooSet, on: cooOn, sal: cooSal, pay: cooPay, spend: cooSpend, step: cooStep, review: cooReview, decide: cooDecide, opts: cooOpts, score: cooScoreOf, apply: cooApply, card: cooCardHTML, ins: cooIns }, scm: { S: scmS, san: scmSan, step: scmStep, score: scmScore, BADGES: SCM_BADGES, award: scmAward, rivals: scmRivals, rank: scmRankHTML, card: scmCardHTML }, p74Render, bestOffer, offerScore, supOffer, buyerQw, setPanel, setPtab });   // passe 74 : paliers, premium simulé, COO, maîtrise (tools/tests/t74, t75)
 Object.assign(window.WSE, { farmx: { FXV, FX_CAP, ask: a => buyoutCost(a), FARM_MAX, FARM_COST, FCLEAR, WOOD_SELL, HA_CASE, costs: (t, w, h) => farmCosts(TYPES[t], w, h), jobsK: farmJobsK, plan: (c, n, m, b) => farmPlanRaw(c, n == null ? 1 : n, m || 'free', b), exec: (c, n, m, o) => farmGrowExec(c, n, m, o), qopen: (c, m) => farmQOpen(c, m), qok: () => farmQOk(), hl: () => FARM_HL, setRows: v => { fgN = v; }, FARM_CORPS_K, FARM_CELL_K, FARM_ANNEX, areaK: farmAreaK, costK: farmCostK, costKA: (t, A) => farmCostKA(TYPES[t], A), quote: (c, o) => farmGrowQuote(c, o), grow: (c, o) => farmGrow(c, o), act: c => farmGrowAct(c), econ: c => farmEcon(c), html: c => farmSizeHTML(c), ext: a => farmExt(a), probe: (a, n, zz) => farmProbe(a, n, zz), npcGrow: o => growNpcFarm(o) } });   // passe 87 : surface variable des fermes (t87)
 Object.assign(window.WSE, { farm3: { CROP_AREA, CROP_UPK, cropAreaK, plan: c => farmPlan(c), html: c => farmPlanHTML(c), fertBuy: (q, w) => fertBuy(q, w), cooFarm: () => cooFarm(), calNext: g => calNext(g), fpMigrate: (g, d, n) => fpMigrate(g, d, n), FARM_ZONE3 } });   // passe 85 : cultures 3×3, bloc « ce que tu optimises » (t86)
-Object.assign(window.WSE, { lib: { X: LIBX, USM: US_MACRO_CONFIG, bnd, check: libCheck, PX_LO, PX_HI, why: demandWhyCls, whyRaw: demandWhyRaw, mb: marketBounds, hh: () => prosp(), season: seasonMult, perish: stepPerish, PERISH, slm: stepLocalMarket, popE, get B() { return S._bnd || {}; } } });   // économie libérale (t97, tools/bnd_report.js)
+Object.assign(window.WSE, { lib: { X: LIBX, fabDbg: pk => ({ sp: stdPrice(pk), kin: fabKin(pk), fill: fabFill(pk), rd: rivDiff(), mr: (S.rivals || []).map(rivMr), dk: difK(), cmp: compNow(), w: S.stats && [S.stats.worth, S.stats.raw, S.stats.iv, S.stats.fv], rv: (S.rivals || []).map(rivalValue) }), USM: US_MACRO_CONFIG, bnd, check: libCheck, PX_LO, PX_HI, why: demandWhyCls, whyRaw: demandWhyRaw, mb: marketBounds, hh: () => prosp(), season: seasonMult, perish: stepPerish, PERISH, slm: stepLocalMarket, popE, get B() { return S._bnd || {}; } } });   // économie libérale (t97, tools/bnd_report.js)
 Object.assign(window.WSE, { farmFx: { FARM_FX, FARM_ZONE, HERD, zone: farmZone, inPoly, herd: herdList, probe: farmProbe, debug: v => { FX_DEBUG.on = !!v; } } });   // passe 59 : fermes vivantes (t59, tools/capture_fermes.js)
 Object.assign(window.WSE, { imgAudit: { guide: k => !!GUIDEHD[k], hero: k => !!PRODHD[k], photo: k => GUIDEHD[k] || null, productSVG0, compIcon, compIconVec } });   // passe 59 : audit des images de produits (tools/audit_produits.js, t59)
 Object.assign(window.WSE, { setGuidePhoto: (k, src) => { GUIDEHD[k] = src; Object.keys(psvgCache).forEach(c => { if (c.split('|')[0] === k) delete psvgCache[c]; }); if (typeof renderGuide === 'function') renderGuide(true); }, cine: { show: (pk, why) => cineShow(pk, why || 'manuel', true), close: cineClose, get on() { return CINE.on; }, state: () => ({ on: CINE.on, pk: CINE.pk, hero: CINE.hero, frames: CINE.frames, t: CINE.last ? CINE.last.t : 0, q: CINE.q.slice(), shown: CINE.shown, opt: cineOpt(), manual: CINE.manual }), setOpt: cineSetOpt, opt: cineOpt, setHero: setProductHero, heroOf: pk => !!cineHeroOf(pk), watch: cineWatch, facts: cineFacts, setTest: v => { CINE.test = !!v; }, reset: () => { CINE.seen = {}; CINE.snap = null; CINE.q.length = 0; } } });
