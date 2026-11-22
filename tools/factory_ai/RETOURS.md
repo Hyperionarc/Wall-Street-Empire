@@ -589,3 +589,12 @@ Règles communes : vue isométrique 2:1 (pente 0,50 ± 0,03), lumière haut-gauc
 3. **16-3 (amélioration) `fvine.png`** : garder EXACTEMENT l'esprit du vignoble 7c83d74 (rangs denses, grappes, vendangeurs, chai en pierre à toit de tuiles et cuves inox) — Rémy l'adore ; seulement plus de profondeur entre les rangs (allées enherbées lisibles) et 4 à 6 vendangeurs avec hottes, sans texte.
 4. **16-4 (amélioration) `fwheat.png`** : garder le grand champ de blé doré ondulant (PAS de sillons rectilignes, refusés), ajouter une moissonneuse en action sur un bord et des bottes de paille près de la grange.
 Livraison : `assets/factory_hd/<nom>.png` + `assets/factory_hd/ombres/<nom>.png` + entrée `ancres.json` (`largeur 768`, `emprise_cases 3`). Dès réception, l'intégrateur lance `node wall-street-empire/tools/capture_fermes.js <dossier> fwheat fcorn frapeseed fvine` et les tests t51, t58, t59, t86.
+
+## Commande n°17 (intégrateur → Cowork, 22 nov.) : intérieurs de magasins en vraies illustrations
+Retour du producteur : « qualité nulle » sur l'onglet Intérieur d'un supermarché (scène dessinée par le code : cubes et silhouettes). À produire, un fond illustré par magasin, **sans aucun texte, aucun logo ni marque réelle** (les titres sont écrits par le code), vue isométrique 2:1 en coupe ouverte, fond transparent ou studio neutre, rayons détaillés (produits reconnaissables, étiquettes illisibles), clients et caddies variés, éclairage chaud, 1600×900 :
+- `int_supermarche_n1..n5.png` (niveaux croissants : plus de rayons, caisses, boucherie, primeur) ;
+- `int_hypermarche.png` d'après la maquette `53.webp` (très grand, rayons haute hauteur, caisses nombreuses) ;
+- `int_petit_marche.png` ;
+- `int_mall_galerie.png` (déjà demandé en n°11 sous le nom `scene_mall_interieur.jpg`, non livré) ;
+- plus les profils d'animation manquants : clients de profils variés (homme, femme, enfant, senior), vendeurs en uniforme, caddies, voitures vues de face et de dos, marquages et barrières de parking.
+Nommage et emprise comme les autres commandes ; dépose-les dans `assets/factory_hd/int/`.
