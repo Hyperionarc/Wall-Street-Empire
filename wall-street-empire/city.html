@@ -2556,7 +2556,7 @@ function mkRival(k) {
   const P = RIV_CASTE[k], scn = rivWant() <= 3 && RIV_LEG[P.id]; let id = P.id, n = 0; while ((S.rivals || []).some(r => r.id === id)) id = P.id + 'x' + S.day + (n++ ? '_' + n : '');
   const r = { id, caste: k, name: P.name, col: P.col, cash: rivStartCash(), att: Object.assign({}, scn || P.att), px: Object.assign({}, P.px), mq: +(0.82 + 0.3 * hash(((S.rs == null ? 7 : S.rs) >>> 4) & 1023, RIV_ORDER.indexOf(k), 87)).toFixed(3), st: { k: 'follow' }, as: 0, re: 0, nb: 0 };
   const pool = Object.keys(PRODUCTS).filter(pk => P.core.indexOf(PRODUCTS[pk].cls) >= 0 && !/^c\d/.test(pk)).sort(); if (pool.length) { const pk = pool[Math.floor(hash(id.length, k.length, 83) * pool.length)]; r.fl = { k: pk, cls: PRODUCTS[pk].cls, d: 1 }; }
-  if (startOf() !== 'ville' && (S.day || 0) < 2) { const z = startOf() === 'zero' ? RIV_Z0 : 0.5; RIV_CLS.forEach(c => { r.att[c] = +((r.att[c] || 0) * z).toFixed(4); }); }   // passe 87 : départ de zéro, les IA aussi partent d'une petite implantation
+  if ((startOf() === 'zero' || startOf() === 'petite') && (S.day || 0) < 2) { const z = startOf() === 'zero' ? RIV_Z0 : 0.5; RIV_CLS.forEach(c => { r.att[c] = +((r.att[c] || 0) * z).toFixed(4); }); }   // passe 87 : départ de zéro, les IA aussi partent d'une petite implantation
   return r;
 }
 function initRivals() { const out = []; RIV_ORDER.forEach(k => { if (k !== casteOf() && out.length < rivWant()) out.push(mkRival(k)); }); return out; }
@@ -4256,7 +4256,7 @@ function genNpcTown(grid, d0) {   // petite ville : centre bas et dense, quartie
    Croissance du bourg : rythme de cityGrow × (1 + ZB_K × (1 − hk)²) (bourg pionnier : ≈ ×4 au départ, ×1 à partir de 80 000 habitants), sans plafond de population.
    Amorçage de la demande : S.bx = ZB_BX habitants-équivalents de campagne (fermes, hameaux) ajoutés au bassin, comme les villages de la région du départ 'ville' (S.bx) ;
    négligeable dès que la ville dépasse quelques dizaines de milliers d'habitants. Les IA rivales démarrent avec RIV_Z0 de leur implantation habituelle. */
-const START_K = ['zero', 'petite', 'ville'], START_N = { zero: 52, petite: 300 };
+const START_K = ['zero', 'petite', 'moyenne', 'ville'], START_N = { zero: 52, petite: 300 };
 const HK_F = 600, HK_A = 1.1, ZB_BX = { zero: 3000, petite: 6000 }, RIV_Z0 = 0.25, JPF_V = 1330;   // JPF_V : emplois par étage de bureaux du départ 'ville' (mesuré : 1 330)
 let ZB_K = 4;   // réglable par WSE.cityTune({ ZB }) pour les mesures
 const startOf = () => (S && S.opt && START_K.indexOf(S.opt.start) >= 0) ? S.opt.start : 'ville';
@@ -4287,6 +4287,47 @@ function genVillage(grid, n, bx) {   // bourg de n logements et parcs (détermin
     const fl = Math.min(4, Math.max(2, Math.round(need - offFloors))); grid[id] = npcCellOf(x, y, 'off', fl); offFloors += fl;
   }
   return { cap, offFloors, hF };
+}
+/* ---------- Passe 88 : départ « ville de 100 000 habitants » (S.opt.start = 'moyenne', défaut de l'écran Nouvelle partie) ----------
+   Retour de Rémy : « partir au minimum d'une ville de 100 000 habitants » (une vraie économie : budgets des ménages, B2B), mais sans forêt de gratte-ciel.
+   Même ville que le départ 'ville' (grand mall 10×10 et ses abords libres, avenues, équipements publics, aéroport, port vide) mais bâtie en ville moyenne compacte :
+   centre d'immeubles R+4 à R+6 et de bureaux R+5 à R+8, trois ou quatre tours de bureaux isolées (12 à 15 étages) au cœur, premier anneau de petits collectifs R+2 à R+4,
+   puis maisons ; la génération (déterministe : hash) remplit les lots du centre vers l'extérieur jusqu'à CITY_M_POP habitants, puis complète les bureaux pour ≈ 7 % de chômage.
+   La région (S.bassin) est réglée pour que la demande de départ soit exactement celle du départ 'ville' (POPE_REF habitants-équivalents) : même économie, mêmes IA, mêmes équilibres. */
+const CITY_M_POP = 108000, CITY_M_JT = 0.9, CITY_M_TOW = 4;   // habitants visés au jour 0 ; rapport emplois / actifs visé (≈ 7 % de chômage avec le cycle de départ) ; tours de bureaux du cœur
+function genCityM(grid) {   // renvoie { cap, offFloors } (cap en unités de 5 × K_POP par étage, comme genNpcTown)
+  monPlaceAll(grid);
+  Object.keys(MONU).forEach(k => { if (MON_FP[MONU[k]]) return; const [x, y] = k.split(',').map(Number), id = idx(x, y); if (!grid[id]) { const c = npcCellOf(x, y, 'mon', 1); c.m = MONU[k]; grid[id] = c; } });
+  const cand = [];
+  for (let y = CITY0.y0; y <= CITY0.y1; y++) for (let x = CITY0.x0; x <= CITY0.x1; x++) {
+    const id = idx(x, y); if (grid[id] || ZONE[id] !== 1 || !isLot(x, y) || isRoadPos(x, y)) continue;
+    if (MALLB && x >= MALLB.x0 - 3 && x <= MALLB.x1 + 2 && y >= MALLB.y0 - 3 && y <= MALLB.y1 + 2) continue;   // abords du grand mall : lots libres pour les boutiques du joueur (comme le départ 'ville')
+    const dc = MALLB ? Math.max(0, Math.hypot(x - CBD.x, y - CBD.y) - MALL_SH) : Math.hypot(x - CBD.x, y - CBD.y);
+    cand.push([dc + (hash(x, y, 47) - 0.5) * 2.4, x, y]);
+  }
+  cand.sort((a, b) => a[0] - b[0]);
+  const HT = CITY_M_POP / (K_POP * 0.85), OT = CITY_M_JT * 0.55 * POPE_REF / JPF_V;   // capacité de logement visée (5 unités par étage, comme cap) et étages de bureaux visés
+  let cap = 0, offFloors = 0, tow = 0, i = 0, extra = 0;
+  const XTRA = ['maternelle_2', 'garderie_2', 'maternelle_3', 'college_2'];   // une ville de 100 000 habitants a plusieurs écoles et crèches
+  const d0 = cand.length ? cand[0][0] : 0;   // distances comptées depuis le premier lot bâti (au-delà des abords libres du mall)
+  for (; i < cand.length && cap < HT; i++) {
+    const d = cand[i][0] - d0, x = cand[i][1], y = cand[i][2], id = idx(x, y); if (grid[id]) continue;
+    const r1 = hash(x, y, 42), r3 = hash(x, y, 43);
+    if (extra < XTRA.length && d > 5 && hash(x, y, 881) < 0.06) { const c = npcCellOf(x, y, 'mon', 1); c.m = XTRA[extra++]; grid[id] = c; continue; }
+    if (d < 14 && hash(x, y, 49) < 0.07) { grid[id] = npcCellOf(x, y, 'park', 1); continue; }
+    const sh = d < 1.6 ? [0.3, 0.7] : d < 4 ? [0.1, 0.75] : d < 8 ? [0.03, 0.4] : [0.01, 0.1];   // bureaux, immeubles (le reste : maisons)
+    let kind = r1 < sh[0] ? 'off' : r1 < sh[0] + sh[1] ? 'res' : 'house', fl = 1;
+    if (kind === 'off' && offFloors >= OT) kind = d < 4 ? 'res' : 'house';   // assez de bureaux : la ville loge
+    if (kind === 'off') { fl = d < 1.6 && tow < CITY_M_TOW && r3 > 0.55 ? (tow++, 12 + Math.floor(4 * hash(x, y, 882))) : d < 1.6 ? 5 + Math.floor(4 * r3) : d < 4 ? 4 + Math.floor(3 * r3) : 3 + Math.floor(2 * r3); offFloors += fl; }
+    else if (kind === 'res') { fl = d < 1.6 ? 5 + Math.floor(3 * r3) : d < 4 ? 4 + Math.floor(2 * r3) : d < 8 ? 3 + Math.floor(2 * r3) : 2 + Math.floor(2 * r3); cap += 5 * fl; }
+    else cap += 5;
+    grid[id] = npcCellOf(x, y, kind, fl);
+  }
+  for (; i < cand.length && offFloors < OT - 1; i++) {   // bureaux manquants : en bordure de la ville bâtie (petits immeubles de bureaux)
+    const x = cand[i][1], y = cand[i][2], id = idx(x, y); if (grid[id]) continue;
+    const fl = Math.min(4, Math.max(2, Math.round(OT - offFloors))); grid[id] = npcCellOf(x, y, 'off', fl); offFloors += fl;
+  }
+  return { cap, offFloors };
 }
 /* ---------- Passe 44 : le Mall central (équipement PNJ de 2×2 cases au carrefour du centre, non démolissable, cliquable) ----------
    Quatre cases « mon » (m = 'mall') sur le coin libre 2×2 du bloc central (cases 28-29, 28-29, contre le carrefour 30, 30) : elles se sauvegardent avec la ville (cty) comme les autres équipements.
@@ -4568,8 +4609,8 @@ function extLinked(c, lm) {
 }
 
 function newCity(start) {
-  const sk = start === 'zero' || start === 'petite' ? start : 'ville';   // passe 87 : départ (absent = 'ville')
-  cityReset(); mallBSet(sk === 'ville');   // zone urbaine d'origine (une partie précédente a pu l'étendre) ; passe 45 : emprise du grand mall (avant les routes) ; passe 87 : le bourg a une halle 2×2
+  const sk = start === 'zero' || start === 'petite' || start === 'moyenne' ? start : 'ville';   // passe 87 : départ (absent = 'ville') ; passe 88 : 'moyenne' (ville de 100 000 habitants)
+  cityReset(); mallBSet(sk === 'ville' || sk === 'moyenne');   // zone urbaine d'origine (une partie précédente a pu l'étendre) ; passe 45 : emprise du grand mall (avant les routes) ; passe 87 : le bourg a une halle 2×2
   const grid = new Array(N * N).fill(null);
   const S0 = {
     cash: 40000, pop: 40, day: 0, grid, dep: genDeposits(), hist: [], boomUntil: -1, milestone: 99, lastWarn: -99,
@@ -4588,12 +4629,15 @@ function newCity(start) {
   };
   genRoads(grid);
   // ville existante : gratte-ciel ; le joueur démarre sans aucun bâtiment, avec du capital
-  mallEnsure(grid); const npc = sk === 'ville' ? genNpcTown(grid) : genVillage(grid, START_N[sk], ZB_BX[sk]); airEnsure(grid, S0.dep);  // passe 49 : aéroport en périphérie ; passe 44 : ville aérée (CITY_D0) et Mall central ; passe 45 : grand mall 10×10 posé avant la ville (emprise réservée)
+  mallEnsure(grid); const npc = sk === 'ville' ? genNpcTown(grid) : sk === 'moyenne' ? genCityM(grid) : genVillage(grid, START_N[sk], ZB_BX[sk]); airEnsure(grid, S0.dep);  // passe 49 : aéroport en périphérie ; passe 44 : ville aérée (CITY_D0) et Mall central ; passe 45 : grand mall 10×10 posé avant la ville (emprise réservée)
   const pop0 = Math.round(npc.cap * K_POP * 0.85), bx0 = Math.max(0, Math.round(POPE_REF - pop0 * BASSIN_NEW));   // région : la demande de départ reste celle de la passe 35 (POPE_REF habitants-équivalents)
   S0.cityV = 2; S0.bassin = BASSIN_NEW; S0.bx = bx0; S0.cityExt = []; S0.cg = { acc: 0, park: 0, ms: 0, ext: 0, jt: 0.88, f: {} };
   S0.jpf = 0.88 * 0.55 * (pop0 * BASSIN_NEW + bx0) / Math.max(1, npc.offFloors); S0.rivals = initRivals(); S0.exec = { cfo: 0, ir: 0 }; S0.caste = ''; S0.npcMods = []; S0.npcOwn = {}; S0.neg = {}; S0.reqs = []; S0.rid = 0; S0.npcGrow = {}; S0.kp = 1; S0.skills = {}; S0.goal = 'sandbox'; S0.mode = { k: 'free' }; S0.goalDone = null; S0.streak = 0; S0.tech = {}; S0.research = null; S0.mods = []; S0.gtiH = []; S0.port = {}; S0.subs = []; S0.unlockAll = true; S0.macro = { phase: 0.6, gdp: 0.07, infl: 0.025, rate: 0.03, h: [], boom: 1 }; S0.cpi = 1;
   S0.pop = Math.round(npc.cap * K_POP * 0.85);
-  if (sk !== 'ville') {   // passe 87 : bourg de départ (S.opt.start, S.cg.hk) : petite population, demande d'amorçage, emplois par étage de la ville de référence
+  if (sk === 'moyenne') {   // passe 88 : ville de 100 000 habitants : région réduite pour garder la demande de départ du départ 'ville' (POPE_REF), bureaux pour ≈ 90 % d'emplois par actif (S.cg.jt : la croissance garde ce rapport)
+    S0.opt = { start: sk }; S0.bassin = clamp(POPE_REF / Math.max(1, pop0), 1, BASSIN_NEW); S0.bx = 0; S0.cg.jt = CITY_M_JT;
+    S0.jpf = CITY_M_JT * 0.55 * pop0 * S0.bassin / Math.max(1, npc.offFloors);
+  } else if (sk !== 'ville') {   // passe 87 : bourg de départ (S.opt.start, S.cg.hk) : petite population, demande d'amorçage, emplois par étage de la ville de référence
     S0.opt = { start: sk }; S0.cg.hk = 1; S0.bx = ZB_BX[sk]; S0.jpf = JPF_V;
     S0._hk = hkOf(npc.hF); S0.pop = Math.round(npc.cap * K_POP * 0.85 * S0._hk);
   }
@@ -18497,7 +18541,7 @@ function showModes() {
   const pr = progOf(), card = (k, n, d, extra, lock) => `<button class="mcard ${lock ? 'lk' : ''}" data-mode="${k}" ${lock ? 'disabled' : ''}><b>${n}</b><small>${d}</small><em>${extra}</em></button>`;
   const sc = [1, 2, 3, 4, 5].map(i => { const k = 's' + i, S0 = SCN[k], lock = i > 1 && !pr['s' + (i - 1)] && !location.search.includes('open'); return card(k, `${i}. ${S0.n}`, S0.d, lock ? `Verrouillé · termine d'abord le scénario ${i - 1} · ${S0.min} min` : `${S0.min} min · objectif ${fmtV(S0.tgt)}${pr[k] ? ' · terminé (' + fmt(pr[k]) + ' pts)' : ''}`, lock); }).join('');
   el('modesel').innerHTML = `<div class="mbox"><h2>NOUVELLE PARTIE</h2><p class="note">Choisis ton mode, puis ta caste. Les scénarios se débloquent l'un après l'autre ; le Round est la partie compétitive de 90 minutes, de 3 à 8 joueurs (toi et les IA).</p>
-    <h4>Départ <small>(Round et Libre ; les scénarios gardent leur ville)</small></h4><div class="mdif" role="radiogroup" aria-label="Ville de départ">${[['zero', 'De zéro (recommandé)', 'un bourg de quelques centaines d\'habitants qui grandit avec toi'], ['petite', 'Petite ville', '≈ 12 000 habitants'], ['ville', 'Ville établie', 'grande ville déjà construite, gratte-ciel au centre']].map(a => `<label><input type="radio" name="start" value="${a[0]}" ${startChoice === a[0] ? 'checked' : ''}> <b>${a[1]}</b> · ${a[2]}</label>`).join('')}</div>
+    <h4>Départ <small>(Round et Libre ; les scénarios gardent leur ville)</small></h4><div class="mdif" role="radiogroup" aria-label="Ville de départ">${[['moyenne', 'Ville de 100 000 habitants (recommandé)', 'une vraie économie dès le départ : immeubles de 3 à 7 étages au centre, quartiers de maisons, écoles, hôpital, grand centre commercial ; elle grandit avec toi'], ['zero', 'Bourg (défi, 600 habitants)', 'tout est à construire : la ville grandit avec tes entreprises'], ['petite', 'Petite ville', '≈ 12 000 habitants'], ['ville', 'Ville établie', 'la ville classique : ≈ 60 000 habitants, centre d\'affaires et grande région autour']].map(a => `<label><input type="radio" name="start" value="${a[0]}" ${startChoice === a[0] ? 'checked' : ''}> <b>${a[1]}</b> · ${a[2]}</label>`).join('')}</div>
     <h4>Round compétitif</h4><div class="mdif" role="radiogroup" aria-label="Difficulté du Round"><label><input type="radio" name="dif" value="normal" ${roundEasy ? '' : 'checked'}> <b>Normal</b> · ${fmtV(ROUND_CASH.normal)} de départ pour chaque joueur</label><label><input type="radio" name="dif" value="easy" ${roundEasy ? 'checked' : ''}> <b>Facile</b> · ${fmtV(ROUND_CASH.easy)} de départ pour chaque joueur</label></div><label class="matopt">Niveau des IA <select id="lvsel" aria-label="Niveau de difficulté des IA">${DIF_LV.slice(1).map((L, i) => `<option value="${i + 1}" ${roundLv === i + 1 ? 'selected' : ''}>${i + 1} · ${L.n} (note ${difNote(i + 1)} %)</option>`).join('')}</select> <small>1-3 : IA prudentes ; 4 : Normal ; 5-8 : IA compétentes qui peuvent te dépasser et gagner le Round. Concurrence faible pendant la première demi-année à tous les niveaux.</small></label><label class="matopt">Joueurs <select id="nrsel" aria-label="Nombre de joueurs">${[[1, 3], [2, 4], [3, 6], [4, 8]].map(([ix, np]) => `<option value="${ix}" ${roundN === ix ? 'selected' : ''}>${np} joueurs${np === 6 ? ' (les 6 castes)' : np === 8 ? ' (les 6 castes + 2 sièges)' : ''}</option>`).join('')}</select></label><div class="mgrid">${card('round', 'Round · 1 Md$ en 90 min', MODE_INFO.round.d, 'classement, rachats majoritaires, écran de résultats', false)}</div>
     <h4>Scénarios</h4><div class="mgrid">${sc}</div><label class="matopt"><input type="checkbox" id="matchk" ${matChoice ? 'checked' : ''}> <b>Marché mûr</b> pour les scénarios 3 à 5 et le Round : les produits sont déjà développés par les rivaux (licence ou achat au lieu de la R&amp;D). Le Libre est toujours en marché mûr ; les scénarios 1 et 2 gardent la R&amp;D complète.</label>
     <h4>Bac à sable</h4><div class="mgrid">${card('free', 'Libre', MODE_INFO.free.d, 'sans limite de temps', false)}</div>${S.mode && S.mode.pending ? '' : '<button class="btn sec" data-mode="">Annuler</button>'}</div>`;
@@ -18509,7 +18553,7 @@ function syncSpeedUI() { const s3 = el('spd3'); const lock = modeK() === 'round'
 let matChoice = false;
 const ROUND_CASH = { normal: 10e6, easy: 100e6 };   // trésorerie de départ de TOUS les joueurs (humains et IA) en Round : 10 M$ en Normal, 100 M$ en Facile. Libre et scénarios gardent leur programmation propre.
 let roundEasy = false; try { roundEasy = localStorage.getItem('wse-easy') === '1'; } catch (e) {}
-let startChoice = 'zero'; try { const v = localStorage.getItem('wse-start'); if (START_K.indexOf(v) >= 0) startChoice = v; } catch (e) {}   // passe 87 : départ de la prochaine partie (« de zéro » par défaut)
+let startChoice = 'moyenne'; try { const v = localStorage.getItem('wse-start'); if (START_K.indexOf(v) >= 0) startChoice = v; } catch (e) {}   // passe 87 : départ de la prochaine partie ; passe 88 : « ville de 100 000 habitants » par défaut (choix mémorisé : wse-start)
 let roundLv = DIF_DEF, roundN = 3; try { const v = +localStorage.getItem('wse-lv'); if (v >= 1 && v <= 8) roundLv = v; const n = +localStorage.getItem('wse-nr'); if (n >= 1 && n <= 4) roundN = n; } catch (e) {}   // passe 80 : niveau des IA (1-8) et nombre de joueurs du Round (index de OPT_NRIV : 3 = 6 joueurs)
 function startMode(k, o) {
   const st = o && START_K.indexOf(o.start) >= 0 ? o.start : 'ville';   // passe 87 : départ choisi à l'écran Nouvelle partie ; appel sans option (tests, bots, outils) : la ville de départ habituelle
