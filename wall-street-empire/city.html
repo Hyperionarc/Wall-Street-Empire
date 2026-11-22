@@ -847,7 +847,7 @@ body.vopen #feed{z-index:9}
 #acq .adv2,#neg .adv2{padding-top:5px;border-top:1px solid var(--line);color:var(--gold)}#acq .acts,#neg .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}#acq .acts .btn,#neg .acts .btn{flex:1;min-height:44px}#acq .btn:disabled{opacity:.45}
 #neg .sl{display:flex;flex-direction:column;gap:4px}#neg input[type=range]{width:100%;min-height:32px}#neg .ck{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--mut)}
 @media (max-width:760px){#acq,#neg{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 74px)}}
-#sitetip[hidden]{display:none}#sitetip b{color:var(--cyan);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:4px}
+#hovtip{position:fixed;z-index:8;max-width:260px;padding:4px 8px;border-radius:6px;background:rgba(10,14,40,.82);color:#e9edff;font-size:12px;line-height:1.35;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.35)}#hovtip[hidden]{display:none}#hovtip b{font-weight:700}#hovtip small{display:block;color:var(--mut);font-size:11px}#hovtip.pin{pointer-events:auto;border:1px solid rgba(242,184,75,.7)}#hovtip button{margin:4px 0 0;padding:2px 10px;font-size:11px;border-radius:5px;border:1px solid var(--gold);background:rgba(242,184,75,.15);color:var(--gold);cursor:pointer}#sitetip[hidden]{display:none}#sitetip b{color:var(--cyan);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:4px}
 #sitetip .lmq{font-size:10.5px;color:var(--mut);line-height:1.3;padding:0 0 3px}#sitetip .lmq i{color:var(--gold);font-style:normal;font-weight:700}#sitetip .r{display:flex;justify-content:space-between;gap:10px;padding:1px 0}#sitetip .r span:last-child{font-family:var(--font-m)}
 #sitetip .adv2{margin-top:5px;padding-top:5px;border-top:1px solid var(--line);color:var(--gold)}
 .caste,#caste{position:absolute;z-index:20;inset:0;display:flex;align-items:flex-start;justify-content:center;background:rgba(4,6,20,.86);backdrop-filter:blur(6px);overflow-y:auto;padding:16px}
@@ -1469,6 +1469,7 @@ body.cmp #pclose{margin-left:auto;flex:0 0 auto}
 
   <div id="tarrow" hidden aria-hidden="true">▼</div>
   <div id="sitetip" hidden></div>
+  <div id="hovtip" hidden></div>
   <div id="acq" hidden role="dialog" aria-live="polite"></div>
   <div id="neg" hidden role="dialog" aria-live="polite"></div>
   <div id="pfiche" hidden role="dialog" aria-live="polite"></div>
@@ -17708,6 +17709,45 @@ function drawOwnership(vr, pulse) {
 }
 let _ts = null;
 function terrSet() { const p = S.pro, k = p.terr.length + ':' + p.tid + ':' + S.day; if (!_ts || _ts.k !== k) { const m = new Set(); p.terr.forEach(o => o.cells.forEach(q => m.add(idx(q[0], q[1])))); _ts = { k, m }; } return _ts.m; }
+/* ---------- Passe 95 : étiquette discrète au survol (comme Age of Empires : « Forêt », « Pétrole · 100 000 barils ») ----------
+   Une ou deux lignes près du curseur, sans clic. Au doigt : appui long. Un clic sur un gisement, une forêt, un champ, l'eau ou une route épingle la même étiquette (pas de panneau).
+   Les détails complets restent dans la fenêtre du bâtiment ; l'analyse riche de l'emplacement reste réservée aux outils de construction (#sitetip). */
+const DEP_U = { oil: 'barils', gas: 'milliers de m³', wood: 'm³ de bois', gold: 'kg' };
+function qtyTxt(k, r) { const u = DEP_U[k] || 't', n = Math.max(0, r); if (n >= 1e6) return (n / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + (u === 't' ? ' Mt' : ' M ' + u); return fmt(n) + ' ' + u; }
+const capFr = s => String(s).replace(/^./, m => m.toUpperCase());
+function richTxt(d) { const q = d.r / Math.max(1, DEPOSITS[d.k].res); return d.r <= 0 ? 'épuisé' : q >= 0.9 ? 'riche' : q >= 0.5 ? 'moyen' : 'pauvre'; }
+function mapLabel(x, y) {   // { t: 1re ligne, s: 2e ligne (facultative), open: bâtiment qui a une fenêtre }
+  if (!S || !inb(x, y)) return null; const i = idx(x, y), zn = ZONE[i], c = cell(x, y), d = S.dep[i];
+  if (c && c.t !== 'road' && c.t !== 'part') {
+    if (isMall(c)) return { t: 'Mall central', s: 'Centre commercial de la ville', open: 1 };
+    if (isAir(c)) return { t: 'Aéroport', s: 'Équipement de la ville', open: 1 };
+    if (c.t === 'npc') { if (c.k === 'mon') return { t: (PUB[c.m] || ['Bâtiment public'])[0], s: 'Service public · la ville' }; const o = ownerOf(c); return { t: capFr(kindFr(c.k, 1)), s: o === 'npc' ? 'Propriétaire : la ville' : 'Propriétaire : ' + ownerName(o), open: 1 }; }
+    const T = TYPES[c.t]; if (!T) return null; if (NET_PIECE[c.t]) return { t: T.name, s: 'Réseau · à toi' };
+    const ow = c.owner && c.owner !== 'me' ? ownerName(c.owner) : 'toi';
+    if (T.ext) { const dd = S.dep[idx(c.x, c.y)], lk = c.linked === false ? 'hors réseau' : (c.out > 0 ? 'en production' : 'à l\'arrêt'); return { t: T.name + ' · ' + lk, s: (dd && dd.k === T.ext && !CROPS[dd.k] && !T.live ? 'Réserve ' + qtyTxt(dd.k, dd.r) + ' · ' : '') + 'à ' + ow, open: 1 }; }
+    const r0 = T.rec ? recOf(c) : null; return { t: T.name, s: (r0 ? r0.name + ' · ' : T.rec ? 'usine vide · ' : '') + 'à ' + ow, open: 1 };
+  }
+  if (c && c.t === 'road') return { t: 'Route', s: c.own ? 'Desserte · à toi' : 'Rue publique' };
+  if (zn === 3) return { t: 'Mer', s: 'Eau · non constructible' };
+  if (d && d.k === 'wood') return { t: 'Forêt · ' + fmt(Math.max(1, Math.round(d.r / 100))) + ' arbres', s: 'Bois : ' + qtyTxt('wood', d.r) };
+  if (d && CROPS[d.k]) { const f = fertility(x, y, d.k); return { t: 'Terre agricole · ' + DEPOSITS[d.k].name, s: S.npcFarm && S.npcFarm[i] ? 'Exploitée par un concurrent' : 'Fertilité ' + Math.round(f * 100) + ' %' }; }
+  if (d && DEPOSITS[d.k]) return { t: capFr(DEPOSITS[d.k].name) + ' · ' + qtyTxt(d.k, d.r), s: 'Gisement ' + richTxt(d) + (GRADE_K[d.k] ? ' · teneur ' + Math.round(gradeOf(x, y, d.k) * 100) + ' %' : '') + (d.own ? ' · site acquis' : '') };
+  if (zn === 4) return { t: 'Quai du port' };
+  return { t: 'Terrain libre', s: zn === 1 ? 'Ville' : zn === 2 ? 'Zone portuaire' : 'Campagne' };
+}
+const HT = { k: '', pin: 0, to: 0 };
+function hovShow(x, y, sx, sy, pin) {   // sx, sy : position écran (px, repère de la fenêtre)
+  const tp = el('hovtip'); if (!tp) return; const L = mapLabel(x, y); if (!L) { hovHide(); return; }
+  const k = x + ',' + y + (pin ? 'p' : '') + (S.day | 0);
+  if (k !== HT.k) { HT.k = k; tp.innerHTML = `<b>${L.t}</b>${L.s ? `<small>${L.s}</small>` : ''}${pin && L.open ? '<button type="button" data-ht="open">Ouvrir</button>' : ''}`; tp._xy = [x, y]; }
+  tp.classList.toggle('pin', !!pin); HT.pin = pin ? 1 : 0; tp.hidden = false;
+  const w = tp.offsetWidth, h = tp.offsetHeight; let L0 = sx + 14, T0 = sy + 16; if (L0 + w > window.innerWidth - 4) L0 = sx - w - 10; if (T0 + h > window.innerHeight - 4) T0 = sy - h - 10;
+  tp.style.left = Math.max(4, L0) + 'px'; tp.style.top = Math.max(4, T0) + 'px';
+  clearTimeout(HT.to); if (pin) HT.to = setTimeout(hovHide, 5000);
+}
+function hovHide() { const tp = el('hovtip'); clearTimeout(HT.to); if (tp && !tp.hidden) { tp.hidden = true; HT.k = ''; HT.pin = 0; } }
+el('hovtip').addEventListener('click', e => { const b = e.target.closest('[data-ht="open"]'), tp = el('hovtip'); if (!b || !tp._xy) return; const [x, y] = tp._xy; hovHide(); inspect(x, y); });
+['pointerdown', 'pointerup', 'wheel'].forEach(t => el('hovtip').addEventListener(t, ev => ev.stopPropagation(), { passive: true }));
 function updateSiteTip() {
   const tip = el('sitetip'), T0 = TYPES[tool];
   if (hover && !acq && (tool === 'buyout' || tool === 'keep' || tool === 'terra' || tool === 'zone')) { const k = tool + hover.x + ',' + hover.y + S.day + Math.floor(S.cash / 500) + PR().brush + PR().zmode + (S._pcv | 0); if (k !== tip._pk) { tip._pk = k; tip._ph = proTipHTML(hover.x, hover.y); } tip.innerHTML = tip._ph; tip.hidden = !tip._ph; return; }   // passe 34 : prix de marché AVANT le clic, aperçu du terrassement et du zonage
@@ -17967,7 +18007,8 @@ cvs.addEventListener('pointerdown', e => {
   fitted = true;
   cvs.setPointerCapture(e.pointerId);
   const p = pos(e);
-  pointers.set(e.pointerId, p);
+  pointers.set(e.pointerId, p); hovHide(); clearTimeout(HT.lp);
+  if (e.pointerType === 'touch' && pointers.size === 1) { const cx = e.clientX, cy = e.clientY; HT.lp = setTimeout(() => { if (pointers.size !== 1 || !gesture || gesture.moved || (gesture.mode !== 'pan' && gesture.mode !== 'pend')) return; const t = screenToTile(p.x, p.y); if (t) { gesture.lp = true; hovShow(t.x, t.y, cx, cy, true); } }, 500); }   // passe 95 : appui long au doigt = étiquette
   if (pointers.size === 2) {
     const [a, b] = [...pointers.values()];
     gesture = { mode: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: z };
@@ -17984,11 +18025,13 @@ cvs.addEventListener('pointermove', e => {
   if (e.pointerType === 'mouse') {
     hover = screenToTile(p.x, p.y);
     // Curseur main au-dessus d'un bâtiment avec lequel on peut interagir (clic = ouvrir sa fiche)
+    if (!pointers.size) { if (hover && el('sitetip').hidden) hovShow(hover.x, hover.y, e.clientX, e.clientY, false); else if (!HT.pin) hovHide(); }   // passe 95 : étiquette discrète (sauf quand l'analyse d'un outil de construction est affichée)
     if (!pointers.size) { const hc = hover && cell(hover.x, hover.y), live = !!(hc && TYPES[hc.t] && hc.t !== 'road' && hc.t !== 'npc' && hc.t !== 'part'); cvs.style.cursor = tool === 'view' ? (live ? 'pointer' : 'grab') : tool === 'bull' ? (live ? 'pointer' : 'crosshair') : 'crosshair'; }
   }
   if (!pointers.has(e.pointerId)) return;
   pointers.set(e.pointerId, p);
   if (!gesture) return;
+  if (gesture.sx != null && Math.abs(p.x - gesture.sx) + Math.abs(p.y - gesture.sy) > 10) { clearTimeout(HT.lp); if (!gesture.lp) hovHide(); }
   if (gesture.mode === 'pinch' && pointers.size >= 2) {
     const [a, b] = [...pointers.values()];
     const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
@@ -18023,10 +18066,12 @@ cvs.addEventListener('pointermove', e => {
 const immTap = { k: '', t: 0, to: 0 };
 function endPtr(e) {
   const p = pointers.get(e.pointerId);
-  pointers.delete(e.pointerId);
+  pointers.delete(e.pointerId); clearTimeout(HT.lp);
+  if (gesture && gesture.lp) { gesture = null; lastTile = null; return; }   // passe 95 : l'appui long a montré l'étiquette : ni pose ni ouverture
   if (gesture && gesture.mode === 'pend' && p && e.type === 'pointerup') { const p0 = gesture.p0; gesture = null; lastTile = null; applyAt(p0); }   // passe 64 : tap au doigt = pose
   if (gesture && gesture.mode === 'pan' && !gesture.moved && p && gesture.tool === 'view') {
     const t = screenToTile(p.x, p.y);
+    if (t) { const lb = mapLabel(t.x, t.y); if (lb && !lb.open) { const r = cvs.getBoundingClientRect(); hovShow(t.x, t.y, p.x + r.left, p.y + r.top, true); } }   // passe 95 : clic sur un gisement, une forêt, l'eau, une route… = étiquette épinglée (pas de panneau)
     if (t) {
       const a = cell(t.x, t.y), key = a ? a.x + ',' + a.y : '', now = performance.now();
       if (a && PLAN_DIM[a.t] && typeof immOn !== 'undefined' && !immOn) {   // double-clic / double-tape : entrer dans l'usine ; un clic simple ouvre la fiche après un court délai
@@ -18040,7 +18085,7 @@ function endPtr(e) {
 }
 cvs.addEventListener('pointerup', endPtr);
 cvs.addEventListener('pointercancel', endPtr);
-cvs.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hover = null; });
+cvs.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { hover = null; if (!HT.pin) hovHide(); } });
 let wheelAcc = 0, wheelT = 0;
 cvs.addEventListener('wheel', e => { e.preventDefault(); const p = pos(e), now = performance.now(); wheelAcc += e.deltaY; if (Math.abs(wheelAcc) > 30 && now - wheelT > 140) { zoomStep(wheelAcc > 0 ? 1 : -1, p.x, p.y); wheelAcc = 0; wheelT = now; } }, { passive: false });
 window.addEventListener('keydown', e => {
