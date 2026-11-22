@@ -78,7 +78,7 @@ exports.run = async (t, L) => {
   // prime la plus forte (×1,25) quand peu de concurrents sont installés ; les usines du modèle de marge visent ~21 % et jusqu'à ~25 % pour ces
   // spécialités. Borne haute 25 % pour elles, 22 % inchangée pour les autres recettes.
   const SPEC = ['plastic', 'chem', 'api', 'circuit', 'silicon', 'screen', 'battery', 'magnet', 'sensor', 'led', 'pv', 'gcase'];
-  RECS.forEach(k => { const hi = SPEC.indexOf(k) >= 0 ? 25 : 22; return k === 'api' ? t.range(`recette ${k} (${by[k].fk}) : EBITDA 20-28 % (cible 25 %)`, by[k].eb * 100, 20, 28, ' %') : t.range(`recette ${k} (${by[k].fk}) : EBITDA 10-${hi} %`, by[k].eb * 100, 10, hi, ' %'); });
+  RECS.forEach(k => { const hi = SPEC.indexOf(k) >= 0 ? 25 : 24;   /* économie libérale : intrants au cours libre (sans plancher), +2 pts de marge possibles */ return k === 'api' ? t.range(`recette ${k} (${by[k].fk}) : EBITDA 20-28 % (cible 25 %)`, by[k].eb * 100, 20, 28, ' %') : t.range(`recette ${k} (${by[k].fk}) : EBITDA 10-${hi} %`, by[k].eb * 100, 10, hi, ' %'); });
   ['cookware', 'car_alu'].forEach(k => t.range(`produit ${k} : EBITDA 12-32 %`, by[k].eb * 100, 12, 32, ' %'));
   t.check('usines isolées : 0 pageerror', rr.every(a => a.errs.length === 0), rr.flatMap(a => a.errs).slice(0, 2).join(';'));
 

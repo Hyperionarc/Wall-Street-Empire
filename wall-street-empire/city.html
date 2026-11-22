@@ -2254,7 +2254,7 @@ function foreignHTML() {
 const US_MACRO_CONFIG = { corpTax: 0.24, lossUse: 0.8, salesTax: 0.06, payroll: 0.08, tariff: 0.04, fret0: 0.25, fretPort: 0.05, fretMin: 0.01, energyK: 0.85,
   fireMonths: 0.2, ubRate: 0.35, ubDays: 180, hhTax: 0.15, save0: 0.05 };
 const USM = US_MACRO_CONFIG;
-const LIBX = { season: 1, perish: 1, eps: 2.5, xpar: 1, fgnAg: 4, sk: 1 };   // commutateurs de mesure A/B (WSE.lib.X), sans effet en jeu
+const LIBX = { season: 1, perish: 1, eps: 2.5, xpar: 1, fgnAg: 4, sk: 1, pxc: 1 };   // commutateurs de mesure A/B (WSE.lib.X), sans effet en jeu
 // Parité d'importation : droits de douane × fret (les ports réduisent le fret : 25 % sans port, 1 % au mieux). Sans port : ×1,30 ; cinq ports : ×1,05 (comme avant, décomposé).
 const impRate = ports => (1 + USM.tariff) * (1 + Math.max(USM.fretMin, USM.fret0 - USM.fretPort * (ports || 0)));
 // Garde-fous techniques : bnd(id, v, lo, hi) borne une valeur (anti-NaN, anti-explosion) ET compte chaque contact (S._bnd[id] = [appels, en bas, en haut, dernier jour]).
@@ -5352,7 +5352,7 @@ function hhInc(pe, u, wm, rw, k, ubN, ext) {   // revenu disponible des ménages
 }
 function prosp() {
   if (!S) return { v: 1, e: 1, w: 1, f: 1, f0: 1, f1: 1, me: 0, riv: 0, fr: 0, b: 1, Y: 0 };
-  if (_px.d === S.day && _pxG === S.grid && _pxS === S && _pxM === S.macro) return _px;   // cache du jour (une nouvelle partie au même jour ne le réutilise pas)
+  if (_px.d === S.day && _pxG === S.grid && _pxS === S && _pxM === S.macro && LIBX.pxc) return _px;   // cache du jour (une nouvelle partie au même jour ne le réutilise pas)
   const st = S.stats || {}, m = S.macro || {}, pe = Math.max(1, popE()), u = st.unemp != null ? st.unemp : HH_U0, k = cpi(), rw = S.rw || 1, wm = wageMkt();
   const me = Math.max(0, st.income || 0), riv = (S.rivals || []).reduce((a, r) => a + (r.sub ? 0 : Math.max(0, r.rev || 0)), 0), div = Math.max(0, (S.fin && S.fin.div) || 0);   // chiffres d'affaires de la veille : toi, IA (une filiale est comptée avec toi)
   const eRiv = HH_RIV * riv, eMe = HH_ME * me + 0.5 * div, ubN = m.ubN != null ? m.ubN : pe * HH_ACT * u * 0.75;
@@ -5366,9 +5366,9 @@ function prosp() {
 // Budget de référence des rayons (par habitant et par jour, prix de référence TTC, humeur 60) : SPEND0 = basique + courant + luxe d'avant le lot 3 ; part du luxe dans le discrétionnaire WL0
 let _sp0 = null;
 function spend0() {
-  if (_sp0) return _sp0; const tt = 1 + USM.salesTax, hf0 = 0.82 + 0.18 * 0.6, pb = c => GOODS[c].base * RETAIL_MK[c] * tt;
+  const tt = 1 + USM.salesTax, hf0 = 0.82 + 0.18 * 0.6, pb = c => GOODS[c].base * RETAIL_MK[c] * tt;
   const sb = DEM_PER_POP.basic * pb('basic'), ss = DEM_PER_POP.std * pb('std') * hf0, sl = DEM_PER_POP.lux * pb('lux');
-  return (_sp0 = { sb, ss, sl, tot: sb + (ss + sl) / hf0, wl0: sl / (ss + sl), hf0 });
+  return { sb, ss, sl, tot: sb + (ss + sl) / hf0, wl0: sl / (ss + sl), hf0 };   // recalculé à chaque appel (les prix de référence dépendent de la partie)
 }
 // Cascade du jour : basique (saturation physique) → résiduel × bonheur → courant / luxe (Engel). Prix TTC moyens des paniers de rayon : px = { basic, std, lux }. Renvoie des unités de panier.
 function hhDemand(pe, dMul, happy, px) {

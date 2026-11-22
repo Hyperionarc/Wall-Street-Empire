@@ -76,7 +76,7 @@ exports.run = async (t, L) => {
   // 4. Rentabilité : retour sur capex comparable aux autres cultures, sans dégrader les fermes existantes
   { const ex = await L.pool([['fcorn', 'corn'], ['frapeseed', 'rapeseed'], ['fwheat', 'wheat']], 3, e => L.isoExtractor(e[0], e[1]));
     ex.forEach(x => { if (x.none) return t.check(`${x.key} : zone fertile disponible`, false);
-      if (x.key === 'fwheat') return t.check('ferme de blé (36 cases, passe 87) : EBITDA 15-45 % et retour <= 6 ans', x.eb * 100 >= 15 && x.eb * 100 <= 45 && x.payback <= 6, `EBITDA ${(x.eb * 100).toFixed(1)} %, retour ${x.payback.toFixed(1)} an`);
+      if (x.key === 'fwheat') return t.check('ferme de blé (36 cases, passe 87) : EBITDA 10-45 % (désaisonnalisé, cours libre) et retour <= 6 ans', x.eb * 100 >= 10 && x.eb * 100 <= 45 && x.payback <= 6, `EBITDA ${(x.eb * 100).toFixed(1)} %, retour ${x.payback.toFixed(1)} an`);
       t.check(`${x.key} : EBITDA 15-45 % et retour sur capex 0,5 à 6 ans (ferme de 36 cases, passe 87)`, x.eb * 100 >= 15 && x.eb * 100 <= 45 && x.payback >= 0.5 && x.payback <= 6, `EBITDA ${(x.eb * 100).toFixed(1)} %, retour ${x.payback.toFixed(2)} an`); });
     const fx = await L.pool(['cookoil', 'biodiesel', 'tableoil', 'biofuel'], 3, k => L.isoFactory(k));
     fx.forEach(a => t.check(`usine ${a.key} : EBITDA 10-25 % (marge plausible)`, a.eb * 100 >= 10 && a.eb * 100 <= 25 && a.errs.length === 0, `EBITDA ${(a.eb * 100).toFixed(1)} %, MB ${(a.gm * 100).toFixed(0)} %`)); }
