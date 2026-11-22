@@ -612,3 +612,14 @@ Rémy voit un fond sombre avec un objet simplifié (dessin du code) pour « Vin 
 
 **D. Photos présentes mais à refaire (déjà demandées en n°13, rappel)** : `obesity` (boîte neutre, sans seringue ni texte), `spirits` (étiquette unie), `tv` (écran allumé, image abstraite), `antibio`, `hygiene`, `jacket` (une veste, pas un pull), `ebike` (batterie visible), `lube`, `petfood`, `chrome`, `rubber`, `ingot` (lingot trapézoïdal), `screen`, `silicon`.
 Pas de photo à produire pour `basic`, `std`, `lux` (catégories de gamme abstraites).
+
+## COMMANDE n°17 bis (intégrateur → Cowork, 22 nov., passe 99) : ce qui reste en VECTORIEL après l'audit de couverture HD (`wall-street-empire/docs/AUDIT_HD_COUVERTURE.md`)
+L'audit instrumenté (`wall-street-empire/tools/audit_hd.js`) a branché tout PNG HD existant (caserne, commissariat, banque, campus du data center, méga-centre `bat_*`, navires et décor du port, personnages et voitures du mall). Restent dessinés par le code faute de PNG — à livrer dans `assets/factory_hd`, avec `ancres.json`, **vue isométrique 2:1 exacte, lumière haut-gauche (flanc gauche clair), aucun texte, aucun logo, aucune lettre** (les enseignes sont peintes par le code) :
+1. `college` (emprise 2×2, losange 512×256) : bâtiment en L de 2-3 étages, préau, cour ; **distinct** de `ecole`.
+2. `lycee` (3×2, losange 640×320) : bâtiment principal 3-4 étages + gymnase ; distinct.
+3. `ecole_maternelle` (1×1, losange 256×128) : plain-pied, toit en pente douce, cour de jeux.
+4. `creche` (1×1) : bâtiment bas, jardin, petit portique. (Aujourd'hui les 4 établissements affichent le même `ecole.png`, style « jouet » : cahier jaune sur le toit ; aucun autre PNG d'école n'existe dans le dépôt.)
+5. `brico_outillage` (2×1, 512×256) : grande surface de bricolage (commandé n°9, non livré : la boutique est encore composée en primitives).
+6. Mall central — **animations seulement, le bâtiment et l'enseigne ne changent pas** : `client_homme`, `client_femme`, `client_enfant`, `client_senior` en `_marche` et `_debout` (128×200, ancre aux pieds, 3/4 face bas-gauche, tenues civiles variées), `vendeur_debout` (tablier, sans casque), `caddie` (64×64), `voiture_face` / `voiture_dos` (256×256, mêmes modèles que `veh_*`), `marquage_parking` (losange 256×128 transparent, lignes blanches). Aujourd'hui passants et commerçants reprennent les ouvriers HD (casques, gilets) faute de clients civils ; les places du parking sont tracées par le code.
+7. Port (facultatif) : `port_navire_cargo_sw` et `port_ferry_sw` (proue vers l'autre sens) pour que chaque navire avance proue en avant dans les deux couloirs.
+Ne pas livrer : `mall_central*` (l'extérieur « Guggenheim » dessiné par le code est conservé), `aeroport_*` (chantier d'un autre agent).

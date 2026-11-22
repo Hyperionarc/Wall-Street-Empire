@@ -292,6 +292,14 @@ VV_NAMES = ['boulangerie', 'boutique_mode', 'cafe_de_quartier', 'restaurant_terr
             'bat_ferme_hangar', 'bat_ferme_bovins', 'bat_chai_vigne', 'bat_chai_vigneron', 'bat_ferme_stabulation_ronde', 'bat_ferme_etable_traversante', 'bat_ferme_traite', 'bat_ferme_bergerie', 'bat_ferme_moutons', 'bat_ferme_porcherie', 'bat_ferme_porcs', 'bat_ferme_poulailler', 'bat_ferme_poulets']
 P2_NAMES += [_n for _n in VV_NAMES if _n not in P2_NAMES]
 P2_NAMES += ['concasseur_recyclage']   # passe 79 : carrière de granulats dont le gisement est épuisé et qui vit de son concasseur (livré pour la commande 55-1)
+# Passe 99 (audit de couverture HD, docs/AUDIT_HD_COUVERTURE.md) : PNG HD livrés mais jamais branchés. Équipements publics (caserne, commissariat), banque du joueur,
+# campus du data center (5×4), méga-centre commercial seul sur sa dalle, port (navires, phare, voilier, remorqueur, portique de quai, piles de conteneurs, engins, réservoirs, vrac),
+# et personnages HD (poses de marche et debout de assets/factory_hd/poses) pour les clients et commerçants du mall central.
+P2_NAMES += ['caserne_pompiers', 'commissariat', 'banque', 'data_center_campus', 'bat_mega_centre_commercial',
+             'port_navire_cargo_ne', 'port_navire_cargo_se', 'port_navire_petrolier', 'port_navire_vraquier', 'port_ferry', 'port_remorqueur_ne', 'port_voilier', 'port_bateau_peche', 'port_phare',
+             'port_portique_quai', 'port_piles_conteneurs_a', 'port_piles_conteneurs_b', 'port_reach_stacker', 'port_cavalier_straddle', 'port_reservoirs', 'port_terminal_vrac', 'port_entrepot_a']
+P2_POSES = ['poses/ouvrier_%s_%s' % (w, p) for w in ('h1', 'h2', 'h3', 'f1', 'f2', 'f3') for p in ('marche', 'debout')]
+P2_NAMES += P2_POSES
 p2hd = {}; p2dim = {}
 # Sol et routes (losanges 396x198 sans couture) : pas de palette 256 couleurs (bandes visibles sur l'herbe) mais un JPEG de qualité ;
 # le pourtour transparent est rempli par extension des couleurs du bord (aucun liseré sombre quand le jeu découpe le losange avec 1 px de recouvrement).
@@ -352,7 +360,7 @@ P2_PXCASE = 400   # px source par case au-delà de 480 px par case (largeur de l
 P2_FP = {'supermarche': 2, 'supermarche_n2': 2, 'supermarche_n3': 2, 'hypermarche': 3, 'hypermarche_n2': 3, 'hypermarche_n3': 3, 'bat_supermarche': 2, 'bat_supermarche_n2': 2, 'bat_supermarche_n3': 2,
          'bat_hypermarche': 3, 'bat_hypermarche_n2': 3, 'bat_hypermarche_n3': 3, 'usine_moyenne_f2': 1.5, 'usine_grande_f3': 2, 'usine_f4_mega': 3, 'mega_centre_commercial': 2, 'terminal_portuaire': 2,
          'centrale_nucleaire': 3, 'centrale_solaire': 4.5, 'data_center': 4.5, 'concession_auto': 2, 'boutique_high_tech': 1.5, 'maison_deco': 1.5, 'sport_loisirs': 1.5, 'chantier_moyen': 1.5,
-         'centrale_charbon': 1.5, 'siege_hq_n2': 2, 'siege_hq_n3': 2, 'fwheat': 3, 'fsugar': 3, 'fcotton': 3, 'frubber': 3, 'fvine': 3, 'fcorn': 3, 'frapeseed': 3, 'fcattle': 2, 'fchicken': 2, 'fpig': 2, 'fsheep': 2}
+         'centrale_charbon': 1.5, 'bat_mega_centre_commercial': 3, 'data_center_campus': 4.5, 'port_navire_cargo_ne': 2, 'port_navire_cargo_se': 2, 'port_navire_petrolier': 2, 'port_navire_vraquier': 2, 'port_ferry': 2, 'port_portique_quai': 2, 'siege_hq_n2': 2, 'siege_hq_n3': 2, 'fwheat': 3, 'fsugar': 3, 'fcotton': 3, 'frubber': 3, 'fvine': 3, 'fcorn': 3, 'frapeseed': 3, 'fcattle': 2, 'fchicken': 2, 'fpig': 2, 'fsheep': 2}
 # Passe 78 : éclairage. Convention du jeu (mesurée sur maisons, immeubles, tours, usine moyenne, boutiques v2, dalle commune des commerces) : lumière haut-gauche,
 # flanc gauche (face sud-ouest) clair, flanc droit (face sud-est) sombre. Ces sprites sont rendus avec la lumière à DROITE (flancs de dalle et murs gauche
 # nettement plus sombres que les droits, voir tools/tests/t80_orientation.js) et n'ont ni texte ni façade orientée par le jeu : un miroir horizontal remet

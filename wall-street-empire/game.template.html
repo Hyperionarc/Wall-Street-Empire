@@ -16151,6 +16151,7 @@ function drawCrane(cx, cy, seed, now) {
   ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.arc(cx - 14, cy - 104, 4, 0, 7); ctx.fill();
 }
 function drawShip(px, py, seed) {
+  const sm = SHIP_SPR[seed % SHIP_SPR.length]; if (sm && vvOk(sm[0]) && vvSpr(sm[0], px - 20, py - 8, sm[1], false) != null) return;   // passe 99 : navire HD propre à chaque bateau
   if (vvSpr('navire_cargo', px - 20, py - 8, 250, false) != null) return;   // ville vivante : porte-conteneurs HD (proue vers le bas à gauche, dans l'axe y de la carte)
   // coque le long de l'axe y de la carte (vers le bas à gauche à l'écran)
   isoBox(px, py, 0.95, 3.1, 16, '#3a456f', '#202a50', '#161d3b');
@@ -16176,7 +16177,21 @@ function drawWater(p, now, x, y) {
     ctx.beginPath(); ctx.moveTo(cx - 68, cy); ctx.lineTo(cx, cy - 35); ctx.stroke();
   }
 }
+let QUAY_TIP = null;   // passe 99 : case de quai la plus au nord (phare)
+function quayTip() { if (QUAY_TIP) return QUAY_TIP; for (let i = 0; i < N * N; i++) if (ZONE[i] === 4) return (QUAY_TIP = [i % N, (i / N) | 0]); return (QUAY_TIP = [-1, -1]); }
 function drawQuayDecor(p, x, y, now) {
+  /* Passe 99 : décor HD du port livré mais jamais branché (assets/factory_hd/port_*) : phare à la pointe du quai, réservoirs, trémie de vrac et hangar sur quelques cases,
+     piles de conteneurs HD sur la moitié des cases (le reste garde les conteneurs dessinés), engins (cavalier, chariot porte-conteneurs), portiques de quai en alternance avec les grues. */
+  const T = quayTip(), cr = y % 6 === 3 && (x % 2 === 0 || !vvOk('grue_portique')), cy = p.y + TH / 2;
+  if (x === T[0] && y === T[1] && vvOk('port_phare')) { vvSpr('port_phare', p.x, cy + 14, 34, false); return; }
+  if (!cr) { const hb = hash(x, y, 27), big = hb < 0.05 ? 'port_reservoirs' : hb < 0.09 ? 'port_terminal_vrac' : hb < 0.12 ? 'port_entrepot_a' : null;
+    if (big && vvOk(big)) { vvSpr(big, p.x, cy + 26, big === 'port_entrepot_a' ? 112 : 100, hash(x, y, 29) < 0.5); return; } }
+  const hp = hash(x, y, 28), pn = hp < 0.25 ? 'port_piles_conteneurs_a' : hp < 0.5 ? 'port_piles_conteneurs_b' : null;
+  if (pn && !(hash(x, y, 23) < 0.25) && vvOk(pn)) { vvSpr(pn, p.x + (hash(x, y, 26) - 0.5) * 16, cy + 22, 62, hash(x, y, 2) < 0.5);
+    const en = hash(x, y, 31) < 0.3 ? (hash(x, y, 32) < 0.5 ? 'port_reach_stacker' : 'port_cavalier_straddle') : null; if (en && vvOk(en)) vvSpr(en, p.x + 30, cy + 28, 26, hash(x, y, 33) < 0.5);
+    if (cr) { const cn = x % 4 === 0 && vvOk('port_portique_quai') ? 'port_portique_quai' : null; if (cn) vvSpr(cn, p.x + 20, p.y + 40, 96, false); else drawCrane(p.x + 20, p.y + 40, y, now); }
+    return; }
+  if (cr && x % 4 === 0 && vvOk('port_portique_quai')) { drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35); vvSpr('port_portique_quai', p.x + 20, p.y + 40, 96, false); return; }
   const gn = VV_GOODS[Math.floor(hash(x, y, 24) * VV_GOODS.length)];   // ville vivante : un quai sur quatre porte des marchandises (bacs de matières, lingots, sacs, barres)
   if (!(hash(x, y, 23) < 0.25 && vvSpr(gn, p.x + (hash(x, y, 26) - 0.5) * 30, p.y + 40, 50, hash(x, y, 25) < 0.5) != null)) drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35);
   if (y % 6 === 3 && (x % 2 === 0 || !vvOk('grue_portique'))) drawCrane(p.x + 20, p.y + 40, y, now);   // grues HD : une case sur deux de la rangée (sinon elles se chevauchent)
@@ -16305,8 +16320,13 @@ function gtWaves(p, now, x, y) {   // vaguelettes animées par-dessus l'eau text
   const cx = p.x, cy = p.y + 33; ctx.strokeStyle = 'rgba(255,255,255,.13)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
   for (let k = 0; k < 2; k++) { const ph = now / 900 + x * 0.7 + y * 0.5 + k * 2.1, ox = Math.sin(ph) * 10, oy = (k - 0.5) * 18; ctx.beginPath(); ctx.moveTo(cx - 24 + ox, cy + oy); ctx.quadraticCurveTo(cx + ox, cy + oy - 5 + Math.cos(ph) * 2, cx + 24 + ox, cy + oy); ctx.stroke(); }
 }
+/* Passe 99 : navires HD variés (assets/factory_hd/port_*, jamais branchés : seul navire_cargo était dessiné, cinq fois). Deux couloirs, une vitesse par couloir
+   (avant : vitesses différentes dans un même couloir, les navires se rattrapaient et se superposaient), espacement régulier sur la boucle de N + 12 cases.
+   Couloir ouest, vers le bas à gauche (proue en bas à gauche sur les sprites) : porte-conteneurs, pétrolier, remorqueur, vraquier ; couloir est, vers le haut à droite : ferry, voilier. */
+const SHIP_SPR = [['navire_cargo', 250], ['port_navire_petrolier', 250], ['port_remorqueur_ne', 105], ['port_navire_cargo_ne', 260], ['port_navire_vraquier', 245], ['port_ferry', 215], ['port_voilier', 62]];
 const ships = [];
-for (let i = 0; i < 5; i++) ships.push({ x: 91 + (i % 2) * 2.4, y: 8 + i * 17, v: (i % 2 ? 1 : -1) * (0.22 + 0.06 * i), seed: i });
+for (let i = 0; i < 5; i++) ships.push({ x: 91.2, y: -6 + i * (N + 12) / 5, v: 0.26, seed: i, spr: i });
+for (let i = 0; i < 2; i++) ships.push({ x: 93.6, y: -6 + (i + 0.3) * (N + 12) / 2, v: -0.2, seed: 5 + i, spr: 5 + i });
 function updateShips(dt) { ships.forEach(s => { s.y += s.v * dt * speedFactor(); if (s.y > N + 6) s.y = -6; if (s.y < -6) s.y = N + 6; }); }
 
 // --- Forêts et camps de bûcherons ---
@@ -16746,7 +16766,7 @@ const SIGN = { s1: { st: 'com', sz: 1 }, s2: { st: 'com', sz: 2 }, s3: { st: 'co
   'mon:hospital': { st: 'svc', sz: 2, ac: '#b8474d' }, 'mon:lycee': { st: 'svc', sz: 1 }, 'mon:college': { st: 'svc', sz: 1 }, 'mon:maternelle': { st: 'svc', sz: 1 }, 'mon:garderie': { st: 'svc', sz: 1, txt: 'CRÈCHE' },
   'mon:hall': { st: 'svc', sz: 2 }, 'mon:air': { st: 'svc', sz: 4, txt: 'AÉROPORT' },
   'sv:station_service': { st: 'svc', sz: 1 }, 'sv:station_recharge_electrique': { st: 'svc', sz: 1, txt: 'RECHARGE ÉLECTRIQUE' },
-  'sv:boulangerie': { st: 'com', sz: 1, ac: '#c98a3e' }, 'sv:cafe_de_quartier': { st: 'com', sz: 1, txt: 'CAFÉ' }, 'sv:restaurant_terrasse': { st: 'com', sz: 1, txt: 'RESTAURANT' }, 'sv:boutique_mode': { st: 'com', sz: 1 } };   // passe 77 : commerces de la ville vivante
+  'sv:boulangerie': { st: 'com', sz: 1, ac: '#c98a3e' }, 'sv:drugstore': { st: 'com', sz: 1, ac: '#4f9e6a', txt: 'PHARMACIE' }, 'mon:police': { st: 'svc', sz: 1, txt: 'POLICE' }, 'mon:fire': { st: 'svc', sz: 1, txt: 'POMPIERS' }, 'sv:cafe_de_quartier': { st: 'com', sz: 1, txt: 'CAFÉ' }, 'sv:restaurant_terrasse': { st: 'com', sz: 1, txt: 'RESTAURANT' }, 'sv:boutique_mode': { st: 'com', sz: 1 } };   // passe 77 : commerces de la ville vivante
 // Anciennes enseignes générées (texte illisible) : centre c, demi-axes u (sens de lecture) et v (vers le bas du texte) en px de l'image d'origine, couleur du bandeau uni
 const SIGN_COVER = { boutique_high_tech: { c: [99, 52], u: [35, 15], v: [0, 10], f: '#3b4452' }, sport_loisirs: { c: [266, 94], u: [58, 23], v: [0, 10.5], f: '#3f4a58' },
   hopital: { c: [159, 91], u: [54, -32], v: [50, 35], f: '#c81e28' }, supermarche: { c: [319.6, 75.3], u: [43, -24.5], v: [22.5, 13], f: '#b4bcc1' },
@@ -16775,7 +16795,7 @@ const SF = {
 };
 const SIGN_FACE = { spharma: { pharmacie: SF.pharmacie }, s1: { petit_marche_n1: SF.petit_marche_n1 }, slux: { boutique_luxe: SF.boutique_luxe },
   smode: { boutique_mode_luxe: SF.boutique_mode_luxe, boutique_mode: SF.boutique_mode }, stech: { boutique_high_tech: SF.boutique_high_tech }, shome: { maison_deco: SF.maison_deco },
-  ssport: { sport_loisirs: SF.sport_loisirs }, sauto: { concession_auto: SF.concession_auto }, 'sv:boulangerie': { boulangerie: SF.boulangerie }, 'sv:cafe_de_quartier': { cafe_de_quartier: SF.cafe_de_quartier },
+  ssport: { sport_loisirs: SF.sport_loisirs }, sauto: { concession_auto: SF.concession_auto }, 'sv:boulangerie': { boulangerie: SF.boulangerie }, 'sv:drugstore': { pharmacie: SF.pharmacie }, 'sv:cafe_de_quartier': { cafe_de_quartier: SF.cafe_de_quartier },
   'sv:boutique_mode': { boutique_mode: SF.boutique_mode }, 'mon:hall': { mairie: SF.mairie }, 'mon:lycee': { ecole: SF.ecole }, 'mon:college': { ecole: SF.ecole }, 'mon:maternelle': { ecole: SF.ecole }, 'mon:garderie': { ecole: SF.ecole } };
 const SIGN_FACE_MIN = 9;   // px écran : en dessous, l'enseigne de façade serait illisible
 const SG = { on: true, list: [], drawn: [], obst: [], bb: [], ord: 0, ui: [], uiT: -1e9, uiW: 0, uiH: 0, lost: {}, cur: null, cache: new Map(), tw: new Map(), fo: false, foT: 0, ms: 0, avg: 0, n: 0, hidden: 0, faces: 0 };
@@ -16785,7 +16805,7 @@ function signTxt(key) {   // nom affiché : celui de l'interface (TYPES, PUB, VV
   return nm.split(' · ')[0].toUpperCase();
 }
 function signKey(a) {
-  if (a.t === 'npc') { if (a.k === 'mon') return a.m === 'mall' || a.m === 'air' || !monFront(a) ? null : 'mon:' + a.m;   /* équipement de plusieurs cases : une seule plaque, sur la case avant */ const n = SG.cur && SG.cur.a === a && SG.cur.n; return n && VV_SVC[n] ? 'sv:' + n : null; }
+  if (a.t === 'npc') { if (a.k === 'mon') return a.m === 'mall' || a.m === 'air' || !monFront(a) ? null : 'mon:' + a.m;   /* équipement de plusieurs cases : une seule plaque, sur la case avant */ const n0 = SG.cur && SG.cur.a === a && SG.cur.n, n = n0 && (VV_SVC[n0] ? n0 : VV_SVC_OF[n0]); return n && VV_SVC[n] ? 'sv:' + n : null; }
   return SIGN[a.t] ? a.t : null;
 }
 const signFs = D => { const Z = SIGN_SZ[D.sz] || SIGN_SZ[1]; return Math.min(Z[1], Z[0] * z); };   // taille de police en px écran
@@ -17428,7 +17448,7 @@ function drawTileOf(a, x, y, ox, oy, o) {
   const p = iso(x, y);
   const grow = o.born != null ? easeOut(clamp((o.now - o.born) / 600, 0, 1)) : 1;
   ctx.globalAlpha = (o.alpha == null ? 1 : o.alpha) * (a.conn || o.ghost ? 1 : 0.7);
-  if (P2_TYPE[a.t] && p2Ready(a.t) && !(a.t === 'dc' && !a.lg)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
+  if (P2_TYPE[a.t] && p2Ready(a.t) && !dcVec(a)) {   // sprite HD de la phase 2 : une seule image calée sur le losange de l'emprise, posée sur la case avant
     const fe = farmExt(a); if (fe && !(x < a.x + fe.bw && y < a.y + fe.bh)) farmExtTile(a, fe, x, y, p);   // passe 87 : case annexée (champ ou pâturage) dessinée à son tour
     if (fe && (o.fr || (x === a.x + a.w - 1 && y === a.y + a.h - 1))) { const q = iso(a.x + (fe.bw - 1) / 2, a.y + (fe.bh - 1) / 2), ty = p2Draw(vvP2Name(a), p, Math.min(fe.bw, fe.bh), { x: q.x, y: q.y + TH / 2 }, [fe.bw, fe.bh]); a._top = ty == null ? p.y - 40 : ty; farmExtFx(a, fe, o.now); }   // corps de ferme dans le coin nord, champs et annexes devant
     else if (x === a.x + a.w - 1 && y === a.y + a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), ty = a.t === 'f3' && a.w === 2 && a.h === 2 && vvOk(P2_F3_DUO) ? drawF3Duo(a) : p2Draw(vvP2Name(a), p, Math.min(a.w, a.h) * (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t]) ? P2_REPLI_K[a.t] || 1 : 1), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); a._top = ty == null ? p.y - 40 : ty; farmFx(a, o.now); if (VV_FARM[a.t]) vvFarm(a); if ((a.t === 's2' || a.t === 's3') && a.w === a.h && !/^bat_/.test(SG.cur && SG.cur.n || '')) { const cur = SG.cur; drawCarts(a); SG.cur = cur; } }   // ville vivante : variantes de niveau (supermarché, hypermarché) et détails des fermes ; barème : sprite carré sur toute l'emprise carrée, caddies sur le parking
@@ -17512,7 +17532,7 @@ function drawOverlay(a, o) {   // dessiné sur la case avant de l'emprise
   ctx.globalAlpha = alpha;
   const T = TYPES[a.t];
   let topY = a._top == null ? p.y - 28 : a._top;
-  if (P2_TYPE[a.t] && p2Ready(a.t) && !(a.t === 'dc' && !a.lg)) {
+  if (P2_TYPE[a.t] && p2Ready(a.t) && !dcVec(a)) {
     topY = a._top == null ? topY : a._top;   // sprite HD : pas de cheminée ni d'enseigne vectorielle
   } else if (a.t === 'res' || a.t === 'tech' || a.t === 'bank' || a.t === 'hq' || a.t === 'rd' || a.t === 'dc' || a.t === 'off' || a.t === 'sport' || a.t === 'tv') {
     if ((a.t === 'tech' || a.t === 'off' || a.t === 'tv') && conn && Math.sin(now / 350 + a.seed * 9) > 0.2) {
@@ -20595,8 +20615,9 @@ function citySpr(a, grp, fl) {   // sprite HD pour un immeuble (choix détermini
 const P2HD = __P2HD_JSON__, P2DIM = __P2DIM_JSON__, P2_IMG = {};   // sprites de la phase 2 (gisements, mines, puits, carrières) ; dim = [largeur, hauteur, x0, y0, x1, y1] de l'image d'origine, la parcelle est calée sur le losange de la case
 const P2_DEP = { oil: 'gisement_petrole', iron: 'gisement_fer', coal: 'gisement_charbon', gas: 'gisement_gaz', copper: 'gisement_cuivre', nickel: 'gisement_nickel_chrome', chrome: 'gisement_nickel_chrome', bauxite: 'gisement_bauxite', lithium: 'gisement_lithium', zinc: 'gisement_zinc', graphite: 'gisement_graphite', phosphate: 'gisement_phosphate', potash: 'gisement_potasse', salt: 'gisement_sel', silica: 'gisement_silice', clay: 'gisement_argile' };
 const P2_TYPE = { ewh: 'entrepot', fwheat: 'fwheat', fsugar: 'fsugar', fcotton: 'fcotton', frubber: 'frubber', fvine: 'fvine', fcorn: 'fcorn', frapeseed: 'frapeseed', fcattle: 'fcattle', fchicken: 'fchicken', fpig: 'fpig', fsheep: 'fsheep', wh: 'entrepot', solar: 'centrale_solaire', wind: 'eolienne', plant: 'centrale_charbon', nuclear: 'centrale_nucleaire', pylon: 'pylone_electrique', rd: 'centre_rd', dc: 'data_center', btp: 'chantier_moyen', immo: 'agence_immo', foundry: 'fonderie', f1: 'usine_petite_f1', f2: 'usine_moyenne_f2', f3: 'usine_grande_f3', f4: 'usine_f4_mega', s1: 'petit_marche_n1', s2: 'supermarche', s3: 'hypermarche', s4: 'mega_centre_commercial', port: 'terminal_portuaire', tv: 'station_tv', sport: 'stade_sport' };
-{ const SPEC_SPR = { sauto: ['concession_auto'], stech: ['boutique_high_tech'], slux: ['boutique_luxe'], smode: ['boutique_mode_luxe', 'boutique_mode'], spharma: ['pharmacie', 'drugstore'], shome: ['maison_deco'], ssport: ['sport_loisirs'], sbrico: ['brico_outillage'] };   // passe 46 : sprite HD commandé (n° 9) s'il est livré, sinon sprite existant (assets/factory_hd), sinon composition en primitives (drawSpecShop)
+{ const SPEC_SPR = { sauto: ['concession_auto'], stech: ['boutique_high_tech'], slux: ['boutique_luxe'], smode: ['boutique_mode_luxe', 'boutique_mode'], spharma: ['pharmacie'], shome: ['maison_deco'], ssport: ['sport_loisirs'], sbrico: ['brico_outillage'] };   // passe 46 : sprite HD commandé (n° 9) s'il est livré, sinon sprite existant (assets/factory_hd), sinon composition en primitives (drawSpecShop)
   Object.keys(SPEC_SPR).forEach(k => { const n = SPEC_SPR[k].find(x => P2HD[x]); if (n) P2_TYPE[k] = n; }); }
+if (P2HD.banque) P2_TYPE.bank = 'banque';   // passe 99 : banque HD (péristyle de pierre, assets/phase2_hd/banque.png) à tous les niveaux ; avant : banque_neoclassique (pièce d'or géante sur le toit) jusqu'à 8 étages puis l'atlas Kenney empilé
 const p2Ready = t => { const n = P2_TYPE[t] || P2_EXT[t]; return !!(n && P2_IMG[n] && P2_IMG[n].ok); };
 const P2_EXT = { well: 'puits_petrole', gwell: 'puits_gaz', miron: 'mine_fer', mcoal: 'mine_charbon', mcopper: 'mine_cuivre', mgold: 'mine_or', mnicr: 'mine_nickel_chrome', mbauxite: 'mine_bauxite', mlithium: 'mine_lithium', mzinc: 'mine_zinc', mgraphite: 'mine_graphite', qsilica: 'carriere_silice', qclay: 'carriere_argile', qsalt: 'mine_sel', mphos: 'mine_phosphate', mpotash: 'mine_potasse', qgravel: 'carriere', qlime: 'carriere', logging: 'camp_bucherons' };   // passe 79 : le concasseur fait partie de la carrière de granulats (dessin code par-dessus le sprite, commande Cowork n° 79-1)
 Object.keys(P2HD).forEach(n => { const im = new Image(), e = P2_IMG[n] = { im, ok: false }; im.onload = () => { e.ok = true; }; im.src = P2HD[n]; });
@@ -20671,10 +20692,14 @@ const VV = { n: 0, day: -1, g: null, svc: {}, list: [] };
 // Services de quartier : [libellé, couronne (c centre, m entre-deux, p périphérie), nombre visé, règle]
 const VV_SVC = {
   restaurant_terrasse: ['Restaurant en terrasse', 'c', 3], cafe_de_quartier: ['Café de quartier', 'c', 3], boulangerie: ['Boulangerie', 'c', 3], boutique_mode: ['Boutique de mode', 'c', 3],
-  drugstore: ['Drugstore', 'm', 2], barre_hlm: ['Barre HLM', 'm', 4, 'hlm'], immeuble_en_construction: ['Immeuble en construction', 'm', 2, 'up'],
+  drugstore: ['Pharmacie', 'm', 2], barre_hlm: ['Barre HLM', 'm', 4, 'hlm'], immeuble_en_construction: ['Immeuble en construction', 'm', 2, 'up'],
   eglise_de_village: ['Église', 'p', 2], station_service: ['Station-service', 'p', 3, 'road'], station_recharge_electrique: ['Station de recharge électrique', 'p', 2, 'road'], batiment_abandonne: ['Immeuble abandonné (friche)', 'p', 1]
 };
-const VV_MON = { telecom: 'station_tv', hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport' };   // équipements publics existants : sprite HD
+/* Passe 99 (Rémy : « la pharmacie, tu me l'as fait apparaître dans la TRÈS ANCIENNE version ») : le service de quartier « drugstore » dessinait assets/factory_hd/drugstore.png
+   (cube blanc à croix sur un parking de voitures-cubes, livré le 17/11), alors que la pharmacie voulue est pharmacie.png (croix verte lumineuse, 19/11, enseigne PHARMACIE peinte en façade).
+   Le service garde sa clé (sauvegardes, tests) mais emprunte le sprite de la pharmacie ; VV_SVC_OF fait le chemin inverse pour l'enseigne. */
+const VV_SVC_SPR = { drugstore: 'pharmacie' }, VV_SVC_OF = { pharmacie: 'drugstore' };
+const VV_MON = { telecom: 'station_tv', hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport', police: 'commissariat', fire: 'caserne_pompiers' };   // passe 99 : caserne et commissariat HD (livrés dans assets/phase2_hd, jamais branchés : dessin vectoriel jusque-là) ; écoles : un seul PNG (ecole) pour les quatre, rendus distincts commandés (n° 17 bis)   // équipements publics existants : sprite HD
 Object.keys(CITY_SVC).forEach(b => { if (VV_MON[b]) for (let k = 2; k <= 60; k++) VV_MON[b + '_' + k] = VV_MON[b]; });   // passe 60 : équipements ajoutés par la croissance, même sprite que l'original
 P2_DEP.gold = 'gisement_or';
 /* Passe 55 (audit visuel) : sprites HD dérivés. Les gisements sans rendu propre (gravier, sable, calcaire, soufre, terres rares) et les parcelles
@@ -20729,7 +20754,7 @@ function vvNpc(a, p, x, y) {   // bâtiment PNJ en HD (équipement, parc, chanti
     a._top = vvDraw(n, p, 1, null, [1, 1]); return true; }
   if (a.k === 'park') { if (!vvOk('parc_urbain')) return false; a._top = vvDraw('parc_urbain', p, 1, null, [1, 1]); return true; }
   if (!a.lm && a.cd != null && S.day - a.cd < 6) { const n = a.k === 'house' ? 'chantier_petit' : 'immeuble_en_construction'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // chantier : 6 jours après une construction ou une surélévation par la ville
-  vvSvcMap(); if (a._sv && vvOk(a._sv)) { a._top = vvDraw(a._sv, p, 1, null, [1, 1]); return true; }
+  vvSvcMap(); { const sn = a._sv && (VV_SVC_SPR[a._sv] || a._sv); if (sn && vvOk(sn)) { a._top = vvDraw(sn, p, 1, null, [1, 1]); return true; } }
   if (a.k === 'house' && hash(a.x, a.y, 84) < 0.3) { const n = ['maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c'][Math.floor(hash(a.x, a.y, 85) * 3)]; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // maisons et petits immeubles PNJ de la phase 2 mêlés aux autres
   if (a.k !== 'house' && !a.lm && a.floors >= 3 && a.floors <= 8 && hash(a.x, a.y, 86) < 0.3) { const n = a.k === 'off' || hash(a.x, a.y, 87) < 0.5 ? 'immeuble_pnj_b' : 'immeuble_pnj_a'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }
   if (a.k !== 'house' && !a.lm && a.floors >= 12 && a.floors <= 30 && hash(a.x, a.y, 77) < 0.35) { const n = hash(a.x, a.y, 78) < 0.5 ? 'tour_pnj_a' : 'tour_pnj_b'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }
@@ -20753,10 +20778,10 @@ function vvSvcHTML() {   // panneau du Mall : commerces et services de quartier 
   return `<h4>Commerces de quartier autour du mall</h4><p class="mnote">${ks.map(n => `${VV_SVC[n][0]} ×${by[n].length}`).join(' · ')}. Ce sont les commerces indépendants de la ville : ils animent les rues et attirent les passants.</p>`;
 }
 // Niveaux des bâtiments du joueur : logements (étages), tours, siège, supermarché et hypermarché (niveau d'amélioration)
-const VV_LVL = { s2: ['supermarche', 'supermarche', 'supermarche_n2', 'supermarche_n2', 'supermarche_n3'], s3: ['hypermarche', 'hypermarche', 'hypermarche_n2', 'hypermarche_n2', 'hypermarche_n3'] };
+const VV_LVL = { s1: ['petit_marche_n1', 'petit_marche_n1', 'petit_marche_n2', 'petit_marche_n2', 'petit_marche_n2'], s2: ['supermarche', 'supermarche', 'supermarche_n2', 'supermarche_n2', 'supermarche_n3'], s3: ['hypermarche', 'hypermarche', 'hypermarche_n2', 'hypermarche_n2', 'hypermarche_n3'] };
 /* Passe 78 (revue des bâtiments, Rémy : « supermarchés : angle inversé, toits qui s'effondrent ») : le supermarché et l'hypermarché sont le bâtiment seul sur sa dalle
    (bat_*, cartouche de toit effacé au build), qui occupe toute la parcelle, au lieu d'un petit cube dans le coin d'un grand parking de voitures criardes. Repli : anciens sprites. */
-const VV_LVL_BAT = { s2: ['bat_supermarche', 'bat_supermarche', 'bat_supermarche_n2', 'bat_supermarche_n2', 'bat_supermarche_n3'], s3: ['bat_hypermarche', 'bat_hypermarche', 'bat_hypermarche_n2', 'bat_hypermarche_n2', 'bat_hypermarche_n3'] };
+const VV_LVL_BAT = { s2: ['bat_supermarche', 'bat_supermarche', 'bat_supermarche_n2', 'bat_supermarche_n2', 'bat_supermarche_n3'], s3: ['bat_hypermarche', 'bat_hypermarche', 'bat_hypermarche_n2', 'bat_hypermarche_n2', 'bat_hypermarche_n3'], s4: ['bat_mega_centre_commercial'] };   // passe 99 : méga-centre seul sur sa dalle (au lieu d'un petit bâtiment au fond d'un parking de voitures-cubes)
 /* Passe 78 : petite usine (f1) et grande usine (f3) jugées « n'importe quoi » par Rémy (f1 : hangar à toit de bardeaux sans dalle, aspect abri de jardin ;
    f3 : halls aux toits confus), l'usine moyenne (f2) étant jugée satisfaisante. En attendant la commande Cowork n° 14 (tools/factory_ai/RETOURS.md) :
    f1 = l'usine moyenne (brique, tôle, cheminée, quai) recalée sur sa case ; f3 = deux halls de l'usine moyenne côte à côte sur ses 2×2 cases (drawF3Duo).
@@ -20766,7 +20791,8 @@ function drawF3Duo(a) {   // grande usine : deux halls f2 (2×1) sur les deux ra
   let top = null; for (let r = 0; r < a.h; r++) { const q = iso(a.x + (a.w - 1) / 2, a.y + r), t = p2Draw(P2_F3_DUO, null, 1, { x: q.x, y: q.y + TH / 2 }, [a.w, 1]); if (t != null) top = top == null ? t : Math.min(top, t); }
   return top;
 }
-function vvP2Name(a) { if (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t])) return P2_REPLI[a.t]; for (const T of [VV_LVL_BAT, VV_LVL]) { const L = T[a.t]; if (L) { const n = L[Math.min(L.length - 1, a.lvl || 0)]; if (vvOk(n)) return n; } } return P2_TYPE[a.t]; }
+const dcVec = a => a.t === 'dc' && !a.lg && !vvOk('data_center_campus');   // passe 99 : le campus 5×4 a son sprite HD (data_center_campus) ; l'ancien data center compact (a.lg) garde data_center
+function vvP2Name(a) { if (a.t === 'dc') return a.lg || !vvOk('data_center_campus') ? 'data_center' : 'data_center_campus'; if (P2_REPLI[a.t] && vvOk(P2_REPLI[a.t])) return P2_REPLI[a.t]; for (const T of [VV_LVL_BAT, VV_LVL]) { const L = T[a.t]; if (L) { const n = L[Math.min(L.length - 1, a.lvl || 0)]; if (vvOk(n)) return n; } } return P2_TYPE[a.t]; }
 function vvHq(a) { const n = ['siege_hq_n1', 'siege_hq_n1', 'siege_hq_n2', 'siege_hq_n2', 'siege_hq_n3'][Math.min(4, a.lvl || 0)]; return vvOk(n) ? n : null; }
 function vvLvl(a, fl) {   // sprite de niveau d'un immeuble du joueur, ou null
   let n = null;
