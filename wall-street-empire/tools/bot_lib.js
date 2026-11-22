@@ -424,8 +424,9 @@ window.BOT = (function () {
   function farmGrow() {
     const s = S(), FX = W.farmx; if (!FX || s.day % 6 !== 3) return; const ag = s.caste === 'agriculteur'; let n = 0;
     for (let i = 0; i < N * N && n < (ag ? 4 : 2); i++) { const c = s.grid[i]; if (!c || c.x + c.y * N !== i || !W.TYPES[c.t] || !W.TYPES[c.t].ext || !(W.CROPS[W.TYPES[c.t].ext] || W.TYPES[c.t].live)) continue;
-      const q = FX.quote(c); if (!q.ok || s.cash - (P.keep || 0) < 2 * q.cost) continue; const E = FX.econ(c), pay = E.marg > 0 ? q.cost / (E.marg * q.n) : Infinity;
-      if ((E.A < E.be && E.be <= FX.FARM_MAX * FX.FARM_MAX) || pay < (ag ? 900 : 500)) { if (FX.grow(c)) { n++; note('farm_grow', c.t); } } }
+      let md = 'free', q = FX.quote(c); if (!q.ok) { md = 'wood'; q = FX.quote(c, { mode: 'wood' }); }   // passe 88 : sans terre libre, le bot peut défricher une forêt libre (bois livré en stock) ; jamais de rachat
+      if (!q.ok || s.cash - (P.keep || 0) < 2 * q.gross) continue; const E = FX.econ(c), pay = E.marg > 0 ? q.cost / (E.marg * q.n) : Infinity;
+      if ((E.A < E.be && E.be <= FX.FARM_MAX * FX.FARM_MAX) || pay < (ag ? 900 : 500)) { if (FX.grow(c, { mode: md })) { n++; note('farm_grow', c.t); } } }
   }
   function farmer() {
     const s = S(), R = CP.ag; if (s.caste !== 'agriculteur' || s.day - R.last < 5) return; R.last = s.day;

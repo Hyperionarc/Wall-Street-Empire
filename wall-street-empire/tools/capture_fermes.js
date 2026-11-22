@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // Captures des fermes sur la carte à 3 zooms : normal (zlv[1]), rapproché (zlv[0]) et zoom maximal (1,8), plus une 2e image au zoom maximal 0,7 s plus tard (vent, bêtes).
 // Usage : NODE_PATH=$(npm root -g) node wall-street-empire/tools/capture_fermes.js <dossier> [ferme ...] [--debug] [--size=36]  (--debug : contour des zones utiles en magenta ;
-//   --size=N : passe 87, chaque ferme est agrandie jusqu'à N cases (corps de ferme + champs ou pâturages annexés))
+//   --size=N : passe 87, chaque ferme est agrandie jusqu'à N cases (corps de ferme + champs ou pâturages annexés) ;
+//   --obstacles : passe 88, une forêt sur la rangée est et une maison de hameau sur la rangée sud de chaque ferme : captures avant / après « Agrandir en rachetant/défrichant »)
 const fs = require('fs'), path = require('path');
 const L = require('./tests/lib.js');
 const args = process.argv.slice(2), OUT = args[0] || '/tmp/fermes', DBG = args.includes('--debug'), ONLY = args.slice(1).filter(a => a[0] !== '-');
 const DAY = (args.find(a => a.startsWith('--day=')) || '').slice(6) || null;
-const SIZE = +((args.find(a => a.startsWith('--size=')) || '').slice(7) || 0);   // --day=200 : jour de l'année (saisons de la vigne)
+const SIZE = +((args.find(a => a.startsWith('--size=')) || '').slice(7) || 0), OBS = args.includes('--obstacles');   // --day=200 : jour de l'année (saisons de la vigne)
 fs.mkdirSync(OUT, { recursive: true });
 const FARMS = ['fwheat', 'fcorn', 'frapeseed', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcattle', 'fchicken', 'fpig', 'fsheep'];
 
@@ -22,11 +23,27 @@ const FARMS = ['fwheat', 'fcorn', 'frapeseed', 'fsugar', 'fcotton', 'frubber', '
     const ok = (x, y, k) => { for (let dy = -3; dy < M; dy++) for (let dx = -3; dx < M; dx++) if (used.has((x + dx) + ',' + (y + dy))) return false; return room(x, y) && !W.footprintError(x, y, k); };
     FARMS.forEach(k => {
       const g = W.TYPES[k].ext, crop = CR[g] === k;
-      for (let i = 0; i < N * N && !o[k]; i++) { const x = i % N, y = (i / N) | 0; const d = S.dep[i]; if (crop ? !(d && d.k === g) : !!d) continue; if (x < 4 || y < 4 || x > N - 6 || y > N - 6) continue; if (!ok(x, y, k)) continue; if (W.place(x, y, k)) { const c = S.grid[y * N + x]; if (SIZE && W.farmx) { let n = 0; while (c.w * c.h < SIZE && n++ < 20 && W.farmx.grow(c, 'free')); } o[k] = [x, y, c.w, c.h]; for (let dy = 0; dy < c.h; dy++) for (let dx = 0; dx < c.w; dx++) used.add((x + dx) + ',' + (y + dy)); } }
+      for (let i = 0; i < N * N && !o[k]; i++) { const x = i % N, y = (i / N) | 0; const d = S.dep[i]; if (crop ? !(d && d.k === g) : !!d) continue; if (x < 4 || y < 4 || x > N - 6 || y > N - 6) continue; if (!ok(x, y, k)) continue; if (W.place(x, y, k)) { const c = S.grid[y * N + x]; if (SIZE && W.farmx) { let n = 0; while (c.w * c.h < SIZE && n++ < 200 && W.farmx.grow(c, 'free')); } o[k] = [x, y, c.w, c.h]; for (let dy = 0; dy < c.h; dy++) for (let dx = 0; dx < c.w; dx++) used.add((x + dx) + ',' + (y + dy)); } }
     });
     return o;
   }, { FARMS: ONLY.length ? FARMS.filter(k => ONLY.includes(k)) : FARMS, SIZE });   // seulement les fermes demandées : plus de place pour chacune
   const files = [];
+  if (OBS) {   // passe 88 : avant / après l'agrandissement avec rachat et défrichage (2 rangées)
+    for (const k of FARMS) {
+      if (ONLY.length && !ONLY.includes(k)) continue; const sp = spots[k]; if (!sp) continue;
+      await pg.evaluate(({ sp }) => { const W = window.WSE, S = W.S, N = W.N, x = sp[0], y = sp[1], w = sp[2], h = sp[3];
+        for (let v = 0; v < h; v++) { const j = (y + v) * N + x + w; if (!S.grid[j] && W.ZONE[j] === 0) S.dep[j] = { k: 'wood', r: 4000 }; }
+        const hj = (y + h) * N + x + 1; if (!S.grid[hj] && W.ZONE[hj] === 0) { S.dep[hj] = null; S.grid[hj] = { t: 'npc', k: 'house', seed: 0.42, floors: 1, lvl: 0, w: 1, h: 1, x: x + 1, y: y + h, born: 0, alertUntil: -1, conn: true, rev: 0, out: 0, prod: null, lm: false }; (S.npcOwn = S.npcOwn || {})[(x + 1) + ',' + (y + h)] = 'npc'; } }, { sp });
+      for (const ph of ['avant', 'apres']) {
+        if (ph === 'apres') { const r = await pg.evaluate(({ sp }) => { const W = window.WSE, S = W.S, c = S.grid[sp[1] * W.N + sp[0]], r = W.farmx.exec(c, 3, 'clear'); return r.ok ? `${r.n} cases, ${r.blds.length} bâtiment(s), ${r.cl.length} case(s) défrichée(s), ${r.wood} u de bois, ${Math.round(r.net)} $ -> ${c.w}×${c.h}` : r.why; }, { sp }); console.log(k, r); }
+        await pg.evaluate(({ sp }) => { const W = window.WSE, Z = W.zlv(); W.zoomTo(Z[1], 640, 450, { x: sp[0] + 2.5, y: sp[1] + 2.5 }); }, { sp }); await pg.waitForTimeout(650);
+        await pg.evaluate(({ sp }) => { window.WSE.centerOn(sp[0] + 2, sp[1] + 2); }, { sp }); await pg.waitForTimeout(400);
+        const f = path.join(OUT, `${k}_obst_${ph}.png`); await pg.screenshot({ path: f, clip: { x: 240, y: 180, width: 800, height: 600 } }); files.push(f);
+      }
+    }
+    console.log(files.length + ' captures dans ' + OUT); if (pg.errs.length) console.log('erreurs :', pg.errs.slice(0, 3).join(' ; '));
+    await L.closeBrowser(); return;
+  }
   for (const k of FARMS) {
     if (ONLY.length && !ONLY.includes(k)) continue;
     const sp = spots[k]; if (!sp) { console.log('pas de place pour', k); continue; }
