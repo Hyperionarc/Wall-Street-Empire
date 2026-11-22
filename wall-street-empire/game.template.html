@@ -1281,6 +1281,13 @@ body.cmp:not(.hx) #decBtn:not([hidden]) ~ #jrBtn{display:none}
 #helpp .hpc{padding:6px 12px}#helpp .hpc h4{margin:4px 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan)}
 #helpp .hpc p{margin:0 0 4px}#helpp ul{margin:0;padding-left:18px}#helpp li{margin:2px 0}
 #helpp .acts{display:flex;flex-wrap:wrap;gap:6px}#helpp .acts .btn{min-height:40px}
+/* fermeture uniforme : grosse croix × en haut à droite (bouton d'origine agrandi, ou croix ajoutée et collante au défilement) */
+.xbig{min-width:44px!important;min-height:44px!important;height:44px;width:44px;padding:0!important;font-size:0!important;display:inline-flex!important;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--line)!important;background:rgba(255,255,255,.06)!important;color:var(--fg)!important;flex:0 0 auto}
+.xbig::before{content:'×';font:700 28px/1 var(--font-b);color:inherit}
+.xbig:hover{border-color:var(--gold)!important;color:var(--gold)!important}
+.xinj{position:sticky;top:6px;float:right;z-index:40;margin:0 0 4px 8px;background:rgba(14,20,46,.96);box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.xsticky{position:sticky!important;top:0;z-index:30;background:var(--panel-hi)}
+.xinj{margin-left:auto;align-self:flex-end}
 </style>
 </head>
 <body>
@@ -8515,11 +8522,11 @@ function refreshStats() {
 const NET_PIECE = { pylon: 'Pylône : porte la ligne haute tension. Les centrales alimentent les bâtiments reliés par le réseau.', cable: 'Câble enterré : réseau électrique sans pertes ni dégâts de tempête.', pipeline: 'Pipeline : achemine pétrole, gaz et charbon des puits et mines vers tes usines.' };
 function inspect(x, y) {
   const c = cell(x, y);
-  if (isMall(c)) { selected = { x, y }; mallOpen(); return; }   // passe 44 : le Mall central ouvre son panneau
-  if (isAir(c)) { selected = { x, y }; airOpen(); return; }   // passe 49 : l'aéroport ouvre son panneau
+  if (isMall(c)) { selTagHide(); selected = { x, y }; mallOpen(); return; }   // passe 44 : le Mall central ouvre son panneau
+  if (isAir(c)) { selTagHide(); selected = { x, y }; airOpen(); return; }   // passe 49 : l'aéroport ouvre son panneau
   selected = { x, y };
   const d = S.dep[idx(x, y)];
-  if (!c) {
+  if (!c) { selTagHide();
     if (d && d.k === 'wood') say(`Forêt · réserve ${fmt(d.r)} unités, elle repousse lentement. Pose un camp de bûcherons.`, 'info');
     else if (d && CROPS[d.k]) say(`Terre agricole · ${DEPOSITS[d.k].name}. Pose une exploitation dessus : le sol se renouvelle.`, 'info');
     else if (d) { const pm = d.own ? 0 : Math.round(DEPOSITS[d.k].res * GOODS[d.k].base * 0.03 * (d.pm || 1) * cpi()); say(`Gisement de ${DEPOSITS[d.k].name} · réserve ${fmt(d.r)} unités${MINE_K[d.k] ? ' · prime du site ' + (pm ? money(pm) + (d.pm > 1 ? ' (site neuf ×' + String(d.pm).replace('.', ',') + ')' : '') : 'déjà acquise') : ''}${GRADE_K[d.k] ? ' · teneur ' + Math.round(gradeOf(x, y, d.k) * 100) + ' %' : ''} · sert à : ${usesTxt(d.k, 3)}. Pose une mine ou une carrière dessus.`, 'info'); }
@@ -21614,6 +21621,55 @@ el('helpp').addEventListener('click', e => {
   else if (a === 'guide') { xpOpen('helpp', false); try { openGuide(); } catch (er) { /* facultatif */ } return; }
   setTimeout(() => helpRender(true), 30);
 });
+// ---- Passe 99 (4) : FERMETURE UNIFORME. Chaque panneau, fenêtre ou fiche a une grosse croix × en haut à droite, toujours visible (≥ 44 px, collante au défilement),
+// Échap ferme le panneau du dessus, un clic sur la carte ferme les panneaux ouverts (sauf une décision en cours : confirmation de fabrication, négociation, rachat).
+// sel : bouton « Fermer » d'origine (agrandi en ×) ; own : le panneau gère déjà Échap ; modal : pas de fermeture au clic en dehors.
+const XC = [
+  { id: 'panel', sel: '#pclose', close: () => setPanel(false) },
+  { id: 'pview', sel: '#pvclose', close: () => setPview(false) },
+  { id: 'bview', sel: '.ph>[data-act="close"]', close: () => closeBuilding(), own: () => typeof immOn !== 'undefined' && immOn },
+  { id: 'cview', sel: '[data-cat="close"]', close: () => closeCatalog(false) },
+  { id: 'gview', sel: '[data-g="close"]', close: () => closeGuide() },
+  { id: 'svview', sel: '[data-sv="close"]', close: () => closeChain() },
+  { id: 'tview', sel: '[data-t="close"]', close: () => closeTerm() },
+  { id: 'supview', close: () => { el('supview').hidden = true; } },
+  { id: 'grpview', close: () => grpClose(), own: () => true },
+  { id: 'mkview', close: () => { mkV = null; mkRender(); } },
+  { id: 'pfiche', close: () => proCloseFiche() },
+  { id: 'mallp', sel: '[data-mall="close"]', close: () => mallClose(), own: () => true },
+  { id: 'airp', sel: '[data-air="close"]', close: () => airClose(), own: () => true },
+  { id: 'acq', close: () => { if (fgQ) farmQClose(); else acqClose(); }, modal: true },
+  { id: 'neg', close: () => { nw = null; clearInterval(nwTimer); el('neg').hidden = true; if (acq) renderAcq(); }, modal: true },
+  { id: 'fabview', close: () => fabCancel(), modal: true },
+  { id: 'iapbox', close: () => { el('iapbox').hidden = true; }, modal: true },
+  { id: 'jrp', close: () => xpOpen('jrp', false) }, { id: 'decp', close: () => xpOpen('decp', false) }, { id: 'helpp', close: () => xpOpen('helpp', false) },
+  { id: 'lyrmenu', close: () => { el('lyrmenu').hidden = true; }, noX: true }, { id: 'selTag', close: () => { selTagHide(); selected = null; }, noX: true }
+];
+const xcVis = P => !!P && !P.hidden && P.isConnected && getComputedStyle(P).display !== 'none' && P.getBoundingClientRect().width > 0;
+function xcEnsure(o) {   // grosse croix : agrandit le bouton d'origine s'il est en haut à droite, sinon en ajoute une (remise après chaque nouveau rendu du panneau)
+  const P = el(o.id); if (!P || o.noX || /^(jrp|decp|helpp)$/.test(o.id) || !xcVis(P)) return;
+  const own = o.sel && P.querySelector(o.sel);
+  let hd = own; while (hd && hd.parentElement && hd.parentElement !== P) hd = hd.parentElement;
+  if (own && own.offsetParent && hd && hd.parentElement === P && hd.offsetHeight < 160) {   // en-tête d'origine (bandeau du haut) : rendu collant pour que la croix reste visible au défilement
+    own.classList.add('xbig'); hd.classList.add('xsticky'); if (!own.getAttribute('aria-label')) own.setAttribute('aria-label', 'Fermer'); const inj = P.querySelector(':scope > .xinj'); if (inj) inj.remove(); return; }
+  if (P.querySelector(':scope > .xinj')) return;
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'xclose xinj'; b.textContent = '×'; b.setAttribute('aria-label', 'Fermer'); b.title = 'Fermer (Échap)';
+  b.addEventListener('click', e => { e.stopPropagation(); o.close(); }); P.prepend(b);
+}
+XC.forEach(o => { const P = el(o.id); if (!P) return; const mo = new MutationObserver(() => { if (!o._q) { o._q = 1; requestAnimationFrame(() => { o._q = 0; try { xcEnsure(o); } catch (e) { /* facultatif */ } }); } }); mo.observe(P, { childList: true, attributes: true, attributeFilter: ['hidden', 'class', 'style'] }); });
+setInterval(() => XC.forEach(o => { try { xcEnsure(o); } catch (e) { /* facultatif */ } }), 700);
+function xcOpenList() { return XC.filter(o => xcVis(el(o.id))).map(o => { const P = el(o.id), zi = parseInt(getComputedStyle(P).zIndex, 10); return { o, z: isFinite(zi) ? zi : 0 }; }); }
+function xcTop() { const L = xcOpenList(); if (!L.length) return null; L.sort((a, b) => b.z - a.z || XC.indexOf(b.o) - XC.indexOf(a.o)); return L[0].o; }
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || (typeof CINE !== 'undefined' && CINE.on)) return; const t = e.target; if (t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type !== 'range'))) return;
+  const o = xcTop(); if (!o || (o.own && o.own())) return;   // panneau qui gère son Échap (usine immersive, groupe, mall, aéroport)
+  o.close(); try { updateHUD(); } catch (er) { /* facultatif */ }
+});
+document.addEventListener('pointerdown', e => {   // clic sur la carte : ferme les panneaux ouverts (sauf décision en cours)
+  if (e.target !== cvs) return; const L = xcOpenList(); if (!L.length || L.some(q => q.o.modal)) return;
+  L.forEach(q => { if (q.o.id !== 'selTag') try { q.o.close(); } catch (er) { /* facultatif */ } });
+}, true);
+window.WSE.ui = { XC, top: xcTop, open: xcOpenList, ensure: xcEnsure, pick: pickAt, selShow: selTagShow, selHide: selTagHide, selInfo, selOpen, decList, decAnswer, decSync, xpOpen, jrRender, jrCatOf, jrSan, helpRender, ecoRender, openCatalog, openSup, mkOpen, grpOpen };   // passe 99 : accès des tests (t98)
 })();
 </script>
 </body>
