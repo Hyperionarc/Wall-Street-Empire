@@ -12,10 +12,16 @@ def f(m):
     if len(raw)<3000: return m.group(0)
     im=Image.open(io.BytesIO(raw))
     if im.mode=='P': im=im.convert('RGBA')
-    bf=io.BytesIO(); im.save(bf,'WEBP',quality=int(__import__('os').environ.get('WSE_PUB_PQ','88')),alpha_quality=100,method=4)
+    bf=io.BytesIO()
+    if len(raw)<80000: im.save(bf,'WEBP',lossless=True,method=4)
+    else: im.save(bf,'WEBP',quality=int(__import__('os').environ.get('WSE_PUB_PQ','88')),alpha_quality=100,method=4)
     o='data:image/webp;base64,'+base64.b64encode(bf.getvalue()).decode()
     return o if len(o)<len(m.group(0)) else m.group(0)
 s=re.sub(r'data:image/png;base64,([A-Za-z0-9+/=]+)',f,s)
+def g(m):   # tuiles de sol en JPEG : qualité réduite pour la version publiable
+    raw=base64.b64decode(m.group(1)); im=Image.open(io.BytesIO(raw)).convert('RGB'); bf=io.BytesIO(); im.save(bf,'JPEG',quality=int(__import__('os').environ.get('WSE_PUB_JQ','68')),optimize=True)
+    o='data:image/jpeg;base64,'+base64.b64encode(bf.getvalue()).decode(); return o if len(o)<len(m.group(0)) else m.group(0)
+s=re.sub(r'data:image/jpeg;base64,([A-Za-z0-9+/=]+)',g,s)
 open(sys.argv[2],'w',encoding='utf-8').write(s); print(len(s))
 PY
 rm -f "$TMP"

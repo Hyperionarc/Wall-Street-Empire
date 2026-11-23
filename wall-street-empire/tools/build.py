@@ -426,7 +426,7 @@ def _p2enc(name, im, dim):
     dw = max(1.0, float(dim[7]) - float(dim[6])) if len(dim) > 7 else im.width
     pc = dw / P2_FP.get(name, 1); k = 1.0 if pc <= 480 else P2_PXCASE / pc
     sm = im if k > 0.97 else im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
-    bf = io.BytesIO(); sm.save(bf, 'WEBP', quality=int(os.environ.get('WSE_P2_Q', '90')), alpha_quality=100, method=4); return 'data:image/webp;base64,' + base64.b64encode(bf.getvalue()).decode()
+    bf = io.BytesIO(); sm.save(bf, 'WEBP', quality=(int(os.environ.get('WSE_P2_Q', '90')) if sm.width * sm.height > 60000 else 92), alpha_quality=100, method=4); return 'data:image/webp;base64,' + base64.b64encode(bf.getvalue()).decode()   # les petits sprites (véhicules, personnages, objets) gardent la haute qualité : la compression forte y crée des halos
 for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'factory_hd')):
     _aj = os.path.join(_d, 'ancres.json'); _anc = json.load(open(_aj)) if os.path.exists(_aj) else {}
     for _n in P2_NAMES:
