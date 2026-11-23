@@ -8,7 +8,7 @@
 exports.name = 'Parcours chaîne et commerce (indicateurs)';
 const START = `window.__st = (seed, caste) => { const W = window.WSE; W.showModes(); const q = document.querySelector('#modesel input[name="dif"][value="normal"]'); if (q) { q.checked = true; q.dispatchEvent(new Event('change', { bubbles: true })); }
   W.startMode('round', { start: 'moyenne' }); const S = W.S; S.rs = seed; S.noEv = true; W.setCaste(caste || 'industriel'); W.setSpeed(0); ['caste', 'hint', 'endscr', 'modesel'].forEach(i => { const e = document.getElementById(i); if (e) e.hidden = true; }); S.mode.w0 = S.cash; return S.cash; };
-  window.__near = (t) => { const W = window.WSE, S = W.S; for (let r = 0; r < 14; r++) for (let y = 23 - r; y <= 37 + r; y++) for (let x = 23 - r; x <= 37 + r; x++) if (Math.max(Math.abs(x - 30), Math.abs(y - 30)) >= 6 + r && !W.footprintError(x, y, t) && W.place(x, y, t)) return S.grid[y * W.N + x]; return null; };
+  window.__near = (t) => { const W = window.WSE, S = W.S; for (let r = 0; r < 14; r++) for (let y = 23 - r; y <= 37 + r; y++) for (let x = 23 - r; x <= 37 + r; x++) if (Math.max(Math.abs(x - 30), Math.abs(y - 30)) >= 6 + r && !W.footprintError(x, y, t) && W.playerPlace(x, y, t)) return S.grid[y * W.N + x]; return null; };   // pose comme au clic (emplacements vides)
   window.__farm = (t) => { const W = window.WSE, S = W.S, N = W.N; for (let i = 0; i < N * N; i++) { const x = i % N, y = (i / N) | 0; if (x < 50 && y < 50) continue; if (!W.footprintError(x, y, t) && W.place(x, y, t)) { try { W.autoConnect(x, y); } catch (e) {} return S.grid[y * N + x]; } } return null; };`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 exports.run = async (t, L) => {
@@ -19,7 +19,7 @@ exports.run = async (t, L) => {
       return { cash, mat: S.mat, x: c.x, y: c.y, slots: W.shopUI.keys(c).slice(), on: W.PKEYS.filter(k => S.prod[k].st === 'on').length }; });
     t.check('départ « Ville de 100 000 habitants », Round, 10 M$, sans marché mûr', a0.cash === 10e6 && !a0.mat, JSON.stringify({ cash: a0.cash, mat: a0.mat }));
     const real = a0.slots.filter(k => k && k.indexOf('g_') !== 0);
-    t.check('un petit marché posé se remplit tout seul de vrais produits (≥ 3) et laisse un emplacement libre', real.length >= 3 && a0.slots.some(k => !k), a0.slots.join(','));
+    t.check('un petit marché posé par le joueur a ses emplacements vides (c\'est au joueur de choisir)', a0.slots.length === 4 && a0.slots.every(k => !k), a0.slots.join(','));
     await pg.evaluate(p => window.WSE.openBuilding(p.x, p.y), a0); await sleep(250);
     await pg.click('#bview .shgrid .shs:nth-child(3)'); await sleep(120);
     let has = await pg.evaluate(() => !!document.querySelector('#bview .shpan .shcb[data-act$=":chicken"]'));
@@ -55,7 +55,7 @@ exports.run = async (t, L) => {
     const pg = await L.newPage({ wait: 700 }); await L.inject(pg); await pg.evaluate(START);
     const b = await pg.evaluate(() => { window.__st(10202, 'industriel'); const W = window.WSE, S = W.S, T = window.T;
       const farm = T.onDep('fwheat', 'wheat'), f1 = T.inP('f1'), f2 = T.inP('f1'), shop = window.__near('s1');
-      W.easyLaunch(f1, 'bread');   // le seul geste : « Pain » dans le catalogue de l'usine
+      W.easyLaunch(f1, 'bread'); W.shopUI.act(shop, 'put:0:bread');   // les deux gestes du joueur : « Pain » dans le catalogue de l'usine, « Pain » sur un emplacement du magasin
       let bo = 0, fo = 0, so = 0, buyU0 = 0;
       for (let d = 0; d < 24; d++) { W.step(); if (d === 13) buyU0 = S.prod.bread.buy ? S.prod.bread.buy.units : 0; if (d >= 14) { bo += f1.out || 0; fo += f2.out || 0; so += (shop.sales && shop.sales.bread) || 0; } }
       const buyU = (S.prod.bread.buy ? S.prod.bread.buy.units : 0) - buyU0;
@@ -69,19 +69,37 @@ exports.run = async (t, L) => {
     const bad = Object.keys(c.o).filter(k => !(c.o[k].port && c.o[k].loc && c.o[k].free && c.o[k].lvl === 1));
     t.check('(c) œufs, poulet, viandes, lait, huile, pain, pâtes, yaourts, fromages : au port et chez un grossiste dès le jour 1, fabricables sans R&D en petite usine', !bad.length, bad.join(',') || 'tous');
     t.check('(c) farine : moulin (blé) et import par le port ; élevages et cultures disponibles', c.flour && c.farms, '');
-    const e = await pg.evaluate(() => { const W = window.WSE, S = W.S; const shops = ['s2', 'spharma', 'smode'].map(t => window.__near(t)).filter(Boolean); for (let d = 0; d < 8; d++) W.step();
-      return shops.map(c => { const ks = W.shopUI.keys(c).filter(Boolean), sold = ks.filter(k => (c.sales && c.sales[k]) > 0); return { t: c.t, n: ks.length, real: ks.filter(k => k.indexOf('g_') !== 0).length, sold: sold.length }; }); });
-    t.check('(e) aucun îlot : supermarché, pharmacie et boutique de mode posés vendent tout seuls des produits réels', e.length === 3 && e.every(x => x.real >= 2 && x.sold >= x.n - 1), JSON.stringify(e));
+    const e = await pg.evaluate(() => { const W = window.WSE, S = W.S; const shops = ['s2', 'spharma', 'smode'].map(t => window.__near(t)).filter(Boolean);
+      shops.forEach(c => { const cand = W.shopUI.cands(c).filter(x => x.mk).slice(0, 2); cand.forEach((x, i) => W.shopUI.act(c, 'mkput:' + i + ':' + x.key)); });   // le joueur choisit 2 produits par magasin, rien d'autre
+      for (let d = 0; d < 3; d++) W.step();
+      return shops.map(c => { const ks = W.shopUI.keys(c).filter(Boolean), sold = ks.filter(k => (c.sales && c.sales[k]) > 0); return { t: c.t, n: ks.length, sold: sold.length }; }); });
+    t.check('(e) aucun îlot : un produit choisi dans un supermarché, une pharmacie, une boutique de mode est approvisionné tout seul et se vend', e.length === 3 && e.every(x => x.n === 2 && x.sold === 2), JSON.stringify(e));
+    // fournisseurs réels pour chaque classe de marchandise du marché et pour des produits (marque, médicament)
+    const g = await pg.evaluate(() => { const W = window.WSE, S = W.S, c = window.__near('s3'), o = {};
+      ['basic', 'std', 'lux'].forEach((cl, i) => { W.shopUI.act(c, 'put:' + i + ':g_' + cl); });
+      ['basic', 'std', 'lux'].forEach(cl => { W.shopUI.act(c, 'gsup:' + cl + ':co:s0'); });
+      W.shopUI.act(c, 'mkput:3:soap'); W.shopUI.act(c, 'sup:soap:loc'); W.shopUI.act(c, 'mkput:4:tshirt'); W.shopUI.act(c, 'sup:tshirt:port');
+      for (let d = 0; d < 7; d++) W.step();   // le port livre en 2 jours : le changement de fournisseur peut créer un trou de réassort
+      ['basic', 'std', 'lux'].forEach(cl => { o[cl] = { src: c.src && c.src[cl], sold: (c.sales && c.sales['g_' + cl]) || 0 }; });
+      ['soap', 'tshirt', 'bread'].forEach(pk => { o[pk] = { src: S.prod[pk].buy && S.prod[pk].buy.id, sold: (c.sales && c.sales[pk]) || 0, n: W.mk.offers(pk).length, riv: W.mk.offers(pk).some(x => x.kind === 'riv') }; });
+      return o; });
+    t.check('fournisseur autre qu\'automatique pour les biens de base, manufacturés et de luxe : compagnie choisie, le rayon vend', ['basic', 'std', 'lux'].every(k => g[k].src === 'co:s0' && g[k].sold > 0), JSON.stringify({ basic: g.basic, std: g.std, lux: g.lux }));
+    t.check('fournisseur choisi pour un savon (grossiste) et un t-shirt (port) : le rayon vend', g.soap.src === 'loc' && g.soap.sold > 0 && g.tshirt.src === 'port' && g.tshirt.sold > 0, JSON.stringify({ s: g.soap, t: g.tshirt }));
+    t.check('les sociétés concurrentes figurent parmi les fournisseurs d\'un produit', g.soap.riv || g.tshirt.riv || g.bread.riv, JSON.stringify(g));
+    // gamme du jour 1 : biens de 2e et 3e cycle absents du réseau et de la liste d'un emplacement
+    const z = await pg.evaluate(() => { const W = window.WSE, S = W.S, c = window.__near('s3'), cands = W.shopUI.cands(c).map(x => x.key), L2 = ['headache', 'antibio', 'cough', 'tv', 'phone', 'jeans', 'handbag', 'watch', 'car', 'washer', 'blender'];
+      return { off: L2.filter(pk => S.prod[pk].st !== 'on' && W.mk.offers(pk).length), inList: L2.filter(pk => cands.indexOf(pk) >= 0), basics: ['bread', 'eggs', 'chicken', 'drinkmilk', 'tableoil', 'soap', 'tshirt'].filter(pk => !(W.mk.offers(pk).length || S.prod[pk].st === 'on')) }; });
+    t.check('jour 1 : médicaments, électronique, électroménager, mode travaillée, luxe, voitures absents du réseau et de la liste d\'un emplacement ; biens de première nécessité présents', !z.off.length && !z.inList.length && !z.basics.length, JSON.stringify(z));
     const x = await pg.evaluate(() => { const W = window.WSE, S = W.S, c = window.__near('s1'), N = W.N; const ks = W.shopUI.keys(c); const i = ks.indexOf(null); window.WSE.openBuilding(c.x, c.y);
-      W.shopUI.act(c, 'mkput:' + i + ':jeans'); W.step(); W.step(); return { slot: W.shopUI.keys(c)[i], sold: (c.sales && c.sales.jeans) || 0 }; });
-    t.check('(d) pas de « famille » : un petit marché peut mettre des jeans en rayon et les vend', x.slot === 'jeans' && x.sold > 0, JSON.stringify(x));
+      W.shopUI.act(c, 'mkput:' + i + ':eggs'); W.step(); W.step(); return { slot: W.shopUI.keys(c)[i], sold: (c.sales && c.sales.eggs) || 0 }; });
+    t.check('(d) pas de « famille » : une pharmacie peut mettre des œufs en rayon et les vend', x.slot === 'eggs' && x.sold > 0, JSON.stringify(x));
     t.check('(b-e) 0 erreur de page', pg.errs.length === 0, pg.errs.slice(0, 3).join(' | '));
     await pg.context().close();
   }
   // ---------- (d) tout depuis la fiche
   {
     const pg = await L.newPage({ w: 1280, h: 900, wait: 700 }); await L.inject(pg); await pg.evaluate(START);
-    const p = await pg.evaluate(() => { window.__st(10203, 'negociant'); const W = window.WSE, c = window.__near('s2'); W.step(); return { x: c.x, y: c.y }; });
+    const p = await pg.evaluate(() => { window.__st(10203, 'negociant'); const W = window.WSE, c = window.__near('s2'); W.shopUI.act(c, 'mkput:0:bread'); W.step(); return { x: c.x, y: c.y }; });
     await pg.evaluate(p => window.WSE.openBuilding(p.x, p.y), p); await sleep(250);
     const d = await pg.evaluate(() => { const bv = document.getElementById('bview'), pan = bv.querySelector('.shpan'); return { price: !!pan.querySelector('input[type="range"][data-pk]'), sup: pan.querySelectorAll('.shsc').length, port: !!pan.querySelector('.shsc[data-act$=":port"]'), make: !!pan.querySelector('.shsc[data-act^="mkmake:"], .shsc[data-act$=":make"]'), list: pan.querySelectorAll('.shcb').length, stat: /Ventes/.test(pan.innerText) && /Marge/.test(pan.innerText), clr: !!pan.querySelector('[data-act^="clrstk:"]') }; });
     t.check('(d) fiche magasin : prix nommé, ventes et marge, ≥ 3 fournisseurs (port, grossiste, tes usines), liste de produits, vider le stock', d.price && d.stat && d.sup >= 3 && d.port && d.make && d.list >= 5 && d.clr, JSON.stringify(d));
@@ -100,4 +118,41 @@ exports.run = async (t, L) => {
     t.check('(d) 0 erreur de page', pg.errs.length === 0, pg.errs.slice(0, 3).join(' | '));
     await pg.context().close();
   }
+};
+// ---------- passe 102 ter : trois départements (Achats → Stock → Vente), ruptures, finances de l'emplacement, notoriété
+const run0 = exports.run;
+exports.run = async (t, L) => {
+  await run0(t, L);
+  const scen = async (pre, fix) => {   // un petit marché, œufs + pain + poulet ; pre : dégrade un service ; fix : action du joueur au jour 12
+    const pg = await L.newPage({ wait: 700 }); await L.inject(pg); await pg.evaluate(START);
+    const r = await pg.evaluate(([pre, fix]) => { window.__st(10204, 'industriel'); const W = window.WSE, S = W.S, c = window.__near('s1');
+      ['eggs', 'bread', 'chicken'].forEach((pk, i) => W.shopUI.act(c, 'mkput:' + i + ':' + pk)); new Function('c', 'W', 'S', pre)(c, W, S);
+      let r1 = 0, s1 = 0, r2 = 0, s2 = 0; for (let d = 0; d < 26; d++) { if (d === 12) new Function('c', 'W', 'S', fix)(c, W, S); W.step(); const s = (c.sales && c.sales.eggs) || 0, rup = S.prod.eggs.stock < 1 ? 1 : 0; if (d >= 6 && d < 12) { r1 += rup; s1 += s; } if (d >= 20) { r2 += rup; s2 += s; } }
+      return { r1, s1: s1 / 6, r2, s2: s2 / 6, aw: c.aw, cov: W.chain.covOf('eggs'), st: S.prod.eggs.stock, se: S.prod.eggs._se, sold: S.prod.eggs.sold }; }, [pre, fix]);
+    await pg.context().close(); return r; };
+  const base = await scen('', '');
+  t.check('équilibre : achats, stock et rayon suffisent, aucune rupture d\'œufs', base.r1 === 0 && base.r2 === 0 && base.s1 > 5, JSON.stringify(base));
+  t.check('couverture de stock = stock ÷ ventes potentielles', Math.abs(base.cov.d - base.st / Math.max(base.se, base.sold)) < 1e-6, JSON.stringify(base.cov));
+  const preBuy = "c.dept = Object.assign({}, c.dept || {}); c.dept.buy = 0; S.prod.eggs._se = 1e-9; c.pk = { eggs: 0.6 };";   // service Achats vidé + prix des œufs baissé (pic de demande)
+  const buyFix = await scen(preBuy, "c.train = c.train || {}; c.train.buy = 3;");
+  const buyWrong = await scen(preBuy, "c.train = c.train || {}; c.train.stock = 3;");
+  t.check('goulot Achats : ruptures mesurables ; former les Achats les fait disparaître', buyFix.r1 >= 2 && buyFix.r2 === 0 && buyFix.s2 > buyFix.s1, JSON.stringify(buyFix));
+  t.check('goulot Achats : former le Stock ne corrige pas la rupture', buyWrong.r2 >= 2, JSON.stringify(buyWrong));
+  const preSell = "c.dept = Object.assign({}, c.dept || {}); c.dept.sell = 0; c.dept.stock = 1;";
+  const sellFix = await scen(preSell, "c.train = c.train || {}; c.train.sell = 3;");
+  const sellWrong = await scen(preSell, "c.train = c.train || {}; c.train.buy = 3;");
+  t.check('goulot Vente (rayon) : former la Vente augmente les ventes ; former les Achats non', sellFix.s2 > 1.1 * sellFix.s1 && sellWrong.s2 < 1.05 * sellWrong.s1, JSON.stringify({ sellFix, sellWrong }));
+  // finances et notoriété
+  const pg = await L.newPage({ w: 1280, h: 800, wait: 700 }); await L.inject(pg); await pg.evaluate(START);
+  const f = await pg.evaluate(() => { window.__st(10205, 'industriel'); const W = window.WSE, S = W.S, c = window.__near('s1'), c2 = window.__near('s1');
+    W.shopUI.act(c, 'mkput:0:eggs'); W.shopUI.act(c2, 'mkput:0:bread'); const aw0 = c.aw || 0; for (let d = 0; d < 40; d++) W.step(); const aw1 = c.aw;
+    const it = { name: 'Œufs', price: W.prodPrice('eggs'), stock: S.prod.eggs.stock, gen: false }, E = W.chain.slotEcon(c, 'eggs', it);
+    c2.adx = { bread: { m: 'media', b: 4000 } }; const a2 = W.chain.adTarget(c2); c2.adx = null; const a20 = W.chain.adTarget(c2);
+    c._av = 0.3; const lowAv = W.chain.adTarget(c); c._av = 1; const hiAv = W.chain.adTarget(c);
+    W.openBuilding(c.x, c.y); const bv = document.getElementById('bview'); return { aw0, aw1, a2, a20, lowAv, hiAv, band: bv.querySelectorAll('.dband .dblk').length, fin: /BFR/.test(bv.textContent) && /Couverture de stock/.test(bv.textContent), mg: /Marge commerciale/.test(bv.textContent), bfr: S.prod.eggs.stock * E.cost, E }; });
+  t.check('notoriété du magasin : monte avec les ventes, sans publicité', f.aw1 > f.aw0 + 3, `${f.aw0.toFixed(1)} → ${f.aw1.toFixed(1)}`);
+  t.check('notoriété : la publicité par produit l\'augmente ; les ruptures (disponibilité faible) la font baisser', f.a2 > f.a20 && f.lowAv < f.hiAv, JSON.stringify({ a2: f.a2, a20: f.a20, lowAv: f.lowAv, hiAv: f.hiAv }));
+  t.check('fiche : bandeau Achats / Stock / Vente, finances de l\'emplacement (marge commerciale, couverture, BFR)', f.band === 3 && f.fin && f.mg && f.bfr > 0, JSON.stringify({ band: f.band, fin: f.fin, mg: f.mg, bfr: f.bfr }));
+  t.check('0 erreur de page (départements, finances, notoriété)', pg.errs.length === 0, pg.errs.slice(0, 3).join(' | '));
+  await pg.context().close();
 };
