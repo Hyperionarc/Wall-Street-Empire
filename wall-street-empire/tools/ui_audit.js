@@ -28,7 +28,7 @@ const SIZES = [[1280, 720], [1920, 1080], [390, 844]];
       if (r.length) out.push({ size: w + 'x' + h, vue: label, problemes: r });
     };
     await scan('ville');
-    await p.getByRole('button', { name: /Menu/ }).first().click().catch(() => {}); await p.waitForTimeout(500);
+    await p.evaluate(() => window.WSE.vn.go('fin')).catch(() => {}); await p.waitForTimeout(500);   // passe 103 : le menu vertical remplace le bouton « Menu »
     const tabs = await p.evaluate(() => [...document.querySelectorAll('#panel [data-ptab]')].map(b => b.dataset.ptab));
     for (const t of tabs) { await p.evaluate(t => document.querySelector('#panel [data-ptab="' + t + '"]').click(), t); await p.waitForTimeout(450); await scan('menu:' + t); }
     await p.evaluate(() => { document.querySelector('#panel [data-ptab="fund"]').click(); document.querySelector('[data-fund="debt"]').click(); }); await p.waitForTimeout(400); await scan('menu:fund/debt');

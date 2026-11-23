@@ -29,8 +29,17 @@ Tests adaptés (ils encodaient l'ancien HUD) :
 
 Nouveau test : `t103_menu_vertical` (rail, dock, repli, HUD minimal, chaque entrée ouvre une fenêtre avec croix et Échap, contenus ajoutés, plein écran, téléphone, 60 jours sans notification flottante, sauvegarde `fh`).
 
+Tests lancés un par un après le lot 1 : t01, t05, t08, t44, t64, t83, t96, t98, t100, t103, t27, t29, t34, t37, t40, t42, t46, t48, t62, t66, t71, t76 : tous verts. Échecs déjà présents sur la branche de départ (vérifiés sur le `city.html` d'origine, hors de mon domaine) : t26 (2 récaps macro/événement), t32 (rachat refusé), t47 (alerte d'expiration de brevet), t60 (boutons superposés dans la fenêtre des magasins s2/s3/s4 : domaine Chaîne & Commerce).
+
+## Lot 2 (passe 103, suite)
+- Finances : onglet **Flux de trésorerie** consolidé (encaissements, décaissements d'exploitation, EBE, intérêts, impôt, flux d'exploitation, dividendes, flux disponible, autonomie en mois si le flux est négatif).
+- Actions financières : onglets Emprunts et levées + **Actions et bourse**.
+- Sélecteur de calque : s'ouvre sous le bouton (désormais dans Réglages) sans sortir de l'écran.
+- Téléphone : tiroir fermé invisible (plus de cibles hors écran pour le lecteur d'écran et l'audit) ; en-tête de fenêtre sans bandeau de chiffres.
+- `tools/ui_audit.js` : ouvre le menu par le rail (l'ancien bouton « Menu » n'existe plus) ; audit 1280×720, 1920×1080, 390×844 : aucun problème détecté.
+- Tutoriel : sur téléphone, la flèche désigne le bouton Menu en bas à gauche tant que le tiroir est fermé.
+
 Reste à faire (lots suivants) :
-- « Flux de trésorerie » consolidé dans Finances (aujourd'hui : bilan et compte de résultat consolidés ; les flux existent par bâtiment).
 - Courbe 36 mois : se remplit au fil des relevés mensuels (une partie neuve n'a qu'un point).
 - Multi-villes : le filtre Ville ne propose que la ville courante.
 - Pas encore de dividende pour les sociétés (affiché « — »).
