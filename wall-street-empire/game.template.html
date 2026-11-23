@@ -798,12 +798,13 @@ body.vopen #feed{z-index:9}
 .shph{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px}.shph>b{font-size:14px}.shph .sp{flex:1}.shph .btn{min-height:44px;padding:4px 12px;font-size:12px}
 .shrow{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;margin-bottom:4px;align-items:start}
 .shprice h4,.shad h4{font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--ink,#fff);font-weight:700}.shprice h4 small{color:var(--mut);font-weight:500}
-.shlist.col{grid-template-columns:1fr;max-height:230px;overflow-y:auto;overscroll-behavior:contain;padding-right:2px}.shprice input[type=range]{width:100%;min-height:44px}
+.shlist.col{grid-template-columns:1fr}.shprice input[type=range]{width:100%;min-height:44px}
 .shmk{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--mut)}.shmk b{color:var(--ink,#fff);margin-left:3px}.shmk b.pos{color:var(--good,#46d39a)}.shmk b.neg{color:var(--bad,#ff8a8e)}
 .adxm{display:flex;gap:6px;flex-wrap:wrap}.adxm .btn{flex:1 1 auto;min-height:44px}.adxm .btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold);background:var(--panel-hi)}
 .adxbud{display:flex;gap:8px;align-items:center}.adxbud .btn{min-width:44px;min-height:44px;font-size:18px;padding:0}.adxbud span{flex:1;text-align:center;font-size:12px}
 .shlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px}.shlh{grid-column:1/-1;font-size:11.5px;font-weight:700;color:var(--gold);margin-top:2px}.shwhy{grid-column:1/-1;margin:0}
 .shc{display:flex;flex-direction:column;gap:4px;padding:4px;border-radius:10px;border:1px solid var(--line);background:var(--panel-hi)}.shc.on{border-color:#2f7ee8}
+.shscs{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin:6px 0}.shsc{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:44px;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:inherit;cursor:pointer;text-align:left}.shsc.on{border-color:#2f9e5a;background:rgba(47,158,90,.16)}.shsc .shk{display:flex;flex-wrap:wrap;gap:6px;font-size:11px}.shmore{margin:6px 0;min-height:44px;grid-column:1/-1}
 .shcb{display:flex;gap:8px;align-items:center;text-align:left;min-height:64px;padding:4px;border-radius:8px;background:transparent;border:0;color:inherit;cursor:pointer}.shcb:hover:not(:disabled){background:rgba(255,255,255,.06)}.shcb:disabled{cursor:default;opacity:.75}
 .shc .sth{flex:0 0 52px;width:52px;height:52px;background:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .shc .shi{display:flex;flex-direction:column;gap:2px;min-width:0}.shc .shi>b{font-size:12.5px}.shc .shi>small{font-size:10.5px;color:var(--mut)}.shc .shk{color:var(--mut)}.shc .shk b{color:var(--ink,#fff)}
@@ -2175,6 +2176,7 @@ const P25 = {
 };
 Object.assign(PRODUCTS, P25);
 const PKEYS = Object.keys(PRODUCTS);
+PKEYS.forEach(pk => { if (PRODUCTS[pk].cls === 'basic' && !PRODUCTS[pk].free) PRODUCTS[pk].free = 1; });   // passe 102 (chaîne et commerce) : un bien de base se fabrique tout de suite (aucune R&D obligatoire) ; la R&D reste le chemin de la qualité et de la marque (changement de gamme)
 // ===== Passe 75 : gamme resserrée. Produits retirés du jeu : une ancienne sauvegarde qui en contient se charge proprement (retiredMigrate, appelée par load) :
 // stock (entrepôt et rayons des magasins) revendu à son coût de revient historique (intrants au prix de base) et crédité en trésorerie, usines remises « sans produit »,
 // rayons, prix de magasin, ventes lissées, boutique duty free et e-commerce nettoyés, produit phare et usines des rivaux reportés sur le produit de remplacement (même classe),
@@ -3500,6 +3502,8 @@ function rivPanelHTML(avg, shares) {
   return h;
 }
 const recipeOf = k => RECIPES[k] || PRODUCTS[k];
+// Passe 102 (chaîne et commerce) : le niveau d'usine est une CAPACITÉ, plus une barrière. Une usine sous le niveau de la recette la fabrique quand même, à débit réduit (÷ 2 par niveau manquant).
+const lvlK = (c, k) => { const r = k && recipeOf(k), lv = FLEVEL[c.t]; return !r || !lv || !r.lvl || lv >= r.lvl ? 1 : Math.pow(0.5, r.lvl - lv); };
 const newProdState = q => ({ st: 'locked', q: q == null ? 1 : q, pack: 1, rnd: 0, pf: 1, tc: null, obs: 1, brand: 0, loy: 0, rt: 0, lic: 0, res: 0, buy: null, inb: [], pilot: 0, ad: { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }, stock: 0, mDay: 0, made: 0, sold: 0, share: 0, rev: 0, ph: [] });
 function initProd() {
   const o = {};
@@ -6766,6 +6770,7 @@ function ciHTML(c) {
   return `<div class="lever"><h4>Indice de fréquentation <span class="pip ${cl}">${n} / 100</span></h4>` + r.parts.map(q => `<div class="finrow" title="${q.tip}"><span>${q.n} <small>(${q.w} %)</small></span><b class="${q.v >= 0.66 ? 'pos' : q.v < 0.4 ? 'neg' : ''}">${Math.round(q.v * 100)}</b></div>`).join('') + `<small>Cet indice multiplie l'affluence : de ×0,6 (très faible) à ×1,5 (excellent).</small></div>`;
 }
 const shelfOk = (c, key) => shelfKeys(c).indexOf(key) >= 0;
+const sellsC = (c, cls) => { const R = TYPES[c.t].ret; return !!R && (R.sells.indexOf(cls) >= 0 || !!(c._xc && c._xc[cls])); };   // passe 102 : classes vendues = type du magasin + produits mis en rayon hors type
 let bPick = -1;
 // Publicité : canaux, budgets quotidiens et notoriété du magasin
 const AD_CH = { tv: { n: 'Télévision', gain: 0.9, scale: 300, max: 1500, step: 50, d: 'Audience massive, très coûteuse. Idéale pour les grandes surfaces.' }, radio: { n: 'Radio', gain: 0.45, scale: 80, max: 500, step: 25, d: 'Peu chère, audience locale. Le meilleur rapport pour un petit marché.' }, net: { n: 'Internet', gain: 0.6, scale: 140, max: 800, step: 25, d: 'Ciblage précis, budget souple. Efficace partout.', rt: 0.3 }, press: { n: 'Presse écrite', gain: 0.25, rt: 0.55, scale: 60, max: 400, step: 20, d: 'Journaux locaux et nationaux : peu chère, elle soigne ta réputation et la perception de qualité.' }, infl: { n: 'Influenceurs réseaux sociaux', gain: 0.4, rt: 0.75, scale: 100, max: 600, step: 25, d: 'Fort impact sur l\'image et la fidélité, surtout chez les jeunes. Risque de bad buzz.' } };
@@ -7286,7 +7291,7 @@ const specShare = (f, cls) => (specTab().sh[f] || {})[cls] || 0;   // part de la
 const specFamShare = f => { const dw = (S && S._dw && S._dw.dem) || {}, t = ['basic', 'std', 'lux'].reduce((a, cl) => a + (dw[cl] || 0) * ((S.price && S.price[cl]) || 1), 0); return t > 0 ? ['basic', 'std', 'lux'].reduce((a, cl) => a + (dw[cl] || 0) * ((S.price && S.price[cl]) || 1) * specShare(f, cl), 0) / t : 0; };   // part de la famille dans toute la consommation
 const specMk = c => { const D = specOf(c); return D ? 1 + D.mk : 1; };
 const specW = c => specOf(c) ? SPEC_PRI : 1;
-function specShelfOk(c, key) { const D = specOf(c); if (!D) return true; if (key.indexOf('g_') === 0) return specShare(D.fam, key.slice(2)) > 0; return pFamOf(key) === D.fam; }
+function specShelfOk(c, key) { const D = specOf(c); if (!D) return true; if (key.indexOf('g_') === 0) return specShare(D.fam, key.slice(2)) > 0; return !!PRODUCTS[key]; }   // passe 102 : un spécialiste peut mettre en rayon n'importe quel produit (bonus de spécialiste réservé à sa famille)
 const SPEC_GEN = { basic: ['s1', 's2', 's3', 's4'], std: ['s2', 's3', 's4'], lux: ['s3', 's4'] };
 function specMainCls(f) { const k = SPEC_BY_FAM[f]; if (k && SPEC_T[k].need) return SPEC_T[k].need; const m = specTab().mix[f] || {}; return Object.keys(m).sort((a, b) => m[b] - m[a])[0] || 'std'; }   // need : classe exigée (achats rares et chers : luxe), sinon la classe qui pèse le plus dans la famille
 function specKnown(f) {   // la famille est connue : un produit de la famille lancé (fabriqué ou acheté), ou un généraliste qui vend déjà la classe principale de la famille
@@ -7922,7 +7927,7 @@ function step() {
   const runRecipe = (list, inp, tgt) => {
     if (!list.length) return;
     let units = 0;
-    list.forEach(c => { c._un = unitsOf(c) * (tgt.slow || 1); c._pe = PLAN_DIM[c.t] ? planEvalC(c) : null; c._u = c._un * fillOf(c) * (c._pe ? c._pe.F : 1); units += c._u; });
+    list.forEach(c => { c._un = unitsOf(c) * (tgt.slow || 1) * lvlK(c, tgt.good || tgt.prod); c._pe = PLAN_DIM[c.t] ? planEvalC(c) : null; c._u = c._un * fillOf(c) * (c._pe ? c._pe.F : 1); units += c._u; });
     list.forEach(c => { c._impCost = 0; c._impIn = 0; c._impV = 0; c._noAuto = ''; c._supT = {}; });
     // fournisseurs : chaque usine choisit pour chaque intrant Auto (stock local puis port), Port (import) ou Local (stock seulement)
     Object.keys(inp).forEach(g => {
@@ -7958,7 +7963,7 @@ function step() {
   };
   S.cm = S.cm || {};
   const factories = buildings.filter(c => FLEVEL[c.t]);
-  const runsOn = key => factories.filter(c => c.prod === key && FLEVEL[c.t] >= recipeOf(key).lvl);
+  const runsOn = key => factories.filter(c => c.prod === key);   // passe 102 : plus de niveau minimal (débit réduit, lvlK)
   factories.forEach(c => { if (c.fx) fxDaily(c); });
   runRecipe(buildings.filter(c => c.t === 'foundry'), TYPES.foundry.rec.in, { good: 'ingot', qty: TYPES.foundry.rec.out.ingot });
   RKEYS.forEach(k => runRecipe(runsOn(k), RECIPES[k].in, { good: k, qty: RECIPES[k].out }));
@@ -7986,6 +7991,8 @@ function step() {
     if (R.fam) c._cap *= SPEC_PASS;   // passe 46 : spécialiste, moins de clients de passage
     const SH = { s1: { basic: 1 }, s2: { basic: 0.62, std: 0.38 }, s3: { basic: 0.45, std: 0.35, lux: 0.2 }, s4: { basic: 0.45, std: 0.35, lux: 0.2 }, immo: { estate: 1 } }[c.t] || (R.fam ? specTab().mix[R.fam] : null) || null; c._lc = {};
     R.sells.forEach(k2 => { c._lc[k2] = c._cap * (SH ? (SH[k2] || 0) : 1 / R.sells.length) * (k2 === 'estate' ? 1 : clamp(elF(k2, pf0, c._pfd, (nCls[k2] || 1) <= 1), 0.05, 1.15)); });   // le prix de rayon agit une fois sur le volume du magasin (court/long terme)
+    c._xc = null; if (c.t !== 'immo') { const ks = shelfKeys(c), Nn = slotsN(c); ks.forEach(k3 => { const P3 = PRODUCTS[k3]; if (P3 && P3.cls !== 'estate' && R.sells.indexOf(P3.cls) < 0) { (c._xc || (c._xc = {}))[P3.cls] = (c._xc[P3.cls] || 0) + 1; } });   // passe 102 (chaîne et commerce) : un magasin vend tout produit mis en rayon, même hors de son type ; capacité au prorata des emplacements
+      if (c._xc) Object.keys(c._xc).forEach(k3 => { c._lc[k3] = c._cap * c._xc[k3] / Nn * clamp(elF(k3, pf0, c._pfd, (nCls[k3] || 1) <= 1), 0.05, 1.15); }); }
     c._lcI = Object.assign({}, c._lc);
     c._left = c._cap; c._sold = 0; c._rev = 0; c._cogs = 0; c._cl = 0; c._imp = 0; c.sales = {}; } });
   let pfMean = 0, pfW = 0; buildings.forEach(c => { if (TYPES[c.t].ret) { pfMean += (c._cap || 1) * pfOf(c); pfW += c._cap || 1; } }); pfMean = pfW > 0 ? pfMean / pfW : 1;   // le prix de rayon agit une seule fois sur la demande totale (élasticité), ici seul l'écart relatif entre magasins compte
@@ -7998,7 +8005,7 @@ function step() {
     c.bq = (0.8 + 0.4 * clamp((0.55 * c.rt + 0.45 * c.loy) / 100, 0, 1)); c.pw *= c.bq; } });
   S._brandAvg = brandOf();
   const SPX = specDay(buildings, dem); S._spec = SPX;   // passe 46 : couverture et bonus des magasins spécialisés, par famille
-  const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && R.sells.indexOf(cls) >= 0) { w += c._cap || 0; s += (c._cap || 0) * c.adF * c.pw; } }); return w > 0 ? s / w : 1; };
+  const adAvg = cls => { let w = 0, s = 0; buildings.forEach(c => { const R = TYPES[c.t].ret; if (R && sellsC(c, cls)) { w += c._cap || 0; s += (c._cap || 0) * c.adF * c.pw; } }); return w > 0 ? s / w : 1; };
   let importCost = indImport, importUnits = 0;
   const addressed = { basic: 0, std: 0, lux: 0, estate: 0 }, Dtot = { basic: 0, std: 0, lux: 0, estate: 0 }, rivalPart = { basic: 0, std: 0, lux: 0, estate: 0 };
   let revRetVal = 0;
@@ -8011,7 +8018,7 @@ function step() {
     specAttr(items, cls, SPX, buildings);   // passe 46 : attrait du spécialiste sur sa famille
     const adC = adAvg(cls); items.forEach(it => { it.attr *= adC; });
     const RIVAL = rivalAttr(cls), P0 = items.reduce((a, i) => a + i.attr, 0), mkC = rivMkt(cls, RIVAL), totalAttr = Math.max(0.001, attrDen(P0, RIVAL, mkC)), rivSh = RIVAL > 0 ? clamp(1 - P0 / totalAttr, 0, 1) : 0;   // passe 68 : dénominateur à deux bassins (attrDen)
-    const sh0 = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0; }), cw = sh0.reduce((a, c) => a + (c._cap || 1), 0) || 1, pfAvg = sh0.reduce((a, c) => a + (c._cap || 1) * pfOf(c), 0) / cw;
+    const sh0 = buildings.filter(c => { const R = TYPES[c.t].ret; return R && sellsC(c, cls); }), cw = sh0.reduce((a, c) => a + (c._cap || 1), 0) || 1, pfAvg = sh0.reduce((a, c) => a + (c._cap || 1) * pfOf(c), 0) / cw;
     const pfdAvg = sh0.reduce((a, c) => a + (c._cap || 1) * (c._pfd == null ? 99 : c._pfd), 0) / cw;
     // Lot 3 : courant et luxe = budget en dollars, converti au prix moyen RÉELLEMENT payé (pbar : prix relatif moyen des offres, pondéré par l'attrait) ; un produit cher consomme son vrai prix.
     //        Basique (saturation physique) et immobilier : volume × élasticité-prix du rayon (pfEl).
@@ -8022,10 +8029,10 @@ function step() {
     S._dw.cls[cls] = { Dc, pfEl, pbar, boost: boostN, bq: BB.q, pfAvg, nProd: mine.length, rivShare: rivSh, rivCl: RIVAL > 0 ? rivCannib() * RIVAL / Math.max(1e-6, P0 + rivCannib() * RIVAL) : 0, nShops: sh0.length, mkC };   // rivCl : poids des rivaux sur TA clientèle (pouvoir de marché)
     Dtot[cls] = Dc; rivalPart[cls] = Dc * rivSh;
     items.sort((a, b) => (a.k === 'g' ? 1 : 0) - (b.k === 'g' ? 1 : 0));   // tes produits d'abord, les marchandises du marché local ensuite
-    buildings.forEach(c => { const R = TYPES[c.t].ret; if (!R || R.sells.indexOf(cls) < 0 || !c._lc) return; let s = 0; items.forEach(it => { if (shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)) s += it.attr; }); (c._sa || (c._sa = {}))[cls] = s || 1; (c._na || (c._na = {}))[cls] = items.filter(it => shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)).length; });
+    buildings.forEach(c => { const R = TYPES[c.t].ret; if (!R || !sellsC(c, cls) || !c._lc) return; let s = 0; items.forEach(it => { if (shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)) s += it.attr; }); (c._sa || (c._sa = {}))[cls] = s || 1; (c._na || (c._na = {}))[cls] = items.filter(it => shelfOk(c, it.k === 'g' ? 'g_' + cls : it.k)).length; });
     items.forEach(it => {
       const key = it.k === 'g' ? 'g_' + cls : it.k, gen = it.k === 'g', nec = gen ? null : necOf(it.k), wi = Dc * it.attr / totalAttr * (gen ? 1 : affordOf(it.k) * recF(it.k) * eduDemM(it.k) * mpVol(it.k));   // passe 43 : campagne coup de poing et chocs annoncés (1 sinon)
-      const car = buildings.filter(c => { const R = TYPES[c.t].ret; return R && R.sells.indexOf(cls) >= 0 && shelfOk(c, key); });
+      const car = buildings.filter(c => { const R = TYPES[c.t].ret; return R && sellsC(c, cls) && shelfOk(c, key); });
       car.forEach(c => trackPk(c, key));
       const pfk = car.length ? car.reduce((a, c) => a + pfOfK(c, key), 0) / car.length : 1;
       const dAvg = car.length ? car.reduce((a, c) => a + c.pkd[key].d, 0) / car.length : 99, soleAll = car.length && car.every(c => ((c._na && c._na[cls]) || 1) <= 1);
@@ -8803,6 +8810,7 @@ function place(x, y, key) {
     if (T.ext && MINE_K[T.ext]) { const dd = S.dep[idx(x, y)]; b.acq = land + prem; if (dd && dd.k === T.ext && !dd.own) { dd.own = 1; const rs = X11().rs = X11().rs || { q: [], gen: {} }; rs.q.push({ k: T.ext, day: S.day + 12 + Math.floor(hash(S.day, x * 7 + y, 5) * 20) }); } } }
   flyers.push({ x, y, text: '-' + fmt(tot), t: performance.now(), col: '#ff8a8e' });
   if (T.ret) b.traffic = trafficAt(x, y);
+  if (T.ret && key !== 'immo') { try { netAutoFill(b, 1); } catch (e) { console.error('netAutoFill', e); } }   // passe 102 : un commerce posé s'approvisionne tout seul (produits du réseau : port, grossistes, tes usines) ; un emplacement reste libre pour ton choix
   if (T.live) b.hd = 0.2;   // troupeau neuf : 20 % de la capacité
   if (isFarmT(key)) say(`${T.name} : corps de ferme ${T.w}×${T.h} (${Math.round((T.w || 1) * (T.h || 1) * HA_CASE)} ha), un petit lopin. Agrandis-la depuis sa fiche (« Agrandir la ferme », vers l'est et le sud) : une ferme devient rentable avec de la surface.`, 'info');   // passe 87
   if (T.ext) { if (!extLinked(b, linkedMask())) say('Hors réseau : rendement de ' + Math.round(UNLINKED_EFF * 100) + ' %. Relie-la à la ville avec l\'outil Relier pour atteindre 100 %.', 'info'); }
@@ -9740,7 +9748,7 @@ function demandWhyCls(cls) {   // lot 3 : cascade du budget fermé des ménages 
   const c = W.cls[cls], B = W.bud, X = prosp(), role = CLS_ROLE[cls], sat = W.sat ? W.sat[cls] : null, mo = v => money(v * DM), pT = W.pxT || {};
   const m = cls === 'basic' ? c.pfEl * (c.boost || 1) : cls === 'estate' ? B.b * (c.boost || 1) : B.b * (c.boost || 1) / Math.max(1e-6, c.pbar || 1);
   let h = `<h4 style="margin:8px 0 4px">Pourquoi la demande ${cls === 'estate' ? 'de logement' : 'en ' + CLSN[cls].toLowerCase()} est ${verdictOf(m)} · <small style="color:var(--mut)">${role[0]}</small></h4><small class="note">${role[0]} : ${role[1]}. Les ménages ont un budget en dollars : revenu → épargne → budget des rayons → basique d'abord (saturation), puis courant et luxe sur le reste.</small>`;
-  h += whyRow('Revenu des ménages', `salaires ${mo(X.W || 0)}/mois (salaire ${f1(X.wage || 0)} $/j) · allocations chômage ${mo(X.UB || 0)} · revenus versés par les entreprises ${mo(X.ext || 0)} (dont ${Math.round(100 * (X.fr || 0))} % par les autres)`, X.b - 1, 'indice ' + X.b.toFixed(2).replace('.', ','))
+  h += whyRow('Revenu des ménages', `salaires ${mo(X.W || 0)}/mois (salaire ${money(Math.round(30 * (X.wage || 0)))}/mois) · allocations chômage ${mo(X.UB || 0)} · revenus versés par les entreprises ${mo(X.ext || 0)} (dont ${Math.round(100 * (X.fr || 0))} % par les autres)`, X.b - 1, 'indice ' + X.b.toFixed(2).replace('.', ','))
     + whyRow('Épargne et impôt', `épargne ${(100 * (X.sav || 0)).toFixed(1).replace('.', ',')} % du revenu (plus en chômage élevé, moins en expansion) ; impôt sur le revenu ${Math.round(USM.hhTax * 100)} %`, null, '')
     + whyRow('Budget des rayons', `${(100 * B.Bc / Math.max(1, X.Y || 1)).toFixed(1).replace('.', ',')} % du revenu disponible · technologies, événements ×${W.dMul.toFixed(2).replace('.', ',')}`, W.dMul - 1, mo(B.Bc) + '/mois');
   if (cls === 'basic') h += whyRow('Basique (prélevé d\'abord)', B.sat ? 'besoin physique couvert : on ne mange pas plus quand on gagne plus' : 'budget serré : le basique prend jusqu\'à 80 % du budget, le reste est rogné', null, mo(B.sB) + '/mois');
@@ -10304,7 +10312,7 @@ function packSVG(i) {
 // --- Actions ---
 function facCounts(k) {
   const lvl = recipeOf(k).lvl; let total = 0, mine = 0, free = 0, units = 0;
-  eachBiz(c => { if (!FLEVEL[c.t] || !c.conn || FLEVEL[c.t] < lvl) return; total++; if (c.prod === k) { mine++; units += capOf(c); } else if (freeFact(c)) free++; });
+  eachBiz(c => { if (!FLEVEL[c.t] || !c.conn) return; if (c.prod === k) { total++; mine++; units += capOf(c) * lvlK(c, k); } else if (FLEVEL[c.t] >= lvl) { total++; if (freeFact(c)) free++; } });   // passe 102 : une usine de niveau inférieur qui le fabrique compte (à son débit)
   return { total, mine, free, units };
 }
 function launchProduct(pk, mode) {
@@ -10501,7 +10509,7 @@ function sourceInfo(g) {
   if (RAW_SRC[g]) return { n: cn[RAW_SRC[g]] || 0, label: TYPES[RAW_SRC[g]].name.toLowerCase() };
   if (g === 'ingot') return { n: cn.foundry || 0, label: 'fonderie d\'or' };
   const R = RECIPES[g]; let n = 0;
-  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.prod === g && c.t !== 'npc' && c.t !== 'part' && c.conn && FLEVEL[c.t] >= R.lvl) n++; }   // passe 60 : boucle directe (les milliers d'immeubles de la ville n'ont pas de production)
+  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.prod === g && c.t !== 'npc' && c.t !== 'part' && c.conn && FLEVEL[c.t]) n++; }   // passe 60 : boucle directe (les milliers d'immeubles de la ville n'ont pas de production)
   return { n, label: LVL_NAME[R.lvl] };
 }
 function treeHTML(g, q, depth) {
@@ -10524,7 +10532,7 @@ function chainLeaves(pk) {
   Object.keys(set).forEach(g => { const bk = RAW_SRC[g]; if (bk && TYPES[bk] && TYPES[bk].live) set.wheat = 1; });   // l'élevage mange du blé : la chaîne descend aussi jusqu'à la ferme de blé
   return Object.keys(set);
 }
-function unitsOn(g) { let u = 0; eachBiz(c => { if (c.prod === g && c.conn && FLEVEL[c.t] >= RECIPES[g].lvl) u += capOf(c); }); return u; }
+function unitsOn(g) { let u = 0; eachBiz(c => { if (c.prod === g && c.conn && FLEVEL[c.t]) u += capOf(c) * lvlK(c, g); }); return u; }
 // Auto-production : pour chaque intrant de l'usine, choisit tout seul la meilleure source (ta production, concurrents, port) et
 // affecte des usines libres aux composants intermédiaires manquants, en suivant l'arborescence produit du guide du fabricant.
 function autoSource(c, quiet) {
@@ -10741,7 +10749,7 @@ function offerPrice(pk, o, tier) {
 function mkOffers(pk) {
   const C = mkCache(); if (C.o[pk]) return C.o[pk];
   const out = [], pr = PRODUCTS[pk], cls = pr.cls, h = hk(pk); C.o[pk] = out;
-  if (!mkOn()) return out;
+  if (!mkOn()) { netOffers(pk).forEach(o => out.push(o)); const o2 = patFilterOffers(pk, out); C.o[pk] = o2; o2.sort((a, b) => a.total - b.total || (a.id < b.id ? -1 : 1)); return o2; }
   const pool = mkPool(), n = Math.min(pool.length, 3 + Math.floor(hash(h, 3, 91) * 4));
   const picks = pool.map((p, i) => [hash(h, i + 7, 53), p]).sort((a, b) => b[0] - a[0] || (a[1].id < b[1].id ? -1 : 1)).slice(0, n).map(x => x[1]);
   const D = mkDemandDay(pk), cover = mkCover(pk), wts = picks.map((p, i) => 0.5 + hash(h, i, 61) + (p.rv ? 1.5 * p.rv.att[cls] : 0)), sw = wts.reduce((a, b) => a + b, 0);
@@ -10759,9 +10767,50 @@ function mkOffers(pk) {
     out.push(o);
   });
   (C.top || (C.top = {}))[pk] = out.reduce((a, o) => Math.max(a, o.tier), -1);   // passe 47 : meilleure gamme du marché avant brevets
+  netOffers(pk).filter(o => o.kind === 'port').forEach(o => out.push(o));   // passe 102 : l'import par le port est un fournisseur comme un autre, aussi en marché mûr
   const out2 = patFilterOffers(pk, out); C.o[pk] = out2;
   out2.sort((a, b) => b.overall - a.overall || (a.id < b.id ? -1 : 1));
   return out2;
+}
+// ===== Passe 102 (responsable Chaîne et commerce) : RÉSEAU D'APPROVISIONNEMENT COMMUN. Dès le jour 1, tout produit vendable (hors immobilier et créations du joueur)
+// s'achète au port (import, sans marque, qualité de l'import) et aux grossistes de la ville (industrie PNJ, qualité du marché local). Un magasin peut donc le mettre
+// en rayon tout de suite, sans R&D, sans usine ni « marché mûr » ; ses propres usines restent une source (moins chère, de marque) et l'achat ne complète que le manque.
+const NET_LOC = ['Agro Plus', 'Maison Durand', 'Nordik Industries', 'Terra Brands', 'Alpina'];
+function netOffers(pk) {
+  const pr = PRODUCTS[pk]; if (!pr || pr.cls === 'estate' || pr.custom) return [];
+  const h = hk(pk), D = mkDemandDay(pk), ports = (S.stats && S.stats.cn && S.stats.cn.port) || 0, out = [];
+  const port = { id: 'port', kind: 'port', name: 'Import par le port', col: '#9aa4c0', city: 'Port', q: IMP_Q, brand: 0, dist: 10, tier: tierOfQ(IMP_Q), margin: impRate(ports) - 1, stance: 1, w: 0.5, cap: 1e9, delay: 2 };
+  const loc = { id: 'loc', kind: 'pnj', name: NET_LOC[Math.floor(hash(h, 5, 77) * NET_LOC.length)] + ' (grossiste)', col: '#9aa4c0', city: 'Ville', q: MKT_Q, brand: 5, dist: 8 + Math.round(10 * hash(h, 6, 77)), tier: tierOfQ(MKT_Q), margin: 0.05 + 0.04 * hash(h, 7, 77), stance: 1, w: 0.5, cap: Math.max(20, Math.round(D * 0.6)), delay: 1 };
+  [loc, port].forEach(o => { o.stock = o.cap >= 1e9 ? 1e9 : o.cap * 6; Object.assign(o, offerPrice(pk, o, o.tier)); o.overall = Math.round(100 * clamp(0.4 * o.q / 100 + 0.15 * o.brand / 100 + 0.45 * clamp(o.base / o.total, 0, 1.3) / 1.3, 0, 1)); out.push(o); });
+  return out;
+}
+// Quantité visée par jour d'un achat automatique : ventes lissées (+30 %), au départ la capacité de rayon des magasins qui le présentent
+function netEst(pk) { let e = 0; eachBiz(c => { const R = TYPES[c.t].ret; if (!R || c.t === 'immo' || !c.conn || !shelfOk(c, pk)) return; const n = Math.max(1, shelfKeys(c).length); e += (c._cap || R.cap * unitsOf(c) * 0.6) / n; }); return e; }
+function netQty(pk) { const ps = S.prod[pk]; if (ps._se == null) ps._se = 0.6 * netEst(pk); return Math.max(1, 1.3 * ps._se); }
+// Relie un produit à un fournisseur du réseau (ou du marché) : le produit devient vendable sans fabrication ; un premier lot arrive tout de suite (stock du quai ou du grossiste)
+function netActivate(pk, oid) {
+  const pr = PRODUCTS[pk], ps = S.prod[pk]; if (!pr || ps.st === 'rnd') return false;
+  const o0 = mkOffers(pk).find(x => x.id === oid) || mkBest(pk); if (!o0) return false;
+  if (ps.st !== 'on') mkSetResale(pk, o0);
+  ps.buy = { id: o0.id, qty: 1, t0: S.day, spent: 0, units: 0, auto: 1 }; mkInv();
+  const o = offerAt(pk, o0), q0 = Math.min(Math.max(0, S.cash) * 0.3 / Math.max(0.01, o.total), Math.max(5, Math.ceil(netQty(pk) * 3)) - ps.stock);
+  if (q0 > 0.5) { const cost = q0 * o.total; S.cash -= cost; S.mkBuy = (S.mkBuy || 0) + cost; ps.buy.spent += cost; ps.buy.units += q0; ps.stock += q0; }
+  return true;
+}
+// Fournisseur actuel d'un produit pour l'affichage : achat (offre), fabrication, les deux
+function netSrcId(pk) { const ps = S.prod[pk]; return ps && ps.buy ? ps.buy.id : (ps && ps.st === 'on' ? 'make' : ''); }
+// Remplissage automatique d'un magasin : tes produits d'abord, puis les produits les plus demandés du réseau (reliés automatiquement) ; « garde » emplacements laissés libres
+function netAutoFill(c, keep) {
+  const R = TYPES[c.t].ret; if (!R || c.t === 'immo') return;
+  const N = slotsN(c), want = Math.max(1, N - (keep || 0)), cur = (c.slots || []).slice(0, N).filter(k => k && (PRODUCTS[k] || k.indexOf('g_') === 0)), keys = cur.slice(0, want);
+  const own = PKEYS.filter(pk => R.sells.indexOf(PRODUCTS[pk].cls) >= 0 && S.prod[pk].st === 'on' && (!R.fam || pFamOf(pk) === R.fam)).sort((a, b) => mkDemandDay(b) - mkDemandDay(a));
+  const net = PKEYS.filter(pk => R.sells.indexOf(PRODUCTS[pk].cls) >= 0 && S.prod[pk].st === 'locked' && (!R.fam || pFamOf(pk) === R.fam) && mkOffers(pk).length).sort((a, b) => mkDemandDay(b) * (NECESS[b] || 50) - mkDemandDay(a) * (NECESS[a] || 50) || (a < b ? -1 : 1));
+  // quotas par classe (mélange du magasin : un hypermarché garde du luxe), puis le reste au plus demandé
+  const mix = { s2: { basic: 0.62, std: 0.38 }, s3: { basic: 0.45, std: 0.35, lux: 0.2 }, s4: { basic: 0.45, std: 0.35, lux: 0.2 } }[c.t] || null, all = own.concat(net);
+  const add = pk => { if (keys.length >= want || keys.indexOf(pk) >= 0) return false; if (S.prod[pk].st !== 'on' && !netActivate(pk)) return false; keys.push(pk); return true; };
+  if (mix) R.sells.forEach(cl => { let q = Math.max(1, Math.round(want * (mix[cl] || 0))) - keys.filter(k => PRODUCTS[k] && PRODUCTS[k].cls === cl).length; all.filter(pk => PRODUCTS[pk].cls === cl).forEach(pk => { if (q > 0 && add(pk)) q--; }); });
+  all.forEach(add);
+  c.slots = keys.concat(Array(N).fill(null)).slice(0, N);
 }
 // Prix livré réel pour toi : la gamme est celle de ton produit s'il est déjà lancé, sinon celle de l'offreur
 function offerAt(pk, o) { const ps = S.prod[pk], t = ps.st === 'on' ? ps.q : o.tier; return Object.assign({}, o, offerPrice(pk, o, t)); }
@@ -10893,7 +10942,7 @@ function mkSetResale(pk, o) {   // le produit devient un produit revendu : état
   if (pr.cls === 'basic' && !pr.pkg) ps.pack = 0; ps.ad = { tv: 0, radio: 0, press: 0, net: 0, infl: 0 }; ps.stock = ps.stock || 0;
 }
 function mkBuy(pk, oid, qty, quiet) {
-  const pr = PRODUCTS[pk], ps = S.prod[pk]; if (!pr || !mkOn()) return false;
+  const pr = PRODUCTS[pk], ps = S.prod[pk]; if (!pr) return false;   // passe 102 : l'achat pour revente existe dans tous les modes (réseau : port et grossistes)
   const o0 = mkOffers(pk).find(x => x.id === oid) || mkBest(pk); if (!o0) { say('Personne ne vend ce produit.', 'warn'); return false; }
   if (ps.st === 'rnd') { say('Ce produit est en R&D : attends la fin du développement.', 'warn'); return false; }
   if (!mkEnsureShop(pk)) return false;
@@ -10969,8 +11018,9 @@ function mkStepBuy() {
     if (ps.inb && ps.inb.length) { const rest = []; ps.inb.forEach(l => { if (l.at <= S.day) ps.stock += l.q; else rest.push(l); }); ps.inb = rest; }
     const b = ps.buy; if (!b || ps.st !== 'on') return;
     const o0 = mkOffers(pk).find(x => x.id === b.id); if (!o0) { ps.buy = null; say(`${PRODUCTS[pk].name} : ton fournisseur a disparu, l'achat régulier s'arrête.`, 'warn'); return; }
-    const o = offerAt(pk, o0), inb = (ps.inb || []).reduce((a, l) => a + l.q, 0), target = b.qty * (o0.delay + 8);
-    let q = Math.min(b.qty, o0.cap, Math.max(0, target - ps.stock - inb)); q = Math.min(q, Math.max(0, S.cash) * 0.5 / o.total);
+    if (b.auto) { if (ps._se == null) netQty(pk); const dem = ps.stock < 1 ? Math.max(ps.sold || 0, Math.min(3 * (ps.sold || 0) + 5, (S._dw && S._dw.pd && S._dw.pd[pk]) || 0)) : (ps.sold || 0); ps._se = 0.8 * ps._se + 0.2 * dem; b.qty = netQty(pk); }   // ventes ou demande adressée au produit (lue la veille), lissées   // passe 102 : achat automatique, la quantité suit les ventes (la production propre, versée au même stock, réduit l'achat d'autant)
+    const o = offerAt(pk, o0), inb = (ps.inb || []).reduce((a, l) => a + l.q, 0), target = b.qty * (o0.delay + (b.auto ? 4 : 8));
+    let q = Math.min(b.auto ? b.qty * 2 : b.qty, o0.cap, Math.max(0, target - ps.stock - inb)); q = Math.min(q, Math.max(0, S.cash) * 0.5 / o.total);
     if (q < 0.5) return;
     const cost = q * o.total; S.cash -= cost; S.mkBuy = (S.mkBuy || 0) + cost; b.spent += cost; b.units += q; (ps.inb || (ps.inb = [])).push({ at: S.day + o0.delay, q });
   });
@@ -11263,8 +11313,8 @@ function recOf(c) {
   const T = TYPES[c.t], lv = FLEVEL[c.t];
   if (c.t === 'foundry') return { in: T.rec.in, out: 'ingot', qty: 4, name: 'Lingots d\'or' };
   if (!lv) return null;
-  if (c.prod && RECIPES[c.prod] && lv >= RECIPES[c.prod].lvl) return { in: RECIPES[c.prod].in, out: c.prod, qty: RECIPES[c.prod].out, name: RECIPES[c.prod].name };
-  if (c.prod && PRODUCTS[c.prod] && prodOn(c.prod) && lv >= PRODUCTS[c.prod].lvl) return { in: productInputs(c.prod), out: c.prod, qty: PRODUCTS[c.prod].out, name: PRODUCTS[c.prod].name };
+  if (c.prod && RECIPES[c.prod]) return { in: RECIPES[c.prod].in, out: c.prod, qty: RECIPES[c.prod].out, name: RECIPES[c.prod].name };
+  if (c.prod && PRODUCTS[c.prod] && prodOn(c.prod)) return { in: productInputs(c.prod), out: c.prod, qty: PRODUCTS[c.prod].out, name: PRODUCTS[c.prod].name };
   return null;   // usine vide : aucune production tant qu'aucun produit n'est choisi
 }
 function qualCost(c) { return (c.qual || 0) >= 3 ? 0 : Math.round(TYPES[c.t].cost * 0.5 * (1 + (c.qual || 0))); }
@@ -12202,7 +12252,7 @@ function renderBuilding(force) {
   })();
   const kpiHtml = `<div class="kpis bk">${kpis}</div>${srcLine}`;
   const htmlInt = `
-  ${FLEVEL[c.t] ? prodHeader(c) + planCard(c) : ''}${T.ret ? auditCard(c) + specCard(c) + roiCard(c) + (isShopV(c) ? '' : shelfCard(c)) : ''}${c.t === 'dc' ? `<div class="levers">${dcCard(c)}</div>` : ''}${FLEVEL[c.t] && isChip(c.prod) ? chipCardHTML(c) : ''}
+  ${FLEVEL[c.t] ? prodHeader(c) + facBuyHTML(c) + planCard(c) : ''}${T.ret ? auditCard(c) + specCard(c) + roiCard(c) + (isShopV(c) ? '' : shelfCard(c)) : ''}${c.t === 'dc' ? `<div class="levers">${dcCard(c)}</div>` : ''}${FLEVEL[c.t] && isChip(c.prod) ? chipCardHTML(c) : ''}
   <div class="bnbanner ${bn.sev}"><b>${bn.t}</b><span>${bn.d}</span><div class="acts">${acts}</div></div>
   ${znCardTxt(c) ? `<div class="bnbanner ok"><b>Subvention de zone</b><span>${znCardTxt(c)}</span></div>` : ''}
   ${line}
@@ -12289,10 +12339,12 @@ function bAct(a) {
   else if (a.indexOf('clrslot:') === 0) { const i = +a.slice(8), N = slotsN(c); c.slots = (c.slots || shelfKeys(c).concat(Array(N).fill(null)).slice(0, N)).slice(0, N); c.slots[i] = null; bPick = isShopV(c) ? i : -1; }
   else if (a.indexOf('raise:') === 0) { const [, k, v] = a.split(':'); c.pk = c.pk || {}; c.pk[k] = pxFree(+v / 100); }
   else if (a === 'pf100') c.pf = 1;
-  else if (a === 'autoslots') { c.slots = null; c.shelf = null; bPick = -1; }
+  else if (a === 'autoslots') { c.slots = null; c.shelf = null; bPick = -1; netAutoFill(c, 0); }   // passe 102 : remplit TOUS les emplacements (tes produits, puis le réseau)
   else if (a.indexOf('tab:') === 0) { /* géré plus haut */ }
   else if (a.indexOf('recipe:') === 0) { c.prod = a.slice(7) || null; c.src = {}; if (c.prod) autoSource(c); }
   else if (a === 'autosrc') { autoSource(c); tel('sc_autosource', { t: c.t }); }
+  else if (a.indexOf('fpick:') === 0) { fPick = a.slice(6); }
+  else if (a.indexOf('fsrc:') === 0) { const p = a.split(':'), g = p[1], id = p.slice(2).join(':'); c.src = c.src || {}; c.src[g] = id; if (c._autoBuy) delete c._autoBuy[g]; try { updInputQ(c.prod); } catch (e) {} say(`${gName(g)} : source « ${id === 'auto' ? 'automatique' : id === 'port' ? 'import par le port' : id === 'local' ? 'ton réseau' : 'fournisseur choisi'} ».`, 'info'); }   // passe 102 : fournisseur choisi sur l'emplacement d'achat
   else if (a.indexOf('make:') === 0) { const n = assignRecipe(a.slice(5), 1); say(n ? 'Usine affectée à ' + RECIPES[a.slice(5)].name.toLowerCase() + '.' : 'Aucune usine libre : construis-en une.', n ? 'good' : 'warn'); }
   else if (a.indexOf('info:') === 0) { const [nm, have] = a.slice(5).split('|'); say((have === '1' ? 'Agrandis ou ajoute : ' : 'Construis : ') + nm.toLowerCase() + '.', 'info'); }
   refreshStats(); updateHUD(); renderBuilding(true);
@@ -15380,11 +15432,26 @@ function recipeItems(c) {
     let cost = 0, score = 1; it.chips = [];
     Object.keys(it.inp).forEach(g => { const need = it.inp[g], st = S.stock[g] != null ? S.stock[g] : (S.prod[g] ? S.prod[g].stock : 0), src = hasSource(g); cost += need * gPriceAny(g); const lvl = st >= need ? 'g' : (st > 0.5 || src) ? 'o' : 'r'; score *= lvl === 'g' ? 1 : lvl === 'o' ? 0.6 : 0.05; it.chips.push({ g, need, st, lvl, src }); });
     it.cost = cost; it.rev = it.out * it.price; it.margin = it.rev - cost; it.score = it.margin > 0 ? it.margin * score : -1;
-    it.eligible = it.lvl <= lv && (it.kind === 'comp' || it.st === 'on' || (it.st === 'locked' && ((it.tier || 0) <= tierNow() || mkOn())));
+    it.lvlK = it.lvl > lv ? Math.pow(0.5, it.lvl - lv) : 1; it.eligible = (it.kind === 'comp' || it.st === 'on' || (it.st === 'locked' && ((it.tier || 0) <= tierNow() || mkOn())));
   });
   return items;
 }
 function itemThumb(it) { return it.kind === 'prod' ? productSVG(it.key, S.prod[it.key].q) : `<img alt="" src="${compIcon(it.key)}">`; }
+// Passe 102 (chaîne et commerce) : emplacements d'ACHAT de l'usine, au même modèle que les rayons d'un magasin. Un emplacement par intrant ; un clic le sélectionne et
+// affiche dessous les fournisseurs en cartes (ton réseau, groupe, compagnies, négociant, port) ; un clic relie. « Automatique » : ta production, puis le moins cher livré.
+let fPick = '';
+function facBuyHTML(c) {
+  const r = recOf(c); if (!r) return ''; const ins = Object.keys(r.in).filter(g => GOODS[g]); if (!ins.length) return '';
+  if (ins.indexOf(fPick) < 0) fPick = ins[0];
+  const lab = m => m === 'auto' ? 'Automatique' : m === 'local' ? 'Ton réseau' : (m === 'port' || m === 'import') ? 'Import par le port' : m.indexOf('grp:') === 0 ? firmName(+m.slice(4)) : m.indexOf('co:') === 0 ? supOffer(fPick, m.slice(3)).name : m;
+  const slots = ins.map(g => { const m = (c.src && c.src[g]) || 'auto', src = (RAW_SRC[g] || RECIPES[g] || g === 'ingot') ? sourceInfo(g).n : 0;
+    return `<button class="shs${g === fPick ? ' sel' : ''}" data-act="fpick:${g}" aria-selected="${g === fPick}"><span class="sth"><img alt="" src="${compIcon(g)}"></span><span class="shi"><b>${gName(g)}</b><span class="shk"><span>Besoin<b>${f1(r.in[g] * (c._u || unitsOf(c)))}/j</b></span><span>Stock<b>${fmt(Math.round(S.stock[g] || 0))}</b></span><span>Source<b>${m === 'auto' ? (src ? 'tes ' + (RECIPES[g] ? 'usines' : 'sites') : 'achat auto') : (m.indexOf('co:') === 0 ? 'fournisseur' : m === 'port' || m === 'import' ? 'port' : 'réseau')}</b></span></span></span></button>`; }).join('');
+  const g = fPick, cur = (c.src && c.src[g]) || 'auto', cards = supCards(c, g);
+  const card = (id, name, k) => `<button class="shsc${cur === id || (id === 'port' && cur === 'import') ? ' on' : ''}" data-act="fsrc:${g}:${id}" aria-pressed="${cur === id}"><b>${name}</b><span class="shk">${k}</span></button>`;
+  const auto = card('auto', 'Automatique', `<span>Ordre<b>ta production, puis le moins cher</b></span>`);
+  const lst = cards.map(x => card(x.id === 'import' ? 'port' : x.id, x.id === 'import' ? 'Import par le port' : x.name, `<span>Livré<b>${f2s(x.o.total)} $</b></span><span>Qualité<b>${x.o.q}</b></span><span>Délai<b>${x.delay} j</b></span>${x.s && recOf(c) ? `<span>Offre<b>${x.room ? 'suffisante' : 'courte'}</b></span>` : ''}`)).join('');
+  return `<div class="lever wide fbuy"><h4>Achats · ${ins.length} intrant${ins.length > 1 ? 's' : ''} <small>(source de ${gName(g)} : ${lab(cur)})</small></h4><div class="shgrid">${slots}</div><div class="shscs">${auto}${lst}</div></div>`;
+}
 function prodHeader(c) {
   const items = recipeItems(c), cur = recOf(c), key = cur ? cur.out : '', it = items.find(i => i.key === key);
   const best = items.filter(i => i.eligible && i.score > 0).sort((a, b) => b.score - a.score)[0];
@@ -15472,14 +15539,13 @@ function renderCatalog(force) {
   flt.sort((a, b) => a.kind !== b.kind ? (a.kind === 'comp' ? -1 : 1) : a.kind === 'comp' ? gOrd.indexOf(a.grp) - gOrd.indexOf(b.grp) : FAM_ORDER.indexOf(a.grp) - FAM_ORDER.indexOf(b.grp));   // familles regroupées (passe 25)
   let list = '', lastG = '';
   flt.forEach(i => { if (i.grp !== lastG) { list += `<div class="cgrp">${i.grp}</div>`; lastG = i.grp; }
-    const status = i.lvl > lv ? LVL_NAME[i.lvl] : i.kind === 'prod' && i.st === 'locked' ? (i.free ? 'standard · sans R&D' : 'nouveau · R&D') : i.kind === 'prod' && i.st === 'rnd' ? 'R&D ' + i.days + ' j' : i.kind === 'prod' ? 'lancé' : 'composant';
+    const status = i.lvl > lv ? 'débit ÷ ' + Math.round(1 / i.lvlK) + ' (' + LVL_NAME[i.lvl] + ' conseillée)' : i.kind === 'prod' && i.st === 'locked' ? (i.free ? 'standard · sans R&D' : 'nouveau · R&D') : i.kind === 'prod' && i.st === 'rnd' ? 'R&D ' + i.days + ' j' : i.kind === 'prod' ? 'lancé' : 'composant';
     list += `<button class="crow ${i.key === it.key ? 'sel' : ''} ${i.key === cur ? 'cur' : ''}" data-cat="sel:${i.key}"><span class="rth">${itemThumb(i)}</span><span><b>${i.name}${best && best.key === i.key ? ' ★' : ''}</b><small>${status} · ${f1(i.price)} $</small></span><span class="mg ${i.margin >= 0 ? 'pos' : 'neg'}" title="Marge par cycle de production = prix de vente de ${f1(i.out)} unité(s) (${money(i.rev)}) − coût des intrants (${money(i.cost)}). Elle ne compte ni les salaires ni l'entretien. ${i.margin >= 0 ? 'Positive : fabriquer ce bien rapporte.' : 'Négative : fabriquer ce bien coûte plus cher que sa vente aux cours actuels.'}">${i.margin >= 0 ? '+' : '−'}${money(Math.abs(i.margin))}<small style="display:block;font-size:9px;opacity:.75;font-weight:400">par cycle</small></span></button>`; });
   const isProd = it.kind === 'prod', pr = isProd ? PRODUCTS[it.key] : null, ps = isProd ? S.prod[it.key] : null, fresh = isProd && it.st === 'locked';
   const rows = it.chips.map(x => { const label = x.g === 'pack' && isProd ? `Emballages <small>(${PACK[ps.pack].n})</small>` : gName(x.g); return `<tr><td>${label}</td><td>×${f1(x.need)}</td><td>${f1(gPriceAny(x.g))} $</td><td>${money(x.need * gPriceAny(x.g))}</td><td class="${x.lvl === 'g' ? 'pos' : x.lvl === 'o' ? '' : 'neg'}">${fmt(x.st)}${x.lvl === 'r' ? ' · aucune source' : ''}</td></tr>`; }).join('');
   const sellers = isProd ? ({ basic: ['s1', 's2', 's3', 's4'], std: ['s2', 's3', 's4'], lux: ['s3', 's4'], estate: ['immo'] })[pr.cls].concat(SPEC_BY_FAM[pFamOf(it.key)] ? [SPEC_BY_FAM[pFamOf(it.key)]] : []).map(k => { let n = 0; eachBuilding(b => { if (b.t === k && b.conn) n++; }); return `${TYPES[k].name.toLowerCase()} (${n})`; }).join(', ') : '';
   let btns;
-  if (it.lvl > lv) btns = `<button class="btn sec" disabled>${LVL_NAME[it.lvl]} requise</button>`;
-  else if (cur === it.key) btns = `<button class="btn" disabled>Fabriqué dans cette usine</button>`;
+  if (cur === it.key) btns = `<button class="btn" disabled>Fabriqué dans cette usine</button>`;
   else if (it.kind === 'comp' || it.st === 'on' || it.st === 'rnd') btns = `<button class="btn" data-cat="make:${it.key}">Fabriquer ici${it.st === 'rnd' ? ' (R&D ' + it.days + ' j)' : ''}</button><button class="btn sec" data-cat="all:${it.key}">Toutes mes usines compatibles</button>`;
   else if ((it.tier || 0) > tierNow() && !mkOn()) btns = `<button class="btn sec" disabled>Palier ${TIERS[it.tier].n} requis</button>`;
   else if (it.free) btns = `<button class="btn" data-cat="easy:${it.key}">▶ Tout lancer automatiquement</button><small class="note" style="display:block;margin-top:6px">Produit standard, sans R&D : le jeu affecte cette usine, choisit les fournisseurs et les imports, et prépare les composants.</small>`;
@@ -15500,7 +15566,7 @@ function renderCatalog(force) {
   <div class="actions" style="margin-top:8px"><button class="btn sec" data-cat="guide:${it.key}">Guide du fabricant</button></div>
   ${isProd ? `<h4 style="margin:12px 0 4px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)">Où il se vend</h4><p class="note">${sellers}. Gamme ${QTIER[ps.q].n.toLowerCase()}, emballage ${PACK[ps.pack].n.toLowerCase()} (réglable dans la vue Produits).</p><div class="actions" style="margin:6px 0"><button class="btn sec" data-cat="sheet:${it.key}">Ouvrir la fiche produit</button></div>` : ''}
   <div style="position:sticky;bottom:-1px;background:#141a3c;border-top:1px solid rgba(242,184,75,.35);padding:8px 0 4px;margin-top:10px;z-index:3">
-  ${isProd && cur !== it.key && it.lvl <= lv ? (() => { const miss = []; chainLeaves(it.key).forEach(g => { const si = sourceInfo(g); if (!si.n) miss.push(si.label); }); const st = (ok, txt) => `<li class="${ok ? 'pos' : 'neg'}">${ok ? '✔' : '✖'} ${txt}</li>`; return `<div class="note" style="margin:0 0 6px"><b>Comment lancer ce produit :</b><ul style="margin:4px 0 0 18px">${st(it.st !== 'locked' || !!it.free, it.st === 'locked' && !it.free ? 'R&D de ' + pr.days + ' jours (' + money(it.rnd) + ')' : 'Produit disponible')}${st(!miss.length, miss.length ? 'À construire : ' + [...new Set(miss)].slice(0, 4).join(', ') : 'Matières premières : sources en place')}${st(true, 'Cette usine (' + LVL_NAME[FLEVEL[c.t]] + ') peut le fabriquer')}</ul><small>Le bouton ci-dessous enchaîne tout : R&D, affectation de l'usine, composants et fournisseurs.</small></div>`; })() : ''}
+  ${isProd && cur !== it.key ? (() => { const miss = []; chainLeaves(it.key).forEach(g => { const si = sourceInfo(g); if (!si.n) miss.push(si.label); }); const st = (ok, txt) => `<li class="${ok ? 'pos' : 'neg'}">${ok ? '✔' : '✖'} ${txt}</li>`; return `<div class="note" style="margin:0 0 6px"><b>Comment lancer ce produit :</b><ul style="margin:4px 0 0 18px">${st(it.st !== 'locked' || !!it.free, it.st === 'locked' && !it.free ? 'R&D de ' + pr.days + ' jours (' + money(it.rnd) + ')' : 'Produit disponible')}${st(!miss.length, miss.length ? 'À construire : ' + [...new Set(miss)].slice(0, 4).join(', ') : 'Matières premières : sources en place')}${st(true, 'Cette usine (' + LVL_NAME[FLEVEL[c.t]] + ') peut le fabriquer')}</ul><small>Le bouton ci-dessous enchaîne tout : R&D, affectation de l'usine, composants et fournisseurs.</small></div>`; })() : ''}
   <div class="actions" style="margin-top:6px">${btns}</div></div>`;
   const filt = [['all', 'Tout'], ['comp', 'Composants'], ['prod', 'Produits finis'], ['ok', 'Faisables ici'], ['compose', '✚ Composer']].map(f => `<button data-cat="f:${f[0]}" aria-pressed="${catFilter === f[0]}">${f[1]}</button>`).join('');
   const html = catFilter === 'compose' ? `<div class="chead"><b>COMPOSER UN PRODUIT</b><span>${T.name} · case ${c.x + 1}, ${c.y + 1} · ${f1(cyc)} cycles/jour</span><button class="ibtn" data-cat="close">Retour à l'usine</button></div><div class="cbody" style="grid-template-columns:1fr"><div class="cdet"><div class="cfilters">${filt}</div>${composerHTML(c)}</div></div>` : `<div class="chead"><b>CHOISIR LA PRODUCTION</b><span>${T.name} · case ${c.x + 1}, ${c.y + 1} · ${f1(cyc)} cycles/jour</span><button class="ibtn" data-cat="close">Retour à l'usine</button></div>${sgStrip(c)}<div class="cbody"><div class="clist"><div class="cfilters">${filt}</div><p class="note" style="margin:2px 2px 6px;font-size:11px">Le chiffre vert ou rouge à droite de chaque ligne est la <b>marge par cycle</b> de production : ce que rapportent les unités vendues aux cours actuels, moins le coût des intrants (sans salaires ni entretien). <b>Vert</b> : rentable. <b>Rouge</b> : l'achat des intrants coûte plus que la vente. ★ = le plus rentable pour cette usine. Survole un chiffre pour le détail.</p>${list || '<p class="note">Aucun résultat.</p>'}</div><div class="cdet">${det}</div></div>`;
@@ -15865,11 +15931,11 @@ function prodView(c, k, it) {
   const cityQ = Math.round(locQ(cls));
   const rivB = (S.rivals || []).length ? 100 * (S.rivals.reduce((a, r) => a + (r.att[cls] || 0), 0) / S.rivals.length) * 3 : 0, cityB = Math.round(it.gen ? clamp(rivB, 0, 100) : clamp(rivB * 0.6, 0, 80));   // produit : même échelle que l'écran Produits (marque rivale pondérée ×0,6, plafonnée à 80)
   const cityOv = Math.round(w.price * 50 + w.quality * cityQ + w.brand * cityB), myOv = Math.round(sc.overall);
-  const f = v => v.toFixed(2).replace('.', ','), row = (l, a, b, ca) => `<tr><td>${l}</td><td class="${ca || ''}">${a}</td><td>${b}</td></tr>`;
+  const f = v => v.toFixed(2).replace('.', ','), row = (l, a, b, ca, wt) => `<tr><td>${l}</td><td class="${ca || ''}">${a}</td><td>${b}</td><td>${wt == null ? '' : Math.round(wt * 100) + ' %'}</td></tr>`;   // passe 102 : colonne « Poids » (importance pour l'acheteur), comme l'écran Produits de CapLab
   const sold = (c.sales && c.sales[k]) || 0, mg = price - cost, q = Math.round(sc.quality), brand = Math.round(ps ? sc.brand : 0), refP = it.gen ? ref : stdPrice(k) * retailMk(cls);   // marque et prix moyen : mêmes définitions que l'écran Produits (note globale cohérente)
   return `<div class="lever wide" style="margin:8px 0"><h4>${it.name.replace(' (marché local)', '')} · ${f(price)} $ <span class="pip">fiche produit</span></h4>
    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start"><div style="text-align:center;max-width:150px"><div style="width:96px;height:96px;border-radius:50%;background:conic-gradient(${grad});margin:auto" title="Part de marché de ce produit dans sa catégorie"></div><small>Part de marché ${Math.round(mine * 100)} %</small></div>
-   <div style="flex:1;min-width:210px"><table class="fint"><tr><th>Ce produit</th><th>Toi</th><th>Moyenne ville</th></tr>${it.gen ? row('Marque', 'aucune', cityB) : row('Marque', brand, cityB, brand >= cityB ? 'pos' : 'neg')}${row('Qualité', q, cityQ, q >= cityQ ? 'pos' : 'neg')}${row('Prix en rayon', f(price) + ' $', f(refP) + ' $', price <= refP ? 'pos' : 'neg')}${row('Note globale', myOv, cityOv, myOv >= cityOv ? 'pos' : 'neg')}</table></div></div>
+   <div style="flex:1;min-width:210px"><table class="fint"><tr><th>Ce produit</th><th>Toi</th><th>Moyenne ville</th><th>Poids</th></tr>${it.gen ? row('Marque', 'aucune', cityB, '', w.brand) : row('Marque', brand, cityB, brand >= cityB ? 'pos' : 'neg', w.brand)}${row('Qualité', q, cityQ, q >= cityQ ? 'pos' : 'neg', w.quality)}${row('Prix en rayon', f(price) + ' $', f(refP) + ' $', price <= refP ? 'pos' : 'neg', w.price)}${row('Note globale', myOv, cityOv, myOv >= cityOv ? 'pos' : 'neg')}</table></div></div>
    <small style="display:block;margin-top:4px">${legend}</small>
    <button class="btn sec" data-act="mshare" style="min-height:28px;padding:3px 10px;font-size:11.5px;margin:4px 0">Voir les parts de marché détaillées (Concurrents) →</button>
    ${it.gen ? '' : prodModelHTML(k)}<div class="finrow"><span>Poids d'achat ${it.gen ? 'de la catégorie' : 'du produit'}</span><b>prix ${Math.round(w.price * 100)} % · qualité ${Math.round(w.quality * 100)} % · marque ${Math.round(w.brand * 100)} %</b></div>
@@ -15897,7 +15963,7 @@ function shelfCard(c) {
 // Fiche magasin façon Capitalism Lab : grille d'emplacements TOUT EN HAUT, panneau d'action de l'emplacement sélectionné juste dessous
 // (produit, fournisseur, prix nommé, publicité du produit), puis les onglets du magasin repliés dans « Détails du magasin ».
 const isShopV = c => !!(c && TYPES[c.t] && TYPES[c.t].ret && c.t !== 'immo');
-let shopDet = false, pvOpen = false; const shopSpo = {};
+let shopDet = false, pvOpen = false, shAll = false; const shopSpo = {};
 const slotKeysOf = c => { const N = slotsN(c); return (c.slots || shelfKeys(c)).concat(Array(N).fill(null)).slice(0, N); };
 // Publicité PAR PRODUIT et PAR MAGASIN (c.adx = { clé produit : { m: 'net' | 'media', b: budget par jour } }) : demande de CE produit dans CE magasin
 // × (1 + g · ln(1 + budget / échelle)) ; rendement décroissant mais sans plafond. Médias : plus cher, plus fort ; tes stations médias le rendent 25 % moins cher.
@@ -15913,7 +15979,8 @@ function slotEcon(c, k, it) {
   if (it.gen) {
     const sm = (c.src && c.src[cls]) || 'auto', so = sm.indexOf('co:') === 0 ? supOffer(cls, sm.slice(3), c.haul) : null;
     if (so) { cost = so.total; costNote = 'contrat fournisseur'; } else if (sm === 'local' || S.stock[cls] > 1) { cost = S.price[cls]; costNote = 'prix de gros (stock local)'; } else { cost = S.price[cls] * PNJ_MK; costNote = 'grossiste local (×' + PNJ_MK.toFixed(2).replace('.', ',') + ')'; }
-  } else { const inp = productInputs(k); cost = Object.keys(inp).reduce((a, g) => a + inp[g] * (S.price[g] || GOODS[g].base), 0) / Math.max(1, PRODUCTS[k].out); costNote = 'intrants au prix du marché ÷ sortie'; }
+  } else { const ps = S.prod[k], bo = ps.buy && facCounts(k).mine === 0 ? mkOffers(k).find(o => o.id === ps.buy.id) : null;
+    if (bo) { cost = offerAt(k, bo).total; costNote = 'achat livré (' + bo.name.toLowerCase() + ')'; } else { const inp = productInputs(k); cost = Object.keys(inp).reduce((a, g) => a + inp[g] * (S.price[g] || GOODS[g].base), 0) / Math.max(1, PRODUCTS[k].out); costNote = 'intrants au prix du marché ÷ sortie'; } }
   return { cls, mk, price, ref, refP: it.gen ? ref : stdPrice(k) * mk, cost, costNote, mg: price - cost, sold: (c.sales && c.sales[k]) || 0 };
 }
 const f2s = v => v.toFixed(2).replace('.', ',');
@@ -15929,13 +15996,16 @@ function shopGrid(c) {
 // Produits proposables sur l'emplacement i : marchandises du marché local, tes produits de marque, produits d'autres sociétés
 function shopCands(c) {
   const all = shelfItems(c), keys = slotKeysOf(c), R0 = TYPES[c.t].ret, out = all.map(it => { const E = slotEcon(c, it.key, it); return { key: it.key, it, gen: it.gen, name: shName(it), buy: E.cost, sug: E.refP, at: keys.indexOf(it.key) }; });
-  if (mkOn()) PKEYS.filter(pk => R0.sells.indexOf(PRODUCTS[pk].cls) >= 0 && (!R0.fam || pFamOf(pk) === R0.fam) && S.prod[pk].st !== 'on' && S.prod[pk].st !== 'rnd' && mkOffers(pk).length && mkBest(pk)).forEach(pk => {
-    const offs = mkOffers(pk).map(o => offerAt(pk, o)).sort((a, b) => a.total - b.total); out.push({ key: pk, mk: 1, offs, name: PRODUCTS[pk].name, buy: offs[0].total, sug: offs[0].total * retailMk(PRODUCTS[pk].cls), at: -1 }); });
+  // passe 102 : tout produit vendable de la ville, quel que soit le type du magasin (ceux de son type d'abord, les plus demandés en tête), relié en un clic à un fournisseur (port dès le jour 1)
+  const own = R0.sells, isOwnT = pk => own.indexOf(PRODUCTS[pk].cls) >= 0 && (!R0.fam || pFamOf(pk) === R0.fam);
+  PKEYS.filter(pk => PRODUCTS[pk].cls !== 'estate' && S.prod[pk].st !== 'on' && S.prod[pk].st !== 'rnd' && mkOffers(pk).length)
+    .sort((a, b) => (isOwnT(b) ? 1 : 0) - (isOwnT(a) ? 1 : 0) || mkDemandDay(b) - mkDemandDay(a) || (a < b ? -1 : 1)).forEach(pk => {
+    const offs = mkOffers(pk).map(o => offerAt(pk, o)).sort((a, b) => a.total - b.total); out.push({ key: pk, mk: 1, offs, name: PRODUCTS[pk].name, buy: offs[0].total, sug: offs[0].total * retailMk(PRODUCTS[pk].cls), at: -1, oth: !isOwnT(pk) }); });
   return out;
 }
 function shopPanel(c) {
   const N = slotsN(c), keys = slotKeysOf(c), i = bPick, k = keys[i], all = shelfItems(c), it = k && all.find(x => x.key === k), R0 = TYPES[c.t].ret;
-  let h = `<div class="shpan" id="shpan"><div class="shph"><b>Emplacement ${i + 1}${it ? ' · ' + shName(it) : ' · vide'}</b><span class="sp"></span>${k ? `<button class="btn sec" data-act="clrslot:${i}">Vider</button>` : ''}<button class="btn sec" data-act="autoslots">Remplissage automatique</button><button class="btn sec" data-act="imp" aria-pressed="${c.imp !== false}">Grossistes locaux : ${c.imp === false ? 'coupés' : 'actifs'}</button></div>`;
+  let h = `<div class="shpan" id="shpan"><div class="shph"><b>Emplacement ${i + 1}${it ? ' · ' + shName(it) : ' · vide'}</b><span class="sp"></span>${k ? `<button class="btn sec" data-act="clrslot:${i}">Vider</button>` : ''}${it && !it.gen && S.prod[k].stock > 0.5 ? `<button class="btn sec" data-act="clrstk:${k}" title="Solde le stock de ce produit (40 % du prix de gros) pour faire place à un autre">Vider le stock</button>` : ''}<button class="btn sec" data-act="autoslots">Remplissage automatique</button><button class="btn sec" data-act="imp" aria-pressed="${c.imp !== false}">Grossistes locaux : ${c.imp === false ? 'coupés' : 'actifs'}</button></div>`;
   if (it) {
     const E = slotEcon(c, k, it), pkv = Math.round(((c.pk && c.pk[k]) || 1) * 100), base = it.price * E.mk * pfOf(c), cap = E.cls === 'basic' ? 150 : 999;
     h += `<div class="shrow full"><div class="lever shprice"><h4>Prix de vente : ${shName(it)} · <span id="pkp">${f2s(base * Math.min(pkv, cap) / 100)} $</span> <small>(<span id="pkv">${pkv} %</span> du prix de référence)</small></h4>
@@ -15949,16 +16019,25 @@ function shopPanel(c) {
       <small>${ADX_M[m].d}${m === 'media' ? (med ? ` Tu possèdes ${med} station${med > 1 ? 's' : ''} média : campagnes 20 % moins chères.` : ' Construis une station média pour payer moins cher.') : ''} Effet sur ce produit dans ce magasin, croissant avec le budget (rendement décroissant).</small>`
       : `<small>Choisis un moyen pour relier ce produit à une campagne : la demande de ce produit dans ce magasin augmente avec le budget.</small>`}</div>`;
   }
-  const cands = shopCands(c), placedHere = k, free = cands.filter(x => x.at < 0), oth = cands.filter(x => x.at >= 0 && x.key !== placedHere);
+  if (it && !it.gen) h += netSupHTML(k);   // passe 102 : choix du fournisseur de CE produit, au même endroit (cartes : prix livré, qualité, délai, capacité)
+  const cands = shopCands(c), placedHere = k, free0 = cands.filter(x => x.at < 0), oth = cands.filter(x => x.at >= 0 && x.key !== placedHere), free = shAll ? free0 : free0.filter(x => !x.oth).slice(0, 12), more = free0.length - free.length;
   const card = x => { const cls = x.mk ? PRODUCTS[x.key].cls : x.gen ? x.key.slice(2) : PRODUCTS[x.key].cls, act = x.mk ? `mkput:${i}:${x.key}` : `put:${i}:${x.key}`;
     const sup = x.mk ? `<select data-spo="${x.key}" aria-label="Fournisseur de ${x.name}">${x.offs.map(o => `<option value="${o.id}" ${shopSpo[x.key] === o.id ? 'selected' : ''}>${o.name} · ${f2s(o.total)} $ livré · délai ${o.delay} j</option>`).join('')}</select>`
       : x.gen ? `<select data-src="${cls}" aria-label="Fournisseur de ${x.name}"><option value="auto">Fournisseur : automatique</option>${supCards(c, cls).map(s => `<option value="${s.id}" ${((c.src && c.src[cls]) || 'auto') === s.id ? 'selected' : ''}>${s.name} · ${f2s(s.o.total)} $ livré</option>`).join('')}</select>` : `<small class="shsup">Fournisseur : ta propre production</small>`;
-    return `<div class="shc${x.key === placedHere ? ' on' : ''}"><button class="shcb" data-act="${act}"${x.key === placedHere ? ' disabled' : ''}><span class="sth">${slotThumb(x.key)}</span><span class="shi"><b>${x.name}</b><small>${x.mk ? 'Produit d\'une autre société' : x.gen ? 'Marché local' : 'Ta marque'}${x.at >= 0 ? ' · ' + (x.key === placedHere ? 'déjà ici' : 'en emplacement ' + (x.at + 1) + ' (échanger)') : ''}</small><span class="shk"><span>Achat livré<b>${f2s(x.buy)} $</b></span><span>Prix conseillé<b>${f2s(x.sug)} $</b></span></span></span></button>${sup}</div>`; };
+    return `<div class="shc${x.key === placedHere ? ' on' : ''}"><button class="shcb" data-act="${act}"${x.key === placedHere ? ' disabled' : ''}><span class="sth">${slotThumb(x.key)}</span><span class="shi"><b>${x.name}</b><small>${x.mk ? (x.offs[0] && x.offs[0].kind === 'port' ? 'Import par le port' : 'Réseau : ' + (x.offs[0] ? x.offs[0].name : 'grossistes')) : x.gen ? 'Marché local' : (mkSrc(x.key) === 'buy' ? 'Acheté au réseau' : 'Ta marque')}${x.at >= 0 ? ' · ' + (x.key === placedHere ? 'déjà ici' : 'en emplacement ' + (x.at + 1) + ' (échanger)') : ''}</small><span class="shk"><span>Achat livré<b>${f2s(x.buy)} $</b></span><span>Prix conseillé<b>${f2s(x.sug)} $</b></span></span></span></button>${sup}</div>`; };
   const why = `Rien d'autre à vendre ici : ${TYPES[c.t].name.toLowerCase()} ne vend que ${R0.fam ? 'sa famille (' + SPEC_FAM[R0.fam].n.toLowerCase() + ')' : R0.sells.map(s => GOODS[s].name.toLowerCase()).join(', ')}, déjà en rayon. Lance un produit de marque dans Produits${mkOn() ? '' : ' ou attends qu\'une société en propose'}.`;
-  h += `<div class="shlist${it ? ' col' : ''}"><div class="shlh">${k ? 'Remplacer par' : 'Mettre en rayon'} : clique un produit, il est placé tout de suite</div>${free.length ? free.map(card).join('') : `<p class="note shwhy">${why}</p>`}${oth.length ? `<div class="shlh">Déjà en rayon (échanger les emplacements)</div>` + oth.map(card).join('') : ''}</div>${it ? '</div>' : ''}`;
+  h += `<div class="shlist${it ? ' col' : ''}"><div class="shlh">${k ? 'Remplacer par' : 'Mettre en rayon'} : clique un produit, il est placé tout de suite</div>${free.length ? free.map(card).join('') : `<p class="note shwhy">${why}</p>`}${more > 0 || shAll ? `<button class="btn sec shmore" data-act="shall">${shAll ? '▾ Moins de produits' : '▸ Tous les produits de la ville (' + (free0.length) + ')'}</button>` : ''}${oth.length ? `<div class="shlh">Déjà en rayon (échanger les emplacements)</div>` + oth.map(card).join('') : ''}</div>${it ? '</div>' : ''}`;
   if (it) h += `<button class="btn sec shpv" data-act="pvdet" aria-expanded="${pvOpen}">${pvOpen ? '▾' : '▸'} Fiche détaillée du produit (parts de marché, qualité, marque)</button>${pvOpen ? prodView(c, k, it) : ''}`;
   return h + '</div>';
 }
+function netSupHTML(pk) {
+  const ps = S.prod[pk], fc = facCounts(pk), cur = ps.buy ? ps.buy.id : 'make', offs = mkOffers(pk).map(o => offerAt(pk, o)).sort((a, b) => a.total - b.total);
+  const mine = fc.mine > 0, made = mine ? fcOut(pk) : 0;
+  const cardM = `<button class="shsc${!ps.buy && mine ? ' on' : ''}" data-act="${mine ? 'sup:' + pk + ':make' : 'mkmake:' + pk}" aria-pressed="${!ps.buy && mine}"><b>${mine ? 'Tes usines' : 'Fabriquer chez toi'}</b><span class="shk"><span>Source<b>${mine ? fc.mine + ' usine' + (fc.mine > 1 ? 's' : '') : 'usine libre'}</b></span><span>Production<b>${mine ? fmt(Math.round(made)) + '/j' : '—'}</b></span><span>Qualité<b>${QTIER[ps.q] ? QTIER[ps.q].q : '—'}</b></span></span></button>`;
+  const cards = offs.map(o => `<button class="shsc${cur === o.id ? ' on' : ''}" data-act="sup:${pk}:${o.id}" aria-pressed="${cur === o.id}"><b>${o.name}</b><span class="shk"><span>Livré<b>${f2s(o.total)} $</b></span><span>Qualité<b>${o.q}</b></span><span>Délai<b>${o.delay} j</b></span><span>Capacité<b>${o.cap >= 1e9 ? 'illimitée' : fmt(o.cap) + '/j'}</b></span></span></button>`).join('');
+  return `<div class="lever shsup2"><h4>Fournisseur : ${PRODUCTS[pk].name}</h4><div class="shscs">${cardM}${cards}</div><small>Un clic relie ce rayon au fournisseur. Ta propre production passe toujours en premier ; un achat ne complète que le manque.</small></div>`;
+}
+function fcOut(pk) { let s = 0; eachBiz(b => { if (b.prod === pk && FLEVEL[b.t]) s += b.out || 0; }); return s; }
 function shopTop(c) {
   const N = slotsN(c); if (!(bPick >= 0 && bPick < N)) bPick = 0;
   const n = slotKeysOf(c).filter(Boolean).length;
@@ -15973,10 +16052,19 @@ function shopAct(c, a) {   // actions de la fiche magasin ; renvoie true si l'ac
   const N = slotsN(c), mat = () => { c.slots = slotKeysOf(c).slice(0, N); return c.slots; };
   if (a.indexOf('put:') === 0) { const p = a.split(':'), i = +p[1], key = p.slice(2).join(':'), s = mat(), j = s.indexOf(key); if (j >= 0 && j !== i) s[j] = s[i]; s[i] = key; bPick = i; save(); return true; }
   if (a.indexOf('mkput:') === 0) { const p = a.split(':'), i = +p[1], pk = p[2], sel = el('bview').querySelector('select[data-spo="' + pk + '"]'), oid = (sel && sel.value) || shopSpo[pk] || null, snap = slotKeysOf(c).slice(0, N);
-    if (mkBuy(pk, oid, null, true)) { c.slots = snap.slice(); c.slots[i] = pk; bPick = i; say(`${PRODUCTS[pk].name} : achat régulier lancé et mis sur l'emplacement ${i + 1}.`, 'good'); save(); } return true; }
+    if (netActivate(pk, oid)) { c.slots = snap.slice(); c.slots[i] = pk; bPick = i; const o = mkOffers(pk).find(z => z.id === S.prod[pk].buy.id); say(`${PRODUCTS[pk].name} : relié à ${o ? o.name.toLowerCase() : 'un fournisseur'}, en rayon sur l'emplacement ${i + 1}.`, 'good'); save(); } return true; }
+  if (a.indexOf('sup:') === 0) { const p = a.split(':'), pk = p[1], oid = p.slice(2).join(':'), ps = S.prod[pk]; if (!ps) return true;   // passe 102 : changer de fournisseur depuis l'emplacement
+    if (oid === 'make') { if (ps.buy && ps.buy.auto && !ps.res) ps.buy = null; else if (ps.buy) ps.buy = null; say(`${PRODUCTS[pk].name} : achat arrêté, seule ta production alimente le rayon.`, 'info'); }
+    else if (ps.st === 'on' && mkOffers(pk).find(z => z.id === oid)) { ps.buy = { id: oid, qty: netQty(pk), t0: S.day, spent: 0, units: 0, auto: 1 }; mkInv(); }
+    else netActivate(pk, oid); save(); return true; }
   if (a.indexOf('adx:') === 0) { const [, k, m] = a.split(':'); c.adx = c.adx || {}; if (!ADX_M[m]) delete c.adx[k]; else { const o = c.adx[k] || { b: 0 }; c.adx[k] = { m, b: o.b > 0 ? o.b : 2 * adxStep(m) }; } if (!Object.keys(c.adx).length) c.adx = null; return true; }
   if (a.indexOf('adxb:') === 0) { const [, k, d] = a.split(':'), o = c.adx && c.adx[k]; if (o && ADX_M[o.m]) o.b = clamp(o.b + (+d) * adxStep(o.m), 0, 40 * adxStep(o.m)); return true; }
   if (a === 'pvdet') { pvOpen = !pvOpen; return true; }
+  if (a === 'shall') { shAll = !shAll; return true; }
+  if (a.indexOf('clrstk:') === 0) { const pk = a.slice(7), ps = S.prod[pk]; if (ps && ps.stock > 0) { const v = ps.stock * prodPrice(pk) * 0.4; S.cash += v; say(`${PRODUCTS[pk].name} : ${fmt(Math.round(ps.stock))} unités soldées (${money(Math.round(v))}).`, 'info'); ps.stock = 0; ps.inb = []; } save(); return true; }   // passe 102 : « Clear Stock » de CapLab
+  if (a.indexOf('mkmake:') === 0) { const pk = a.slice(7); let f = null; eachBiz(b => { if (!f && FLEVEL[b.t] && b.conn && freeFact(b) && FLEVEL[b.t] >= PRODUCTS[pk].lvl) f = b; }); if (!f) eachBiz(b => { if (!f && FLEVEL[b.t] && b.conn && freeFact(b)) f = b; });
+    if (!f) { say('Aucune usine libre : pose une usine (zone industrielle), elle deviendra un fournisseur de ce rayon.', 'warn'); return true; }
+    if (easyLaunch(f, pk)) { const ps = S.prod[pk]; if (ps.buy) ps.buy.auto = 1; say(`${PRODUCTS[pk].name} : ${TYPES[f.t].name.toLowerCase()} relié au rayon ; l'achat ne complète plus que le manque.`, 'good'); } save(); return true; }
   if (a === 'shopdet') { shopDet = !shopDet; return true; }
   return false;
 }
@@ -20862,7 +20950,7 @@ function eduBrandHTML(pk) {
   <p class="note edform">Valeur de la marque = marge que la marque t'apporte chaque jour (clients en plus et prime de prix) × sa durée de vie moyenne si tu coupes la publicité (demi-vie ÷ ln 2 = ${Math.round(B.tau)} jours).</p>
   <div class="edlearn"><b>Ce que tu apprends</b>${eduLearnBrand(pk, B)}</div>
   <h3>EXPÉRIENCES</h3>
-  <div class="edgrid"><div class="fcard"><h4>Campagne coup de poing</h4><p class="note">${EDU_CAMP_D} jours, ${money(eduCampBud(pk))}/jour (${money(tot)} en tout). La demande monte de +${Math.round(eduCampAmp(pk) * 100)} % en ${EDU_LAG} jours, le capital de marque gagne environ +${Math.round(EDU_CT * bcMkt() * Math.LN2 / BC_HL * EDU_CAMP_D)} points.</p>
+  <div class="edgrid"><div class="fcard"><h4>Campagne coup de poing</h4><p class="note">${EDU_CAMP_D} jours, ${money(tot)} en tout. La demande monte de +${Math.round(eduCampAmp(pk) * 100)} % en ${EDU_LAG} jours, le capital de marque gagne environ +${Math.round(EDU_CT * bcMkt() * Math.LN2 / BC_HL * EDU_CAMP_D)} points.</p>
     ${B.camp ? `<p class="note">${B.camp.on ? 'En cours : jour ' + Math.max(0, S.day - B.camp.d0 + 1) + ' / ' + (B.camp.d1 - B.camp.d0 + 1) + ', demande ×' + f1(B.camp.m) + ', dépensé ' + money(B.camp.sp) + ', capital ' + f1(B.camp.bc0) + ' → ' + f1(B.bc) + '.' : 'Terminée : effet résiduel ×' + f1(B.camp.m) + ' sur la demande, capital ' + f1(B.camp.bc0) + ' → ' + f1(B.bc) + '.'}</p>` : ''}
     <button class="btn" data-edu="camp:${pk}"${why ? ' disabled title="' + why.replace(/"/g, '') + '"' : ''}>Lancer la campagne · ${money(tot)}</button>${why && !(B.camp && B.camp.on) ? '<small class="note">' + why + '</small>' : ''}</div>
   <div class="fcard"><h4>Tout couper</h4><p class="note">${B.cut ? `Publicité coupée depuis ${B.cut.d} j : capital ${f1(B.cut.bc0)} → ${f1(B.bc)} (−${Math.round(B.cut.drop * 100)} %, prévu par la demi-vie : −${Math.round(B.cut.exp * 100)} %).` : `Coupe toute la publicité de ce produit pour observer l'érosion : dans 30 jours le capital tomberait à ${f1(B.bc30)}, dans 90 jours à ${f1(B.bc90)}.`}</p>
