@@ -17,3 +17,11 @@ Source : https://www.capitalismlab.com/ , exploré avec Crawl4AI (103 pages, pro
 2. Notre sélection de fournisseur est une fenêtre séparée ; elle doit être le panneau sous la grille d'emplacements.
 3. Pas de changement de fournisseur en lot ; pas de [Clear Stock] ; pas de mise en place automatique d'une usine/ferme à partir du produit.
 4. Les commerces, usines et fermes ne forment pas un seul réseau d'approvisionnement.
+
+## Captures d'écran fournies par Rémy (références d'interface, non versionnées)
+Dossier de la session : `scratchpad/caplab/refs/` (ref_61 à ref_65). Ce qu'elles montrent :
+- **Guide du fabricant** : menu de gauche permanent (Corporations, Corporate Details, Products, Product Details, Firms, Financials, Persons, Goal, Score, Manufacturer's Guide, Farmer's Guide, Manager's Guide, Cities, Financial Actions, Stock Exchange…) ; arbre des intrants d'un produit (carrosserie, moteur, roues avec quantités par unité et qualité) ; « la qualité est déterminée par : technologie de production 30 % / qualité des matières premières 70 % » ; liste Classe de produit → Type de produit avec une coche quand toutes les matières sont disponibles ; infobulle « glissement de demande » (voiture → voiture électrique, vitesse, max 50 %).
+- **Corporations** : classement de 51 sociétés avec portrait du PDG, trésorerie, chiffre d'affaires annuel, résultat, courbe de résultat opérationnel sur 36 mois ; fiche société : stratégie, bilan, compte de résultat, bourse (cours, capitalisation, PER, dividende), aperçu des établissements (icônes avec compteurs).
+- **Produits** : fiche par produit avec graphique des ventes sur 12 mois, **deux camemberts de parts de marché (production / détail)**, tableau Local / Moyenne pour prix, qualité, marque et la pondération de chaque critère (« Concern » : prix 30 %, qualité 35 %, marque 35 %), note globale ; filtres par société, catégorie, ville.
+- **HUD** : très sobre : trésorerie, valeur nette et date en bas ; minicarte avec sélecteur de ville ; indicateurs macro (inflation, pouvoir d'achat, chômage, PIB, taux) dans un petit bloc replié.
+Leçon d'interface : l'information est dans des fenêtres à onglets que le joueur ouvre lui-même ; la carte reste libre ; la comparaison Local / Moyenne est le cœur de la décision de prix.
