@@ -69,6 +69,10 @@ Petit marché seul près du mall (graine 7001) :
 ## Lot 3 : emplacements d'achat de l'usine
 - `facBuyHTML` : sous « Production actuelle », une grille d'emplacements d'achat (un par intrant : besoin/j, stock, source). Clic = sélection ; dessous, les fournisseurs en cartes (Automatique, ton réseau, groupe, compagnies, négociant, import par le port : prix livré, qualité, délai, offre suffisante ou courte) ; un clic relie (`c.src`). Plus besoin d'ouvrir la vue flottante `#supview` (gardée pour les liens existants : alertes, goulots).
 
+## Lot 4 : changement de fournisseur en lot
+- Produit de rayon : le fournisseur est celui du PRODUIT (stock commun), donc un clic sur un emplacement relie tous les magasins qui le vendent (« Batch – même produit »).
+- Intrant d'usine : bouton « Même source pour mes N autres usines qui achètent X » sous les cartes fournisseurs (`fbatch:`).
+
 ## Tests mis à jour (justification)
 - `t44_mall` : tolérance de la fréquentation enregistrée du pôle 0,2 % → 1 % (mesuré 0,6 %) : des commerces approvisionnés dès la pose font grandir la ville plus vite entre deux rafraîchissements de la fréquentation ; le bonus lui-même (×1,1, ×1,2) est inchangé et vérifié.
 - Texte « salaire X $/j » du panneau Pourquoi la demande (domaine Économie, une ligne) : affiché en $/mois, sinon t01 (aucun montant par jour) échoue maintenant que des produits sont lancés dès le départ.
@@ -78,5 +82,6 @@ Petit marché seul près du mall (graine 7001) :
 - **Usines et fermes en grille d'emplacements** (point 3) : le sélecteur de fournisseur des intrants est encore la vue `#supview`. Il faut la ramener sous la grille de l'usine, comme dans la fiche magasin. Côté Interface, il faudra peut-être se coordonner.
 - **Niveaux d'usine** : ils sont encore une barrière (une petite usine ne fait pas un produit de niveau 2). Proposition : niveau = débit (×0,5 par niveau manquant) et non verrou. C'est à faire (`runsOn`, `recipeItems`, `sourceInfo`, `assignRecipe`).
 - **Farine en sachet** vendue en magasin : la farine existe comme bien (moulin, port), mais pas comme produit de rayon. L'ajouter demande une image : commande à passer dans RETOURS.md (Visuels).
-- Batch « même fournisseur » et coche ou panneau stop dans le catalogue : à reprendre après le parcours principal.
+- Batch « même fournisseur » (tous ceux qui achètent chez X, quel que soit le produit) : non fait ; la coche « matière disponible » est implicite (tout s'importe au port), le panneau stop n'a plus lieu d'être.
+- Surproduction : une petite usine de poulet sort ≈ 3 000 u/j pour 30 ventes/j d'un petit marché ; le surplus part à l'export (domaine Économie : congestion des produits finis, G15).
 - Comparaison Local / Moyenne dans la fiche d'emplacement : le tableau existe (`prodView`, repliable) ; il reste à l'aligner sur les captures de référence (ref_61 à ref_65).

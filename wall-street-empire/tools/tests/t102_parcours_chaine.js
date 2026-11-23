@@ -94,6 +94,8 @@ exports.run = async (t, L) => {
     if (fb.port) { await pg.click('#bview .fbuy .shsc[data-act="fsrc:flour:port"]'); await sleep(150); }
     const fs = await pg.evaluate(p => { const W = window.WSE, S = W.S, c = S.grid[p.y * W.N + p.x], j = S.grid[p.jy * W.N + p.jx]; W.launchProduct('jeans'); for (let i = 0; i < 30 && S.prod.jeans.st !== 'on'; i++) W.step(); W.step(); W.step(); return { src: c.src && c.src.flour, jOut: j.out || 0, jst: S.prod.jeans.st }; }, f);
     t.check('(d) usine : emplacement d\'achat « Farine » et fournisseur « Import par le port » choisi au même endroit', fb.slots >= 1 && fb.port && fs.src === 'port', JSON.stringify(Object.assign(fb, fs)));
+    const bt = await pg.evaluate(p => { const W = window.WSE, S = W.S, T = window.T, f2 = T.inP('f1'); f2.prod = 'bread'; f2.src = {}; window.WSE.closeBuilding && window.WSE.closeBuilding(); window.WSE.openBuilding(p.x, p.y); const b = document.querySelector('#bview .fbuy [data-act="fbatch:flour"]'); if (b) b.click(); return { btn: !!b, src: f2.src && f2.src.flour }; }, f);
+    t.check('(d) changement de fournisseur en lot : « même source pour mes autres usines » relie aussi la boulangerie au port', bt.btn && bt.src === 'port', JSON.stringify(bt));
     t.check('niveau d\'usine = capacité : une petite usine fabrique des jeans (produit d\'usine moyenne), à débit réduit', fs.jst === 'on' && fs.jOut > 0, JSON.stringify(fs));
     t.check('(d) 0 erreur de page', pg.errs.length === 0, pg.errs.slice(0, 3).join(' | '));
     await pg.context().close();

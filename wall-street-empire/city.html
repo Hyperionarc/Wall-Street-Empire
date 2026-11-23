@@ -12344,6 +12344,7 @@ function bAct(a) {
   else if (a.indexOf('recipe:') === 0) { c.prod = a.slice(7) || null; c.src = {}; if (c.prod) autoSource(c); }
   else if (a === 'autosrc') { autoSource(c); tel('sc_autosource', { t: c.t }); }
   else if (a.indexOf('fpick:') === 0) { fPick = a.slice(6); }
+  else if (a.indexOf('fbatch:') === 0) { const g = a.slice(7), m = (c.src && c.src[g]) || 'auto'; let n = 0; eachBiz(b => { const rb = b !== c && FLEVEL[b.t] && recOf(b); if (rb && rb.in[g]) { b.src = b.src || {}; b.src[g] = m; if (b._autoBuy) delete b._autoBuy[g]; n++; } }); say(`${gName(g)} : ${n} usine(s) reliée(s) à la même source.`, 'good'); }   // passe 102 : changement de fournisseur en lot (« Batch » de CapLab, même produit)
   else if (a.indexOf('fsrc:') === 0) { const p = a.split(':'), g = p[1], id = p.slice(2).join(':'); c.src = c.src || {}; c.src[g] = id; if (c._autoBuy) delete c._autoBuy[g]; try { updInputQ(c.prod); } catch (e) {} say(`${gName(g)} : source « ${id === 'auto' ? 'automatique' : id === 'port' ? 'import par le port' : id === 'local' ? 'ton réseau' : 'fournisseur choisi'} ».`, 'info'); }   // passe 102 : fournisseur choisi sur l'emplacement d'achat
   else if (a.indexOf('make:') === 0) { const n = assignRecipe(a.slice(5), 1); say(n ? 'Usine affectée à ' + RECIPES[a.slice(5)].name.toLowerCase() + '.' : 'Aucune usine libre : construis-en une.', n ? 'good' : 'warn'); }
   else if (a.indexOf('info:') === 0) { const [nm, have] = a.slice(5).split('|'); say((have === '1' ? 'Agrandis ou ajoute : ' : 'Construis : ') + nm.toLowerCase() + '.', 'info'); }
@@ -15450,7 +15451,7 @@ function facBuyHTML(c) {
   const card = (id, name, k) => `<button class="shsc${cur === id || (id === 'port' && cur === 'import') ? ' on' : ''}" data-act="fsrc:${g}:${id}" aria-pressed="${cur === id}"><b>${name}</b><span class="shk">${k}</span></button>`;
   const auto = card('auto', 'Automatique', `<span>Ordre<b>ta production, puis le moins cher</b></span>`);
   const lst = cards.map(x => card(x.id === 'import' ? 'port' : x.id, x.id === 'import' ? 'Import par le port' : x.name, `<span>Livré<b>${f2s(x.o.total)} $</b></span><span>Qualité<b>${x.o.q}</b></span><span>Délai<b>${x.delay} j</b></span>${x.s && recOf(c) ? `<span>Offre<b>${x.room ? 'suffisante' : 'courte'}</b></span>` : ''}`)).join('');
-  return `<div class="lever wide fbuy"><h4>Achats · ${ins.length} intrant${ins.length > 1 ? 's' : ''} <small>(source de ${gName(g)} : ${lab(cur)})</small></h4><div class="shgrid">${slots}</div><div class="shscs">${auto}${lst}</div></div>`;
+  return `<div class="lever wide fbuy"><h4>Achats · ${ins.length} intrant${ins.length > 1 ? 's' : ''} <small>(source de ${gName(g)} : ${lab(cur)})</small></h4><div class="shgrid">${slots}</div><div class="shscs">${auto}${lst}</div>${(() => { let n = 0; eachBiz(b => { const rb = b !== c && FLEVEL[b.t] && recOf(b); if (rb && rb.in[g] && ((b.src && b.src[g]) || 'auto') !== cur) n++; }); return n ? `<button class="btn sec" data-act="fbatch:${g}" style="min-height:44px">Même source pour mes ${n} autre${n > 1 ? 's' : ''} usine${n > 1 ? 's' : ''} qui achète${n > 1 ? 'nt' : ''} ${gName(g).toLowerCase()}</button>` : ''; })()}</div>`;
 }
 function prodHeader(c) {
   const items = recipeItems(c), cur = recOf(c), key = cur ? cur.out : '', it = items.find(i => i.key === key);
