@@ -81,3 +81,13 @@ Le mécanisme est générique : un produit retiré est déclaré dans `PROD_RETI
 - un message au démarrage annonce le retrait et le montant crédité. Migration pure (aucun tirage aléatoire) et idempotente.
 
 Pour appliquer une proposition : retirer le produit des tables (`P25` ou `PRODUCTS`, `PROD_W`, `NECESS`, `DEMAND_PC`, `MEGA_OF`, `OBSO`, `PROD_TECH`/`TECH_SHARE`, `FAM`, `PRODUCT_FAMILY`, `GLY`), l'ajouter à `PROD_RETIRED` avec sa recette et son remplaçant, puis mettre à jour les tests cités et les documents (`AUDIT_PRODUITS.md`, `CATALOGUE.*`, `RETOURS.md`). Test de non-régression : `tools/tests/t78_gamme.js` (fixture réelle `fixtures/save_v8_avec_cornchips.json`, produite par l'ancien build).
+
+## 5. Gamme disponible au jour 1 (passe 102, décision de Rémy)
+
+| Disponible au départ (réseau : grossiste, port, concurrents) | À constituer par les joueurs |
+|---|---|
+| Pain, pâtes, œufs, poulet, viande de bœuf, viande de porc, agneau, charcuterie, lait, yaourts, fromages, huile de table | Médicaments (R&D obligatoire, brevets), électronique, électroménager |
+| Savon, dentifrice, shampooing, couches et hygiène | Mode travaillée (jeans, cuir, sacs), luxe, voitures, meubles |
+| T-shirts, chaussettes | Jouets, boissons, confiseries, vins et spiritueux, livres… |
+
+Un bien « à constituer » apparaît sur le marché (grossiste, port, concurrents) dès qu'un producteur existe (tes usines, une IA qui le fabrique), en marché mûr, ou, pour un bien de base non médical, quand la région dépasse 250 000 habitants (`NET_START`, `netAvail` dans `game.template.html`). Tous les biens de base non médicaux se fabriquent sans R&D.
