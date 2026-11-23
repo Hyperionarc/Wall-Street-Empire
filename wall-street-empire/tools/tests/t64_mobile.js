@@ -54,15 +54,16 @@ exports.run = async (t, L) => {
   await pg.evaluate(() => { const W = window.WSE; window._uiAct = performance.now(); W.say('Doublon', 'bad'); W.say('Doublon', 'bad'); });
   const dup = await pg.evaluate(() => document.querySelectorAll('#feed .msg').length);
   t.check('un message identique n\'est pas empilé deux fois', dup === 1, `${dup}`);
-  // tableau de bord dépliable
-  await pg.tap2('#hudx'); const mx = await pg.evaluate(MEAS); await shot(pg, 'mob_deplie');
-  t.check('bouton ▾ : le tableau de bord complet se déplie (6 indicateurs, calque, reset)', mx.chips === 6 && await pg.evaluate(() => !!document.getElementById('lyr').offsetParent && !!document.getElementById('rst').offsetParent), `${mx.chips} indicateurs, classement ${mx.rank}`);
-  await pg.tap2('#hudx'); const mc = await pg.evaluate(MEAS);
-  t.check('second appui : retour au HUD compact, carte ≥ 60 %', mc.chips === 2 && !mc.rank && mc.frac >= 0.6, `${mc.chips} indicateurs, carte ${Math.round(mc.frac * 100)} %`);
+  // passe 103 : le bouton ▾ (tableau de bord déplié) et le bouton « Menu » du HUD sont remplacés par le menu vertical (tiroir sur téléphone, bouton en bas à gauche) :
+  // les indicateurs sont dans Menu > Ville et économie, le calque et « Nouvelle ville » dans Menu > Réglages et partie (voir t103_menu_vertical).
+  await pg.tap2('#vnMob'); await pg.tap2('#vnav [data-vn="city"]'); const mx = await pg.evaluate(() => ({ n: document.querySelectorAll('#ecoBox .eco').length, mac: !!document.getElementById('vnMac') })); await shot(pg, 'mob_deplie');
+  t.check('Menu > Ville et économie : le tableau de bord complet (6 indicateurs et macroéconomie) ; calque et nouvelle ville dans Menu > Réglages', mx.n === 6 && mx.mac && await pg.evaluate(() => !!document.querySelector('#panel [data-sec="game"] #lyr') && !!document.getElementById('vnNew')), JSON.stringify(mx));
+  await pg.tap2('#pclose'); const mc = await pg.evaluate(MEAS);
+  t.check('fermeture : retour au HUD compact, carte ≥ 60 %', mc.chips === 2 && !mc.rank && mc.frac >= 0.6, `${mc.chips} indicateurs, carte ${Math.round(mc.frac * 100)} %`);
   // vues plein écran : bouton Fermer évident (≥ 44 px, en haut), pas de débordement
-  const views = [['Menu (bureau du PDG)', '#pn', '#pclose'], ['vue Produits', '#pv', '#pvclose']];
+  const views = [['Menu (Finances)', ['#vnMob', '#vnav [data-vn="fin"]'], '#pclose'], ['vue Produits', ['#vnMob', '#vnav [data-vn="prod"]', '#vnPcards [data-vact="pview"]'], '#pvclose']];
   for (const [n, open, close] of views) {
-    await pg.tap2(open); const c = await closeSize(pg, close); await shot(pg, 'mob_' + close.slice(1));
+    for (const o of open) await pg.tap2(o); const c = await closeSize(pg, close); await shot(pg, 'mob_' + close.slice(1));
     t.check(`390×844 : ${n} en plein écran, bouton Fermer ≥ 44 px en haut à droite, sans débordement`, c && c.w >= 44 && c.h >= 44 && c.top < 80 && c.right < 40 && c.sw <= c.W, JSON.stringify(c));
     await pg.tap2(close);
   }
@@ -101,7 +102,7 @@ exports.run = async (t, L) => {
     const q = await pg.evaluate(MEAS); await shot(pg, (w > h ? 'paysage' : 'tablette') + '_carte');
     t.range(`${n} : hauteur de carte visible`, q.frac * 100, lo, 100, ' %', 0);
     t.check(`${n} : pas de débordement horizontal, cibles tactiles ≥ 44 px, notifications hors du centre et non bloquantes`, q.sw <= q.W && q.small.length === 0 && q.msgs.every(x => x.pe === 'none' && (x.t > q.H * 0.6 || x.b < q.H * 0.35)), `${q.sw}/${q.W} · ${q.small.slice(0, 4).join(', ')} · ${JSON.stringify(q.msgs.map(x => [Math.round(x.t), Math.round(x.b)]))}`);
-    await pg.tap2('#pn'); const c = await closeSize(pg, '#pclose'); await pg.tap2('#pclose');
+    if (await pg.evaluate(() => !!document.getElementById('vnMob').offsetParent)) await pg.tap2('#vnMob'); await pg.tap2('#vnav [data-vn="fin"]'); const c = await closeSize(pg, '#pclose'); await pg.tap2('#pclose');   // passe 103 : menu vertical
     t.check(`${n} : Menu ouvert, bouton Fermer ≥ 44 px, sans débordement, aucune erreur JS`, c && c.w >= 44 && c.h >= 44 && c.sw <= c.W && pg.errs.length === 0, JSON.stringify(c) + ' ' + pg.errs.slice(0, 1).join(''));
     await pg.context().close();
   }

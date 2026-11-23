@@ -53,8 +53,8 @@ exports.run = async (t, L) => {
   const pt = await ev(([x, y]) => window.WSE.tileToScreen(x, y), sp); await pg.mouse.click(pt.x, pt.y); await pg.waitForTimeout(400); if (await vis('#selTag [data-st="open"]')) { await pg.click('#selTag [data-st="open"]'); await pg.waitForTimeout(300); }
   t.check('étape 2 : ouvrir le commerce (Main, clic, « Ouvrir » sur l\'étiquette) valide l\'étape', (await tu()) === 3, 'étape ' + (await tu()));
   await ev(() => window.WSE.closeBuilding()); await pg.waitForTimeout(600);
-  const hl3 = await ev(() => { const p = document.querySelector('.pulse'); return p ? p.id : null; });
-  t.check('étape 3 : la flèche désigne le bouton Menu', hl3 === 'pn', String(hl3));
+  const hl3 = await ev(() => { const p = document.querySelector('.pulse'); return p ? (p.dataset.vn ? 'vn:' + p.dataset.vn : p.id) : null; });
+  t.check('étape 3 : la flèche désigne l\'entrée Finances du menu vertical (passe 103 : le bouton Menu est remplacé par le rail)', hl3 === 'vn:fin', String(hl3));
   for (let i = 0; i < 4 && (await tu()) === 3; i++) await clickPulse();
   t.check('étape 3 : Menu > Finances > Emprunter valide l\'étape', (await tu()) === 4 && (await ev(() => window.WSE.S.loan)) > 0, 'étape ' + (await tu()));
   await pg.click('#pclose'); await pg.waitForTimeout(200);
@@ -64,7 +64,7 @@ exports.run = async (t, L) => {
   t.check('étape 5 : texte clair et bouton « Compris » (panneau d\'aide « ? »)', /Tutoriel 5\/5/.test(texte) && await vis('#helpp [data-hp="ok"]'), '');
   await pg.click('#helpp [data-hp="ok"]'); await pg.waitForTimeout(200);
   t.check('fin du tutoriel : plus de ligne de tutoriel', (await tu()) === 0 && !(await ev(() => /Tutoriel \d\/5/.test(document.getElementById('objbar').innerText))), '');
-  const blocks = await ev(() => { const r = document.getElementById('helpp').getBoundingClientRect(); return r.width <= 420 && r.left > innerWidth / 2; });
+  const blocks = await ev(() => { const r = document.getElementById('helpp').getBoundingClientRect(); return r.width <= 420 && (r.left > innerWidth / 2 || r.right < innerWidth / 2); });   // passe 103 : les petits panneaux s'ancrent à droite du menu vertical (côté gauche)
   t.check('le tutoriel est dans un petit panneau « ? » sur le côté (ne cache pas le centre de la carte)', blocks, '');   // passe 99 : plus de bloc permanent
   await ev(() => window.WSE.ui.xpOpen('helpp', false));
 
