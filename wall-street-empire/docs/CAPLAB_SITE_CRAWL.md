@@ -25,3 +25,25 @@ Dossier de la session : `scratchpad/caplab/refs/` (ref_61 à ref_65). Ce qu'elle
 - **Produits** : fiche par produit avec graphique des ventes sur 12 mois, **deux camemberts de parts de marché (production / détail)**, tableau Local / Moyenne pour prix, qualité, marque et la pondération de chaque critère (« Concern » : prix 30 %, qualité 35 %, marque 35 %), note globale ; filtres par société, catégorie, ville.
 - **HUD** : très sobre : trésorerie, valeur nette et date en bas ; minicarte avec sélecteur de ville ; indicateurs macro (inflation, pouvoir d'achat, chômage, PIB, taux) dans un petit bloc replié.
 Leçon d'interface : l'information est dans des fenêtres à onglets que le joueur ouvre lui-même ; la carte reste libre ; la comparaison Local / Moyenne est le cœur de la décision de prix.
+
+## Ce qui rend la supply chain « challenging » dans Capitalism Lab (synthèse, 23/11/2026)
+Sources : pages officielles aspirées (guide du débutant, simulation du commerce de détail, entrepôts, outils de gestion de la chaîne, liens d'approvisionnement cassés, équilibrage), recherches sur le web (le wiki japonais de Capitalism 2 sur la marque a répondu 403 : non lu ; ne rien affirmer de ses formules).
+1. **Goulots diagnostiqués par des barres offre/demande** unité par unité ; il faut attendre quelques jours (stocks qui se remplissent) avant de conclure ; une usine trop grande ou un magasin qui vend trop lentement se lisent différemment.
+2. **Capacité par unité et niveau** (formation) : chaque unité (achat, vente, fabrication) a un niveau ; former coûte (sauf niveau 9) ; un commerce a des unités d'achat et de vente très formées.
+3. **Fret** : coût réel par intrant selon la distance (affiché dans l'unité de vente et pour chaque intrant d'usine) ; il faut regrouper usines et fermes, près d'un port ; magasins dans les zones de trafic même si le terrain est cher.
+4. **Qualité en cascade** : la qualité d'un produit dépend de la technologie de production et de la qualité des matières ; un maillon médiocre dégrade tout l'aval.
+5. **Dépendance aux ports et aux concurrents** : bons pour démarrer, mais la qualité des ports baisse avec la difficulté et ils peuvent cesser de fournir ; les concurrents offrent parfois mieux, mais un fournisseur qui disparaît laisse des **liens cassés** à réparer (outil de redirection en lot).
+6. **Récoltes par rafales** : les produits agricoles arrivent par à-coups alors que la demande est continue ; les **entrepôts** tamponnent (capacité, plusieurs sources), ou servent de position spéculative.
+7. **Trafic et chaîne de magasins** : indice de trafic de 0 à 100 par emplacement ; bonus de demande de détail (étoiles) qui amplifie le trafic ; un réseau de magasins accroît la notoriété de toute la chaîne.
+8. **Marque** : note de marque = notoriété + fidélité ; la notoriété (part de la population qui connaît la marque) précède l'essai puis la fidélité ; l'importance de la marque varie selon le produit (forte pour cosmétiques et médicaments, faible pour l'agricole) (avis de joueurs, non officiel).
+9. **Index de nécessité** : produits de première nécessité achetés quels que soient les salaires ; produits de luxe réservés aux villes riches.
+10. **Surproduction** : un intrant très polyvalent oblige à étendre vers les catégories voisines ou à vendre le surplus aux concurrents.
+
+## Pistes pour retrouver ce « challenge » dans notre jeu (à arbitrer par les responsables Chaîne & Commerce et Économie)
+- Ruptures de stock dues à un service achats sous-dimensionné (en cours).
+- Fournisseurs concurrents ou ports qui peuvent faillir ou se dégrader : liens cassés, alerte discrète, bouton de réparation en lot.
+- Délais et fret qui comptent vraiment dans le prix livré et le choix du fournisseur.
+- Entrepôts comme tampon des récoltes saisonnières et position spéculative.
+- Qualité en cascade (matières → produit → note) qui a un effet visible sur les ventes et la marque.
+- Notoriété du magasin qui se construit (trafic, chaîne, disponibilité), pas seulement par la publicité.
+- Difficulté (1–8) qui joue sur la richesse du port et la réactivité des concurrents, pas seulement sur le comportement des IA.
