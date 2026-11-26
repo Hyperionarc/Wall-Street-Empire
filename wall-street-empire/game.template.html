@@ -685,6 +685,7 @@ body.vopen #feed{z-index:9}
 #fabview h3{margin:0 0 6px;font-size:17px}
 #fabview .frow{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.07)}
 #fabview .ftot{display:flex;justify-content:space-between;font-weight:800;font-size:15px;padding:8px 0}
+#fabview .fscopes{display:grid;gap:4px;margin:6px 0}#fabview .fscope{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border:1px solid rgba(255,255,255,.14);border-radius:8px;cursor:pointer;font-size:13px}#fabview .fscope.on{border-color:var(--gold,#f2b84b);background:rgba(242,184,75,.1)}#fabview .fscope small{display:block;opacity:.75;font-size:11.5px}
 #fabview .fwarn{color:var(--orange);font-size:13px;margin:6px 0}
 #fabview .fbtns{display:flex;gap:8px;margin-top:8px}#fabview .fbtns .btn{flex:1;min-height:42px}
 #shockbar{position:absolute;z-index:10;left:50%;top:calc(var(--hud-h) + 2px);transform:translateX(-50%);padding:4px 12px;border-radius:0 0 10px 10px;background:var(--panel);border:1px solid var(--orange);border-top:0;font-size:12px;color:var(--orange);white-space:nowrap;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis}
@@ -734,6 +735,7 @@ body.vopen #feed{z-index:9}
 .gqual b{font-weight:700;display:block;margin-bottom:4px;color:#1646a8}
 .gqual .qr{display:flex;justify-content:space-between;gap:8px;padding:1px 0}
 .gqual .qb{height:5px;background:#cfd6ee;border-radius:3px;overflow:hidden;margin:1px 0 4px}.gqual .qb i{display:block;height:100%;background:#2f7ee8}
+.gmast .gtree{max-height:220px;overflow-y:auto;margin:4px 0}.gmast .gtr{display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid #e3e7f5}.gmast .gtr small{opacity:.65;margin-left:4px}.gmast .gok{display:inline;color:#1a8a4a;margin:0}.gmast .gport{display:inline;color:#b0700a;margin:0}.gmast.glit{border-color:#1a8a4a;box-shadow:0 0 0 3px rgba(26,138,74,.25),0 0 18px rgba(46,200,110,.45)}.gmast .gio button{font-size:12px}
 .gio{display:flex;gap:10px;justify-content:center;margin-top:10px}
 .gio button{padding:3px 22px;background:#ffe08a;color:#161a2e;border:2px solid #6fa0ff;font-weight:700;font-size:12px;border-radius:3px;opacity:.7}
 .gio button[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px #fff}
@@ -8919,7 +8921,10 @@ function xDrawDrag() {   // rectangle de sélection, installations retenues (or)
   xDrag.plan.bad.forEach(j => poly(tilePts(iso(j % N, (j / N) | 0), 0.8), 'rgba(255,90,95,.22)', null));
 }
 // Pose par le joueur (clic sur la carte) : un magasin posé a ses emplacements VIDES ; c'est au joueur de choisir (retour de Rémy, passe 102 bis ; « Remplissage automatique » reste un bouton)
-function playerPlace(x, y, key) { const ok = place(x, y, key); if (ok && TYPES[key] && TYPES[key].ret && key !== 'immo') { const b = S.grid[idx(x, y)]; if (b && b.t === key) b.slots = Array(slotsN(b)).fill(null); } return ok; }
+function playerPlace(x, y, key) { const st = S.stats || {}, free0 = Math.max(0, (st.workforce || 0) - (st.jobs || 0)); const ok = place(x, y, key); if (ok && TYPES[key] && TYPES[key].ret && key !== 'immo') { const b = S.grid[idx(x, y)]; if (b && b.t === key) b.slots = Array(slotsN(b)).fill(null); }
+  // Jouabilité (audit agriculteur, départ de zéro) : dans un bourg, une ferme ou une usine qui cherche plus d'employés qu'il n'y a de chômeurs tourne au ralenti et perd de l'argent sans que rien ne le dise à la pose
+  if (ok && TYPES[key] && TYPES[key].jobs && st.workforce > 0) { const b = S.grid[idx(x, y)], need = b && b.t === key ? jobsOf(b) : 0; if (need > 0.6 * free0 + 1) say(`Main-d'œuvre : ${TYPES[key].name.toLowerCase()} cherche ${fmt(Math.round(need))} employés, la ville n'a que ${fmt(Math.round(free0))} personnes sans emploi : il tournera au ralenti tant que la ville n'a pas grandi (logements, commerces).`, 'warn'); }
+  return ok; }
 function place(x, y, key) {
   if (!inb(x, y)) return false;
   if (XAUTO[key] != null) return xPlaceOne(x, y, XAUTO[key]);
@@ -9113,7 +9118,8 @@ function say(text, kind) {
   try { if (typeof S !== 'undefined' && S) { (S._sayBuf = S._sayBuf || []).push(String(text).slice(0, 90)); if (S._sayBuf.length > 4) S._sayBuf.shift(); } } catch (e) {}
   // dépêches : plus rien sur l'écran d'action (décision de Rémy). Tout va au journal (liste en mémoire, lue par le panneau Journal) ; seules les erreurs d'action brèves (kind 'bad') s'affichent ~2 s.
   try { jrPush(text, kind); } catch (e) {}   // journal (passe 99) : liste datée et classée, sauvegardée (S.jr, 200 dernières entrées)
-  if (kind !== 'bad' || !(performance.now() - (window._uiAct || -1e9) < 1500)) return;   // passe 99 : seule une erreur qui suit un geste du joueur (clic, touche) s'affiche ; un événement « grave » sans geste part au journal
+  const inG = kind === 'warn' && typeof window !== 'undefined' && window.event && /click|pointer|key|change/.test(window.event.type);   // Jouabilité : un refus « warn » émis PENDANT le geste du joueur (son clic) s'affiche aussi, sinon le bouton paraît inerte ; les « warn » de la simulation restent au journal
+  if ((kind !== 'bad' && !inG) || !(performance.now() - (window._uiAct || -1e9) < 1500)) return;   // passe 99 : seule une erreur qui suit un geste du joueur (clic, touche) s'affiche ; un événement « grave » sans geste part au journal
   // passe 64 : file courte. Téléphone : une seule notification (4,5 s) ; bureau : deux au plus (6,5 s) ; un message identique déjà affiché est prolongé au lieu d'être répété
   const cm = isCmp(), life = 2200, last = feed.lastElementChild;
   if (last && last.textContent === String(text) && !last.classList.contains('fade')) { clearTimeout(last._t); last._t = setTimeout(() => { last.classList.add('fade'); setTimeout(() => last.remove(), 520); }, life); return; }
@@ -9362,6 +9368,36 @@ function openGuide(k) { closeViews('g'); if (k) gSel = k; gStack = []; gMode = '
 // passe 103 : coche du Guide du fabricant (comme Capitalism Lab) quand toutes les matières d'un produit sont disponibles : en stock ou produites par un de tes établissements (relevé une fois par jour)
 function gReady(k) { const C = window._gRd && window._gRd.d === S.day ? window._gRd : (window._gRd = { d: S.day, m: {} }); if (C.m[k] != null) return C.m[k]; const ins = Object.keys(gInputs(k) || {}); let ok = ins.length > 0; for (const g of ins) { if (!((gStock(g) || 0) > 0 || hasSource(g))) { ok = false; break; } } return (C.m[k] = ok); }
 function closeGuide() { el('gview').hidden = true; gHtml = ''; }
+// ===== Responsable Jouabilité : BOUCLE DE MAÎTRISE dans le Guide du fabricant (principe emprunté : arbre des intrants et coche « tout est disponible » ;
+// conçu en propre : arbre complet en cascade avec quantités PAR UNITÉ, source de chaque maillon (chez toi / port, avec la majoration de l'import),
+// chaîne qui « s'allume » quand chaque maillon est à toi, devis « Construire cette chaîne » (producePlan, rien n'est dépensé avant confirmation) et diagnostic par maillon).
+function gTree(k) {
+  const rows = [], walk = (g, q, d) => {
+    if (d > 7 || rows.length > 48) return; const R = RECIPES[g], own = hasSource(g), T2 = !R && RAW_SRC[g] && TYPES[RAW_SRC[g]];
+    rows.push({ g, q, d, own, kind: R || g === 'ingot' ? 'comp' : 'raw', by: R ? (LVL_NAME[R.lvl] || 'usine') : g === 'ingot' ? TYPES.foundry.name.toLowerCase() : T2 ? T2.name.toLowerCase() : 'import' });
+    if (R) Object.keys(R.in).forEach(i => walk(i, q * R.in[i] / R.out, d + 1));
+    else if (g === 'ingot') { const F = TYPES.foundry.rec; Object.keys(F.in).forEach(i => walk(i, q * F.in[i] / F.out.ingot, d + 1)); }
+    else if (T2 && T2.live) walk('wheat', (g === T2.ext ? q : q / ((T2.co && T2.co[g]) || 1)) * T2.live.feed, d + 1);   // l'élevage mange du blé
+  };
+  const inp = gInputs(k), out = gOut(k) || 1; Object.keys(inp).forEach(g => walk(g, inp[g] / out, 1));
+  return rows;
+}
+// chaîne « de bout en bout » : produit fabriqué chez toi et chaque maillon de son arbre produit par tes établissements
+function gChainOwn(k) { const rows = gTree(k), own = rows.filter(r => r.own).length; return { rows, own, tot: rows.length, full: rows.length > 0 && own === rows.length }; }
+function gMadeHere(k) { return PRODUCTS[k] ? S.prod[k].st === 'on' && facCounts(k).mine > 0 : RECIPES[k] ? hasSource(k) : false; }
+function gMasteryHTML(k) {
+  if (!PRODUCTS[k] && !RECIPES[k]) return '';
+  const C = gChainOwn(k), made = gMadeHere(k), lit = C.full && made, imp = impRate((S.stats && S.stats.cn && S.stats.cn.port) || 0);
+  const pctOwn = C.tot ? C.own / C.tot : 0;
+  const row = r => `<div class="gtr${r.own ? ' own' : ''}" style="padding-left:${6 + 12 * (r.d - 1)}px"><span>${r.own ? '<b class="gok" aria-label="chez toi">✓</b>' : '<b class="gport" aria-label="au port">⚓</b>'} ${gName(r.g)} <small>${r.by}</small></span><span>${f1(r.q)} / u · ${r.own ? 'chez toi' : 'port +' + Math.round((imp - 1) * 100) + ' %'}</span></div>`;
+  const head = lit ? 'Chaîne complète : chaque maillon est à toi' : made ? `Fabriqué chez toi · ${C.own} / ${C.tot} maillons à toi` : `${C.own} / ${C.tot} maillons à toi · pas encore fabriqué`;
+  const pr = PRODUCTS[k], resale = pr && netAvail(k);
+  return `<div class="gqual gmast${lit ? ' glit' : ''}"><b>Ta chaîne · ${head}</b><div class="qb"><i style="width:${Math.round(pctOwn * 100)}%;background:${lit ? '#1a8a4a' : '#e0a21a'}"></i></div>
+    <div class="gtree">${C.rows.map(row).join('') || '<div class="gtr"><span>Aucun intrant</span></div>'}</div>
+    <p class="note" style="color:#3a4270;margin:4px 0">✓ produit par tes établissements · ⚓ acheté au port (toujours disponible, plus cher). Qualité : 30 % technologie, 70 % matières : un maillon médiocre dégrade tout l'aval.${resale ? ' Déjà vendable en magasin par le réseau (grossiste, port).' : ''}</p>
+    <div class="gio" style="margin:6px 0 0">${pr ? `<button data-g="build:${k}">${made ? 'Compléter la chaîne · devis' : 'Construire cette chaîne · devis'}</button>` : ''}<button data-g="tree:${k}">Diagnostic par maillon</button></div></div>`;
+}
+
 function renderGuide(force) {
   if (el('gview').hidden) return;
   if (gFarm) { if (force) gHtml = ''; return renderFarm(); }
@@ -9382,7 +9418,7 @@ function renderGuide(force) {
   }
   const crumb = gStack.length ? `<div class="gcrumb">${gStack.map(x => gName(x)).join(' › ')} › <b>${gName(k)}</b></div>` : '';
   const idx2 = items.indexOf(k);
-  const html = `<div class="ghead"><b>GUIDE DU FABRICANT</b><span class="gnav"><button class="ibtn" data-g="prev" aria-label="Produit précédent">◀</button><button class="ibtn" data-g="next" aria-label="Produit suivant">▶</button></span>${gStack.length ? '<button class="ibtn" data-g="back">Retour</button>' : ''}<button class="ibtn" data-g="farm">Guide de l'agriculteur</button><button class="ibtn" data-g="close">Fermer</button></div><div class="gbody"><div class="glists">${clsL}${typL}</div><div class="gmain">${crumb}${diag}${msHTML(k)}<div class="gio"><button data-g="mode:in" aria-pressed="${gMode === 'in'}">ENTRÉES</button><button data-g="mode:out" aria-pressed="${gMode === 'out'}">SORTIES</button></div><p class="note" style="color:#cfe0ff;margin-top:10px;text-align:center">${gMode === 'in' ? 'Ce qu\'il faut pour fabriquer ce produit.' : 'Où ce produit est utilisé.'} Qualités indicatives : elles montent avec tes améliorations de qualité et tes technologies.</p></div></div>`;
+  const html = `<div class="ghead"><b>GUIDE DU FABRICANT</b><span class="gnav"><button class="ibtn" data-g="prev" aria-label="Produit précédent">◀</button><button class="ibtn" data-g="next" aria-label="Produit suivant">▶</button></span>${gStack.length ? '<button class="ibtn" data-g="back">Retour</button>' : ''}<button class="ibtn" data-g="farm">Guide de l'agriculteur</button><button class="ibtn" data-g="close">Fermer</button></div><div class="gbody"><div class="glists">${clsL}${typL}</div><div class="gmain">${crumb}${diag}${gMode === 'in' ? gMasteryHTML(k) : ''}${msHTML(k)}<div class="gio"><button data-g="mode:in" aria-pressed="${gMode === 'in'}">ENTRÉES</button><button data-g="mode:out" aria-pressed="${gMode === 'out'}">SORTIES</button></div><p class="note" style="color:#cfe0ff;margin-top:10px;text-align:center">${gMode === 'in' ? 'Ce qu\'il faut pour fabriquer ce produit.' : 'Où ce produit est utilisé.'} Qualités indicatives : elles montent avec tes améliorations de qualité et tes technologies.</p></div></div>`;
   if (!force && html === gHtml) return;
   const lt = el('gview').querySelector('.glists') ? el('gview').querySelector('.glists').scrollTop : 0;
   el('gview').innerHTML = html; gHtml = html;
@@ -9395,6 +9431,8 @@ el('gview').addEventListener('click', e => {
   else if (m === 'cls') { const it = gItems(v); gSel = it[0]; gStack = []; }
   else if (m === 'sel') { gSel = v; gStack = []; }
   else if (m === 'mode') gMode = v;
+  else if (m === 'build') { closeGuide(); askProduce(v); return; }
+  else if (m === 'tree') { closeGuide(); grpAct('tree:' + v); return; }
   else if (m === 'more') { gStack.push(gSel); gSel = v; gMode = 'in'; }
   else if (a === 'back') { gSel = gStack.pop() || gSel; }
   else if (a === 'prev' || a === 'next') { const items = gItems(gClassOf(gSel)), i = items.indexOf(gSel), n = (i + (a === 'next' ? 1 : -1) + items.length) % items.length; gSel = items[n]; gStack = []; }
@@ -10705,16 +10743,16 @@ function treeHTML(g, q, depth) {
   if (R && depth < 6) h += '<ul>' + Object.keys(R.in).map(i => treeHTML(i, q * R.in[i] / R.out, depth + 1)).join('') + '</ul>';
   return h + '</li>';
 }
-function chainNeeds(pk) {
+function chainNeeds(pk, inc) {   // inc (facultatif) : intrants directs dont on monte la chaîne (périmètre du devis « Construire cette chaîne »)
   const fc = facCounts(pk), runs = Math.max(1, fc.units), need = {};
   const expand = (g, qDay) => { const R = RECIPES[g]; if (!R) return; const u = qDay / R.out; need[g] = (need[g] || 0) + u; Object.keys(R.in).forEach(i => expand(i, u * R.in[i])); };
   const inp = productInputs(pk);
-  Object.keys(inp).forEach(g => expand(g, inp[g] * runs));
+  Object.keys(inp).filter(g => !inc || inc.indexOf(g) >= 0).forEach(g => expand(g, inp[g] * runs));
   return { need, runs };
 }
-function chainLeaves(pk) {
+function chainLeaves(pk, inc) {
   const set = {}, walk = g => { const R = RECIPES[g]; if (!R) { set[g] = 1; return; } Object.keys(R.in).forEach(walk); };
-  Object.keys(productInputs(pk)).forEach(walk);
+  Object.keys(productInputs(pk)).filter(g => !inc || inc.indexOf(g) >= 0).forEach(walk);
   Object.keys(set).forEach(g => { const bk = RAW_SRC[g]; if (bk && TYPES[bk] && TYPES[bk].live) set.wheat = 1; });   // l'élevage mange du blé : la chaîne descend aussi jusqu'à la ferme de blé
   return Object.keys(set);
 }
@@ -10774,12 +10812,34 @@ function placeAuto(key) { if (!TYPES[key]) return null; for (let pass = 0; pass 
 // Constructeur automatique d'une matière première : extracteur du gisement, ou fonderie pour les lingots (les autres intrants restent achetés).
 const rawBuilder = g => RAW_SRC[g] || (g === 'ingot' ? 'foundry' : null);
 function autoSpot(key) { if (!TYPES[key]) return null; for (let pass = 0; pass < 2; pass++) for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { if ((!pass && indRural(key, x, y)) || footprintError(x, y, key)) continue; return [x, y]; } return null; }
-const siteCost = key => { const sp = autoSpot(key); if (!sp) return null; return Math.round(TYPES[key].cost * casteCost(key) * Math.max(1, cpi())) + landCostFor(sp[0], sp[1], key) + sitePremium(sp[0], sp[1], key); };
+// Responsable Jouabilité : site d'un extracteur ou d'une ferme posé par « Construire cette chaîne » : le gisement (ou la terre agricole) le plus proche du port,
+// au lieu de la première case libre de la carte (coin lointain, hors réseau : la ferme tournait à 65 % et perdait de l'argent). La route est ensuite tracée (autoConnect).
+function rawSpot(key) {
+  const T = TYPES[key]; if (!T || !T.ext) return autoSpot(key); const cs = [];
+  for (let i = 0; i < N * N; i++) { if (S.grid[i]) continue; const d = S.dep[i], ok = d ? d.k === T.ext && d.r > 0 : isFarmK(T.ext) && ZONE[i] === 0; if (ok) cs.push([Math.abs(i % N - PORT_HUB.x) + Math.abs(((i / N) | 0) - PORT_HUB.y), i]); }
+  cs.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  for (let n = 0; n < cs.length; n++) { const x = cs[n][1] % N, y = (cs[n][1] / N) | 0; if (!footprintError(x, y, key)) return [x, y]; }
+  return autoSpot(key);
+}
+// seuil de rentabilité (cases) d'une ferme projetée sur le site retenu (fiche de ferme fictive, rien n'est posé) ; null si incalculable
+function farmBE(key) { try { const sp = rawSpot(key), T = TYPES[key]; if (!sp) return null; const c = { t: key, x: sp[0], y: sp[1], w: T.w || 1, h: T.h || 1, lvl: 0, irr: 0, conn: true, linked: true, seed: 0.5 }; const e = farmEcon(c); return e && isFinite(e.be) ? { be: Math.round(e.be), A: c.w * c.h } : { be: Infinity, A: c.w * c.h }; } catch (e) { return null; } }
+function placeRaw(key) { const sp = rawSpot(key); const c = sp && place(sp[0], sp[1], key) ? S.grid[idx(sp[0], sp[1])] : placeAuto(key); if (c && TYPES[c.t].ext && !extLinked(c, linkedMask())) { try { autoConnect(c.x, c.y); } catch (e) { /* raccordement facultatif */ } } return c; }
+const siteCost = key => { const sp = TYPES[key] && TYPES[key].ext ? rawSpot(key) : autoSpot(key); if (!sp) return null; return Math.round(TYPES[key].cost * casteCost(key) * Math.max(1, cpi())) + landCostFor(sp[0], sp[1], key) + sitePremium(sp[0], sp[1], key); };
 const cheapestFac = lvl => Object.keys(FLEVEL).filter(k => FLEVEL[k] >= lvl && TYPES[k]).sort((a, b) => TYPES[a].cost - TYPES[b].cost)[0];
+// Responsable Jouabilité : PÉRIMÈTRE du devis. 'fac' = l'usine seule (tous les intrants achetés au port ou au réseau) ; 'main' = la chaîne des intrants
+// PRINCIPAUX (hors emballage : au moins 25 % de la valeur des autres intrants, sinon le premier) jusqu'à la matière première, le reste (emballage…) acheté ; 'all' = tout, jusqu'aux puits et mines.
+// Une vraie décision : plus tu intègres, plus tu gardes de marge et moins tu dépends du port, mais plus il faut de capital.
+const FAB_SCOPES = [['fac', 'Usine seule', 'tous les intrants achetés au port'], ['main', 'Chaîne principale', 'ingrédients principaux produits chez toi, le reste acheté'], ['all', 'Chaîne complète', 'tout, jusqu\'à la matière première']];
+function fabInc(pk, scope) {
+  if (!scope || scope === 'all') return null; if (scope === 'fac') return [];
+  const inp = productInputs(pk), v = g => inp[g] * ((S.price && S.price[g]) || (GOODS[g] ? GOODS[g].base : 1)), ks = Object.keys(inp).filter(g => g !== 'pack' && (RECIPES[g] || rawBuilder(g))), tot = ks.reduce((a, g) => a + v(g), 0) || 1;   // l'emballage n'est jamais un ingrédient principal
+  const L = ks.filter(g => v(g) >= 0.25 * tot); if (!L.length && ks.length) L.push(ks.sort((a, b) => v(b) - v(a))[0]); return L;
+}
 // PLAN « Fabriquer » (lecture seule) : tout ce que quickProduce construira ou dépensera, avec le coût total annoncé et ce qui manque (rien n'est écrit dans l'état).
 function producePlan(pk, o) {
-  o = o || {}; const withRaw = o.raws !== false, pr = PRODUCTS[pk], ps = S.prod[pk];
-  const P = { pk, name: pr.name, rows: [], rnd: 0, fac: 0, comps: 0, raws: 0, wc: 0, total: 0, missing: [], buys: [], blockers: [], complete: true, nothing: false, withRaw };
+  o = o || {}; const withRaw = o.raws !== false, pr = PRODUCTS[pk], ps = S.prod[pk], inc = fabInc(pk, o.scope);
+  const P = { pk, name: pr.name, rows: [], rnd: 0, fac: 0, comps: 0, raws: 0, wc: 0, total: 0, missing: [], buys: [], blockers: [], complete: true, nothing: false, withRaw, scope: o.scope || 'all' };
+  if (inc) Object.keys(productInputs(pk)).forEach(g => { if (inc.indexOf(g) < 0 && GOODS[g]) P.buys.push(GOODS[g].name.toLowerCase()); });
   const add = (kind, label, cost) => { P.rows.push({ kind, label, cost }); P[kind] = (P[kind] || 0) + cost; };
   if (ps.st === 'locked') {
     if (!mkOn() && pr.tier > tierNow()) P.blockers.push(`${pr.name} se débloque au palier ${TIERS[pr.tier].n}.`);
@@ -10797,7 +10857,7 @@ function producePlan(pk, o) {
   }
   eachBiz(c => { if (FLEVEL[c.t] && c.conn && freeFact(c) && c !== fac) pool[FLEVEL[c.t]] = (pool[FLEVEL[c.t]] || 0) + 1; });
   try {
-    const { need } = chainNeeds(pk);
+    const { need } = chainNeeds(pk, inc);
     RKEYS.forEach(g => { if (!need[g]) return; let miss = Math.ceil(need[g] - unitsOn(g) - 0.01); const lvl = RECIPES[g].lvl;
       while (miss > 0) {
         if (pool[lvl] > 0) { pool[lvl]--; add('comps', `${RECIPES[g].name} : une usine libre affectée`, 0); miss--; continue; }
@@ -10807,13 +10867,14 @@ function producePlan(pk, o) {
       } });
   } catch (e) {}
   const seen = {}, seenB = {};
-  chainLeaves(pk).forEach(g => {
+  chainLeaves(pk, inc).forEach(g => {
     if (sourceInfo(g).n || seen[g]) return; seen[g] = 1; const bk = rawBuilder(g), nm = GOODS[g] ? GOODS[g].name.toLowerCase() : g;
     if (!bk) { P.buys.push(nm); return; }
     if (TYPES[bk].co && seenB[bk]) return; seenB[bk] = 1;   // une mine à coproduits fournit toutes ses matières
-    if (!withRaw) { P.missing.push(`matière première ${nm} : pas de ${TYPES[bk].name.toLowerCase()} (achetée au marché, plus cher)`); P.complete = false; return; }
+    if (!withRaw) { if (inc) { P.buys.push(nm); return; } P.missing.push(`matière première ${nm} : pas de ${TYPES[bk].name.toLowerCase()} (achetée au marché, plus cher)`); P.complete = false; return; }   // périmètre partiel choisi : la matière achetée n'est pas un « manque »
     const c = siteCost(bk); if (c == null) { P.missing.push(`matière première ${nm} : aucun gisement libre pour ${TYPES[bk].name.toLowerCase()}`); P.complete = false; return; }
-    add('raws', `${TYPES[bk].name} (${nm})`, c);
+    const be = isFarmT(bk) ? farmBE(bk) : null;   // Jouabilité : une ferme posée à sa taille de base est souvent sous son seuil de rentabilité ; le devis le dit (décision : agrandir ou acheter au port)
+    add('raws', `${TYPES[bk].name} (${nm})${be && be.be > be.A ? (isFinite(be.be) ? ` · seuil de rentabilité ≈ ${be.be} cases, posée à ${be.A} : déficitaire tant qu'elle n'est pas agrandie (ou achète au port)` : ` · aucune taille rentable aux cours actuels : déficitaire (achète plutôt au port)`) : ''}`, c); if (be && be.be > be.A) P.farmLow = (P.farmLow || 0) + 1;
   });
   { const mc = makeCost(pk); P.wc = Math.round(mc.mat * pr.out * mc.cyc * 5); if (P.wc > 0) P.rows.push({ kind: 'wc', label: `Matières premières achetées : 5 jours de production à pleine capacité${P.buys.length ? ' (dont ' + P.buys.join(', ') + ', jamais produits chez toi)' : ''}`, cost: P.wc }); }
   P.build = P.rnd + P.fac + P.comps + P.raws; P.total = P.build + P.wc; P.nothing = P.build === 0 && !P.rows.some(r => r.kind !== 'wc');
@@ -10821,9 +10882,9 @@ function producePlan(pk, o) {
 }
 let _fabNoRaw = false;
 function quickProduce(pk, o) {
-  _fabNoRaw = !!(o && o.raws === false);
+  _fabNoRaw = !!(o && o.raws === false); const inc = fabInc(pk, o && o.scope);
   const pr = PRODUCTS[pk]; if (!pr) return false;
-  { const P = producePlan(pk); if (P.blockers.length) { say(P.blockers[0], 'warn'); return false; }
+  { const P = producePlan(pk, o); if (P.blockers.length) { say(P.blockers[0], 'warn'); return false; }
     if (S.cash < P.build) { say(`Il faut ${money(P.build)} pour monter la chaîne de ${pr.name.toLowerCase()} (il manque ${money(P.build - S.cash)}) : rien n'a été construit.`, 'bad'); return false; }
     if (S.prod[pk].st === 'locked' && !launchProduct(pk)) return false; }   // R&D d'abord : on ne construit rien si elle échoue
   let fac = null;
@@ -10841,10 +10902,10 @@ function quickProduce(pk, o) {
   // Chaîne complète : composants manquants (usines du bon niveau, posées si besoin) puis matières premières (fermes, mines, puits) ; sans cela le produit achète ses intrants cher et perd de l'argent.
   const built = [];
   try {
-    const { need } = chainNeeds(pk);
+    const { need } = chainNeeds(pk, inc);
     RKEYS.forEach(g => { if (!need[g]) return; let miss = Math.ceil(need[g] - unitsOn(g) - 0.01), guard = 0;
       while (miss > 0 && guard++ < 6) { if (assignRecipe(g, 1, true)) { miss--; continue; } const f2 = placeAuto(cheapest(RECIPES[g].lvl)); if (!f2) break; f2.prod = g; built.push(TYPES[f2.t].name); miss--; } });
-    const doneB = {}; chainLeaves(pk).forEach(g => { const bk = rawBuilder(g); if (bk && !sourceInfo(g).n && !(_fabNoRaw) && !(TYPES[bk].co && doneB[bk])) { doneB[bk] = 1; const e = placeAuto(bk); if (e) built.push(TYPES[e.t].name); } });
+    const doneB = {}; chainLeaves(pk, inc).forEach(g => { const bk = rawBuilder(g); if (bk && !sourceInfo(g).n && !(_fabNoRaw) && !(TYPES[bk].co && doneB[bk])) { doneB[bk] = 1; const e = placeRaw(bk); if (e) built.push(TYPES[e.t].name); } });
   } catch (e) {}
   if (built.length) say(`Chaîne montée automatiquement : ${[...new Set(built)].slice(0, 4).join(', ')}.`, 'info');
   const launched = easyLaunch(fac, pk); fac._hold = 0;
@@ -10852,18 +10913,21 @@ function quickProduce(pk, o) {
   centerOn(fac.x, fac.y); refreshStats(); updateHUD(); return true;
 }
 // Écran de confirmation de « Fabriquer » : coût total annoncé, liste de ce qui sera construit, chaîne complète ou ce qui manque, annulation possible.
-let fabPk = null, fabRaw = true;
+let fabPk = null, fabRaw = true, fabScope = 'all';
 function fabRender() {
-  const box = el('fabview'); if (!box || !fabPk) return; const P = producePlan(fabPk, { raws: fabRaw }), pr = PRODUCTS[fabPk];
-  const rawPossible = chainLeaves(fabPk).some(g => rawBuilder(g) && !sourceInfo(g).n);
+  const box = el('fabview'); if (!box || !fabPk) return; const P = producePlan(fabPk, { raws: fabRaw, scope: fabScope }), pr = PRODUCTS[fabPk];
+  const rawPossible = fabScope !== 'fac' && chainLeaves(fabPk, fabInc(fabPk, fabScope)).some(g => rawBuilder(g) && !sourceInfo(g).n);
+  const scopes = FAB_SCOPES.map(([k, n, d]) => { const Q = k === fabScope ? P : producePlan(fabPk, { raws: fabRaw, scope: k }); return `<label class="fscope${k === fabScope ? ' on' : ''}"><input type="radio" name="fabScope" value="${k}" ${k === fabScope ? 'checked' : ''}><span><b>${n}</b> · ${money(Q.build)}<small>${d}</small></span></label>`; }).join('');
   const short = S.cash < P.build;
   box.innerHTML = `<h3>Fabriquer : ${pr.name}</h3>
     <p class="note">Voici tout ce qui sera construit ou acheté. Rien n'est dépensé avant ta confirmation.</p>
+    <div class="fscopes" role="radiogroup" aria-label="Périmètre de la chaîne">${scopes}</div>
     ${P.rows.map(r => `<div class="frow"><span>${r.label}</span><b>${r.cost ? money(r.cost) : 'déjà à toi'}</b></div>`).join('') || '<div class="frow"><span>Tout est déjà en place</span><b>0 $</b></div>'}
     <div class="ftot"><span>COÛT TOTAL annoncé</span><b class="gold">${money(P.total)}</b></div>
     <p class="note">Dont ${money(P.build)} de construction${P.rnd ? ' et d\'R&D' : ''} dépensés tout de suite${P.wc ? ' et ' + money(P.wc) + ' de matières achetées au fil des jours' : ''}. Trésorerie : ${money(S.cash)}.</p>
-    ${rawPossible ? `<label class="note"><input type="checkbox" id="fabRaw" ${fabRaw ? 'checked' : ''}> Construire aussi les extracteurs de matières premières</label>` : ''}
-    ${P.complete ? '<p class="note pos">Chaîne complète : usine, composants et matières premières sont couverts.</p>' : `<p class="fwarn"><b>Chaîne incomplète.</b> Il manque : ${P.missing.join(' ; ')}.${!fabRaw ? ' Coche la case ci-dessus pour les ajouter à la commande.' : ''}</p>`}
+    ${rawPossible ? `<label class="note"><input type="checkbox" id="fabRaw" ${fabRaw ? 'checked' : ''}> Construire aussi les extracteurs de matières premières${!fabRaw && producePlan(fabPk, { scope: fabScope }).farmLow ? ' (non cochée : à sa taille de départ, la ferme perdrait de l\'argent ; la matière s\'achète au port en attendant)' : ''}</label>` : ''}
+    ${P.buys.length && fabScope !== 'all' ? `<p class="note">Acheté au port ou au réseau : ${P.buys.slice(0, 5).join(', ')}.</p>` : ''}
+    ${P.complete ? (fabScope === 'all' ? '<p class="note pos">Chaîne complète : usine, composants et matières premières sont couverts.</p>' : '') : ''}${P.complete ? '' : `<p class="fwarn"><b>Chaîne incomplète.</b> Il manque : ${P.missing.join(' ; ')}.${!fabRaw ? ' Coche la case ci-dessus pour les ajouter à la commande.' : ''}</p>`}
     ${P.blockers.length ? `<p class="fwarn">${P.blockers[0]}</p>` : ''}${short ? `<p class="fwarn">Trésorerie insuffisante : il manque ${money(P.build - S.cash)}.</p>` : ''}
     <div class="fbtns"><button class="btn" data-fab="go" ${short || P.blockers.length ? 'disabled' : ''}>${P.complete ? 'Confirmer et construire' : 'Continuer quand même'}</button><button class="btn sec" data-fab="no">Annuler</button></div>`;
   box.hidden = false;
@@ -10871,12 +10935,16 @@ function fabRender() {
 function askProduce(pk) {
   if (!PRODUCTS[pk]) return false;
   const P = producePlan(pk); if (P.nothing) return quickProduce(pk);
-  fabPk = pk; fabRaw = true; fabRender(); return 'pending';
+  // périmètre proposé : le plus intégré que la trésorerie permet (sinon l'usine seule) ; le joueur peut en choisir un autre
+  // périmètre proposé : le plus intégré qui laisse la moitié de la trésorerie disponible (sinon l'usine seule) ; le joueur choisit librement
+  fabPk = pk; fabRaw = true; fabScope = P.build <= 0.5 * S.cash ? 'all' : producePlan(pk, { scope: 'main' }).build <= 0.5 * S.cash ? 'main' : 'fac';
+  if (fabScope === 'main' && producePlan(pk, { scope: 'main' }).farmLow) fabRaw = false;   // chaîne principale : une ferme posée sous son seuil de rentabilité n'est pas cochée d'office (le devis dit pourquoi ; la case reste au joueur)
+  fabRender(); return 'pending';
 }
 function fabCancel() { fabPk = null; const b = el('fabview'); if (b) b.hidden = true; }
-function fabConfirm() { const pk = fabPk; if (!pk) return false; fabPk = null; el('fabview').hidden = true; const ok = quickProduce(pk, { raws: fabRaw }); try { renderProducts(); } catch (e) {} return ok; }
+function fabConfirm() { const pk = fabPk; if (!pk) return false; fabPk = null; el('fabview').hidden = true; const ok = quickProduce(pk, { raws: fabRaw, scope: fabScope }); try { renderProducts(); } catch (e) {} return ok; }
 el('fabview').addEventListener('click', e => { const b = e.target.closest('[data-fab]'); if (b) { if (b.dataset.fab === 'go') fabConfirm(); else fabCancel(); } });
-el('fabview').addEventListener('change', e => { if (e.target.id === 'fabRaw') { fabRaw = e.target.checked; fabRender(); } });
+el('fabview').addEventListener('change', e => { if (e.target.id === 'fabRaw') { fabRaw = e.target.checked; fabRender(); } else if (e.target.name === 'fabScope') { fabScope = e.target.value; fabRender(); } });
 function autoChain(pk) {
   const { need } = chainNeeds(pk); let added = 0; const missing = [];
   RKEYS.forEach(g => {
@@ -11811,7 +11879,7 @@ function proStepWorks() {
 function proUpgrade(c) {
   if (!c || c.t !== 'res') return false;
   const cost = upgradeCost(c); if (!cost) { say(`Hauteur maximale atteinte (${proMaxAt(c.x, c.y)} étages).${casteIs('promoteur') ? '' : ' Le permis de grande hauteur est réservé aux promoteurs.'}`, 'info'); return false; }
-  if (c.works) { say('Un chantier est déjà en cours sur cet immeuble.', 'info'); return false; }
+  if (c.works) { say(`Un chantier est déjà en cours sur cet immeuble (livré dans ${Math.max(0, c.works.due - S.day)} j).`, 'bad'); return false; }   // Jouabilité : refus visible après le clic (un 'info' partait au journal seul : bouton en apparence inerte)
   if (S.cash < cost) { say(`Il faut ${money(cost)} pour ajouter un étage (le coût suit la valeur du terrain : lot à ${money(landPrice(c.x, c.y, 'res'))}).`, 'bad'); return false; }
   S.cash -= cost; c.invest = investOf(c) + cost; c.fcap = (c.fcap != null ? c.fcap : Math.max(0, c.floors - 1) * 400) + cost; proWorks(c, 'up', c.floors + 1, cost, proDays(5 + 2 * c.floors)); PR().st.spent += cost;
   flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cost), t: performance.now(), col: '#ff8a8e' }); proDirty(); refreshStats(); checkMissions(); updateHUD(); return true;
@@ -12474,7 +12542,7 @@ function renderBuilding(force) {
   ${line}
   <p class="cdet">Par mois — coûts : intrants ${mj(c.inCost || 0)} · salaires ${mj(c.wages || 0)} · ${(T.ext || T.rec || isPlant(c.t)) ? 'coûts d\'exploitation' : 'entretien'} ${mj(T.upkeep * (c.t === 'res' ? 1 : levelMult(c) * (1 + 0.1 * (c.qual || 0))) * (PLAN_DIM[c.t] ? planUpk(c) : 1))} · transport ${mj(c.transport || 0)} (${c.haul || 0} cases)<br>EBE ${mj(profit)} − amortissement ${mj(c.dep || 0)} − impôt ${mj(c.taxB || 0)} = résultat net ${mj(profit - (c.dep || 0) - (c.taxB || 0))}/mois</p>
   <div class="levers">
-    ${palOf(c) ? palCard(c) : `<div class="lever"><h4>Taille <span class="pip">${pipsL(c.lvl || 0)}</span></h4><small>${lvTxt(c)}</small><button class="btn" data-act="up" ${uc && S.cash >= uc ? '' : 'disabled'}>${uc ? 'Agrandir · ' + money(uc) : 'Niveau max'}</button></div>`}
+    ${palOf(c) ? palCard(c) : `<div class="lever"><h4>Taille <span class="pip">${pipsL(c.lvl || 0)}</span></h4><small>${lvTxt(c)}</small>${c.works ? `<button class="btn" data-act="up" disabled title="Un chantier est en cours : livraison le jour ${c.works.due}">Chantier en cours · livré dans ${Math.max(0, c.works.due - S.day)} j</button>` : `<button class="btn" data-act="up" ${uc && S.cash >= uc ? '' : 'disabled'}>${uc ? 'Agrandir · ' + money(uc) : 'Niveau max'}</button>`}</div>`}
     <div class="lever"><h4>Effectif <span class="pip">×${crewOf(c).toFixed(2).replace('.', ',')}</span></h4><small>${fmt(jobsOf(c))} postes. Plus de monde, plus de production et de salaires.</small><div class="seg2"><button class="btn sec" data-act="crew-" ${crewOf(c) <= 1 ? 'disabled' : ''}>− Réduire</button><button class="btn" data-act="crew+" ${crewOf(c) >= 2 ? 'disabled' : ''}>+ Recruter</button></div></div>
     <div class="lever"><h4>Salaires <span class="pip">${wage.n}</span></h4><small>Attractivité ×${wage.attr.toFixed(2).replace('.', ',')} · productivité ×${wage.prod.toFixed(2).replace('.', ',')} · coût ×${wage.m.toFixed(2).replace('.', ',')}</small><div class="seg2">${WAGE.map((w, i) => `<button class="btn sec" data-act="wage${i}" aria-pressed="${(c.wage == null ? 1 : c.wage) === i}">${w.n}</button>`).join('')}</div></div>
     <div class="lever"><h4>Qualité <span class="pip">${pips(c.qual || 0)}</span></h4><small>Valeur de la production +6 % par niveau, coûts d'exploitation +10 %.</small><button class="btn" data-act="qual" ${qc && S.cash >= qc ? '' : 'disabled'}>${qc ? 'Améliorer · ' + money(qc) : 'Qualité max'}</button></div>
@@ -20309,6 +20377,7 @@ function rySan(d) {
     du: null, duw: n(d.duw, 0, 9999), ex: n(d.ex, 0, 99), cl: clamp(+d.cl || 0, 0, RY_PP.shareMax - RY_PP.share), tit: arr(d.tit, 12).map(x => String(x).slice(0, 40)), log: arr(d.log, 30).filter(Array.isArray).map(x => [x[0] | 0, String(x[1]).slice(0, 8), String(x[2]).slice(0, 140)]),
     pp: arr(d.pp, RY_PP.max).filter(p => p && +p.bal > 0).map(p => ({ a: +p.a || 0, bal: +p.bal || 0, r: clamp(+p.r || 0, 0, 0.5), pay: +p.pay || 0, d0: p.d0 | 0, t: String(p.t || '').slice(0, 60) })), ppI: Math.max(0, +d.ppI || 0), op: d.op | 0, cs: n(d.cs, 0, 1e6), cd: n(d.cd, 0, 1e6), ser: n(d.ser, 0, 1e5), rup: n(d.rup, 0, 1e7) };
   if (d.md && typeof d.md === 'object') Object.keys(d.md).slice(0, 200).forEach(k => { o.md[String(k).slice(0, 12)] = d.md[k] | 0; });
+  if (d.chj && typeof d.chj === 'object') o.chj = { c1: d.chj.c1 | 0, c3: d.chj.c3 | 0, ip: d.chj.ip | 0, np: clamp(d.chj.np | 0, 0, 1e5) };   // jalons de maîtrise de la chaîne (facultatif)
   if (d.df && typeof d.df === 'object' && typeof d.df.k === 'string') o.df = { k: d.df.k.slice(0, 8), t: String(d.df.t || '').slice(0, 140), d0: d.df.d0 | 0, d1: d.df.d1 | 0, b: +d.df.b || 0, g: +d.df.g || 0, ok: d.df.ok ? 1 : 0 };
   if (d.du && typeof d.du === 'object' && d.du.id != null) o.du = { id: d.du.id, n: String(d.du.n || '').slice(0, 40), d0: d.du.d0 | 0, me: +d.du.me || 0, rv: +d.du.rv || 0 };
   return o;
@@ -20545,7 +20614,24 @@ function ryOpp() {
 // ---- pas quotidien (fin de step, après le conseiller) : aucune dépense automatique, aucun tirage aléatoire
 function ryStep() {
   if (!S || !S.mode || S.mode.pending || (S.mode.await && !S.caste) || S.ryOff) return; const o = ryO();   // S.ryOff : témoin A/B des tests (jamais sauvegardé)
-  ryPPStep(); ryMissions(o); ryLadders(o); ryDefi(o); ryDuel(o); ryOpp();
+  ryPPStep(); ryMissions(o); ryLadders(o); ryDefi(o); ryDuel(o); ryOpp(); ryChainJ();
+}
+// ---- Responsable Jouabilité : jalons de MAÎTRISE DE LA CHAÎNE (satisfaction visible, sans prime en argent) :
+//  « première chaîne complète » (un produit fabriqué chez toi dont chaque maillon, jusqu'à la matière première, est produit par tes établissements),
+//  « 3 produits de bout en bout », « indépendant du port » (une chaîne complète et 30 jours sans que tes usines n'importent un seul intrant).
+// État S.ry.chj = { c1, c3, ip : jour atteint ; np : jours consécutifs sans import d'usine } (facultatif, sauvegarde compatible). Relevé tous les 5 jours (np : chaque jour).
+const RY_CHJ = { c1: { gem: 10, cred: 3 }, c3: { gem: 15, tit: 'Maître de la chaîne' }, ip: { gem: 10, cl: 0.02 }, np: 30 };
+function ryChainEnds() { const L = []; PKEYS.forEach(pk => { if (S.prod[pk].st !== 'on' || !(facCounts(pk).mine > 0) || !((S.prod[pk].made || 0) > 0 || (S.prod[pk].mDay || 0) > 0)) return; if (gChainOwn(pk).full) L.push(pk); }); return L; }
+function ryChainJ() {
+  const R = ryS(), J = R.chj || (R.chj = { c1: 0, c3: 0, ip: 0, np: 0 });
+  let fac = 0, imp = 0; eachBiz(c => { if (FLEVEL[c.t] && c.conn) { if ((c.out || 0) > 0.01) fac++; imp += c._impIn || 0; } });
+  J.np = fac > 0 && imp < 0.5 ? (J.np | 0) + 1 : 0;
+  if (S.day % 5 && !(J.c1 && J.np >= RY_CHJ.np && !J.ip)) return;
+  if (J.c1 && J.c3 && J.ip) return;
+  const L = ryChainEnds(), nm = pk => PRODUCTS[pk].name.toLowerCase();
+  if (!J.c1 && L.length >= 1) { J.c1 = S.day; const rt = ryReward(RY_CHJ.c1); say(`Première chaîne complète : ${nm(L[0])}, de la matière première au rayon, tout est à toi. ${rt}.`, 'gold'); ryJalon('chaine', 'Chaîne complète : ' + nm(L[0]), { n: 1 }); }
+  if (!J.c3 && L.length >= 3) { J.c3 = S.day; const rt = ryReward(RY_CHJ.c3); say(`Trois produits fabriqués de bout en bout (${L.slice(0, 3).map(nm).join(', ')}). ${rt}.`, 'gold'); ryJalon('chaine', '3 produits de bout en bout', { n: 3 }); }
+  if (!J.ip && J.c1 && J.np >= RY_CHJ.np) { J.ip = S.day; const rt = ryReward(RY_CHJ.ip); say(`Indépendant du port : tes usines n'ont rien importé depuis ${RY_CHJ.np} jours. ${rt}.`, 'gold'); ryJalon('chaine', 'Indépendant du port', { ip: 1 }); }
 }
 function ryPalStart() { if (S) ryS().cs++; }
 function ryPalDone(c) { const R = ryS(); R.cd++; if (S.mode && !S.mode.pending) ryJalon('palier', (TYPES[c.t] ? TYPES[c.t].name : c.t) + ' niveau ' + ((c.lvl | 0) + 1), { l: (c.lvl | 0) + 1 }); }
