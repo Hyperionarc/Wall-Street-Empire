@@ -37,6 +37,7 @@ function pageMeasure(names) {   // exécuté dans la page
   return out;
 }
 
+exports.pageMeasure = pageMeasure;
 exports.run = async (t, L) => {
   const pg = await L.newPage({ wait: 3000 }); await L.setup(pg);
   const names = BUILDINGS.concat(Object.keys(EXC));
