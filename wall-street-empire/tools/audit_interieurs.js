@@ -155,7 +155,7 @@ async function auditAll(L, o = {}) {
   await pg.context().close();
   return res;
 }
-module.exports = { auditAll };
+module.exports = { auditAll, BUILD_SRC };
 
 if (require.main === module) {
   const L = require('./tests/lib.js');

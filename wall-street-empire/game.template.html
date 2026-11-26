@@ -3734,7 +3734,7 @@ function loyTarget(pk, ps, satP) {
 function loyStep(pk, ps, satP) { const l = ps.loy || 0, aw = clamp(ps.brand || 0, 0, 100), g = (ps.sold || 0) > 0.05 ? 0.25 + 0.75 * aw / 100 : 0.15; return clamp(l + (loyTarget(pk, ps, satP) - l) * LOY_K * g, 0, 100); }
 function bcStep(pk, ps) { if (ps.bc == null) ps.bc = 0.6 * (ps.brand || 0); ps.bc = clamp(ps.bc + bcTarget(pk, ps) * Math.LN2 / BC_HL - ps.bc * Math.LN2 / bcHalf(ps), 0, 600); }
 function bcTrend(pk, ps) { ps = ps || S.prod[pk]; const d = bcTarget(pk, ps) / BC_HL - bcOf(ps) / bcHalf(ps); return Math.abs(d) < 0.02 ? 0 : d > 0 ? 1 : -1; }
-function brandVolX(pk, ps) { ps = ps || S.prod[pk]; const z = Object.assign({}, ps, { bc: 0, brand: 0, loy: 0 }); return attractiveness(pk, ps) / Math.max(1e-9, attractiveness(pk, z)); }   // volume face au même produit sans marque
+function brandVolX(pk, ps) { ps = ps || S.prod[pk]; const z = Object.assign({}, ps, { bc: 0, brand: 0, loy: 0 }); const v = attractiveness(pk, ps) / Math.max(1e-9, attractiveness(pk, z)); return isFinite(v) ? v : 1; }   // volume face au même produit sans marque (passe 101 : produit jamais lancé = score négatif, puissance 0,6 → NaN affiché dans le Guide ; sans effet sur les produits lancés)
 function brandLineHTML(pk) {
   const ps = S.prod[pk], t = bcTrend(pk), f = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
   return `<div class="qr"><span>Capital de marque</span><span><b>${Math.round(bcOf(ps))}</b> (×${f(brandVolX(pk))} de volume vs concurrent sans marque) · prime de prix acceptée +${Math.round((brandPrem(pk, ps) - 1) * 100)} % · demi-vie ${Math.round(bcHalf(ps))} j · <b class="${t > 0 ? 'pos' : t < 0 ? 'neg' : ''}">${t > 0 ? '▲ monte' : t < 0 ? '▼ s\'érode' : '■ stable'}</b></span></div>`;
@@ -17693,7 +17693,7 @@ const SIGN_ST = { com: ['rgba(21,29,43,.94)', '#f3f5f8', '#5b8fd0', 'rgba(255,25
 const SIGN_SZ = { 1: [30, 14], 2: [36, 16], 3: [44, 19], 4: [54, 22] };   // [police en px monde, plafond en px écran]
 const SIGN = { s1: { st: 'com', sz: 1 }, s2: { st: 'com', sz: 2 }, s3: { st: 'com', sz: 3 }, s4: { st: 'com', sz: 3 },
   sauto: { st: 'com', sz: 2, txt: 'CONCESSION AUTO' }, stech: { st: 'com', sz: 2 }, slux: { st: 'lux', sz: 1 }, smode: { st: 'com', sz: 1 }, spharma: { st: 'com', sz: 1, ac: '#4f9e6a' },
-  shome: { st: 'com', sz: 2 }, ssport: { st: 'com', sz: 2 }, sbrico: { st: 'com', sz: 2 },
+  shome: { st: 'com', sz: 2 }, ssport: { st: 'com', sz: 2 }, sbrico: { st: 'com', sz: 2 }, immo: { st: 'com', sz: 1 },
   wh: { st: 'ind', sz: 1 }, ewh: { st: 'ind', sz: 2, txt: 'ENTREPÔT EN LIGNE' }, rd: { st: 'ind', sz: 1 }, dc: { st: 'ind', sz: 3 }, hq: { st: 'lux', sz: 2 }, port: { st: 'ind', sz: 2 }, tv: { st: 'svc', sz: 1 },
   'mon:hospital': { st: 'svc', sz: 2, ac: '#b8474d' }, 'mon:lycee': { st: 'svc', sz: 1 }, 'mon:college': { st: 'svc', sz: 1 }, 'mon:maternelle': { st: 'svc', sz: 1 }, 'mon:garderie': { st: 'svc', sz: 1, txt: 'CRÈCHE' },
   'mon:hall': { st: 'svc', sz: 2 }, 'mon:air': { st: 'svc', sz: 4, txt: 'AÉROPORT' },
@@ -18897,7 +18897,7 @@ function mapLabel(x, y) {   // { t: 1re ligne, s: 2e ligne (facultative), open: 
   if (c && c.t !== 'road' && c.t !== 'part') {
     if (isMall(c)) return { t: 'Mall central', s: 'Centre commercial de la ville', open: 1 };
     if (isAir(c)) return { t: 'Aéroport', s: 'Équipement de la ville', open: 1 };
-    if (c.t === 'npc') { if (c.k === 'mon') return { t: (PUB[c.m] || ['Bâtiment public'])[0], s: 'Service public · la ville' }; const o = ownerOf(c); return { t: capFr(kindFr(c.k, 1)), s: o === 'npc' ? 'Propriétaire : la ville' : 'Propriétaire : ' + ownerName(o), open: 1 }; }
+    if (c.t === 'npc') { if (c.k === 'mon') return { t: (PUB[c.m] || ['Bâtiment public'])[0], s: 'Service public · la ville' }; const o = ownerOf(c), sv = vvSvcName(c), ow = o === 'npc' ? 'Propriétaire : la ville' : 'Propriétaire : ' + ownerName(o); return sv ? { t: sv, s: capFr(vvSvcSub(c)) + ' · ' + ow, open: 1 } : { t: capFr(kindFr(c.k, 1)), s: ow, open: 1 }; }   // passe 101 : un service de quartier s'annonce par son nom
     const T = TYPES[c.t]; if (!T) return null; if (NET_PIECE[c.t]) return { t: T.name, s: 'Réseau · à toi' };
     const ow = c.owner && c.owner !== 'me' ? ownerName(c.owner) : 'toi';
     if (T.ext) { const dd = S.dep[idx(c.x, c.y)], lk = c.linked === false ? 'hors réseau' : (c.out > 0 ? 'en production' : 'à l\'arrêt'); return { t: T.name + ' · ' + lk, s: (dd && dd.k === T.ext && !CROPS[dd.k] && !T.live ? 'Réserve ' + qtyTxt(dd.k, dd.r) + ' · ' : '') + 'à ' + ow, open: 1 }; }
@@ -22131,7 +22131,7 @@ function monGround(a) {   // sol d'un équipement de plusieurs cases : parvis cl
 }
 const vvSvcName = c => {   // passe 99 (bug « je clique sur un immeuble et ça apparaît comme une boulangerie ») : le nom du service ne s'affiche que si son sprite est celui qui est dessiné
   if (!c || c.t !== 'npc') return ''; vvSvcMap();
-  if (c._spr !== undefined) return c._spr && VV_SVC[c._spr] ? VV_SVC[c._spr][0] : '';   // case déjà dessinée : le sprite vu par le joueur fait foi
+  if (c._spr !== undefined) { const sn = c._spr && (VV_SVC[c._spr] ? c._spr : VV_SVC_OF[c._spr]); return sn && VV_SVC[sn] ? VV_SVC[sn][0] : ''; }   // case déjà dessinée : le sprite vu par le joueur fait foi (passe 101 : le sprite « pharmacie » est celui du service « drugstore », son nom restait vide)
   const site = !c.lm && c.cd != null && S.day - c.cd < 6;   // jamais dessinée (hors écran) : mêmes règles que vvNpc (chantier prioritaire, sprite chargé)
   return !site && c._sv && VV_SVC[c._sv] && vvOk(c._sv) ? VV_SVC[c._sv][0] : '';
 };
@@ -23348,6 +23348,8 @@ function vnClick(e) {
 vnBuild();
 /*__MP_JS__*/
 Object.assign(window.WSE, { vn: { VN, go: vnGo, tabs: vnTabs, active: vnActive, sync: vnSync, drawer: vnDrawer, expand: vnExpand, full: vnFull, render: vnRender, rows: vnCoRows, avg: vnAvg, dots: vnDots, st: vnSt } });
+// Passe 101 (audit de complétude, tools/audit_completude.js) : tables internes exposées en lecture seule pour le banc d'audit (aucune règle de jeu ne les lit).
+window.WSE.aud = { TOOL_META, PUB, NET_PIECE, DEP_U, SIGN_FACE, VV_SVC_OF, VV_SVC_SPR, P2_REPLI, P2_F3_DUO, VV_LVL_BAT, FAM_OF, GUIDEHD_KEYS: Object.keys(GUIDEHD), PRODHD_KEYS: Object.keys(PRODHD), GCLS, gItems, gName, kindFr, GKEYS, SCN_LOCK, ZONE_NEED, TIERS, FCROPS, FLIVE, gClassOf, usesTxt };
 })();
 </script>
 </body>
