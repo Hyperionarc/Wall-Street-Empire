@@ -197,3 +197,12 @@ Livrés, sans texte, marge 6 px, QA asset_qa : pente 0,50, débordement 0 % (mé
 
 ## Retour de Rémy (5) : pharmacie sans arbres, croix lumineuse
 - Pharmacie : arbres supprimés ; croix verte éclairée façon néon (vert émeraude lumineux, reflets sur la dalle). Régénérée avec flux2-edit à partir du bâtiment précédent (gab_pharmacie_nt), variante b retenue. 268×209, pente 0,52, débord 0, centrage ≈ 0. Ombre au sol régénérée.
+
+## Lot 35 — corrections Rémy (26 nov)
+- Hypermarché : un seul visuel `bat_hypermarche_10x10_us` (dalle 10×10, gabarit iso exact, contenu 2561 px ≤ 2560), parking à voitures, caddies, 3 semi-remorques à quai, sans logo. emprise_cases 10.
+- Supermarché 4×4 : `bat_supermarche_4x4_f` (toit peint bleu/blanc, 2 arbres, voitures, racks de caddies). emprise 4. Petits marchés sans logo : `bat_petit_marche_n1_d`, `n2_d`.
+- Station jaune `bat_station_jaune_v6` (pas de bâtiment, guérite + caissier, voitures au plein, pictogramme pompe posé à plat) ; recharge unique `bat_recharge_hub_v2` (éclair bleu sur le parking et sur le toit solaire).
+- Centrale solaire `bat_centrale_solaire_12x12_b` (champ continu, emprise 12).
+- Engins : `veh_pelleteuse_d`, `veh_chargeuse_c` (+ `_b` miroir) ; `veh_taxi_c`, `veh_bus_scolaire_c` sans texte (+ `_b`).
+- Photos Guide : `grandcru.jpg` refait selon références ; `tablewine.jpg` inchangé.
+- Les anciennes variantes (briques `_us`, `_6x6`, `_8x8_c`, `4x4_c`, station v2/v3, `veh_*_a/_b` précédents) ne sont pas supprimées : à retirer après validation.
