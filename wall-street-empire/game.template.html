@@ -1545,6 +1545,7 @@ body.cmp .hud-in .stats{flex:1 1 auto}
         <div class="chip" title="Postes pourvus / postes disponibles dans la ville"><small>Postes pourvus</small><strong id="vJobs">–</strong><em id="vUnemp"></em></div>
         <div class="chip"><small>Humeur</small><strong id="vHappy">–</strong><em id="vTax"></em></div>
         <div class="chip k"><small>Date</small><strong id="vDate">–</strong><em id="vSeason"></em></div>
+        <div class="chip k mpchip" id="mpHud" role="button" tabindex="0" title="Partie à plusieurs : classement en direct (Menu > Sociétés)" hidden><small id="mpHudS">Salle</small><strong id="mpHudR">–</strong><em id="mpHudT"></em></div>
       </div>
       <button id="objtgl" class="obtn objtgl" type="button" aria-pressed="false" title="Masquer ou afficher le bandeau scénario, classement et tutoriel">Masquer le bandeau ▴</button>
       <div id="objbar" class="objbar" aria-live="polite"></div>
@@ -1726,6 +1727,9 @@ body.cmp .hud-in .stats{flex:1 1 auto}
     <h3>PARTIE</h3>
     <p class="note">La partie est sauvegardée automatiquement dans ce navigateur tous les 5 jours.</p>
     <div class="actions"><button class="btn" id="vnSave" type="button">Sauvegarder maintenant</button><button class="btn sec" id="vnNew" type="button">Nouvelle partie</button></div>
+    <h3>JOUER À PLUSIEURS</h3>
+    <p class="note">Une salle de 2 à 6 humains avec un code court ; les IA tiennent les castes non prises. Chacun joue sa ville (même graine), le classement est commun et en direct.</p>
+    <div class="actions"><button class="btn" data-mpopen="1" type="button">Jouer à plusieurs</button></div>
     <h3>CARTE</h3>
     <p class="note">Calque d'implantation (fréquentation, foncier, demande…) et transparence des bâtiments placés devant.</p>
     <div class="actions" id="vnMapBox"></div>
@@ -2958,7 +2962,8 @@ const rivDiff = () => { const b = rivBase(), k = compNow(), c = k.c, L = DIF_LV[
 const rvS = () => S.rv || (S.rv = { ys: {}, log: [] });
 // Les rivaux tirent dans leur propre flux aléatoire (graine S.rv.rs, dérivée de celle de la partie) : leurs décisions ne décalent pas les tirages du reste de la simulation
 function rivRand(fn) { const RV = rvS(), keep = S.rs; S.rs = RV.rs == null ? (((keep == null ? _RS0 : keep) ^ 0x5bd1e995) | 0) : RV.rs; try { return fn(); } finally { RV.rs = S.rs; S.rs = keep; } }
-const rivWant = () => (S && S.mode && /^s[1-5]$/.test(S.mode.k || '')) ? Math.min(3, optV('n', OPT_NRIV)) : optV('n', OPT_NRIV);
+const rivWant = () => (S && S.opt && S.opt.nr >= 0) ? S.opt.nr : (S && S.mode && /^s[1-5]$/.test(S.mode.k || '')) ? Math.min(3, optV('n', OPT_NRIV)) : optV('n', OPT_NRIV);   // multijoueur : S.opt.nr = nombre exact de rivaux (places de la salle − 1)
+const rivOrder = () => (S && S.opt && Array.isArray(S.opt.rc)) ? S.opt.rc.filter(k => RIV_CASTE[k]).concat(RIV_ORDER.filter(k => S.opt.rc.indexOf(k) < 0)) : RIV_ORDER;   // multijoueur : castes des places de la salle d'abord
 function rivStartCash() { return (S.mode && S.mode.k === 'round') ? (S.mode.w0 || (S.mode.easy ? 100e6 : 10e6)) * (S.day > 30 ? 0.6 : 1) : 60000 * K_POP * RIV_K * optV('cap', OPT_CAP); }
 function mkRival(k) {
   const P = RIV_CASTE[k], scn = rivWant() <= 3 && RIV_LEG[P.id]; let id = P.id, n = 0; while ((S.rivals || []).some(r => r.id === id)) id = P.id + 'x' + S.day + (n++ ? '_' + n : '');
@@ -2967,7 +2972,7 @@ function mkRival(k) {
   if ((startOf() === 'zero' || startOf() === 'petite') && (S.day || 0) < 2) { const z = startOf() === 'zero' ? RIV_Z0 : 0.5; RIV_CLS.forEach(c => { r.att[c] = +((r.att[c] || 0) * z).toFixed(4); }); }   // passe 87 : départ de zéro, les IA aussi partent d'une petite implantation
   return r;
 }
-function initRivals() { const out = []; RIV_ORDER.forEach(k => { if (k !== casteOf() && out.length < rivWant()) out.push(mkRival(k)); }); return out; }
+function initRivals() { const out = []; rivOrder().forEach(k => { if (k !== casteOf() && out.length < rivWant()) out.push(mkRival(k)); }); return out; }
 // Ancien rival sans caste (sauvegarde antérieure) : il reçoit la caste de son enseigne si elle est libre, et les champs optionnels manquants
 function rivNorm(r) {
   if (r.caste === undefined) { const k = { r1: 'agriculteur', r2: 'banquier', r3: 'negociant' }[r.id]; r.caste = (k && k !== casteOf() && !(S.rivals || []).some(x => x !== r && x.caste === k)) ? k : null; }
@@ -2978,7 +2983,7 @@ function syncRivals() {
   const want = rivWant(); S.rivals = S.rivals || [];
   while (S.rivals.length > want) { const r = S.rivals.pop(); if (r && S.port) delete S.port[r.id]; }
   S.rivals.forEach(rivNorm);
-  RIV_ORDER.forEach(k => { if (S.rivals.length < want && k !== casteOf() && !S.rivals.some(r => r.caste === k)) S.rivals.push(mkRival(k)); });   // une caste n'est tenue que par un seul acteur
+  rivOrder().forEach(k => { if (S.rivals.length < want && k !== casteOf() && !S.rivals.some(r => r.caste === k)) S.rivals.push(mkRival(k)); });   // une caste n'est tenue que par un seul acteur
   while (S.rivals.length < want) {   // au-delà des castes : concurrents sans caste
     const used = new Set(S.rivals.map(r => r.name)), usedC = new Set(S.rivals.map(r => r.col)), a = () => 0.04 + 0.2 * rnd();
     const pick = RIV_EXTRA.find(x => !used.has(x[0]) && !usedC.has(x[1])) || RIV_EXTRA.find(x => !used.has(x[0])) || [RIV_EXTRA[S.rivals.length % RIV_EXTRA.length][0] + ' ' + (S.rivals.length + 1), '#9aa7b8', null];
@@ -19855,6 +19860,7 @@ function stepMode() {
     if (S.day % 5 === 0) modeNotify();
     const v = valuation(), D = modeDays(), tg = modeTarget();
     if (m.k === 'round') {
+      if (m.mp) return;   // multijoueur : la fin de manche (1 Md$, temps) est décidée par le serveur de salle pour tous les joueurs
       if (v >= tg) return endGame('win', 'Un milliard de dollars de valorisation : tu remportes le round !');
       { const top = (S.rivals || []).filter(r => !r.sub).map(r => [r, rivalValue(r)]).sort((a, b) => b[1] - a[1])[0];   // passe 80 : un rival qui atteint 1 Md$ avant toi remporte le round
         if (top && top[1] >= tg) { const rk = rankPlayers(); return endGame('lose', `${top[0].name}${rivK(top[0]) ? ' (' + CASTES[rivK(top[0])].n + ')' : ''} atteint 1 Md$ de valorisation avant toi et remporte le round. Tu termines ${rk[0]}e sur ${rk[1]} joueurs.`); } }
@@ -19891,7 +19897,7 @@ function endGame(kind, msg) {
   const rows = ranking(), parts = scoreParts(), total = parts.reduce((a, p) => a + p[1], 0);
   const miss = isScn() ? SCN[m.k].ms.filter(x => { const r = x.f(); return !(r[0] >= r[1]); }).map(x => x.t) : [];
   m.res = { kind, msg, miss, day: S.day, min: Math.round(daysToMin(S.day)), val: valuation(), net: Math.round(personalNet() * cpi()), ms: Math.round(marketShareAvg() * 100), rank: rankWorld(), rows: rows.slice(0, 8).concat(rows.slice(8).filter(r => r.me)).map(r => [r.n, Math.round(r.v), r.me ? 1 : 0]), parts, total,
-    pl: rows.filter(r => r.kind !== 'groupe').map(r => { const rv = r.kind === 'rival' ? rivalById(r.id) : null, kc = r.me ? casteOf() : rivK(rv); return [r.n, Math.round(r.v), r.me ? 1 : 0, kc && CASTES[kc] ? CASTES[kc].n : '']; }), prk: rankPlayers(), lv: difLv(), np: 1 + (S.rivals || []).filter(r => !r.sub).length };   // passe 80 : classement des joueurs (toi et les IA), niveau des IA, nombre de joueurs
+    pl: rows.filter(r => r.kind !== 'groupe').map(r => { const rv = r.kind === 'rival' ? rivalById(r.id) : null, kc = r.me ? casteOf() : rivK(rv); return [r.n, Math.round(r.v), r.me ? 1 : 0, kc && CASTES[kc] ? CASTES[kc].n : '']; }), prk: rankPlayers(), lv: difLv(), np: 1 + (S.rivals || []).filter(r => !r.sub).length, mp: m.mpFinal || undefined };   // passe 80 : classement des joueurs (toi et les IA), niveau des IA, nombre de joueurs
   if (m.k === 'round') try { const key = 'wse-rounds', L = JSON.parse(localStorage.getItem(key) || '[]'); L.unshift({ dt: new Date().toISOString().slice(0, 10), kind, caste: casteOf(), lv: m.res.lv, np: m.res.np, rk: m.res.prk[0], val: Math.round(m.res.val), day: S.day }); localStorage.setItem(key, JSON.stringify(L.slice(0, 12))); } catch (e) { /* palmarès local facultatif */ }
   try { const key = 'wse-prog', p = JSON.parse(localStorage.getItem(key) || '{}'); if (kind === 'win') p[m.k] = Math.max(p[m.k] || 0, total); localStorage.setItem(key, JSON.stringify(p)); } catch (e) { /* stockage indisponible */ }
   try { rkRecords(rkS(), rkCos(), {}); rkHofArchive(); } catch (e) { /* palmarès facultatif */ }   // passe 71
@@ -19904,7 +19910,7 @@ function showEnd() {
   const tot = Math.max(1, r.total), cur = modeK(), nx = r.kind === 'win' && /^s[1-4]$/.test(cur) ? { i: +cur[1] + 1, n: SCN['s' + (+cur[1] + 1)].n } : null;
   box.innerHTML = `<div class="ebox ${r.kind}"><h2>${head}</h2><p class="elead">${r.msg}</p><small>${modeName()} · ${fmt(r.day)} jours · ${r.min} min à vitesse normale</small>
     <div class="ekp"><div><small>Valorisation</small><b class="gold">${fmtV(r.val)}</b></div><div><small>Fortune personnelle</small><b>${fmtV(r.net)}</b></div><div><small>Parts de marché</small><b>${r.ms} %</b></div><div><small>Classement</small><b>${r.rank[0]} / ${r.rank[1]}</b></div></div>
-    ${r.pl ? `<h4>Classement des joueurs · niveau ${r.lv}/8 (${DIF_LV[r.lv] ? DIF_LV[r.lv].n : ''}) · ${r.np} joueurs</h4>${r.pl.map((x, i) => `<div class="erow ${x[2] ? 'me' : ''}"><span>${i + 1}. ${x[0]}${x[3] ? ' · <small>' + x[3] + '</small>' : ''}</span><b>${fmtV(x[1])}</b></div>`).join('')}` : ''}
+    ${r.mp && typeof MP !== 'undefined' ? MP.resHTML(r.mp) : ''}${r.pl ? `<h4>Classement des joueurs · niveau ${r.lv}/8 (${DIF_LV[r.lv] ? DIF_LV[r.lv].n : ''}) · ${r.np} joueurs</h4>${r.pl.map((x, i) => `<div class="erow ${x[2] ? 'me' : ''}"><span>${i + 1}. ${x[0]}${x[3] ? ' · <small>' + x[3] + '</small>' : ''}</span><b>${fmtV(x[1])}</b></div>`).join('')}` : ''}
     <h4>Classement final (avec les grands groupes)</h4>${r.rows.map((x, i) => `<div class="erow ${x[2] ? 'me' : ''}"><span>${x[2] && i >= 8 ? r.rank[0] : i + 1}. ${x[0]}</span><b>${fmtV(x[1])}</b></div>`).join('')}
     ${(() => { try { const it = rkHof().items.slice(0, 4); return it.length ? `<h4>Palmarès de la partie</h4>${it.map(x => `<div class="erow"><span>${x.t} : ${x.det ? x.det + ' · ' : ''}${x.by}</span><b>${x.v}</b></div>`).join('')}` : ''; } catch (e) { return ''; } })()}
     ${r.pl && hof.length > 1 ? `<h4>Tes derniers rounds</h4>${hof.slice(0, 6).map(x => `<div class="erow"><span>${x.dt} · ${CASTES[x.caste] ? CASTES[x.caste].n : x.caste} · niveau ${x.lv} · ${x.np} joueurs · ${x.kind === 'win' ? 'victoire' : x.kind === 'lose' ? 'défaite' : 'temps écoulé'}</span><b>${x.rk}e · ${fmtV(x.val)}</b></div>`).join('')}` : ''}
@@ -19922,7 +19928,7 @@ function showModes() {
   const sc = [1, 2, 3, 4, 5].map(i => { const k = 's' + i, S0 = SCN[k], lock = i > 1 && !pr['s' + (i - 1)] && !location.search.includes('open'); return card(k, `${i}. ${S0.n}`, S0.d, lock ? `Verrouillé · termine d'abord le scénario ${i - 1} · ${S0.min} min` : `${S0.min} min · objectif ${fmtV(S0.tgt)}${pr[k] ? ' · terminé (' + fmt(pr[k]) + ' pts)' : ''}`, lock); }).join('');
   el('modesel').innerHTML = `<div class="mbox"><h2>NOUVELLE PARTIE</h2><p class="note">Choisis ton mode, puis ta caste. Les scénarios se débloquent l'un après l'autre ; le Round est la partie compétitive de 90 minutes, de 3 à 8 joueurs (toi et les IA).</p>
     <h4>Départ <small>(Round et Libre ; les scénarios gardent leur ville)</small></h4><div class="mdif" role="radiogroup" aria-label="Ville de départ">${[['moyenne', 'Ville de 100 000 habitants (recommandé)', 'une vraie économie dès le départ : immeubles de 3 à 7 étages au centre, quartiers de maisons, écoles, hôpital, grand centre commercial ; elle grandit avec toi'], ['zero', 'Bourg (défi, 600 habitants)', 'tout est à construire : la ville grandit avec tes entreprises'], ['petite', 'Petite ville', '≈ 12 000 habitants'], ['ville', 'Ville établie', 'la ville classique : ≈ 60 000 habitants, centre d\'affaires et grande région autour']].map(a => `<label><input type="radio" name="start" value="${a[0]}" ${startChoice === a[0] ? 'checked' : ''}> <b>${a[1]}</b> · ${a[2]}</label>`).join('')}</div>
-    <h4>Round compétitif</h4><div class="mdif" role="radiogroup" aria-label="Difficulté du Round"><label><input type="radio" name="dif" value="normal" ${roundEasy ? '' : 'checked'}> <b>Normal</b> · ${fmtV(ROUND_CASH.normal)} de départ pour chaque joueur</label><label><input type="radio" name="dif" value="easy" ${roundEasy ? 'checked' : ''}> <b>Facile</b> · ${fmtV(ROUND_CASH.easy)} de départ pour chaque joueur</label></div><label class="matopt">Niveau des IA <select id="lvsel" aria-label="Niveau de difficulté des IA">${DIF_LV.slice(1).map((L, i) => `<option value="${i + 1}" ${roundLv === i + 1 ? 'selected' : ''}>${i + 1} · ${L.n} (note ${difNote(i + 1)} %)</option>`).join('')}</select> <small>1-3 : IA prudentes ; 4 : Normal ; 5-8 : IA compétentes qui peuvent te dépasser et gagner le Round. Concurrence faible pendant la première demi-année à tous les niveaux.</small></label><label class="matopt">Joueurs <select id="nrsel" aria-label="Nombre de joueurs">${[[1, 3], [2, 4], [3, 6], [4, 8]].map(([ix, np]) => `<option value="${ix}" ${roundN === ix ? 'selected' : ''}>${np} joueurs${np === 6 ? ' (les 6 castes)' : np === 8 ? ' (les 6 castes + 2 sièges)' : ''}</option>`).join('')}</select></label><div class="mgrid">${card('round', 'Round · 1 Md$ en 90 min', MODE_INFO.round.d, 'classement, rachats majoritaires, écran de résultats', false)}</div>
+    <h4>Round compétitif</h4><div class="mdif" role="radiogroup" aria-label="Difficulté du Round"><label><input type="radio" name="dif" value="normal" ${roundEasy ? '' : 'checked'}> <b>Normal</b> · ${fmtV(ROUND_CASH.normal)} de départ pour chaque joueur</label><label><input type="radio" name="dif" value="easy" ${roundEasy ? 'checked' : ''}> <b>Facile</b> · ${fmtV(ROUND_CASH.easy)} de départ pour chaque joueur</label></div><label class="matopt">Niveau des IA <select id="lvsel" aria-label="Niveau de difficulté des IA">${DIF_LV.slice(1).map((L, i) => `<option value="${i + 1}" ${roundLv === i + 1 ? 'selected' : ''}>${i + 1} · ${L.n} (note ${difNote(i + 1)} %)</option>`).join('')}</select> <small>1-3 : IA prudentes ; 4 : Normal ; 5-8 : IA compétentes qui peuvent te dépasser et gagner le Round. Concurrence faible pendant la première demi-année à tous les niveaux.</small></label><label class="matopt">Joueurs <select id="nrsel" aria-label="Nombre de joueurs">${[[1, 3], [2, 4], [3, 6], [4, 8]].map(([ix, np]) => `<option value="${ix}" ${roundN === ix ? 'selected' : ''}>${np} joueurs${np === 6 ? ' (les 6 castes)' : np === 8 ? ' (les 6 castes + 2 sièges)' : ''}</option>`).join('')}</select></label><div class="mgrid">${card('round', 'Round · 1 Md$ en 90 min', MODE_INFO.round.d, 'classement, rachats majoritaires, écran de résultats', false)}<button class="mcard" data-mpopen="1"><b>Jouer à plusieurs</b><small>2 à 6 humains dans une salle, les IA tiennent les autres castes : même ville, même graine, classement commun en direct.</small><em>créer une salle ou rejoindre avec un code</em></button></div>
     <h4>Scénarios</h4><div class="mgrid">${sc}</div><label class="matopt"><input type="checkbox" id="matchk" ${matChoice ? 'checked' : ''}> <b>Marché mûr</b> pour les scénarios 3 à 5 et le Round : les produits sont déjà développés par les rivaux (licence ou achat au lieu de la R&amp;D). Le Libre est toujours en marché mûr ; les scénarios 1 et 2 gardent la R&amp;D complète.</label>
     <h4>Bac à sable</h4><div class="mgrid">${card('free', 'Libre', MODE_INFO.free.d, 'sans limite de temps', false)}</div>${S.mode && S.mode.pending ? '' : '<button class="btn sec" data-mode="">Annuler</button>'}</div>`;
   el('modesel').hidden = false;
@@ -19942,6 +19948,7 @@ function startMode(k, o) {
   if (!fresh) { newCity(st); makeDecor(); cars = []; }
   S.mode = { k, t0: 0, done: null, n: {}, f: {} }; S.ry = null;   // passe 83 : missions, défis et jalons repartent de zéro
   if (k === 'round') S.opt = Object.assign({}, S.opt || {}, { lv: roundLv, n: roundN });   // passe 80 : niveau des IA et nombre de joueurs choisis à l'écran Nouvelle partie
+  if (o && o.mp) { Object.assign(S.opt, o.mp.opt); S.rs = o.mp.seed | 0; if (S.cg) S.cg.r = (o.mp.seed ^ 0x2f6e2b1) | 0; S.caste = o.mp.caste; S.mode.mp = o.mp.info; }   // multijoueur (salle) : graine commune de tous les tirages, castes des places, caste du joueur choisie dans la salle
   S.rivals = []; S.rv = null; S.seats = null; S.rivals = initRivals(); seatsSync();   // une IA par caste (3 enseignes d'origine en scénario)
   S.mat = (k === 'free' || (matChoice && (k === 'round' || k === 's3' || k === 's4' || k === 's5'))) ? 1 : 0; S.matPop = S.pop; S.trials = []; mkInv();   // marché mûr : par défaut en Libre, option pour les scénarios 3-5 et les rounds
   if (k === 'round') { S.cash = roundEasy ? ROUND_CASH.easy : ROUND_CASH.normal; S.noEv = false; S.mode.easy = roundEasy ? 1 : 0; (S.rivals || []).forEach(r => { r.cash = S.cash; }); }
@@ -23212,7 +23219,7 @@ function vnPortrait(x) {
 const VN_CS = [['val', 'Valeur'], ['cash', 'Trésorerie'], ['rev', 'Chiffre d\'affaires'], ['net', 'Résultat']];
 function vnCorps() {
   const rows = vnCoRows(), k = vnSt.cs; rows.sort((a, b) => (b[k] || 0) - (a[k] || 0));
-  return `<div class="vnf"><label>Trier par<select data-vact="cs">${VN_CS.map(([v, n]) => `<option value="${v}" ${v === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label><small class="note">${rows.length} sociétés · valeurs estimées pour les IA · courbe : résultat mensuel sur les 36 derniers mois</small></div>
+  return `${typeof MP !== 'undefined' ? MP.panelHTML() : ''}<div class="vnf"><label>Trier par<select data-vact="cs">${VN_CS.map(([v, n]) => `<option value="${v}" ${v === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label><small class="note">${rows.length} sociétés · valeurs estimées pour les IA · courbe : résultat mensuel sur les 36 derniers mois</small></div>
   <div class="cos">${rows.map(x => `<button type="button" class="co ${x.sid === 'me' ? 'me' : ''}" style="--c:${x.col}" data-vact="co:${vnEsc(x.sid)}" aria-label="Fiche de ${vnEsc(x.name)}">${vnPortrait(x)}
     <span class="cn"><b>${vnEsc(x.name)}</b><small>${x.sid === 'me' ? 'Ta société' : (CASTES[x.caste] ? CASTES[x.caste].n : 'Concurrent')} · ${x.rank}<sup>e</sup></small>
     <dl><dt>Trésorerie</dt><dd>${money(x.cash)}</dd><dt>CA annuel</dt><dd>${money(x.rev * 12)}</dd><dt>Résultat annuel</dt><dd class="${x.net < 0 ? 'neg' : ''}">${money(x.net * 12)}</dd></dl></span>
@@ -23339,6 +23346,7 @@ function vnClick(e) {
 // Objectifs et missions : le bandeau (scénario, jalon, tutoriel, classement) quitte le HUD pour l'onglet Objectifs
 { const ob = el('objbar'), gs = document.querySelector('#panel [data-sec="goals"]'); if (ob && gs) gs.insertBefore(ob, gs.firstChild); }
 vnBuild();
+/*__MP_JS__*/
 Object.assign(window.WSE, { vn: { VN, go: vnGo, tabs: vnTabs, active: vnActive, sync: vnSync, drawer: vnDrawer, expand: vnExpand, full: vnFull, render: vnRender, rows: vnCoRows, avg: vnAvg, dots: vnDots, st: vnSt } });
 })();
 </script>

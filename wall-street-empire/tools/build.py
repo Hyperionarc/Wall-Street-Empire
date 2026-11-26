@@ -455,5 +455,9 @@ print('liseré sombre corrigé :', sum(1 for v in P2_DEFRINGE.values() if v), 's
 print('sprites phase 2 :', len(p2hd), ' poids', sum(len(v) for v in p2hd.values()) // 1024, 'Ko')
 print('sprites usine :', len(fac), 'sur', len(FAC_NAMES) + len(facextra), '(dont HD :', len(_hd['png']), ')', '(repli vectoriel pour les autres)')
 out = tpl.replace('__FAC_JSON__', json.dumps(fac)).replace('__FACSH_JSON__', json.dumps(facsh)).replace('__FACANCH_JSON__', json.dumps(facanch)).replace('__FACBASE_JSON__', json.dumps(facbase)).replace('__FACX_JSON__', json.dumps(facextra)).replace('__GUIDEHD_JSON__', json.dumps(guidehd)).replace('__PRODHD_JSON__', json.dumps(prodhd)).replace('__CITYHD_JSON__', json.dumps(cityhd)).replace('__P2HD_JSON__', json.dumps(p2hd)).replace('__P2DIM_JSON__', json.dumps(p2dim)).replace('__CITYANCH_JSON__', json.dumps(cityanch)).replace('__HQ_JSON__', json.dumps(hq)).replace('__PORTRAITS_JSON__', json.dumps(pj)).replace('__ATLAS_DATA__', 'data:image/png;base64,' + b64).replace('__ATLAS_JSON__', json.dumps(pos, separators=(',', ':')))
+# Multijoueur (phase 1) : module client inséré dans la portée du jeu à la place du marqueur (fichier facultatif : sans lui, le jeu reste solo)
+_mpf = os.path.join(ROOT, 'multiplayer.js')
+if os.path.exists(_mpf) and '/*__MP_JS__*/' in out:
+    out = out.replace('/*__MP_JS__*/', open(_mpf, encoding='utf-8').read())
 open(os.environ.get('WSE_OUT') or os.path.join(ROOT, 'city.html'), 'w', encoding='utf-8').write(out)
 print('city.html', round(len(out) / 1024), 'Ko')
