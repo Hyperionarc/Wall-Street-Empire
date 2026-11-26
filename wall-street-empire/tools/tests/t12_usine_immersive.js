@@ -30,7 +30,7 @@ exports.run = async (t, L) => {
   pg = await bench(L);
   const tab = await pg.evaluate(async () => { const { W, f } = window.B; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 700)); const sw = document.getElementById('bsw').getBoundingClientRect(), bv = document.getElementById('bview').getBoundingClientRect(); return { sw: [Math.round(sw.width), Math.round(sw.height)], bv: [Math.round(bv.width), Math.round(bv.height)], vh: innerHeight, vw: innerWidth, btn: !!document.getElementById('bimmbtn').offsetParent, angles: [...document.querySelectorAll('#bcam [data-ang]')].map(b => b.dataset.ang).join(','), defAng: W.scene.ang, firstPressed: (document.querySelector('#bcam [data-ang][aria-pressed="true"]') || {}).dataset.ang }; });
   t.check('mode normal : la scène occupe ≥ 75 % de la hauteur de la fenêtre et ≥ 95 % de la largeur du panneau', tab.sw[1] >= 0.75 * tab.vh && tab.sw[0] >= 0.9 * tab.bv[0] && tab.bv[0] >= 0.9 * tab.vw, `scène ${tab.sw.join('×')} · panneau ${tab.bv.join('×')} · fenêtre ${tab.vw}×${tab.vh}`);
-  t.check('bouton « Entrer dans l\'usine » et sélecteur d\'angle (Dessus par défaut, puis Isométrique, Garage)', tab.btn && tab.angles === 'top,iso,garage' && tab.defAng === 'top' && tab.firstPressed === 'top', tab.angles + ' · défaut ' + tab.defAng);
+  t.check('bouton « Entrer dans l\'usine » et sélecteur de vue (Isométrique par défaut, puis Dessus en plan 2D ; Garage retiré, décision de Rémy)', tab.btn && tab.angles === 'top,plan' && tab.defAng === 'top' && tab.firstPressed === 'top', tab.angles + ' · défaut ' + tab.defAng);
   await pg.click('#bimmbtn'); const tr = await pg.evaluate(() => { const i = window.WSE.imm; return { on: i.on, tr: i.tr && i.tr.D, dir: i.tr && i.tr.dir }; }); await pg.waitForTimeout(900);
   const inn = await pg.evaluate(() => { const i = window.WSE.imm, sw = document.getElementById('bsw').getBoundingClientRect(), bv = document.getElementById('bview'); return { on: i.on, tr: i.tr, sw: [Math.round(sw.width), Math.round(sw.height)], cls: bv.classList.contains('imm'), tiles: getComputedStyle(document.getElementById('btiles')).opacity, vw: innerWidth, vh: innerHeight }; });
   t.check('« Entrer dans l\'usine » : transition de 0,6 s puis scène à 100 % × 100 % de la fenêtre', tr.on && tr.tr === 600 && tr.dir === 'in' && inn.tr === null && inn.cls && inn.sw[0] === inn.vw && inn.sw[1] === inn.vh, `${tr.tr} ms · ${inn.sw.join('×')} sur ${inn.vw}×${inn.vh}`);
@@ -56,7 +56,7 @@ exports.run = async (t, L) => {
   pg = await bench(L);
   const ang = [];
   await pg.evaluate(async () => { const { W, f } = window.B; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 500)); });
-  for (const a of ['garage', 'iso', 'top']) {
+  for (const a of ['top']) {   // passe 102 ter : Garage et vue sombre retirés ; la vue Dessus (plan 2D HTML) est couverte par t105
     await pg.click(`[data-ang="${a}"]`); await pg.waitForTimeout(500);
     const r = await pg.evaluate(() => { const W = window.WSE, sc = W.scene, sr = document.getElementById('bsw').getBoundingClientRect(), o = {}; o.ang = sc.ang;
       const tryAt = i => { const q = W.planSlotXY(sc, i), z = sc.top ? 4 : i >= 6 ? 36 : 0, m = sc.top ? q : i >= 6 ? (i < 9 ? [0, q[1]] : [q[0], 0]) : q, p = sc.M(m[0], m[1], z); return { x: sr.left + p[0], y: sr.top + p[1], hit: W.planSlotAt(sc, ...(() => { const k = document.getElementById('bscene').getBoundingClientRect(); return [(sr.left + p[0] - k.left) / (k.width / document.getElementById('bscene').width), (sr.top + p[1] - k.top) / (k.height / document.getElementById('bscene').height)]; })()) }; };
@@ -66,8 +66,8 @@ exports.run = async (t, L) => {
     await pg.mouse.click(r.door.x, r.door.y); await pg.waitForTimeout(250); const s2 = await pg.evaluate(() => (document.querySelector('#bpop .plsel b') || {}).textContent || '');
     r.s1 = s1; r.s2 = s2;
   }
-  t.check('les trois angles se construisent (garage = perspective, iso, dessus)', ang.map(r => r.ang).join() === 'garage,iso,top', ang.map(r => r.ang).join());
-  t.check('clic sur la machine (case 2) et sur la porte de sortie 1 : menus de leur emplacement dans chaque angle', ang.every(r => /^Case 2 /.test(r.s1) && /Case 10\)/.test(r.s2)), ang.map(r => `${r.s1} | ${r.s2}`).join(' ; '));
+  t.check('la vue isométrique de l\'usine se construit', ang.map(r => r.ang).join() === 'top', ang.map(r => r.ang).join());
+  t.check('clic sur la machine (case 2) et sur la porte de sortie 1 : menus de leur emplacement en isométrique', ang.every(r => /^Case 2 /.test(r.s1) && /Case 10\)/.test(r.s2)), ang.map(r => `${r.s1} | ${r.s2}`).join(' ; '));
   await pg.context().close();
 
   // 5. Atelier vivant : réglages, compétences, pannes déterministes, inspecteur, objectifs, sauvegarde

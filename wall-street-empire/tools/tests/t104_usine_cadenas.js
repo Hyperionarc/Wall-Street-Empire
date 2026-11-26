@@ -28,6 +28,16 @@ exports.run = async (t, L) => {
   const ctx = pg.context(), p2 = await ctx.newPage(); await p2.goto(L.URL); await p2.waitForTimeout(800);
   const re = await p2.evaluate(p => { const W = window.WSE, c = W.S.grid[p.y * W.N + p.x]; return c && W.chain.slotOpen(c, p.door); }, r);
   t.check('sauvegarde : l\'emplacement acheté reste ouvert', re === true, String(re));
+  // usine dont la VENTE est le goulot : une seule porte de vente, plusieurs machines ; clic sur le cadenas d'une porte de sortie → débit en hausse
+  const g = await pg.evaluate(() => { const W = window.WSE, S = W.S, T = window.T, K = W.chain, f = T.inP('f2'); W.easyLaunch(f, 'readymeal'); for (let d = 0; d < 2; d++) W.step();
+    W.planOf(f).forEach((k, i) => { if (k === 'sell') W.planDel(f, i); }); const fr = i => W.planOf(f)[i] === '' && K.slotOpen(f, i);
+    for (let i = 9; i < 12; i++) if (fr(i)) { W.planAdd(f, i, 'sell'); break; }
+    for (let n = 0; n < 4 && W.planEvalC(f).lim !== 'pl_sell'; n++) { const j = [0, 1, 2, 3, 4, 5].find(fr); if (j == null) break; W.planAdd(f, j, (n % 2) ? 'stock' : 'make'); }
+    for (let i = 6; i < 9; i++) if (W.planEvalC(f).lim === 'pl_buy') { if (fr(i)) W.planAdd(f, i, 'buy'); else if (!K.slotOpen(f, i)) K.planUnlock(f, i, true); }   // assez d'achats : la vente devient le goulot
+    const e0 = W.planEvalC(f), door = [9, 10, 11].find(i => !K.slotOpen(f, i)), cash = S.cash; if (door == null) return { lim: e0.lim, none: 1 };
+    W.openBuilding(f.x, f.y); W.bAct('planunlock:' + door); const e1 = W.planEvalC(f);
+    return { lim: e0.lim, f0: e0.flow * W.planBase(f), f1: e1.flow * W.planBase(f), paid: cash - S.cash, open: K.slotOpen(f, door), plan: W.planOf(f).join(',') }; });
+  t.check('usine dont la vente est le goulot : clic sur le cadenas d\'une porte de sortie → trésorerie débitée, débit de vente en hausse', g.lim === 'pl_sell' && g.open && g.paid > 0 && g.f1 > g.f0 * 1.05, JSON.stringify(g));
   t.check('0 erreur de page', pg.errs.length === 0, pg.errs.slice(0, 3).join(' | '));
   await ctx.close();
 };

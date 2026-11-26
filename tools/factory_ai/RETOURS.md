@@ -630,3 +630,9 @@ L'audit instrumenté (`wall-street-empire/tools/audit_hd.js`) a branché tout PN
 6. Mall central — **animations seulement, le bâtiment et l'enseigne ne changent pas** : `client_homme`, `client_femme`, `client_enfant`, `client_senior` en `_marche` et `_debout` (128×200, ancre aux pieds, 3/4 face bas-gauche, tenues civiles variées), `vendeur_debout` (tablier, sans casque), `caddie` (64×64), `voiture_face` / `voiture_dos` (256×256, mêmes modèles que `veh_*`), `marquage_parking` (losange 256×128 transparent, lignes blanches). Aujourd'hui passants et commerçants reprennent les ouvriers HD (casques, gilets) faute de clients civils ; les places du parking sont tracées par le code.
 7. Port (facultatif) : `port_navire_cargo_sw` et `port_ferry_sw` (proue vers l'autre sens) pour que chaque navire avance proue en avant dans les deux couloirs.
 Ne pas livrer : `mall_central*` (l'extérieur « Guggenheim » dessiné par le code est conservé), `aeroport_*` (chantier d'un autre agent).
+
+## COMMANDE n°20 (responsable Chaîne & Commerce → Cowork, 23 nov.) : farine en sachet (produit de rayon)
+Rémy veut vendre la farine en magasin dès le premier jour (biens de première nécessité). Le jeu la connaît comme bien intermédiaire (moulin, import par le port) ; il manque un produit de rayon « Farine » (clé prévue `flourbag`) et sa photo.
+1. `flourbag.jpg` : photo produit 1:1 (1024 × 1024), sachet de farine de blé en papier kraft ou blanc, 1 kg, posé debout, fond studio clair, ombre douce ; **aucun texte, logo ni pictogramme sur l'emballage** (le nom est écrit par le jeu).
+2. Même style et même cadrage que `bread.jpg` et `pasta.jpg` (lumière, fond, échelle).
+Après livraison, le responsable Chaîne & Commerce ajoute le produit aux tables (gamme, familles, demande) et à la gamme du jour 1.

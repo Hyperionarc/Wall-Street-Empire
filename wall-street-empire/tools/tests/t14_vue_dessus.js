@@ -18,11 +18,11 @@ exports.run = async (t, L) => {
   // 1. Vue Dessus par défaut, zones, boutons
   let pg = await bench(L); await pg.evaluate(PIX);
   const a = await pg.evaluate(async () => { const { W, f } = window.B; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 700)); const sc = W.scene, F = W.fac;
-    return { ang: sc.ang, top: !!sc.top, pressed: (document.querySelector('#bcam [data-ang][aria-pressed="true"]') || {}).dataset.ang, order: [...document.querySelectorAll('#bcam [data-ang]')].map(b => b.dataset.ang).join(','), zones: F.FZ.map(z => z.n).join(','), expl: F.expl, exb: !!document.querySelector('#bcam [data-cam="explode"]').offsetParent,
+    return { ang: sc.ang, top: !!sc.top, pressed: (document.querySelector('#bcam [data-ang][aria-pressed="true"]') || {}).dataset.ang, order: [...document.querySelectorAll('#bcam [data-ang]')].map(b => b.dataset.ang).join(','), zones: F.FZ.map(z => z.n).join(','), expl: F.expl, exb: !document.querySelector('#bcam [data-cam="explode"]'),
       cards: sc.cardRects ? sc.cardRects.length : 0, kpi: (document.getElementById('bvit').textContent || '').replace(/\s+/g, ' '), walls: sc.wallSegs.length, slots: F.FG_SLOTS.length, nTrees: 0 }; });
-  t.check('la vue « Dessus » est la vue par défaut à l\'ouverture de l\'intérieur (Garage reste disponible, en second)', a.ang === 'top' && a.top && a.pressed === 'top' && a.order === 'top,iso,garage', `${a.ang} · ${a.order}`);
+  t.check('la vue isométrique de l\'usine (ancienne « Dessus ») est la vue par défaut ; seconde vue : Dessus en plan 2D (Garage retiré)', a.ang === 'top' && a.top && a.pressed === 'top' && a.order === 'top,plan', `${a.ang} · ${a.order}`);
   t.check('les quatre zones sont présentes (ACHATS, FABRICATION, VENTE, BUREAU) et les 12 emplacements du plan ont une position', a.zones === 'ACHATS,FABRICATION,VENTE,BUREAU' && a.slots === 12 && a.walls > 10, `${a.zones} · ${a.slots} emplacements · ${a.walls} pans de mur`);
-  t.check('vue éclatée par défaut avec le bouton « Vue assemblée » ; cartes de KPI ancrées sur les zones et carte marge / ventes sur demande / stock en jours (plus de satisfaction ni de temps de cycle inventés)', a.expl === true && a.exb && a.cards >= 3 && /Marge nette/i.test(a.kpi) && /Ventes \/ demande/i.test(a.kpi) && /jours de ventes/i.test(a.kpi) && !/satisfaction|cycle/i.test(a.kpi), `${a.cards} cartes · ${a.kpi.slice(0, 120)}`);
+  t.check('vue éclatée par défaut, plus de bouton « Vue assemblée » (essai retiré) ; cartes de KPI ancrées sur les zones et carte marge / ventes sur demande / stock en jours (plus de satisfaction ni de temps de cycle inventés)', a.expl === true && a.exb && a.cards >= 3 && /Marge nette/i.test(a.kpi) && /Ventes \/ demande/i.test(a.kpi) && /jours de ventes/i.test(a.kpi) && !/satisfaction|cycle/i.test(a.kpi), `${a.cards} cartes · ${a.kpi.slice(0, 120)}`);
   const k = await pg.evaluate(() => { const { W, f } = window.B, sc = W.scene, I = W.fac.info(sc, f), o = {}; ['mat', 'mg', 'lvl', 'cov'].forEach(x => { o[x] = I[x]; }); o.finite = ['mat', 'mg', 'lvl'].every(x => Number.isFinite(I[x])) && !!I.book && Number.isFinite(I.book.prodTot); o.rng = I.lvl >= 0 && I.lvl <= 1 && Math.abs(I.lvl - I.book.fill) < 1e-9 && !('sat' in I) && !('cyc' in I); return o; });
   t.check('les cartes de KPI lisent de vraies valeurs : coût matière, marge, stock réel du produit (0-1) issu du carnet de commandes', k.finite && k.rng && k.mat > 0, JSON.stringify({ mat: +k.mat.toFixed(2), mg: +k.mg.toFixed(2), lvl: +k.lvl.toFixed(2) }));
   // 2. Un clic sur une zone ouvre le menu de la case : ACHATS -> porte d'entrée, VENTE -> porte de sortie, plot -> case du sol
@@ -68,12 +68,12 @@ exports.run = async (t, L) => {
 
   // 5. Vue éclatée / assemblée : bouton, murs hauts et toit en assemblée, plan toujours éditable
   pg = await bench(L); await pg.evaluate(PIX);
-  const ex = await pg.evaluate(async () => { const { W, f } = window.B; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 500)); const o = {}; o.a = { ex: W.scene.ex, h: W.scene.wallSegs[0].h }; W.camCmd('explode'); await new Promise(r => setTimeout(r, 400)); o.b = { ex: W.scene.ex, h: W.scene.wallSegs[0].h, txt: document.querySelector('#bcam [data-cam="explode"]').textContent, expl: W.fac.expl };
+  const ex = await pg.evaluate(async () => { const { W, f } = window.B; W.openBuilding(f.x, f.y); await new Promise(r => setTimeout(r, 500)); const o = {}; o.a = { ex: W.scene.ex, h: W.scene.wallSegs[0].h }; o.b = { btn: !!document.querySelector('#bcam [data-cam="explode"]') };
     const sr = document.getElementById('bsw').getBoundingClientRect(), p = W.scene.M(W.fac.FG_SLOTS[1].c[0], W.fac.FG_SLOTS[1].c[1], 25); o.pt = [sr.left + p[0], sr.top + p[1]]; return o; });
-  t.check('« Vue assemblée » : murs hauts (toit) ; « Vue éclatée » : murs bas, zones séparées ; le bouton bascule', ex.a.ex === true && ex.b.ex === false && ex.b.h > ex.a.h * 2 && /éclatée/.test(ex.b.txt), `${ex.a.h} → ${ex.b.h} px · ${ex.b.txt}`);
+  t.check('vue éclatée seule (murs bas, zones séparées) : le bouton d\'essai « Vue assemblée » est retiré', ex.a.ex === true && !ex.b.btn, JSON.stringify(ex));
   await pg.mouse.move(ex.pt[0], ex.pt[1]); await pg.waitForTimeout(120); await pg.mouse.click(ex.pt[0], ex.pt[1]); await pg.waitForTimeout(300);
   const ma = await pg.evaluate(() => (document.querySelector('#bpop .plsel b') || {}).textContent || '');
-  t.check('les unités du plan restent éditables en vue assemblée (clic sur la machine = menu de la case)', /^Case 2 · Machine/.test(ma), ma);
+  t.check('les unités du plan sont éditables d\'un clic en isométrique (clic sur la machine = menu de la case)', /^Case 2 · Machine/.test(ma), ma);
   await pg.context().close();
 
   // 6. Chargeur de sprites facultatif : un PNG remplace le dessin vectoriel, sinon repli vectoriel (aucune erreur)

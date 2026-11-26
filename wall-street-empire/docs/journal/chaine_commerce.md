@@ -111,14 +111,37 @@ Cause du « 0 % » : la notoriété (`c.aw`) ne visait que la publicité du maga
 ## Lot 9 : cadenas de l'usine
 Cause : un emplacement verrouillé n'avait aucune action (texte « agrandis l'usine »). Maintenant (`planUnlock`, `unlockCost` ≈ 12 % du prix du bâtiment) : clic sur un cadenas = achat immédiat s'il coûte ≤ 5 % de la trésorerie, sinon bouton « Débloquer et équiper · coût » dans le panneau ; une porte achetée reçoit son unité (achat à l'entrée, vente à la sortie) ; son « caisse », effet visuel, message avec le débit avant/après ; refus expliqué si les fonds manquent. Test t103 (aucun cadenas inerte, achat, refus, sauvegarde).
 
+## Lot 10 : vues de l'usine (audit et refonte)
+Audit de la barre (avant) : « Dessus » = la vraie vue vivante de l'usine (isométrique claire, employés, camions, quais) ; « Isométrique » = une salle sombre façon vitrine (pas le flux) ; « Garage » = perspective basse d'essai ; « Vue assemblée / éclatée » = essai de murs hauts ; ⟲ ⟳ = orbite, sans effet dans la vue vivante (inertes) ; − + Ensemble Achat Fabrication Vente Produit = caméra (fonctionnels) ; « Masquer les liaisons » = fonctionnel.
+Décision : deux vues seulement. **Isométrique** = la vue vivante (ancienne « Dessus », simplifiée, infobulles au survol) ; **Dessus** = plan 2D détaillé en HTML sur la même scène (`plan2dHTML`, `#bp2d`) : 12 blocs (entrées, atelier, sorties) avec unité, débit par jour, goulot en rouge, cadenas avec coût, flux Achat → Stock → Machines → Vente, prix et qualité. Mêmes cibles et mêmes infobulles (`planTip`) et mêmes actions (`plansel`, `planunlock`) ; bascule sans reconstruire la scène (sélection et caméra gardées) ; −/+ zooment le plan, Achat/Fabrication/Vente mettent les blocs en avant. Retirés : Garage, vue sombre, vue assemblée, rotation. Chevauchements : la fiche produit se masque quand un panneau d'action est ouvert, le panneau d'action se place sous la barre de vue, le plan 2D masque les panneaux qui le recouvriraient. Test t105 (barre, effets, employés animés, mêmes infobulles, cadenas, aucun bouton recouvert à 1280×800 et 900×800). t12 et t14 mis à jour (ils exigeaient Garage et le bouton de vue assemblée).
+
+## Lot 11 : quai de vente goulot (t104)
+Usine moyenne de plats cuisinés, une seule porte de vente, assez de machines et d'achats : le goulot est la vente ; clic sur le cadenas d'une porte de sortie → 840 150 $ débités, porte équipée, débit 2 906 → 5 813 /j.
+
+## Lot 12 : lignes parallèles par variante
+`c.lines` (facultatif, sauvegarde `ln`) : une usine peut porter plusieurs lignes de la même famille (porc / bœuf / volaille ; pain / pâtes ; …). Chaque ligne est une sous-usine (`Object.create(c)`) passée au moteur de recettes existant : son intrant, sa sortie, son goulot ; capacité totale × (1 + 0,5 par ligne en plus), partagée ; une ligne ajoutée coûte une machine. Le chiffre d'affaires est la somme des lignes. Fiche : « Lignes de production » (débit et goulot par ligne, ajouter / retirer) ; les emplacements d'achat couvrent les intrants de toutes les lignes. Une usine existante reste à une ligne (aucune migration). Test t106.
+
+## Lot 13 : ressorts de défi et BFR de la société
+- Fournisseurs défaillants (déterministes, `hash`) : par période de 40 jours, un grossiste ou un concurrent peut faire défaut 6 à 13 jours (probabilité 10 % × activité des puissances étrangères) ; jamais avant le jour 30. Le port connaît des congestions (délai +3 j). Le lien cassé se voit sur la carte du fournisseur (« défaillant », « port congestionné ») et dans le journal (un message par période) ; l'achat s'arrête, le stock s'épuise, la rupture suit.
+- « Réparer les liens (N) » dans le panneau fournisseur : relie en lot chaque produit en panne au meilleur fournisseur disponible (`netFix`).
+- BFR de la société (`bfrTotal`) dans la fiche société (Finances) : stocks de produits au coût livré (ou au prix de gros pour ta production) + stocks de biens au cours ; créances et dettes fournisseurs nulles ; en jours de ventes de rayon.
+- Test t107 (pas de défaillance avant le jour 30, déterminisme, rupture puis réparation et reprise des ventes, BFR).
+- Reste : entrepôts tampons des récoltes reliés aux magasins, qualité en cascade visible sur les ventes (déjà calculée par `trueQ`, pas encore affichée dans l'emplacement).
+
+## Lot 14 (analyse, non appliqué) : dimensionnement réaliste
+Mesures (ville de 100 000 habitants, région 303 000, jour 30) :
+- demande de la classe « base » pour toute la région : 6 629 unités/j, soit 0,022 unité par habitant et par jour ; un supermarché vend 42 à 63 unités/j par produit (œufs, poulet, pain, lait) pour une demande adressée de 1 200 à 1 750 unités/j par produit dans toute la ville ;
+- côté production : une petite usine de poulet sort 2 971 unités/j (15,6 cycles × 200) et consomme 1 114 unités de volaille/j, quand un élevage de 2 000 poules en donne 57 /j : il faudrait 20 élevages pour l'alimenter.
+Diagnostic : l'unité du jeu est un « lot de valeur » (prix de gros 4 à 30 $), pas un article physique ; la dépense de rayon vaut ≈ 1,45 % du revenu disponible (κ, domaine Économie) contre ≈ 10 à 15 % pour l'alimentation et l'hygiène réelles ; les usines ont été calibrées pour de grands marchés.
+Proposition cohérente (à mener avec le responsable Économie, car elle touche t02, t10, t97 et l'équilibre des castes) : (1) définir l'unité de chaque produit comme un article de consommation (boîte de 12 œufs, poulet entier, baguette, litre de lait) et ses prix en conséquence ; (2) relever κ pour que la demande de base atteigne 1 à 2 articles par habitant et par jour (≈ 300 000 à 600 000 /j pour la région) ; (3) ramener le débit d'une petite usine à quelques milliers d'articles/j et dériver les élevages de « cheptel ÷ durée du cycle » (poulet de chair 35-45 j, porc ≈ 180 j, bovin ≈ 2 ans ; ponte ≈ 0,8 œuf/poule/j ; lait ≈ 25 L/vache/j), avec des tests de cohérence (cheptel × rendement = débit ; ventes par habitant dans une fourchette). Rien de cela n'est appliqué : changer l'unité sans revoir κ et les prix casserait l'équilibre libéral calibré.
+
 ## Principes empruntés / conçu en propre
 Emprunté comme principe : emplacements d'un bâtiment reliés à des fournisseurs, goulots et ruptures, services d'un commerce (idée de Rémy), changement de source en lot, solder un stock. Conçu en propre : réseau commun port + grossiste + concurrents avec gamme de départ, noms et interactions (« Remplir », « Solder le stock », « Même source pour mes autres usines », cartes fournisseurs dans le panneau), formules de capacité, notoriété organique, cadenas achetables par emplacement, finances de l'emplacement.
 
 ## Ce qui reste
 
-- **Dimensionnement réaliste** (cheptel × cycle = débit, ventes par habitant) : non fait. Constat : une petite usine sort ≈ 3 000 u/j quand un petit marché vend ≈ 30 u/j par produit ; il faut redéfinir l'unité (lot) ou réduire les débits d'usine et relever la demande par habitant, ce qui touche toutes les calibrations (t02, t10, t97). À traiter avec le responsable Économie.
-- **Vues de l'usine** (dessus détaillé / isométrique animée, retrait du Garage et de la vue éclatée, chevauchements) et **lignes parallèles par variante** (abattoir porc / bœuf / volaille) : non commencés.
-- Défis supplémentaires (fournisseurs qui font défaut, liens cassés, entrepôts tampons des récoltes) : non commencés.
+- **Dimensionnement réaliste** : analyse et plan au lot 14, non appliqués.
+- Défis : entrepôts tampons des récoltes, qualité en cascade visible ; farine en sachet commandée à Cowork (RETOURS.md, commande n°20).
 - **Farine en sachet** vendue en magasin : la farine existe comme bien (moulin, port), mais pas comme produit de rayon. L'ajouter demande une image : commande à passer dans RETOURS.md (Visuels).
 - Batch « même fournisseur » (tous ceux qui achètent chez X, quel que soit le produit) : non fait ; la coche « matière disponible » est implicite (tout s'importe au port), le panneau stop n'a plus lieu d'être.
 - Surproduction : une petite usine de poulet sort ≈ 3 000 u/j pour 30 ventes/j d'un petit marché ; le surplus part à l'export (domaine Économie : congestion des produits finis, G15).
