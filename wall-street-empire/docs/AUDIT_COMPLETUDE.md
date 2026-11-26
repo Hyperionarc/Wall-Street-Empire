@@ -209,7 +209,8 @@ Chaque fichier est rattaché à la dernière commande qui le cite. Les besoins N
 | n°18 | `eggs.jpg`, `chicken.jpg`, `porkmeat.jpg`, `lambmeat.jpg`, `sausage.jpg`, `tablewine.jpg`, `grandcru.jpg`, `tableoil.jpg`, `biofuel.jpg`, `corn.jpg`, `rapeseed.jpg`, `cookoil.jpg`, `biodiesel.jpg`, `grapes.jpg`, `egg.jpg`, `wine.jpg`, `sweater.jpg`, `drinkmilk.jpg`, `beefmeat.jpg`, `beef.jpg`, `pork.jpg`, `lamb.jpg`, `poultry.jpg`, `wool.jpg`, `cpu.jpg`, `dram.jpg`, `gpu.jpg` |
 | n°79 | `carriere_concasseur.png`, `carriere_concasseur_n3.png` |
 | n°19 | `avion_ligne.png`, `ombres/avion_ligne.png`, `avion_ligne_ar.png`, `aerogare_vitree.png`, `parking_aeroport.png`, `bus_navette.png`, `taxi.png`, `int_aerogare_hall.png` |
-| n°21 | `flourbag.jpg`, `entrepot_en_ligne.png`, `carriere_calcaire.png`, `salle_de_sport.png`, `tour_telecom.png`, `stade_sport_b.png` |
+| n°20 | `flourbag.jpg` |
+| n°21 | `entrepot_en_ligne.png`, `carriere_calcaire.png`, `salle_de_sport.png`, `tour_telecom.png`, `stade_sport_b.png` |
 
 ### 5.3 PNG embarqués mais dessinés par aucun élément de la carte
 
