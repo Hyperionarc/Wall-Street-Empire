@@ -21,7 +21,7 @@ exports.run = async (t, L) => {
     t.check(`graine ${seed} : humeur dans 20-92, écart-type > 6 (${sd(hs).toFixed(1)}, min ${Math.min(...hs).toFixed(0)}, max ${Math.max(...hs).toFixed(0)})`, sd(hs) > 6 && Math.min(...hs) > 15 && Math.max(...hs) < 95, '');
     const c = corr(h.slice(40), g.slice(40));
     t.check(`graine ${seed} : humeur corrélée positivement au PIB (r = ${c.toFixed(2)})`, c > 0.35, '');
-    t.check(`graine ${seed} : PIB dans [−4,5 %, +7 %] (min ${(Math.min(...g) * 100).toFixed(1)}, max ${(Math.max(...g) * 100).toFixed(1)}) et inflation dans [−1 %, 12 %]`, Math.min(...g) > -0.045 && Math.max(...g) < 0.0701 && Math.min(...R.i) >= -0.0101 && Math.max(...R.i) <= 0.1201, '');
+    t.check(`graine ${seed} : PIB dans [−6,5 %, +7 %] (dépression comprise, économie lot 6) (min ${(Math.min(...g) * 100).toFixed(1)}, max ${(Math.max(...g) * 100).toFixed(1)}) et inflation dans [−1 %, 12 %]`, Math.min(...g) > -0.065 && Math.max(...g) < 0.0701 && Math.min(...R.i) >= -0.0101 && Math.max(...R.i) <= 0.1201, '');
     // cycle irrégulier : durées des expansions et récessions (franchissements de 3 %) différentes
     const gaps = []; let last = 0; for (let i = 1; i < g.length; i++) if ((g[i - 1] - 0.03) * (g[i] - 0.03) < 0) { gaps.push(i - last); last = i; }
     t.check(`graine ${seed} : cycle irrégulier (${gaps.length} demi-cycles, durées ${gaps.slice(0, 8).map(x => x * 5).join('/')} j, écart-type ${sd(gaps.slice(1)).toFixed(1)})`, gaps.length >= 6 && sd(gaps.slice(1)) > 2, '');

@@ -99,7 +99,7 @@ La marque protège : attrait relatif ×6 avec marque et fidélité à 80 (t112).
 - Cycle asymétrique en quatre phases (`cycDev`, `cycShape`, `cycPhase`) : reprise → expansion → pic → récession (dépression si profonde : 18 % des cycles, tirés par `hash` une fois par cycle,
   récession plus longue et plus creuse). Une année = 120 jours : cycle moyen ≈ 1 150 jours (≈ 9,5 ans), récession ≈ 10 % du cycle (≈ 11 mois). Écart nul à mi-cycle (les tests qui figent la
   conjoncture à phase = π gardent leurs repères).
-- Effets, tous par les mécanismes existants : PIB → emploi (loi d'Okun : coefficient 1,2 autour du taux naturel `nairu`, inertie ; les postes vacants ne neutralisent plus le cycle, d'où
+- Effets, tous par les mécanismes existants : PIB → emploi (loi d'Okun : coefficient 1,1 autour du taux naturel `nairu`, inertie ; les postes vacants ne neutralisent plus le cycle, d'où
   « le chômage ne varie jamais » : il était collé au plancher frictionnel de 3 %), salaires, épargne, budget des ménages (Engel), crédit (`credCycle`), taux, bourse (`mktSent` anticipe la
   conjoncture à 60 jours). Biens de base peu sensibles : élasticité-revenu des biens courants 0,04-0,1 (le DEM_PER_POP et la logique basique / courant / luxe ne changent pas).
 - Rivaux : en récession un faucon qui a de la trésorerie attaque plus tôt (seuil de guerre × 0,6) ; une colombe déficitaire réduit plus tôt.
@@ -117,20 +117,23 @@ La marque protège : attrait relatif ×6 avec marque et fidélité à 80 (t112).
 - Reste à faire : délais de paiement fournisseurs (achats payés comptant), négociation des délais, coût de stockage des entrepôts au-delà de c._fee.
 
 ## Calibration par bots (sim_batch `--native`, une graine, 816 jours ; M$ aux jours ≈ 200 / 400 / 600 / 800)
-| Caste | Départ (HEAD 4bf6b66) | Après les lots 1 à 4 |
-|---|---|---|
-| Banquier | 31 / 63 / 93 / 143 | 31 / 63 / 92 / 143 |
-| Agriculteur | 38 / 101 / 112 / 107 | 35 / 96 / 81 / 100 |
-| Négociant | 24 / 40 / 85 / 124 | 24 / 43 / 85 / 155 |
-| Promoteur | 34 / 42 / 206 / 167 | 34 / 22 / 111 / 91 |
-| Innovateur | 33 / 70 / 145 / 223 | 33 / 69 / 131 / 194 |
-| Industriel | 14 / 29 / 47 / 77 | 16 / 29 / 50 / 84 |
-Écart à 6 ans (rapport max/min) : 2,9 → 2,1 ; l'industriel démarre un peu mieux (vente en gros) ; le promoteur, très cyclique, varie fortement d'une graine à l'autre (une seule graine :
-à confirmer sur plusieurs graines). Mesure faite avant les lots 5 à 7 (cycle allongé, faillite) : à refaire.
+| Caste | Départ (HEAD 4bf6b66) | Lots 1 à 4 | Final (lots 1 à 7, cycle long) |
+|---|---|---|---|
+| Banquier | 31 / 63 / 93 / 143 | 31 / 63 / 92 / 143 | 31 / 62 / 105 / 151 |
+| Agriculteur | 38 / 101 / 112 / 107 | 35 / 96 / 81 / 100 | 33 / 93 / 108 / 113 |
+| Négociant | 24 / 40 / 85 / 124 | 24 / 43 / 85 / 155 | 27 / 42 / 85 / 152 |
+| Promoteur | 34 / 42 / 206 / 167 | 34 / 22 / 111 / 91 | 34 / 41 / 66 / 234 |
+| Innovateur | 33 / 70 / 145 / 223 | 33 / 69 / 131 / 194 | 33 / 69 / 149 / 241 |
+| Industriel | 14 / 29 / 47 / 77 | 16 / 29 / 50 / 84 | 15 / 19 / 34 / 44 |
+Aucune banqueroute de bot sur 816 jours (agriculteur compris). Lecture honnête : après les lots 1 à 4, l'écart entre castes à 6 ans s'était resserré (2,9 → 2,1) et l'industriel démarrait mieux
+(vente en gros) ; avec le cycle long et la loi d'Okun (lot 6), l'industriel retombe à 44 M$ (contre 77 au départ) : son playbook de bot épargne et construit en plein milieu de la première
+récession, qui tombe maintenant vers le jour 400-500 de cette graine. Une seule graine : la mesure sur plusieurs graines et l'équilibrage de l'industriel restent À FAIRE (indicateur
+« valeurs à 6 ans plus proches » non atteint).
 
 ## Tests modifiés (justification)
 - `t08_chaines` « chaîne mal construite (pain sans farine) » : 5 % → 10 % de marge au plus ; la farine reste importée au prix du port, mais le pain se vend maintenant en gros aux commerces de la ville
   au lieu de partir à l'export à 72 %. Les deux échecs « chaîne bread bien construite » existaient au départ (−10 % d'EBITDA ; maintenant −8 %).
+- `t25_macro_humeur` : plancher du PIB −4,5 % → −6,5 % (la dépression, profonde et rare, fait partie du cycle demandé par Rémy).
 - `t111` hypermarché : des centaines de baguettes par jour (un méga-centre en vend quatre fois plus) ; le chiffre d'affaires d'un magasin est resté du même ordre (valeur neutre).
 
 ## Emprunté comme principe / conçu en propre
