@@ -146,3 +146,9 @@ Emprunté comme principe : emplacements d'un bâtiment reliés à des fournisseu
 - Batch « même fournisseur » (tous ceux qui achètent chez X, quel que soit le produit) : non fait ; la coche « matière disponible » est implicite (tout s'importe au port), le panneau stop n'a plus lieu d'être.
 - Surproduction : une petite usine de poulet sort ≈ 3 000 u/j pour 30 ventes/j d'un petit marché ; le surplus part à l'export (domaine Économie : congestion des produits finis, G15).
 - Comparaison Local / Moyenne dans la fiche d'emplacement : le tableau existe (`prodView`, repliable) ; il reste à l'aligner sur les captures de référence (ref_61 à ref_65).
+
+## Note du responsable Économie de marché (branche `economie-marche`)
+Lots qui touchent ce domaine (détail dans `docs/journal/economie.md`) : emballages par matière (`PACK_MAT`, `packIn` dans `productInputs`, devis et Guide) ; unité = article pour 26 biens courants
+(`ART`, production par cycle × A, valeur neutre) ; demande de la ville par produit partagée entre tes magasins, les commerces de la ville et le Mall, et les rivaux (`pkShare` dans la boucle de vente) ;
+vente en gros de ta production aux commerces de la ville (`b2bStep` : la surproduction ne part plus d'abord à l'export) ; conversion articles ↔ unités de panier dans `netEst`, `netCaps`, `mkDemandDay`.
+Le lot 14 (dimensionnement) est donc appliqué. t102 et t44 repassent ; t08 : seuil « pain sans farine » relevé à 10 % (justifié dans le journal Économie).
