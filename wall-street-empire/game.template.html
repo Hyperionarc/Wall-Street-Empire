@@ -4321,12 +4321,12 @@ function navSvc(c, k, R, nb, ok) {
   if (k === 'marina') {
     const q = c._nq || { o: 0, B: navBerths(c), D: A.pf * NAV_BERTH_SH, pr: A.pr || NAV_R0, rent: 0, fuel: 0, svc: 0, rr: 0, rf: 0 }, nv = navNv(c);
     R.inH = nb('Clientèle', `${fmt(q.D)} bateaux de la région cherchent une place (flotte de plaisance ${fmt(A.pf)})`) + nb('Concurrence', `${BAY.on ? 'port municipal ' + fmt(A.tm.occ) + '/' + NAV_TOWN_B + ' places, ' : ''}autres ports de la côte`)
-      + `<div class="bn"><b>Loyer d'une place : ${money(q.pr * nv.px)} /jour (${Math.round(nv.px * 100)} % du marché)</b><small>Loyer de marché ${money(q.pr)} /jour : il monte avec le revenu, l'humeur et la rareté des places.</small><div class="rlist">${bt('mpx:-5', '−5 %')}${bt('mpx:5', '+5 %')}</div></div>`;
+      + `<div class="bn"><b>Loyer d'une place : ${mj(q.pr * nv.px)} /mois (${Math.round(nv.px * 100)} % du marché)</b><small>Loyer de marché ${mj(q.pr)} /mois : il monte avec le revenu, l'humeur et la rareté des places.</small><div class="rlist">${bt('mpx:-5', '−5 %')}${bt('mpx:5', '+5 %')}</div></div>`;
     R.outH = nb('Amarrage', `${fmt(q.o)} / ${fmt(q.B)} places louées · ${mj(q.rent)} /mois`) + nb('Carburant et entretien', `${mj(q.fuel + q.svc)} /mois (marge ${mj(q.fuel * 0.22 + q.svc * 0.55)})`)
       + `<div class="bn"><b>Flotte de location : ${q.rf || nv.rf || 0} voilier(s)</b><small>${mj(q.rr || 0)} /mois · taux de location ${pct(q.rU || 0)}</small><div class="rlist">${bt('rbuy', 'Acheter un voilier (' + cmpd(navWorldPx('voilier')) + ')')}${bt('rown', 'Le faire construire (chantier)', A.m.voilier.st !== 'on' || !navYards().length)}${bt('rsell', 'Revendre', !(nv.rf > 0))}</div></div>`;
     R.util = clamp(c.util || 0, 0, 1); R.utilLbl = 'places louées';
-    R.kpi = [['Places louées', fmt(q.o) + ' / ' + fmt(q.B)], ['Loyer de marché', money(q.pr) + ' /j'], ['Flotte de la région', fmt(A.pf)], ['Recettes / mois', mj(c.pRev || 0), 'pos']];
-    R.bn = q.o >= q.B - 0.5 ? ok('Port complet', 'Toutes les places sont louées : monte le loyer ou agrandis le port (outil Améliorer).', 'warn') : q.o < 0.3 * q.B ? ok('Port peu rempli', 'Trop cher ou trop loin de la ville : baisse le loyer ; la flotte de la région grandit avec les achats de bateaux (revenu des ménages).', 'warn') : ok(`Port de plaisance : ${fmt(q.o)} places louées`, `Loyer de marché ${money(q.pr)} /jour ; la plaisance chute en récession (luxe durable).`);
+    R.kpi = [['Places louées', fmt(q.o) + ' / ' + fmt(q.B)], ['Loyer de marché', mj(q.pr) + ' /mois'], ['Flotte de la région', fmt(A.pf)], ['Recettes / mois', mj(c.pRev || 0), 'pos']];
+    R.bn = q.o >= q.B - 0.5 ? ok('Port complet', 'Toutes les places sont louées : monte le loyer ou agrandis le port (outil Améliorer).', 'warn') : q.o < 0.3 * q.B ? ok('Port peu rempli', 'Trop cher ou trop loin de la ville : baisse le loyer ; la flotte de la région grandit avec les achats de bateaux (revenu des ménages).', 'warn') : ok(`Port de plaisance : ${fmt(q.o)} places louées`, `Loyer de marché ${mj(q.pr)} /mois par place ; la plaisance chute en récession (luxe durable).`);
     return R;
   }
   const yi = idx(c.x, c.y), mine = A.ord.filter(o => o.y === yi), wip = mine.reduce((s, o) => s + o.c, 0), adv = mine.reduce((s, o) => s + o.a, 0), ar = arTotal(), book = mine.reduce((s, o) => s + o.p, 0);
@@ -4376,7 +4376,7 @@ function navGuideHTML(k, items) {
   const card = g => `<div class="gcard"><div class="gimg"><img alt="" src="${compIcon(g)}"></div><div><div class="gt">${gName(g)}</div><div class="gu">${fmt(q[g])} unités</div><div class="gq">Cours : ${f1(gPriceAny(g))} $ · stock ${fmt(gStock(g))}</div></div>${RECIPES[g] || RAW_SRC[g] ? `<button class="gmore" data-g="more:${g}">PLUS</button>` : ''}</div>`;
   const st = m.st === 'on' ? `Lancé · qualité ${navQ(k)} · ton prix ${cmpd(wp * m.px)}` : m.st === 'rd' ? `Plans en cours (${m.left} j)` : 'Non conçu : chantier naval > Concevoir';
   const box = `<div class="gcard"><div class="gimg">${navSVG(k)}</div><div><div class="gt">${D.name} (${D.len})</div><div class="gu">1 navire, construit à la commande en ${D.days} jours</div><div class="gq">Prix mondial : ${cmpd(wp)} · matières ≈ ${Math.round(D.mat * 100)} %, main-d'œuvre ≈ ${Math.round(D.lab * 100)} %</div><div class="gq">${st}</div><div class="gq">Paiement : acompte ${Math.round(NAV_PAY[0] * 100)} % à la commande, ${Math.round(NAV_PAY[1] * 100)} % à la mise à l'eau, solde à la livraison (30 jours)</div><div class="gq">Clients : ${D.seg === 'p' ? 'ménages aisés de la ville et clientèle étrangère (luxe : très sensible à la récession)' : 'armateurs de la région, rivaux et armateurs étrangers (commerce mondial)'}</div></div></div>`;
-  const diag = `<div class="gdiag"><div class="gcol">${Object.keys(q).map(card).join('')}</div><div class="grail"></div><div class="gcol">${box}</div></div>`;
+  const diag = `<div class="gdiag"><div class="gcol">${Object.keys(q).map(card).join('')}</div><div class="grail"></div><div class="gcol" style="align-self:flex-start;justify-content:flex-start;position:sticky;top:0">${box}</div></div>`;
   return `<div class="ghead"><b>GUIDE DU FABRICANT</b><button class="ibtn" data-g="farm">Guide de l'agriculteur</button><button class="ibtn" data-g="close">Fermer</button></div><div class="gbody"><div class="glists">${clsL}${typL}</div><div class="gmain">${diag}</div></div>`;
 }
 const ICONS = {
@@ -18045,7 +18045,7 @@ function navWaterDraw(vr) {
     if (c.t === 'marina') { const nv = navNv(c), oc = c.util != null ? c.util : 0.5; for (const k of sk) { const p0 = at(k + 0.5); navPontoons(p0[0], p0[1], d, 2.2, Math.max(oc, 0.15), c.x * 3 + c.y + k, k === 0 ? nv.rf || 0 : 0); } return; }
     // chantier : navires à flot au quai d'armement (parallèles au rivage) ; les navires sur cale sont dessinés avec le bâti (navDrawBld)
     const A2 = A || { ord: [] }, yi = idx(c.x, c.y), afloat = A2.ord.filter(o => o.y === yi && o.pr >= NAV_LAUNCH), last = navNv(c).last, p0 = at(sk.length ? (sk[0] + sk[sk.length - 1] + 1) / 2 : sp / 2), th = Math.atan2(e[1], e[0]);
-    const quay = (j, pr, kind, Ls, seed) => navBoat(p0[0] + d[0] * (0.45 + j * 0.55), p0[1] + d[1] * (0.45 + j * 0.55), th, kind, Ls, { pr, seed });
+    const quay = (j, pr, kind, Ls, seed) => navBoat(p0[0] + d[0] * (0.45 + j * 0.85), p0[1] + d[1] * (0.45 + j * 0.85), th, kind, Ls, { pr, seed });
     afloat.slice(0, 2).forEach((o, j) => { const D = NAV_SHIPS[o.k]; quay(j, o.pr, D.kind, Math.min(D.L, sp * 0.95), o.id); });
     if (last && S.day - last[1] <= 6 && afloat.length < 2) { const D = NAV_SHIPS[NAV_KEYS[last[0]]]; if (D) quay(afloat.length, 1, D.kind, Math.min(D.L, sp * 0.95), last[1]); }   // navire livré : à quai quelques jours avant d'appareiller
   });
