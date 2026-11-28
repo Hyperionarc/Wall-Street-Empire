@@ -4,7 +4,7 @@ exports.name = 'Couverture HD : sprites branchés, pharmacie récente, aucun PNG
 const A = require('../audit_hd.js');
 const EXPECT = { 'bank:n0': 'banque', 'bank:n4': 'banque', 's4:n0': 'bat_mega_centre_commercial', 'dc:n0': 'data_center_campus', 'mon:police': 'commissariat_ville', 'mon:fire': 'caserne_pompiers',
   spharma: 'pharmacie_quartier', 'sv:drugstore': 'pharmacie_quartier', 's2:n0': 'bat_supermarche', 's3:n4': 'bat_hypermarche_n3', 'mon:hospital': 'hopital_ville' };   // cohérence esthétique : commissariat, pharmacie et hôpital en rendus procéduraux (docs/STYLE_BATIMENTS.md)
-const VEC_OK = { sbrico: 'brico_outillage non livré (commande n°9 / 17 bis)' };
+const VEC_OK = { sbrico: 'brico_outillage non livré (commande n°9 / 17 bis)', marina: 'port de plaisance dessiné en code (commande Nautisme n°1 en attente)', shipyd: 'chantier naval dessiné en code (commande Nautisme n°1 en attente)' };
 exports.run = async (t, L) => {
   const pg = await L.newPage({ wait: 2500 }); await L.setup(pg, {});
   await pg.waitForFunction(() => Object.values(window.WSE.gfx.P2_IMG).every(e => e.ok), null, { timeout: 30000 }).catch(() => {});

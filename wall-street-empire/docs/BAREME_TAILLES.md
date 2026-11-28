@@ -26,6 +26,8 @@ Colonnes : clé du type, nom, emprise avant → après (largeur × profondeur), 
 | `immo` | Agence immobilière | 1 × 1 | 1 × 1 | 1 | bureau en pied d'immeuble |
 | `sfuel` | Station-service | — | 1 × 1 | 1 | pompes, auvent et boutique au bord de la route (nouveau type, liberté de construire) |
 | `scharge` | Bornes de recharge | — | 1 × 1 | 1 | bornes rapides et auvent au bord de la route (nouveau type) |
+| `marina` | Port de plaisance | — | 2 × 2 | 4 | pontons, capitainerie et places d'amarrage au bord de l'eau (nautisme) |
+| `shipyd` | Chantier naval | — | 3 × 3 | 9 | hall de coque, cale de lancement et grue portique au bord de l'eau (nautisme) |
 
 ## Ville, tours et bureaux (inchangés)
 
