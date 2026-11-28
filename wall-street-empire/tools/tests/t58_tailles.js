@@ -15,7 +15,7 @@ exports.run = async (t, L) => {
   const doc = fs.readFileSync(path.resolve(__dirname, '..', '..', 'docs', 'BAREME_TAILLES.md'), 'utf8');
   const miss = b.fp.filter(([k, f]) => !new RegExp('`' + k + '`[^\\n]*\\b' + f.replace('×', '\\s*×\\s*') + '\\b').test(doc));
   t.check(`docs/BAREME_TAILLES.md : les ${b.keys.length} types y figurent avec leur emprise`, miss.length === 0, miss.slice(0, 8).map(m => m.join(' ')).join(', '));
-  t.check('petite boutique et petit marché 1 case, supermarché 4 cases (2×2), hypermarché ≥ 8 cases et réservé à la périphérie', b.s1 === 1 && b.s2 === 4 && b.s3 >= 8 && b.s3peri, JSON.stringify({ s1: b.s1, s2: b.s2, s3: b.s3, peri: b.s3peri }));
+  t.check('petite boutique et petit marché 1 case, supermarché 4 cases (2×2), hypermarché ≥ 8 cases et conseillé en périphérie', b.s1 === 1 && b.s2 === 4 && b.s3 >= 8 && b.s3peri, JSON.stringify({ s1: b.s1, s2: b.s2, s3: b.s3, peri: b.s3peri }));
   t.check('concession automobile ≥ 2×2 (parking des voitures exposées) ; tours 1 case, siège 2×2, méga-centre 3×3 inchangés', b.sauto >= 4 && b.towers && b.hq === '2×2' && b.s4 === 9, JSON.stringify({ sauto: b.sauto, hq: b.hq, s4: b.s4 }));
   const M = b.mon, area = m => (M[m] ? M[m][0] * M[m][1] : 1);
   t.check('équipements publics : hôpital ≥ 3×3, collège 2×2, lycée 3×2, maternelle et crèche 1 case', area('hospital') >= 9 && M.hospital[0] >= 3 && M.hospital[1] >= 3 && area('college') === 4 && M.lycee && M.lycee.join('×') === '3×2' && area('maternelle') === 1 && area('garderie') === 1, JSON.stringify(M));
@@ -25,12 +25,12 @@ exports.run = async (t, L) => {
   const g = await pg.evaluate(() => { const W = window.WSE; W.vv.svc(); return { svc: Object.keys(W.vv.SVC).filter(n => /gare/.test(n)), list: W.vv.list().filter(q => /gare/.test(q[2])).length, sign: Object.keys(W.sign.SIGN).filter(k => /gare/.test(k)) }; });
   t.check('plus de gare : ni service de quartier, ni gare posée dans la ville, ni enseigne', !g.svc.length && !g.list && !g.sign.length, JSON.stringify(g));
 
-  // ---- 3. Hypermarché : refusé au centre (message clair), accepté en périphérie
-  const h = await pg.evaluate(() => { const W = window.WSE, S = W.S, N = W.N, F = W.fp; let cen = null, per = null;
-    for (let y = 12; y < 49 && (!cen || !per); y++) for (let x = 12; x < 49; x++) { const d = F.periDist(x, y, 3, 3), e = W.footprintError(x, y, 's3'); if (!cen && d < 9 && /périphérie/.test(e)) cen = { x, y, e }; if (!per && !e) per = { x, y, d }; }
+  // ---- 3. Hypermarché : plus refusé au centre (liberté de construire, docs/journal/construction.md : le sol cher et le conseil au survol incitent), posé en périphérie
+  const h = await pg.evaluate(() => { const W = window.WSE, S = W.S, N = W.N, F = W.fp; let cen = null, per = null, nc = 0;
+    for (let y = 12; y < 49; y++) for (let x = 12; x < 49; x++) { const d = F.periDist(x, y, 3, 3), e = W.footprintError(x, y, 's3'); if (d < 9) { nc++; if (!cen && /périphérie|centre dense/.test(e)) cen = { x, y, e }; } if (!per && !e && d >= 12) per = { x, y, d }; }
     const n0 = S.grid.filter(c => c && c.t === 's3').length, ok = per ? W.place(per.x, per.y, 's3') : false, c = per && S.grid[per.y * N + per.x];
     return { cen, per, ok, t: c && c.t, w: c && c.w, h: c && c.h, n: S.grid.filter(c => c && c.t === 's3').length - n0 }; });
-  t.check('hypermarché refusé dans le centre dense, avec un message clair (périphérie)', !!h.cen && /centre dense/.test(h.cen.e), h.cen ? h.cen.e : 'aucune case centrale testée');
+  t.check('hypermarché : plus de refus « centre dense » (seules l\'emprise libre et le prix du sol comptent)', !h.cen, h.cen ? h.cen.e : 'aucun refus de zone au centre');
   t.check('hypermarché posé en périphérie (≥ 12 cases du centre) sur une emprise 3×3', h.ok && h.t === 's3' && h.w === 3 && h.h === 3 && h.per.d >= 12, JSON.stringify(h.per) + ' ' + h.w + '×' + h.h);
 
   // ---- 4. Recalage (snap) : la case pointée est dans l'emprise posée, emprise valide et centrée
