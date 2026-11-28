@@ -17931,42 +17931,66 @@ function drawWater(p, now, x, y) {
 }
 let QUAY_TIP = null;   // passe 99 : case de quai la plus au nord (phare)
 function quayTip() { if (QUAY_TIP) return QUAY_TIP; for (let i = 0; i < N * N; i++) if (ZONE[i] === 4) return (QUAY_TIP = [i % N, (i / N) | 0]); return (QUAY_TIP = [-1, -1]); }
-/* ---------- Terminal portuaire (Rémy : « ça ressemble à rien ton port », référence : terminal à conteneurs de Dunkerque) ----------
-   Le port se lit comme un vrai terminal industriel, en décor pur (rien n'est sauvegardé ; une case bâtie par un joueur ou un rival cache son décor, elle reste posable) :
-   - terre-plein clair (sol_terminal : l'asphalte du port remappé en béton clair, marquages conservés) ;
-   - parc à conteneurs en RANGÉES ORDONNÉES parallèles au quai (blocs de 3 rangées, 1 à 4 niveaux, couleurs sobres variées) séparés par des allées marquées, cavaliers et chariots dans les allées ;
-   - front de quai net : liseré jaune, bollards, portiques de quai alignés face aux postes, voie de circulation ;
-   - porte-conteneurs chargés amarrés aux postes : leur nombre suit l'activité réelle d'import / export (moyenne des 30 derniers jours) ;
-   - silos blancs, hangars et terminal vrac au fond du port (première colonne de blocs).
-   Performance : chaque case de parc est une image pré-rendue (PY_VAR variantes, cache) ; l'agencement est fonction de (x, y) par hash() ; les postes occupés sont recalculés une fois par jour. */
-const PY = { tiles: new Map(), spr: new Map(), W: 144, H: 132, OX: 72, OY: 64, day: -1, berths: [], T: 0, cur: 0, ms: 0 };   // cur / ms : temps de dessin du décor portuaire (image en cours / précédente)
+/* ---------- Terminal portuaire (v2) ----------
+   Rémy : « une PETITE BANDE derrière le quai où tu alignes des conteneurs sur toute la longueur du port ; pas 10 blocs complets de conteneurs : il faut laisser
+   les gens construire usines et entrepôts » ; « plein de problèmes isométriques » ; « on veut voir les conteneurs se remplir sur les bateaux ».
+   Décor pur (rien n'est sauvegardé ; un bâtiment posé par un joueur ou un rival remplace le décor), tout est ancré sur la grille :
+   - bande de conteneurs : la colonne x = PY_BAND_X (dernière colonne du terre-plein, juste derrière la voie du quai), toutes les rangées hors avenues :
+     5 conteneurs par case posés en travers (axe long perpendiculaire au quai), 1 à 4 niveaux réguliers, liseré d'allée côté terre ;
+   - fond du port : UN seul bloc (PY_BACK_B) avec 4 objets de 2×2 cases (silos, hangars) dessinés en vectoriel isométrique exact, chacun dessiné à sa case avant ;
+     un bâtiment posé dans ce bloc efface tout le décor du bloc ;
+   - tous les autres blocs : parcelles libres (béton clair, contour en pointillé, repères des cases) ; survol : « Terrain portuaire · subvention X % » ;
+   - portiques de quai à treillis (jambes de part et d'autre de la voie du quai, flèche au-dessus du navire), en vectoriel pré-rendu ;
+   - escales animées (pyCycle) : arrivée proue en avant, déchargement, chargement, départ ; le pont est une grille 8 baies × 4 rangées × 3 niveaux, il se vide puis
+     se remplit conteneur par conteneur (chariot, palonnier, camion sous le portique) ; cargaison proportionnelle à l'import / export des 30 derniers jours.
+   Performance : images pré-rendues (cases de bande, portique, silos, hangars : une par résolution ; pont du navire : re-rendu seulement quand son nombre de conteneurs change). */
+const PY = { dbg: 0, tiles: new Map(), spr: new Map(), W: 144, H: 132, OX: 72, OY: 64, day: -1, berths: [], T: 0, imp: 0, exp: 0, cur: 0, ms: 0, ship: new Map(), cr: new Map(), tk: new Map(), built: new Set(), now: 0 };
 const PY_VAR = 12, PY_LVH = 9.5;
 const PY_COL = ['#2f5d93', '#2f5d93', '#2f5d93', '#a33a30', '#a33a30', '#7b4a2e', '#7b4a2e', '#8a9096', '#8a9096', '#d4d6d3', '#2a3f66', '#3d6f52'];   // surtout bleus, rouges, marron (référence de Rémy)
-const PY_ROWS = [[0.07, 0.29], [0.31, 0.53], [0.55, 0.77]], PY_LEN = [[0.04, 0.48], [0.52, 0.96]];   // 3 rangées (le long de y, parallèles au quai), 2 conteneurs par case ; allée de u 0,77 à 1,07
+const PY_ROWS = [[0.31, 0.53], [0.55, 0.77]], PY_LEN = [[0.04, 0.48], [0.52, 0.96]];   // rangée de quai (x = côte − 3) : 2 rangées le long de y, 2 conteneurs par case
+const PY_BAND_X = PORT.x1 - 1, PY_BAND_U = [0.14, 0.9], PY_BAND_W = [[0.05, 0.21], [0.24, 0.4], [0.43, 0.59], [0.62, 0.78], [0.81, 0.97]];   // bande : 5 conteneurs en travers par case, à l'intérieur de la case (rien sur l'avenue)
+const PY_BACK_B = [0, 4], PY_BACK = [[0, 0, 'silos'], [3, 0, 'hangar'], [0, 3, 'hangar'], [3, 3, 'silos']];   // fond du port : bloc (bx, by) ; objets 2×2 (coin nord dans le bloc)
 const PY_BERTH = [66, 74, 58, 81], PY_SHIP_T = [0, 20000, 150000, 600000];   // centres des postes (y) dans l'ordre d'ouverture ; seuils d'activité (import + export, $ par jour) pour 1, 2, 3, 4 navires
-const PY_BACK = ['port_reservoirs', 'port_entrepot_a', 'port_terminal_vrac', 'port_entrepot_a', 'port_reservoirs'];   // fond du port : un motif par bloc (du nord au sud)
+const PY_SH = { L: 3.6, X0: 88.2, X1: 89.9, BAYS: 8, ROWS: 4, TIERS: 3, Y0: -2.4, BAY: 0.62, HD: 12, P: 150000, CR: 3 };   // navire : demi-longueur, bords (x), cale 8 × 4 × 3, pont à 12 px ; escale de 150 s ; 3 portiques
+const PY_CRU = { L: 85.15, S: 86.85, W: 0.42, B0: 84.3, B1: 90.6, HB: 100, HT: 112, HA: 150, LANE: 86.0, H: 88 };   // portique : jambes côté terre / côté mer (x), demi-écart (y), flèche (x de 84,3 à 91,3, hauteur 100-112), sommet 150, voie du quai, hauteur de transfert
 const PY_KS = [0.25, 0.5, 1, 1.5, 2, 3];   // résolutions pré-rendues (px écran par px monde) : la plus proche au-dessus de z × dpr, pour un drawImage presque 1:1
 const pyK = () => { const e = z * dpr; return PY_KS.find(k => k >= e * 0.95) || PY_KS[PY_KS.length - 1]; };
-function pyTile(kind, v, K) {   // image pré-rendue d'une case de parc (kind 'Y' : parc, 'Q' : rangée de quai) ; v = variante ; K = résolution
+const pyP = (u, w, h) => { const q = iso(u, w); return [q.x, q.y - (h || 0)]; };
+function pyPoly(g, pts, fill, stroke, lw) { g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw || 0.5; g.stroke(); } }
+function pyBox(g, u0, w0, u1, w1, z0, z1, col, ribs) {   // boîte isométrique exacte (faces visibles : bout w = w1, côté u = u1, toit) ; ribs : nervures de tôle (conteneur)
+  pyPoly(g, [pyP(u0, w1, z0), pyP(u1, w1, z0), pyP(u1, w1, z1), pyP(u0, w1, z1)], mixC(col, '#000000', 0.2));
+  pyPoly(g, [pyP(u1, w0, z0), pyP(u1, w1, z0), pyP(u1, w1, z1), pyP(u1, w0, z1)], mixC(col, '#000000', 0.36));
+  pyPoly(g, [pyP(u0, w0, z1), pyP(u1, w0, z1), pyP(u1, w1, z1), pyP(u0, w1, z1)], mixC(col, '#ffffff', 0.2));
+  if (!ribs) return; g.strokeStyle = mixC(col, '#000000', 0.52); g.lineWidth = 0.45; g.beginPath();
+  const along = (w1 - w0) >= (u1 - u0);   // nervures sur la longue face visible
+  for (let j = 1; j < 7; j++) { if (along) { const w = w0 + (w1 - w0) * j / 7, a = pyP(u1, w, z0 + 0.8), b = pyP(u1, w, z1 - 0.8); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); } else { const u = u0 + (u1 - u0) * j / 7, a = pyP(u, w1, z0 + 0.8), b = pyP(u, w1, z1 - 0.8); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); } }
+  g.stroke();
+}
+function pyPre(key, b, fn) {   // image pré-rendue d'un dessin vectoriel en coordonnées monde locales ; b = [x0, y0, x1, y1] (px monde) ; une image par résolution
+  const K = pyK(), k2 = key + '@' + K; let c = PY.tiles.get(k2); if (c) return c;
+  c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil((b[2] - b[0]) * K)); c.height = Math.max(1, Math.ceil((b[3] - b[1]) * K));
+  const g = c.getContext('2d'); g.scale(K, K); g.translate(-b[0], -b[1]); g.lineJoin = 'round'; fn(g); c._b = b; c._hd = 'port_vec'; PY.tiles.set(k2, c); return c;
+}
+const pyBlit = (c, ox, oy) => ctx.drawImage(c, ox + c._b[0], oy + c._b[1], c._b[2] - c._b[0], c._b[3] - c._b[1]);
+function pyTile(kind, v, K) {   // case pré-rendue : 'Q' rangée de quai (conteneurs le long du quai), 'B' bande (conteneurs en travers) ; v = variante
   K = K || pyK(); const key = kind + v + '@' + K; let c = PY.tiles.get(key); if (c) return c;
   c = document.createElement('canvas'); c.width = Math.ceil(PY.W * K); c.height = Math.ceil(PY.H * K); const g = c.getContext('2d'); g.scale(K, K); g.translate(PY.OX, PY.OY);
-  const P = (u, w, zz) => { const q = iso(u, w); return [q.x, q.y - zz]; }, f = (pts, col) => { g.fillStyle = col; g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.fill(); };
-  // marquages : bord d'allée (blanc) et axe de l'allée (tirets jaunes)
-  g.strokeStyle = 'rgba(250,250,245,.75)'; g.lineWidth = 1; g.beginPath(); let a = P(0.79, 0.02, 0), b = P(0.79, 0.98, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
-  g.setLineDash([5, 5]); g.strokeStyle = 'rgba(232,190,64,.85)'; g.beginPath(); a = P(0.93, 0, 0); b = P(0.93, 1, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.setLineDash([]);
-  const rows = kind === 'Q' ? PY_ROWS.slice(1) : PY_ROWS, boxes = [];
-  rows.forEach((r, ri) => PY_LEN.forEach((l, li) => { const s = hash(v * 7 + ri, 0, 911), lv0 = kind === 'Q' ? 1 + Math.floor(s * 2) : 2 + Math.floor(s * 3), lv = Math.max(1, lv0 - (hash(v * 7 + ri, li, 912) < 0.2 ? 1 : 0));   // hauteur régulière par rangée (2 à 4 niveaux), parfois une pile entamée
-    for (let k = 0; k < lv; k++) boxes.push([r[0], l[0], r[1], l[1], k, PY_COL[Math.floor(hash(v * 13 + ri * 5 + li, k, 913) * PY_COL.length)]]); }));
+  const L = (u0, w0, u1, w1, col, dash) => { g.strokeStyle = col; g.lineWidth = 1; g.setLineDash(dash || []); const a = pyP(u0, w0), b = pyP(u1, w1); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.setLineDash([]); };
+  const boxes = [];
+  if (kind === 'B') {
+    L(0.07, 0, 0.07, 1, 'rgba(250,250,245,.8)');   // liseré d'allée côté terre
+    const s = hash(v, 0, 911), lv0 = 2 + Math.floor(s * 3);   // hauteur régulière de la case (2 à 4 niveaux), parfois une pile entamée
+    PY_BAND_W.forEach((r, i) => { const lv = Math.max(1, lv0 - (hash(v, i, 912) < 0.18 ? 1 : 0)); for (let k = 0; k < lv; k++) boxes.push([PY_BAND_U[0], r[0], PY_BAND_U[1], r[1], k, PY_COL[Math.floor(hash(v * 13 + i, k, 913) * PY_COL.length)]]); });
+    pyPoly(g, [pyP(PY_BAND_U[0], 0.04), pyP(PY_BAND_U[1] + 0.04, 0.04), pyP(PY_BAND_U[1] + 0.04, 0.99), pyP(PY_BAND_U[0], 0.99)], 'rgba(40,44,50,.16)');   // ombre portée au sol
+  } else {
+    L(0.79, 0.02, 0.79, 0.98, 'rgba(250,250,245,.75)'); L(0.93, 0, 0.93, 1, 'rgba(232,190,64,.85)', [5, 5]);
+    PY_ROWS.forEach((r, ri) => PY_LEN.forEach((l, li) => { const s = hash(v * 7 + ri, 0, 911), lv = Math.max(1, 1 + Math.floor(s * 2) - (hash(v * 7 + ri, li, 912) < 0.2 ? 1 : 0));
+      for (let k = 0; k < lv; k++) boxes.push([r[0], l[0], r[1], l[1], k, PY_COL[Math.floor(hash(v * 13 + ri * 5 + li, k, 913) * PY_COL.length)]]); }));
+    PY_ROWS.forEach(r => pyPoly(g, [pyP(r[0] + 0.02, 0.06), pyP(r[1] + 0.05, 0.06), pyP(r[1] + 0.05, 0.98), pyP(r[0] + 0.02, 0.98)], 'rgba(40,44,50,.18)'));
+  }
   boxes.sort((p, q) => (p[0] + p[1]) - (q[0] + q[1]) || p[4] - q[4]);
-  rows.forEach(r => f([P(r[0] + 0.02, 0.06, 0), P(r[1] + 0.05, 0.06, 0), P(r[1] + 0.05, 0.98, 0), P(r[0] + 0.02, 0.98, 0)], 'rgba(40,44,50,.18)'));   // ombre portée au sol
-  boxes.forEach(([u0, w0, u1, w1, k, col]) => { const z0 = k * PY_LVH, z1 = z0 + PY_LVH - 0.6;
-    f([P(u0, w1, z0), P(u1, w1, z0), P(u1, w1, z1), P(u0, w1, z1)], mixC(col, '#000000', 0.2));   // bout (vers le bas à gauche)
-    f([P(u1, w0, z0), P(u1, w1, z0), P(u1, w1, z1), P(u1, w0, z1)], mixC(col, '#000000', 0.36));   // long côté (vers le bas à droite)
-    f([P(u0, w0, z1), P(u1, w0, z1), P(u1, w1, z1), P(u0, w1, z1)], mixC(col, '#ffffff', 0.2));    // toit
-    g.strokeStyle = mixC(col, '#000000', 0.52); g.lineWidth = 0.45; g.beginPath();
-    for (let j = 1; j < 7; j++) { const w = w0 + (w1 - w0) * j / 7, q0 = P(u1, w, z0 + 0.8), q1 = P(u1, w, z1 - 0.8); g.moveTo(q0[0], q0[1]); g.lineTo(q1[0], q1[1]); }   // nervures de la tôle
-    g.stroke(); });
-  c._hd = 'port_parc'; PY.tiles.set(key, c); return c;
+  boxes.forEach(([u0, w0, u1, w1, k, col]) => pyBox(g, u0, w0, u1, w1, k * PY_LVH, k * PY_LVH + PY_LVH - 0.6, col, true));
+  c._hd = 'port_parc'; c._n = boxes.length; PY.tiles.set(key, c); return c;
 }
 function pySpr(n, x, y, w, flip) {   // vvSpr avec l'image mise à l'échelle en cache (une par sprite, largeur, résolution et sens) : plus de rééchantillonnage d'une grande image à chaque image
   const e = P2_IMG[n], d = P2DIM[n]; if (!e || !e.ok || !d) return null; const K = pyK(), key = n + '|' + w + '|' + K + (flip ? 'f' : '');
@@ -17975,52 +17999,214 @@ function pySpr(n, x, y, w, flip) {   // vvSpr avec l'image mise à l'échelle en
     if (flip) { g.translate(c.width, 0); g.scale(-1, 1); } g.drawImage(e.im, 0, 0, c.width, c.height); c._hd = n; PY.spr.set(key, c); }
   const ox = flip ? dw - ax * k : ax * k; ctx.drawImage(c, x - ox, y - ay * k, dw, dh); VV.n++; return y - (ay - d[3]) * k;
 }
+// --- objets du fond (2×2 cases, coin nord en (0, 0) local) : vectoriel isométrique exact, emprise inscrite dans [0,06 ; 1,94]²
+const PY_OBJ_B = [-140, -90, 140, 140];   // cadre (px monde) autour de iso(0, 0)
+function pyHangar(g) {   // hangar à toit cintré (faîtage le long de y), porte sur le pignon avant
+  const u0 = 0.06, u1 = 1.94, w0 = 0.06, w1 = 1.94, he = 30, hr = 20, n = 10, U = k => u0 + (u1 - u0) * k / n, Hh = k => he + hr * Math.sin(Math.PI * k / n);
+  pyPoly(g, [pyP(u0, w0 + 0.04), pyP(u1 + 0.04, w0 + 0.04), pyP(u1 + 0.04, w1 + 0.04), pyP(u0, w1 + 0.04)], 'rgba(40,44,50,.18)');   // ombre (dans l'emprise)
+  pyPoly(g, [pyP(u1, w0, 0), pyP(u1, w1, 0), pyP(u1, w1, he), pyP(u1, w0, he)], '#b9b4aa', '#8f8a80');   // long pan (côté u1)
+  const gab = [pyP(u0, w1, 0), pyP(u1, w1, 0)]; for (let k = n; k >= 0; k--) gab.push(pyP(U(k), w1, Hh(k)));
+  pyPoly(g, gab, '#d8d3c8', '#9d978c');   // pignon avant (w = w1)
+  pyPoly(g, [pyP(0.62, w1, 0), pyP(1.38, w1, 0), pyP(1.38, w1, 26), pyP(0.62, w1, 26)], '#3d6fa8', '#2a4d78');   // porte sectionnelle
+  g.strokeStyle = 'rgba(30,50,80,.5)'; g.lineWidth = 0.5; g.beginPath(); for (let j = 1; j < 6; j++) { const a = pyP(0.62, w1, j * 26 / 6), b = pyP(1.38, w1, j * 26 / 6); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); } g.stroke();
+  for (let k = 0; k < n; k++) { const s = Math.cos(Math.PI * (k + 0.5) / n), col = mixC('#9aa5ae', s > 0 ? '#dfe6ea' : '#6d7780', Math.abs(s) * 0.55);   // facettes du toit, éclairées côté nord-ouest
+    pyPoly(g, [pyP(U(k), w0, Hh(k)), pyP(U(k + 1), w0, Hh(k + 1)), pyP(U(k + 1), w1, Hh(k + 1)), pyP(U(k), w1, Hh(k))], col, 'rgba(70,78,86,.35)', 0.4); }
+  g.strokeStyle = 'rgba(60,66,72,.35)'; g.lineWidth = 0.4; g.beginPath(); for (let j = 1; j < 12; j++) { const w = w0 + (w1 - w0) * j / 12; for (let k = 0; k < n; k++) { const a = pyP(U(k), w, Hh(k)), b = pyP(U(k + 1), w, Hh(k + 1)); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); } } g.stroke();   // ondes de la tôle
+}
+function pySilos(g) {   // dalle et 4 silos cylindriques (rayon 0,34 case, 58 px), toit conique
+  pyPoly(g, [pyP(0.06, 0.06), pyP(1.94, 0.06), pyP(1.94, 1.94), pyP(0.06, 1.94)], '#b8bbbd', '#9a9ea2');
+  pyPoly(g, [pyP(1.94, 0.06, 0), pyP(1.94, 1.94, 0), pyP(1.94, 1.94, 2), pyP(1.94, 0.06, 2)], '#8e9296');
+  const r = 0.34, rx = r * TW / Math.SQRT2, ry = r * TH / Math.SQRT2, H = 58;
+  [[0.52, 0.52], [1.48, 0.52], [0.52, 1.48], [1.48, 1.48]].sort((a, b) => (a[0] + a[1]) - (b[0] + b[1])).forEach(([u, w]) => {
+    const c = pyP(u, w, 2), x = c[0], y = c[1];
+    g.fillStyle = 'rgba(40,44,50,.22)'; g.beginPath(); g.ellipse(x + 6, y + 3, rx, ry, 0, 0, 7); g.fill();
+    const gr = g.createLinearGradient(x - rx, 0, x + rx, 0); gr.addColorStop(0, '#f4f5f2'); gr.addColorStop(0.45, '#e2e4e0'); gr.addColorStop(1, '#a9ada9');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(x - rx, y - H); g.lineTo(x - rx, y); g.ellipse(x, y, rx, ry, 0, Math.PI, 0, true); g.lineTo(x + rx, y - H); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(120,124,120,.45)'; g.lineWidth = 0.5; g.beginPath(); for (let j = 1; j < 5; j++) { g.moveTo(x + rx, y - H * j / 5); g.ellipse(x, y - H * j / 5, rx, ry, 0, 0, Math.PI); } g.stroke();
+    g.fillStyle = '#ecedea'; g.beginPath(); g.ellipse(x, y - H, rx, ry, 0, 0, 7); g.fill();
+    g.fillStyle = '#c9ccc9'; g.beginPath(); g.moveTo(x - rx, y - H); g.lineTo(x, y - H - 15); g.lineTo(x + rx, y - H); g.ellipse(x, y - H, rx, ry, 0, 0, Math.PI); g.fill();
+    g.fillStyle = '#f7f7f4'; g.beginPath(); g.moveTo(x - rx, y - H); g.lineTo(x, y - H - 15); g.lineTo(x - rx * 0.1, y - H + ry * 0.9); g.closePath(); g.fill();
+  });
+  g.strokeStyle = '#8a8f94'; g.lineWidth = 1.2; g.beginPath(); let a = pyP(0.52, 0.52, 62), b = pyP(1.48, 0.52, 62); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); a = pyP(0.52, 1.48, 62); b = pyP(1.48, 1.48, 62); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();   // passerelles
+}
+// --- portique de quai à treillis (vectoriel, pré-rendu une fois par résolution ; y local 0 = axe du portique)
+const PY_CR_B = [5500, 2590, 6085, 3048];
+function pyCraneImg(g) {
+  const C = PY_CRU, ln = (pts, col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.stroke(); };
+  const WH = '#eceae4', WE = '#a7abb0', RD = '#c8432f', RE = '#7f2a1e';
+  const leg = (u, w) => pyBox(g, u - 0.045, w - 0.045, u + 0.045, w + 0.045, 3, C.HB - 6, WH);   // jambe en caisson
+  const portal = w => { leg(C.L, w); leg(C.S, w); pyBox(g, C.L, w - 0.04, C.S, w + 0.04, 58, 64, WH); ln([pyP(C.L, w, 64), pyP(C.S, w, 14), pyP(C.S, w, 64), pyP(C.L, w, 14)], 'rgba(150,154,160,.9)', 1); };   // portique : jambes, traverse, croix de Saint-André
+  const girder = w => { ln([pyP(C.B0, w, C.HB), pyP(C.B1, w, C.HB)], RE, 2.6); ln([pyP(C.B0, w, C.HT), pyP(C.B1 - 0.6, w, C.HT)], RE, 2.6); ln([pyP(C.B0, w, C.HB), pyP(C.B1, w, C.HB)], RD, 1.6); ln([pyP(C.B0, w, C.HT), pyP(C.B1 - 0.6, w, C.HT)], RD, 1.6);
+    const zz = []; for (let k = 0; k <= 26; k++) { const u = C.B0 + (C.B1 - 0.6 - C.B0) * k / 26; zz.push(pyP(u, w, k % 2 ? C.HT : C.HB)); } ln(zz, RD, 1); ln([pyP(C.B1 - 0.6, w, C.HT), pyP(C.B1, w, C.HB)], RD, 1.4); };   // flèche en treillis (membrures et diagonales)
+  // bogies et rails
+  [-C.W, C.W].forEach(w => [C.L, C.S].forEach(u => pyBox(g, u - 0.07, w - 0.12, u + 0.07, w + 0.12, 0, 3, '#4a5058')));
+  portal(-C.W); girder(-0.16);   // côté éloigné
+  ln([pyP(C.L, -C.W, C.HB - 6), pyP(C.L, C.W, C.HB - 6)], WE, 3); ln([pyP(C.S, -C.W, C.HB - 6), pyP(C.S, C.W, C.HB - 6)], WE, 3);   // poutres de tête
+  for (let k = 0; k <= 12; k++) { const u = C.B0 + (C.B1 - 0.6 - C.B0) * k / 12; ln([pyP(u, -0.16, C.HB), pyP(u, 0.16, C.HB)], RE, 0.9); }   // entretoises sous la flèche
+  ln([pyP(85.9, -0.3, C.HB), pyP(85.9, -0.08, C.HA)], WE, 2.6); ln([pyP(85.9, -0.3, C.HB), pyP(85.9, -0.08, C.HA)], WH, 1.6);   // chevalet (jambe éloignée)
+  pyBox(g, C.B0 + 0.05, -0.2, C.B0 + 0.5, 0.2, C.HT - 2, C.HT + 8, '#e6e3dc');   // salle des machines sur l'arrière-flèche
+  portal(C.W); girder(0.16);   // côté proche
+  ln([pyP(85.9, 0.3, C.HB), pyP(85.9, 0.08, C.HA)], WE, 2.6); ln([pyP(85.9, 0.3, C.HB), pyP(85.9, 0.08, C.HA)], WH, 1.6);
+  ln([pyP(C.B0, 0, C.HT + 8), pyP(85.9, 0, C.HA), pyP(88.6, 0, C.HT), pyP(85.9, 0, C.HA), pyP(C.B1 - 0.6, 0, C.HT)], 'rgba(60,64,70,.85)', 0.7);   // haubans
+  pyBox(g, 85.75, -0.1, 86.05, 0.1, C.HA - 4, C.HA + 2, RD);   // tête du chevalet
+}
+const pyCraneDraw = (cw, x, y) => { const c = pyPre('crane', PY_CR_B, pyCraneImg), o = iso(0, cw); pyBlit(c, o.x, o.y); };
+const PY_SHIP_B = [5540, 2690, 6215, 3122];   // cadre du navire (px monde) autour de iso(0, 0), y local 0 = centre du navire
+function pyShipCells(c) {   // cellules du pont affectées au portique c (ordre de chargement : niveau, baie, rangée)
+  const S0 = PY_SH, b0 = Math.floor(c * S0.BAYS / S0.CR), b1 = Math.floor((c + 1) * S0.BAYS / S0.CR), o = [];
+  for (let t = 0; t < S0.TIERS; t++) for (let b = b0; b < b1; b++) for (let r = 0; r < S0.ROWS; r++) o.push([b, r, t]);
+  return o;
+}
+const PY_CELLS = [0, 1, 2].map(pyShipCells);
+const pyCellUW = (b, r) => [PY_SH.X0 + 0.11 + r * 0.38, PY_SH.Y0 + b * PY_SH.BAY + 0.03];   // coin nord d'un conteneur (u, w local) ; 0,34 × 0,56
+function pyShipImg(g, cnt, seed) {   // coque, château arrière, conteneurs visibles (cnt[c] premiers de chaque section)
+  const S0 = PY_SH, x0 = S0.X0, x1 = S0.X1, L = S0.L, hd = S0.HD, hw = -12, xm = (x0 + x1) / 2;
+  const deck = [[x0, -L], [x1, -L], [x1, L - 1.0], [xm + 0.25, L - 0.15], [xm, L], [xm - 0.25, L - 0.15], [x0, L - 1.0]];
+  for (let i = 0; i < deck.length; i++) { const a = deck[i], b = deck[(i + 1) % deck.length], nu = b[1] - a[1], nw = -(b[0] - a[0]); if (nu + nw <= -0.05) continue;   // faces tournées vers l'observateur
+    pyPoly(g, [pyP(a[0], a[1], hw), pyP(b[0], b[1], hw), pyP(b[0], b[1], hw + 6), pyP(a[0], a[1], hw + 6)], '#8f2b23');
+    pyPoly(g, [pyP(a[0], a[1], hw + 6), pyP(b[0], b[1], hw + 6), pyP(b[0], b[1], hd), pyP(a[0], a[1], hd)], nu > nw ? '#203655' : '#2b4570'); }
+  pyPoly(g, deck.map(q => pyP(q[0], q[1], hd)), '#5f6a74', '#1b2a44', 0.8);
+  pyPoly(g, deck.map(q => pyP(xm + (q[0] - xm) * 0.92, q[1] * 0.985, hd + 0.2)), '#6c7680');
+  pyBox(g, x0 + 0.2, -L + 0.12, x1 - 0.2, -L + 0.95, hd, hd + 40, '#f2f2ee');   // château
+  pyPoly(g, [pyP(x1 - 0.2, -L + 0.12, hd + 33), pyP(x1 - 0.2, -L + 0.95, hd + 33), pyP(x1 - 0.2, -L + 0.95, hd + 37), pyP(x1 - 0.2, -L + 0.12, hd + 37)], '#243447');   // vitres de la passerelle
+  pyPoly(g, [pyP(x0 + 0.2, -L + 0.95, hd + 33), pyP(x1 - 0.2, -L + 0.95, hd + 33), pyP(x1 - 0.2, -L + 0.95, hd + 37), pyP(x0 + 0.2, -L + 0.95, hd + 37)], '#2c3e52');
+  pyBox(g, x0 + 0.6, -L + 0.2, x1 - 0.6, -L + 0.5, hd + 40, hd + 52, '#2b2f36'); pyBox(g, x0 + 0.6, -L + 0.2, x1 - 0.6, -L + 0.5, hd + 46, hd + 50, '#c8432f');   // cheminée
+  const bx = []; PY_CELLS.forEach((cl, c) => { for (let k = 0; k < Math.min(cnt[c] || 0, cl.length); k++) { const [b, r, t] = cl[k], [u, w] = pyCellUW(b, r); bx.push([u, w, t, PY_COL[Math.floor(hash(seed, b * 16 + r * 4 + t, 941) * PY_COL.length)]]); } });
+  bx.sort((p, q) => (p[0] + p[1]) - (q[0] + q[1]) || p[2] - q[2]);
+  bx.forEach(([u, w, t, col]) => pyBox(g, u, w, u + 0.34, w + 0.56, hd + t * PY_LVH, hd + t * PY_LVH + PY_LVH - 0.6, col, true));
+}
+function pyShipCanvas(i, cnt, seed) {   // pont du navire i : re-rendu seulement quand le nombre de conteneurs (ou la résolution) change
+  const K = pyK(), key = cnt.join(',') + '|' + seed + '@' + K, e = PY.ship.get(i); if (e && e.key === key) return e.c;
+  const b = PY_SHIP_B, c = (e && e.c) || document.createElement('canvas'), wpx = Math.ceil((b[2] - b[0]) * K), hpx = Math.ceil((b[3] - b[1]) * K);
+  if (c.width !== wpx || c.height !== hpx) { c.width = wpx; c.height = hpx; }
+  const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height); g.scale(K, K); g.translate(-b[0], -b[1]); g.lineJoin = 'round';
+  pyShipImg(g, cnt, seed); c._b = b; c._hd = 'port_navire'; PY.ship.set(i, { key, c }); return c;
+}
+// --- escale : arrivée, accostage, déchargement, chargement, départ (fonction pure du temps t en ms et du poste i)
+const pyEase = s => s * s * (3 - 2 * s);
+function pyCargo() {   // conteneurs débarqués / embarqués par escale et par portique, proportionnels aux échanges réels (30 jours)
+  const n = Math.max(1, PY.berths.length), per = (PY.T || 0) / n, f = clamp(0.55 + 0.45 * per / 250000, 0.55, 1), tot = PY.imp + PY.exp, si = tot > 0 ? clamp(PY.imp / tot, 0.15, 0.85) : 0.7, mx = Math.max(si, 1 - si);
+  return PY_CELLS.map(cl => [Math.round(cl.length * f * si / mx), Math.round(cl.length * f * (1 - si) / mx)]);
+}
+function pyLoadState(n, m) {   // n conteneurs à embarquer, m ∈ [0, 1] avancement ; → { j : mouvement en cours, f : avancement du mouvement, cnt : conteneurs à bord }
+  if (n <= 0) return { j: -1, f: 0, cnt: 0 }; const x = Math.min(m * n, n - 1e-6), j = Math.floor(x), f = x - j; return { j, f, cnt: j + (f >= 0.88 ? 1 : 0) };
+}
+function pyCycle(i, t) {   // état de l'escale au poste i à l'instant t (ms)
+  const P = PY_SH.P, off = hash(i, 7, 931) * P, a = (t + off) / P, cy = Math.floor(a), s = a - cy, CG = pyCargo(), o = { i, s, cyc: cy, du: 0, dw: 0, ph: '', cr: [] };
+  const seg = (s0, s1) => clamp((s - s0) / (s1 - s0), 0, 1);
+  if (s < 0.1) { const e = 1 - pyEase(seg(0, 0.1)); o.ph = 'arrivee'; o.dw = -10 * e; o.du = 0.7 * e; }
+  else if (s < 0.13) o.ph = 'accostage'; else if (s < 0.48) o.ph = 'dechargement'; else if (s < 0.52) o.ph = 'escale'; else if (s < 0.86) o.ph = 'chargement'; else if (s < 0.89) o.ph = 'appareillage';
+  else if (s < 0.99) { const e = pyEase(seg(0.89, 0.99)); o.ph = 'depart'; o.dw = 10 * e; o.du = 0.7 * e; } else o.ph = 'absent';
+  const mU = seg(0.13, 0.48), mL = seg(0.52, 0.86);
+  o.cnt = CG.map(([nin, nout], c) => {
+    if (s < 0.13) return nin; if (s < 0.48) { const q = pyLoadState(nin, 1 - mU); o.cr[c] = { mode: 'U', n: nin, q }; return q.cnt; }
+    if (s < 0.52) return 0; if (s < 0.86) { const q = pyLoadState(nout, mL); o.cr[c] = { mode: 'L', n: nout, q }; return q.cnt; } return nout; });
+  return o;
+}
+function pyCraneState(cy, c, w) {   // portique c d'un poste centré en cy, travail w (ou rien) → { cw, tu, th, box, truck : [y, avec conteneur] }
+  const C = PY_CRU, cl = PY_CELLS[c], mid = cl.length ? pyCellUW(cl[0][0], 0)[1] + (cl[cl.length - 1][0] - cl[0][0] + 1) * PY_SH.BAY / 2 : 0;
+  const idle = { cw: cy + mid, tu: 85.4, th: C.H, box: false, truck: null }; if (!w || w.q.j < 0) return idle;
+  const j = w.q.j, f0 = w.q.f, f = w.mode === 'L' ? f0 : 1 - f0, tgt = k => { const [b, r, t] = cl[Math.max(0, Math.min(cl.length - 1, k))], [u, ww] = pyCellUW(b, r); return [u + 0.17, cy + ww + 0.28, PY_SH.HD + t * PY_LVH]; };
+  const T = tgt(j), Nx = tgt(j + 1), hq = 8, seg = (a, b) => clamp((f - a) / (b - a), 0, 1);
+  let cw = T[1]; if (f > 0.9 && j + 1 < w.n) cw = lerp(T[1], Nx[1], pyEase(seg(0.9, 1)));
+  let tu = C.LANE, th = hq, box = false;
+  if (f < 0.12) { th = lerp(C.H, hq, pyEase(seg(0, 0.12))); }
+  else if (f < 0.3) { th = lerp(hq, C.H, pyEase(seg(0.12, 0.3))); box = true; }
+  else if (f < 0.62) { tu = lerp(C.LANE, T[0], pyEase(seg(0.3, 0.62))); th = C.H; box = true; }
+  else if (f < 0.88) { tu = T[0]; th = lerp(C.H, T[2], pyEase(seg(0.62, 0.88))); box = true; }
+  else { tu = lerp(T[0], C.LANE, pyEase(seg(0.88, 1))); th = lerp(T[2], C.H, pyEase(seg(0.88, 1))); }
+  // camion sous le portique (voie du quai, sens unique +y) : au chargement il arrive avec le conteneur ; au déchargement il arrive vide et repart chargé
+  let truck; if (w.mode === 'L') truck = f < 0.12 ? [cw - 1.4 * (1 - pyEase(clamp(f / 0.08, 0, 1))), true] : f < 0.5 ? [cw + 1.6 * pyEase(seg(0.3, 0.5)), false] : null;
+  else truck = f < 0.12 ? [cw + 1.6 * pyEase(seg(0, 0.12)), true] : f > 0.5 ? [cw - 1.4 * (1 - pyEase(seg(0.5, 0.7))), false] : null;
+  return { cw, tu, th, box, truck };
+}
 const pyIn = (x, y) => inPort(x, y) && ZONE[idx(x, y)] === 2 && !isRoadPos(x, y);
-function portCellKind(x, y) {   // décor d'une case libre du port : 'parc' | 'fond:<sprite>' | 'quai_parc' | 'quai_voie' | 'quai_bord' | 'phare' | ''
+function pyBlk(x, y) { const dx = x - PORT.x0, dy = y - PORT.y0; return { bx: Math.floor(dx / GRID), by: Math.floor(dy / GRID), lx: dx % GRID - 1, ly: dy % GRID - 1 }; }
+function portCellKind(x, y) {   // décor d'une case libre du port : 'bande' | 'fond:<objet>' (case avant) | 'fond_' (reste de l'emprise) | 'quai_parc' | 'quai_voie' | 'quai_bord' | 'phare' | '' (parcelle libre)
   const z = inb(x, y) ? ZONE[idx(x, y)] : -1;
   if (z === 4) { const T = quayTip(); if (x === T[0] && y === T[1]) return 'phare'; const e = coastX(y) - x; return e === 1 ? 'quai_bord' : e === 2 ? 'quai_voie' : 'quai_parc'; }
   if (!pyIn(x, y)) return '';
-  if (x >= PORT.x0 + GRID + 1) return 'parc';   // deux colonnes de blocs côté quai : parc à conteneurs
-  const lx = (x - PORT.x0) % GRID, ly = (y - PORT.y0) % GRID, by = Math.floor((y - PORT.y0) / GRID);
-  if ((lx === 2 || lx === 4) && (ly === 2 || ly === 4)) return 'fond:' + PY_BACK[by % PY_BACK.length];   // fond du port : 4 grands bâtiments par bloc, espacés
+  if (x === PY_BAND_X) return 'bande';
+  const b = pyBlk(x, y); if (b.bx === PY_BACK_B[0] && b.by === PY_BACK_B[1]) for (const o of PY_BACK) if (b.lx >= o[0] && b.lx <= o[0] + 1 && b.ly >= o[1] && b.ly <= o[1] + 1) return b.lx === o[0] + 1 && b.ly === o[1] + 1 ? 'fond:' + o[2] : 'fond_';
   return '';
+}
+function portBlocks() {   // blocs du terre-plein : { bx, by, x0, y0, nx, ny, decor, built, free } (la bande est hors parcelle : un bloc du bord garde 4 colonnes)
+  const o = []; for (let by = 0; by * GRID + 1 <= PORT.y1 - PORT.y0; by++) for (let bx = 0; bx * GRID + 1 <= PORT.x1 - PORT.x0; bx++) {
+    const x0 = PORT.x0 + bx * GRID + 1, y0 = PORT.y0 + by * GRID + 1; let nx = 0, ny = 0, decor = 0, built = 0, cells = 0, ok = 0;
+    for (let y = y0; y < y0 + GRID - 1; y++) for (let x = x0; x < x0 + GRID - 1; x++) { if (!pyIn(x, y) || x === PY_BAND_X) continue; cells++; nx = Math.max(nx, x - x0 + 1); ny = Math.max(ny, y - y0 + 1);
+      if (portCellKind(x, y)) decor++; const c = S && S.grid[idx(x, y)]; if (c && c.t !== 'road') built++; else if (!footprintError(x, y, 'wh')) ok++; }
+    if (cells) o.push({ bx, by, x0, y0, nx, ny, decor: decor > 0, built: built > 0, free: decor === 0 && ok + built === cells });
+  }
+  return o;
 }
 function portAct() {   // { T : import + export ($ par jour, 30 jours glissants), n : navires à quai } ; une fois par jour
   if (!S) return { T: 0, n: 1 }; if (PY.day === S.day && PY.berths.length) return { T: PY.T, n: PY.berths.length };
-  let T = 0; try { const F = finM().F || S.fin || {}; T = Math.max(0, (F.imports || 0) + (F.revExport || 0)); } catch (e) { T = 0; }
+  let T = 0, im = 0, ex = 0; try { const F = finM().F || S.fin || {}; im = Math.max(0, F.imports || 0); ex = Math.max(0, F.revExport || 0); T = im + ex; } catch (e) { T = 0; }
   let n = 0; PY_SHIP_T.forEach(t => { if (T >= t) n++; }); n = clamp(n, 1, PY_BERTH.length);
-  PY.day = S.day; PY.T = T; PY.berths = PY_BERTH.slice(0, n); return { T, n };
+  PY.day = S.day; PY.T = T; PY.imp = im; PY.exp = ex; PY.berths = PY_BERTH.slice(0, n); return { T, n };
 }
-function portBerthDraw(vr) {   // navires amarrés (dessinés avant le bâti : les portiques du quai passent par-dessus leur pont)
-  PY.ms = PY.cur; const t0 = performance.now(); portAct(); const xs = coastX(PORT.y0) + 0.95;
-  PY.berths.forEach((yc, i) => { if (yc < vr.y0 - 6 || yc > vr.y1 + 6 || xs < vr.x0 - 6 || xs > vr.x1 + 6) return; const q = iso(xs, yc), n = i === 3 && vvOk('port_navire_vraquier') ? 'port_navire_vraquier' : 'navire_cargo';
-    if (pySpr(n, q.x - 20, q.y + 37, 400, false) == null) drawShip(q.x, q.y + 45, i); });
+function portBerthDraw(vr, now) {   // avant le bâti : parcelles libres (marquage au sol), navires à quai ; prépare les portiques et camions du quai pour cette image
+  PY.ms = PY.cur; const t0 = performance.now(); portAct(); PY.now = now = PY.clock != null ? PY.clock : (now || performance.now()); PY.cr.clear(); PY.tk.clear(); PY.built.clear();
+  // décor d'un bloc effacé dès qu'un bâtiment y est posé (joueur ou rival)
+  { const b = PY_BACK_B, x0 = PORT.x0 + b[0] * GRID + 1, y0 = PORT.y0 + b[1] * GRID + 1; for (let y = y0; y < y0 + GRID - 1; y++) for (let x = x0; x < x0 + GRID - 1; x++) { const c = S.grid[idx(x, y)]; if (c && c.t !== 'road') { PY.built.add(b[0] + ',' + b[1]); break; } } }
+  // parcelles libres : contour en pointillé et équerres aux coins
+  if (!(PY.dbg & 1) && vr.x1 >= PORT.x0 && vr.x0 <= PORT.x1 && vr.y1 >= PORT.y0 && vr.y0 <= PORT.y1) {
+    const lw = Math.max(1.4, 1.1 / z); ctx.save(); ctx.lineCap = 'round';
+    for (let by = 0; by < 5; by++) for (let bx = 0; bx < 3; bx++) { if (bx === PY_BACK_B[0] && by === PY_BACK_B[1] && !PY.built.has(bx + ',' + by)) continue;
+      const x0 = PORT.x0 + bx * GRID + 1, y0 = PORT.y0 + by * GRID + 1, x1 = Math.min(x0 + GRID - 1, PY_BAND_X), y1 = y0 + GRID - 1; if (x1 < vr.x0 || x0 > vr.x1 + 1 || y1 < vr.y0 || y0 > vr.y1 + 1) continue;
+      const m = 0.1, A = iso(x0 + m, y0 + m), B = iso(x1 - m, y0 + m), Cc = iso(x1 - m, y1 - m), D = iso(x0 + m, y1 - m);
+      ctx.strokeStyle = 'rgba(92,100,112,.55)'; ctx.lineWidth = lw; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.lineTo(Cc.x, Cc.y); ctx.lineTo(D.x, D.y); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(214,170,52,.85)'; ctx.lineWidth = lw * 1.4; ctx.beginPath();   // équerres jaunes aux 4 coins de la parcelle
+      [[x0 + m, y0 + m, 1, 1], [x1 - m, y0 + m, -1, 1], [x1 - m, y1 - m, -1, -1], [x0 + m, y1 - m, 1, -1]].forEach(([u, w, su, sw]) => { const a = iso(u + su * 0.55, w), b = iso(u, w), c = iso(u, w + sw * 0.55); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); });
+      ctx.stroke(); }
+    ctx.restore();
+  }
+  // front de quai (marquage au sol, avant les navires : le château et les piles du navire passent devant) : liseré de sécurité et bollards
+  { const xq = coastX(PORT.y0) - 1; if (xq >= vr.x0 - 1 && xq <= vr.x1 + 1) { ctx.strokeStyle = '#e0b23a'; ctx.lineWidth = 2; ctx.fillStyle = '#34383e';
+    for (let y = Math.max(PORT.y0, vr.y0 - 1); y <= Math.min(PORT.y1, vr.y1 + 1); y++) { if (portCellKind(xq, y) !== 'quai_bord' || S.grid[idx(xq, y)]) continue;
+      const a = iso(xq + 0.86, y), b = iso(xq + 0.86, y + 1); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      [0.25, 0.75].forEach(w => { const o = iso(xq + 0.95, y + w); ctx.beginPath(); ctx.ellipse(o.x, o.y - 2, 3.2, 1.8, 0, 0, 7); ctx.fill(); ctx.fillRect(o.x - 3.2, o.y - 2, 6.4, 2); }); } } }
+  // navires à quai, portiques et camions
+  const qx = coastX(PORT.y0) - 1;
+  PY_BERTH.forEach((yc, i) => {
+    const on = i < PY.berths.length, st = on ? pyCycle(i, now) : null, show = st && st.ph !== 'absent';
+    if (!(PY.dbg & 2) && show && !(yc + st.dw + 4 < vr.y0 - 3 || yc + st.dw - 4 > vr.y1 + 3 || qx + 4 < vr.x0 || qx - 6 > vr.x1)) { const c = pyShipCanvas(i, st.cnt, st.cyc * 7 + i), o = iso(st.du, yc + st.dw); pyBlit(c, o.x, o.y); }
+    const work = st && (st.ph === 'dechargement' || st.ph === 'chargement');
+    for (let c = 0; c < (on ? PY_SH.CR : 1); c++) { const s = on ? pyCraneState(yc, c, work ? st.cr[c] : null) : { cw: yc, tu: 85.4, th: PY_CRU.H, box: false, truck: null };
+      s.col = PY_COL[Math.floor(hash(st ? st.cyc : 0, i * 7 + c, 947) * PY_COL.length)];
+      const ky = Math.floor(s.cw); if (!PY.cr.has(ky)) PY.cr.set(ky, []); PY.cr.get(ky).push(s);
+      if (s.truck) { const ty = Math.floor(s.truck[0]); if (!PY.tk.has(ty)) PY.tk.set(ty, []); PY.tk.get(ty).push([s.truck[0], s.truck[1], s.col]); } }
+  });
   PY.cur = performance.now() - t0;
 }
-const pyCrane = y => { const b = PY.berths.find(yc => Math.abs(y - yc) <= 3); if (b != null) return (y - b) % 2 === 0; return PY_BERTH.some(yc => yc === y); };   // poste occupé : un portique toutes les 2 cases ; poste libre : un seul
 function drawQuayDecor(p, x, y, now) { const t0 = performance.now(); drawQuayDecor0(p, x, y, now); PY.cur += performance.now() - t0; }
+function pyTruck(ty, full, col) {   // camion du quai (sens +y : proue vers le bas à gauche, sprite non retourné), conteneur sur le plateau
+  const q = iso(PY_CRU.LANE, ty); if (vvOk('camion_ville')) pySpr('camion_ville', q.x, q.y + 2, 34, false); else pyBox(ctx, PY_CRU.LANE - 0.13, ty - 0.3, PY_CRU.LANE + 0.13, ty + 0.3, 0, 8, '#dfe3e8');
+  if (full) pyBox(ctx, PY_CRU.LANE - 0.17, ty - 0.33, PY_CRU.LANE + 0.17, ty + 0.23, 12, 12 + PY_LVH - 0.6, col, true);
+}
 function drawQuayDecor0(p, x, y, now) {
   const k = portCellKind(x, y), q = (u, w) => iso(x + u, y + w);
   if (k === 'phare') { if (vvOk('port_phare')) pySpr('port_phare', p.x, p.y + TH / 2 + 14, 34, false); return; }
   if (k === 'quai_parc') { const t = pyTile('Q', Math.floor(hash(x, y, 917) * PY_VAR)); ctx.drawImage(t, p.x - PY.OX, p.y - PY.OY, PY.W, PY.H); return; }
-  if (k === 'quai_voie') {   // voie de circulation du quai : marquage, cavaliers et camions
+  if (k === 'quai_voie') {   // voie du quai (sens unique +y) : marquage et camions sous les portiques
     const a = q(0.5, 0), b = q(0.5, 1); ctx.strokeStyle = 'rgba(250,250,245,.7)'; ctx.lineWidth = 1.2; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
-    const h = hash(x, y, 919), c = q(0.5, 0.5); if (h < 0.22 && vvOk('port_cavalier_straddle')) pySpr('port_cavalier_straddle', c.x, c.y + 6, 30, hash(x, y, 920) < 0.5); else if (h < 0.42 && vvOk('camion_ville')) pySpr('camion_ville', c.x, c.y + 6, 30, hash(x, y, 921) < 0.5);
-    return; }
-  if (k === 'quai_bord') {   // front de quai : liseré de sécurité, bollards, portique face au poste
-    const a = q(0.86, 0), b = q(0.86, 1); ctx.strokeStyle = '#e0b23a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-    ctx.fillStyle = '#34383e'; [0.25, 0.75].forEach(w => { const o = q(0.95, w); ctx.beginPath(); ctx.ellipse(o.x, o.y - 2, 3.2, 1.8, 0, 0, 7); ctx.fill(); ctx.fillRect(o.x - 3.2, o.y - 2, 6.4, 2); });
-    if (pyCrane(y)) { const c = q(0.55, 0.5); if (vvOk('port_portique_quai')) pySpr('port_portique_quai', c.x, c.y + 8, 170, true); else drawCrane(c.x, c.y + 8, y, now); }
+    (PY.tk.get(y) || []).forEach(t => pyTruck(t[0], t[1], t[2])); return; }
+  if (k === 'quai_bord') {   // portiques dont l'axe tombe dans cette rangée (liseré et bollards : marquage au sol, dessinés avant les navires dans portBerthDraw)
+    if (!(PY.dbg & 4)) (PY.cr.get(y) || []).forEach(s => {
+      pyCraneDraw(s.cw);
+      const C = PY_CRU, tr = pyP(s.tu, s.cw, C.HB - 1), hk = pyP(s.tu, s.cw, s.th + PY_LVH + 2);
+      pyBox(ctx, s.tu - 0.14, s.cw - 0.2, s.tu + 0.14, s.cw + 0.2, C.HB - 7, C.HB - 1, '#3a4048');   // chariot
+      ctx.strokeStyle = 'rgba(40,44,50,.9)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(tr[0] - 2, tr[1] + 4); ctx.lineTo(hk[0] - 2, hk[1]); ctx.moveTo(tr[0] + 2, tr[1] + 4); ctx.lineTo(hk[0] + 2, hk[1]); ctx.stroke();   // câbles de levage
+      pyBox(ctx, s.tu - 0.18, s.cw - 0.3, s.tu + 0.18, s.cw + 0.3, s.th + PY_LVH - 0.4, s.th + PY_LVH + 1.4, '#e0b23a');   // palonnier
+      if (s.box) pyBox(ctx, s.tu - 0.17, s.cw - 0.28, s.tu + 0.17, s.cw + 0.28, s.th, s.th + PY_LVH - 0.6, s.col, true);
+    });
   }
 }
 function portYardDraw(p, x, y) { const t0 = performance.now(); portYardDraw0(p, x, y); PY.cur += performance.now() - t0; }
-function portYardDraw0(p, x, y) {   // case libre de la zone portuaire (2)
+function portYardDraw0(p, x, y) {   // case libre de la zone portuaire (2) : bande de conteneurs, objets du fond (dessinés à leur case avant)
   const k = portCellKind(x, y); if (!k) return;
-  if (k === 'parc') { const t = pyTile('Y', Math.floor(hash(x, y, 917) * PY_VAR)); ctx.drawImage(t, p.x - PY.OX, p.y - PY.OY, PY.W, PY.H);
-    const h = hash(x, y, 923), a = iso(x + 0.93, y + 0.5);   // engins dans l'allée
-    if (h < 0.16 && vvOk('port_cavalier_straddle')) pySpr('port_cavalier_straddle', a.x, a.y + 4, 26, hash(x, y, 924) < 0.5); else if (h < 0.26 && vvOk('port_reach_stacker')) pySpr('port_reach_stacker', a.x, a.y + 4, 24, hash(x, y, 925) < 0.5);
-    return; }
-  if (k.startsWith('fond:')) { const n = k.slice(5); if (vvOk(n)) pySpr(n, p.x, p.y + TH / 2 + 26, n === 'port_entrepot_a' ? 112 : 100, hash(x, y, 29) < 0.5); }
+  if (k === 'bande') { if (PY.dbg & 8) return; const t = pyTile('B', Math.floor(hash(x, y, 917) * PY_VAR)); ctx.drawImage(t, p.x - PY.OX, p.y - PY.OY, PY.W, PY.H); return; }
+  if (k.startsWith('fond:') && !PY.built.has(PY_BACK_B[0] + ',' + PY_BACK_B[1])) { const n = k.slice(5), c = pyPre('obj_' + n, PY_OBJ_B, n === 'silos' ? pySilos : pyHangar), o = iso(x - 1, y - 1); pyBlit(c, o.x, o.y); }
 }
 /* ---------- Sol texturé et routes en sprites (losanges 396x198 de assets/phase2_hd) ----------
    Chaque case reçoit une tuile choisie par un aléa déterministe hash(x, y) : herbe (4 variantes) en campagne avec des clairières de terre,
@@ -19885,6 +20071,11 @@ function mapLabel(x, y) {   // { t: 1re ligne, s: 2e ligne (facultative), open: 
   }
   if (d && DEPOSITS[d.k]) return { t: capFr(DEPOSITS[d.k].name) + ' · ' + qtyTxt(d.k, d.r), s: 'Gisement ' + richTxt(d) + (GRADE_K[d.k] ? ' · teneur ' + Math.round(gradeOf(x, y, d.k) * 100) + ' %' : '') + (d.own ? ' · site acquis' : '') };
   if (zn === 4) return { t: 'Quai du port' };
+  if (zn === 2 && inPort(x, y)) {   // terminal portuaire : parcelles libres, subvention de zone au survol (pas de pop-up)
+    if (isRoadPos(x, y)) return { t: 'Route', s: 'Voie du port' };
+    const k = portCellKind(x, y), r = Math.round(znRate('indus') * 100);
+    return { t: 'Terrain portuaire · subvention ' + r + ' %', s: k === 'bande' ? 'Parc à conteneurs · constructible' : k ? 'Silos et hangars du port · constructible' : 'Parcelle libre · usines, hangars, entrepôts' };
+  }
   return { t: 'Terrain libre', s: zn === 1 ? 'Ville' : zn === 2 ? 'Zone portuaire' : 'Campagne' };
 }
 const HT = { k: '', pin: 0, to: 0 };
@@ -20153,7 +20344,7 @@ function frame(now) {
     if (selected && tool === 'view') { ctx.lineWidth = 4; if (monMulti(selected)) { const f = selected, L = iso(f.mx, f.my + f.mh), R = iso(f.mx + f.mw, f.my), T = iso(f.mx, f.my), B = iso(f.mx + f.mw, f.my + f.mh); poly([T, R, B, L], null, 'rgba(242,184,75,.95)'); } else poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }   // équipement de plusieurs cases : tout son contour
 
     // passe 2 : arbres et bâtiments dans l'ordre de profondeur
-    portBerthDraw(vr);   // navires amarrés au quai (avant le bâti)
+    portBerthDraw(vr, now);   // parcelles libres du port, navires à quai (avant le bâti)
     const treeCol = 1; signReset(); occTick(now);   // passe 100 : masquants de la cible (transparence des bâtiments devant)
     // passe 57 : tri de profondeur des bâtiments de plusieurs cases. Un bâtiment w×h est dessiné (toutes ses cases, la case avant en dernier) juste après la diagonale
     // de son CENTRE (x + y + (w + h) / 2 - 1) au lieu de celle de sa case avant : les voisins posés devant ses flancs (cases x + w ou y + h) passent désormais après lui
@@ -24222,7 +24413,7 @@ window.WSE.mall = { hall: { cells: () => MH.cells, pts: () => { const cv = el('m
 window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
 window.WSE.traffic = { cars: () => cars, reset: () => { cars = []; }, update: updateCars, refresh: refreshRoadList, pos: carPos, close: carsClose, geom: carGeom };
 window.WSE.ori = { ORI, VV_HD, ships: () => ships, SHIP_SPR, SHIP_BOW, path: airPathC, pose: airPose, park: AIR_PARK, stand: { u: AIR_SU, v: AIR_ST, h: AIR_SH }, scr: scrToMap, herd: (a, now) => herdList(a, now) };   // Responsable Mouvements : audit d'orientation (tools/audit_orientation.js)   // passe 99 : espacement des voitures (tools/voitures_espacement.js, t99)
-window.WSE.port = { kind: portCellKind, act: portAct, berths: () => (portAct(), PY.berths.slice()), tiles: () => PY.tiles.size, tile: pyTile, ms: () => PY.ms, VAR: PY_VAR, BERTH: PY_BERTH, SHIP_T: PY_SHIP_T };   // terminal portuaire (t119)
+window.WSE.port = { kind: portCellKind, act: portAct, berths: () => (portAct(), PY.berths.slice()), tiles: () => PY.tiles.size, tile: pyTile, ms: () => PY.ms, VAR: PY_VAR, BERTH: PY_BERTH, SHIP_T: PY_SHIP_T, BAND_X: PY_BAND_X, BAND_U: PY_BAND_U, BAND_W: PY_BAND_W, BACK: PY_BACK, BACK_B: PY_BACK_B, SH: PY_SH, CRU: PY_CRU, blocks: portBlocks, cycle: (i, t) => (portAct(), pyCycle(i, t)), crane: pyCraneState, cargo: () => (portAct(), pyCargo()), cells: PY_CELLS, cellUW: pyCellUW, dim: n => P2DIM[n], OBJ_B: PY_OBJ_B, CR_B: PY_CR_B, SHIP_B: PY_SHIP_B, pre: pyPre, hangar: pyHangar, silos: pySilos, craneImg: pyCraneImg, shipImg: pyShipImg, iso: (x, y) => iso(x, y), setClock: t => { PY.clock = t; }, dbg: v => { PY.dbg = v; }, built: () => [...PY.built], cr: () => [...PY.cr.entries()].map(([k, v]) => [k, v.map(s => [s.cw, s.tu, s.th, s.box])]), tk: () => [...PY.tk.entries()] };   // terminal portuaire (t119)
 window.WSE.bsh = { T: BSH_T, K: { BSH_K, BSH_E, BSH_R, BSH_HUR, BSH_REV, BSH_SVC }, shops: bshShops, at: bshShopAt, maxPx: bshMaxPx, open: bshOpen, pks: bshPks, carried: bshCarried, dem: bshDem, zone: bshZone, inc: bshInc, rayon: bshRayon, eval: bshEval, est: bshEst, propose: bshPropose, withdraw: bshWithdraw, set: bshSet, review: bshReview, step: bshStep, cut: bshCut, ar: bshAr, hover: bshHoverTxt, get st() { return S.bsh; }, get v() { return bshV; } };   // vente aux commerces de la ville
 window.WSE.vv = { fuel: () => (vvFuelMap(), VVF.list.slice()), SPR: VV_SVC_SPR, dcVec, svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.brand.setStrat = setBrandStrat;
