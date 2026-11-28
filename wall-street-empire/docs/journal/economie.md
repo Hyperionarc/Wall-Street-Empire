@@ -141,3 +141,8 @@ Emprunté comme principe : la note de la concurrence « marque blanche » (déj�
 la règle d'Engel. Conçu en propre : matières d'emballage et leur effet sur l'attrait, unité = article avec facteur de valeur neutre, besoin par habitant borné par le budget,
 partage capacité × fréquentation × attrait relatif entre tes magasins, les commerces de la ville et les rivaux, vente en gros aux commerces de la ville, profils faucon et colombe,
 chaîne d'information simulée des commerces de la ville couplée à tes usines et aux fermes.
+
+
+## Note du responsable Vente aux commerces (branche `vente-commerces`)
+`b2bStep` : les commandes des grossistes sont multipliées par (1 − `bshCut(pk)`), la part des commandes des commerces de quartier où le joueur est référencé nommément (`bshStep`, exécuté juste avant) ;
+leurs livraisons entrent dans `S._b2b.v` (créances à 30 jours, `arStep`) et le transport dans les frais. Le « B2B de ville » = référencements nommés + reste anonyme. Détail : `docs/journal/vente_commerces.md`.
