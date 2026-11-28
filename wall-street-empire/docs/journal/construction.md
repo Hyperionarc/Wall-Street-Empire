@@ -102,3 +102,8 @@ intacte : rien n'est migré, les bâtiments restent où ils sont. Aucun `rnd()` 
 - Les rivaux n'ouvrent pas encore de stations ; seules les stations de la ville (3 stations-service, 2 bornes) font concurrence.
 - La recharge ne pèse pas encore sur la demande d'électricité du réseau (`S._pDem`).
 - La desserte relie au réseau public le plus proche par la campagne ; elle ne traverse pas la ville bâtie (une case intérieure d'îlot reste « non reliée » comme avant).
+
+## Résultats des tests (lancés un par un, branche `liberte-construire`)
+t120 20 PASS · t01 7 · t05 6 · t44 45 · t96 19 · t97 12 · t98 30 · t102 35 · t110 24 · t27 46 · t33 35 · t46 21 · t48 29 · t58 28 · t77 18 (0 FAIL).
+t32 : 45 PASS, 1 FAIL « rachat refusé faute de trésorerie » ; t56 : 19 PASS, 6 FAIL (rentabilité, fiche du campus) : ces échecs existent à l'identique sur
+la branche de départ (`city.html` de f298ccc rejoué avec `WSE_URL`), sans lien avec les règles de pose.
