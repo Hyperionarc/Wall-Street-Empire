@@ -4629,7 +4629,11 @@ function genCropFields2(dep, grid) {
   CROP2_SITES.forEach(f => { const [k, cx, cy, r] = f; for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) { const x = cx + dx, y = cy + dy; if (!inb(x, y)) continue; const id = idx(x, y); if (ZONE[id] !== 0 || isRoadPos(x, y) || dep[id] || (grid && grid[id])) continue; if (Math.hypot(dx, dy) <= r * (0.72 + 0.5 * hash(x, y, 67))) dep[id] = { k, r: DEPOSITS[k].res }; } });
 }
 // ville existante : gratte-ciel (bureaux et résidences) denses au centre, plus bas en périphérie, avec 2 tours-repères
-const MONU = { '45,21': 'stadium', '21,45': 'stadium2', '33,45': 'hall', '45,45': 'telecom', '45,33': 'hospital', '15,21': 'police', '21,15': 'fire', '39,15': 'lycee', '27,15': 'college', '15,39': 'maternelle', '27,45': 'garderie' };
+// Urbanisme (retour de Rémy) : hôtel de ville dans l'îlot à droite du Mall, face à l'avenue de l'anneau (façade dégagée : avenue 36 devant, coin libre du bloc à côté),
+// au milieu des cafés et des immeubles du centre ; un seul stade ; les quatre écoles aux quatre angles de la ville, au fond de leur bloc (cachées par le bâti de devant), jamais côte à côte.
+const MONU = { '45,21': 'stadium', '38,34': 'hall', '45,45': 'telecom', '45,33': 'hospital', '15,21': 'police', '21,15': 'fire', '43,13': 'lycee', '13,43': 'college', '13,13': 'maternelle', '43,43': 'garderie' };
+const HALL_AT = { x: 38, y: 34 };   // coin nord visé de l'hôtel de ville (2×2)
+const MON_EDU = m => /^(lycee|college|maternelle|garderie)(_\d+)?$/.test(m || '');
 const PUB = { stadium: ['Stade', 'sport', 'Loisirs : +1,5 d\'humeur'], stadium2: ['Stade', 'sport', 'Loisirs'], hall: ['Hôtel de ville', 'admin', 'Administration : +1,5 d\'humeur'], telecom: ['Tour de télécommunications', 'telecom', 'Réseau : +2 d\'humeur'], hospital: ['Hôpital', 'sante', 'Santé : +2,5 d\'humeur'], police: ['Commissariat de police', 'secu', 'Sécurité : +2 d\'humeur'], fire: ['Caserne de pompiers', 'secu2', 'Sécurité : +1,5 d\'humeur'], lycee: ['Lycée', 'edu', 'Éducation : +1,5 d\'humeur'], college: ['Collège', 'edu', 'Éducation : +1,5 d\'humeur'], maternelle: ['École maternelle', 'edu2', 'Familles : +2 d\'humeur'], garderie: ['Crèche et garderie', 'edu2', 'Familles : +2 d\'humeur'] };
 const PUB_BONUS = { sport: 1.5, admin: 1.5, telecom: 1, sante: 2.5, secu: 2, secu2: 1.5, edu: 1.5, edu2: 1 };
 // Barème des tailles : emprise (cases) des équipements publics de la ville. Chaque case de l'emprise est une case « mon » du même équipement (comme le mall et l'aéroport),
@@ -4814,14 +4818,15 @@ function genCityM(grid) {   // renvoie { cap, offFloors } (cap en unités de 5 �
   const cand = [];
   for (let y = CITY0.y0; y <= CITY0.y1; y++) for (let x = CITY0.x0; x <= CITY0.x1; x++) {
     const id = idx(x, y); if (grid[id] || ZONE[id] !== 1 || !isLot(x, y) || isRoadPos(x, y)) continue;
-    if (MALLB && x >= MALLB.x0 - 3 && x <= MALLB.x1 + 2 && y >= MALLB.y0 - 3 && y <= MALLB.y1 + 2) continue;   // abords du grand mall : lots libres pour les boutiques du joueur (comme le départ 'ville')
+    if (MALLB && x >= MALLB.x0 - 4 && x <= MALLB.x1 + 3 && y >= MALLB.y0 - 4 && y <= MALLB.y1 + 3) continue;   // abords du grand mall : deux rangées de lots libres pour les boutiques du joueur (urbanisme : la ville respire)
+    if (Math.abs(x - CBD.x) === 1 || Math.abs(y - CBD.y) === 1) continue;   // urbanisme : lots libres le long des deux grands axes (avenues 30) qui partent du mall
     const dc = MALLB ? Math.max(0, Math.hypot(x - CBD.x, y - CBD.y) - MALL_SH) : Math.hypot(x - CBD.x, y - CBD.y);
     cand.push([dc + (hash(x, y, 47) - 0.5) * 2.4, x, y]);
   }
   cand.sort((a, b) => a[0] - b[0]);
   const HT = CITY_M_POP / (K_POP * 0.85), OT = CITY_M_JT * 0.55 * POPE_REF / JPF_V;   // capacité de logement visée (5 unités par étage, comme cap) et étages de bureaux visés
   let cap = 0, offFloors = 0, tow = 0, i = 0, extra = 0;
-  const XTRA = ['maternelle_2', 'garderie_2', 'maternelle_3', 'college_2'];   // une ville de 100 000 habitants a plusieurs écoles et crèches
+  const XTRA = [];   // urbanisme (Rémy : « trop de collèges et de services publics ») : un équipement de chaque sorte suffit à 100 000 habitants (CITY_SVC) ; la croissance en ajoute ensuite
   const d0 = cand.length ? cand[0][0] : 0;   // distances comptées depuis le premier lot bâti (au-delà des abords libres du mall)
   for (; i < cand.length && cap < HT; i++) {
     const d = cand[i][0] - d0, x = cand[i][1], y = cand[i][2], id = idx(x, y); if (grid[id]) continue;
@@ -5039,6 +5044,7 @@ function citySvcGrow(sc) {   // pose au plus un équipement (la sorte la plus en
     const x = cand[i][1], y = cand[i][2], a = fp[0] * fp[1] > 1 ? monFit(S.grid, x, y, fp[0], fp[1], null) : (S.grid[idx(x, y)] ? null : { x, y }); if (!a) continue;
     let ok = true; for (let j = 0; j < fp[1] && ok; j++) for (let q = 0; q < fp[0]; q++) { const id = idx(a.x + q, a.y + j); if (S.grid[id] || S.dep[id] || (hold && hold[id] > S.day)) { ok = false; break; } }
     if (!ok) continue;
+    if (MON_EDU(b)) { let adj = false; for (let j = -1; j <= fp[1] && !adj; j++) for (let q = -1; q <= fp[0]; q++) { const X = a.x + q, Y = a.y + j; if (!inb(X, Y)) continue; const o = S.grid[idx(X, Y)]; if (o && o.t === 'npc' && o.k === 'mon' && MON_EDU(o.m)) { adj = true; break; } } if (adj) continue; }   // urbanisme : jamais deux écoles côte à côte
     monPut(S.grid, m, a.x, a.y, fp[0], fp[1], hash(a.x, a.y, 44));
     for (let j = 0; j < fp[1]; j++) for (let q = 0; q < fp[0]; q++) { const id = idx(a.x + q, a.y + j), p = sc.freeL.indexOf(id); if (p >= 0) sc.freeL.splice(p, 1); sc.free--; }
     S._svc = null; if (typeof siteC !== 'undefined') siteC.pub = null;
@@ -18082,7 +18088,7 @@ const SIGN_FACE_MIN = 9;   // px écran : en dessous, l'enseigne de façade sera
 const SG = { on: true, list: [], drawn: [], obst: [], bb: [], ord: 0, ui: [], uiT: -1e9, uiW: 0, uiH: 0, lost: {}, cur: null, cache: new Map(), tw: new Map(), fo: false, foT: 0, ms: 0, avg: 0, n: 0, hidden: 0, faces: 0 };
 function signTxt(key) {   // nom affiché : celui de l'interface (TYPES, PUB, VV_SVC), partie avant « · », en capitales
   const D = SIGN[key]; if (!D) return ''; if (D.txt) return D.txt;
-  const nm = key.startsWith('mon:') ? (PUB[key.slice(4)] || [''])[0] : key.startsWith('sv:') ? (VV_SVC[key.slice(3)] || [''])[0] : (TYPES[key] && TYPES[key].name) || '';
+  const nm = key.startsWith('mon:') ? (PUB[key.slice(4)] || [''])[0] : key.startsWith('sv:') ? (VV_SVC[key.slice(3)] || VV_FUEL_NM[key.slice(3)] || [''])[0] : (TYPES[key] && TYPES[key].name) || '';
   return nm.split(' · ')[0].toUpperCase();
 }
 function signKey(a) {
@@ -19548,6 +19554,8 @@ function frame(now) {
         }
       } else if (ZONE[i] === 4) {
         drawQuayDecor(p, x, y, now);
+      } else if (ZONE[i] === 0 && vvFuelMap().has(i) && vvOk(vvFuelMap().get(i))) {
+        vvDraw(vvFuelMap().get(i), p, 1, null, [1, 1]);   // urbanisme : station-service ou de recharge au bord d'une route d'accès, hors de la ville
       } else if (S.dep[i] && S.dep[i].k === 'wood') {
         drawForest(p, x, y, S.dep[i]);
       } else if (decor[i] && !S.dep[i]) {
@@ -22441,7 +22449,7 @@ const VV = { n: 0, day: -1, g: null, svc: {}, list: [] };
 const VV_SVC = {
   restaurant_terrasse: ['Restaurant en terrasse', 'c', 3], cafe_de_quartier: ['Café de quartier', 'c', 3], boulangerie: ['Boulangerie', 'c', 3], boutique_mode: ['Boutique de mode', 'c', 3],
   drugstore: ['Pharmacie', 'm', 2], barre_hlm: ['Barre HLM', 'm', 4, 'hlm'], immeuble_en_construction: ['Immeuble en construction', 'm', 2, 'up'],
-  eglise_de_village: ['Église', 'p', 2], station_service: ['Station-service', 'p', 3, 'road'], station_recharge_electrique: ['Station de recharge électrique', 'p', 2, 'road'], batiment_abandonne: ['Immeuble abandonné (friche)', 'p', 1]
+  eglise_de_village: ['Église', 'p', 2], batiment_abandonne: ['Immeuble abandonné (friche)', 'p', 1]
 };
 /* Passe 99 (Rémy : « la pharmacie, tu me l'as fait apparaître dans la TRÈS ANCIENNE version ») : le service de quartier « drugstore » dessinait assets/factory_hd/drugstore.png
    (cube blanc à croix sur un parking de voitures-cubes, livré le 17/11), alors que la pharmacie voulue est pharmacie.png (croix verte lumineuse, 19/11, enseigne PHARMACIE peinte en façade).
@@ -22479,17 +22487,38 @@ function vvRing(x, y) { const dc = Math.hypot(x - CBD.x, y - CBD.y); return MALL
 function vvSvcMap() {   // une passe par jour de jeu : chaque service va aux cases PNJ les plus adaptées (hash), espacées d'au moins 4 cases entre services du même type
   if (!S || !S.grid) return VV.svc; if (VV.day === S.day && VV.g === S.grid) return VV.svc;
   VV.day = S.day; VV.g = S.grid; const out = {}, list = [], used = new Set(), cand = [];
-  for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!c || c.t !== 'npc') continue; c._sv = null; if (c.k === 'mon' || c.k === 'park' || c.lm) continue; cand.push(c); }
+  let hall = null; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (!c || c.t !== 'npc') continue; c._sv = null; if (c.k === 'mon' && c.m === 'hall' && !hall) hall = c; if (c.k === 'mon' || c.k === 'park' || c.lm || (c.cd != null && S.day - c.cd < 6)) continue; cand.push(c); }   // un chantier de la croissance ne porte pas de service (il serait dessiné en chantier)
+  const nearHall = c => !!hall && Math.max(Math.abs(c.x - hall.x), Math.abs(c.y - hall.y)) <= 4;   // urbanisme : les commerces du centre se regroupent d'abord autour de l'hôtel de ville (un îlot vivant où le joueur construit la suite)
   const roadAdj = c => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(d => inb(c.x + d[0], c.y + d[1]) && isRoad(c.x + d[0], c.y + d[1]));
   Object.keys(VV_SVC).forEach(n => {
     const [, ring, want, rule] = VV_SVC[n], picked = [];
     const ok = c => { const d = vvRing(c.x, c.y); if (rule === 'hlm') return c.k === 'res' && c.floors >= 3 && c.floors <= 10 && d >= 5 && d < 14; if (rule === 'up') return c.k !== 'house' && c.floors >= 2 && c.floors <= 9 && d >= 5 && d < 14;
       if (c.floors > 7) return false; if (ring === 'c') return d < 9; if (ring === 'm') return d >= 5 && d < 14; return d >= 9 && (rule !== 'road' || roadAdj(c)); };   // plus de gare pour l'instant (consigne de Rémy) : la règle « far » des gares a été retirée
-    const sc = c => hash(c.x, c.y, 80 + n.length);
+    const sc = c => hash(c.x, c.y, 80 + n.length) - (ring === 'c' && nearHall(c) ? 1 : 0);
     cand.filter(c => !used.has(c) && ok(c)).sort((a, b) => sc(a) - sc(b) || a.x - b.x || a.y - b.y).forEach(c => { if (picked.length >= want || picked.some(q => Math.abs(q.x - c.x) + Math.abs(q.y - c.y) < 4)) return; picked.push(c); used.add(c); c._sv = n; list.push([c.x, c.y, n]); });
     out[n] = picked.length;
   });
   VV.svc = out; VV.list = list; return out;
+}
+/* Urbanisme (Rémy : « évite de mettre des recharges électriques en plein milieu de la ville ») : stations-service et bornes de recharge ne sont plus des services de quartier
+   posés sur les lots de la ville ; elles se tiennent au bord des routes d'accès, juste hors de la ville bâtie (campagne libre, 2 à 10 cases du bord de la zone urbaine), espacées.
+   Décor pur (rien n'est sauvegardé ni compté dans l'économie) ; recalculé une fois par jour de jeu, il suit l'extension de la ville. Une case prise par le joueur fait disparaître la station. */
+const VV_FUEL = [['station_service', 3], ['station_recharge_electrique', 2]], VV_FUEL_GAP = 9;
+const VV_FUEL_NM = { station_service: ['Station-service'], station_recharge_electrique: ['Station de recharge électrique'] };   // noms (enseignes, tables de l'interface)
+const VVF = { day: -1, g: null, k: '', at: new Map(), list: [] };
+function vvFuelMap() {
+  if (!S || !S.grid) return VVF.at; const key = CITY.x0 + ',' + CITY.y0 + ',' + CITY.x1 + ',' + CITY.y1; if (VVF.day === S.day && VVF.g === S.grid && VVF.k === key) return VVF.at;
+  VVF.day = S.day; VVF.g = S.grid; VVF.k = key; VVF.at = new Map(); VVF.list = [];
+  const cand = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = idx(x, y); if (ZONE[i] !== 0 || S.grid[i] || (S.dep && S.dep[i]) || isRoadPos(x, y)) continue;
+    const dx = Math.max(CITY.x0 - x, x - CITY.x1, 0), dy = Math.max(CITY.y0 - y, y - CITY.y1, 0), dd = Math.max(dx, dy); if (dd < 2 || dd > 10) continue;
+    if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(d => isRoad(x + d[0], y + d[1]) && ZONE[idx(x + d[0], y + d[1])] === 0)) continue;   // route qui sort de la ville (pas l'avenue du bord)
+    cand.push([hash(x, y, 90) + 0.08 * dd, x, y]);
+  }
+  cand.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+  VV_FUEL.forEach(([n, want]) => { let k = 0; for (const q of cand) { if (k >= want) break; if (VVF.list.some(o => Math.abs(o[0] - q[1]) + Math.abs(o[1] - q[2]) < VV_FUEL_GAP)) continue; VVF.list.push([q[1], q[2], n]); VVF.at.set(idx(q[1], q[2]), n); k++; } });
+  return VVF.at;
 }
 function vvNpc(a, p, x, y) {   // passe 99 : retient le sprite réellement dessiné (a._spr) : le titre et l'icône de la fiche suivent ce que le joueur voit
   const c0 = SG.cur; SG.cur = null; const r = vvNpc0(a, p, x, y);
@@ -23152,7 +23181,7 @@ window.WSE.air = { timeline: airTimeline, state: airState, anim: t => { AIRANIM.
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
 window.WSE.traffic = { cars: () => cars, reset: () => { cars = []; }, update: updateCars, refresh: refreshRoadList, pos: carPos, close: carsClose };   // passe 99 : espacement des voitures (tools/voitures_espacement.js, t99)
-window.WSE.vv = { SPR: VV_SVC_SPR, dcVec, svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
+window.WSE.vv = { fuel: () => (vvFuelMap(), VVF.list.slice()), SPR: VV_SVC_SPR, dcVec, svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.brand.setStrat = setBrandStrat;
 window.WSE.mono = { xp: monoXP, info: monoInfo, txt: monoTxt, win: monoWin, init: monoInit, step: monoStep, rx: monoRx, K: { MONO_PH, MONO_XW, MONO_W, MONO_PAT, MONO_INNOV, MONO_LIC, MONO_LIC_K, MONO_COPY, MONO_COPY_PAT, MONO_NIV, LIC_MG } };   // passe 67 : monopole temporaire de l'innovation
 window.WSE.supply = { autoSource, bestOffer, buyerQw, procure: stepProcure };

@@ -44,7 +44,7 @@ exports.run = async (t, L) => {
   await pg.screenshot({ path: (process.env.WSE_SHOTS || '/tmp') + '/t44_mall.png' }).catch(() => {});
   t.range('ville aérée : population de départ', st.pop, 55000, 65000, ' hab.', 0);
   t.check('ville aérée : centre bas (au plus 16 étages), plus aucun gratte-ciel', a.cmax <= 16 && a.max <= 16 && a.cmax >= 6, `centre ${a.cmax} étages · plus haut ${a.max}`);
-  t.check('ville aérée : moins de bâtiments, plus de lots libres (au moins 55 %), parcs et équipements publics présents', a.n <= 330 && st.free / st.lots >= 0.55 && a.park >= 12 && a.mon === 11, `${a.n} bâtiments · ${st.free} lots libres sur ${st.lots} · ${a.park} parcs`);
+  t.check('ville aérée : moins de bâtiments, plus de lots libres (au moins 55 %), parcs et équipements publics présents', a.n <= 330 && st.free / st.lots >= 0.55 && a.park >= 12 && a.mon === 10, `${a.mon} équipements (urbanisme : un seul stade) · ${a.n} bâtiments · ${st.free} lots libres sur ${st.lots} · ${a.park} parcs`);
   t.range('économie de départ inchangée : habitants-équivalents du bassin (k)', st.popE / 1000, 280, 300, ' k', 1);
   t.range('économie de départ inchangée : rapport emplois / actifs', st.jr, 0.8, 0.95, '', 2);
   t.check('réglage unique CITY_D0 exposé (0,6)', st.D0 === 0.6, String(st.D0));
