@@ -78,9 +78,10 @@ exports.run = async (t, L) => {
   await pg.mouse.move(qm[0] - 4, qm[1]); await pg.mouse.move(qm[0], qm[1]); await pg.waitForTimeout(200);
   const mh = await pg.evaluate(() => { const t = document.getElementById('entertip'); return { vis: !t.hidden, txt: t.innerText }; });
   await pg.mouse.click(qm[0], qm[1]); await pg.waitForTimeout(350);
-  const mv = await pg.evaluate(() => { const b = document.getElementById('mallp'), r = b.getBoundingClientRect(), sh = b.querySelector('.mconc [data-mall="shop"]'), rs = sh && sh.getBoundingClientRect();
-    return { vis: !b.hidden, cards: b.querySelectorAll('.mconc .aslot.on').length, shop: rs && rs.bottom <= Math.min(r.bottom, innerHeight), x: !!b.querySelector('.xbtn[data-mall="close"]'), det: b.querySelectorAll('details.asec').length }; });
-  t.check('Mall : survol « Mall central · Entrer », clic = galerie des boutiques en haut avec « + Ouvrir ma boutique » visible, stats repliables, croix', mh.vis && /Mall central · Entrer/.test(mh.txt) && mv.vis && mv.cards >= 3 && mv.shop && mv.x && mv.det >= 3, JSON.stringify({ mh, mv }));
+  const mv = await pg.evaluate(() => { const b = document.getElementById('mallp'), r = b.getBoundingClientRect(), cv = document.getElementById('mhcv'), rc = cv && cv.getBoundingClientRect(), H = window.WSE.mall.hall, pts = H.pts();
+    const vis = p => p.x >= rc.left && p.x <= rc.right && p.y >= rc.top && p.y <= rc.bottom;   // grand hall (responsable Intérieur du Mall) : cellules dessinées dans le hall au lieu de cartes
+    return { vis: !b.hidden, hall: !!rc && rc.width > 300 && rc.height > 200, riv: pts.filter(p => p.st === 'riv' && vis(p)).length, free: pts.filter(p => p.st === 'free' && vis(p)).length, x: !!b.querySelector('.xbtn[data-mall="close"]'), drw: !!b.querySelector('[data-mall="drw"]'), det: b.querySelectorAll('details.asec').length }; });
+  t.check('Mall : survol « Mall central · Entrer », clic = grand hall avec les boutiques des rivaux et des cellules « LIBRE » visibles, chiffres repliables, croix', mh.vis && /Mall central · Entrer/.test(mh.txt) && mv.vis && mv.hall && mv.riv >= 3 && mv.free >= 1 && mv.x && mv.drw && mv.det >= 3, JSON.stringify({ mh, mv }));
   t.check('aucune erreur de page', pg.errs.length === 0, pg.errs.slice(0, 3).join(' | '));
   await pg.context().close();
 
