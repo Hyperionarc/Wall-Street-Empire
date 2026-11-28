@@ -4,7 +4,8 @@
 // niveaux des bâtiments du joueur ; déterminisme, ancienne sauvegarde, aucune erreur de page.
 exports.name = 'Ville vivante : services, véhicules, port, fermes, niveaux (intégrateur n° 9)';
 const fs = require('fs'), path = require('path');
-const VV_NAMES = ['boulangerie', 'boutique_mode', 'cafe_de_quartier', 'restaurant_terrasse', 'ecole', 'hopital', 'gare_ferroviaire', 'eglise_de_village', 'station_service', 'station_recharge_electrique', 'drugstore', 'barre_hlm', 'immeuble_en_construction', 'mairie',
+// cohérence esthétique (docs/STYLE_BATIMENTS.md) : boulangerie, boutique, café, restaurant, écoles, hôpital, pharmacie et mairie remplacés par leurs rendus européens (les anciens ne sont plus embarqués)
+const VV_NAMES = ['boulangerie_quartier', 'boutique_quartier', 'cafe_quartier', 'restaurant_quartier', 'lycee', 'college', 'ecole_maternelle', 'creche', 'hopital_ville', 'gare_ferroviaire', 'eglise_de_village', 'station_service', 'station_recharge_electrique', 'pharmacie_quartier', 'barre_hlm', 'immeuble_en_construction', 'hotel_de_ville',
   'veh_argent', 'veh_blanc', 'veh_bleu', 'veh_camionnette', 'veh_jaune', 'veh_noir', 'veh_orange', 'veh_pickup', 'veh_rouge', 'veh_vert', 'voiture_ville_a', 'voiture_ville_b', 'camion_ville', 'navire_cargo', 'grue_portique', 'conteneur_bleu', 'conteneur_rouge', 'conteneur_pile',
   'animal_vache', 'animal_mouton', 'animal_poule', 'animal_cochon', 'auge_foin', 'balles_foin', 'meule_foin', 'fermier_seau', 'vendangeur', 'vigneron_hotte', 'champ_ble_vert', 'champ_ble_mur',
   'maison_n1', 'maison_n2', 'maison_n3', 'immeuble_n1', 'immeuble_n2', 'tour_bureaux', 'tour_logements', 'tour_tech', 'tour_pnj_a', 'tour_pnj_b', 'siege_hq_n1', 'siege_hq_n2', 'siege_hq_n3', 'supermarche_n2', 'supermarche_n3', 'hypermarche_n2', 'hypermarche_n3',
@@ -44,7 +45,7 @@ exports.run = async (t, L) => {
   const q = C.find((c, i) => c.n === 'restaurant_terrasse' && clear[i]) || C.find(c => c.n === 'restaurant_terrasse') || C[0];   // urbanisme : un restaurant dont la façade n'est pas masquée par un voisin de devant (le clic vise le pied du bâtiment)
   const xy = await pg.evaluate(q => { const W = window.WSE; W.setTool('view'); W.centerOn(q.x, q.y); return null; }, q); await pg.waitForTimeout(500);
   const pxy = await pg.evaluate(q => { const p = window.WSE.tileToScreen(q.x, q.y); return [p.x, p.y]; }, q);
-  await pg.mouse.click(pxy[0], pxy[1]); await pg.waitForTimeout(400); await pg.evaluate(() => { const b = document.querySelector('#selTag [data-st="open"]'); if (b && !document.getElementById('selTag').hidden) b.click(); }); await pg.waitForTimeout(300);   // passe 99 : clic = étiquette, « Ouvrir » ouvre la fiche
+  await pg.mouse.click(pxy[0] - 6, pxy[1]);   /* 6 px à gauche du centre : le centre de la case est aussi le sommet gauche de la colonne du voisin avant-droit (immeubles de ville plus hauts depuis la cohérence esthétique) */ await pg.waitForTimeout(400); await pg.evaluate(() => { const b = document.querySelector('#selTag [data-st="open"]'); if (b && !document.getElementById('selTag').hidden) b.click(); }); await pg.waitForTimeout(300);   // passe 99 : clic = étiquette, « Ouvrir » ouvre la fiche
   const fi = await pg.evaluate(() => { const b = document.getElementById('pfiche'); return b && !b.hidden ? b.textContent : ''; });
   t.check('clic sur un restaurant de la ville puis « Ouvrir » : la fiche de l\'immeuble s\'ouvre avec le nom du service', /Restaurant en terrasse/.test(fi), fi.slice(0, 90) + (xy || ''));
   const mh = await pg.evaluate(() => window.WSE.vv.html());

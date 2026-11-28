@@ -58,7 +58,7 @@ exports.run = async (t, L) => {
   if (w0.mon.hospital) {
     await view(pg, w0.mon.hospital[0], w0.mon.hospital[1], 0.9); d = await drawn(pg);
     const h = d.find(s => s.key === 'mon:hospital');
-    t.check('hôpital : plaque « HÔPITAL » posée sur le toit (à la place de « HOSPITAL »)', h && h.txt === 'HÔPITAL' && h.cover, JSON.stringify(h || null));
+    t.check('hôpital : « HÔPITAL » écrit par le jeu (rendu européen hopital_ville sans texte : bandeau de façade, ou plaque posée sur l\'ancien sprite)', h && h.txt === 'HÔPITAL' && (h.cover || h.face === 'L'), JSON.stringify(h || null));
     await pg.screenshot({ path: SHOTS + '/t54_hopital.png' }).catch(() => {});
   }
   const pubs = ['hall', 'lycee', 'college', 'maternelle'].filter(m => w0.mon[m]);

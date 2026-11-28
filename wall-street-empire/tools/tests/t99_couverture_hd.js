@@ -2,8 +2,8 @@
 // Chaque élément est rendu seul dans un canevas dont drawImage est instrumenté (tools/audit_hd.js) : on vérifie le NOM du PNG réellement dessiné.
 exports.name = 'Couverture HD : sprites branchés, pharmacie récente, aucun PNG orphelin';
 const A = require('../audit_hd.js');
-const EXPECT = { 'bank:n0': 'banque', 'bank:n4': 'banque', 's4:n0': 'bat_mega_centre_commercial', 'dc:n0': 'data_center_campus', 'mon:police': 'commissariat', 'mon:fire': 'caserne_pompiers',
-  spharma: 'pharmacie', 'sv:drugstore': 'pharmacie', 's2:n0': 'bat_supermarche', 's3:n4': 'bat_hypermarche_n3', 'mon:hospital': 'hopital' };
+const EXPECT = { 'bank:n0': 'banque', 'bank:n4': 'banque', 's4:n0': 'bat_mega_centre_commercial', 'dc:n0': 'data_center_campus', 'mon:police': 'commissariat_ville', 'mon:fire': 'caserne_pompiers',
+  spharma: 'pharmacie_quartier', 'sv:drugstore': 'pharmacie_quartier', 's2:n0': 'bat_supermarche', 's3:n4': 'bat_hypermarche_n3', 'mon:hospital': 'hopital_ville' };   // cohérence esthétique : commissariat, pharmacie et hôpital en rendus procéduraux (docs/STYLE_BATIMENTS.md)
 const VEC_OK = { sbrico: 'brico_outillage non livré (commande n°9 / 17 bis)' };
 exports.run = async (t, L) => {
   const pg = await L.newPage({ wait: 2500 }); await L.setup(pg, {});
@@ -19,15 +19,15 @@ exports.run = async (t, L) => {
   t.check('navires variés (au moins 5 sprites HD différents sur les 7 bateaux)', sh.size >= 5, [...sh].join(' | '));
   const md = A.report(r, null), orph = (md.match(/\| à vérifier \|/g) || []).length;
   t.check('chaque PNG HD absent de la carte a une raison écrite (version remplacée, intérieur d\'usine, pas de type de jeu…)', orph === 0, orph + ' PNG sans raison');
-  const ph = await pg.evaluate(() => { const W = window.WSE; return { t: W.p2.type.spharma, dim: (W.p2.dim.pharmacie || []).slice(0, 2) }; });
-  t.check('pharmacie du joueur = pharmacie.png la plus récente (268×209, croix verte lumineuse ; enseigne PHARMACIE peinte en façade)', ph.t === 'pharmacie' && ph.dim[0] === 268 && ph.dim[1] === 209, JSON.stringify(ph));
+  const ph = await pg.evaluate(() => { const W = window.WSE; return { t: W.p2.type.spharma, dim: (W.p2.dim.pharmacie_quartier || []).slice(0, 2) }; });
+  t.check('pharmacie du joueur = pharmacie_quartier (immeuble à vitrines, croix verte à bras égaux sur potence, 408 px par case ; enseigne PHARMACIE peinte en façade)', ph.t === 'pharmacie_quartier' && ph.dim[0] === 408, JSON.stringify(ph));
   // artefacts : liseré sombre (bord semi-transparent mélangé au fond noir du rendu) corrigé au build (_defringe)
   const fr = await pg.evaluate(names => names.map(n => { const e = window.WSE.p2.img[n]; if (!e || !e.ok) return [n, null]; const im = e.im, w = im.naturalWidth, h = im.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h;
     const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0); const d = g.getImageData(0, 0, w, h).data, A = i => d[i * 4 + 3], Lu = i => 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]; let n0 = 0, bad = 0;
     for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) { const i = y * w + x, a = A(i); if (a < 10 || a >= 250) continue; let so = 0, no = 0, tr = false;
       for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) { const j = i + v * w + u, b = A(j); if (b >= 250) { so += Lu(j); no++; } else if (b < 10) tr = true; }
       if (!no || !tr) continue; n0++; if (Lu(i) < so / no - 45) bad++; }
-    return [n, n0 ? +(bad / n0).toFixed(3) : 0]; }), ['centre_rd', 'stade_sport', 'bat_mega_centre_commercial', 'tour_bureaux', 'banque', 'siege_hq_n1', 'entrepot', 'pharmacie', 'caserne_pompiers']);
+    return [n, n0 ? +(bad / n0).toFixed(3) : 0]; }), ['centre_rd', 'stade_sport', 'bat_mega_centre_commercial', 'tour_bureaux', 'banque', 'siege_hq_n1', 'entrepot', 'pharmacie_quartier', 'caserne_pompiers']);
   t.check('pas de liseré sombre autour des sprites (moins de 8 % des pixels de bord nettement plus sombres que l\'objet)', fr.every(x => x[1] != null && x[1] < 0.08), fr.map(x => x[0] + ' ' + x[1]).join(' · '));
   t.check('aucune erreur de page', pg.errs.length === 0, pg.errs.slice(0, 2).join(' | '));
   await pg.context().close();

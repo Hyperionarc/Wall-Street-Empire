@@ -6,13 +6,13 @@
 // passe 78 : mines, puits, carrières, entrepôt, port, nucléaire, data center, chantier, stade) sont retournés au build ; les cas ambigus sont listés avec leur raison.
 exports.name = 'Orientation et éclairage des sprites de bâtiments';
 const BUILDINGS = ['usine_moyenne_f2', 'usine_grande_f3', 'usine_f4_mega', 'fonderie', 'bat_supermarche', 'bat_supermarche_n2', 'bat_supermarche_n3', 'bat_hypermarche', 'bat_hypermarche_n2', 'bat_hypermarche_n3',
-  'petit_marche_n1', 'petit_marche_n2', 'mega_centre_commercial', 'concession_auto', 'boutique_high_tech', 'boutique_luxe', 'boutique_mode_luxe', 'boutique_mode', 'pharmacie', 'maison_deco', 'sport_loisirs',
-  'drugstore', 'boulangerie', 'cafe_de_quartier', 'restaurant_terrasse', 'station_service', 'station_recharge_electrique', 'entrepot', 'terminal_portuaire', 'centrale_charbon', 'centrale_nucleaire',
-  'centrale_solaire', 'eolienne', 'centre_rd', 'data_center', 'agence_immo', 'chantier_moyen', 'station_tv', 'stade_sport', 'hopital', 'ecole', 'mairie', 'eglise_de_village', 'siege_hq_n1', 'siege_hq_n2',
+  'petit_marche_n1', 'petit_marche_n2', 'mega_centre_commercial', 'concession_auto', 'boutique_high_tech', 'boutique_luxe', 'boutique_mode_luxe', 'boutique_quartier', 'pharmacie_quartier', 'cafe_quartier', 'restaurant_quartier', 'boulangerie_quartier', 'maison_deco', 'sport_loisirs',
+  'station_service', 'station_recharge_electrique', 'entrepot', 'terminal_portuaire', 'centrale_charbon', 'centrale_nucleaire',
+  'centrale_solaire', 'eolienne', 'centre_rd', 'data_center', 'agence_immo', 'chantier_moyen', 'station_tv', 'stade_sport', 'hopital_ville', 'lycee', 'college', 'ecole_maternelle', 'creche', 'hotel_de_ville', 'commissariat_ville', 'eglise_de_village', 'siege_hq_n1', 'siege_hq_n2',
   'siege_hq_n3', 'tour_bureaux', 'tour_logements', 'tour_tech', 'tour_pnj_a', 'tour_pnj_b', 'maison_n1', 'maison_n2', 'maison_n3', 'immeuble_n1', 'immeuble_n2', 'maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c',
   'immeuble_pnj_a', 'immeuble_pnj_b', 'barre_hlm', 'immeuble_en_construction', 'batiment_abandonne', 'chantier_petit', 'puits_petrole', 'puits_gaz', 'mine_fer', 'mine_charbon', 'mine_cuivre', 'mine_or',
   'mine_nickel_chrome', 'mine_bauxite', 'mine_lithium', 'mine_zinc', 'mine_graphite', 'mine_phosphate', 'mine_potasse', 'mine_sel', 'carriere', 'carriere_argile', 'carriere_silice', 'camp_bucherons',
-  'caserne_pompiers', 'commissariat', 'banque', 'data_center_campus', 'bat_mega_centre_commercial'];   // passe 99 : sprites HD branchés par l'audit de couverture
+  'caserne_pompiers', 'banque', 'data_center_campus', 'bat_mega_centre_commercial'];   // passe 99 : sprites HD branchés par l'audit de couverture
 // Exceptions justifiées (ratio < 0,95) : sprite non dessiné en jeu ou mesure non significative
 const EXC = {
   usine_petite_f1: 'plus dessinée : la petite usine reprend l\'usine moyenne (P2_REPLI) en attendant la commande Cowork n° 14',

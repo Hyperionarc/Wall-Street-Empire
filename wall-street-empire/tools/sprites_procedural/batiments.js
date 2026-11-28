@@ -167,22 +167,22 @@ export const SPRITES = {
   // croix verte de pharmacie à bras égaux sur potence (enseigne lumineuse caractéristique, aucune croix latine), jardinières
   pharmacie_quartier: { cases: [1, 1], seed: 7, build(B) {
     slab(B, 10, 10, M.paving('#cfcabe'));
-    const En = M.render('#e9e0cc', 'ph'), St = M.stone('#d8cfbc'), H1 = 4.0, H2 = 3.3, HT = H1 + 2 * H2, x0 = 1.2, z0 = 1.2, x1 = 8.6, z1 = 8.6;
+    const En = M.render('#e9e0cc', 'ph'), St = M.stone('#d8cfbc'), H1 = 4.0, H2 = 3.3, HT = H1 + 2 * H2, x0 = 0.8, z0 = 1.2, x1 = 8.9, z1 = 8.6;
     volume(B, En, x0, z0, x1, z1, HT, { plinth: false }); B.box(M.plain('#4c5a52', 0.6, 0.1), x0 - 0.005, 0, z0 - 0.005, x1 + 0.005, H1, z1 + 0.005);   // devanture peinte (vert de gris)
     band(B, x0, z0, x1, z1, H1 - 0.05, 0.3, 0.12); band(B, x0, z0, x1, z1, H1 + H2 - 0.1); B.box(M.stone('#e6dfcf'), x0 - 0.3, HT - 0.1, z0 - 0.3, x1 + 0.3, HT + 0.35, z1 + 0.3);
-    roofHip(B, M.slate(SLATE), x0, z0, x1, z1, HT + 0.35, 2.6, 0.2); B.box(M.brick('#9a6550', MORTAR), 2.4, HT + 1.4, 2.4, 3.2, HT + 3.4, 3.0);
+    roofHip(B, M.slate(SLATE), x0, z0, x1, z1, HT + 0.35, 1.9, 0.2); B.box(M.brick('#9a6550', MORTAR), 2.4, HT + 1.0, 2.4, 3.2, HT + 2.5, 3.0);
     chain(B, St, x1, z1, HT - 0.1, -1, -1);
     // vitrines (deux faces), porte d'angle sur la face L
     windowRow(B, { face: 'Z', c: z1, u0: x0 + 0.2, u1: x1 - 0.2, n: 3, ys: [0.45], w: 2.0, h: 2.75, frame: '#e8e6e0', sill: '#b9b3a8', mullion: false, transom: false, shop: true, skip: i => i === 2 });
     door(B, { face: 'Z', c: z1, u: 7.25, w: 1.7, h: 2.75, frame: '#e8e6e0' });
     windowRow(B, { face: 'X', c: x1, u0: z0 + 0.2, u1: z1 - 0.2, n: 3, ys: [0.45], w: 2.0, h: 2.75, frame: '#e8e6e0', sill: '#b9b3a8', mullion: false, transom: false, shop: true });
-    signBand(B, 'L', x0 + 0.3, x1 - 0.3, H1 - 0.78, H1 - 0.22, z1 + 0.02, '#eef0ea'); signBand(B, 'R', z0 + 0.3, z1 - 0.3, H1 - 0.78, H1 - 0.22, x1 + 0.02, '#eef0ea');
+    signBand(B, 'L', x0 + 0.1, x1 - 0.1, H1 - 0.78, H1 - 0.22, z1 + 0.02, '#eef0ea'); signBand(B, 'R', z0 + 0.3, z1 - 0.3, H1 - 0.78, H1 - 0.22, x1 + 0.02, '#eef0ea');
     B.box(M.plain('#4f9e6a', 0.6), x0 + 0.3, H1 - 0.24, z1 + 0.11, x1 - 0.3, H1 - 0.18, z1 + 0.13); B.box(M.plain('#4f9e6a', 0.6), x1 + 0.11, H1 - 0.24, z0 + 0.3, x1 + 0.13, H1 - 0.18, z1 - 0.3);   // filet vert sous le bandeau
     // étages : fenêtres hautes à la française, balcons filants au 1er
     const fo = { w: 1.15, h: 2.05, frame: '#efece5', lintel: '#e1d9c8' };
     windowRow(B, Object.assign({ face: 'Z', c: z1, u0: x0, u1: x1, n: 3, ys: [H1 + 0.55, H1 + H2 + 0.55] }, fo)); windowRow(B, Object.assign({ face: 'X', c: x1, u0: z0, u1: z1, n: 3, ys: [H1 + 0.55, H1 + H2 + 0.55] }, fo));
     railing(B, 'Z', z1, x0 + 0.4, x1 - 0.4, H1 + 0.45); railing(B, 'X', x1, z0 + 0.4, z1 - 0.4, H1 + 0.45);
-    for (const x of [3.0, 6.8]) { B.box(M.slate(SLATE), x - 0.55, HT + 0.5, 7.6, x + 0.55, HT + 1.9, 8.45); windowAt(B, { face: 'Z', c: 8.45, u: x, y: HT + 0.7, w: 0.7, h: 0.95, transom: false }); }   // lucarnes
+    for (const x of [3.0, 6.8]) { B.box(M.slate(SLATE), x - 0.55, HT + 0.45, 7.7, x + 0.55, HT + 1.6, 8.45); windowAt(B, { face: 'Z', c: 8.45, u: x, y: HT + 0.6, w: 0.7, h: 0.8, transom: false }); }   // lucarnes
     // croix verte de pharmacie (bras égaux) dans un caisson carré sur potence, perpendiculaire à la façade L, près de l'angle
     const cxs = 8.0, cy = H1 + 0.15 + 1.1, cz = z1 + 1.25, k = M.plain('#33383d', 0.5, 0.4), gC = new THREE.MeshStandardMaterial({ color: '#3fa456', emissive: '#2f9a4a', emissiveIntensity: 0.55, roughness: 0.4, side: THREE.DoubleSide });
     gC.userData.uv = 1; gC.userData.uvMode = 'world';
