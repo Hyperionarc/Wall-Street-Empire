@@ -17745,8 +17745,8 @@ const PY_CR_B = [5500, 2590, 6085, 3048];
 function pyCraneImg(g) {
   const C = PY_CRU, ln = (pts, col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.stroke(); };
   const WH = '#eceae4', WE = '#a7abb0', RD = '#c8432f', RE = '#7f2a1e';
-  const leg = (u, w) => { ln([pyP(u, w, 0), pyP(u, w, C.HB - 6)], WE, 4.2); ln([pyP(u, w, 0), pyP(u, w, C.HB - 6)], WH, 2.8); };
-  const portal = w => { leg(C.L, w); leg(C.S, w); ln([pyP(C.L, w, 62), pyP(C.S, w, 62)], WE, 3.4); ln([pyP(C.L, w, 62), pyP(C.S, w, 62)], WH, 2.2); ln([pyP(C.L, w, 64), pyP(C.S, w, 14), pyP(C.S, w, 64), pyP(C.L, w, 14)], 'rgba(150,154,160,.9)', 1); };   // portique : jambes, traverse, croix de Saint-André
+  const leg = (u, w) => pyBox(g, u - 0.045, w - 0.045, u + 0.045, w + 0.045, 3, C.HB - 6, WH);   // jambe en caisson
+  const portal = w => { leg(C.L, w); leg(C.S, w); pyBox(g, C.L, w - 0.04, C.S, w + 0.04, 58, 64, WH); ln([pyP(C.L, w, 64), pyP(C.S, w, 14), pyP(C.S, w, 64), pyP(C.L, w, 14)], 'rgba(150,154,160,.9)', 1); };   // portique : jambes, traverse, croix de Saint-André
   const girder = w => { ln([pyP(C.B0, w, C.HB), pyP(C.B1, w, C.HB)], RE, 2.6); ln([pyP(C.B0, w, C.HT), pyP(C.B1 - 0.6, w, C.HT)], RE, 2.6); ln([pyP(C.B0, w, C.HB), pyP(C.B1, w, C.HB)], RD, 1.6); ln([pyP(C.B0, w, C.HT), pyP(C.B1 - 0.6, w, C.HT)], RD, 1.6);
     const zz = []; for (let k = 0; k <= 26; k++) { const u = C.B0 + (C.B1 - 0.6 - C.B0) * k / 26; zz.push(pyP(u, w, k % 2 ? C.HT : C.HB)); } ln(zz, RD, 1); ln([pyP(C.B1 - 0.6, w, C.HT), pyP(C.B1, w, C.HB)], RD, 1.4); };   // flèche en treillis (membrures et diagonales)
   // bogies et rails
@@ -17805,9 +17805,9 @@ function pyLoadState(n, m) {   // n conteneurs à embarquer, m ∈ [0, 1] avance
 function pyCycle(i, t) {   // état de l'escale au poste i à l'instant t (ms)
   const P = PY_SH.P, off = hash(i, 7, 931) * P, a = (t + off) / P, cy = Math.floor(a), s = a - cy, CG = pyCargo(), o = { i, s, cyc: cy, du: 0, dw: 0, ph: '', cr: [] };
   const seg = (s0, s1) => clamp((s - s0) / (s1 - s0), 0, 1);
-  if (s < 0.1) { const e = 1 - pyEase(seg(0, 0.1)); o.ph = 'arrivee'; o.dw = -9 * e; o.du = 1.8 * e; }
+  if (s < 0.1) { const e = 1 - pyEase(seg(0, 0.1)); o.ph = 'arrivee'; o.dw = -10 * e; o.du = 0.7 * e; }
   else if (s < 0.13) o.ph = 'accostage'; else if (s < 0.48) o.ph = 'dechargement'; else if (s < 0.52) o.ph = 'escale'; else if (s < 0.86) o.ph = 'chargement'; else if (s < 0.89) o.ph = 'appareillage';
-  else if (s < 0.99) { const e = pyEase(seg(0.89, 0.99)); o.ph = 'depart'; o.dw = 9 * e; o.du = 1.8 * e; } else o.ph = 'absent';
+  else if (s < 0.99) { const e = pyEase(seg(0.89, 0.99)); o.ph = 'depart'; o.dw = 10 * e; o.du = 0.7 * e; } else o.ph = 'absent';
   const mU = seg(0.13, 0.48), mL = seg(0.52, 0.86);
   o.cnt = CG.map(([nin, nout], c) => {
     if (s < 0.13) return nin; if (s < 0.48) { const q = pyLoadState(nin, 1 - mU); o.cr[c] = { mode: 'U', n: nin, q }; return q.cnt; }
@@ -17872,6 +17872,11 @@ function portBerthDraw(vr, now) {   // avant le bâti : parcelles libres (marqua
       ctx.stroke(); }
     ctx.restore();
   }
+  // front de quai (marquage au sol, avant les navires : le château et les piles du navire passent devant) : liseré de sécurité et bollards
+  { const xq = coastX(PORT.y0) - 1; if (xq >= vr.x0 - 1 && xq <= vr.x1 + 1) { ctx.strokeStyle = '#e0b23a'; ctx.lineWidth = 2; ctx.fillStyle = '#34383e';
+    for (let y = Math.max(PORT.y0, vr.y0 - 1); y <= Math.min(PORT.y1, vr.y1 + 1); y++) { if (portCellKind(xq, y) !== 'quai_bord' || S.grid[idx(xq, y)]) continue;
+      const a = iso(xq + 0.86, y), b = iso(xq + 0.86, y + 1); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      [0.25, 0.75].forEach(w => { const o = iso(xq + 0.95, y + w); ctx.beginPath(); ctx.ellipse(o.x, o.y - 2, 3.2, 1.8, 0, 0, 7); ctx.fill(); ctx.fillRect(o.x - 3.2, o.y - 2, 6.4, 2); }); } } }
   // navires à quai, portiques et camions
   const qx = coastX(PORT.y0) - 1;
   PY_BERTH.forEach((yc, i) => {
@@ -17897,9 +17902,7 @@ function drawQuayDecor0(p, x, y, now) {
   if (k === 'quai_voie') {   // voie du quai (sens unique +y) : marquage et camions sous les portiques
     const a = q(0.5, 0), b = q(0.5, 1); ctx.strokeStyle = 'rgba(250,250,245,.7)'; ctx.lineWidth = 1.2; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
     (PY.tk.get(y) || []).forEach(t => pyTruck(t[0], t[1], t[2])); return; }
-  if (k === 'quai_bord') {   // front de quai : liseré de sécurité, rails, bollards ; portiques dont l'axe tombe dans cette rangée
-    const a = q(0.86, 0), b = q(0.86, 1); ctx.strokeStyle = '#e0b23a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-    ctx.fillStyle = '#34383e'; [0.25, 0.75].forEach(w => { const o = q(0.95, w); ctx.beginPath(); ctx.ellipse(o.x, o.y - 2, 3.2, 1.8, 0, 0, 7); ctx.fill(); ctx.fillRect(o.x - 3.2, o.y - 2, 6.4, 2); });
+  if (k === 'quai_bord') {   // portiques dont l'axe tombe dans cette rangée (liseré et bollards : marquage au sol, dessinés avant les navires dans portBerthDraw)
     (PY.cr.get(y) || []).forEach(s => {
       pyCraneDraw(s.cw);
       const C = PY_CRU, tr = pyP(s.tu, s.cw, C.HB - 1), hk = pyP(s.tu, s.cw, s.th + PY_LVH + 2);
