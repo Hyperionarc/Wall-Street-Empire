@@ -25,7 +25,7 @@ exports.run = async (t, L) => {
   t.range('départ : chômage de départ inchangé (5 à 14 %)', st.unemp * 100, 5, 14, ' %');
   // barème des tailles (b3d94df) : les équipements publics occupent plusieurs cases (hôpital 3×3, lycée 3×2, collège, stades et mairie 2×2), chaque case
   // étant une cellule « mon » : on compte les 11 équipements distincts (c.m) et non plus les cases (36 cases pour 11 équipements)
-  t.check('départ : maisons, immeubles, bureaux, parcs et équipements publics présents', a.house >= 80 && a.res >= 60 && a.off >= 20 && a.off <= 80 && a.park >= 8 && a.monN === 11 && a.mall === 100, JSON.stringify({ house: a.house, res: a.res, off: a.off, park: a.park, equipements: a.monN, casesEquip: a.mon, mall: a.mall }));
+  t.check('départ : maisons, immeubles, bureaux, parcs et équipements publics présents', a.house >= 80 && a.res >= 60 && a.off >= 20 && a.off <= 80 && a.park >= 8 && a.monN === 10 && a.mall === 100, JSON.stringify({ house: a.house, res: a.res, off: a.off, park: a.park, equipements: a.monN, casesEquip: a.mon, mall: a.mall }));
   t.check('départ : bâtiments bas (aucune tour de plus de 20 étages, aucun repère de 54-66 étages)', a.max <= 20 && a.lm === 0, `plus haut ${a.max} étages`);
   t.check('départ : moins de 400 bâtiments PNJ (tous bas)', a.n <= 400, a.n + ' bâtiments');
   t.check('départ : beaucoup de terrain libre (au moins 40 % des lots)', st.lots > 0 && st.free / st.lots >= 0.4, `${st.free} lots libres sur ${st.lots}`);
@@ -61,7 +61,9 @@ exports.run = async (t, L) => {
   t.check('passif : la région ne grandit plus comme la ville (bassin effectif < 2 au-delà d\'un million)', P.bs > 1 && P.bs < 2, 'popE / habitants ' + P.bs.toFixed(2));
   // passe 44 : la ville aérée garde des lots libres plus longtemps : l'extension n'est exigée que si les lots ont manqué (moins de 14 % libres)
   t.check('passif : la zone urbaine s\'étend sur la campagne (au moins 20 blocs ajoutés)', P.ext >= 20, `${P.ext} blocs ajoutés · ${P.free} lots libres sur ${P.lots}`);
-  t.check('passif : jalons de taille annoncés (au moins 7 : jusqu\'au million)', P.ms2 >= 7, 'jalons ' + P.ms2);
+  // urbanisme (28 nov.) : le 6e jalon EST le million (150 k, 250 k, 400 k, 600 k, 800 k, 1 M) ; l'ancien seuil 7 exigeait 1,5 M. La croissance passive sur 20 ans est sensible
+  // à la disposition de départ (même scénario : 1 633 k avant, 1 379 k sans le 2e stade, 1 812 k avec) : on garde l'intention « jusqu'au million », dans les bornes de population ci-dessus.
+  t.check('passif : jalons de taille annoncés (au moins 6 : jusqu\'au million)', P.ms2 >= 6, 'jalons ' + P.ms2);
   t.check('passif : 0 NaN, 0 pageerror', P.bad === 0 && pg.errs.length === 0, pg.errs.slice(0, 2).join(';'));
   t.check('passif : coût de simulation raisonnable (moins de 25 ms par jour en moyenne)', P.ms < 25, P.ms.toFixed(1) + ' ms/jour');
   // sauvegarde aller-retour (ville nouvelle formule) dans le même contexte
@@ -82,7 +84,7 @@ exports.run = async (t, L) => {
     return { k, mons: Object.keys(mk).length, mx, cv: S.cityV || 0, bs: S.bassin || 1, pop: S.pop, n0, n1: Object.values(k1).reduce((a, b) => a + b, 0), ext: (S.cityExt || []).length, inz: W.inCity(54, 30) }; });
   // barème des tailles : la ville régénérée d'une ancienne sauvegarde place ses équipements sur leur emprise (25 cases de plus) : mesuré avant/après
   // le barème : maisons 103 -> 98, résidences 166 -> 162, bureaux 94 -> 94, parcs 32 -> 30, 11 équipements distincts dans les deux cas
-  t.check('ancienne sauvegarde : l\'ancienne ville (103 maisons, ~165 résidences, 94 bureaux, tours de 60 étages) est conservée', o2.cv === 0 && o2.bs === 1 && o2.k.house >= 95 && o2.k.house <= 103 && o2.k.res >= 156 && o2.mons === 11 && o2.k.off >= 90 && o2.mx >= 60 && o2.pop > 280000 && o2.pop < 320000, JSON.stringify(o2));
+  t.check('ancienne sauvegarde : l\'ancienne ville (103 maisons, ~165 résidences, 94 bureaux, tours de 60 étages) est conservée', o2.cv === 0 && o2.bs === 1 && o2.k.house >= 95 && o2.k.house <= 103 && o2.k.res >= 156 && o2.mons === 10 && o2.k.off >= 90 && o2.mx >= 60 && o2.pop > 280000 && o2.pop < 320000, JSON.stringify(o2));
   t.check('ancienne sauvegarde : pas de nouveau modèle de croissance (aucun lot construit, pas d\'extension)', o2.ext === 0 && !o2.inz && o2.n1 <= o2.n0 + 4 && pg3.errs.length === 0, `${o2.n0} -> ${o2.n1} bâtiments ${pg3.errs.slice(0, 2).join(';')}`);
   await ctx2.close();
 

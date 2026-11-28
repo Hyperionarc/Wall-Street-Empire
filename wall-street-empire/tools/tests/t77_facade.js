@@ -16,7 +16,8 @@ async function studio(pg, L, keys) {
     for (let y = 13; y < 48; y++) for (let x = 13; x < 48; x++) cells.push([x, y]);
     cells.sort((a, b) => (Math.abs(b[0] - mc[0]) + Math.abs(b[1] - mc[1])) - (Math.abs(a[0] - mc[0]) + Math.abs(a[1] - mc[1])) || a[1] - b[1] || a[0] - b[0]);
     const clear = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { if (x < 0 || y < 0 || x >= N || y >= N) continue; const c = S.grid[y * N + x]; if (c && c.t === 'npc' && c.k !== 'mon' && (c.w || 1) === 1 && (c.h || 1) === 1 && !c.lm) S.grid[y * N + x] = null; } };
-    keys.forEach(k => { for (const [x, y] of cells) { if (mine.some(m => Math.abs(m[0] - x) < 5 && Math.abs(m[1] - y) < 5)) continue; clear(x - 1, y - 1, x + 3, y + 3);
+    const nearMon = (x, y) => { for (let j = y - 3; j <= y + 4; j++) for (let i = x - 3; i <= x + 4; i++) { const c = i >= 0 && j >= 0 && i < N && j < N && S.grid[j * N + i]; if (c && c.t === 'npc' && c.k === 'mon') return true; } return false; };   // case dégagée : pas d'équipement public voisin (urbanisme : les écoles sont aux angles de la ville)
+    keys.forEach(k => { for (const [x, y] of cells) { if (mine.some(m => Math.abs(m[0] - x) < 5 && Math.abs(m[1] - y) < 5) || nearMon(x, y)) continue; clear(x - 1, y - 1, x + 3, y + 3);
       if (W.footprintError(x, y, k)) continue; if (W.place(x, y, k)) { try { W.autoConnect(x, y); } catch (e) {} const c = S.grid[y * N + x]; placed[k] = [c.x, c.y, c.w || 1, c.h || 1]; mine.push([x, y]); break; } } });
     W.setTool('view'); return placed; }, keys);
 }

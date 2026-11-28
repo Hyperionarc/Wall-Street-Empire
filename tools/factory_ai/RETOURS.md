@@ -662,3 +662,9 @@ Rémy : « tu peux arrêter de faire rouler des voitures en marche arrière ? »
 2. À défaut, `voiture_dos.png` / `voiture_face.png` génériques (256 × 256).
 3. `avion_ligne.png` / `avion_ligne_ar.png`, `bus_navette.png`, `taxi.png` (commande n°19) : noms déjà déclarés au build.
 Ordre de priorité : les 10 voitures `veh_*` d'abord (elles circulent en ville), puis `camion_ville` et `veh_camionnette`.
+
+## COMMANDE n°22 (responsable Port → Cowork, 28 nov.) : terminal à conteneurs (`wall-street-empire/docs/journal/port.md`)
+Le port est maintenant agencé comme un terminal réel (parc à conteneurs en rangées, portiques face aux postes, navires à quai selon l'activité). Deux sprites manquent pour qu'il soit juste. **Règles communes** (comme n°21) : isométrique 2:1, lumière haut-gauche, fond transparent, AUCUN texte ni logo ni numéro, palette sobre, ancre au pied dans `ancres.json`. Livraison : `assets/factory_hd/`.
+1. `port_portique_sts.png` : portique de quai à conteneurs (ship-to-shore) **blanc et rouge**, treillis, haut de ~2 cases, flèche horizontale qui avance vers le bas-droit (vers la mer, axe x de la carte), jambes sur rails parallèles au quai (axe y), cabine sous la flèche, ~900 × 1000 px. Remplacera `port_portique_quai` (grue à flèche grise) au bord du quai.
+2. `port_reach_stacker_ne.png` et `port_cavalier_ne.png` : les mêmes engins vus dans l'autre axe (avant vers le haut-droit, le long des allées en y), ~512 px, pour qu'ils roulent dans le sens des allées.
+3. (facultatif) `port_portecontainers_geant.png` : porte-conteneurs de 1,6 × la longueur de `navire_cargo`, même orientation (proue vers le bas-gauche, axe y), pont chargé de conteneurs en rangées serrées multicolores, ~1600 px de large.

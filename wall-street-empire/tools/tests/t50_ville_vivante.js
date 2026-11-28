@@ -13,7 +13,8 @@ const SCAN = `(() => { const W = window.WSE, S = W.S, N = W.N, V = W.vv, cnt = V
   const road = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(d => { const c = S.grid[(y + d[1]) * N + x + d[0]]; return c && c.t === 'road'; });
   let npc = 0, mons = {}; for (let i = 0; i < N * N; i++) { const c = S.grid[i]; if (c && c.t === 'npc') { npc++; if (c.k === 'mon') mons[c.m] = 1; } }
   const cells = L.map(q => { const c = S.grid[q[1] * N + q[0]]; return { n: q[2], x: q[0], y: q[1], k: c && c.t === 'npc' ? c.k : '?', ring: ring(q[0], q[1]), road: road(q[0], q[1]), zone: V.SVC[q[2]][1] }; });
-  return { cnt, cells, npc, mons: Object.keys(mons), monOk: Object.values(V.MON).every(n => V.ok(n)), list: JSON.stringify(L) }; })()`;
+  const fuel = V.fuel().map(q => ({ n: q[2], x: q[0], y: q[1], road: road(q[0], q[1]), free: !S.grid[q[1] * N + q[0]], ring: ring(q[0], q[1]) }));
+  return { cnt, cells, fuel, npc, mons: Object.keys(mons), monOk: Object.values(V.MON).every(n => V.ok(n)), list: JSON.stringify(L) }; })()`;
 const start = async pg => pg.evaluate(async () => {
   const W = window.WSE; document.getElementById('caste').hidden = true; W.startMode('free'); W.setCaste('industriel');
   ['caste', 'hint', 'endscr', 'modesel', 'win', 'mkview'].forEach(i => { const e = document.getElementById(i); if (e) e.hidden = true; }); W.S.noEv = true; W.setSpeed(0); W.S.cash = 3e7;
@@ -29,16 +30,18 @@ exports.run = async (t, L) => {
 
   // ---- 2. Services dans la ville de départ, aux endroits cohérents, densité clairsemée gardée
   const a = await pg.evaluate(SCAN), C = a.cells;
-  const want = ['restaurant_terrasse', 'cafe_de_quartier', 'boulangerie', 'boutique_mode', 'drugstore', 'barre_hlm', 'immeuble_en_construction', 'eglise_de_village', 'station_service', 'station_recharge_electrique', 'batiment_abandonne'];   // plus de gare pour l'instant
+  const want = ['restaurant_terrasse', 'cafe_de_quartier', 'boulangerie', 'boutique_mode', 'drugstore', 'barre_hlm', 'immeuble_en_construction', 'eglise_de_village', 'batiment_abandonne'];   /* urbanisme : stations au bord des routes d'accès, hors de la ville (voir plus bas) */   // plus de gare pour l'instant
   t.check('chaque service de quartier est présent dans la ville de départ', want.every(n => a.cnt[n] >= 1), JSON.stringify(a.cnt));
   const cen = C.filter(c => c.zone === 'c'), per = C.filter(c => c.zone === 'p');
   t.check('centre : restaurants, cafés, boulangeries, boutiques à moins de 9 cases du bord du mall', cen.length >= 8 && cen.every(c => c.ring < 9), cen.map(c => c.n.slice(0, 4) + ':' + c.ring.toFixed(1)).join(' '));
-  t.check('périphérie : églises, stations à 9 cases ou plus ; stations au bord d\'une rue ; aucune gare', per.length >= 6 && per.every(c => c.ring >= 9) && per.filter(c => /station/.test(c.n)).every(c => c.road) && !C.some(c => /gare/.test(c.n)), per.map(c => c.n.slice(0, 6) + ':' + c.ring.toFixed(1) + (c.road ? 'r' : '')).join(' '));
+  t.check('périphérie : églises et friches à 9 cases ou plus ; aucune gare ; aucune station sur un lot de la ville', per.length >= 2 && per.every(c => c.ring >= 9) && !C.some(c => /gare|station/.test(c.n)), per.map(c => c.n.slice(0, 6) + ':' + c.ring.toFixed(1)).join(' '));
+  t.check('stations-service (3) et de recharge (2) au bord des routes d\'accès, sur la campagne libre hors de la ville', a.fuel.filter(f => f.n === 'station_service').length === 3 && a.fuel.filter(f => f.n === 'station_recharge_electrique').length === 2 && a.fuel.every(f => f.road && f.free && f.ring >= 14), a.fuel.map(f => f.n.slice(8, 12) + '@' + f.x + ',' + f.y + (f.road ? 'r' : '')).join(' '));
   t.check('équipements publics en HD : hôpital, écoles, hôtel de ville, stades', ['hospital', 'lycee', 'hall', 'stadium'].every(m => a.mons.includes(m)) && a.monOk, a.mons.join(',') + ' · sprites ' + a.monOk);
   t.check('les services habillent des immeubles existants (maison, logements, bureaux) : densité de la ville inchangée, moins de 12 % du bâti', C.every(c => /^(house|res|off)$/.test(c.k)) && C.length <= 0.12 * a.npc, `${C.length} services sur ${a.npc} bâtiments PNJ`);
 
   // ---- 3. Clic sur un service : fiche avec son nom ; panneau du Mall
-  const q = C.find(c => c.n === 'restaurant_terrasse') || C[0];
+  const clear = await pg.evaluate(C => { const W = window.WSE, S = W.S, N = W.N; return C.map(c => [[1, 1], [1, 0], [0, 1]].every(d => { const o = S.grid[(c.y + d[1]) * N + c.x + d[0]]; return !o || o.t === 'road' || o.k === 'park'; })); }, C);
+  const q = C.find((c, i) => c.n === 'restaurant_terrasse' && clear[i]) || C.find(c => c.n === 'restaurant_terrasse') || C[0];   // urbanisme : un restaurant dont la façade n'est pas masquée par un voisin de devant (le clic vise le pied du bâtiment)
   const xy = await pg.evaluate(q => { const W = window.WSE; W.setTool('view'); W.centerOn(q.x, q.y); return null; }, q); await pg.waitForTimeout(500);
   const pxy = await pg.evaluate(q => { const p = window.WSE.tileToScreen(q.x, q.y); return [p.x, p.y]; }, q);
   await pg.mouse.click(pxy[0], pxy[1]); await pg.waitForTimeout(400); await pg.evaluate(() => { const b = document.querySelector('#selTag [data-st="open"]'); if (b && !document.getElementById('selTag').hidden) b.click(); }); await pg.waitForTimeout(300);   // passe 99 : clic = étiquette, « Ouvrir » ouvre la fiche
