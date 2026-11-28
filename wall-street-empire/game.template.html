@@ -19255,7 +19255,11 @@ function mapLabel(x, y) {   // { t: 1re ligne, s: 2e ligne (facultative), open: 
   if (c && c.t === 'road') return { t: 'Route', s: c.own ? 'Desserte · à toi' : 'Rue publique' };
   if (zn === 3) return { t: 'Mer', s: 'Eau · non constructible' };
   if (d && d.k === 'wood') return { t: 'Forêt · ' + fmt(Math.max(1, Math.round(d.r / 100))) + ' arbres', s: 'Bois : ' + qtyTxt('wood', d.r) };
-  if (d && CROPS[d.k]) { const f = fertility(x, y, d.k); return { t: 'Terre agricole · ' + DEPOSITS[d.k].name, s: S.npcFarm && S.npcFarm[i] ? 'Exploitée par un concurrent' : 'Fertilité ' + Math.round(f * 100) + ' %' }; }
+  if (d && CROPS[d.k]) {   // retour de Rémy : « exploitée par un concurrent » ne dit rien ; on nomme la ferme et son exploitant (rival IA ou producteur local de la ville)
+    const f = fertility(x, y, d.k), q = S.npcFarm && S.npcFarm[i];
+    if (q) { const riv = (S.rivals || []).some(r => r && r.name === q.o); return { t: 'Ferme de ' + DEPOSITS[d.k].name + ' · ' + q.o, s: riv ? 'Rival IA · cultive cette terre' : 'Producteur local · cultive cette terre' }; }
+    return { t: 'Terre agricole · ' + DEPOSITS[d.k].name, s: 'Libre · fertilité ' + Math.round(f * 100) + ' %' };
+  }
   if (d && DEPOSITS[d.k]) return { t: capFr(DEPOSITS[d.k].name) + ' · ' + qtyTxt(d.k, d.r), s: 'Gisement ' + richTxt(d) + (GRADE_K[d.k] ? ' · teneur ' + Math.round(gradeOf(x, y, d.k) * 100) + ' %' : '') + (d.own ? ' · site acquis' : '') };
   if (zn === 4) return { t: 'Quai du port' };
   return { t: 'Terrain libre', s: zn === 1 ? 'Ville' : zn === 2 ? 'Zone portuaire' : 'Campagne' };
