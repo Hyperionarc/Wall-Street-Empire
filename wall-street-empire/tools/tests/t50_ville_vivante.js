@@ -30,11 +30,11 @@ exports.run = async (t, L) => {
 
   // ---- 2. Services dans la ville de départ, aux endroits cohérents, densité clairsemée gardée
   const a = await pg.evaluate(SCAN), C = a.cells;
-  const want = ['restaurant_terrasse', 'cafe_de_quartier', 'boulangerie', 'boutique_mode', 'drugstore', 'barre_hlm', 'immeuble_en_construction', 'eglise_de_village', 'batiment_abandonne'];   /* urbanisme : stations au bord des routes d'accès, hors de la ville (voir plus bas) */   // plus de gare pour l'instant
+  const want = ['restaurant_terrasse', 'cafe_de_quartier', 'boulangerie', 'boutique_mode', 'drugstore', 'barre_hlm', 'immeuble_en_construction', 'batiment_abandonne'];   /* urbanisme : stations au bord des routes d'accès, hors de la ville (voir plus bas) */   // plus de gare pour l'instant
   t.check('chaque service de quartier est présent dans la ville de départ', want.every(n => a.cnt[n] >= 1), JSON.stringify(a.cnt));
   const cen = C.filter(c => c.zone === 'c'), per = C.filter(c => c.zone === 'p');
   t.check('centre : restaurants, cafés, boulangeries, boutiques à moins de 9 cases du bord du mall', cen.length >= 8 && cen.every(c => c.ring < 9), cen.map(c => c.n.slice(0, 4) + ':' + c.ring.toFixed(1)).join(' '));
-  t.check('périphérie : églises et friches à 9 cases ou plus ; aucune gare ; aucune station sur un lot de la ville', per.length >= 2 && per.every(c => c.ring >= 9) && !C.some(c => /gare|station/.test(c.n)), per.map(c => c.n.slice(0, 6) + ':' + c.ring.toFixed(1)).join(' '));
+  t.check('périphérie : friches à 9 cases ou plus (plus d\'églises) ; aucune gare ; aucune station sur un lot de la ville', per.length >= 1 && per.every(c => c.ring >= 9) && !C.some(c => /gare|station/.test(c.n)), per.map(c => c.n.slice(0, 6) + ':' + c.ring.toFixed(1)).join(' '));
   t.check('stations-service (3) et de recharge (2) au bord des routes d\'accès, sur la campagne libre hors de la ville', a.fuel.filter(f => f.n === 'station_service').length === 3 && a.fuel.filter(f => f.n === 'station_recharge_electrique').length === 2 && a.fuel.every(f => f.road && f.free && f.ring >= 14), a.fuel.map(f => f.n.slice(8, 12) + '@' + f.x + ',' + f.y + (f.road ? 'r' : '')).join(' '));
   t.check('équipements publics en HD : hôpital, écoles, hôtel de ville, stades', ['hospital', 'lycee', 'hall', 'stadium'].every(m => a.mons.includes(m)) && a.monOk, a.mons.join(',') + ' · sprites ' + a.monOk);
   t.check('les services habillent des immeubles existants (maison, logements, bureaux) : densité de la ville inchangée, moins de 12 % du bâti', C.every(c => /^(house|res|off)$/.test(c.k)) && C.length <= 0.12 * a.npc, `${C.length} services sur ${a.npc} bâtiments PNJ`);
