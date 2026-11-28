@@ -302,6 +302,10 @@ P2_NAMES += ['caserne_pompiers', 'commissariat', 'banque', 'data_center_campus',
              'port_portique_quai', 'port_piles_conteneurs_a', 'port_piles_conteneurs_b', 'port_reach_stacker', 'port_cavalier_straddle', 'port_reservoirs', 'port_terminal_vrac', 'port_entrepot_a']
 P2_POSES = ['poses/ouvrier_%s_%s' % (w, p) for w in ('h1', 'h2', 'h3', 'f1', 'f2', 'f3') for p in ('marche', 'debout')]
 P2_NAMES += P2_POSES
+# Responsable Mouvements : vues de dos des véhicules (commande n° 17 bis / n° 19) : branchées automatiquement dès que le PNG est déposé dans assets/factory_hd
+# (<modèle>_ar : avant vers le haut à gauche ; voiture_dos / voiture_face génériques ; avion_ligne, bus_navette, taxi) ; sans fichier, le jeu garde son dessin vectoriel
+P2_NAMES += [_n + '_ar' for _n in ('veh_argent', 'veh_blanc', 'veh_bleu', 'veh_camionnette', 'veh_jaune', 'veh_noir', 'veh_orange', 'veh_pickup', 'veh_rouge', 'veh_vert', 'voiture_ville_a', 'voiture_ville_b', 'camion_ville')]
+P2_NAMES += ['voiture_dos', 'voiture_face', 'avion_ligne', 'avion_ligne_ar', 'bus_navette', 'taxi']
 p2hd = {}; p2dim = {}
 # Sol et routes (losanges 396x198 sans couture) : pas de palette 256 couleurs (bandes visibles sur l'herbe) mais un JPEG de qualité ;
 # le pourtour transparent est rempli par extension des couleurs du bord (aucun liseré sombre quand le jeu découpe le losange avec 1 px de recouvrement).
