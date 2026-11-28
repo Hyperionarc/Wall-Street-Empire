@@ -22742,7 +22742,35 @@ let vvCarN = 0;
 function vvCar(c, dir, px, py) {   // une seule vue (de trois quarts avant) : l'axe de la route choisit le miroir, la voiture garde sa silhouette dans l'axe
   if (c.hv == null) c.hv = Math.floor(hash(vvCarN++, 3, 91) * VV_CARS.length);
   const m = VV_CARS[c.hv]; if (!m || !vvOk(m[0])) return false;
+  if (dir === 'NW' || dir === 'NE') { vvRear(m, px, py + 3, dir === 'NW'); return true; }   // retour de Rémy : en s'éloignant, la vue avant donnait l'impression de rouler en marche arrière ; on dessine l'arrière
   return vvSpr(m[0], px, py + 3, m[2] ? 44 : 36, (dir === 'SE' || dir === 'NW') ? m[1] === 1 : m[1] === 0) != null;
+}
+// Vue de trois quarts ARRIÈRE (voiture qui s'éloigne), dessinée en vectoriel avec la teinte du modèle (aucun sprite arrière livré) : hayon/vitre arrière, feux rouges, flanc droit, roues.
+const VV_COL = { veh_argent: '#b9bec6', veh_blanc: '#eceff2', veh_bleu: '#2f5fb0', veh_jaune: '#e2b92d', veh_noir: '#2a2d33', veh_orange: '#d9772b', veh_rouge: '#b8302c', veh_vert: '#3f8a4d', voiture_ville_a: '#8aa0b8', voiture_ville_b: '#c9b48a', veh_pickup: '#6c7b8c', veh_camionnette: '#e6e8ea', camion_ville: '#dcdee0' };
+function vvShade(h, f) { const n = parseInt(h.slice(1), 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255, k = f < 0 ? 0 : 255, a = Math.abs(f); return `rgb(${Math.round(r + (k - r) * a)},${Math.round(g + (k - g) * a)},${Math.round(b + (k - b) * a)})`; }
+function vvRear(m, px, py, flip) {
+  const col = VV_COL[m[0]] || '#9aa3ad', ut = !!m[2], pick = m[0] === 'veh_pickup', Lc = ut ? 30 : 25, Wc = ut ? 15 : 13, H1 = ut ? 11 : 6.5, H2 = ut ? 0 : 5.5, u = [0.894, -0.447], v = [0.894, 0.447];
+  ctx.save(); ctx.translate(px, py); if (flip) ctx.scale(-1, 1);
+  const P = (a, b, h) => [(u[0] * a + v[0] * b), (u[1] * a + v[1] * b) - h], O = [-(u[0] * Lc + v[0] * Wc) / 2, -(u[1] * Lc + v[1] * Wc) / 2];
+  const Q = (a, b, h) => { const p = P(a, b, h); return [O[0] + p[0], O[1] + p[1]]; };
+  const poly = (pts, fill, ln) => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); if (ln !== false) { ctx.strokeStyle = 'rgba(10,12,18,.55)'; ctx.lineWidth = 0.6; ctx.lineJoin = 'round'; ctx.stroke(); } };
+  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(0, 1, Lc * 0.62, Wc * 0.36, 0, 0, 7); ctx.fill();
+  const wheel = (a, b) => { const p = Q(a, b, 0); ctx.fillStyle = '#16181c'; ctx.beginPath(); ctx.ellipse(p[0], p[1] - 1, 2, 2.4, 0, 0, 7); ctx.fill(); };
+  wheel(Lc * 0.8, Wc); wheel(Lc * 0.2, Wc);   // roues du flanc droit (celles de l'essieu arrière restent cachées derrière la face arrière)
+  const h0 = 1.6;   // garde au sol
+  poly([Q(0, Wc, h0), Q(Lc, Wc, h0), Q(Lc, Wc, h0 + H1), Q(0, Wc, h0 + H1)], vvShade(col, -0.22));   // flanc droit
+  if (!ut) {
+    const a0 = Lc * 0.2, a1 = Lc * 0.72, hh = h0 + H1;
+    poly([Q(a0, Wc - 1.2, hh), Q(a1, Wc - 1.2, hh), Q(a1, Wc - 1.2, hh + H2), Q(a0 + 3, Wc - 1.2, hh + H2)], vvShade(col, -0.35));   // vitres du flanc droit
+    poly([Q(a0 + 3, 1.2, hh + H2), Q(a1, 1.2, hh + H2), Q(a1, Wc - 1.2, hh + H2), Q(a0 + 3, Wc - 1.2, hh + H2)], vvShade(col, 0.18));   // toit
+    poly([Q(a0, 1.2, hh), Q(a0, Wc - 1.2, hh), Q(a0 + 3, Wc - 1.2, hh + H2), Q(a0 + 3, 1.2, hh + H2)], '#1d2733');   // vitre arrière
+  }
+  poly([Q(0, 0, h0), Q(0, Wc, h0), Q(0, Wc, h0 + H1), Q(0, 0, h0 + H1)], col);   // face arrière
+  poly([Q(0, 0, h0 + H1), Q(0, Wc, h0 + H1), Q(Lc, Wc, h0 + H1), Q(Lc, 0, h0 + H1)], vvShade(col, 0.2));   // capot / coffre vu de dessus
+  if (pick) { poly([Q(Lc * 0.28, 1.2, h0 + H1), Q(Lc * 0.28, Wc - 1.2, h0 + H1), Q(Lc * 0.72, Wc - 1.2, h0 + H1), Q(Lc * 0.72, 1.2, h0 + H1)], vvShade(col, -0.12)); }   // benne du pick-up
+  [[1.2, 0], [Wc - 3.2, 0]].forEach(w => poly([Q(0, w[0], h0 + H1 * 0.55), Q(0, w[0] + 2, h0 + H1 * 0.55), Q(0, w[0] + 2, h0 + H1 * 0.9), Q(0, w[0], h0 + H1 * 0.9)], '#e0392d'));   // feux arrière
+  poly([Q(0, Wc / 2 - 1.8, h0 + 1), Q(0, Wc / 2 + 1.8, h0 + 1), Q(0, Wc / 2 + 1.8, h0 + 2.8), Q(0, Wc / 2 - 1.8, h0 + 2.8)], '#e9e4cf');   // plaque
+  ctx.restore();
 }
 const VV_GOODS = ['bac_argile', 'bac_bauxite', 'bac_chrome', 'bac_graphite', 'bac_lithium', 'bac_nickel', 'bac_phosphate', 'bac_potasse', 'bac_sel', 'bac_silice', 'bac_soufre', 'bac_terres_rares', 'bac_zinc', 'lingots_aluminium', 'lingots_laiton', 'sacs_alumine', 'sacs_engrais', 'barres_galva', 'barres_inox', 'briques_palette', 'futs_gaz', 'porcelaine_caisses', 'chassis_aluminium', 'aimants_terres_rares'];
 function vvRock(p, x, y) { const n = hash(x, y, 72) < 0.5 ? 'rochers_a' : 'rochers_b'; if (!vvOk(n)) return; vvSpr(n, p.x + (hash(x, y, 74) - 0.5) * 40, p.y + TH / 2 + (hash(x, y, 75) - 0.5) * 16, 24 + 14 * hash(x, y, 76), hash(x, y, 79) < 0.5); }
