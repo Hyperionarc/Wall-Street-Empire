@@ -23451,8 +23451,9 @@ function mhCells() {   // affectation déterministe des 16 cellules : tes boutiq
   fr.forEach((c, k) => { if (tiles[k]) Object.assign(c, { st: 'free', name: 'LIBRE', tile: tiles[k], col: '#5b6678' }); });
   cells.more = more; return cells;
 }
-function mhLayout() {
+function mhLayout(force) {
   if (!mallPos()) { MH.cells = []; return; }
+  const now = performance.now(); if (!force && MH.cells.length && now - (MH.lt || 0) < 500) return; MH.lt = now;   // le HUD rafraîchit souvent : l'agencement (mallData) au plus deux fois par seconde
   const cells = mhCells(), sig = cells.map(c => c.st + ':' + (c.b ? c.b.x + ',' + c.b.y + c.b.t : c.r ? c.r.id : c.tile ? c.tile.x + ',' + c.tile.y : c.name || '')).join('|');
   MH.cells = cells; if (sig !== MH.sig) { MH.sig = sig; MH.bg = null; if (MH.sel >= 0 && (!cells[MH.sel] || cells[MH.sel].st !== 'free')) MH.sel = -1; }
   MH.act = clamp(mhTraffic() * (0.55 + 0.45 * clamp(popE() / 120000, 0, 1)), 0.06, 1);
@@ -23694,7 +23695,7 @@ function mhInstall(key) {
   const sp = mhSpotFor(c, key); if (!sp) { say(`Pas la place pour ${TYPES[key].name.toLowerCase()} à cet endroit : choisis une autre cellule.`, 'warn'); return false; }
   if (!playerPlace(sp.x, sp.y, key)) return false;
   try { autoConnect(sp.x, sp.y); } catch (e) { /* desserte déjà posée */ }
-  MH.pin[sp.x + ',' + sp.y] = c.i; MH.sel = -1; MH.flash = { i: c.i, t: MH.t }; MH.sig = ''; mhLayout(); mhInsRender(); saveSoon();
+  MH.pin[sp.x + ',' + sp.y] = c.i; MH.sel = -1; MH.flash = { i: c.i, t: MH.t }; MH.sig = ''; mhLayout(true); mhInsRender(); saveSoon();
   say(`${TYPES[key].name} installé dans le Mall (${mhLvl(c.s)}) : +${Math.round(MALL_TRF * 100)} % de fréquentation. Clique sur ta devanture pour remplir ses rayons.`, 'gold');
   try { stepCoach(true); } catch (e) { /* conseiller absent */ }
   return true;
@@ -23731,9 +23732,10 @@ function mallStatsHTML() {
     + vvSvcHTML() + `<div class="r"><span>Magasins spécialisés présents</span><span>${specMallLine()}</span></div><p class="mnote">Concession, high-tech, luxe, mode, pharmacie, maison, sport, bricolage : un spécialiste ne vend que sa famille, mais la vend mieux (attrait, marge, marque). Près du mall, il profite aussi du bonus de fréquentation.</p>`);
   return h;
 }
+function mhSub() { const nF = MH.cells.filter(c => c.st === 'free').length, nR = MH.cells.filter(c => c.st === 'riv').length, nM = MH.cells.filter(c => c.st === 'me').length + (MH.cells.more || 0);
+  return `· le grand hall · ${nR} rival${nR > 1 ? 's' : ''} · ${nM ? nM + ' boutique' + (nM > 1 ? 's' : '') + ' à toi · ' : ''}${nF} cellule${nF > 1 ? 's' : ''} libre${nF > 1 ? 's' : ''}`; }
 function mallHTML() {
-  const nF = MH.cells.filter(c => c.st === 'free').length, nR = MH.cells.filter(c => c.st === 'riv').length, nM = MH.cells.filter(c => c.st === 'me').length + (MH.cells.more || 0);
-  return `<div class="mhd"><b>LE MALL CENTRAL <small id="mhsub">· le grand hall · ${nR} rival${nR > 1 ? 's' : ''} · ${nM ? nM + ' boutique' + (nM > 1 ? 's' : '') + ' à toi · ' : ''}${nF} cellule${nF > 1 ? 's' : ''} libre${nF > 1 ? 's' : ''}</small></b><button class="xbtn" data-mall="close" aria-label="Fermer le Mall (Échap)" title="Fermer (Échap)">×</button></div>`
+  return `<div class="mhd"><b>LE MALL CENTRAL <small id="mhsub">${mhSub()}</small></b><button class="xbtn" data-mall="close" aria-label="Fermer le Mall (Échap)" title="Fermer (Échap)">×</button></div>`
     + `<div id="mhst"><canvas id="mhcv" aria-label="Le grand hall du Mall : cellules commerciales sur deux niveaux"></canvas><div id="mhtip" hidden></div><div id="mhins" hidden></div></div>`
     + `<div class="mhf"><button class="btn sec" data-mall="prod">Voir les produits</button><button class="btn sec" data-mall="air">Aéroport</button><button class="btn sec" data-mall="port">Importer depuis le port</button><button class="btn sec" data-mall="drw" aria-pressed="${MH.drw}">Chiffres du marché</button></div>`
     + `<div id="mhdrw"${MH.drw ? '' : ' hidden'}>${mallStatsHTML()}</div>`;
@@ -23742,14 +23744,14 @@ function mallRender() {
   const b = el('mallp'); if (!b) return; if (!mallOn) { b.hidden = true; return; }
   mhLayout(); b.classList.add('hall');
   if (!el('mhcv')) { b.innerHTML = mallHTML(); mhBind(); }
-  else { const sb = el('mhsub'), tmp = document.createElement('div'); tmp.innerHTML = mallHTML(); const ns = tmp.querySelector('#mhsub'); if (sb && ns && sb.innerHTML !== ns.innerHTML) sb.innerHTML = ns.innerHTML;
+  else { const sb = el('mhsub'), ns = mhSub(); if (sb && sb.textContent !== ns) sb.textContent = ns;
     const dw = el('mhdrw'); if (dw && MH.drw) { const st = dw.scrollTop; dw.innerHTML = mallStatsHTML(); dw.scrollTop = st; } }
   b.hidden = false; mhInsRender(); entTip(''); mhStart();
 }
 function mallOpen() {
   if (!mallPos()) return false; mallOn = true; if (typeof proCloseFiche === 'function') proCloseFiche();
   const C = S.coach || (S.coach = { done: {}, prop: -1e9 }); if (!C.mall) { C.mall = S.day + 1; saveSoon(); }   // jalon « Clique sur le Mall central » (jour + 1 : jamais 0)
-  MH.sel = -1; MH.hov = -1; mallRender(); try { stepCoach(true); } catch (e) { /* conseiller absent (mode en attente) */ } return true;
+  MH.sel = -1; MH.hov = -1; MH.lt = 0; mallRender(); try { stepCoach(true); } catch (e) { /* conseiller absent (mode en attente) */ } return true;
 }
 function mallClose() { mallOn = false; MH.sel = -1; const b = el('mallp'); if (b) b.hidden = true; if (MH.raf) { cancelAnimationFrame(MH.raf); MH.raf = 0; } }
 function mallSpot(key) {   // case libre la plus proche du mall où la boutique peut être posée
