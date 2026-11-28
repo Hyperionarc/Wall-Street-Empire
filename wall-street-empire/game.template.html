@@ -4191,8 +4191,8 @@ function navS() {
 }
 // Prix mondial d'un navire : coût des chantiers étrangers au cours mondial des intrants (matières + main-d'œuvre) + leur marge ; suit l'inflation et les cours
 function navWorldPx(k) {
-  const D = NAV_SHIPS[k], q = navBom(k); let mv = 0, m0 = 0; Object.keys(q).forEach(g => { mv += q[g] * ((S.price && S.price[g]) || GOODS[g].base); m0 += q[g] * GOODS[g].base; });
-  const mi = m0 > 0 ? mv / m0 : 1; return D.ref * (D.mat * mi + D.lab * wageMkt() + (1 - D.mat - D.lab)) * cpi();
+  const D = NAV_SHIPS[k], q = navBom(k); let mv = 0, m0 = 0; Object.keys(q).forEach(g => { mv += q[g] * (S.price ? marketBounds(g).wld / cpi() : GOODS[g].base); m0 += q[g] * GOODS[g].base; });   // chantiers étrangers : intrants au cours mondial, main-d'œuvre mondiale
+  const mi = m0 > 0 ? mv / m0 : 1; return D.ref * (D.mat * mi + D.lab + (1 - D.mat - D.lab)) * cpi();
 }
 const navQ = k => { const m = navS().m[k]; return clamp(50 + 10 * (m.gen || 0), 0, 100); };
 // Côté eau d'une emprise : direction [dx, dy] vers la mer (première face qui touche la mer : est, sud, nord, ouest) ; null si aucune case de mer adjacente
@@ -4264,7 +4264,7 @@ function navStep(want) {
   yards.forEach(c => { c._nvRev = 0; c._nvCost = 0; c._nvAct = 0; const yi = idx(c.x, c.y), cap = navCales(c), eff = (c.conn === false ? 0 : 1) * fillOf(c) * (1 + 0.08 * (c.eff || 0)); let used = 0;
     A.ord.filter(o => o.y === yi).forEach(o => { const D = NAV_SHIPS[o.k]; if (used + D.slot > cap + 1e-9) return; used += D.slot;
       const inc = Math.min(1 - o.pr, eff / D.days); if (!(inc > 0)) return; const q = navBom(o.k), wp0 = D.ref * cpi(); let cash = 0, val = 0;
-      Object.keys(q).forEach(g => { const need = q[g] * inc, own = Math.min(need, Math.max(0, S.stock[g] || 0)), buy = need - own, px = S.price[g] || GOODS[g].base; S.stock[g] -= own; cash += buy * px; val += need * px; if (want && want[g] != null) want[g] += buy; });
+      Object.keys(q).forEach(g => { const need = q[g] * inc, own = Math.min(need, Math.max(0, S.stock[g] || 0)), buy = need - own, px = Math.min(S.price[g] || GOODS[g].base, marketBounds(g).imp); /* achat au cours local, ou importé à la parité d'importation (droits, fret) quand le marché local est plus cher */ S.stock[g] -= own; cash += buy * px; val += need * px; if (want && want[g] != null) want[g] += buy; });
       const lc = D.lab * wp0 * inc * lab / cpi(); cash += lc; val += lc; o.c += val; c._nvAct += D.slot;
       const p0 = o.pr; o.pr = Math.min(1, o.pr + inc);
       if (o.bt === 'self') S.cash -= cash; else { c._nvCost += cash; out.cost += cash; }
@@ -6010,6 +6010,7 @@ function evaluate() {
   upkeep += ownRoads * TYPES.road.upkeep;
   cap += 4 * Math.floor(S.houses || 0);
   eachBuilding(c => { if (c.t === 'res' && c.conn) { nres++; if (smog[idx(c.x, c.y)]) polluted++; } });
+  if (S.nav && S.nav.ord) value += S.nav.ord.reduce((t, o) => t + Math.max(0, o.c - (o.bt === 'self' ? 0 : o.a)), 0);   // Nautisme : en-cours de construction navale au coût, net des acomptes reçus (actif circulant)
   value += proHoldBasis() + proLandAssets();   // passe 34 : biens loués rachetés et terrains créés ou achetés, au prix payé
   { const mt = proMtm(); value += mt.adj; immo += mt.iv; }   // passe 69 : parc immobilier (logements livrés, biens rachetés) à la valeur de marché nette des frais de vente : il monte dans la bulle et chute au krach
   return { cc, cn, un, roads, ownRoads, cap, jobs: jobs + npcJobs, playerJobs: jobs, upkeep, value, immo, polluted, nres };
@@ -23983,7 +23984,7 @@ window.WSE.air = { timeline: airTimeline, state: airState, anim: t => { AIRANIM.
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
 window.WSE.traffic = { cars: () => cars, reset: () => { cars = []; }, update: updateCars, refresh: refreshRoadList, pos: carPos, close: carsClose, geom: carGeom };
-window.WSE.nav = { NAV_T, NAV_SHIPS, BAY, BAY_X, TOWN_MAR, S: () => navS(), bom: navBom, worldPx: navWorldPx, share: navShare, act: navAct, step: navStep, waterDir: navWaterDir, yards: navYards, marinas: navMarinas, cyc: navCyc, hh: navHH, portK: navPortK, loops: navLoops, svc: c => navSvc(c, c.t, { util: 0, kpi: [], inH: '', outH: '' }, (b, t) => b + ' ' + t, (t, d, sev) => ({ t, d, sev })) };   // Responsable Nautisme : tests (t124)
+window.WSE.nav = { NAV_T, NAV_SHIPS, BAY, BAY_X, TOWN_MAR, S: () => navS(), bom: navBom, worldPx: navWorldPx, share: navShare, act: navAct, step: navStep, waterDir: navWaterDir, yards: navYards, marinas: navMarinas, cyc: navCyc, hh: navHH, portK: navPortK, loops: navLoops, loopAt: navLoop, svc: c => navSvc(c, c.t, { util: 0, kpi: [], inH: '', outH: '' }, (b, t) => b + ' ' + t, (t, d, sev) => ({ t, d, sev })) };   // Responsable Nautisme : tests (t124)
 window.WSE.ori = { ORI, VV_HD, ships: () => ships, SHIP_SPR, SHIP_BOW, path: airPathC, pose: airPose, park: AIR_PARK, stand: { u: AIR_SU, v: AIR_ST, h: AIR_SH }, scr: scrToMap, herd: (a, now) => herdList(a, now) };   // Responsable Mouvements : audit d'orientation (tools/audit_orientation.js)   // passe 99 : espacement des voitures (tools/voitures_espacement.js, t99)
 window.WSE.port = { kind: portCellKind, act: portAct, berths: () => (portAct(), PY.berths.slice()), tiles: () => PY.tiles.size, tile: pyTile, ms: () => PY.ms, VAR: PY_VAR, BERTH: PY_BERTH, SHIP_T: PY_SHIP_T };   // terminal portuaire (t119)
 window.WSE.vv = { fuel: () => (vvFuelMap(), VVF.list.slice()), SPR: VV_SVC_SPR, dcVec, svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
