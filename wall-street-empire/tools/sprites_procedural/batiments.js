@@ -229,7 +229,46 @@ export const SPRITES = {
     for (let x = 1.0; x < 8.2; x += 1.1) bush(B, x, 13.4, 0.45, 140 + x * 3); for (let x = 13.9; x < 19.4; x += 1.1) bush(B, x, 13.4, 0.45, 150 + x * 3);
     for (const x of [8.6, 11.4]) { B.box(M.stone('#cdc4b1'), x - 0.4, 0, 16.0, x + 0.4, 0.5, 16.8); bush(B, x, 16.4, 0.4, 160 + x); }
   } },
+  // Commissariat (1 case) : bâtiment institutionnel de 2 niveaux, enduit clair sur soubassement de pierre, bandeau bleu ardoise, auvent d'entrée, toit-terrasse,
+  // drapeau, parking tracé (voitures posées par le jeu) ; remplace commissariat.png dont la dalle partielle laissait le bâtiment flotter 0,4 TH au-dessus de sa case
+  commissariat_ville: { cases: [1, 1], seed: 17, build(B) {
+    slab(B, 10, 10, M.paving('#cdc9be')); ground(B, M.asphalt('#828280'), 6.3, 0.4, 9.7, 9.7); for (let z = 1.2; z < 9.5; z += 2.6) B.box(M.plain('#efefea', 0.8), 6.5, 0, z, 9.5, 0.05, z + 0.08, { ns: true });
+    const En = M.render('#e3e0d8', 'pol'), x0 = 0.9, z0 = 0.9, x1 = 6.0, z1 = 7.6, H1 = 3.8, H2 = 3.4;
+    volume(B, En, x0, z0, x1, z1, H1 + H2, { ph: 0.6 }); B.box(M.plain('#4f5f73', 0.7), x0 - 0.06, H1 - 0.2, z0 - 0.06, x1 + 0.06, H1 + 0.15, z1 + 0.06);
+    roofFlat(B, x0, z0, x1, z1, H1 + H2, { boxes: [[1.6, 1.4, 3.2, 2.6, 1.0]] });
+    windowRow(B, { face: 'Z', c: z1, u0: x0, u1: x1, n: 3, ys: [H1 + 0.6], w: 1.2, h: 1.8 }); windowRow(B, { face: 'Z', c: z1, u0: 3.0, u1: x1, n: 1, ys: [0.9], w: 1.6, h: 1.8 });
+    windowRow(B, { face: 'X', c: x1, u0: z0, u1: z1, n: 3, ys: [0.9, H1 + 0.6], w: 1.2, h: 1.8 });
+    door(B, { face: 'Z', c: z1, u: 2.0, w: 1.6, h: 2.5, frame: '#3c4652' }); B.box(M.plain('#e9e8e3', 0.6), 0.9, 2.9, z1, 3.4, 3.15, z1 + 1.3); B.box(M.plain('#c9ccce', 0.4, 0.5), 3.2, 0, z1 + 1.15, 3.3, 2.9, z1 + 1.25);
+    signBand(B, 'L', x0 + 0.3, x1 - 0.3, H1 - 0.95, H1 - 0.45, z1, '#f2f1ec');
+    flag(B, 0.6, 8.9, 5.5); for (let x = 1.5; x < 6; x += 1.6) bush(B, x, 9.2, 0.45, 200 + x * 3);
+  } },
+  // Hôpital (3 × 3) : ensemble hospitalier contemporain européen (pas de texte ni d'emblème de la Croix-Rouge) : barre de 5 niveaux à bandeaux vitrés, deux ailes en peigne,
+  // hall vitré d'accueil, auvent des urgences, parking (voitures posées par le jeu), toitures techniques, arbres
+  hopital_ville: { cases: [3, 3], seed: 16, build(B) {
+    slab(B, 30, 30, M.paving('#cfcbc2'));
+    ground(B, M.asphalt('#7f7f7c'), 19.6, 24.6, 29.6, 29.6); for (let x = 20.4; x < 29.4; x += 1.25) B.box(M.plain('#eeeeea', 0.8), x, 0, 25.0, x + 0.08, 0.05, 27.0, { ns: true });
+    ground(B, M.grass('#6d8a4b'), 0.4, 24.8, 11.6, 29.6); ground(B, M.grass('#6d8a4b'), 27.6, 0.4, 29.6, 23.6);
+    const Cl = M.render('#e9e7e1', 'hop'), Bk = M.brick('#a87a62', MORTAR), H = 3.6;
+    const block = (x0, z0, x1, z1, n) => { volume(B, Cl, x0, z0, x1, z1, n * H, { plinth: false }); B.box(Bk, x0 - 0.02, 0, z0 - 0.02, x1 + 0.02, H, z1 + 0.02);
+      for (let f = 1; f < n; f++) { ribbon(B, 'Z', z1, x0 + 0.4, x1 - 0.4, f * H + 0.9, 1.6); ribbon(B, 'X', x1, z0 + 0.4, z1 - 0.4, f * H + 0.9, 1.6); }
+      roofFlat(B, x0, z0, x1, z1, n * H, { boxes: [[x0 + 1.5, z0 + 1.2, x0 + 4.0, z0 + 3.2, 1.6], [x1 - 4.5, z0 + 1.5, x1 - 1.5, z0 + 3.0, 1.2]] }); };
+    block(3.0, 3.0, 27.0, 11.0, 5); block(3.0, 11.0, 10.0, 23.0, 4); block(20.0, 11.0, 27.0, 21.0, 3);
+    windowRow(B, { face: 'Z', c: 23.0, u0: 3.0, u1: 10.0, n: 3, ys: [1.0], w: 1.6, h: 1.8, frame: '#d9d9d6' }); windowRow(B, { face: 'X', c: 10.0, u0: 11.5, u1: 23.0, n: 4, ys: [1.0], w: 1.6, h: 1.8, frame: '#d9d9d6' });
+    windowRow(B, { face: 'Z', c: 21.0, u0: 20.0, u1: 27.0, n: 3, ys: [1.0], w: 1.6, h: 1.8, frame: '#d9d9d6' }); windowRow(B, { face: 'X', c: 27.0, u0: 3.5, u1: 21.0, n: 6, ys: [1.0], w: 1.6, h: 1.8, frame: '#d9d9d6' });
+    // hall d'accueil vitré entre les ailes, auvent des urgences
+    B.box(M.plain('#d9dcdc', 0.6), 10.0, 0, 11.0, 20.0, 0.3, 16.0); ribbon(B, 'Z', 16.0, 10.2, 19.8, 0.3, 3.6, true); B.box(M.plain('#e8e8e4', 0.6), 9.8, 4.0, 10.8, 20.2, 4.5, 16.4);
+    roofFlat(B, 10.0, 11.0, 20.0, 16.0, 4.5, { par: 0.3 }); signBand(B, 'L', 11.0, 19.0, 3.35, 3.9, 16.0, '#f4f4f1');
+    const post = M.plain('#dcdcd8', 0.5, 0.2); for (const x of [21.0, 26.0]) B.box(post, x - 0.15, 0, 23.8 - 0.15, x + 0.15, 3.6, 23.8 + 0.15); B.box(M.plain('#ecece8', 0.6), 20.0, 3.6, 21.0, 27.4, 4.0, 24.4);
+    bush(B, 21.6, 28.8, 0.5, 190); bush(B, 25.6, 28.8, 0.5, 191);   // parking vide : le jeu y pose ses voitures HD
+    [[2.0, 26.6], [6.0, 28.2], [10.0, 26.4], [28.6, 4.0], [28.6, 12.0], [28.6, 19.6], [14.0, 19.0]].forEach((p, i) => tree(B, p[0], p[1], 1.0, 170 + i));
+    for (let x = 12.0; x < 18.5; x += 1.3) bush(B, x, 17.2, 0.45, 180 + x * 3);
+  } },
 };
+function ribbon(B, face, c, a0, a1, y, h, hall) {   // bandeau vitré continu, montants tous les 1,5 m, appui filant
+  const G = hall ? M.shop() : M.glass(), F = M.plain('#b8bcbf', 0.5, 0.3), L = a1 - a0;
+  if (face === 'Z') { B.quad(G, [a0, y, c + 0.02], [a1, y, c + 0.02], [a1, y + h, c + 0.02], [a0, y + h, c + 0.02], [[0, 0], [L / 2, 0], [L / 2, 1], [0, 1]]); for (let x = a0; x <= a1 + 1e-6; x += 1.5) B.box(F, x - 0.04, y, c, x + 0.04, y + h, c + 0.1); B.box(F, a0, y - 0.12, c, a1, y, c + 0.18); B.box(F, a0, y + h, c, a1, y + h + 0.08, c + 0.1); }
+  else { B.quad(G, [c + 0.02, y, a1], [c + 0.02, y, a0], [c + 0.02, y + h, a0], [c + 0.02, y + h, a1], [[0, 0], [L / 2, 0], [L / 2, 1], [0, 1]]); for (let z = a0; z <= a1 + 1e-6; z += 1.5) B.box(F, c, y, z - 0.04, c + 0.1, y + h, z + 0.04); B.box(F, c, y - 0.12, a0, c + 0.18, y, a1); B.box(F, c, y + h, a0, c + 0.1, y + h + 0.08, a1); }
+}
 // Immeuble de ville à commerce en rez-de-chaussée (1 case). o : wall (enduit), brick, front (devanture), awn ([bande, fond] ou null), roof (zinc | slate | tiles), floors (étages au-dessus du commerce), terrace
 function shopBuilding(B, o) {
   slab(B, 10, 10, M.paving('#cfcabe'));
