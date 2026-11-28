@@ -4159,6 +4159,242 @@ const FUEL_T = {
 };
 const FUEL_KEYS = Object.keys(FUEL_T);
 FUEL_KEYS.forEach(k => { const D = FUEL_T[k]; TYPES[k] = { name: D.name, sub: D.sub, cost: D.cost, color: D.color, jobs: D.jobs, upkeep: D.upkeep, fuel: D.fuel }; if (D.tier) TYPES[k].tier = D.tier; });
+// ===== Responsable Nautisme : port de plaisance (marina), chantier naval, navires à la commande (docs/journal/nautisme.md) =====
+// Deux bâtiments, posés librement au bord de l'eau (seule condition physique : toucher la mer, comme la station touche la route ; aucune zone imposée) :
+// - Port de plaisance : places d'amarrage louées au prix du marché (attrait de la ville : revenu réel, humeur, rareté des places), carburant nautique, entretien,
+//   flotte de location. La clientèle est la flotte de plaisance de la région (ménages aisés), alimentée par les achats de bateaux (budget du luxe).
+// - Chantier naval : fabrique des NAVIRES à la commande (voilier, yacht à moteur, cargo, pétrolier). Plans à concevoir (R&D), puis appels d'offres :
+//   l'acheteur compare ton offre (prix, qualité, marque, délai, fidélité) à celle des chantiers étrangers. Production longue : acompte à la commande, versement
+//   à la mise à l'eau, solde à la livraison encaissé à 30 jours (créances) ; matières et main-d'œuvre payées chaque jour : en-cours et BFR pesants.
+const NAV_T = {
+  marina: { name: 'Port de plaisance', sub: 'Places d\'amarrage, carburant, entretien · au bord de l\'eau', cost: 1800000, jobs: 8, upkeep: 400, w: 2, h: 2, color: '#5fd0e8', tier: 1, berths: 60 },
+  shipyd: { name: 'Chantier naval', sub: 'Cargos, pétroliers, yachts et voiliers à la commande · au bord de l\'eau', cost: 7500000, jobs: 60, upkeep: 2500, w: 3, h: 3, color: '#7f9fc8', tier: 1, cales: 2 }
+};
+const NAV_TK = Object.keys(NAV_T);
+NAV_TK.forEach(k => { const D = NAV_T[k]; TYPES[k] = { name: D.name, sub: D.sub, cost: D.cost, color: D.color, jobs: D.jobs, upkeep: D.upkeep, w: D.w, h: D.h, tier: D.tier, nav: k }; });
+// Catalogue : prix mondial de référence (chantier étranger, au cours de référence des intrants), durée de construction (jours de jeu), place sur la cale,
+// conception (coût, jours), part des matières et de la main-d'œuvre dans le prix, nomenclature en PART de la valeur des matières (quantités calculées sur le cours de base).
+const NAV_SHIPS = {
+  voilier: { name: 'Voilier de croisière', len: '12 m', seg: 'p', ref: 240000, days: 24, slot: 0.25, rd: [150000, 20], mat: 0.5, lab: 0.25, L: 0.5, kind: 'sail',
+    bom: { glass: 0.16, plastic: 0.16, chem: 0.06, tfabric: 0.14, plank: 0.09, stainless: 0.1, engine: 0.07, wire: 0.05, circuit: 0.04, paint: 0.05, foam: 0.04 } },
+  yacht: { name: 'Yacht à moteur', len: '24 m', seg: 'p', ref: 3600000, days: 60, slot: 0.5, rd: [700000, 40], mat: 0.5, lab: 0.27, L: 0.8, kind: 'yacht',
+    bom: { glass: 0.12, plastic: 0.11, chem: 0.05, aluminium: 0.06, engine: 0.16, circuit: 0.08, screen: 0.04, wire: 0.05, stainless: 0.07, plank: 0.07, foam: 0.06, fabric: 0.05, paint: 0.04, led: 0.02, ceramic: 0.02 } },
+  cargo: { name: 'Cargo porte-conteneurs', len: '140 m', seg: 'c', ref: 19000000, days: 100, slot: 1, rd: [1600000, 60], mat: 0.55, lab: 0.22, L: 2.4, kind: 'cargo',
+    bom: { steel: 0.52, galva: 0.06, engine: 0.14, motor: 0.05, wire: 0.06, circuit: 0.05, paint: 0.06, glass: 0.01, stainless: 0.03, rubberp: 0.02 } },
+  petrolier: { name: 'Pétrolier de produits', len: '180 m', seg: 'c', ref: 24000000, days: 115, slot: 1, rd: [1900000, 60], mat: 0.56, lab: 0.21, L: 2.8, kind: 'tanker',
+    bom: { steel: 0.5, stainless: 0.1, galva: 0.04, engine: 0.13, motor: 0.05, wire: 0.05, circuit: 0.05, paint: 0.07, chem: 0.01 } }
+};
+const NAV_KEYS = Object.keys(NAV_SHIPS);
+// Paramètres du marché (aucun prix ni volume administré : ce sont des comportements ; les garde-fous bnd('NAVx') sont comptés)
+const NAV_LUX = 0.12;        // part du budget de luxe des ménages qui va aux bateaux neufs (achat durable, loi d'Engel : elle suit le revenu réel)
+const NAV_MIX = { voilier: 0.45, yacht: 0.55 };   // répartition de cette dépense entre voiliers et yachts (en valeur)
+const NAV_EXP = { voilier: 10, yacht: 3 };        // appels d'offres étrangers de plaisance par an (clientèle fortunée mondiale), au cycle près
+const NAV_COM = { cargo: 3, petrolier: 2 };       // appels d'offres d'armateurs par an (dont NAV_LOC locaux), au cycle et au trafic près
+const NAV_LOC = 0.4, NAV_NF = 2, NAV_LIFE = 25 * 120;   // (YEAR_D = 120 jours, défini plus bas)   // part des armateurs locaux ; chantiers étrangers en lice ; durée de vie d'un navire (jours)
+const NAV_BERTH_SH = 0.7, NAV_OUT = 0.35, NAV_TOWN_B = 90;   // part des bateaux qui veulent une place de port ; autres ports de la côte (option extérieure) ; places du port municipal
+const NAV_PF0 = 2.5, NAV_R0 = 45, NAV_FUEL_L = 8, NAV_SVC = 9, NAV_RENT = 0.0035, NAV_RENT_UPK = 0.0006;   // loyer de place de référence ($/j), litres/j par bateau, entretien ($/j), location (part de la valeur/j)
+const NAV_PAY = [0.2, 0.3, 0.5], NAV_LAUNCH = 0.6;   // acompte à la commande, versement à la mise à l'eau (60 % d'avancement), solde à la livraison (créance à 30 jours)
+const NAV_OWNERS = ['Armement des Trois Caps', 'Compagnie maritime du Levant', 'Société navale de l\'Estuaire', 'Transports hauturiers réunis'];   // armateurs PNJ (noms inventés)
+let _navBom = null;
+function navBom(k) {   // quantités d'intrants par navire (calculées une fois sur le cours de base des biens)
+  if (!_navBom) { _navBom = {}; NAV_KEYS.forEach(s => { const D = NAV_SHIPS[s], q = {}; Object.keys(D.bom).forEach(g => { if (GOODS[g]) q[g] = Math.round(D.bom[g] * D.ref * D.mat / Math.max(0.01, GOODS[g].base)); }); _navBom[s] = q; }); }
+  return _navBom[k];
+}
+function navS() {
+  if (S.nav && S.nav.m) return S.nav;
+  const m = {}; NAV_KEYS.forEach(k => { m[k] = { st: 'off', left: 0, gen: 0, px: 1, ug: 0 }; });
+  return (S.nav = { m, ord: [], id: 0, n: 0, br: 0, fid: { p: 0, c: 0 }, pf: 0, mf: 0, acc: {}, bMA: 0, hhS: 0, pr: 0, tw: {}, tl: {}, del: [], tm: { occ: 0, B: 0 }, cum: { rev: 0, n: 0 } });
+}
+// Prix mondial d'un navire : coût des chantiers étrangers au cours mondial des intrants (matières + main-d'œuvre) + leur marge ; suit l'inflation et les cours
+function navWorldPx(k) {
+  const D = NAV_SHIPS[k], q = navBom(k); let mv = 0, m0 = 0; Object.keys(q).forEach(g => { mv += q[g] * (S.price ? marketBounds(g).wld / cpi() : GOODS[g].base); m0 += q[g] * GOODS[g].base; });   // chantiers étrangers : intrants au cours mondial, main-d'œuvre mondiale
+  const mi = m0 > 0 ? mv / m0 : 1; return D.ref * (D.mat * mi + D.lab + (1 - D.mat - D.lab)) * cpi();
+}
+const navQ = k => { const m = navS().m[k]; return clamp(50 + 10 * (m.gen || 0), 0, 100); };
+// Côté eau d'une emprise : direction [dx, dy] vers la mer (première face qui touche la mer : est, sud, nord, ouest) ; null si aucune case de mer adjacente
+function navWaterDir(x, y, w, h) {   // face qui touche le plus de cases de mer (est, sud, nord, ouest à égalité)
+  const sea = (a, b) => inb(a, b) && ZONE[idx(a, b)] === 3; let best = null, bn = 0;
+  [[1, 0], [0, 1], [0, -1], [-1, 0]].forEach(d => { let n = 0; const L = d[0] ? h : w; for (let k = 0; k < L; k++) if (sea(d[0] > 0 ? x + w : d[0] < 0 ? x - 1 : x + k, d[1] > 0 ? y + h : d[1] < 0 ? y - 1 : y + k)) n++; if (n > bn) { bn = n; best = d; } });
+  return best;
+}
+function navSeaK(x, y, w, h, d) { const o = [], L = d[0] ? h : w; for (let k = 0; k < L; k++) { const a = d[0] > 0 ? x + w : d[0] < 0 ? x - 1 : x + k, b = d[1] > 0 ? y + h : d[1] < 0 ? y - 1 : y + k; if (inb(a, b) && ZONE[idx(a, b)] === 3) o.push(k); } return o; }   // cases du rivage de l'emprise qui donnent sur la mer
+const NAV_MSG = 'Au bord de l\'eau : un port de plaisance ou un chantier naval doit toucher la mer (rivage, baie). Ailleurs, l\'eau est son seul accès.';
+const TOWN_MAR_MSG = 'Port de plaisance municipal : la mairie ne vend ni sa capitainerie ni son terre-plein.';
+const navBerths = c => Math.round(NAV_T.marina.berths * levelMult(c));
+const navCales = c => NAV_T.shipyd.cales * levelMult(c);
+function navNv(c) { return c.nv || (c.nv = { px: 1, rf: 0 }); }
+// Cycle et chocs : la plaisance est un luxe durable (achat reporté en récession), la marine marchande suit le commerce mondial ; les biens de première nécessité n'en dépendent pas
+function navCyc() {
+  const M = S.macro || {}, dv = typeof cycDev === 'function' && M.phase != null ? cycDev(M.phase, M) : 0;
+  return { lux: bnd('NAV4', 1 + 14 * dv, 0.1, 1.8), com: bnd('NAV3', 1 + 9 * dv, 0.2, 1.6), dv };
+}
+function navHH() { const A = S && S.nav; return A ? Math.max(0, A.hhS || 0) : 0; }   // dépense des ménages chez toi (port de plaisance, bateaux livrés aux habitants), lissée sur 30 jours : retirée du budget de luxe (budget fermé)
+function navPortK() { const A = S && S.nav; return 1 + 0.03 * Math.min(15, Math.max(0, (A && A.mf) || 0)); }   // flotte marchande locale en service : débit du port +3 % par navire (au plus +45 %)
+function navYards() { const o = []; eachBiz(b => { if (b.t === 'shipyd') o.push(b); }); return o; }
+function navMarinas() { const o = []; eachBiz(b => { if (b.t === 'marina') o.push(b); }); return o; }
+// Offre du joueur dans un appel d'offres : poids face à NAV_NF chantiers étrangers (prix mondial, qualité 55, marque 40, délai normal)
+function navShare(k, bt, delay) {
+  const A = navS(), D = NAV_SHIPS[k], m = A.m[k], P = D.seg === 'p' ? { e: 1.6, q: 1.2, b: 0.9, tau: 90 } : { e: 6, q: 0.6, b: 0.25, tau: 150 };
+  const dF = D.days * 1.15 + 20, fid = bt === 'loc' || bt === 'riv' ? 1 + 0.08 * Math.min(5, A.fid[D.seg] || 0) : 1, vit = D.seg === 'p' && bt === 'loc' && navMarinas().length ? 1.2 : 1;
+  const W = Math.pow(navQ(k) / 55, P.q) * Math.pow((1 + A.br / 100) / 1.4, P.b) * Math.pow(Math.max(0.05, m.px), -P.e) * Math.exp(-(delay - dF) / P.tau) * fid * vit;
+  return bnd('NAV6', W / (W + NAV_NF), 0, 1);
+}
+function navYardQueue(c) { const A = navS(); let w = 0; A.ord.forEach(o => { if (o.y === idx(c.x, c.y)) w += NAV_SHIPS[o.k].slot * NAV_SHIPS[o.k].days * (1 - o.pr); }); return w / Math.max(0.25, navCales(c)); }   // jours de travail en attente par cale
+function navBestYard(k) { let best = null; navYards().forEach(c => { if (!c.conn && c.conn !== undefined) return; const wq = navYardQueue(c), f = Math.max(0.3, fillOf(c)), d = wq + NAV_SHIPS[k].days / f; if (!best || d < best.d) best = { c, d }; }); return best; }
+// Appel d'offres : l'acheteur choisit l'offre ; si c'est la tienne, la commande entre au carnet du chantier le moins chargé
+function navTender(k, bt, A) {
+  const D = NAV_SHIPS[k], m = A.m[k]; A.n = (A.n || 0) + 1; const r = hash(S.day, A.n, NAV_KEYS.indexOf(k) + 11);
+  let buyer = bt === 'loc' ? (D.seg === 'p' ? 'un client de la ville' : NAV_OWNERS[Math.floor(hash(A.n, 3, 5) * NAV_OWNERS.length)]) : D.seg === 'p' ? 'un client étranger' : 'un armateur étranger', rid = null;
+  if (D.seg === 'c' && bt === 'loc') { const rv = (S.rivals || []).filter(x => !x.sub && (x.cash || 0) > navWorldPx(k) * 0.5); if (rv.length && hash(A.n, 7, 9) < 0.35) { const x = rv[Math.floor(hash(A.n, 9, 13) * rv.length)]; buyer = x.name; rid = x.id; bt = 'riv'; } }
+  const Y = m.st === 'on' ? navBestYard(k) : null, sP = Y ? navShare(k, bt, Y.d) : 0;
+  if (Y && r < sP) {
+    const p = Math.round(navWorldPx(k) * m.px), dep = p * NAV_PAY[0], o = { id: ++A.id, k, y: idx(Y.c.x, Y.c.y), b: buyer, bt, ri: rid, p, q: Math.round(navQ(k) + 4 * (Y.c.qual || 0)), pr: 0, c: 0, a: dep, d0: S.day, due: S.day + Math.ceil(Y.d) };
+    A.ord.push(o); S.cash += dep; if (rid) { const x = (S.rivals || []).find(z => z.id === rid); if (x) x.cash -= dep; }
+    A.tw[k] = (A.tw[k] || 0) + 1;
+    say(`Chantier naval : commande d'un ${D.name.toLowerCase()} par ${buyer} au prix de ${money(p)} (acompte ${money(dep)} encaissé), livraison prévue ${dateTxt(o.due)}.`, 'good');
+    return o;
+  }
+  A.tl[k] = (A.tl[k] || 0) + 1;   // commande perdue : le navire est construit à l'étranger (il rejoint quand même la flotte de la région si l'acheteur est local)
+  if (bt !== 'exp') { if (D.seg === 'p') A.pf += 1; else A.mf += 1; }
+  return null;
+}
+// Journée nautique : appels d'offres, avancement des commandes, livraisons, flottes, ports de plaisance. Renvoie { ret, exp, cost } (recettes de détail, ventes de navires, achats et sous-traitance).
+function navStep(want) {
+  const A = navS(), out = { ret: 0, exp: 0, cost: 0 }, yards = navYards(), mars = navMarinas(), HD = S._dw && S._dw.bud, b = Math.max(0.05, HD && HD.b != null ? HD.b : 1), happy = (S.stats && S.stats.happy != null) ? S.stats.happy : 60, C = navCyc();
+  if (!A.pf) A.pf = Math.max(1, popE() / 1000 * NAV_PF0);
+  A.bMA = A.bMA ? A.bMA + (b - A.bMA) / 90 : b;
+  // 1. Plans (R&D) : un chantier naval est nécessaire pour concevoir
+  NAV_KEYS.forEach(k => { const m = A.m[k]; if (!yards.length) return;
+    if (m.st === 'rd' && --m.left <= 0) { m.st = 'on'; m.left = 0; say(`Chantier naval : plans du ${NAV_SHIPS[k].name.toLowerCase()} terminés, produit lancé (qualité ${navQ(k)}). Les appels d'offres te sont ouverts.`, 'gold'); }
+    if (m.st === 'on' && m.ug > 0 && --m.ug <= 0) { m.ug = 0; m.gen = Math.min(4, (m.gen || 0) + 1); say(`Chantier naval : nouveaux plans du ${NAV_SHIPS[k].name.toLowerCase()} (qualité ${navQ(k)}).`, 'gold'); } });
+  // 2. Appels d'offres du jour (déterministes : intensité accumulée, une commande quand elle atteint 1)
+  const lux$ = HD && HD.R != null ? Math.max(0, HD.R * HD.wl) : 0, dur = bnd('NAV5', Math.pow(b / Math.max(0.05, A.bMA), 4), 0.05, 3), NB = NAV_LUX * lux$ * dur;
+  const trade = S._portCap > 0 ? bnd('NAV7', 0.6 + 0.8 * (S._portUse || 0) / S._portCap, 0.5, 1.5) : 1;
+  NAV_KEYS.forEach(k => { const D = NAV_SHIPS[k], wp = navWorldPx(k); let lLoc, lExp;
+    if (D.seg === 'p') { lLoc = NB * NAV_MIX[k] / Math.max(1, wp); lExp = NAV_EXP[k] / YEAR_D * C.lux; }
+    else { const tot = NAV_COM[k] / YEAR_D * C.com * trade * (k === 'petrolier' ? bnd('NAV8', Math.sqrt(((S.price && S.price.oil) || 16) / GOODS.oil.base), 0.5, 2) : 1); lLoc = tot * NAV_LOC; lExp = tot - lLoc; }
+    A.acc[k] = (A.acc[k] || 0) + lLoc + lExp; let g = 0;
+    while (A.acc[k] >= 1 && g++ < 5) { A.acc[k] -= 1; navTender(k, hash(S.day, A.n + 1, 31) < lLoc / Math.max(1e-9, lLoc + lExp) ? 'loc' : 'exp', A); } });
+  // 3. Chantiers : avancement FIFO dans la limite des cales ; matières prises dans ton stock (ta chaîne) ou achetées au cours local ; main-d'œuvre de chantier
+  const lab = wageMkt() * cpi(); let hh = 0;
+  yards.forEach(c => { c._nvRev = 0; c._nvCost = 0; c._nvAct = 0; const yi = idx(c.x, c.y), cap = navCales(c), eff = (c.conn === false ? 0 : 1) * fillOf(c) * (1 + 0.08 * (c.eff || 0)); let used = 0;
+    A.ord.filter(o => o.y === yi).forEach(o => { const D = NAV_SHIPS[o.k]; if (used + D.slot > cap + 1e-9) return; used += D.slot;
+      const inc = Math.min(1 - o.pr, eff / D.days); if (!(inc > 0)) return; const q = navBom(o.k), wp0 = D.ref * cpi(); let cash = 0, val = 0;
+      Object.keys(q).forEach(g => { const need = q[g] * inc, own = Math.min(need, Math.max(0, S.stock[g] || 0)), buy = need - own, px = Math.min(S.price[g] || GOODS[g].base, marketBounds(g).imp); /* achat au cours local, ou importé à la parité d'importation (droits, fret) quand le marché local est plus cher */ S.stock[g] -= own; cash += buy * px; val += need * px; if (want && want[g] != null) want[g] += buy; });
+      const lc = D.lab * wp0 * inc * lab / cpi(); cash += lc; val += lc; o.c += val; c._nvAct += D.slot;
+      const p0 = o.pr; o.pr = Math.min(1, o.pr + inc);
+      if (o.bt === 'self') S.cash -= cash; else { c._nvCost += cash; out.cost += cash; }
+      if (p0 < NAV_LAUNCH && o.pr >= NAV_LAUNCH) { if (o.bt !== 'self') { const v = o.p * NAV_PAY[1]; S.cash += v; o.a += v; if (o.ri) { const x = (S.rivals || []).find(z => z.id === o.ri); if (x) x.cash -= v; } } say(`Chantier naval : mise à l'eau du ${D.name.toLowerCase()} de ${o.b}${o.bt === 'self' ? '' : ' (versement de ' + money(o.p * NAV_PAY[1]) + ')'}.`, 'info'); }
+      if (o.pr >= 1 - 1e-9) o.done = 1; });
+    c.out = c._nvAct; c.util = cap > 0 ? clamp(used / cap, 0, 1) : 0; });
+  // 4. Livraisons : chiffre d'affaires au prix du contrat ; acomptes déjà encaissés retirés de la trésorerie (déjà reçus), solde en créance à 30 jours
+  S._navAR = 0;
+  A.ord.filter(o => o.done).forEach(o => { const D = NAV_SHIPS[o.k], c = S.grid[o.y];
+    if (o.bt === 'self') { const mc = o.mr != null && S.grid[o.mr] && S.grid[o.mr].t === 'marina' ? S.grid[o.mr] : navMarinas()[0]; if (mc) { navNv(mc).rf = (navNv(mc).rf || 0) + 1; mc.invest = investOf(mc) + o.c; } say(`Chantier naval : ton ${D.name.toLowerCase()} rejoint ta flotte de location.`, 'good'); }
+    else { out.exp += o.p; S.cash -= o.a; S._navAR += o.p - o.a; A.cum.rev += o.p; A.cum.n++; if (c && c.t === 'shipyd') c._nvRev = (c._nvRev || 0) + o.p;
+      if (o.ri) { const x = (S.rivals || []).find(z => z.id === o.ri); if (x) x.cash -= o.p - o.a; }
+      const late = S.day > o.due + 2; A.br = clamp(A.br + (D.seg === 'p' ? 3 : 2) - (late ? 4 : 0), 0, 100); if (o.bt !== 'exp') A.fid[D.seg] = (A.fid[D.seg] || 0) + 1;
+      if (o.bt !== 'exp') { if (D.seg === 'p') { A.pf += 1; hh += o.p; } else A.mf += 1; }
+      say(`Chantier naval : ${D.name.toLowerCase()} livré à ${o.b}${late ? ' en retard' : ' à temps'} (${money(o.p)} ; solde ${money(o.p - o.a)} encaissé à 30 jours).`, 'gold'); }
+    if (c) navNv(c).last = [NAV_KEYS.indexOf(o.k), S.day];
+    A.del.push([o.k, S.day, o.p, o.bt === 'self' ? 1 : 0]); if (A.del.length > 30) A.del.shift(); });
+  A.ord = A.ord.filter(o => !o.done);
+  // 5. Flottes : retraits (fin de vie) ; plaisance alimentée par les achats (ci-dessus), marchande par les commandes des armateurs locaux
+  A.pf = Math.max(1, A.pf * (1 - 1 / NAV_LIFE)); A.mf = Math.max(0, A.mf * (1 - 1 / NAV_LIFE));
+  // 6. Ports de plaisance : demande de places (flotte de la région), loyer de marché selon la rareté, partage entre tes ports, le port municipal et les autres ports de la côte
+  const Dm = A.pf * NAV_BERTH_SH, town = BAY.on ? NAV_TOWN_B : 0, own = mars.reduce((s, c) => s + (c.conn === false ? 0 : navBerths(c)), 0);
+  const tens = bnd('NAV2', Dm / Math.max(1, town + own + NAV_OUT * Dm), 0.2, 5), pr0 = NAV_R0 * cpi() * Math.pow(b, 0.8) * (0.85 + 0.3 * happy / 100) * Math.pow(tens, 0.35);
+  A.pr = A.pr ? A.pr + (pr0 - A.pr) / 10 : pr0;
+  const W = mars.map(c => { if (c.conn === false) return 0; const nv = navNv(c), att = (1 + 0.1 * (c.lvl || 0)) * (BAY.on && c.y <= 24 && c.y + c.h >= 16 && c.x >= 74 ? 1.15 : 1) / (1 + cityDist(c.x, c.y) / 40) * (0.5 + 0.5 * fillOf(c));
+    return navBerths(c) * att * Math.pow(Math.max(0.05, nv.px), -2.5); });
+  const Wt = town * 1.1, Wo = NAV_OUT * Dm, sW = W.reduce((s, v) => s + v, 0) + Wt + Wo;
+  const fuelPx = 1.3 * ((S.price && S.price.oil) || 16) / GOODS.oil.base * cpi(), sea = clamp(0.55 + 0.45 * Math.sin((S.day % YEAR_D) / YEAR_D * 2 * Math.PI), 0.1, 1), rentPx = navWorldPx('voilier');
+  let rest = 0; const occ = mars.map((c, i) => { const want0 = sW > 0 ? Dm * W[i] / sW : 0, B = navBerths(c), o = Math.min(B, want0); rest += want0 - o; return o; });
+  mars.forEach((c, i) => { if (rest > 0 && W[i] > 0) { const room = navBerths(c) - occ[i], add = Math.min(room, rest * 0.5 * W[i] / Math.max(1e-9, sW)); occ[i] += add; } });   // une partie des refusés se reporte sur une place libre d'un autre de tes ports
+  A.tm = { occ: town > 0 ? Math.min(town, sW > 0 ? Dm * Wt / sW : 0) : 0, B: town };
+  mars.forEach((c, i) => { const nv = navNv(c), o = occ[i], rent = o * A.pr * nv.px, fuel = o * NAV_FUEL_L * fuelPx, svc = o * NAV_SVC * cpi(), rf = nv.rf || 0;
+    const rUtil = clamp((0.3 + 0.5 * sea) * (0.8 + 0.4 * happy / 100) * Math.pow(b, 0.5), 0, 1), rr = rf * NAV_RENT * rentPx * rUtil, ru = rf * NAV_RENT_UPK * rentPx;
+    const rev = rent + fuel + svc + rr, cost = fuel * 0.78 + svc * 0.45 + ru;
+    c._nvRev = rev; c._nvCost = cost; c.out = o; c.util = navBerths(c) > 0 ? clamp(o / navBerths(c), 0, 1) : 0; c._nq = { o, B: navBerths(c), D: Dm, pr: A.pr, rent, fuel, svc, rr, rf, ru, rU: rUtil };
+    out.ret += rev; out.cost += cost; hh += rent + fuel + svc + rr * 0.5; });
+  A.hhS = (A.hhS || 0) + (hh - (A.hhS || 0)) / 30;
+  return out;
+}
+// Actions des fiches (data-act="nav:...")
+function navAct(c, a) {
+  const A = navS(), p = a.split(':'), cmd = p[0], k = p[1];
+  if (cmd === 'rd' && NAV_SHIPS[k]) { const m = A.m[k], D = NAV_SHIPS[k], cost = Math.round(D.rd[0] * cpi()); if (m.st !== 'off') return; if (S.cash < cost) { say(`Il faut ${money(cost)} pour concevoir le ${D.name.toLowerCase()}.`, 'bad'); return; } S.cash -= cost; m.st = 'rd'; m.left = D.rd[1]; say(`Bureau d'études : conception du ${D.name.toLowerCase()} lancée (${D.rd[1]} jours, ${money(cost)}).`, 'info'); }
+  else if (cmd === 'up' && NAV_SHIPS[k]) { const m = A.m[k], D = NAV_SHIPS[k], cost = Math.round(D.rd[0] * 0.5 * cpi()); if (m.st !== 'on' || m.ug > 0 || m.gen >= 4) return; if (S.cash < cost) { say(`Il faut ${money(cost)}.`, 'bad'); return; } S.cash -= cost; m.ug = Math.ceil(D.rd[1] / 2); say(`Bureau d'études : nouveaux plans du ${D.name.toLowerCase()} (${m.ug} jours).`, 'info'); }
+  else if (cmd === 'px' && NAV_SHIPS[k]) { const m = A.m[k]; m.px = Math.round(clamp(m.px + (+p[2] || 0) / 100, 0.3, 5) * 100) / 100; }
+  else if (cmd === 'mpx' && c.t === 'marina') { const nv = navNv(c); nv.px = Math.round(clamp(nv.px + (+p[1] || 0) / 100, 0.3, 5) * 100) / 100; }
+  else if (cmd === 'rbuy' && c.t === 'marina') { const px = Math.round(navWorldPx('voilier')); if (S.cash < px) { say(`Il faut ${money(px)}.`, 'bad'); return; } S.cash -= px; c.invest = investOf(c) + px; navNv(c).rf = (navNv(c).rf || 0) + 1; say(`Port de plaisance : voilier acheté ${money(px)} pour ta flotte de location.`, 'info'); }
+  else if (cmd === 'rown' && c.t === 'marina') { const Y = A.m.voilier.st === 'on' ? navBestYard('voilier') : null; if (!Y) { say('Il faut un chantier naval et les plans du voilier.', 'warn'); return; } A.ord.push({ id: ++A.id, k: 'voilier', y: idx(Y.c.x, Y.c.y), b: 'ta flotte de location', bt: 'self', mr: idx(c.x, c.y), p: 0, q: navQ('voilier'), pr: 0, c: 0, a: 0, d0: S.day, due: S.day + Math.ceil(Y.d) }); say(`Chantier naval : voilier commandé pour ta flotte de location (au prix de revient), livraison prévue ${dateTxt(S.day + Math.ceil(Y.d))}.`, 'info'); }
+  else if (cmd === 'rsell' && c.t === 'marina') { const nv = navNv(c); if (!(nv.rf > 0)) return; const v = Math.round(navWorldPx('voilier') * 0.7); nv.rf--; S.cash += v; say(`Port de plaisance : voilier de location revendu ${money(v)} (occasion).`, 'info'); }
+}
+// Fiches (svcInfo) : port de plaisance et chantier naval
+function navSvc(c, k, R, nb, ok) {
+  const A = navS(), bt = (act, l, dis, tt) => `<button class="chip2" data-act="nav:${act}"${dis ? ' disabled' : ''}${tt ? ` title="${tt}"` : ''}>${l}</button>`;
+  if (k === 'marina') {
+    const q = c._nq || { o: 0, B: navBerths(c), D: A.pf * NAV_BERTH_SH, pr: A.pr || NAV_R0, rent: 0, fuel: 0, svc: 0, rr: 0, rf: 0 }, nv = navNv(c);
+    R.inH = nb('Clientèle', `${fmt(q.D)} bateaux de la région cherchent une place (flotte de plaisance ${fmt(A.pf)})`) + nb('Concurrence', `${BAY.on ? 'port municipal ' + fmt(A.tm.occ) + '/' + NAV_TOWN_B + ' places, ' : ''}autres ports de la côte`)
+      + `<div class="bn"><b>Loyer d'une place : ${mj(q.pr * nv.px)} /mois (${Math.round(nv.px * 100)} % du marché)</b><small>Loyer de marché ${mj(q.pr)} /mois : il monte avec le revenu, l'humeur et la rareté des places.</small><div class="rlist">${bt('mpx:-5', '−5 %')}${bt('mpx:5', '+5 %')}</div></div>`;
+    R.outH = nb('Amarrage', `${fmt(q.o)} / ${fmt(q.B)} places louées · ${mj(q.rent)} /mois`) + nb('Carburant et entretien', `${mj(q.fuel + q.svc)} /mois (marge ${mj(q.fuel * 0.22 + q.svc * 0.55)})`)
+      + `<div class="bn"><b>Flotte de location : ${q.rf || nv.rf || 0} voilier(s)</b><small>${mj(q.rr || 0)} /mois · taux de location ${pct(q.rU || 0)}</small><div class="rlist">${bt('rbuy', 'Acheter un voilier (' + cmpd(navWorldPx('voilier')) + ')')}${bt('rown', 'Le faire construire (chantier)', A.m.voilier.st !== 'on' || !navYards().length)}${bt('rsell', 'Revendre', !(nv.rf > 0))}</div></div>`;
+    R.util = clamp(c.util || 0, 0, 1); R.utilLbl = 'places louées';
+    R.kpi = [['Places louées', fmt(q.o) + ' / ' + fmt(q.B)], ['Loyer de marché', mj(q.pr) + ' /mois'], ['Flotte de la région', fmt(A.pf)], ['Recettes / mois', mj(c.pRev || 0), 'pos']];
+    R.bn = q.o >= q.B - 0.5 ? ok('Port complet', 'Toutes les places sont louées : monte le loyer ou agrandis le port (outil Améliorer).', 'warn') : q.o < 0.3 * q.B ? ok('Port peu rempli', 'Trop cher ou trop loin de la ville : baisse le loyer ; la flotte de la région grandit avec les achats de bateaux (revenu des ménages).', 'warn') : ok(`Port de plaisance : ${fmt(q.o)} places louées`, `Loyer de marché ${mj(q.pr)} /mois par place ; la plaisance chute en récession (luxe durable).`);
+    return R;
+  }
+  const yi = idx(c.x, c.y), mine = A.ord.filter(o => o.y === yi), wip = mine.reduce((s, o) => s + o.c, 0), adv = mine.reduce((s, o) => s + o.a, 0), ar = arTotal(), book = mine.reduce((s, o) => s + o.p, 0);
+  R.inH = NAV_KEYS.map(k => { const D = NAV_SHIPS[k], m = A.m[k], wp = navWorldPx(k), tw = A.tw[k] || 0, tl = A.tl[k] || 0;
+    const st = m.st === 'off' ? bt('rd:' + k, `Concevoir (${cmpd(D.rd[0] * cpi())}, ${D.rd[1]} j)`) : m.st === 'rd' ? `<small>plans en cours : ${m.left} j</small>`
+      : `${bt('px:' + k + ':-5', '−5 %')}${bt('px:' + k + ':5', '+5 %')}${m.gen < 4 ? bt('up:' + k, m.ug > 0 ? 'plans ' + m.ug + ' j' : 'Améliorer les plans', m.ug > 0) : ''}`;
+    return `<div class="bn"><b>${D.name} (${D.len})${m.st === 'on' ? ' · ' + cmpd(wp * m.px) + ' (' + Math.round(m.px * 100) + ' % du prix mondial)' : ''}</b><small>${m.st === 'on' ? 'qualité ' + navQ(k) + ' · ' : ''}construit en ${D.days} j · prix mondial ${cmpd(wp)} · appels d'offres gagnés ${tw} / ${tw + tl}</small><div class="rlist">${st}</div></div>`; }).join('');
+  R.outH = (mine.length ? mine.map(o => { const D = NAV_SHIPS[o.k]; return nb(`${D.name} · ${o.b}`, `${pct(o.pr)} · ${o.pr >= NAV_LAUNCH ? 'à flot, armement' : o.pr > 0 ? 'sur cale' : 'en attente de cale'} · livraison ${dateTxt(o.due)}${o.p ? ' · ' + cmpd(o.p) : ''}`); }).join('') : nb('Carnet de commandes', 'vide : conçois un modèle puis fixe ton prix ; les acheteurs comparent prix, qualité, marque et délai'))
+    + nb('Fonds de roulement', `en-cours ${cmpd(wip)} − acomptes reçus ${cmpd(adv)} + créances ${cmpd(ar)} = BFR ${cmpd(wip - adv + ar)} (le crédit de la banque peut le financer)`);
+  R.util = clamp(c.util || 0, 0, 1); R.utilLbl = 'cales occupées';
+  R.kpi = [['Commandes', mine.length + ''], ['Carnet', cmpd(book)], ['En-cours', cmpd(wip)], ['Marque navale', Math.round(A.br) + ' / 100']];
+  R.bn = !NAV_KEYS.some(k => A.m[k].st !== 'off') ? ok('Aucun modèle conçu', 'Lance la conception d\'un voilier, d\'un yacht, d\'un cargo ou d\'un pétrolier : les appels d\'offres te seront ouverts.', 'warn')
+    : !mine.length ? ok('Carnet vide', 'Les acheteurs comparent ton prix au prix mondial, ta qualité et ta marque : baisse ton prix ou améliore tes plans. La plaisance chute en récession.', 'warn')
+    : ok(`${mine.length} navire(s) en commande · carnet ${cmpd(book)}`, `En-cours ${cmpd(wip)}, acomptes ${cmpd(adv)} : la production à la commande immobilise du capital jusqu'à la livraison.`);
+  return R;
+}
+// Sauvegarde (champs facultatifs, bornés)
+function navSave(A) {
+  const r = v => Math.round(v || 0), m = {}; NAV_KEYS.forEach(k => { const x = A.m[k] || {}; m[k] = [x.st === 'on' ? 2 : x.st === 'rd' ? 1 : 0, x.left | 0, x.gen | 0, +(x.px || 1).toFixed(2), x.ug | 0]; });
+  return { m, ord: A.ord.map(o => [o.id, NAV_KEYS.indexOf(o.k), o.y, String(o.b).slice(0, 40), ['loc', 'exp', 'riv', 'self'].indexOf(o.bt), o.ri || 0, r(o.p), o.q | 0, +o.pr.toFixed(5), r(o.c), r(o.a), o.d0 | 0, o.due | 0, o.mr == null ? -1 : o.mr]),
+    id: A.id | 0, n: A.n | 0, br: +A.br.toFixed(2), fid: A.fid, pf: +A.pf.toFixed(2), mf: +A.mf.toFixed(3), acc: Object.fromEntries(Object.keys(A.acc).map(k => [k, +(+A.acc[k]).toFixed(5)])), bMA: +(A.bMA || 0).toFixed(5), hhS: r(A.hhS), pr: +(A.pr || 0).toFixed(3), tw: A.tw, tl: A.tl, del: A.del.slice(-30), cum: { rev: r(A.cum.rev), n: A.cum.n | 0 } };
+}
+function navSan(d) {
+  if (!d || typeof d !== 'object') return undefined; const n = (v, a, b, z) => { v = +v; return Number.isFinite(v) ? clamp(v, a, b) : z; };
+  const m = {}; NAV_KEYS.forEach(k => { const x = d.m && Array.isArray(d.m[k]) ? d.m[k] : [0, 0, 0, 1, 0]; m[k] = { st: ['off', 'rd', 'on'][n(x[0], 0, 2, 0) | 0], left: n(x[1], 0, 999, 0) | 0, gen: n(x[2], 0, 4, 0) | 0, px: n(x[3], 0.3, 5, 1), ug: n(x[4], 0, 999, 0) | 0 }; });
+  const ord = (Array.isArray(d.ord) ? d.ord : []).filter(o => Array.isArray(o) && NAV_KEYS[o[1]] && o[2] >= 0 && o[2] < N * N).slice(0, 200).map(o => { const z = { id: o[0] | 0, k: NAV_KEYS[o[1]], y: o[2] | 0, b: String(o[3] || '').replace(/[<>&"]/g, '').slice(0, 40), bt: ['loc', 'exp', 'riv', 'self'][n(o[4], 0, 3, 0) | 0], ri: o[5] || null, p: n(o[6], 0, 1e12, 0), q: n(o[7], 0, 100, 50) | 0, pr: n(o[8], 0, 1, 0), c: n(o[9], 0, 1e12, 0), a: n(o[10], 0, 1e12, 0), d0: o[11] | 0, due: o[12] | 0 }; if (o[13] >= 0) z.mr = o[13] | 0; return z; });
+  const num = o => { const r = {}; if (o && typeof o === 'object') Object.keys(o).forEach(k => { const v = +o[k]; if (Number.isFinite(v)) r[k] = Math.max(0, v); }); return r; };
+  return { m, ord, id: n(d.id, 0, 1e9, 0) | 0, n: n(d.n, 0, 1e9, 0) | 0, br: n(d.br, 0, 100, 0), fid: Object.assign({ p: 0, c: 0 }, num(d.fid)), pf: n(d.pf, 0, 1e7, 0), mf: n(d.mf, 0, 1e5, 0), acc: num(d.acc), bMA: n(d.bMA, 0, 50, 0), hhS: n(d.hhS, 0, 1e12, 0), pr: n(d.pr, 0, 1e6, 0), tw: num(d.tw), tl: num(d.tl),
+    del: (Array.isArray(d.del) ? d.del : []).filter(x => Array.isArray(x) && NAV_SHIPS[x[0]]).slice(-30), tm: { occ: 0, B: 0 }, cum: { rev: n(d.cum && d.cum.rev, 0, 1e14, 0), n: n(d.cum && d.cum.n, 0, 1e7, 0) | 0 } };
+}
+const navCellSave = nv => { const o = { px: +(nv.px || 1).toFixed(2) }; if (nv.rf > 0) o.rf = nv.rf | 0; if (Array.isArray(nv.last)) o.l = nv.last.map(v => v | 0); return o; };
+const navCellSan = o => { const nv = { px: clamp(+o.px || 1, 0.3, 5), rf: clamp(o.rf | 0, 0, 999) }; if (Array.isArray(o.l) && o.l.length === 2) nv.last = [o.l[0] | 0, o.l[1] | 0]; return nv; };
+// Guide du fabricant : fiche d'un navire (de quoi il est fait, combien de temps, à quel prix) et image vectorielle (aucun texte dans l'image)
+function navSVG(k) {
+  const D = NAV_SHIPS[k], sea = '<rect x="0" y="44" width="96" height="20" fill="#2f6f9a"/><path d="M0 47q6-2 12 0t12 0 12 0 12 0 12 0 12 0 12 0 12 0" stroke="#8fc8e8" fill="none"/>';
+  let b = '';
+  if (D.kind === 'sail') b = '<path d="M20 40h56l-6 8H28z" fill="#f4f6fa" stroke="#2f5f9a"/><path d="M48 8v32" stroke="#7d8699" stroke-width="1.5"/><path d="M49 10l20 28H49z" fill="#f5f3ea"/><path d="M47 12L30 38h17z" fill="#e6e3d8"/>';
+  else if (D.kind === 'yacht') b = '<path d="M10 38h74l-8 10H18z" fill="#f6f7fb" stroke="#1f2a44"/><path d="M24 30h40l6 8H20z" fill="#eef1f6"/><path d="M26 33h40v3H24z" fill="#26324e"/><path d="M34 24h22l4 6H32z" fill="#f4f6fa"/><path d="M44 18v6" stroke="#9aa4b8"/>';
+  else if (D.kind === 'cargo') b = '<path d="M4 36h88l-6 12H10z" fill="#2b3a5e"/><path d="M8 44h80l-2 4H10z" fill="#a83a2c"/><rect x="8" y="16" width="12" height="20" fill="#f2f4f8"/><rect x="11" y="10" width="3" height="6" fill="#c0392b"/>' + [0, 1, 2, 3, 4, 5, 6, 7].map(i => `<rect x="${24 + i * 8}" y="${26 - (i % 3) * 3}" width="7" height="${10 + (i % 3) * 3}" fill="${CONT_COL[i % CONT_COL.length]}"/>`).join('');
+  else b = '<path d="M4 36h88l-6 12H10z" fill="#4a2626"/><path d="M8 44h80l-2 4H10z" fill="#a83a2c"/><rect x="8" y="16" width="12" height="20" fill="#f2f4f8"/><rect x="11" y="10" width="3" height="6" fill="#c0392b"/><rect x="24" y="32" width="64" height="4" fill="#5e6b52"/><path d="M24 31h64" stroke="#c9b48a" stroke-width="1.5"/><rect x="52" y="27" width="4" height="5" fill="#d0d4dc"/>';
+  return `<svg viewBox="0 0 96 64" width="96" height="64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${sea}${b}</svg>`;
+}
+function navGuideHTML(k, items) {
+  const D = NAV_SHIPS[k], q = navBom(k), A = navS(), m = A.m[k], wp = navWorldPx(k);
+  const clsL = `<div class="glist"><h5>Classe de produit</h5>${GCLS.map(([c, n]) => `<button data-g="cls:${c}" aria-pressed="${c === 'nav'}">${n}</button>`).join('')}</div>`;
+  const typL = `<div class="glist"><h5>Type de produit</h5>${items.map(i => `<button data-g="sel:${i}" aria-pressed="${i === k}">${gName(i)}</button>`).join('')}</div>`;
+  const card = g => `<div class="gcard"><div class="gimg"><img alt="" src="${compIcon(g)}"></div><div><div class="gt">${gName(g)}</div><div class="gu">${fmt(q[g])} unités</div><div class="gq">Cours : ${f1(gPriceAny(g))} $ · stock ${fmt(gStock(g))}</div></div>${RECIPES[g] || RAW_SRC[g] ? `<button class="gmore" data-g="more:${g}">PLUS</button>` : ''}</div>`;
+  const st = m.st === 'on' ? `Lancé · qualité ${navQ(k)} · ton prix ${cmpd(wp * m.px)}` : m.st === 'rd' ? `Plans en cours (${m.left} j)` : 'Non conçu : chantier naval > Concevoir';
+  const box = `<div class="gcard"><div class="gimg">${navSVG(k)}</div><div><div class="gt">${D.name} (${D.len})</div><div class="gu">1 navire, construit à la commande en ${D.days} jours</div><div class="gq">Prix mondial : ${cmpd(wp)} · matières ≈ ${Math.round(D.mat * 100)} %, main-d'œuvre ≈ ${Math.round(D.lab * 100)} %</div><div class="gq">${st}</div><div class="gq">Paiement : acompte ${Math.round(NAV_PAY[0] * 100)} % à la commande, ${Math.round(NAV_PAY[1] * 100)} % à la mise à l'eau, solde à la livraison (30 jours)</div><div class="gq">Clients : ${D.seg === 'p' ? 'ménages aisés de la ville et clientèle étrangère (luxe : très sensible à la récession)' : 'armateurs de la région, rivaux et armateurs étrangers (commerce mondial)'}</div></div></div>`;
+  const diag = `<div class="gdiag"><div class="gcol">${Object.keys(q).map(card).join('')}</div><div class="grail"></div><div class="gcol" style="align-self:flex-start;justify-content:flex-start;position:sticky;top:0">${box}</div></div>`;
+  return `<div class="ghead"><b>GUIDE DU FABRICANT</b><button class="ibtn" data-g="farm">Guide de l'agriculteur</button><button class="ibtn" data-g="close">Fermer</button></div><div class="gbody"><div class="glists">${clsL}${typL}</div><div class="gmain">${diag}</div></div>`;
+}
 const ICONS = {
   view: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
   road: '<path d="M8 3l-3 18M16 3l3 18"/><path d="M12 4v3M12 10.5v3M12 17v3"/>',
@@ -4222,7 +4458,9 @@ Object.assign(ICONS, {   // passe 46 : magasins spécialisés
   ssport: '<circle cx="12" cy="12" r="8"/><path d="M4.5 9.5c4 1 11 1 15 0M4.5 14.5c4-1 11-1 15 0M12 4c-2 4-2 12 0 16"/>',
   sbrico: '<path d="M14 4l6 6-3 3-6-6z"/><path d="M11 7L4 14l3 3 7-7"/>',
   sfuel: '<path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h14M7 7h6v4H7z"/><path d="M15 9l3 2v6a1.5 1.5 0 0 0 3 0v-8l-3-3"/>',
-  scharge: '<rect x="5" y="3" width="10" height="18" rx="2"/><path d="M11 7l-3 5h4l-3 5"/><path d="M15 10h2.5a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 0 3 0V9"/>'
+  scharge: '<rect x="5" y="3" width="10" height="18" rx="2"/><path d="M11 7l-3 5h4l-3 5"/><path d="M15 10h2.5a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 0 3 0V9"/>',
+  marina: '<path d="M12 3v13M12 4l6 9h-6"/><path d="M3 17c3 3 15 3 18 0"/><path d="M3 21c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/>',
+  shipyd: '<path d="M3 15h18l-3 4H6z"/><path d="M6 15V9h7v6M15 15V5M15 5h6M19 5v5"/><path d="M3 21c2-1 4-1 6 0s4 1 6 0 4-1 6 0"/>'
 });
 const TOOL_META = {
   view: { name: 'Main', sub: 'Déplacer', color: '#e9edff' },
@@ -4243,8 +4481,8 @@ const CATS = [
   { id: 'agri',  name: 'Agriculture', tools: ['fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcorn', 'frapeseed', 'fcattle', 'fchicken', 'fpig', 'fsheep', 'road', 'link'] },
   { id: 'extr',  name: 'Extraction', tools: ['xp', 'xm', 'xg', 'well', 'gwell', 'mcoal', 'miron', 'mcopper', 'mgold', 'mnicr', 'mbauxite', 'mzinc', 'mlithium', 'mgraphite', 'qsilica', 'qclay', 'qsalt', 'mphos', 'mpotash', 'logging', 'road', 'pipeline', 'link'] },
   { id: 'btp',   name: 'BTP',        tools: ['qgravel', 'qlime', 'btp', 'buyout', 'keep', 'terra', 'zone', 'road'] },
-  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'f4', 'plant', 'solar', 'wind', 'nuclear', 'pylon', 'cable', 'dc', 'wh', 'port', 'pipeline'] },
-  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 's4', 'sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico', 'sfuel', 'scharge', 'immo', 'ewh', 'ecom'] }
+  { id: 'indus', name: 'Industrie',  tools: ['foundry', 'f1', 'f2', 'f3', 'f4', 'plant', 'solar', 'wind', 'nuclear', 'pylon', 'cable', 'dc', 'wh', 'port', 'shipyd', 'pipeline'] },
+  { id: 'com',   name: 'Commerce',   tools: ['s1', 's2', 's3', 's4', 'sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico', 'sfuel', 'scharge', 'marina', 'immo', 'ewh', 'ecom'] }
 ];
 // Arborescence de construction : catégorie > famille > bâtiment (comme les sous-menus de SimCity 4 et de Capitalism)
 const FAMS = {
@@ -4252,8 +4490,8 @@ const FAMS = {
   agri: [['Cultures', ['fwheat', 'fsugar', 'fcotton', 'frubber', 'fvine', 'fcorn', 'frapeseed']], ['Élevages', ['fcattle', 'fchicken', 'fpig', 'fsheep']], ['Accès', ['road', 'link']]],
   extr: [['Extraction', ['xp', 'xm', 'xg']], ['Outils avancés', ['well', 'gwell', 'mcoal', 'miron', 'mcopper', 'mgold', 'mnicr', 'mbauxite', 'mzinc', 'mlithium', 'mgraphite', 'qsilica', 'qclay', 'qsalt', 'mphos', 'mpotash', 'logging', 'pipeline']], ['Accès', ['road', 'link']]],   // passe 95 : outil automatique d'abord, les bâtiments un par un sous « Outils avancés »
   btp: [['Carrières', ['qgravel', 'qlime']], ['Chantiers', ['btp']], ['Acquisition', ['buyout', 'keep']], ['Urbanisme', ['zone', 'terra', 'road']]],
-  indus: [['Usines', ['f1', 'f2', 'f3', 'f4']], ['Fonderie', ['foundry']], ['Centrales', ['plant', 'wind', 'solar', 'nuclear']], ['Réseau', ['pylon', 'cable', 'pipeline']], ['Numérique', ['dc']], ['Logistique', ['wh', 'port']]],
-  com: [['Magasins', ['s1', 's2', 's3', 's4']], ['Magasins spécialisés', ['sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico']], ['Au bord de la route', ['sfuel', 'scharge']], ['Immobilier', ['immo']], ['En ligne', ['ewh', 'ecom']]]
+  indus: [['Usines', ['f1', 'f2', 'f3', 'f4']], ['Fonderie', ['foundry']], ['Centrales', ['plant', 'wind', 'solar', 'nuclear']], ['Réseau', ['pylon', 'cable', 'pipeline']], ['Numérique', ['dc']], ['Logistique', ['wh', 'port']], ['Naval', ['shipyd']]],
+  com: [['Magasins', ['s1', 's2', 's3', 's4']], ['Magasins spécialisés', ['sauto', 'stech', 'slux', 'smode', 'spharma', 'shome', 'ssport', 'sbrico']], ['Au bord de la route', ['sfuel', 'scharge']], ['Plaisance', ['marina']], ['Immobilier', ['immo']], ['En ligne', ['ewh', 'ecom']]]
 };
 let famOpen = -1;
 const TOOL_KEYS = ['view', 'road', 'res', 'tech', 'bank', 'well', 'miron', 'mcoal', 'mcopper', 'mgold', 'foundry', 'f1', 'f2', 'f3', 's1', 's2', 's3', 'link', 'up', 'bull'];
@@ -4370,7 +4608,15 @@ const inCity = (x, y) => x >= 0 && y >= 0 && x < N && y < N && ZONE[y * N + x] =
 const ZEXT = new Uint8Array(N * N);   // passe 34 : terrains créés ex nihilo (remblai, polder, aplanissement), zones 1 ou 2
 const extU = (x, y) => x >= 0 && y >= 0 && x < N && y < N && ZEXT[y * N + x] === 1;
 const inPort = (x, y) => x >= PORT.x0 && x <= PORT.x1 && y >= PORT.y0 && y <= PORT.y1;
-const coastX = y => (y >= PORT.y0 - 4 && y <= PORT.y1 + 4) ? 88 : 88 + Math.round(1.6 * Math.sin(y * 0.31) + (hash(y, 3, 3) - 0.5) * 1.2);
+const coastX0 = y => (y >= PORT.y0 - 4 && y <= PORT.y1 + 4) ? 88 : 88 + Math.round(1.6 * Math.sin(y * 0.31) + (hash(y, 3, 3) - 0.5) * 1.2);
+// Responsable Nautisme : bande marine supplémentaire (baie de plaisance au nord du port, à l'écart du terminal à conteneurs). Lignes 17 à 23 : le rivage recule
+// jusqu'à BAY_X[y] (cases encore vides de la carte d'origine, hors de la forêt et du champ d'hévéas pour l'essentiel). Elle n'existe que pour les nouvelles parties
+// (S.bay = 1, champ facultatif de la sauvegarde) : une ancienne sauvegarde garde exactement sa côte. BAY.on est réglé avant buildZones (newCity, load).
+const BAY = { on: 0 }, BAY_X = { 17: 85, 18: 82, 19: 78, 20: 77, 21: 77, 22: 78, 23: 84 };
+const BAY_ROADS = [[72, 23, 72, 27], [73, 23, 78, 23]];   // chemin d'accès à la baie depuis la départementale (72, 28-53)
+const TOWN_MAR = { x0: 79, x1: 81, y: 23 };   // port de plaisance municipal (capitainerie et terre-plein sur la rive sud, pontons au nord)
+const coastX = y => { const c = coastX0(y); return BAY.on && BAY_X[y] != null ? Math.min(c, BAY_X[y]) : c; };
+const inTownMar = (x, y) => BAY.on && y === TOWN_MAR.y && x >= TOWN_MAR.x0 && x <= TOWN_MAR.x1;
 const ZONE = new Uint8Array(N * N);   // 0 campagne, 1 ville, 2 zone portuaire, 3 mer, 4 quai
 function buildZones() {
   ZEXT.fill(0);
@@ -4422,7 +4668,7 @@ function cityExtend(x, y) {
 }
 // routes de campagne : autoroute ville-port et quelques départementales (rares)
 const RURAL_ROADS = [[49, 48, 66, 48], [66, 48, 66, 53], [30, 0, 30, 11], [0, 30, 11, 30], [30, 49, 30, 95], [60, 20, 60, 47], [72, 28, 72, 53]];
-const ruralRoadAt = (x, y) => RURAL_ROADS.some(s => x >= s[0] && x <= s[2] && y >= s[1] && y <= s[3]);
+const ruralRoadAt = (x, y) => RURAL_ROADS.some(s => x >= s[0] && x <= s[2] && y >= s[1] && y <= s[3]) || (BAY.on && BAY_ROADS.some(s => x >= s[0] && x <= s[2] && y >= s[1] && y <= s[3]));
 // Passe 45 : grand Mall central (bloc complet de 10×10 cases au centre de la ville, cases 26-35 : centre à 0,5 case du centre de la ville, comme l'alignement 25-34, mais l'anneau avant tombe sur les avenues 36, si bien que les lots libres les plus proches du bord sont devant le mall, visibles). MALLB = emprise active (nouvelle partie ou sauvegarde qui la contient) ; null = ancien mall 2×2 ou pas de mall (anciennes sauvegardes).
 // L'emprise n'a aucune route intérieure (l'avenue 30 s'arrête sur l'anneau) ; un anneau de routes l'entoure (avenues 36 existantes à l'est et au sud, nouvelles voies 25 au nord et à l'ouest) et reste raccordé au réseau.
 const MALL_BIG = { x0: 26, y0: 26, w: 10 };
@@ -4445,7 +4691,7 @@ const ZSUB = {
 };
 const ZN_KEYS = ['port', 'indus'];
 const ZN_MAX = 0.40, ZN_FULL = 0.30, ZN_END = 0.70, ZN_LEVY = 0.85, ZN_BUD_DAYS = 150;
-const ZN_NOAID = { road: 1, pylon: 1, cable: 1, pipeline: 1, npc: 1, res: 1, tech: 1, bank: 1, hq: 1, off: 1, sport: 1, tv: 1, immo: 1, sfuel: 1, scharge: 1 };   // la subvention de zone (port, zone industrielle) ne vise que l'industrie et la logistique : jamais commerces, logements ni bureaux
+const ZN_NOAID = { marina: 1, road: 1, pylon: 1, cable: 1, pipeline: 1, npc: 1, res: 1, tech: 1, bank: 1, hq: 1, off: 1, sport: 1, tv: 1, immo: 1, sfuel: 1, scharge: 1 };   // la subvention de zone (port, zone industrielle) ne vise que l'industrie et la logistique : jamais commerces, logements ni bureaux
 let _znCells = {}, _znC = null;
 const znS = () => S.zn || (S.zn = { bud: null, riv: { port: 0, indus: 0 }, ann: {}, cum: 0, d: 0 });
 const znInc = () => 0.06 * Math.max(1000, popE()) * Math.max(1, cpi());   // recettes municipales par jour (part de la population) ; s'y ajoute 35 % de l'impôt sur les sociétés que tu paies
@@ -5163,7 +5409,7 @@ function extLinked(c, lm) {
 
 function newCity(start) {
   const sk = start === 'zero' || start === 'petite' || start === 'moyenne' ? start : 'ville';   // passe 87 : départ (absent = 'ville') ; passe 88 : 'moyenne' (ville de 100 000 habitants)
-  cityReset(); mallBSet(sk === 'ville' || sk === 'moyenne');   // zone urbaine d'origine (une partie précédente a pu l'étendre) ; passe 45 : emprise du grand mall (avant les routes) ; passe 87 : le bourg a une halle 2×2
+  BAY.on = 1; cityReset(); mallBSet(sk === 'ville' || sk === 'moyenne');   // Nautisme : baie de plaisance (nouvelles parties seulement, avant les zones, les routes et les gisements)   // zone urbaine d'origine (une partie précédente a pu l'étendre) ; passe 45 : emprise du grand mall (avant les routes) ; passe 87 : le bourg a une halle 2×2
   const grid = new Array(N * N).fill(null);
   const S0 = {
     cash: 40000, pop: 40, day: 0, grid, dep: genDeposits(), hist: [], boomUntil: -1, milestone: 99, lastWarn: -99,
@@ -5195,7 +5441,7 @@ function newCity(start) {
     S0._hk = hkOf(npc.hF); S0.pop = Math.round(npc.cap * K_POP * 0.85 * S0._hk);
   }
   S0.cg.ms = CITY_MS.filter(m => S0.pop >= m[0]).length;
-  S0.cash = 600000 * K_SIZE;
+  S0.cash = 600000 * K_SIZE; S0.bay = 1;
   return S0;
 }
 // Champs dynamiques par bâtiment persistés (prix de vente par produit, ventes lissées, perception, fidélité, gisement épuisé, ancienneté des prix)
@@ -5218,6 +5464,7 @@ function cellExtra(c) {
   if (c.adx) { const ax = {}; Object.keys(c.adx).forEach(k => { const a = c.adx[k]; if (a && (a.m === 'net' || a.m === 'media') && a.b > 0) ax[k] = [a.m === 'net' ? 1 : 2, Math.round(a.b)]; }); if (Object.keys(ax).length) o.ax = ax; }   // publicité par produit du magasin (facultatif)
   if (c.lp) { o.lp = Math.round(c.lp); o.lpm = +(c.lpm || 1).toFixed(4); if (c.lpv > 0) o.lv = Math.round(c.lpv); }
   if (c.acq) o.aq = Math.round(c.acq);
+  if (c.nv && NAV_T[c.t]) o.nv = navCellSave(c.nv);   // Nautisme : loyer des places (marina), flotte de location
   if (c.xo && c.xo.length) o.xo = c.xo.slice(); if (linesOf(c)) o.ln = c.lines.slice();   // passe 102 ter : lignes parallèles (facultatif)   // passe 102 ter : emplacements d'usine achetés (cadenas)
   if (c._cust > 1) o.cu = Math.round(c._cust);   // passe 102 ter : clientèle servie (notoriété)
   if (c.t === 'dc' && (c.gf != null || c.gn || c.gpb === 0)) o.gp = [+(c.gf == null ? 1 : c.gf).toFixed(4), +(c.gn || 0).toFixed(3), c.gpb === 0 ? 0 : 1];   // passe 73 : flotte de GPU, génération, renouvellement
@@ -5237,7 +5484,7 @@ function save() {
   try {
     const g = S.grid.map(c => !c || c.t === 'npc' || (c.t === 'road' && !c.own) ? 0 : c.t === 'road' ? ['road', 1] : c.t === 'part' ? ['part', c.ai, c.ox, c.oy] : [c.t, +c.seed.toFixed(4), c.lvl | 0, c.floors | 0, c.prod || 0, c.crew || 1, c.wage == null ? 1 : c.wage, c.qual | 0, c.eff | 0, Math.round(investOf(c)), c.days | 0, (c.cm || []).map(v => Math.round(v)), [c.ad ? c.ad.tv | 0 : 0, c.ad ? c.ad.radio | 0 : 0, c.ad ? c.ad.net | 0 : 0, Math.round(c.aw || 0)], [c.imp === false ? 0 : 1, c.pf || 1, c.shelf ? Object.keys(c.shelf).filter(k => c.shelf[k] === false) : []], c.dept ? DEPTS.map(([k]) => Math.round(c.dept[k] * 100)) : 0, DEPTS.map(([k]) => (c.train && c.train[k]) | 0), c.slots ? c.slots.map(x => x || '') : 0, c.cfg || 0, c.irr | 0, c.src || 0, cellExtra(c)]);
     const dep = []; S.dep.forEach((d, i) => { if (d) dep.push(d.pm || d.own ? [i, d.k, Math.round(d.r), +(d.pm || 1).toFixed(3), d.own ? 1 : 0] : [i, d.k, Math.round(d.r)]); });
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, flots: S.flots && Object.keys(S.flots).length ? flotsSan(S.flots) : undefined, lq: S.locQ || undefined, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, evr: S.evR || undefined, evmd: S.evMd != null ? S.evMd : undefined, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, jr: (S.jr && S.jr.length) ? S.jr.slice(-200) : undefined, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', rdf: S.rdFocus || undefined, deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), agg: 1, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, ecom: S.ecom ? ecSave() : undefined, air: S.air ? airSan(S.air) : undefined, rk: S.rk ? rkSave() : undefined, ent: S.ent ? entSan(S.ent) : undefined, ry: S.ry ? rySan(S.ry) : undefined, scm: S.scm ? scmSan(S.scm) : undefined, syn: S.syn ? synSan(S.syn) : undefined, ar: S.ar && S.ar.q && S.ar.q.length ? { q: S.ar.q.map(Math.round) } : undefined, bsh: S.bsh ? bshSave() : undefined, chip: S.chip ? chipSan(S.chip) : undefined, aib: S.aib ? aibSan(S.aib) : undefined, rp: rpSan(S._rp), g, dep }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, cv: S.cityV | 0, bs: S.cityV ? S.bassin : undefined, bx: S.cityV && S.bx > 0 ? S.bx : undefined, cext: S.cityV ? (S.cityExt || []) : undefined, cg: S.cityV ? S.cg : undefined, cty: S.cityV ? ctyPack() : undefined, capAdj: Math.round(S.capAdj || 0), fix1: S.fix1 || 0, rmb: S.rmb != null ? S.rmb : undefined, md: S.mode || null, xm: S.xm || [], xs: S.xsum || {}, lossC: Math.round(S.lossC || 0), jpf: S.jpf || 0, wind: S.wind == null ? null : +S.wind.toFixed(4), pSup: Math.round(S._pSup || 0), pDraw: Math.round(S._pDraw || 0), st: S.stats ? { happy: S.stats.happy, unemp: S.stats.unemp, worth: S.stats.worth, raw: S.stats.raw } : null, locSold: S.locSold || null, flots: S.flots && Object.keys(S.flots).length ? flotsSan(S.flots) : undefined, lq: S.locQ || undefined, brandAvg: S._brandAvg || null, m30: (S.m30 || []).map(r => r.map(Math.round)), forces: S.forces || null, boomUntil: S.boomUntil == null ? -1 : S.boomUntil, storm: S.storm || 0, event: S.event || null, evr: S.evR || undefined, evmd: S.evMd != null ? S.evMd : undefined, x11: S.x11 || null, cch: S.coach || null, tmx: S.tierMax | 0, cash: S.cash, pop: S.pop, day: S.day, hist: S.hist, milestone: S.milestone, tax: S.tax, stock: S.stock, price: S.price, ph: S.ph, sold: S.sold, made: S.made, cm: S.cm, contracts: S.contracts, jr: (S.jr && S.jr.length) ? S.jr.slice(-200) : undefined, houses: S.houses, built: S.built, loan: S.loan || 0, macro: S.macro || null, cpi: S.cpi || 1, plv: S.pland && S.plv ? S.plv : undefined, patents: 0, pat: S.pat && Object.keys(S.pat).length ? patSave() : undefined, rdx: S.rdx || undefined, caste: S.caste || '', bk: S.bk || null, mc: S.mc || null, npcMods: dedupMods(S.npcMods), nown: (S.npcOwn && Object.keys(S.npcOwn).length) ? S.npcOwn : null, neg: S.neg && Object.keys(S.neg).length ? S.neg : null, reqs: (S.reqs || []).slice(-30), rid: S.rid || 0, npcGrow: S.npcGrow || null, kp: S.kp || 0, skills: S.skills || {}, goal: S.goal || 'sandbox', goalDone: S.goalDone || null, streak: S.streak || 0, tutoDone: S.tutoDone ? 1 : 0, diff: S.diff || 0, rs: S.rs == null ? null : S.rs, unlockAll: S.unlockAll ? 1 : 0, npcFarm: S.npcFarm || null, brandStrat: S.brandStrat || 'range', rdf: S.rdFocus || undefined, deals: S.deals || null, rel: S.rel || null, cx: S.cx || null, talent: S.talent || null, opt: S.opt || null, npcSup: S.npcSup || null, foreign: S.foreign || null, pol: S.pol || null, noEv: S.noEv ? 1 : 0, tech: S.tech || {}, zn: znSave(), rub: rubSave(), agg: 1, research: S.research || null, mods: (S.mods || []).filter(x => x.until >= S.day), nextEv: S.nextEv || 0, gtiH: (S.gtiH || []).slice(-240), port: S.port || {}, subs: S.subs || [], firms: (S.firms && S.firms.length) ? firmsSave() : undefined, grp: S.grp ? grpSave() : undefined, exec: S.exec || { cfo: 0, ir: 0 }, pb: S.pb || 0, mood: S.mood || 0, mev: +(S.moodEv || 0).toFixed(2), irCd: S.irCd || {}, vc: S.vc || undefined, inv: (S.inv || []).length ? S.inv : undefined, float: S.float || 0, prem: S.prem || 1.1, payout: S.payout || 0, sp: S.sp || [], rivals: S.rivals, rv: S.rv || null, seats: seatsSync(), cid: S.cid, cdone: S.cdone, pro: S.pro || null, pland: S.pland || null, pzn: S.pzn || null, pzm: S.pzm || null, lots: S.lots, done: S.done, won: S.won, prod: S.prod, cprod: S.cprod || [], rw: +(S.rw || 1).toFixed(4), exp: S.exp || {}, mat: S.mat | 0, matPop: S.matPop || 0, trials: S.trials || [], tid: S.tid || 0, mkv: [Math.round(S.mkBuy || 0), Math.round(S.mkRoy || 0), Math.round(S.mkTrialCost || 0)], net: S.net ? netSave() : undefined, edu: S.edu ? eduSave() : undefined, ecom: S.ecom ? ecSave() : undefined, air: S.air ? airSan(S.air) : undefined, rk: S.rk ? rkSave() : undefined, ent: S.ent ? entSan(S.ent) : undefined, ry: S.ry ? rySan(S.ry) : undefined, scm: S.scm ? scmSan(S.scm) : undefined, syn: S.syn ? synSan(S.syn) : undefined, ar: S.ar && S.ar.q && S.ar.q.length ? { q: S.ar.q.map(Math.round) } : undefined, bsh: S.bsh ? bshSave() : undefined, chip: S.chip ? chipSan(S.chip) : undefined, aib: S.aib ? aibSan(S.aib) : undefined, rp: rpSan(S._rp), bay: S.bay ? 1 : undefined, nav: S.nav ? navSave(S.nav) : undefined, g, dep }));
     localStorage.setItem(SAVE_KEY + '_gal', JSON.stringify(S.gal || {}));
   } catch (e) { /* stockage indisponible */ }
 }
@@ -5251,6 +5498,7 @@ function load() {
     const d = JSON.parse(raw);
     if (!d || (d.v !== 7 && d.v !== 8) || !Array.isArray(d.g) || d.g.length !== N * N) return null;
     const retired = retiredMigrate(d);   // passe 75 : produits retirés de la gamme (chips de maïs) : stock en trésorerie, usines, rayons, rivaux, brevets, classements nettoyés
+    BAY.on = d.bay ? 1 : 0;   // Nautisme : baie de plaisance seulement si la sauvegarde la contient (champ facultatif)
     applyZm(d.pzm);   // passe 34 : terrains créés (avant les routes et la ville d'origine)
     const cprod = syncCustom(d.cprod);   // passe 25 : produits composés (absents des anciennes sauvegardes), enregistrés avant la grille et les produits
     const grid = d.g.map((r, i) => {
@@ -5264,6 +5512,7 @@ function load() {
       if (r[20] && typeof r[20] === 'object') palLoad(c, r[20]);   // passe 74 : chantier de palier (champ facultatif)
       if (r[0] === 'qgravel') { const e = r[20] && typeof r[20] === 'object' ? r[20] : {}; if (e.cr > 0) c.cr = clamp(e.cr | 0, 0, CR_MAX); if (Array.isArray(e.crb) && e.crb[0] > 0) c.crb = { to: clamp(e.crb[0] | 0, 1, CR_MAX), t0: e.crb[1] | 0, dur: Math.max(1, e.crb[2] | 0), cost: +e.crb[3] || 0 }; if (t0 === 'crush' && !(c.cr > 0)) { c.cr = c.lvl >= 1 ? 3 : 2; c.lvl = 0; } }   // passe 79 : concasseur ; ancien centre de concassage (2 250 u/jour) = carrière de granulats avec concasseur de niveau 2 (2 000 u/jour), niveau 3 s'il avait été agrandi
       if (r[20] && typeof r[20] === 'object') { const e = r[20]; if (Array.isArray(e.xo)) c.xo = e.xo.filter(v => Number.isInteger(v) && v >= 0 && v < 12); if (Array.isArray(e.ln)) { const ln = e.ln.filter(k => recipeOf(k)); if (ln.length > 1) { c.lines = ln; c.prod = ln[0]; } } if (e.cu > 0) c._cust = +e.cu; if (e.pk && typeof e.pk === 'object') { c.pk = {}; c.pkd = {}; /* ancienne sauvegarde : ancienneté = EL_TAU, sinon valeur exacte */ Object.keys(e.pk).forEach(k => { const v = pxFree(+e.pk[k] || 1); c.pk[k] = v; if (!e.pd) c.pkd[k] = { p: v, d: EL_TAU }; else if (e.pd[k] != null) c.pkd[k] = { p: v, d: e.pd[k] | 0 }; }); } if (e.sm && typeof e.sm === 'object') c.sm = e.sm; if (e.rt != null) c.rt = clamp(+e.rt, 0, 100); if (e.loy != null) c.loy = clamp(+e.loy, 0, 100); if (e.dry) c.dry = true; if (e.ci != null) c.ci = clamp(+e.ci || 0, 0, 1); if (e.inv && typeof e.inv === 'object') c.inv = e.inv; if (e.al > 0) c.alertUntil = e.al | 0; if (e.rn != null) c.rent = clamp(+e.rn || 1, 0.6, 1.6); if (e.mb != null) c.mr = clamp(+e.mb, 0, 3); if (e.ap != null) c.adp = clamp(+e.ap || 1, 0.4, 2); if (e.ax && typeof e.ax === 'object') { const ax = {}; Object.keys(e.ax).forEach(k => { const v = e.ax[k]; if (Array.isArray(v) && (v[0] === 1 || v[0] === 2) && +v[1] > 0) ax[k] = { m: v[0] === 1 ? 'net' : 'media', b: Math.round(+v[1]) }; }); if (Object.keys(ax).length) c.adx = ax; } if (e.lp > 0) { c.lp = +e.lp; c.lpm = +e.lpm || 1; if (e.lv > 0) c.lpv = +e.lv; } if (e.aq > 0) c.acq = +e.aq; if (e.fx && typeof e.fx === 'object' && PLAN_DIM[r[0]]) { const x = e.fx, f = fxMake(c); if (Array.isArray(x.s) && x.s.length === 3) f.s = x.s.map(v => clamp(+v || 0, 0, 100)); if (Array.isArray(x.w)) f.w = x.w.slice(0, 9).map(v => clamp(v | 0, 0, FX_TMAX)); if (x.g && typeof x.g === 'object') FX_GOALS.forEach(g => { if (x.g[g.id]) f.g[g.id] = +x.g[g.id] || 1; }); f.tot = Math.max(0, +x.tot || 0); f.run = Math.max(0, +x.run || 0); f.brk = Math.max(0, x.brk | 0); f.bn = x.bn | 0; f.ok = x.ok | 0; f.ins = x.ins | 0; f.ir = x.ir === 'ok' || x.ir === 'warn' ? x.ir : ''; f.st = x.st | 0; f.rep = x.rep | 0; } if (typeof e.pl === 'string' && PLAN_DIM[r[0]]) { const pa = e.pl.split(','), dm = PLAN_LEG[r[0]]; if ((pa.length === PLAN_N || pa.length === dm[0] * dm[1]) && pa.every(k => k === '' || PLAN_KEYS.indexOf(k) >= 0)) { c.plan = pa; if (e.rb && typeof e.rb === 'object') { c.rb = {}; Object.keys(e.rb).forEach(i => { const v = e.rb[i]; if (pa[i] === 'robot' && Array.isArray(v) && ROBOTS[v[0]]) c.rb[i] = { k: v[0], w: clamp(+v[1] || 0, 0, 1) }; }); } } } }
+      if (r[20] && typeof r[20] === 'object' && r[20].nv && NAV_T[r[0]]) c.nv = navCellSan(r[20].nv);   // Nautisme (facultatif)
       if (r[20] && typeof r[20] === 'object') { const e2 = r[20]; if (e2.bd != null) c.bday = e2.bd | 0; if (e2.fc != null) c.fcap = +e2.fc; if (Array.isArray(e2.wk)) c.works = { k: e2.wk[0] === 2 ? 'prog' : e2.wk[0] ? 'new' : 'up', to: e2.wk[1] | 0, due: e2.wk[2] | 0, cost: +e2.wk[3] || 0, t0: e2.wk[4] | 0 }; if (e2.bn) c.bn = String(e2.bn); if (e2.pg && PROG[e2.pg]) c.prog = e2.pg; }
       if (r[20] && typeof r[20] === 'object' && Array.isArray(r[20].gp) && r[0] === 'dc') { const q = r[20].gp; c.gf = clamp(+q[0] || 0, 0, 1); c.gn = clamp(+q[1] || 0, 0, 5); if (q[2] === 0) c.gpb = 0; }   // passe 73 : GPU du campus (absent = flotte d'origine complète)
       if (r[20] && typeof r[20] === 'object' && Array.isArray(r[20].dcp) && r[0] === 'dc') { const q = r[20].dcp; c.bat = clamp(q[0] | 0, 0, 3); if (q[1] === 0) c.gb = 0; c.soc = Math.max(0, +q[2] || 0); c.ct = clamp(+q[3] || 1, DC_CT_MIN, 1); if (Array.isArray(q[4])) c.uph = q[4].slice(-30).map(v => clamp((+v || 0) / 1000, 0, 1)); if (q[5] === 1) c.tb = 1; }
@@ -5305,6 +5554,7 @@ function load() {
     S0.ent = entSan(d.ent); S0.scm = scmSan(d.scm); S0.ry = rySan(d.ry); if (!S0.ent || !S0.ent.pv) palMigrate(grid); S0.ent = S0.ent || { pv: 1 }; S0.ent.pv = 1;   // passe 74 : droits premium simulés, Diamants, COO, score de maîtrise (facultatifs) ; anciens magasins : niveau selon leur coût historique
     S0.net = netSan(d.net); S0.edu = eduSan(d.edu); S0.ecom = ecSan(d.ecom); S0.air = airSan(d.air); S0.rk = rkSan(d.rk); S0._rp = rpSan(d.rp) || {};   // passe 71 : classements (facultatif) ; passe 49 : boutique duty free (facultatif)
     S0.syn = d.syn ? synSan(d.syn) : undefined;
+    if (d.bay) S0.bay = 1; S0.nav = navSan(d.nav);   // Nautisme : baie, modèles de navires, carnet de commandes, flottes (facultatifs)
     if (d.ar && Array.isArray(d.ar.q)) S0.ar = { q: d.ar.q.slice(-120).map(Number).filter(Number.isFinite) };   // lot 7 : créances clients (facultatif)
     { const b = bshSan(d.bsh); if (b) S0.bsh = b; }   // vente aux commerces de la ville : référencements (facultatif)
     S0.chip = d.chip ? chipSan(d.chip) : undefined; S0.aib = d.aib ? aibSan(d.aib) : undefined;   // passe 73 : nœuds de gravure et cycle de l'IA (facultatifs)   // passe 68 : bilan des synergies entre castes (facultatif)
@@ -5777,6 +6027,7 @@ function evaluate() {
   upkeep += ownRoads * TYPES.road.upkeep;
   cap += 4 * Math.floor(S.houses || 0);
   eachBuilding(c => { if (c.t === 'res' && c.conn) { nres++; if (smog[idx(c.x, c.y)]) polluted++; } });
+  if (S.nav && S.nav.ord) value += S.nav.ord.reduce((t, o) => t + Math.max(0, o.c - (o.bt === 'self' ? 0 : o.a)), 0);   // Nautisme : en-cours de construction navale au coût, net des acomptes reçus (actif circulant)
   value += proHoldBasis() + proLandAssets();   // passe 34 : biens loués rachetés et terrains créés ou achetés, au prix payé
   { const mt = proMtm(); value += mt.adj; immo += mt.iv; }   // passe 69 : parc immobilier (logements livrés, biens rachetés) à la valeur de marché nette des frais de vente : il monte dans la bulle et chute au krach
   return { cc, cn, un, roads, ownRoads, cap, jobs: jobs + npcJobs, playerJobs: jobs, upkeep, value, immo, polluted, nres };
@@ -5849,7 +6100,7 @@ function hhDemand(pe, dMul, happy, px) {
   const X = prosp(), Z = spend0(), Bc = Z.tot * HH_KAPPA * LIBX.kap * pe * X.b * cpi() * dMul * hhCredit(), hf = 0.82 + 0.18 * happy / 100;   // budget des rayons ($/j)
   const qB = pe * DEM_PER_POP.basic * dMul, sB = Math.min(qB * px.basic, 0.8 * Bc);   // basique : on ne mange pas plus quand on gagne plus (saturation), on rogne le reste quand le budget se resserre
   const Rz = Math.max(0, Bc - sB) * hf, L0 = Math.log(Z.wl0 / (1 - Z.wl0)), wl = 1 / (1 + Math.exp(-(L0 + Math.log(Math.max(1e-3, X.b)) / HH_TAU)));   // Engel : la part du luxe monte avec le revenu réel
-  return { Bc, sB, R: Rz, wl, hf, b: X.b, basic: sB / Math.max(1e-9, px.basic), std: Rz * (1 - wl) / Math.max(1e-9, px.std), lux: Rz * wl / Math.max(1e-9, px.lux), sat: sB >= qB * px.basic - 1e-6 };
+  return { Bc, sB, R: Rz, wl, hf, b: X.b, basic: sB / Math.max(1e-9, px.basic), std: Rz * (1 - wl) / Math.max(1e-9, px.std), lux: Math.max(0, Rz * wl - bnd('NAV1', navHH(), 0, 0.5 * Rz * wl)) / Math.max(1e-9, px.lux), sat: sB >= qB * px.basic - 1e-6 };
 }
 // ===== Économie de marché, lots 2 et 3 : besoin de la ville par produit et partage entre TOUS les vendeurs.
 // Biens de consommation courante (ART) : demande de la ville en articles/jour = habitants × besoin par habitant × chocs (dMul) × accessibilité (salaire réel) × revenu réel^ε
@@ -5971,7 +6222,7 @@ function holdStep() {
   if (BH.length > 30 && S.day % 15 === 0) { const dv = BH[BH.length - 1] - BH[0], ca = Math.max(1, (S.fin && (S.fin.revRetail + S.fin.revExport)) || 1); if (dv > Math.max(2e5, 3 * ca)) say(`Ton BFR a augmenté de ${money(dv)} en 30 jours (stocks ${money(Math.round(B.st))}, créances ${money(Math.round(B.ar))}) : prévois de la trésorerie, déstocke, ralentis la production ou ajuste tes prix.`, 'warn'); }
 }
 function arStep() {
-  const A = S.ar || (S.ar = { q: [] }), v = (S._b2b && S._b2b.v) || 0; A.q.push(v); S.cash -= v;   // vendu aujourd'hui, encaissé dans AR_DAYS jours
+  const A = S.ar || (S.ar = { q: [] }), v = ((S._b2b && S._b2b.v) || 0) + (S._navAR || 0); S._navAR = 0; A.q.push(v); S.cash -= v;   // Nautisme : solde des navires livrés (créance à 30 jours)   // vendu aujourd'hui, encaissé dans AR_DAYS jours
   while (A.q.length > AR_DAYS) S.cash += A.q.shift();
 }
 const arTotal = () => S.ar && S.ar.q ? S.ar.q.reduce((a, x) => a + x, 0) : 0;
@@ -8851,14 +9102,15 @@ function step() {
   trMarket(made, want);   // passe 66 : le négociant IA livre, amortit, réassortit (avant la formation des cours)
   const portN = cn.port || 0, expRate = Math.min(0.95, (EXP_BASE + EXP_PORT * portN) * TM.export); S._dw.xr = expRate;   // passe 21 : l'export réalise 82 % du cours au 1er port (+4 points par port), moins la congestion du marché étranger
   { const wr = stepWarehouses(portN, expRate); importCost += wr.imp; revExp += wr.rev; }
-  { const tp = 30000 * (1 + 2.5 * portN) * (1 + 0.25 * (cn.wh || 0)); let used = 0;   // débit portuaire total par jour
+  { const tp = 30000 * (1 + 2.5 * portN) * (1 + 0.25 * (cn.wh || 0)) * navPortK(); let used = 0;   // Nautisme : la flotte marchande locale en service ajoute du débit (navPortK, au plus +45 %)   // débit portuaire total par jour
     S._xs = {}; S._xv = {}; GKEYS.forEach(g => { const thr = Math.max(7500, 0.5 * capFor(g)); let ex = Math.max(0, S.stock[g] - (FGD ? Math.max(thr, ledRes(g)) : thr)); if (!(ex > 0)) return;
       const foreign = fgnDem(g), q = Math.min(ex, Math.max(0, tp - used), foreign * 1.5); if (q <= 0) return; used += q;
       S.stock[g] -= q; if (g === 'basic' || g === 'std' || g === 'lux') want[g] += q; S.xsum = S.xsum || {}; S.xsum[g] = (S.xsum[g] || 0) + q * S.price[g]; { const xv = xmF(g) * q * S.price[g] / mpM(g) * Math.min(0.95, expRate * (GOODS[g].grp === 'comp' && (S.rivals || []).length ? 1.12 : 1)) / (1 + EXP_CONG * q / foreign); revExp += xv; fSellExt(g, q, xv, 1); S._xv[g] = xv; } S._xs[g] = q; S.expSold = S.expSold || {}; S.expSold[g] = q; });
     fTrimAll();
     S._portUse = used; S._portCap = tp; }
   { const er = ecomStep(portN, mult); revExp += er.rev / Math.max(0.01, mult); importCost += er.buy; }   // passe 46 : ventes en ligne (exports par le port), après les magasins de la ville et avant l'export du surplus
-  const AD = airStep(mult); revRetVal += AD.rev; importCost += AD.imp;   // passe 49 : ventes duty free de l'aéroport (CA en commerce, marchandises importées, redevance en frais), avant l'export du surplus
+  const AD = airStep(mult); revRetVal += AD.rev; importCost += AD.imp;
+  { const NV = navStep(want); revRetVal += NV.ret / Math.max(0.01, mult); revExp += NV.exp / Math.max(0.01, mult); importCost += NV.cost; }   // Nautisme : ports de plaisance (loyers, carburant, entretien, location), navires livrés, matières et main-d'œuvre des chantiers   // passe 49 : ventes duty free de l'aéroport (CA en commerce, marchandises importées, redevance en frais), avant l'export du surplus
   ichStep();   // lot 4 : chaîne d'information des commerces de la ville
   const BSD = bshStep(); revExp += BSD.v;   // vente aux commerces de la ville référencés (avant la vente en gros anonyme : leurs commandes nommées sortent du reste)
   { let bq = BSD.q, bv = BSD.v; PKEYS.forEach(pk => { const r = b2bStep(pk); if (r.v > 0) { revExp += r.v; bq += r.q; bv += r.v; } }); S._b2b = { q: bq, v: bv, bsh: BSD.v }; }   // lot 2 : vente en gros de ta production aux commerces de la ville (avant l'export du surplus)
@@ -8892,7 +9144,8 @@ function step() {
     if (c.t === 'tv') { if (!S._mediaDay || S._mediaDay !== S.day) { S._mediaDay = S.day; stepMedia(buildings.filter(b => b.t === 'tv' && b.conn)); } revTech += c.pRev || 0; importCost += c._mbc || 0; }
     if (c.t === 'tech') { c.pRev = jobsOf(c) * 1650 * (0.3 + 0.7 * fill) * qualMult(c) * mult * cpi() * SAT.tech.m * remTal(c); revTech += c.pRev; }   // remTal : talents et clients absents en pleine campagne
     if (c.t === 'bank') { c.pRev = (TYPES.bank.jobs * levelMult(c) * crewEff(c) * 1500 + Math.min(Math.max(0, S.cash - (S.loan || 0)), TYPES.bank.jobs * levelMult(c) * crewEff(c) * 4e6) * 0.0001) * qualMult(c) * cpi() * SAT.bank.m * remTal(c); revBank += c.pRev; }   // intérêts sur un encours de prêts plafonné par la taille de la banque (≈ 4 M$ de crédits par employé), pas sur toute la trésorerie
-    if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && c.t !== 'ewh' && !T.ext && !T.rec && !T.ret) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
+    if (!isPlant(c.t) && c.t !== 'rd' && c.t !== 'dc' && c.t !== 'ewh' && !T.ext && !T.rec && !T.ret && !T.nav) c.util = fill;   // bureaux, banque, siège, entrepôt, port : utilisation = taux d'effectif
+    if (T.nav) { c.pRev = c._nvRev || 0; c.inCost = c._nvCost || 0; }   // Nautisme : recettes et achats du jour (navStep)
     if (T.fuel) { const q = c.conn ? fuelDay(c) : { rev: 0, cost: 0 }; if (!c.conn) { c.out = 0; c.util = 0; } c.pRev = q.rev; c.inCost = q.cost; revRetVal += q.rev; importCost += q.cost; }   // stations au bord de la route : ventes du jour, carburant ou électricité achetés au prix de gros
     if (T.jobs) { let jPrev = 0; if (FLEVEL[c.t]) { const a0 = actOf(c), u0 = clamp(c.util || 0, 0, 1); jPrev = jobsOf(c); c._actE = a0 + (u0 - a0) * (u0 < a0 ? 0.5 : 0.15); } c.wages = jobsOf(c) * crewWage(c) * sectWage(c) * fill * WAGE_RATE * wageMkt() * diffMult() * wageOf(c).m * TM.wage * modOf('wage') * cpi(); c._wb = c.wages; c.wages *= znWm(c) * remWm(c); if (jPrev > 0) { const jN = jobsOf(c), cut = jPrev - jN; if (cut > 1e-6 && jN > 0) { const sev = cut * (c.wages / jN) * 30 * USM.fireMonths; c.wages += sev; c._sev = sev; S._sevD = (S._sevD || 0) + sev; } else c._sev = 0; }   /* lot 2 : licenciement en 1 à 3 jours, indemnité ≈ 0,2 mois de salaire par poste supprimé ; embauche plus lente (≈ 7 jours) */ if (c.t === 'hq' && S.exec) c.wages += (S.exec.cfo ? EXEC.cfo.wage : 0) + (S.exec.ir ? EXEC.ir.wage : 0) + cxWages(); wagesTotal += c.wages; }
     if (c.t === 'wh' || c.t === 'ewh') { c.transport = c._fee || 0; transportTotal += c.transport; return; }
@@ -9111,7 +9364,7 @@ function toolLocked(k) {
 }
 const ZONE_NEED = { tv: 1, off: 1, sport: 1, btp: 1, immo: 1, res: 1, tech: 1, bank: 1, hq: 1, rd: 1, dc: 2, wh: 2, plant: 2, pipeline: 0, s1: 1, s2: 1, s3: 1, foundry: 2, f1: 2, f2: 2, f3: 2, f4: 2, s4: 1, port: 4 };
 SPEC_KEYS.forEach(k => { ZONE_NEED[k] = 1; }); ZONE_NEED.ewh = 2; ZONE_NEED.solar = 0; ZONE_NEED.wind = 0; ZONE_NEED.nuclear = 2; ZONE_NEED.pylon = 0; ZONE_NEED.cable = 0;
-FUEL_KEYS.forEach(k => { ZONE_NEED[k] = 0; });   // stations au bord de la route : campagne de préférence (aucune zone requise)
+FUEL_KEYS.forEach(k => { ZONE_NEED[k] = 0; }); ZONE_NEED.marina = 0; ZONE_NEED.shipyd = 2;   // Nautisme : zone naturelle (rien n'est imposé : seule l'eau compte)   // stations au bord de la route : campagne de préférence (aucune zone requise)
 /* ---------- Liberté de construire (responsable Liberté de construire, consigne de Rémy) ----------
    « N'importe qui peut construire où il veut, de l'autre côté de la ville, en pleine campagne. Il ne faut pas l'interdire : seulement INCITER (subventions). »
    ZONE_NEED n'est plus une règle de pose : c'est la zone NATURELLE d'un type (là où la ville l'aide ou là où il trouve ses clients). Le joueur et les IA posent
@@ -9210,6 +9463,7 @@ function footprintError(x, y, key, acq) {
   for (let ox = 0; ox < w; ox++) for (let oy = 0; oy < h; oy++) {
     if (!inb(x + ox, y + oy)) return 'Hors de la carte.';
     { const z = ZONE[idx(x + ox, y + oy)]; if (z === 3) return SEA_MSG; if (key === 'port' && z !== 4) return PORT_MSG; if (z === 4 && key !== 'port' && !NET_KEYS[key]) return QUAI_MSG; }
+    if (inTownMar(x + ox, y + oy)) return TOWN_MAR_MSG;
     { const o = S.grid[idx(x + ox, y + oy)]; if (o && !(acq && o.t === 'npc' && o.k !== 'mon')) return o.t === 'road' ? 'C\'est une rue : construis à côté.' : o.t === 'npc' && o.k === 'mon' ? 'Bâtiment public : la mairie ne le vend pas.' : 'Case occupée.'; }
     const d = S.dep[idx(x + ox, y + oy)];
     { let nf = null; for (let oy2 = 0; oy2 < (T.h || 1) && !nf; oy2++) for (let ox2 = 0; ox2 < (T.w || 1); ox2++) { const q = S.npcFarm && S.npcFarm[idx(x + ox2, y + oy2)]; if (q) { nf = q; break; } } if (nf) return `Terre exploitée par ${nf.o} : une ferme concurrente est déjà là.`; }
@@ -9219,6 +9473,7 @@ function footprintError(x, y, key, acq) {
   }
   if (clr) { const n = {}; clr.forEach(k => { n[k] = (n[k] || 0) + 1; }); const k = Object.keys(n).find(k => depCount(k) - n[k] < 1); if (k) return k === 'wood' ? 'Dernière forêt de la carte : elle reste aux bûcherons.' : `Dernière terre de ${(DEPOSITS[k] || { name: k }).name.toLowerCase()} de la carte : elle reste aux fermiers.`; }
   if (T.fuel && !roadAdj4(x, y, w, h)) return FUEL_MSG;
+  if (T.nav && !navWaterDir(x, y, w, h)) return NAV_MSG;   // Nautisme : l'eau est l'accès du port de plaisance et du chantier naval
   return '';
 }
 /* ---------- Liberté de construire : le coût réel de l'éloignement (des coûts et des effets du marché, pas des murs) ----------
@@ -9237,7 +9492,7 @@ function dessField() {   // D[i] : nombre de cases de route à poser pour relier
   const lm = linkedMask(); if (_dsF && _dsF.lm === lm && _dsF.g === S.grid && _dsF.gen === _whGen && _dsF.day === S.day) return _dsF.D;
   const D = new Float32Array(N * N).fill(Infinity), q = [];
   for (let i = 0; i < N * N; i++) if (lm[i]) { D[i] = 0; q.push(i); }
-  const pass = j => { const c = S.grid[j]; if (c) return c.t === 'road'; if (ZONE[j] !== 0) return false; const d = S.dep[j]; return !d || d.k === 'wood' || !!CROPS[d.k]; };
+  const pass = j => { const c = S.grid[j]; if (c) return c.t === 'road'; if (ZONE[j] !== 0 || inTownMar(j % N, (j / N) | 0)) return false; const d = S.dep[j]; return !d || d.k === 'wood' || !!CROPS[d.k]; };
   for (let h = 0; h < q.length; h++) { const i = q[h], x = i % N, y = (i / N) | 0, nd = D[i] + 1;
     const vis = j => { if (!pass(j)) return; const c = S.grid[j], v = c && c.t === 'road' ? D[i] : nd; if (D[j] <= v) return; D[j] = v; q.push(j); };   // tes routes non reliées se traversent sans coût (corrigé à chaque amélioration)
     if (x + 1 < N) vis(i + 1); if (x > 0) vis(i - 1); if (y + 1 < N) vis(i + N); if (y > 0) vis(i - N); }
@@ -10004,10 +10259,10 @@ el('bourse').addEventListener('click', e => {
 });
 el('bourse').addEventListener('input', e => { if (e.target.id === 'vcpct') { window._vcF = +e.target.value / 100; e.target.nextElementSibling.textContent = e.target.value + ' %'; } if (e.target.id === 'payout') { S.payout = +e.target.value / 100; e.target.nextElementSibling.textContent = e.target.value + ' %'; } });
 /* ---------- Guide du fabricant ---------- */
-const GCLS = [['raw', 'Matières premières'], ['comp', 'Composants'], ['basic', 'Biens de base'], ['std', 'Biens manufacturés'], ['lux', 'Produits de luxe'], ['estate', 'Immobilier']];
+const GCLS = [['raw', 'Matières premières'], ['comp', 'Composants'], ['basic', 'Biens de base'], ['std', 'Biens manufacturés'], ['lux', 'Produits de luxe'], ['estate', 'Immobilier'], ['nav', 'Navires']];   // Nautisme : navires construits à la commande
 let gSel = 'plank', gMode = 'in', gStack = [], gHtml = '';
-function gClassOf(k) { if (PRODUCTS[k]) return PRODUCTS[k].cls; if (RECIPES[k] || k === 'ingot') return 'comp'; return 'raw'; }
-function gItems(cls) { if (cls === 'raw') return GKEYS.filter(g => GOODS[g].grp === 'raw'); if (cls === 'comp') return RKEYS.concat(['ingot']); return PKEYS.filter(pk => PRODUCTS[pk].cls === cls); }
+function gClassOf(k) { if (NAV_SHIPS[k]) return 'nav'; if (PRODUCTS[k]) return PRODUCTS[k].cls; if (RECIPES[k] || k === 'ingot') return 'comp'; return 'raw'; }
+function gItems(cls) { if (cls === 'nav') return NAV_KEYS.slice(); if (cls === 'raw') return GKEYS.filter(g => GOODS[g].grp === 'raw'); if (cls === 'comp') return RKEYS.concat(['ingot']); return PKEYS.filter(pk => PRODUCTS[pk].cls === cls); }
 // Débouchés d'une matière : recettes qui la consomment, puis produits finis dont la chaîne remonte jusqu'à elle (calcul statique, mis en cache)
 const _leaf = {};
 function leavesOfProd(pk) { if (_leaf[pk]) return _leaf[pk]; const set = {}, walk = g => { const R = RECIPES[g]; if (!R) { set[g] = 1; return; } set[g] = 1; Object.keys(R.in).forEach(walk); }; Object.keys(PRODUCTS[pk].in).forEach(walk); return (_leaf[pk] = set); }
@@ -10019,9 +10274,9 @@ function usesTxt(g, n) {
   const a = rec.slice(0, n).join(', '), b = fin.join(', ');
   return a ? a + (b ? ' · produits : ' + b : '') : b || 'vente directe et export';
 }
-function gInputs(k) { if (PRODUCTS[k]) return productInputs(k); if (RECIPES[k]) return RECIPES[k].in; if (k === 'ingot') return Object.assign({}, TYPES.foundry.rec.in); return {}; }
+function gInputs(k) { if (NAV_SHIPS[k]) return Object.assign({}, navBom(k)); if (PRODUCTS[k]) return productInputs(k); if (RECIPES[k]) return RECIPES[k].in; if (k === 'ingot') return Object.assign({}, TYPES.foundry.rec.in); return {}; }
 function gOut(k) { return PRODUCTS[k] ? PRODUCTS[k].out : RECIPES[k] ? RECIPES[k].out : k === 'ingot' ? TYPES.foundry.rec.out.ingot : 1; }
-function gThumb(k, big) { if (GUIDEHD[k]) return `<img alt="" class="gphoto" src="${GUIDEHD[k]}">`; return PRODUCTS[k] ? productSVG(k, S.prod[k].q) : `<img alt="" src="${compIcon(k)}">`; }
+function gThumb(k, big) { if (NAV_SHIPS[k]) return navSVG(k); if (GUIDEHD[k]) return `<img alt="" class="gphoto" src="${GUIDEHD[k]}">`; return PRODUCTS[k] ? productSVG(k, S.prod[k].q) : `<img alt="" src="${compIcon(k)}">`; }
 function gQual(k) { if (PRODUCTS[k]) return QTIER[S.prod[k].q].q; const sup = suppliersOf(k); let q = 0; sup.forEach(b => { q += b.qual || 0; }); const avg = sup.length ? q / sup.length : 0; return Math.round(30 + 15 * avg); }
 function gTech(k) { let n = 0; Object.keys(S.tech || {}).forEach(() => n++); let e = 0, c = 0; eachBuilding(b => { if (FLEVEL[b.t] && recOf(b) && recOf(b).out === k) { e += b.eff || 0; c++; } }); return clamp(Math.round(10 + 5 * n + (c ? 8 * e / c : 0)), 0, 100); }
 function gRaw(k) { const inp = gInputs(k), ks = Object.keys(inp); if (!ks.length) return gQual(k); return Math.round(ks.reduce((a, g) => a + gQual(g), 0) / ks.length); }
@@ -10098,6 +10353,7 @@ function renderGuide(force) {
   if (el('gview').hidden) return;
   if (gFarm) { if (force) gHtml = ''; return renderFarm(); }
   const k = gSel, cls = gClassOf(k), items = gItems(cls), inp = gInputs(k), pr = PRODUCTS[k];
+  if (cls === 'nav') { const html = navGuideHTML(k, items); if (!force && html === gHtml) return; el('gview').innerHTML = html; gHtml = html; return; }   // Nautisme : fiche d'un navire (nomenclature, délai, prix, statut)
   const clsL = `<div class="glist"><h5>Classe de produit</h5>${GCLS.map(([c, n]) => `<button data-g="cls:${c}" aria-pressed="${c === cls}">${n}</button>`).join('')}</div>`;
   const typL = `<div class="glist"><h5>Type de produit</h5>${items.map(i => { const locked = PRODUCTS[i] && S.prod[i].st === 'locked'; return `<button data-g="sel:${i}" aria-pressed="${i === k}" class="${locked ? 'ink' : ''}">${gName(i)}${gReady(i) ? '<span class="gchk" title="Toutes les matières sont disponibles (en stock ou produites par tes établissements)" aria-label="matières disponibles">✓</span>' : ''}</button>`; }).join('')}</div>`;
   const card = (g, qty, more) => `<div class="gcard"><div class="gimg">${gThumb(g)}</div><div><div class="gt">${gName(g)}</div><div class="gu">${f1(qty)} unité${qty > 1 ? 's' : ''}</div><div class="gq">Qualité : ${gQual(g)} %</div><div class="gq">Cours : ${f1(gPriceAny(g))} $ · stock ${fmt(gStock(g))}</div></div>${more ? `<button class="gmore" data-g="more:${g}">PLUS</button>` : ''}</div>`;
@@ -12289,7 +12545,7 @@ el('pvclose').onclick = () => setPview(false);
 let bsel = null, bvDown = false, bvHtml = '';
 const pct = v => Math.round(v * 100) + ' %';
 const f1 = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
-const gName = k => GOODS[k] ? GOODS[k].name : (PRODUCTS[k] ? PRODUCTS[k].name : k);
+const gName = k => NAV_SHIPS[k] ? NAV_SHIPS[k].name : GOODS[k] ? GOODS[k].name : (PRODUCTS[k] ? PRODUCTS[k].name : k);
 const gPrice = k => GOODS[k] ? S.price[k] : (PRODUCTS[k] ? prodPrice(k) : 0);
 const gStock = k => GOODS[k] ? S.stock[k] : (S.prod[k] ? S.prod[k].stock : 0);
 function recOf(c) {
@@ -12960,7 +13216,7 @@ function proDeals(n, minM) {
 }
 // Après une vente à un acquéreur de la ville, il garde le bien 2 ans : pas de rachat immédiat du même immeuble pour le revendre aussitôt
 const proNoSale = (x, y) => { const h = S.pro && S.pro.ns; return !!(h && h[x + ',' + y] > S.day); };
-const SVC_KIND = t => isPlant(t) ? 'power' : FUEL_T[t] ? 'fuel' : ({ ewh: 'ewh', tv: 'tv', off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'dc', port: 'port', btp: 'btp' })[t] || null;
+const SVC_KIND = t => isPlant(t) ? 'power' : FUEL_T[t] ? 'fuel' : NAV_T[t] ? t : ({ ewh: 'ewh', tv: 'tv', off: 'off', sport: 'sport', wh: 'wh', rd: 'rd', hq: 'hq', bank: 'bank', tech: 'tech', dc: 'dc', port: 'port', btp: 'btp' })[t] || null;
 const svcOf = c => { const T = TYPES[c.t]; return (T.ext || T.rec || T.ret) ? null : SVC_KIND(c.t); };
 const hasBld = t => { let n = 0; eachBuilding(b => { if (b.t === t && b.conn) n++; }); return n; };
 function svcInfo(c) {
@@ -13042,6 +13298,7 @@ function svcInfo(c) {
     R.util = clamp(c._rating || 0, 0, 1); R.utilLbl = 'part d\'audience';
     R.kpi = [['Recettes pub / mois', mj(c.pRev || 0), 'pos'], ['Audience (rating)', pct(c._rating || 0)], ['Spectateurs / jour', fmt(Math.round(c._aud || 0))], ['Contenu / mois', mj(c._mbc || 0), 'neg']];
     R.bn = (c._rating || 0) < 0.12 ? ok('Audience trop faible', 'Les chaînes concurrentes captent le public : augmente le budget de contenu pour améliorer la qualité.', 'warn') : ok(`Audience ${pct(c._rating || 0)} · pub ${mj(c.pRev || 0)}/mois`, 'Recettes = publicité locale (commerces) + publicité nationale (marques), selon l\'audience, le prix demandé et la taille de la ville.');
+  } else if (k === 'marina' || k === 'shipyd') { navSvc(c, k, R, nb, ok);   // Nautisme
   } else if (k === 'fuel') {   // liberté de construire : station au bord de la route
     const D = FUEL_T[c.t], q = c._fq || fuelQuote(c.x, c.y, c.t, c), el = D.fuel === 'el', gm = (c.pRev || 0) - (c.inCost || 0);
     R.inH = nb('Passage sur la route', `${fmt(q.F || 0)} véhicules/jour${el ? ' · ' + Math.round(fuelEv() * 100) + ' % électriques' : ''}`) + nb('Concurrence', q.n ? `${q.n} station${q.n > 1 ? 's' : ''} à moins de ${FUEL_R} cases · part captée ${pct(q.sh || 0)}` : 'aucune station à portée');
@@ -13300,6 +13557,7 @@ function bAct(a) {
   const spend = cost => { if (S.cash < cost) { say(`Il faut ${money(cost)}.`, 'bad'); return false; } S.cash -= cost; c.invest = investOf(c) + cost; flyers.push({ x: c.x, y: c.y, text: '-' + fmt(cost), t: performance.now(), col: '#ff8a8e' }); return true; };
   if (a === 'close') return closeBuilding();
   if (c.t === 'npc') { if (bshV) bshAct(c, a); return; }   // commerce de la ville : actions de vente
+  if (a.indexOf('nav:') === 0) { navAct(c, a.slice(4)); refreshStats(); updateHUD(); bvHtml = ''; renderBuilding(true); return; }   // Nautisme
   if (a.indexOf('fx:') === 0) { fxAct(a, c); refreshStats(); updateHUD(); bvHtml = ''; renderBuilding(true); return; }
   if (a.indexOf('alr:') === 0) { alrAct(a, c); alMenu = null; refreshStats(); updateHUD(); renderBuilding(true); return; }
   if (alMenu && a !== 'close') alMenu = null;
@@ -18145,6 +18403,130 @@ function portAct() {   // { T : import + export ($ par jour, 30 jours glissants)
   let n = 0; PY_SHIP_T.forEach(t => { if (T >= t) n++; }); n = clamp(n, 1, PY_BERTH.length);
   PY.day = S.day; PY.T = T; PY.imp = im; PY.exp = ex; PY.berths = PY_BERTH.slice(0, n); return { T, n };
 }
+// ===== Nautisme : dessin vectoriel (pontons, capitainerie, chantier naval, navires orientés) dans le style des bâtiments procéduraux =====
+// Les navires sont dessinés dans le plan de la carte avec un cap th (u, v) : la proue est toujours à l'avant du déplacement (pas de sprite à quatre vues).
+const NAV_HULL = { sail: [0.3, 4, '#f4f6fa', '#2f5f9a'], yacht: [0.27, 7, '#f6f7fb', '#1f2a44'], cargo: [0.17, 14, '#2b3a5e', '#a83a2c'], tanker: [0.18, 13, '#4a2626', '#a83a2c'] };
+const navP = (u, v, th, a, b, z) => { const c = Math.cos(th), s = Math.sin(th); return PP(u + a * c - b * s, v + a * s + b * c, z); };
+function navSolid(u, v, th, ol, z0, z1, col) {   // extrusion d'un contour [[a, b]] (repère du navire) de z0 à z1 : faces du fond d'abord, dessus en dernier
+  const P0 = ol.map(q => navP(u, v, th, q[0], q[1], z0)), P1 = ol.map(q => navP(u, v, th, q[0], q[1], z1)), n = ol.length, cx = P0.reduce((s, q) => s + q[0], 0) / n, f = [];
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n; f.push({ d: P0[i][1] + P0[j][1], q: [P0[i], P0[j], P1[j], P1[i]], k: (P0[i][0] + P0[j][0]) / 2 < cx ? 0.84 : 0.64 }); }
+  f.sort((p, q) => p.d - q.d); f.forEach(x => pQuad(x.q, shade(col, x.k))); pQuad(P1, shade(col, 1.06));
+}
+const navBox = (a0, a1, b0, b1) => [[a0, b0], [a1, b0], [a1, b1], [a0, b1]];
+function navBoat(u, v, th, kind, L, o) {
+  o = o || {}; const H = NAV_HULL[kind] || NAV_HULL.yacht, B = L * H[0], hz = H[1] * (o.k || 1), pr = o.pr == null ? 1 : o.pr, prim = pr < 1, lf = prim && pr < NAV_LAUNCH ? 0.35 + 0.65 * pr / NAV_LAUNCH : 1, sup = pr < NAV_LAUNCH ? 0 : prim ? (pr - NAV_LAUNCH) / (1 - NAV_LAUNCH) : 1, z0 = o.z || 0;
+  const a0 = -L / 2, a1 = a0 + L * lf, bw = B / 2, hull = lf < 1 ? navBox(a0, a1, -bw * 0.95, bw * 0.95) : [[a0, -bw * 0.88], [L * 0.18, -bw], [L * 0.4, -bw * 0.62], [L / 2, 0], [L * 0.4, bw * 0.62], [L * 0.18, bw], [a0, bw * 0.88]];
+  if (!o.dry) { ctx.globalAlpha = 0.25; pQuad(hull.map(q => navP(u, v, th, q[0] * 1.06, q[1] * 1.25, 0)), '#0d2a44'); ctx.globalAlpha = 1; }   // ombre portée sur l'eau
+  navSolid(u, v, th, hull, z0, z0 + hz * 0.35, prim && pr < NAV_LAUNCH ? '#7a4033' : H[3]);   // œuvres vives (antifouling) puis franc-bord
+  navSolid(u, v, th, hull, z0 + hz * 0.35, z0 + hz, prim && pr < NAV_LAUNCH ? '#8a4b3a' : H[2]);
+  const Z = z0 + hz, sh = (a, b, c, d, z1, z2, col) => navSolid(u, v, th, navBox(a, b, c, d), Z + z1, Z + z2, col);
+  if (lf < 1) { for (let i = 0; i < 4; i++) { const a = a0 + (i + 0.5) * (a1 - a0) / 4; sh(a - 0.01, a + 0.01, -bw, bw, 0, 6, '#9aa4b8'); } return; }   // couples et membrures visibles sur cale
+  if (kind === 'sail') {
+    sh(-L * 0.18, L * 0.08, -bw * 0.4, bw * 0.4, 0, 3 * sup, '#e8ecf3'); if (sup < 1) return;
+    const m0 = navP(u, v, th, L * 0.1, 0, Z), mh = 30 * L / 0.5, m1 = navP(u, v, th, L * 0.1, 0, Z + mh), bm = navP(u, v, th, -L * 0.34, 0, Z + 4), bow = navP(u, v, th, L * 0.47, 0, Z + 1);
+    if (o.furl) { ctx.strokeStyle = '#d9dde6'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(navP(u, v, th, L * 0.1, 0, Z + 4)[0], navP(u, v, th, L * 0.1, 0, Z + 4)[1]); ctx.lineTo(bm[0], bm[1]); ctx.stroke(); }
+    else { pQuad([navP(u, v, th, L * 0.1, 0, Z + 4), m1, bm], '#f5f3ea'); pQuad([m1, bow, navP(u, v, th, L * 0.12, 0, Z + 3)], '#e6e3d8'); }
+    ctx.strokeStyle = '#7d8699'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(m0[0], m0[1]); ctx.lineTo(m1[0], m1[1]); ctx.stroke(); return;
+  }
+  if (kind === 'yacht') {
+    if (sup <= 0) return; const s = sup;
+    sh(-L * 0.34, L * 0.16, -bw * 0.72, bw * 0.72, 0, 3 * s, '#eef1f6'); sh(-L * 0.33, L * 0.15, -bw * 0.74, bw * 0.74, 3 * s, 5 * s, '#26324e'); sh(-L * 0.3, L * 0.12, -bw * 0.7, bw * 0.7, 5 * s, 7 * s, '#eef1f6');
+    if (s >= 1) { sh(-L * 0.22, L * 0.02, -bw * 0.5, bw * 0.5, 7, 10, '#f4f6fa'); sh(-L * 0.12, -L * 0.08, -0.01, 0.01, 10, 16, '#c9cfdc'); }
+    return;
+  }
+  // cargo et pétrolier : château à l'arrière, cargaison ou tuyauteries sur le pont
+  const s = sup; if (s <= 0) { if (kind === 'cargo') return; }
+  sh(-L * 0.49, -L * 0.37, -bw * 0.86, bw * 0.86, 0, 24 * s, '#f2f4f8');
+  if (s > 0.8) { sh(-L * 0.48, -L * 0.38, -bw * 0.9, bw * 0.9, 24 * s, 26 * s, '#26324e'); sh(-L * 0.44, -L * 0.41, -0.03, 0.03, 26, 34, '#c0392b'); }
+  if (kind === 'cargo') { const n = 9; for (let i = 0; i < n; i++) { const a = -L * 0.34 + i * L * 0.075, ht = (8 + 4 * Math.floor(hash(i, o.seed || 1, 7) * 3)) * s; if (ht < 1) continue; const col = CONT_COL[Math.floor(hash(o.seed || 1, i, 5) * CONT_COL.length)]; sh(a, a + L * 0.068, -bw * 0.82, bw * 0.82, 0, ht, col); } }
+  else { sh(-L * 0.35, L * 0.42, -bw * 0.75, bw * 0.75, 0, 1, '#5e6b52'); sh(-L * 0.33, L * 0.4, -0.012, 0.012, 1, 3, '#c9b48a'); sh(-0.03, 0.03, -bw * 0.7, bw * 0.7, 1, 4 * Math.max(0.3, s), '#d0d4dc'); }
+}
+// Pontons d'un port de plaisance : panne principale perpendiculaire au rivage, catways de part et d'autre, bateaux amarrés selon l'occupation
+function navPontoons(ex, ey, d, len, occ, seed, rfN) {   // (ex, ey) : point de départ sur le rivage ; d : direction vers le large ; len : longueur (cases) ; occ : part des places occupées
+  const th = Math.atan2(d[1], d[0]), e = [-d[1], d[0]], wood = '#c8b088', step = 0.3, n = Math.max(1, Math.floor((len - 0.2) / step));
+  const pt = (a, b, z) => PP(ex + d[0] * a + e[0] * b, ey + d[1] * a + e[1] * b, z), slab = (a0, a1, b0, b1, col) => { pQuad([pt(a0, b0, 2), pt(a1, b0, 2), pt(a1, b1, 2), pt(a0, b1, 2)], shade(col, 0.7)); pQuad([pt(a0, b0, 3), pt(a1, b0, 3), pt(a1, b1, 3), pt(a0, b1, 3)], col); };
+  slab(0, len, -0.05, 0.05, wood);
+  const boats = [];
+  for (let i = 0; i < n; i++) { const a = 0.25 + i * step; [-1, 1].forEach(sd => { slab(a - 0.015, a + 0.015, sd * 0.05, sd * 0.42, shade(wood, 0.92)); const j = i * 2 + (sd > 0 ? 1 : 0);
+    if (hash(j, seed, 41) < occ) boats.push({ a: a + step / 2, sd, j, kd: hash(j, seed, 43) < 0.62 || j < (rfN || 0) ? 'sail' : 'yacht' }); }); }
+  boats.sort((p, q) => { const P = pt(p.a, p.sd * 0.25, 0), Q = pt(q.a, q.sd * 0.25, 0); return P[1] - Q[1]; });
+  boats.forEach(bt => { const L = bt.kd === 'sail' ? 0.36 : 0.4, o = 0.07 + L / 2;
+    navBoat(ex + d[0] * bt.a + e[0] * bt.sd * o, ey + d[1] * bt.a + e[1] * bt.sd * o, Math.atan2(e[1] * bt.sd, e[0] * bt.sd), bt.kd, L, { furl: 1, k: 0.7 }); });   // amarré dans l'axe de sa place (le long du catway), proue vers l'extérieur
+}
+// Trajet d'un bateau qui entre et sort d'un port : boucle fermée (deux voies parallèles reliées par deux demi-tours) ; position et cap à l'abscisse s
+function navLoop(P, s) {
+  const L = P.len, r = P.r, per = 2 * L + 2 * Math.PI * r; s = ((s % per) + per) % per; const d = P.d, e = [-d[1], d[0]];
+  let a, b, th;   // a : le long de d (vers le large), b : le long de e
+  if (s < L) { a = s; b = -r; th = 0; }
+  else if (s < L + Math.PI * r) { const t = (s - L) / r; a = L + r * Math.sin(t); b = -r * Math.cos(t); th = t; }
+  else if (s < 2 * L + Math.PI * r) { a = L - (s - L - Math.PI * r); b = r; th = Math.PI; }
+  else { const t = (s - 2 * L - Math.PI * r) / r; a = -r * Math.sin(t); b = r * Math.cos(t); th = Math.PI + t; }
+  const u = P.x + d[0] * a + e[0] * b, v = P.y + d[1] * a + e[1] * b, hd = Math.atan2(d[1], d[0]) + th; return [u, v, hd];
+}
+let _navLp = null;
+function navLoops() {   // trajets des bateaux de plaisance : baie du port municipal et chacun de tes ports (recalculé quand la grille change)
+  const key = S.grid.length + ':' + navMarinas().map(c => c.x + ',' + c.y).join(';') + ':' + BAY.on; if (_navLp && _navLp.k === key && _navLp.g === S.grid) return _navLp.L;
+  const L = []; if (BAY.on) L.push({ id: 'baie', x: 83.0, y: 19.82, d: [1, 0], len: 10.5, r: 0.38, n: 2 });
+  navMarinas().forEach(c => { const d = navWaterDir(c.x, c.y, c.w, c.h); if (!d) return; const sk = navSeaK(c.x, c.y, c.w, c.h, d); if (!sk.length) return;
+    const m = (sk[0] + sk[sk.length - 1] + 1) / 2, ex0 = d[0] > 0 ? c.x + c.w : c.x, ey0 = d[1] > 0 ? c.y + c.h : c.y, cx = ex0 + (d[0] ? 0 : m) + d[0] * 2.5, cy = ey0 + (d[1] ? 0 : m) + d[1] * 2.5;
+    let n = 0; while (n < 9) { const ok = [-0.4, 0.4].every(b => { const X = Math.floor(cx + d[0] * (n + 0.5) - d[1] * b), Y = Math.floor(cy + d[1] * (n + 0.5) + d[0] * b); return inb(X, Y) && ZONE[idx(X, Y)] === 3; }); if (!ok) break; n++; }
+    if (n >= 2) L.push({ id: 'm' + idx(c.x, c.y), x: cx, y: cy, d, len: n - 0.6, r: 0.32, n: 1 }); });
+  _navLp = { k: key, g: S.grid, L }; return L;
+}
+function navBoatsDraw(now) {   // bateaux en mouvement (au-dessus du bâti, comme les navires du large)
+  if (!S || !S.grid) return; const t = now / 1000;
+  navLoops().forEach(P => { const per = 2 * P.len + 2 * Math.PI * P.r; for (let j = 0; j < P.n; j++) { const kd = (j + P.id.length) % 2 ? 'yacht' : 'sail', q = navLoop(P, t * 0.28 + j * per / P.n + hash(P.id.length, j, 3) * 3);
+    navBoat(q[0], q[1], q[2], kd, kd === 'sail' ? 0.42 : 0.5, {}); if (ORI.on) oriRec('navire', 'pl_' + P.id + '_' + j, q[0], q[1], q[2], { mv: 1, spr: 'plaisance_' + kd }); } });
+}
+// Avant le bâti : pontons et bateaux amarrés (port municipal, tes ports), cales et navires à flot des chantiers
+function navWaterDraw(vr) {
+  if (!S || !S.grid) return; const A = S.nav, vis = (x, y) => x >= vr.x0 - 4 && x <= vr.x1 + 4 && y >= vr.y0 - 4 && y <= vr.y1 + 4;
+  if (BAY.on && vis(80, 22)) { const oc = A && A.tm && A.tm.B ? A.tm.occ / A.tm.B : 0.7; [79.5, 80.5, 81.5].forEach((x, i) => navPontoons(x, 23, [0, -1], 2.3, oc, 7 + i, 0)); }
+  eachBiz(c => { if (!NAV_T[c.t] || !vis(c.x, c.y)) return; const d = navWaterDir(c.x, c.y, c.w, c.h); if (!d) return; const e = [-d[1], d[0]];
+    const sp = d[0] ? c.h : c.w, ex0 = d[0] > 0 ? c.x + c.w : d[0] < 0 ? c.x : c.x, ey0 = d[1] > 0 ? c.y + c.h : d[1] < 0 ? c.y : c.y, at = k => [ex0 + (d[0] ? 0 : k), ey0 + (d[1] ? 0 : k)];
+    const sk = navSeaK(c.x, c.y, c.w, c.h, d);
+    if (c.t === 'marina') { const nv = navNv(c), oc = c.util != null ? c.util : 0.5; for (const k of sk) { const p0 = at(k + 0.5); navPontoons(p0[0], p0[1], d, 2.2, Math.max(oc, 0.15), c.x * 3 + c.y + k, k === 0 ? nv.rf || 0 : 0); } return; }
+    // chantier : navires à flot au quai d'armement (parallèles au rivage) ; les navires sur cale sont dessinés avec le bâti (navDrawBld)
+    const A2 = A || { ord: [] }, yi = idx(c.x, c.y), afloat = A2.ord.filter(o => o.y === yi && o.pr >= NAV_LAUNCH), last = navNv(c).last, p0 = at(sk.length ? (sk[0] + sk[sk.length - 1] + 1) / 2 : sp / 2), th = Math.atan2(e[1], e[0]);
+    const quay = (j, pr, kind, Ls, seed) => navBoat(p0[0] + d[0] * (0.45 + j * 0.85), p0[1] + d[1] * (0.45 + j * 0.85), th, kind, Ls, { pr, seed });
+    afloat.slice(0, 2).forEach((o, j) => { const D = NAV_SHIPS[o.k]; quay(j, o.pr, D.kind, Math.min(D.L, sp * 0.95), o.id); });
+    if (last && S.day - last[1] <= 6 && afloat.length < 2) { const D = NAV_SHIPS[NAV_KEYS[last[0]]]; if (D) quay(afloat.length, 1, D.kind, Math.min(D.L, sp * 0.95), last[1]); }   // navire livré : à quai quelques jours avant d'appareiller
+  });
+}
+// Bâti d'un port de plaisance ou d'un chantier naval (case avant de l'emprise)
+function navDrawBld(a, now) {
+  const x = a.x, y = a.y, w = a.w, h = a.h, d = navWaterDir(x, y, w, h) || [1, 0];
+  pQuad([PP(x + 0.02, y + 0.02, 0), PP(x + w - 0.02, y + 0.02, 0), PP(x + w - 0.02, y + h - 0.02, 0), PP(x + 0.02, y + h - 0.02, 0)], a.t === 'marina' ? '#cfc8b4' : '#9a9fa8');
+  const fr = (t0, t1) => { const l = d[0] ? [x + (d[0] > 0 ? w * (1 - t1) : w * t0), y, w * (t1 - t0), h] : [x, y + (d[1] > 0 ? h * (1 - t1) : h * t0), w, h * (t1 - t0)]; return l; };   // bande parallèle au rivage, de t0 (côté eau) à t1 (côté terre)
+  if (a.t === 'marina') {
+    const q = fr(0.45, 0.98), b = [q[0] + q[2] * 0.12, q[1] + q[3] * 0.12, q[2] * 0.42, q[3] * 0.42];
+    pPrism(b[0], b[1], b[2], b[3], 0, 20, '#f2f2ee'); pWindows(b[0], b[1], b[2], b[3], 6, 15, 3, now % 8000 > 5000); pPrism(b[0] + b[2] * 0.3, b[1] + b[3] * 0.3, b[2] * 0.4, b[3] * 0.4, 20, 34, '#f6f6f2'); pPrism(b[0] + b[2] * 0.25, b[1] + b[3] * 0.25, b[2] * 0.5, b[3] * 0.5, 34, 37, '#2f6f9a');   // capitainerie et sa vigie
+    const s2 = [q[0] + q[2] * 0.6, q[1] + q[3] * 0.6, q[2] * 0.34, q[3] * 0.34]; pPrism(s2[0], s2[1], s2[2], s2[3], 0, 14, '#d9cdb2'); pPrism(s2[0] - 0.02, s2[1] - 0.02, s2[2] + 0.04, s2[3] + 0.04, 14, 16, '#a6553f');   // boutique et atelier
+    const r = fr(0.04, 0.38); for (let i = 0; i < 3; i++) { const u = r[0] + r[2] * (0.15 + 0.3 * i), v = r[1] + r[3] * 0.5; pPrism(u - 0.05, v - 0.05, 0.1, 0.1, 0, 6, '#5a6478'); navBoat(u, v, Math.atan2(d[1], d[0]) + Math.PI / 2, i % 2 ? 'yacht' : 'sail', 0.34, { furl: 1, k: 0.6, z: 6, dry: 1 }); }   // bateaux à terre (carénage) sur bers
+    a._top = PP(x + w / 2, y + h / 2, 40)[1]; return;
+  }
+  const front = d[0] + d[1] > 0, e = [-d[1], d[0]], sp = d[0] ? h : w, ex0 = d[0] > 0 ? x + w : x, ey0 = d[1] > 0 ? y + h : y, mid = [ex0 + (d[0] ? 0 : sp / 2), ey0 + (d[1] ? 0 : sp / 2)];
+  const A = S.nav, yi = idx(x, y), slip = (A ? A.ord : []).filter(o => o.y === yi && o.pr > 0 && o.pr < NAV_LAUNCH), nC = Math.max(1, Math.min(2, Math.round(navCales(a)))), dep = d[0] ? w : h;
+  const hangar = () => { const hg = fr(0.62, 0.98); pPrism(hg[0], hg[1], hg[2], hg[3], 0, 42, '#8c98ae'); pQuad([PP(hg[0], hg[1], 42), PP(hg[0] + hg[2], hg[1], 42), PP(hg[0] + hg[2], hg[1] + hg[3], 42), PP(hg[0], hg[1] + hg[3], 42)], '#6e7a92'); pWindows(hg[0], hg[1], hg[2], hg[3], 26, 34, 5, false); };   // hangar de coque (tôlerie, blocs)
+  const slips = () => { for (let k = nC - 1; k >= 0; k--) { const a0 = -(0.06 + k * 0.6 * dep / 2), a1 = a0 - 0.5 * dep / 2, pt = (aa, b, z) => PP(mid[0] + d[0] * aa + e[0] * b, mid[1] + d[1] * aa + e[1] * b, z);   // cale de lancement latéral : rampe parallèle au rivage
+      pQuad([pt(a0, -sp / 2 + 0.06, 1), pt(a1, -sp / 2 + 0.06, 1), pt(a1, sp / 2 - 0.06, 1), pt(a0, sp / 2 - 0.06, 1)], '#7b828e');
+      for (let i = 0; i < 7; i++) { const b = -sp / 2 + 0.15 + i * (sp - 0.3) / 6; pQuad([pt(a0, b - 0.02, 2), pt(a1, b - 0.02, 2), pt(a1, b + 0.02, 2), pt(a0, b + 0.02, 2)], '#5b616c'); }   // tins (berceaux)
+      const o = slip[k]; if (o) { const D = NAV_SHIPS[o.k], am = (a0 + a1) / 2; navBoat(mid[0] + d[0] * am, mid[1] + d[1] * am, Math.atan2(e[1], e[0]), D.kind, Math.min(D.L, sp * 0.92), { pr: o.pr, z: 3, dry: 1, seed: o.id }); } } };
+  if (front) { hangar(); slips(); } else { slips(); hangar(); }
+  // portique de chantier (grue Goliath) au-dessus des cales, parallèle au rivage
+  const am = -(0.06 + (nC - 1) * 0.6 * dep / 2 + 0.25 * dep / 2), span = [[mid[0] + d[0] * am - e[0] * (sp / 2 - 0.05), mid[1] + d[1] * am - e[1] * (sp / 2 - 0.05)], [mid[0] + d[0] * am + e[0] * (sp / 2 - 0.05), mid[1] + d[1] * am + e[1] * (sp / 2 - 0.05)]], zH = 72;
+  ctx.strokeStyle = '#e0b23a'; ctx.lineWidth = 5; ctx.lineCap = 'round'; span.forEach(p => { const b0 = PP(p[0], p[1], 0), b1 = PP(p[0], p[1], zH); ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(b1[0], b1[1]); ctx.stroke(); });
+  { const b0 = PP(span[0][0], span[0][1], zH), b1 = PP(span[1][0], span[1][1], zH); ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(b0[0], b0[1]); ctx.lineTo(b1[0], b1[1]); ctx.stroke();
+    const t = 0.5 + 0.4 * Math.sin(now / 2600 + a.seed * 9), tx = b0[0] + (b1[0] - b0[0]) * t, ty = b0[1] + (b1[1] - b0[1]) * t; ctx.fillStyle = '#c0392b'; ctx.fillRect(tx - 6, ty - 2, 12, 9); ctx.strokeStyle = '#3a3f4a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(tx, ty + 7); ctx.lineTo(tx, ty + 40); ctx.stroke(); }
+  a._top = PP(x + w / 2, y + h / 2, zH + 8)[1];
+}
+// Port de plaisance municipal (rive sud de la baie) : terre-plein, capitainerie, parking
+function navTownDraw(p, x, y, now) {
+  pQuad([PP(x + 0.02, y + 0.02, 0), PP(x + 0.98, y + 0.02, 0), PP(x + 0.98, y + 0.98, 0), PP(x + 0.02, y + 0.98, 0)], '#d3ccb8');
+  if (x === TOWN_MAR.x0 + 1) { pPrism(x + 0.2, y + 0.35, 0.5, 0.45, 0, 18, '#f3f1ea'); pWindows(x + 0.2, y + 0.35, 0.5, 0.45, 5, 13, 3, now % 8000 > 5000); pPrism(x + 0.33, y + 0.47, 0.24, 0.22, 18, 30, '#f6f5f0'); pPrism(x + 0.3, y + 0.44, 0.3, 0.28, 30, 32, '#2f6f9a'); }
+  else if (x === TOWN_MAR.x0) { pPrism(x + 0.25, y + 0.55, 0.1, 0.1, 0, 6, '#5a6478'); pPrism(x + 0.65, y + 0.55, 0.1, 0.1, 0, 6, '#5a6478'); for (let i = 0; i < 2; i++) navBoat(x + 0.3 + 0.4 * i, y + 0.6, -Math.PI / 2, i ? 'yacht' : 'sail', 0.32, { furl: 1, k: 0.6, z: 6, dry: 1 }); }
+  else { pPrism(x + 0.15, y + 0.4, 0.62, 0.45, 0, 12, '#dccfb3'); pPrism(x + 0.13, y + 0.38, 0.66, 0.49, 12, 14, '#a6553f'); }
+}
 function portBerthDraw(vr, now) {   // avant le bâti : parcelles libres (marquage au sol), navires à quai ; prépare les portiques et camions du quai pour cette image
   PY.ms = PY.cur; const t0 = performance.now(); portAct(); PY.now = now = PY.clock != null ? PY.clock : (now || performance.now()); PY.cr.clear(); PY.tk.clear(); PY.built.clear();
   // décor d'un bloc effacé dès qu'un bâtiment y est posé (joueur ou rival)
@@ -19711,6 +20093,8 @@ function drawTileOf(a, x, y, ox, oy, o) {
     // ville vivante : équipement, parc, chantier, service de quartier ou tour en HD (dessiné par vvNpc)
   } else if (a.t === 'hq' && vvHq(a)) {
     if (ox === a.w - 1 && oy === a.h - 1) { const q = iso(a.x + (a.w - 1) / 2, a.y + (a.h - 1) / 2), n = vvHq(a); a._top = vvDraw(n, p, n === 'siege_hq_n1' ? 1.15 : Math.min(a.w, a.h), { x: q.x, y: q.y + TH / 2 }, [a.w, a.h]); }   // siège social : 3 niveaux HD (le niveau 1, sans parvis, est posé au centre de l'emprise à l'échelle d'une case : sinon ses 3 étages seraient géants)
+  } else if (NAV_T[a.t]) {
+    if (x === a.x + a.w - 1 && y === a.y + a.h - 1) navDrawBld(a, o.now);   // Nautisme : port de plaisance, chantier naval
   } else if (PROC_IND[a.t]) {
     if (x === a.x + a.w - 1 && y === a.y + a.h - 1) drawIndustrial(a, o.now, grow);
   } else if (SPEC_T[a.t]) {   // passe 46 : magasin spécialisé composé en primitives iso
@@ -20345,6 +20729,7 @@ function frame(now) {
 
     // passe 2 : arbres et bâtiments dans l'ordre de profondeur
     portBerthDraw(vr, now);   // parcelles libres du port, navires à quai (avant le bâti)
+    navWaterDraw(vr);   // Nautisme : pontons, bateaux amarrés, navires à flot des chantiers
     const treeCol = 1; signReset(); occTick(now);   // passe 100 : masquants de la cible (transparence des bâtiments devant)
     // passe 57 : tri de profondeur des bâtiments de plusieurs cases. Un bâtiment w×h est dessiné (toutes ses cases, la case avant en dernier) juste après la diagonale
     // de son CENTRE (x + y + (w + h) / 2 - 1) au lieu de celle de sa case avant : les voisins posés devant ses flancs (cases x + w ou y + h) passent désormais après lui
@@ -20376,6 +20761,8 @@ function frame(now) {
           if (a && a.w * a.h > 1) { if (!PBs.has(a)) { PBs.add(a); PB.push({ a, k: bKey(a) }); } }
           else if (a) { if (OCC.M) occDraw(a, () => bTile(a, x, y)); else bTile(a, x, y); }
         }
+      } else if (inTownMar(x, y)) {
+        navTownDraw(p, x, y, now);   // Nautisme : port de plaisance municipal
       } else if (ZONE[i] === 4) {
         drawQuayDecor(p, x, y, now);
       } else if (ZONE[i] === 2) {
@@ -20398,6 +20785,7 @@ function frame(now) {
     bFlush(1e9);
     airFlyDraw(now);   // passe 94 : avions en vol (approche, envol) au-dessus de tout le bâti
     ships.forEach(sh => { const sp = iso(sh.x, sh.y); drawShip(sp.x, sp.y + 33 + 12, sh.seed); if (ORI.on) { const sm = SHIP_SPR[sh.seed % SHIP_SPR.length]; oriRec('navire', 'sh' + sh.seed, sh.x, sh.y, SHIP_BOW[sm[0]] != null ? SHIP_BOW[sm[0]] : Math.PI / 2, { mv: 1, spr: sm[0] }); } });
+    navBoatsDraw(now);   // Nautisme : bateaux de plaisance qui entrent et sortent (proue en avant)
     drawOwnership(vr, pulse);
     signFlush();   // passe 54 : enseignes nettes, après tous les bâtiments
     // flyers (-$)
@@ -24412,6 +24800,7 @@ window.WSE.mall = { hall: { cells: () => MH.cells, pts: () => { const cv = el('m
   tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
 window.WSE.traffic = { cars: () => cars, reset: () => { cars = []; }, update: updateCars, refresh: refreshRoadList, pos: carPos, close: carsClose, geom: carGeom };
+window.WSE.nav = { NAV_T, NAV_SHIPS, BAY, BAY_X, TOWN_MAR, S: () => navS(), bom: navBom, worldPx: navWorldPx, share: navShare, act: navAct, step: navStep, waterDir: navWaterDir, yards: navYards, marinas: navMarinas, cyc: navCyc, hh: navHH, portK: navPortK, loops: navLoops, loopAt: navLoop, svc: c => navSvc(c, c.t, { util: 0, kpi: [], inH: '', outH: '' }, (b, t) => b + ' ' + t, (t, d, sev) => ({ t, d, sev })) };   // Responsable Nautisme : tests (t124)
 window.WSE.ori = { ORI, VV_HD, ships: () => ships, SHIP_SPR, SHIP_BOW, path: airPathC, pose: airPose, park: AIR_PARK, stand: { u: AIR_SU, v: AIR_ST, h: AIR_SH }, scr: scrToMap, herd: (a, now) => herdList(a, now) };   // Responsable Mouvements : audit d'orientation (tools/audit_orientation.js)   // passe 99 : espacement des voitures (tools/voitures_espacement.js, t99)
 window.WSE.port = { kind: portCellKind, act: portAct, berths: () => (portAct(), PY.berths.slice()), tiles: () => PY.tiles.size, tile: pyTile, ms: () => PY.ms, VAR: PY_VAR, BERTH: PY_BERTH, SHIP_T: PY_SHIP_T, BAND_X: PY_BAND_X, BAND_U: PY_BAND_U, BAND_W: PY_BAND_W, BACK: PY_BACK, BACK_B: PY_BACK_B, SH: PY_SH, CRU: PY_CRU, blocks: portBlocks, cycle: (i, t) => (portAct(), pyCycle(i, t)), crane: pyCraneState, cargo: () => (portAct(), pyCargo()), cells: PY_CELLS, cellUW: pyCellUW, dim: n => P2DIM[n], OBJ_B: PY_OBJ_B, CR_B: PY_CR_B, SHIP_B: PY_SHIP_B, pre: pyPre, hangar: pyHangar, silos: pySilos, craneImg: pyCraneImg, shipImg: pyShipImg, iso: (x, y) => iso(x, y), setClock: t => { PY.clock = t; }, dbg: v => { PY.dbg = v; }, built: () => [...PY.built], cr: () => [...PY.cr.entries()].map(([k, v]) => [k, v.map(s => [s.cw, s.tu, s.th, s.box])]), tk: () => [...PY.tk.entries()] };   // terminal portuaire (t119)
 window.WSE.bsh = { T: BSH_T, K: { BSH_K, BSH_E, BSH_R, BSH_HUR, BSH_REV, BSH_SVC }, shops: bshShops, at: bshShopAt, maxPx: bshMaxPx, open: bshOpen, pks: bshPks, carried: bshCarried, dem: bshDem, zone: bshZone, inc: bshInc, rayon: bshRayon, eval: bshEval, est: bshEst, propose: bshPropose, withdraw: bshWithdraw, set: bshSet, review: bshReview, step: bshStep, cut: bshCut, ar: bshAr, hover: bshHoverTxt, get st() { return S.bsh; }, get v() { return bshV; } };   // vente aux commerces de la ville
