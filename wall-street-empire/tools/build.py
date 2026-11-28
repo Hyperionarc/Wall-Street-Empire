@@ -306,6 +306,15 @@ P2_NAMES += P2_POSES
 # (<modèle>_ar : avant vers le haut à gauche ; voiture_dos / voiture_face génériques ; avion_ligne, bus_navette, taxi) ; sans fichier, le jeu garde son dessin vectoriel
 P2_NAMES += [_n + '_ar' for _n in ('veh_argent', 'veh_blanc', 'veh_bleu', 'veh_camionnette', 'veh_jaune', 'veh_noir', 'veh_orange', 'veh_pickup', 'veh_rouge', 'veh_vert', 'voiture_ville_a', 'voiture_ville_b', 'camion_ville')]
 P2_NAMES += ['voiture_dos', 'voiture_face', 'avion_ligne', 'avion_ligne_ar', 'bus_navette', 'taxi']
+# Cohérence esthétique (docs/STYLE_BATIMENTS.md) : écoles distinctes et pharmacie de quartier rendues en 3D procédurale (tools/sprites_procedural, assets/phase2_hd) ;
+# remplacent le sprite unique « ecole » (style jouet : cahier géant sur un toit bleu) et la pharmacie en forme de croix verte. Un rendu livré plus tard sous le même nom les remplace.
+P2_NAMES += ['ecole_maternelle', 'creche', 'college', 'lycee', 'pharmacie_quartier', 'cafe_quartier', 'restaurant_quartier', 'boulangerie_quartier', 'boutique_quartier', 'hotel_de_ville', 'hopital_ville', 'commissariat_ville']
+# Les images remplacées ne sont plus embarquées (budget de la version publiable < 16 Mo) dès que leur remplaçant existe : le jeu garde le repli dans son code (VV_MON_ALT, VV_SVC_SPR)
+# mais il ne sert plus. Rendre une image : la retirer de P2_REPLACED.
+P2_REPLACED = {'ecole': 'lycee', 'mairie': 'hotel_de_ville', 'hopital': 'hopital_ville', 'commissariat': 'commissariat_ville', 'pharmacie': 'pharmacie_quartier', 'drugstore': 'pharmacie_quartier',
+               'cafe_de_quartier': 'cafe_quartier', 'restaurant_terrasse': 'restaurant_quartier', 'boulangerie': 'boulangerie_quartier', 'boutique_mode': 'boutique_quartier'}   # boutique_mode : la boutique du joueur dessine boutique_mode_luxe
+_p2d = os.path.join(ROOT, '..', 'assets', 'phase2_hd')
+P2_NAMES = [_n for _n in P2_NAMES if not (_n in P2_REPLACED and os.path.exists(os.path.join(_p2d, P2_REPLACED[_n] + '.png')))]
 p2hd = {}; p2dim = {}
 # Sol et routes (losanges 396x198 sans couture) : pas de palette 256 couleurs (bandes visibles sur l'herbe) mais un JPEG de qualité ;
 # le pourtour transparent est rempli par extension des couleurs du bord (aucun liseré sombre quand le jeu découpe le losange avec 1 px de recouvrement).
@@ -362,8 +371,9 @@ def _ground_tile(name, im, path=None):
 # (×0,5 ou ×0,66) suivie de la réduction du jeu fait deux rééchantillonnages et coûte plus en SSIM que l'encodage lui-même (mesuré : SSIM 0,964 à ×0,66 contre 0,997 en pleine définition).
 # Seules les sources au-delà de 480 px par case sont ramenées à 400 px par case. WSE_P2_ENC=png256 rétablit l'ancien encodage (comparaisons, tools/tests/t81_encodage.js).
 P2_ENC = os.environ.get('WSE_P2_ENC', 'webp')
+P2_PXCASE_PROC = int(os.environ.get('WSE_PROC_PXCASE', '300'))
 P2_PXCASE = 400   # px source par case au-delà de 480 px par case (largeur de la dalle / nombre de cases de large)
-P2_FP = {'aeroport_terminal': 2, 'supermarche': 2, 'supermarche_n2': 2, 'supermarche_n3': 2, 'hypermarche': 3, 'hypermarche_n2': 3, 'hypermarche_n3': 3, 'bat_supermarche': 2, 'bat_supermarche_n2': 2, 'bat_supermarche_n3': 2,
+P2_FP = {'college': 2, 'lycee': 2.5, 'hotel_de_ville': 2, 'hopital_ville': 3, 'aeroport_terminal': 2, 'supermarche': 2, 'supermarche_n2': 2, 'supermarche_n3': 2, 'hypermarche': 3, 'hypermarche_n2': 3, 'hypermarche_n3': 3, 'bat_supermarche': 2, 'bat_supermarche_n2': 2, 'bat_supermarche_n3': 2,
          'bat_hypermarche': 3, 'bat_hypermarche_n2': 3, 'bat_hypermarche_n3': 3, 'usine_moyenne_f2': 1.5, 'usine_grande_f3': 2, 'usine_f4_mega': 3, 'mega_centre_commercial': 2, 'terminal_portuaire': 2,
          'centrale_nucleaire': 3, 'centrale_solaire': 4.5, 'data_center': 4.5, 'concession_auto': 2, 'boutique_high_tech': 1.5, 'maison_deco': 1.5, 'sport_loisirs': 1.5, 'chantier_moyen': 1.5,
          'centrale_charbon': 1.5, 'bat_mega_centre_commercial': 3, 'data_center_campus': 4.5, 'port_navire_cargo_ne': 2, 'port_navire_cargo_se': 2, 'port_navire_petrolier': 2, 'port_navire_vraquier': 2, 'port_ferry': 2, 'port_portique_quai': 2, 'siege_hq_n2': 2, 'siege_hq_n3': 2, 'fwheat': 3, 'fsugar': 3, 'fcotton': 3, 'frubber': 3, 'fvine': 3, 'fcorn': 3, 'frapeseed': 3, 'fcattle': 2, 'fchicken': 2, 'fpig': 2, 'fsheep': 2}
@@ -422,6 +432,8 @@ def _defringe(im):
     out = a.copy(); out[fix, :3] = C[fix]
     return Image.fromarray(np.uint8(np.clip(out, 0, 255)), 'RGBA'), int(fix.sum())
 P2_DEFRINGE = {}
+_pm = os.path.join(ROOT, 'tools', 'sprites_procedural', 'meta.json')
+PROC_META = json.load(open(_pm)) if os.path.exists(_pm) else {}   # sprites rendus par tools/sprites_procedural (taille, losange, bandeaux d'enseigne)
 def _p2enc(name, im, dim):
     import io
     if P2_ENC == 'png256':
@@ -429,6 +441,7 @@ def _p2enc(name, im, dim):
         bf = io.BytesIO(); sm.save(bf, 'PNG', optimize=True); return 'data:image/png;base64,' + base64.b64encode(bf.getvalue()).decode()
     dw = max(1.0, float(dim[7]) - float(dim[6])) if len(dim) > 7 else im.width
     pc = dw / P2_FP.get(name, 1); k = 1.0 if pc <= 480 else P2_PXCASE / pc
+    if name in PROC_META and pc > P2_PXCASE_PROC: k = P2_PXCASE_PROC / pc   # rendus procéduraux : nets et sans bruit, 300 px par case suffisent (budget de la version publiable < 16 Mio)
     sm = im if k > 0.97 else im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
     bf = io.BytesIO(); sm.save(bf, 'WEBP', quality=(int(os.environ.get('WSE_P2_Q', '90')) if sm.width * sm.height > 60000 else 92), alpha_quality=100, method=4); return 'data:image/webp;base64,' + base64.b64encode(bf.getvalue()).decode()   # les petits sprites (véhicules, personnages, objets) gardent la haute qualité : la compression forte y crée des halos
 for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'phase2_hd'), os.path.join(ROOT, '..', 'assets', 'factory_hd')):
@@ -443,6 +456,8 @@ for _d in (os.path.join(ROOT, 'assets', 'phase2_hd'), os.path.join(ROOT, '..', '
             if _n in P2_UNLABEL: _im = _unlabel(_im, P2_UNLABEL[_n])
             if _n not in GROUND_TILES and os.environ.get('WSE_DEFRINGE', '1') != '0': _im, P2_DEFRINGE[_n] = _defringe(_im)
             p2dim[_n] = [_im.width, _im.height] + list(_im.getchannel('A').point(lambda v: 255 if v > 40 else 0).getbbox() or (0, 0, _im.width, _im.height)) + _diamond(_im) + [_sy(_f)]
+            if _n in PROC_META:   # rendu procédural : losange exact de la dalle connu (meta.json) -> [xg, xd, y du centre], sans écrasement ; la détection par la rangée la plus large se trompe sur une emprise rectangulaire (3 × 2)
+                _dd = PROC_META[_n]['dia']; p2dim[_n][6:10] = [_dd[3][0], _dd[1][0], round((_dd[0][1] + _dd[2][1]) / 2, 1), 1.0]
             _a = _anc.get(_n + '.png')   # indices 10 et 11 : ancre (pieds, contact au sol) d'ancres.json, -1 si absente ; sert aux objets posés (véhicules, animaux, personnages, grue, navire)
             p2dim[_n] += [(_im.width - _a['ancre_x']) if _n in P2_FLIP else _a['ancre_x'], _a['ancre_y']] if _a and 'ancre_x' in _a and 'ancre_y' in _a else [-1, -1]
             if _n in GROUND_TILES:   # tuiles de sol et de route : JPEG 264x132 (2 px par px du jeu à zoom 1), le jeu les découpe sur le losange

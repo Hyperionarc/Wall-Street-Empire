@@ -90,7 +90,8 @@ exports.run = async (t, L) => {
   const id = await ev(async () => {
     const W = window.WSE, S = W.S, L0 = W.vv.list(), out = { bad: [], n: 0, front: null };
     for (const q of L0.slice(0, 30)) { const c = S.grid[q[1] * W.N + q[0]]; if (!c) continue; W.centerOn(q[0], q[1]); await new Promise(r => setTimeout(r, 120)); const nm = W.vv.SVC[q[2]][0], I = W.ui.selInfo(c);
-      if (c._spr === q[2] && I.n !== nm) out.bad.push(q[2] + '→' + I.n); if (c._spr && c._spr !== q[2] && !(q[2] === 'drugstore' && c._spr === 'pharmacie') && I.n === nm) out.bad.push('nom ' + nm + ' sur sprite ' + c._spr); out.n++; }
+      const sq = (W.vv.SPR || {})[q[2]] || q[2];   /* cohérence esthétique : le service peut être dessiné par son rendu européen (VV_SVC_SPR) */
+      if (c._spr === sq && I.n !== nm) out.bad.push(q[2] + '→' + I.n); if (c._spr && c._spr !== sq && c._spr !== q[2] && I.n === nm) out.bad.push('nom ' + nm + ' sur sprite ' + c._spr); out.n++; }
     // sprite de service non dessiné (chantier, sprite absent) : le titre ne dit pas « boulangerie »
     const q = L0.find(x => x[2] === 'boulangerie') || L0[0], c = S.grid[q[1] * W.N + q[0]], keep = c._spr; c._spr = 'immeuble_pnj_a'; out.notSvc = W.ui.selInfo(c).n; c._spr = keep;
     return out;

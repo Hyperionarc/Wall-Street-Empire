@@ -92,23 +92,25 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | Maison du Numérique (`stech`) | HD | `boutique_high_tech` | boutique_high_tech |  |
 | Maison de luxe (`slux`) | HD | `boutique_luxe` | boutique_luxe |  |
 | Boutique de mode (`smode`) | HD | `boutique_mode_luxe` | boutique_mode_luxe |  |
-| Pharmacie · drugstore (`spharma`) | HD | `pharmacie` | pharmacie |  |
+| Pharmacie · drugstore (`spharma`) | HD | `pharmacie_quartier` | pharmacie |  |
 | Maison et déco (`shome`) | HD | `maison_deco` | maison_deco |  |
 | Sport et loisirs (`ssport`) | HD | `sport_loisirs` | sport_loisirs |  |
 | Brico et outillage (`sbrico`) | VECTORIEL (+ petits sprites HD) | `voiture_ville_b` | voiture_ville_b |  |
+| Station-service (`sfuel`) | HD | `station_service` |  |  |
+| Bornes de recharge (`scharge`) | HD | `station_recharge_electrique` |  |  |
 
 ## Équipements publics
 
 | Élément | Rendu | Sprite HD dessiné | Avant (passe 98) | Note |
 |---|---|---|---|---|
-| hospital (`mon:hospital`) | HD | `hopital` | hopital |  |
-| lycee (`mon:lycee`) | HD | `ecole` | ecole |  |
-| college (`mon:college`) | HD | `ecole` | ecole |  |
-| maternelle (`mon:maternelle`) | HD | `ecole` | ecole |  |
-| garderie (`mon:garderie`) | HD | `ecole` | ecole |  |
-| police (`mon:police`) | HD | `commissariat` | VECTORIEL |  |
+| hospital (`mon:hospital`) | HD | `hopital_ville` | hopital |  |
+| lycee (`mon:lycee`) | HD | `lycee` | ecole |  |
+| college (`mon:college`) | HD | `college` | ecole |  |
+| maternelle (`mon:maternelle`) | HD | `ecole_maternelle` | ecole |  |
+| garderie (`mon:garderie`) | HD | `creche` | ecole |  |
+| police (`mon:police`) | HD | `commissariat_ville` | VECTORIEL |  |
 | fire (`mon:fire`) | HD | `caserne_pompiers` | VECTORIEL |  |
-| hall (`mon:hall`) | HD | `mairie` | mairie |  |
+| hall (`mon:hall`) | HD | `hotel_de_ville` | mairie |  |
 | telecom (`mon:telecom`) | HD | `station_tv` | station_tv |  |
 | stadium (`mon:stadium`) | HD | `stade_sport` | stade_sport |  |
 | stadium2 (`mon:stadium2`) | HD | `stade_sport` | stade_sport |  |
@@ -117,16 +119,14 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 
 | Élément | Rendu | Sprite HD dessiné | Avant (passe 98) | Note |
 |---|---|---|---|---|
-| Restaurant en terrasse (`sv:restaurant_terrasse`) | HD | `restaurant_terrasse` | restaurant_terrasse |  |
-| Café de quartier (`sv:cafe_de_quartier`) | HD | `cafe_de_quartier` | cafe_de_quartier |  |
-| Boulangerie (`sv:boulangerie`) | HD | `boulangerie` | boulangerie |  |
-| Boutique de mode (`sv:boutique_mode`) | HD | `boutique_mode` | boutique_mode |  |
-| Pharmacie (`sv:drugstore`) | HD | `pharmacie` | drugstore |  |
+| Restaurant en terrasse (`sv:restaurant_terrasse`) | HD | `restaurant_quartier` | restaurant_terrasse |  |
+| Café de quartier (`sv:cafe_de_quartier`) | HD | `cafe_quartier` | cafe_de_quartier |  |
+| Boulangerie (`sv:boulangerie`) | HD | `boulangerie_quartier` | boulangerie |  |
+| Boutique de mode (`sv:boutique_mode`) | HD | `boutique_quartier` | boutique_mode |  |
+| Pharmacie (`sv:drugstore`) | HD | `pharmacie_quartier` | drugstore |  |
 | Barre HLM (`sv:barre_hlm`) | HD | `barre_hlm` | barre_hlm |  |
 | Immeuble en construction (`sv:immeuble_en_construction`) | HD | `immeuble_en_construction` | immeuble_en_construction |  |
 | Église (`sv:eglise_de_village`) | HD | `eglise_de_village` | eglise_de_village |  |
-| Station-service (`sv:station_service`) | HD | `station_service` | station_service |  |
-| Station de recharge électrique (`sv:station_recharge_electrique`) | HD | `station_recharge_electrique` | station_recharge_electrique |  |
 | Immeuble abandonné (friche) (`sv:batiment_abandonne`) | HD | `batiment_abandonne` | batiment_abandonne |  |
 
 ## Ville (PNJ)
@@ -141,18 +141,18 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | off:bas (`off:bas#1`) | HD | `immeuble_bureaux_vitre` | immeuble_bureaux_vitre |  |
 | res:bas (`res:bas#3`) | HD | `maison_moderne_cubique` | maison_moderne_cubique |  |
 | off:bas (`off:bas#2`) | HD | `immeuble_bureaux_vitre` | immeuble_bureaux_vitre |  |
+| off:bas (`off:bas#3`) | HD | `banque_neoclassique` | immeuble_pnj_b |  |
 | res:moyen (`res:moyen#1`) | HD | `immeuble_londonien_briques` | immeuble_londonien_briques |  |
 | park:bas (`park:bas#1`) | HD | `parc_urbain` | parc_urbain |  |
 | res:moyen (`res:moyen#2`) | HD | `immeuble_art_deco` | immeuble_art_deco |  |
-| res:moyen (`res:moyen#3`) | HD | `immeuble_en_construction` | immeuble_en_construction |  |
+| res:moyen (`res:moyen#3`) | HD | `immeuble_londonien_briques` | immeuble_en_construction |  |
 | off:moyen (`off:moyen#1`) | HD | `hotel_de_luxe` | hotel_de_luxe |  |
-| off:moyen (`off:moyen#2`) | HD | `cafe_de_quartier` | cafe_de_quartier |  |
+| off:moyen (`off:moyen#2`) | HD | `cafe_quartier` | cafe_de_quartier |  |
 | res:tour (`res:tour#1`) | HD | `immeuble_en_construction` | immeuble_en_construction |  |
 | off:tour (`off:tour#1`) | HD | `tour_bureaux_12_etages_a` | tour_bureaux_12_etages_a |  |
 | off:moyen (`off:moyen#3`) | HD | `immeuble_pnj_b` | immeuble_pnj_b |  |
 | park:bas (`park:bas#2`) | HD | `parc_urbain` | parc_urbain |  |
 | park:bas (`park:bas#3`) | HD | `parc_urbain` | parc_urbain |  |
-| off:bas (`off:bas#3`) | HD | `immeuble_pnj_b` | immeuble_pnj_b |  |
 | res:tour (`res:tour#2`) | HD | `immeuble_residentiel_moderne` | immeuble_residentiel_moderne |  |
 
 ## Véhicules de la ville
@@ -179,14 +179,14 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 |---|---|---|---|---|
 | navire n° 1 (`navire:0`) | HD | `navire_cargo` |  |  |
 | navire n° 2 (`navire:1`) | HD | `port_navire_petrolier` |  |  |
-| navire n° 3 (`navire:2`) | HD | `port_remorqueur_ne` |  |  |
+| navire n° 3 (`navire:2`) | HD | `port_voilier` |  |  |
 | navire n° 4 (`navire:3`) | HD | `port_navire_cargo_ne` |  |  |
 | navire n° 5 (`navire:4`) | HD | `port_navire_vraquier` |  |  |
 | navire n° 6 (`navire:5`) | HD | `port_ferry` |  |  |
-| navire n° 7 (`navire:6`) | HD | `port_voilier` |  |  |
+| navire n° 7 (`navire:6`) | HD | `port_remorqueur_ne` |  |  |
 | grue portique (`grue`) | HD | `grue_portique` | grue_portique |  |
 | conteneurs (`conteneurs`) | HD | `conteneur_pile` | conteneur_pile |  |
-| décor de quai (`quai`) | HD | `port_phare` | porcelaine_caisses |  |
+| décor de quai (`quai`) | HD | `port_phare (dérivé)` | porcelaine_caisses |  |
 
 ## Fermes (détails)
 
@@ -215,7 +215,7 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 
 | Dossier | PNG | Embarqué dans city.html | Raison |
 |---|---|---|---|
-| factory_hd | `aeroport_terminal` | non | aéroport : chantier d'un autre agent |
+| factory_hd | `aeroport_terminal` | oui | aéroport : chantier d'un autre agent |
 | factory_hd | `arbre` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
 | factory_hd | `armoire_electrique` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `bac_calcaire` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
@@ -224,7 +224,6 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `bac_minerai_cuivre` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
 | factory_hd | `bac_minerai_fer` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
 | factory_hd | `bac_sable` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
-| factory_hd | `banque_neoclassique` | oui | pièce d'or géante sur le toit (style jeu mobile) : remplacée par banque.png |
 | factory_hd | `barres_acier` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
 | factory_hd | `bat_chai_vigne` | oui | annexe des fermes agrandies (dessinée quand une ferme grandit, passe 87 ; l'inventaire rend les fermes à leur taille de départ) |
 | factory_hd | `bat_chai_vigneron` | oui | annexe des fermes agrandies (dessinée quand une ferme grandit, passe 87 ; l'inventaire rend les fermes à leur taille de départ) |
@@ -251,10 +250,13 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `bobine_cuivre_couchee` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `bobine_fil` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `bobineuse_filature` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `boulangerie` | non | baguette géante sur le toit : remplacée par boulangerie_quartier (repli seulement) |
 | factory_hd | `boutique_high_tech_n2` | non | niveau 2 de la boutique high-tech (pas de niveaux pour les spécialistes) |
+| factory_hd | `boutique_mode` | non | cintre géant sur un toit rose : remplacée par boutique_quartier pour la ville (la boutique du joueur garde boutique_mode_luxe) |
 | factory_hd | `brownstone_new_yorkais` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `buisson` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
 | factory_hd | `bureau_vitre` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `cafe_de_quartier` | non | tasse géante sur un toit brun (pancarte « cartoon ») : remplacé par cafe_quartier (repli seulement) |
 | factory_hd | `caisse_verre` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `caisses_composants` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `camion_blanc` | oui | intérieur d'usine (vue immersive) ou marchandise |
@@ -283,7 +285,8 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `convoyeur_vide_droit_nord_est` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `convoyeur_vide_droit_sud_est` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `cuve_inox` | oui | intérieur d'usine (vue immersive) ou marchandise |
-| factory_hd | `drugstore` | oui | ANCIENNE pharmacie (cube blanc + parking de voitures-cubes, 17/11) : remplacée partout par pharmacie.png (croix verte lumineuse, 19/11) |
+| factory_hd | `drugstore` | non | ANCIENNE pharmacie (cube blanc + parking de voitures-cubes, 17/11) : remplacée partout par pharmacie.png (croix verte lumineuse, 19/11) |
+| factory_hd | `ecole` | non | style jouet (cahier géant sur toit bleu, fenêtres multicolores), partagé par les 4 écoles : remplacé par ecole_maternelle, creche, college, lycee (repli seulement) |
 | factory_hd | `extincteur` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `ferme_traditionnelle` | non | ferme de style rustique : les fermes 2×2 / 3×3 ont leurs sprites (fwheat…) |
 | factory_hd | `four_industriel` | oui | intérieur d'usine (vue immersive) ou marchandise |
@@ -298,6 +301,7 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `gratte_ciel_40_etages_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `gratte_ciel_60_etages_a` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `gratte_ciel_60_etages_b` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
+| factory_hd | `hopital` | non | textes HOSPITAL / EMERGENCY dans l'image, 260 px par case : remplacé par hopital_ville (repli seulement) |
 | factory_hd | `hypermarche` | oui | remplacé par bat_hypermarche |
 | factory_hd | `hypermarche_n2` | oui | remplacé par bat_hypermarche_n2 |
 | factory_hd | `hypermarche_n3` | oui | remplacé par bat_hypermarche_n3 |
@@ -315,6 +319,7 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `machine_assemblage` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `machine_decoupe_laser` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `machine_injection_plastique` | oui | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `mairie` | non | toit bleu vif à pictogramme de document, 160 px par case : remplacée par hotel_de_ville (repli seulement) |
 | factory_hd | `maison_bois_nordique` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `maison_n2` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `maison_n3` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
@@ -345,6 +350,7 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `panneaux_osb` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `pavillon_banlieue` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | factory_hd | `peaux_cuir` | non | intérieur d'usine (vue immersive) ou marchandise |
+| factory_hd | `pharmacie` | non | bâtiment en forme de croix verte (lu comme une croix religieuse) : remplacé par pharmacie_quartier (repli seulement) |
 | factory_hd | `planches_bois` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `plaques_acier` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `pneus_empiles` | oui | intérieur d'usine (vue immersive) ou marchandise |
@@ -370,6 +376,7 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | factory_hd | `raffinerie_unite_distillation` | non | pas de raffinerie dans le jeu |
 | factory_hd | `reacteur_chimique` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `reservoir_stockage_petrole` | non | pas de dépôt pétrolier dans le jeu |
+| factory_hd | `restaurant_terrasse` | non | couverts géants sur le toit : remplacé par restaurant_quartier (repli seulement) |
 | factory_hd | `robot_6_axes` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `robot_6_axes_bras_1` | oui | intérieur d'usine (vue immersive) ou marchandise |
 | factory_hd | `robot_6_axes_bras_2` | oui | intérieur d'usine (vue immersive) ou marchandise |
@@ -423,6 +430,7 @@ Bilan : 162 éléments — HD 161 · VECTORIEL (+ petits sprites HD) 1.
 | phase2_hd | `champ_ble_vert` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
 | phase2_hd | `chantier_petit` | oui | bâtiment de la ville ou niveau, choisi par graine, étages ou niveau (hors échantillon de l'inventaire) |
 | phase2_hd | `chassis_aluminium` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
+| phase2_hd | `commissariat` | non | dalle partielle : bâtiment flottant 0,4 TH au-dessus de sa case : remplacé par commissariat_ville (repli seulement) |
 | phase2_hd | `concasseur_recyclage` | oui | sol, végétation, gisement ou état particulier (rendus par la carte, hors inventaire des bâtiments) |
 | phase2_hd | `conteneur_bleu` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |
 | phase2_hd | `conteneur_rouge` | oui | marchandise posée sur les quais (VV_GOODS, tirée au hasard par case) |

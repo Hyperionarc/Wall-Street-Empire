@@ -37,9 +37,9 @@ exports.run = async (t, L) => {
   // ---- 1. Table
   const tb = await pg.evaluate(() => { const G = window.WSE.sign, F = G.FACE, bad = [];
     Object.keys(F).forEach(k => { if (!G.SIGN[k]) bad.push(k + ' sans SIGN'); Object.keys(F[k]).forEach(n => { const f = F[k][n]; if (!/^[LR]$/.test(f.face) || ![f.ax, f.ay, f.w, f.h].every(v => Number.isFinite(v) && v > 0 && v < 1) || f.ax - f.w / 2 < 0 || f.ax + f.w / 2 > 1) bad.push(k + '/' + n); }); });
-    return { bad, n: Object.keys(F).length, ph: F.spharma && F.spharma.pharmacie, min: G.FACE_MIN }; });
+    return { bad, n: Object.keys(F).length, ph: F.spharma && F.spharma.pharmacie_quartier, min: G.FACE_MIN }; });
   t.check('table SIGN_FACE[type][sprite] : face L/R, ancrage et tailles en fractions du sprite, bandeau dans la largeur de l\'image', !tb.bad.length && tb.n >= 12, tb.bad.join(', ') || `${tb.n} types`);
-  t.check('pharmacie : mesure sur le sprite pharmacie.png (frise au-dessus de la porte, façade avant-gauche), seuil de lisibilité 9 px', !!tb.ph && tb.ph.face === 'L' && tb.min === 9, JSON.stringify(tb.ph));
+  t.check('pharmacie : mesure sur le sprite pharmacie_quartier.png (bandeau vierge au-dessus des vitrines, façade avant-gauche ; cohérence esthétique), seuil de lisibilité 9 px', !!tb.ph && tb.ph.face === 'L' && tb.min === 9, JSON.stringify(tb.ph));
 
   // ---- 2. La pharmacie : nom peint sur la façade aux zooms rapprochés
   const P0 = await studio(pg, L, KEYS), PH = P0.spharma;

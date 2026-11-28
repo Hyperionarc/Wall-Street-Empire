@@ -25,5 +25,8 @@ Domaine : sprites HD, produits, bâtiments, enseignes, véhicules, personnages ;
 ## Responsable QA (IA testeuse)
 Domaine : `tools/qa_ai/` (Utility AI + HTN + fuzzer + watchdog). Indicateurs : campagne nocturne reproductible ; chaque défaut a une graine et un rejeu ; les scénarios de parcours des autres responsables sont automatisés.
 
+## Responsable Cohérence esthétique des bâtiments
+Domaine : tous les bâtiments affichés forment un ensemble homogène (registre réaliste européen, définition, lumière, calage isométrique : ancrage, emprise entière, échelle, profondeur) ; charte `docs/STYLE_BATIMENTS.md` ; production par rendu procédural 3D (`tools/sprites_procedural`) ou commande d'assets. Indicateurs : `tools/audit_esthetique.js` (`docs/AUDIT_ESTHETIQUE.md`) : aucun aplat sans détail, aucun repli vectoriel ou atlas dans la ville au démarrage, écoles distinctes à l'emprise du barème, aucun pictogramme géant, croix religieuse ou texte sur un bâtiment civil ; test `t125_esthetique.js`. Journal : `docs/journal/esthetique.md`.
+
 ## Responsable Architecture & Livraison
 Domaine : découpage de `game.template.html` en modules assemblés par `tools/build.py`, build, version publiable < 16 Mo, intégration continue. Indicateurs : deux responsables peuvent modifier des modules différents sans conflit ; build reproductible.

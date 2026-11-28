@@ -22,7 +22,7 @@ exports.run = async (t, L) => {
     }
     if (!P) return null;
     try { W.autoConnect(P.x, P.y); W.autoConnect(P.fx, P.fy); } catch (e) {}
-    const tw = S.grid[P.fy * N + P.fx]; tw.floors = 9; tw.born = -1e9;
+    const tw = S.grid[P.fy * N + P.fx]; tw.floors = 9; tw.lvl = 2; tw.born = -1e9;   /* niveau 2 : une vraie tour (tour_tech) ; au niveau 0 le sprite est un immeuble de bureaux bas, qui ne masque plus assez la pharmacie de quartier (3 niveaux, cohérence esthétique) */
     S.grid[P.y * N + P.x].born = -1e9;
     W.setTool('view'); W.view.setZ(0.8); W.centerOn(P.x, P.y); return P;
   });
