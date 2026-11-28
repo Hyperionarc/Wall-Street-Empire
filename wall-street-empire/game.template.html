@@ -4893,7 +4893,10 @@ function airPos() { if (!S || !S.grid) return null; if (_airG !== S.grid) { _air
 const AIR_PAX0 = 4000, AIR_BUY = { basic: 0.06, std: 0.03, lux: 0.0075 }, AIR_MK = 1.3, AIR_TAX = 0.35, AIR_ENTRY = 20000, AIR_RENT = 120, AIR_CLS = ['basic', 'std', 'lux'];
 // agencement du dessin (coordonnées locales u le long de x, v le long de y, z en px monde) : piste à l'arrière, aérogare à gauche, aire de stationnement, tour, parking et voie de dépose devant
 const AIR_L = { R: { u0: 0.1, v0: 0.15, u1: 5.9, v1: 0.9 }, A: { u0: 1.35, v0: 1.2, u1: 3.3, v1: 3.45 }, T: { u0: 0.25, v0: 1.3, u1: 1.35, v1: 3.4, z: 26 }, C: { u0: 0.12, v0: 1.0, z: 56 },
-  K: { u0: 3.45, v0: 1.75, u1: 5.9, v1: 3.45 }, D: { u0: 0.25, v0: 3.5, u1: 5.95, v1: 3.95 } };   // passe 94 : piste (R), aire (A), aérogare (T), tour (C), parking (K), voie de dépose (D)
+  K: { u0: 3.45, v0: 1.75, u1: 5.9, v1: 3.45 }, D: { u0: 0.25, v0: 3.5, u1: 5.95, v1: 3.95 } };
+// places du parking de l'aéroport (Responsable Mouvements) : largeur su le long de u, rangée du fond (garée en marche arrière, avant vers l'allée = +v)
+// et rangée de devant (entrée en marche avant, avant vers la voie de dépose = +v) de part et d'autre d'une allée de 0,5 case ; lampadaires derrière la rangée de devant
+const AIR_PARK = { su: 0.27, n0: 3.58, n: 8, rows: [{ b0: 1.82, b1: 2.22, back: 1.82, dir: 'SW' }, { b0: 2.72, b1: 3.12, back: 3.12, dir: 'SW' }], lamp: 3.24 };   // passe 94 : piste (R), aire (A), aérogare (T), tour (C), parking (K), voie de dépose (D)
 function airSan(d) {
   if (!d || typeof d !== 'object') return null;
   const o = { on: d.on ? 1 : 0, d0: d.d0 | 0, g: {}, off: {}, h: Array.isArray(d.h) ? d.h.filter(r => Array.isArray(r) && r.length >= 4).slice(-30).map(r => r.slice(0, 4).map(v => +v || 0)) : [], ca: +d.ca || 0, fee: +d.fee || 0, u: +d.u || 0, nIn: d.nIn | 0 };
@@ -17604,7 +17607,12 @@ function gtWaves(p, now, x, y) {   // vaguelettes animées par-dessus l'eau text
 /* Passe 99 : navires HD variés (assets/factory_hd/port_*, jamais branchés : seul navire_cargo était dessiné, cinq fois). Deux couloirs, une vitesse par couloir
    (avant : vitesses différentes dans un même couloir, les navires se rattrapaient et se superposaient), espacement régulier sur la boucle de N + 12 cases.
    Couloir ouest, vers le bas à gauche (proue en bas à gauche sur les sprites) : porte-conteneurs, pétrolier, remorqueur, vraquier ; couloir est, vers le haut à droite : ferry, voilier. */
-const SHIP_SPR = [['navire_cargo', 250], ['port_navire_petrolier', 250], ['port_remorqueur_ne', 105], ['port_navire_cargo_ne', 260], ['port_navire_vraquier', 245], ['port_ferry', 215], ['port_voilier', 62]];
+// Responsable Mouvements : chaque navire avance PROUE EN AVANT. Proue des sprites (vérifiée sur les images) : en bas à gauche (sens +y, couloir ouest) pour
+// navire_cargo, pétrolier, port_navire_cargo_ne (malgré son nom : passerelle à l'arrière en haut à droite), vraquier et VOILIER (étrave et balcon avant en bas
+// à gauche, jupe arrière en haut à droite) ; en haut à droite (sens −y, couloir est) pour le ferry et le REMORQUEUR (passerelle à l'avant, pont de travail à
+// l'arrière). Avant : le remorqueur descendait le couloir ouest et le voilier remontait le couloir est, tous deux en marche arrière ; ils échangent leur couloir.
+const SHIP_SPR = [['navire_cargo', 250], ['port_navire_petrolier', 250], ['port_voilier', 62], ['port_navire_cargo_ne', 260], ['port_navire_vraquier', 245], ['port_ferry', 215], ['port_remorqueur_ne', 105]];
+const SHIP_BOW = { navire_cargo: Math.PI / 2, port_navire_petrolier: Math.PI / 2, port_voilier: Math.PI / 2, port_navire_cargo_ne: Math.PI / 2, port_navire_vraquier: Math.PI / 2, port_ferry: -Math.PI / 2, port_remorqueur_ne: -Math.PI / 2 };   // cap de la proue dessinée (plan u, v)
 const ships = [];
 for (let i = 0; i < 5; i++) ships.push({ x: 91.2, y: -6 + i * (N + 12) / 5, v: 0.26, seed: i, spr: i });
 for (let i = 0; i < 2; i++) ships.push({ x: 93.6, y: -6 + (i + 0.3) * (N + 12) / 2, v: -0.2, seed: 5 + i, spr: 5 + i });
@@ -18267,18 +18275,41 @@ function drawMall(a, x, y, p, now) {   // passe 44 : parvis pavé sur les 4 case
    Horloge du décor : performance.now() (AIRANIM.t la fige pour les tests et les captures) ; rien n'est sauvegardé, rien ne touche la simulation.
    Pas de sprite d'avion ni de bus (commande n°19, RETOURS.md) : avions dessinés en primitives (fuselage, ailes en flèche, dérive, réacteurs, ombre portée). */
 const AIRANIM = { t: null, cache: new Map(), fly: [], flyN: -1 };
-const AIR_RW = 0.52, AIR_TX = 1.07, AIR_LN = 2.95, AIR_ST = [1.85, 2.85], AIR_NOSE = 1.95, AIR_SC = 1.25, AIR_TAXI = 0.42, AIR_TAIL = ['#3e6790', '#2f7d77'];
+const AIR_RW = 0.52, AIR_TX = 1.07, AIR_LN = 2.95, AIR_ST = [1.7, 2.6], AIR_SU = 1.95, AIR_SH = -Math.PI / 2, AIR_VB = 2.62, AIR_TR = 0.35, AIR_UT = 0.275, AIR_TL = 0.3, AIR_SC = 0.95, AIR_TAXI = 0.42, AIR_TAIL = ['#3e6790', '#2f7d77'];
 const airClock = now => AIRANIM.t != null ? AIRANIM.t : (now == null ? performance.now() : now) / 1000;   // secondes
 function airLvl(pax) { return clamp(Math.round(2 * Math.log2(Math.max(250, pax == null ? AIR_PAX0 : pax) / AIR_PAX0)), -4, 8); }   // palier de trafic (pax ×2 = 2 paliers)
 const airRate = lvl => clamp(1.2 * Math.pow(2, lvl / 4), 0.5, 3);   // mouvements (atterrissages + décollages) par minute d'animation
-function airPath(k, st) {   // trajectoire d'un mouvement : segments { a, b : [u, v, z], d : durée (s), e : profil, rev : marche arrière, rw : sur la piste }
-  const v = AIR_ST[st], s = [], add = (a, b, d, e, o) => s.push(Object.assign({ a, b, d, e: e || 'lin' }, o || {})), tx = (a, b) => add(a, b, Math.max(0.8, Math.hypot(b[0] - a[0], b[1] - a[1]) / AIR_TAXI));
+/* Responsable Mouvements (retour de Rémy : « avion qui recule ») : plus aucun repoussage en marche arrière. Les deux postes A1 / A2 sont alignés le long de
+   l'aérogare, avion garé PARALLÈLE à la façade, nez vers la piste (cap −v) : on y entre par l'arrière en marche avant (voie de retour AIR_LN, demi-tour au bas
+   de l'aire) et on en sort tout droit vers la piste (traversée de la voie de circulation, virage à droite sur la piste, alignement, décollage face au même vent
+   que les atterrissages). Ordre « premier arrivé, premier parti » : A1 (devant) part toujours avant A2 (derrière), et un avion ne va en A1 que si A2 est libre.
+   Trajectoires faites de droites et d'arcs de cercle (tortue) : le cap dessiné est TOUJOURS la tangente de la trajectoire (aucun glissement en crabe), vitesses
+   continues aux raccords (accélération constante sur chaque segment). */
+function airPath(k, st) {   // segments { u0, v0, h0 (départ), len, r, turn (arc signé ; 0 = droite), sa, sb (vitesses de début et de fin, cases/s), d (s), zp : profil d'altitude, rw : sur la piste }
+  const s = []; let u, v, h; const TX = AIR_TAXI;
+  const seg = (len, r, turn, sa, sb, o) => {
+    const d = len > 1e-6 ? 2 * len / Math.max(0.05, sa + sb) : (o && o.hold) || 1;
+    s.push(Object.assign({ u0: u, v0: v, h0: h, len, r, turn, sa, sb, d }, o || {}));
+    if (turn) { const sg = Math.sign(turn), cu = u + r * Math.cos(h + sg * Math.PI / 2), cv = v + r * Math.sin(h + sg * Math.PI / 2), ph = h - sg * Math.PI / 2 + turn; u = cu + r * Math.cos(ph); v = cv + r * Math.sin(ph); h += turn; }
+    else { u += Math.cos(h) * len; v += Math.sin(h) * len; }
+  };
+  const L = (len, sa, sb, o) => seg(len, 0, 0, sa, sb, o), A = (r, turn, sa, sb, o) => seg(r * Math.abs(turn), r, turn, sa, sb, o);
+  const vs = AIR_ST[st];
   if (k === 'arr') {
-    add([-3.8, AIR_RW, 140], [0.9, AIR_RW, 0], 6.2, 'app', { rw: 1 }); add([0.9, AIR_RW, 0], [4.1, AIR_RW, 0], 4.4, 'dec', { rw: 1 }); add([4.1, AIR_RW, 0], [4.45, AIR_TX, 0], 1.6, 'lin', { rw: 1 });
-    tx([4.45, AIR_TX, 0], [AIR_LN, AIR_TX, 0]); tx([AIR_LN, AIR_TX, 0], [AIR_LN, v, 0]); add([AIR_LN, v, 0], [AIR_NOSE, v, 0], 2.8, 'dec');
+    u = -3.8; v = AIR_RW; h = 0;
+    L(4.7, 0.9, 0.9, { zp: 'app', z0: 140, rw: 1 });   // approche dans l'axe, toucher en 0,9
+    L(3.2, 0.9, TX, { rw: 1 });   // décélération sur la piste jusqu'à la vitesse de roulage
+    A(AIR_UT, Math.PI, TX, TX, { rw: 1 });   // sortie de piste en demi-tour (bretelle) vers la voie de circulation, cap −u
+    L(4.1 - (AIR_LN + AIR_TR), TX, TX); A(AIR_TR, -Math.PI / 2, TX, TX);   // voie de circulation puis virage vers la voie de retour (cap +v)
+    L(AIR_VB - (AIR_TX + AIR_TR), TX, TX); A((AIR_LN - AIR_SU) / 2, Math.PI, TX, TX);   // descente le long de l'aire, demi-tour au bas de l'aire (cap −v)
+    L(AIR_VB - vs, TX, 0);   // remontée jusqu'au poste, arrêt nez vers la piste
   } else {
-    add([AIR_NOSE, v, 0], [AIR_LN, v, 0], 3.4, 'io', { rev: 1 }); tx([AIR_LN, v, 0], [AIR_LN, AIR_TX, 0]); tx([AIR_LN, AIR_TX, 0], [1.05, AIR_TX, 0]);
-    add([1.05, AIR_TX, 0], [0.85, AIR_RW, 0], 1.6, 'lin', { rw: 1 }); add([0.85, AIR_RW, 0], [3.9, AIR_RW, 0], 5.2, 'acc', { rw: 1 }); add([3.9, AIR_RW, 0], [10.2, AIR_RW, 180], 4.8, 'climb', { rw: 1 });
+    u = AIR_SU; v = vs; h = -Math.PI / 2;
+    L(vs - 1.2, 0, TX); L(1.2 - (AIR_RW + AIR_TL), TX, TX, { rw: 1 });   // sortie du poste tout droit, traversée de la voie de circulation (la piste est réservée dès le bord de l'aire)
+    A(AIR_TL, Math.PI / 2, TX, 0.12, { rw: 1 });   // virage à droite sur la piste (cap +u)
+    L(0, 0, 0, { hold: 1.5, rw: 1 });   // alignement
+    L(4.5 - (AIR_SU + AIR_TL), 0, 1.2, { rw: 1 });   // course au décollage
+    L(5.7, 1.2, 1.6, { zp: 'climb', z1: 180, rw: 1 });   // envol
   }
   return s;
 }
@@ -18291,19 +18322,18 @@ function airCycle(c, lvl) {   // un cycle d'animation (durée fixe P) : événem
     const ev = [], occ = [1, 0], ready = [0, 0], freeAt = [0, 0];
     const fits = (s, d, rw) => ev.filter(e => e.s < s + d && s < e.s + e.dur).length < 2   // au plus 2 mouvements simultanés
       && ev.every(e => s + rw[1] + 1.5 <= e.s + e.rw[0] || e.s + e.rw[1] + 1.5 <= s + rw[0]);   // piste : un seul avion à la fois (1,5 s de marge)
-    const place = (k, st, t) => { const p = airPath(k, st), d = dur(p), rw = rwOf(p); let s = Math.max(t, k === 'dep' ? ready[st] : freeAt[st]);
+    const place = (k, st, t) => { const p = airPathC(k, st), d = dur(p), rw = rwOf(p); let s = Math.max(t, k === 'dep' ? ready[st] : freeAt[st]);
       while (s + d <= P - 3 && !fits(s, d, rw)) s += 0.5; if (s + d > P - 3) return null;
-      ev.push({ k, st, s, dur: d, rw }); if (k === 'arr') { occ[st] = 1; ready[st] = s + d + 6 + 12 * hash(c, ev.length, 953); } else { occ[st] = 0; freeAt[st] = s + 7; } return s; };
+      ev.push({ k, st, s, dur: d, rw }); if (k === 'arr') { occ[st] = 1; ready[st] = Math.max(ready[st], s + d + 6 + 12 * hash(c, ev.length, 953)); } else { occ[st] = 0; freeAt[st] = s + 7; if (st === 0) ready[1] = Math.max(ready[1], s + 6); } return s; };
     let t = 3 + g * 0.6 * hash(c, 0, 931), i = 0;
     for (; i < nMax; i++) {
-      const free = [0, 1].filter(k => !occ[k]), parked = [0, 1].filter(k => occ[k]);
-      const k = !parked.length ? 'arr' : !free.length ? 'dep' : hash(c, i, 937) < 0.5 ? 'arr' : 'dep';
-      const st = k === 'arr' ? free[free.length > 1 && hash(c, i, 941) < 0.5 ? 1 : 0] : parked[parked.length > 1 && hash(c, i, 947) < 0.5 ? 1 : 0];
+      const ca = !occ[0] && !occ[1] ? 0 : occ[0] && !occ[1] ? 1 : -1, cd = occ[0] ? 0 : occ[1] ? 1 : -1;   // premier arrivé, premier parti : on entre au poste le plus avancé libre, on part du poste de tête
+      const k = ca < 0 ? 'dep' : cd < 0 ? 'arr' : hash(c, i, 937) < 0.5 ? 'arr' : 'dep', st = k === 'arr' ? ca : cd;
       const s = place(k, st, t); if (s == null) break;
       const r = hash(c, i, 911); t = s + (r < 0.2 ? 0.35 * g * hash(c, i, 919) : g * (0.45 + 1.5 * Math.pow(hash(c, i, 929), 1.4)));   // rafales et longs calmes : jamais une cadence fixe
     }
     got = i;
-    for (let n = 0; n < 4 && (occ[1] || !occ[0]); n++) { const s = occ[1] ? place('dep', 1, t) : place('arr', 0, t); if (s == null) return null; t = s + 2; }
+    for (let n = 0; n < 5 && (occ[1] || !occ[0]); n++) { const s = occ[0] && occ[1] ? place('dep', 0, t) : occ[1] ? place('dep', 1, t) : place('arr', 0, t); if (s == null) return null; t = s + 2; }
     return occ[1] || !occ[0] ? null : ev;
   };
   let ev = build(40); for (let n = got - 1; !ev && n >= 0; n--) ev = build(n);
@@ -18316,24 +18346,35 @@ function airTimeline(t0, t1, pax) {   // événements absolus (s) entre t0 et t1
 }
 const airEase = (e, p) => e === 'acc' ? p * p : e === 'dec' ? 1 - (1 - p) * (1 - p) : e === 'io' ? p * p * (3 - 2 * p) : p;
 const airAng = (a, b) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
-function airPose(k, st, tt) {   // position d'un avion tt secondes après le début de son mouvement : { u, v, z, h (cap), al (opacité) }
-  const p = airPath(k, st); let t = tt, prevH = null;
+function airSegAt(q, t) {   // position sur un segment t secondes après son début : { u, v, h, f (fraction parcourue) }
+  const p = clamp(t / q.d, 0, 1), dd = q.sa * p * q.d + 0.5 * (q.sb - q.sa) * p * p * q.d, f = q.len > 1e-6 ? clamp(dd / q.len, 0, 1) : 0;
+  if (!q.turn) return { u: q.u0 + Math.cos(q.h0) * q.len * f, v: q.v0 + Math.sin(q.h0) * q.len * f, h: q.h0, f };
+  const sg = Math.sign(q.turn), cu = q.u0 + q.r * Math.cos(q.h0 + sg * Math.PI / 2), cv = q.v0 + q.r * Math.sin(q.h0 + sg * Math.PI / 2), ph = q.h0 - sg * Math.PI / 2 + q.turn * f;
+  return { u: cu + q.r * Math.cos(ph), v: cv + q.r * Math.sin(ph), h: q.h0 + q.turn * f, f };
+}
+const AIRPATH = new Map();
+function airPathC(k, st) { const key = k + st; let p = AIRPATH.get(key); if (!p) { p = airPath(k, st); p.tot = p.reduce((a, q) => a + q.d, 0); AIRPATH.set(key, p); } return p; }
+function airGuide() {   // lignes de guidage au sol (relatives à l'aéroport) : échantillonnage des trajectoires au sol, hors piste (mises en cache)
+  if (AIRANIM.guide) return AIRANIM.guide; const out = [];
+  [['arr', 0], ['dep', 1]].forEach(([k, st]) => { let pl = []; airPathC(k, st).forEach(q => { if (q.zp || q.len < 1e-6) return; for (let n = 0; n <= 12; n++) { const o = airSegAt(Object.assign({}, q, { sa: 1, sb: 1, d: q.len }), q.len * n / 12); if (o.v > AIR_L.R.v1 + 0.04) pl.push([o.u, o.v]); else if (pl.length) { out.push(pl); pl = []; } } }); if (pl.length) out.push(pl); });
+  return (AIRANIM.guide = out.filter(pl => pl.length > 1));
+}
+function airPose(k, st, tt) {   // position d'un avion tt secondes après le début de son mouvement : { u, v, z, h (cap = tangente de la trajectoire), al (opacité) }
+  const p = airPathC(k, st); let t = tt;
   for (let i = 0; i < p.length; i++) {
-    const q = p[i], hd = Math.atan2(q.b[1] - q.a[1], q.b[0] - q.a[0]) + (q.rev ? Math.PI : 0);
+    const q = p[i];
     if (t <= q.d || i === p.length - 1) {
-      const r = clamp(t / q.d, 0, 1), f = airEase(q.e, r), u = q.a[0] + (q.b[0] - q.a[0]) * f, v = q.a[1] + (q.b[1] - q.a[1]) * f;
-      const z = q.e === 'app' ? q.a[2] * Math.pow(1 - r, 1.25) : q.e === 'climb' ? q.b[2] * Math.pow(r, 1.6) : q.a[2] + (q.b[2] - q.a[2]) * f;
-      let h = hd; if (prevH != null) { const bl = Math.min(1, t / Math.min(1.3, q.d * 0.45)); h = prevH + airAng(prevH, hd) * bl; }
-      const tot = p.reduce((a, s) => a + s.d, 0), al = k === 'arr' ? clamp(tt / 0.9, 0, 1) : clamp((tot - tt) / 1.4, 0, 1);
-      return { u, v, z, h, al };
+      const o = airSegAt(q, t), z = q.zp === 'app' ? q.z0 * Math.pow(1 - o.f, 1.25) : q.zp === 'climb' ? q.z1 * Math.pow(o.f, 1.6) : 0;
+      const al = k === 'arr' ? clamp(tt / 0.9, 0, 1) : clamp((p.tot - tt) / 1.4, 0, 1);
+      return { u: o.u, v: o.v, z, h: o.h, al };
     }
-    t -= q.d; prevH = hd;
+    t -= q.d;
   }
   return null;
 }
 function airState(T, pax) {   // état du trafic à l'instant T (s) : avions en mouvement et avions garés au contact
   const lvl = airLvl(pax == null && S ? airPax() : pax), C0 = airCycle(0, lvl), c = Math.floor(T / C0.P), C = airCycle(c, lvl), off = T - c * C.P, occ = [1, 0], mov = [];
-  C.ev.forEach(e => { if (off >= e.s && off < e.s + e.dur) { const q = airPose(e.k, e.st, off - e.s); if (q) mov.push(Object.assign(q, { k: e.k, st: e.st })); }
+  C.ev.forEach(e => { if (off >= e.s && off < e.s + e.dur) { const q = airPose(e.k, e.st, off - e.s); if (q) mov.push(Object.assign(q, { t0: c * C.P + e.s, k: e.k, st: e.st })); }
     if (e.k === 'arr' && off >= e.s + e.dur) occ[e.st] = 1; if (e.k === 'dep' && off >= e.s) occ[e.st] = 0; });
   return { mov, park: [0, 1].filter(k => occ[k]), lvl };
 }
@@ -18341,7 +18382,7 @@ const AIR_FUS = [[0.41, 0], [0.385, 0.028], [0.33, 0.046], [-0.3, 0.046], [-0.4,
 const AIR_WING = [[0.12, 0.04], [-0.07, 0.37], [-0.13, 0.37], [-0.07, 0.04], [-0.07, -0.04], [-0.13, -0.37], [-0.07, -0.37], [0.12, -0.04]];
 const AIR_STAB = [[-0.3, 0.03], [-0.385, 0.15], [-0.425, 0.15], [-0.405, 0.03], [-0.405, -0.03], [-0.425, -0.15], [-0.385, -0.15], [-0.3, -0.03]];
 function airPlane(u, v, z, h, tail, al) {   // avion de ligne en primitives iso (coordonnées monde), cap h dans le plan (u, v), altitude z (px monde), échelle AIR_SC
-  const k = AIR_SC, c = Math.cos(h) * k, s = Math.sin(h) * k, L = (a, b, zz) => PP(u + a * c - b * s, v + a * s + b * c, zz), poly = (pts, zz, col) => pQuad(pts.map(q => L(q[0], q[1], zz)), col);
+  const k = AIR_SC * (1 + Math.max(0, z) / 700), c = Math.cos(h) * k, s = Math.sin(h) * k, L = (a, b, zz) => PP(u + a * c - b * s, v + a * s + b * c, zz), poly = (pts, zz, col) => pQuad(pts.map(q => L(q[0], q[1], zz)), col);
   ctx.save(); ctx.globalAlpha *= al == null ? 1 : al;
   { const g = ctx.globalAlpha; ctx.globalAlpha = g * clamp(0.32 - z / 600, 0.06, 0.32); const du = z * 0.0042, dv = z * 0.0042;   // ombre portée (lumière haut-gauche), qui s'éloigne et pâlit avec l'altitude
     const Ls = (a, b) => PP(u + du + a * c - b * s, v + dv + a * s + b * c, 0.4); pQuad(AIR_WING.map(q => Ls(q[0], q[1])), '#000'); pQuad(AIR_FUS.map(q => Ls(q[0], q[1])), '#000'); ctx.globalAlpha = g; }
@@ -18376,12 +18417,18 @@ function drawAirport(a, x, y, now) {
   flat(R.u0, R.v0, R.u1, R.v1, 0.6, '#3b4048'); for (let s = R.u0 + 0.55; s < R.u1 - 0.55; s += 0.4) flat(s, AIR_RW - 0.02, s + 0.2, AIR_RW + 0.02, 0.9, '#e9edf2');
   [R.u0 + 0.06, R.u1 - 0.3].forEach(s => { for (let k = 0; k < 5; k++) flat(s, R.v0 + 0.08 + k * 0.13, s + 0.22, R.v0 + 0.14 + k * 0.13, 0.9, '#e9edf2'); });
   flat(0.7, 0.97, 4.65, 1.18, 0.5, '#4a5059'); line(Q(0.8, AIR_TX, 0.9), Q(4.55, AIR_TX, 0.9), 1, '#e2b53b');
-  [[0.7, 1.3], [3.95, 4.65]].forEach(b => flat(b[0], R.v1 - 0.02, b[1], 0.99, 0.5, '#4a5059'));   // bretelles piste ↔ voie de circulation
-  flat(A.u0, A.v0, A.u1, A.v1, 0.5, '#c3c8cf'); line(Q(AIR_LN, AIR_TX, 0.9), Q(AIR_LN, A.v1 - 0.1, 0.9), 1, '#e2b53b');
-  AIR_ST.forEach(sv => { line(Q(AIR_LN, sv, 0.9), Q(AIR_NOSE - 0.45, sv, 0.9), 1, '#e2b53b'); flat(AIR_NOSE - 0.56, sv - 0.2, AIR_NOSE - 0.53, sv + 0.2, 0.9, '#e2b53b'); });   // lignes de guidage des postes A1 / A2
+  [[1.62, 2.3], [3.95, 4.65]].forEach(b => flat(b[0], R.v1 - 0.02, b[1], 0.99, 0.5, '#4a5059'));   // bretelles piste ↔ voie de circulation
+  flat(A.u0, A.v0, A.u1, A.v1, 0.5, '#c3c8cf');
+  airGuide().forEach(pl => { ctx.strokeStyle = '#e2b53b'; ctx.lineWidth = 1; ctx.beginPath(); pl.forEach((q, n) => { const w = Q(q[0], q[1], 0.9); n ? ctx.lineTo(w[0], w[1]) : ctx.moveTo(w[0], w[1]); }); ctx.stroke(); });   // lignes de guidage = trajectoires réelles des avions
+  AIR_ST.forEach(sv => { const vn = sv - 0.41 * AIR_SC - 0.03; flat(AIR_SU - 0.16, vn - 0.015, AIR_SU + 0.16, vn + 0.015, 0.9, '#e2b53b'); });   // barres d'arrêt des postes A1 / A2 (devant le nez)
   flat(3.3, 1.2, 5.95, K.v0 - 0.06, 0.4, '#86976f'); flat(K.u0, K.v0, K.u1, K.v1, 0.5, '#4b5058'); flat(D.u0, D.v0, D.u1, D.v1, 0.5, '#41464e'); flat(K.u0 - 0.06, K.v0 - 0.06, K.u1, K.v0, 0.6, '#aab1b9');   // parking et voie de dépose (bordure)
   for (let s = D.u0 + 0.2; s < D.u1 - 0.2; s += 0.34) flat(s, (D.v0 + D.v1) / 2 - 0.012, s + 0.16, (D.v0 + D.v1) / 2 + 0.012, 0.8, '#e9edf2');
-  const rows = [K.v0 + 0.25, K.v0 + 0.6, K.v0 + 1.15, K.v0 + 1.5], su = 0.28, n0 = K.u0 + 0.16, nS = Math.floor((K.u1 - 0.08 - n0) / su);
+  /* Responsable Mouvements (retour de Rémy : « voiture garée à la perpendiculaire ») : parking refait en deux rangées de places PERPENDICULAIRES À L'ALLÉE
+     centrale (épi à 90°), chaque place étant une case dessinée (deux lignes latérales dans l'axe v, ligne de fond) aussi profonde qu'une voiture ; chaque
+     voiture est garée dans l'axe de SA place, centrée, et toutes les voitures d'une rangée ont le même sens : rangée du fond garée en marche arrière (avant
+     vers l'allée), rangée de devant entrée en marche avant (avant vers la voie de dépose) ; les deux montrent leur face avant à la caméra. */
+  const PK = AIR_PARK, su = PK.su, n0 = PK.n0, nS = PK.n, rows = PK.rows;
+  rows.forEach(r => { for (let i = 0; i <= nS; i++) line(Q(n0 + i * su, r.b0, 0.8), Q(n0 + i * su, r.b1, 0.8), 1, 'rgba(240,243,246,.75)'); line(Q(n0, r.back, 0.8), Q(n0 + nS * su, r.back, 0.8), 1, 'rgba(240,243,246,.75)'); });
   ctx.strokeStyle = 'rgba(240,243,246,.7)'; ctx.lineWidth = 1;
   [[rows[0], rows[1]], [rows[2], rows[3]]].forEach(pr => { const v0 = pr[0] - 0.17, v1 = pr[1] + 0.17; for (let i = 0; i <= nS; i++) line(Q(n0 + i * su, v0, 0.8), Q(n0 + i * su, v1, 0.8), 1, 'rgba(240,243,246,.7)'); line(Q(n0, (pr[0] + pr[1]) / 2, 0.8), Q(n0 + nS * su, (pr[0] + pr[1]) / 2, 0.8), 1, 'rgba(240,243,246,.7)'); });
   // contour de survol : l'aéroport se signale comme un lieu où l'on peut entrer
@@ -18391,13 +18438,15 @@ function drawAirport(a, x, y, now) {
   items.push([TT.u1 + TT.v1 - 1.2, () => airTerminal(X0, Y0, zz, ST)]);
   items.push([C.u0 + C.v0 + 0.3, () => { prism(C.u0, C.v0, C.u0 + 0.24, C.v0 + 0.24, 0, C.z, '#d3d8de'); prism(C.u0 - 0.08, C.v0 - 0.08, C.u0 + 0.32, C.v0 + 0.32, C.z, C.z + 12, '#5d86ad'); prism(C.u0 - 0.11, C.v0 - 0.11, C.u0 + 0.35, C.v0 + 0.35, C.z + 12, C.z + 16, '#3a414c');
     const bt = Q(C.u0 + 0.12, C.v0 + 0.12, C.z + 22); ctx.fillStyle = Math.sin(now / 350) > 0 ? '#ff4b4b' : '#7a2b2b'; ctx.beginPath(); ctx.arc(bt[0], bt[1], 3, 0, 7); ctx.fill(); }]);
-  ST.park.forEach(st => items.push([AIR_NOSE + AIR_ST[st], () => { airPlane(X0 + AIR_NOSE, Y0 + AIR_ST[st], 0, Math.PI, AIR_TAIL[st], 1); prism(AIR_NOSE + 0.2, AIR_ST[st] + 0.36, AIR_NOSE + 0.34, AIR_ST[st] + 0.45, 0, 6, '#e0a53a'); prism(AIR_NOSE + 0.38, AIR_ST[st] + 0.36, AIR_NOSE + 0.5, AIR_ST[st] + 0.45, 0, 5, '#9aa1ab'); }]));   // avion au contact (et tracteur à bagages)
+  ST.park.forEach(st => { const sv = AIR_ST[st]; items.push([AIR_SU + sv, () => { airPlane(X0 + AIR_SU, Y0 + sv, 0, AIR_SH, AIR_TAIL[st], 1); prism(AIR_SU + 0.16, sv + 0.2, AIR_SU + 0.27, sv + 0.29, 0, 6, '#e0a53a'); prism(AIR_SU + 0.16, sv + 0.32, AIR_SU + 0.27, sv + 0.46, 0, 5, '#9aa1ab'); }]); });   // avion garé parallèle à l'aérogare, nez vers la piste (tracteur à bagages et chariot le long de la soute, dans l'axe de l'avion)
+  if (ORI.on) { ST.mov.forEach(m => oriRec('avion', 'av' + m.k + m.st + '_' + Math.round(m.t0 || 0), X0 + m.u, Y0 + m.v, m.h, { mv: 1, z: m.z })); ST.park.forEach(st => oriRec('avion garé', 'avp' + st, X0 + AIR_SU, Y0 + AIR_ST[st], AIR_SH, { axis: AIR_SH, dirAxis: 1 })); }
   ST.mov.forEach(m => { if (m.z > 6 || m.u < -0.05 || m.u > 6.05) fly.push([X0 + m.u, Y0 + m.v, m.z, m.h, AIR_TAIL[m.st], m.al]); else items.push([m.u + m.v, () => airPlane(X0 + m.u, Y0 + m.v, m.z, m.h, AIR_TAIL[m.st], m.al)]); });
   // parking : remplissage selon le trafic, voitures différentes chaque jour (hash(jour, place))
-  const fill = clamp(0.52 + 0.07 * ST.lvl, 0.3, 0.92), day = S.day | 0;
-  let nCar = 0; rows.forEach((rv, ri) => { for (let i = 0; i < nS; i++) { if (hash(day * 7 + ri, i, 991) > fill) continue; nCar++; const cu = n0 + (i + 0.5) * su, m = VV_CARS[Math.floor(hash(day + ri * 31, i, 997) * (VV_CARS.length - 1))];
-    items.push([cu + rv, () => { const q = Q(cu, rv + (ri % 2 ? -0.03 : 0.03), 0.6); if (!m || !vvOk(m[0]) || vvSpr(m[0], q[0], q[1] + 3, 30, m[1] === 0) == null) prism(cu - 0.07, rv - 0.12, cu + 0.07, rv + 0.12, 0, 7, ['#8a2f32', '#b9bec6', '#24272c', '#eef0f3', '#5a6f8a'][(i + ri) % 5]); }]); } });
-  [[K.u0 + 0.05, K.v0 + 0.85], [K.u1 - 0.1, K.v0 + 0.85], [(K.u0 + K.u1) / 2, K.v0 + 0.85]].forEach(lp => items.push([lp[0] + lp[1], () => { prism(lp[0] - 0.015, lp[1] - 0.015, lp[0] + 0.015, lp[1] + 0.015, 0, 30, '#7c838d'); prism(lp[0] - 0.06, lp[1] - 0.03, lp[0] + 0.06, lp[1] + 0.03, 30, 32, '#c9ced5'); }]));   // lampadaires
+  const fill = clamp(0.6 + 0.07 * ST.lvl, 0.35, 0.94), day = S.day | 0;
+  let nCar = 0; rows.forEach((r, ri) => { for (let i = 0; i < nS; i++) { if (hash(day * 7 + ri, i, 991) > fill) continue; nCar++; const cu = n0 + (i + 0.5) * su, cv = (r.b0 + r.b1) / 2, m = VV_CARS[Math.floor(hash(day + ri * 31, i, 997) * (VV_CARS.length - 1))];
+    items.push([cu + cv, () => { const q = Q(cu, cv + 0.1, 0.6), hd = m ? vvVeh(m, r.dir, q[0], q[1], 28) : null; if (hd == null) prism(cu - 0.06, cv - 0.15, cu + 0.06, cv + 0.15, 0, 7, ['#8a2f32', '#b9bec6', '#24272c', '#eef0f3', '#5a6f8a'][(i + ri) % 5]);
+      oriRec('aéroport : voiture garée', 'pk' + ri + '_' + i, X0 + cu, Y0 + cv, hd == null ? Math.PI / 2 : hd, { axis: Math.PI / 2 }); }]); } });
+  [[K.u0 + 0.05, PK.lamp], [K.u1 - 0.1, PK.lamp], [(K.u0 + K.u1) / 2, PK.lamp]].forEach(lp => items.push([lp[0] + lp[1], () => { prism(lp[0] - 0.015, lp[1] - 0.015, lp[0] + 0.015, lp[1] + 0.015, 0, 30, '#7c838d'); prism(lp[0] - 0.06, lp[1] - 0.03, lp[0] + 0.06, lp[1] + 0.03, 30, 32, '#c9ced5'); }]));   // lampadaires
   airCurb(X0, Y0, T, items);
   items.sort((p, q) => p[0] - q[0]).forEach(it => it[1]());
   AIRANIM.fly = fly; AIRANIM.flyN = now; AIRANIM.drawn = { cars: nCar, stalls: nS * rows.length, mov: ST.mov.length, park: ST.park.length, slots: AIR_FAC };   // relevé pour les tests (t94)
@@ -18407,11 +18456,17 @@ function drawAirport(a, x, y, now) {
 function airCurb(X0, Y0, T, items) {   // voie de dépose : taxis, navettes et voitures qui entrent, s'arrêtent devant l'entrée, repartent (horaires irréguliers, hash)
   const D = AIR_L.D, vin = D.v0 + 0.13, vout = D.v1 - 0.12, Pv = 90, c = Math.floor(T / Pv), off = T - c * Pv, sp = 0.55, uS = 0.85, uE = 6.4, run = (uE - uS) / sp;
   for (let cc = c - 1; cc <= c; cc++) for (let i = 0; i < 4; i++) {
-    const s0 = (cc - c) * Pv + Pv * (i / 4 + 0.2 * hash(cc, i, 971)), dw = 4 + 6 * hash(cc, i, 977), tt = off - s0, tot = 2 * run + dw + 1.2; if (tt < 0 || tt > tot) continue;
+    const sOf = (C2, I) => (C2 - c) * Pv + Pv * (I / 4 + 0.2 * hash(C2, I, 971)), s0 = sOf(cc, i), dw = clamp(4 + 6 * hash(cc, i, 977), 1.5, (i < 3 ? sOf(cc, i + 1) : sOf(cc + 1, 0)) - s0 - 2.4),   // arrêt écourté si la voiture suivante arrive : jamais deux voitures au même arrêt
+      tt = off - s0, tot = 2 * run + dw + 1.2; if (tt < 0 || tt > tot) continue;
     const r = hash(cc, i, 983), nm = r < 0.4 ? 'veh_jaune' : r < 0.62 ? 'veh_camionnette' : VV_CARS[Math.floor(hash(cc, i, 987) * 10)][0];   // taxis jaunes, navettes, voitures
-    let u, v, out = false; if (tt < run) { u = uE - sp * tt; v = vin; } else if (tt < run + dw) { u = uS; v = vin; } else if (tt < run + dw + 1.2) { const f = (tt - run - dw) / 1.2; u = uS - 0.1 * Math.sin(f * Math.PI); v = vin + (vout - vin) * f; out = true; } else { u = uS + sp * (tt - run - dw - 1.2); v = vout; out = true; }
+    // arrivée cap −u (voie de droite côté aérogare), arrêt devant l'entrée, demi-tour en arc de cercle (cap tangent), départ cap +u sur l'autre voie
+    let u, v, h; const rr = (vout - vin) / 2;
+    if (tt < run) { u = uE - sp * tt; v = vin; h = Math.PI; } else if (tt < run + dw) { u = uS; v = vin; h = Math.PI; }
+    else if (tt < run + dw + 1.2) { const f = (tt - run - dw) / 1.2, ph = 1.5 * Math.PI - Math.PI * f; u = uS + rr * Math.cos(ph); v = vin + rr + rr * Math.sin(ph); h = Math.PI - Math.PI * f; }
+    else { u = uS + sp * (tt - run - dw - 1.2); v = vout; h = 0; }
     const al = clamp((6.1 - u) / 0.3, 0, 1); if (al <= 0) continue; const m = VV_CARS.find(q => q[0] === nm) || VV_CARS[0];
-    items.push([u + v, () => { const q = PP(X0 + u, Y0 + v, 0.6); ctx.save(); ctx.globalAlpha *= al; if (!vvOk(m[0]) || vvSpr(m[0], q[0], q[1] + 3, m[2] ? 38 : 31, m[1] === 1) == null) pPrism(X0 + u - 0.12, Y0 + v - 0.06, 0.24, 0.12, 0, 8, nm === 'veh_jaune' ? '#e8c23a' : '#e9ecef'); ctx.restore(); }]);
+    items.push([u + v, () => { const q = PP(X0 + u, Y0 + v, 0.6); ctx.save(); ctx.globalAlpha *= al; const hd = m[2] && !vvOk(m[0]) ? null : vvVeh(m, vvDirOf(h), q[0], q[1] + 3, m[2] ? 38 : 31); if (hd == null) pPrism(X0 + u - 0.12, Y0 + v - 0.06, 0.24, 0.12, 0, 8, nm === 'veh_jaune' ? '#e8c23a' : '#e9ecef'); ctx.restore();
+      oriRec('aéroport : voie de dépose', 'curb' + cc + '_' + i, X0 + u, Y0 + v, hd == null ? h : hd, { mv: 1, hdTrue: h }); }]);
     if (tt >= run && tt < run + dw) for (let k = 0; k < 3; k++) { const pu = uS - 0.25 - 0.12 * k + 0.05 * Math.sin(T * 1.7 + k), pq = PP(X0 + pu, Y0 + D.v0 - 0.04, 0.6); items.push([pu + D.v0, () => { ctx.fillStyle = ['#3d5a80', '#b5483a', '#2b2d33'][k]; ctx.fillRect(pq[0] - 1.5, pq[1] - 9, 3, 7); ctx.fillStyle = '#e8c9a8'; ctx.fillRect(pq[0] - 1.2, pq[1] - 11.5, 2.4, 2.4); ctx.fillStyle = '#555'; ctx.fillRect(pq[0] + 1.8, pq[1] - 4, 3, 4); }]); }   // voyageurs et valises
   }
 }
@@ -18432,7 +18487,7 @@ function airTerminal(X0, Y0, zz, ST) {   // aérogare : socle, grande façade vi
       if (fs >= 2.6) { ctx.font = `700 ${fs.toFixed(2)}px "IBM Plex Sans", Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = o.you ? '#1d2230' : '#fff'; ctx.fillText(t, 0, 0.3); } ctx.restore(); }
   }
   // quais d'embarquement : passerelles vers les postes A1 / A2 (rétractées quand le poste est vide), numéros posés par le code
-  AIR_ST.forEach((sv, k) => { const on = ST.park.indexOf(k) >= 0, ue = on ? AIR_NOSE - 0.36 : uf + 0.16;
+  AIR_ST.forEach((sv, k) => { const on = ST.park.indexOf(k) >= 0, ue = on ? AIR_SU - 0.05 * AIR_SC - 0.02 : uf + 0.16, sb = sv - 0.27 * AIR_SC;   // passerelle vers la porte avant gauche (avion parallèle à la façade)
     pPrism(X0 + uf, Y0 + sv + 0.05, ue - uf, 0.08, 8, 14, '#8d949e'); pPrism(X0 + ue - 0.05, Y0 + sv + 0.04, 0.07, 0.1, 0, 8, '#6c737d');
     const q = Q(uf + 0.004, sv - 0.12, 22); ctx.fillStyle = '#1f2a36'; ctx.fillRect(q[0] - 7, q[1] - 5, 14, 9); if (zz >= 0.6) { ctx.fillStyle = '#ffd36a'; ctx.font = '700 6px "IBM Plex Sans", Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('A' + (k + 1), q[0], q[1]); } });
   // entrée côté ville (pignon avant) : portes vitrées sous auvent
@@ -18726,7 +18781,7 @@ function drawMallBig(a, x, y, now) {
   mbLive(Q, now);
   // --- éléments de l'avant (marché, tour de parking, stations, passerelles, passants), dans l'ordre de profondeur
   const front = []; L.it.forEach(o => { if (!o.back) front.push(o); });
-  L.walk.forEach(w => { const t = ((now / w.sp + w.ph) % 2), f = t < 1 ? t : 2 - t, p = w.a + (w.b - w.a) * f, u = w.ax === 'u' ? p : w.c, v = w.ax === 'u' ? w.c : p; front.push({ k: 'walk', u, v, key: u + v, w0: w, st: (now / 220 + w.ph * 10) | 0, fl: (w.ax === 'u') === (t < 1) }); });   // fl : marche vers la droite de l'écran (sprite miroir)
+  L.walk.forEach(w => { const t = ((now / w.sp + w.ph) % 2), f = t < 1 ? t : 2 - t, p = w.a + (w.b - w.a) * f, u = w.ax === 'u' ? p : w.c, v = w.ax === 'u' ? w.c : p; front.push({ k: 'walk', u, v, key: u + v, w0: w, st: (now / 220 + w.ph * 10) | 0, fl: (w.ax === 'u') === (t < 1) }); if (ORI.on) oriRec('passant du mall', w, X0 + u, Y0 + v, (w.ax === 'u') === (t < 1) ? 0 : Math.PI / 2, { mv: 1, oneView: 1 }); });   // fl : marche vers la droite de l'écran (sprite miroir)
   front.sort((p, q) => p.key - q.key);
   front.forEach(o => mbItem(o, Q, prism, fL, fR, flat, quad, now, blink));
   // banderoles de fanions au-dessus des allées du marché
@@ -19136,9 +19191,37 @@ function updateCars(dt) {
     }
   }
 }
-function carPos(c) {   // position dessinée (monde) d'une voiture : milieu de sa voie, comme drawCar
-  const a = iso(c.x, c.y), b = iso(c.nx, c.ny), dx = c.nx - c.x, dy = c.ny - c.y, dir = dx > 0 ? 'SE' : dx < 0 ? 'NW' : dy > 0 ? 'SW' : 'NE', t = clamp(c.t, 0, 1), lane = CAR_LANE[dir];
-  return [lerp(a.x, b.x, t) + lane[0], lerp(a.y, b.y, t) + TH / 2 + lane[1], dir];
+function carPos(c) { const g = carGeom(c); return [g.px, g.py, g.dir]; }   // position dessinée (monde) d'une voiture, comme drawCar
+/* Responsable Mouvements : virages aux carrefours. Avant, la voiture changeait de voie d'un bond et pivotait d'un quart de tour sur place au centre du
+   carrefour. Désormais, de 80 % de la rue d'arrivée à 20 % de la rue suivante, elle suit une courbe (Bézier cubique tangente aux deux voies) ; la vue
+   dessinée (avant, arrière, axe) suit la TANGENTE de la courbe, donc jamais de glissement en travers ni de marche arrière apparente (demi-tour en cul-de-sac
+   compris : boucle tangente). */
+const CAR_T1 = 0.8, CAR_T2 = 0.2;
+const carDir = (dx, dy) => dx > 0 ? 'SE' : dx < 0 ? 'NW' : dy > 0 ? 'SW' : 'NE';
+function carLaneP(x0, y0, x1, y1, t) { const a = iso(x0, y0), b = iso(x1, y1), L = CAR_LANE[carDir(x1 - x0, y1 - y0)]; return [lerp(a.x, b.x, t) + L[0], lerp(a.y, b.y, t) + TH / 2 + L[1]]; }
+const scrToMap = (dx, dy) => [dx / TW + dy / TH, dy / TH - dx / TW];   // vecteur écran -> vecteur (u, v) de la carte
+function carGeom(c) {   // { px, py (monde), dir (vue dessinée), hd (cap, radians dans le plan u, v), u, v (case, flottants) }
+  const dx = c.nx - c.x, dy = c.ny - c.y, t = clamp(c.t, 0, 1), dir0 = carDir(dx, dy);
+  let A = null;   // virage : [tuile d'entrée, carrefour, tuile de sortie, s]
+  if (dx || dy) {
+    if (t > CAR_T1 && c.q && (c.q[0] - c.nx !== dx || c.q[1] - c.ny !== dy)) A = [c.x, c.y, c.nx, c.ny, c.q[0], c.q[1], (t - CAR_T1) / (1 - CAR_T1 + CAR_T2)];
+    else if (t < CAR_T2 && c.px >= 0 && Math.abs(c.x - c.px) + Math.abs(c.y - c.py) === 1 && (c.x - c.px !== dx || c.y - c.py !== dy)) A = [c.px, c.py, c.x, c.y, c.nx, c.ny, (1 - CAR_T1 + t) / (1 - CAR_T1 + CAR_T2)];
+  }
+  if (!A) { const q = (dx || dy) ? carLaneP(c.x, c.y, c.nx, c.ny, t) : (() => { const a = iso(c.x, c.y); return [a.x, a.y + TH / 2]; })(); return { px: q[0], py: q[1], dir: dir0, hd: VV_HD[dir0], straight: true }; }
+  const P0 = carLaneP(A[0], A[1], A[2], A[3], CAR_T1), P3 = carLaneP(A[2], A[3], A[4], A[5], CAR_T2), a0 = iso(A[0], A[1]), a1 = iso(A[2], A[3]), a2 = iso(A[4], A[5]), k = 0.55;
+  const eA = [a1.x - a0.x, a1.y - a0.y], eB = [a2.x - a1.x, a2.y - a1.y], cr = eA[0] * eB[1] - eA[1] * eB[0];
+  let P1, P2;
+  if (Math.abs(cr) > 1e-6) {   // virage à 90° : points de contrôle vers l'intersection des deux voies (arc proche du quart de cercle, sans boucle)
+    const w = ((P3[0] - P0[0]) * eB[1] - (P3[1] - P0[1]) * eB[0]) / cr, X = [P0[0] + eA[0] * w, P0[1] + eA[1] * w];
+    P1 = [P0[0] + (X[0] - P0[0]) * k, P0[1] + (X[1] - P0[1]) * k]; P2 = [P3[0] + (X[0] - P3[0]) * k, P3[1] + (X[1] - P3[1]) * k];
+  } else {   // demi-tour (cul-de-sac) : boucle tangente aux deux voies
+    const dd = Math.hypot(P3[0] - P0[0], P3[1] - P0[1]) * 1.3; P1 = [P0[0] + eA[0] / Math.hypot(eA[0], eA[1]) * dd, P0[1] + eA[1] / Math.hypot(eA[0], eA[1]) * dd]; P2 = [P3[0] - eB[0] / Math.hypot(eB[0], eB[1]) * dd, P3[1] - eB[1] / Math.hypot(eB[0], eB[1]) * dd];
+  }
+  const s = clamp(A[6], 0, 1), m = 1 - s;
+  const px = m * m * m * P0[0] + 3 * m * m * s * P1[0] + 3 * m * s * s * P2[0] + s * s * s * P3[0], py = m * m * m * P0[1] + 3 * m * m * s * P1[1] + 3 * m * s * s * P2[1] + s * s * s * P3[1];
+  const tx = 3 * m * m * (P1[0] - P0[0]) + 6 * m * s * (P2[0] - P1[0]) + 3 * s * s * (P3[0] - P2[0]), ty = 3 * m * m * (P1[1] - P0[1]) + 6 * m * s * (P2[1] - P1[1]) + 3 * s * s * (P3[1] - P2[1]);
+  const mv = scrToMap(tx, ty), hd = Math.atan2(mv[1], mv[0]);
+  return { px, py, dir: vvDirOf(hd), hd, straight: false };
 }
 const CAR_LANE = { SE: [-9, 4], NW: [9, -4], SW: [9, 4], NE: [-9, -4] };
 function carsClose(dmin) {   // paires de voitures dont les positions dessinées sont à moins de dmin px monde (superposées à l'écran)
@@ -19148,12 +19231,8 @@ function carsClose(dmin) {   // paires de voitures dont les positions dessinées
   return n;
 }
 function drawCar(c) {
-  const a = iso(c.x, c.y), b = iso(c.nx, c.ny);
-  const dx = c.nx - c.x, dy = c.ny - c.y;
-  const dir = dx > 0 ? 'SE' : dx < 0 ? 'NW' : dy > 0 ? 'SW' : 'NE';
-  const t = clamp(c.t, 0, 1);
-  const lane = { SE: [-9, 4], NW: [9, -4], SW: [9, 4], NE: [-9, -4] }[dir];
-  const px = lerp(a.x, b.x, t) + lane[0], py = lerp(a.y, b.y, t) + TH / 2 + lane[1];
+  const g = carGeom(c), px = g.px, py = g.py, dir = g.dir;
+  if (ORI.on) { const m = scrToMap(px, py); oriRec('voiture', c, m[0], m[1], VV_HD[dir], { mv: 1, hdTrue: g.hd }); }
   if (vvCar(c, dir, px, py)) return;   // ville vivante : voitures, utilitaires et camions HD
   const s = SP['veh_' + c.m + '_' + dir];
   if (s) ctx.drawImage(ATLAS, s[0], s[1], s[2], s[3], px - s[2] / 2, py - s[3] + 6, s[2], s[3]);
@@ -19563,7 +19642,7 @@ function frame(now) {
     });
     bFlush(1e9);
     airFlyDraw(now);   // passe 94 : avions en vol (approche, envol) au-dessus de tout le bâti
-    ships.forEach(sh => { const sp = iso(sh.x, sh.y); drawShip(sp.x, sp.y + 33 + 12, sh.seed); });
+    ships.forEach(sh => { const sp = iso(sh.x, sh.y); drawShip(sp.x, sp.y + 33 + 12, sh.seed); if (ORI.on) { const sm = SHIP_SPR[sh.seed % SHIP_SPR.length]; oriRec('navire', 'sh' + sh.seed, sh.x, sh.y, SHIP_BOW[sm[0]] != null ? SHIP_BOW[sm[0]] : Math.PI / 2, { mv: 1, spr: sm[0] }); } });
     drawOwnership(vr, pulse);
     signFlush();   // passe 54 : enseignes nettes, après tous les bâtiments
     // flyers (-$)
@@ -22673,7 +22752,7 @@ function herdList(a, now, Wn) {   // Wn : fenêtre visible (dessin) ; absente = 
     const ph = hash(a.x + i, a.y - i, 93) * 6.283, sp = H[3] * (0.75 + 0.5 * hash(i, a.x, 94)), tau = T * sp + 1.1 * Math.sin(T * sp * 0.5 + ph) + ph;   // temps « déformé » : l'animal accélère, ralentit, broute
     const pos = t => [hu + r * Math.sin(t), hv + r * 0.7 * Math.sin(t * 0.63 + ph)], p0 = pos(tau), p1 = pos(tau + 0.05), s0 = iso(a.x + p0[0], a.y + p0[1]), s1 = iso(a.x + p1[0], a.y + p1[1]);
     const mv = Math.min(1, Math.hypot(s1.x - s0.x, s1.y - s0.y) * 3), bob = a.t === 'fchicken' ? Math.max(0, Math.sin(T * 9 + ph)) * 1.2 : Math.abs(Math.sin(T * 5 + ph)) * 0.7 * mv;
-    L.push([s0.y, s0.x, s0.y - bob, s1.x > s0.x, p0[0], p0[1]]);
+    L.push([s0.y, s0.x, s0.y - bob, s1.x > s0.x, p0[0], p0[1], i]);
   }
   return L.sort((p, q) => p[0] - q[0]);
 }
@@ -22739,37 +22818,76 @@ function vvFarm(a) { const L = VV_FARM[a.t]; if (!L || a.w < 2 || a.h < 2) retur
 // Circulation : [sprite, avant vers le bas à gauche (1) ou à droite (0), utilitaire]
 const VV_CARS = [['veh_argent', 0], ['veh_blanc', 0], ['veh_bleu', 0], ['veh_jaune', 0], ['veh_noir', 0], ['veh_orange', 1], ['veh_rouge', 1], ['veh_vert', 0], ['voiture_ville_a', 1], ['voiture_ville_b', 1], ['veh_pickup', 0], ['veh_camionnette', 0, 1], ['camion_ville', 1, 1]];
 let vvCarN = 0;
-function vvCar(c, dir, px, py) {   // une seule vue (de trois quarts avant) : l'axe de la route choisit le miroir, la voiture garde sa silhouette dans l'axe
+function vvCar(c, dir, px, py) {   // ville vivante : vue avant (trois quarts) quand la voiture vient vers la caméra, vue arrière quand elle s'éloigne (vvVeh)
   if (c.hv == null) c.hv = Math.floor(hash(vvCarN++, 3, 91) * VV_CARS.length);
   const m = VV_CARS[c.hv]; if (!m || !vvOk(m[0])) return false;
-  if (dir === 'NW' || dir === 'NE') { vvRear(m, px, py + 3, dir === 'NW'); return true; }   // retour de Rémy : en s'éloignant, la vue avant donnait l'impression de rouler en marche arrière ; on dessine l'arrière
-  return vvSpr(m[0], px, py + 3, m[2] ? 44 : 36, (dir === 'SE' || dir === 'NW') ? m[1] === 1 : m[1] === 0) != null;
+  return vvVeh(m, dir, px, py + 3, m[2] ? 44 : 36) != null;
 }
-// Vue de trois quarts ARRIÈRE (voiture qui s'éloigne), dessinée en vectoriel avec la teinte du modèle (aucun sprite arrière livré) : hayon/vitre arrière, feux rouges, flanc droit, roues.
-const VV_COL = { veh_argent: '#b9bec6', veh_blanc: '#eceff2', veh_bleu: '#2f5fb0', veh_jaune: '#e2b92d', veh_noir: '#2a2d33', veh_orange: '#d9772b', veh_rouge: '#b8302c', veh_vert: '#3f8a4d', voiture_ville_a: '#8aa0b8', voiture_ville_b: '#c9b48a', veh_pickup: '#6c7b8c', veh_camionnette: '#e6e8ea', camion_ville: '#dcdee0' };
-function vvShade(h, f) { const n = parseInt(h.slice(1), 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255, k = f < 0 ? 0 : 255, a = Math.abs(f); return `rgb(${Math.round(r + (k - r) * a)},${Math.round(g + (k - g) * a)},${Math.round(b + (k - b) * a)})`; }
-function vvRear(m, px, py, flip) {
-  const col = VV_COL[m[0]] || '#9aa3ad', ut = !!m[2], pick = m[0] === 'veh_pickup', Lc = ut ? 30 : 25, Wc = ut ? 15 : 13, H1 = ut ? 11 : 6.5, H2 = ut ? 0 : 5.5, u = [0.894, -0.447], v = [0.894, 0.447];
-  ctx.save(); ctx.translate(px, py); if (flip) ctx.scale(-1, 1);
-  const P = (a, b, h) => [(u[0] * a + v[0] * b), (u[1] * a + v[1] * b) - h], O = [-(u[0] * Lc + v[0] * Wc) / 2, -(u[1] * Lc + v[1] * Wc) / 2];
-  const Q = (a, b, h) => { const p = P(a, b, h); return [O[0] + p[0], O[1] + p[1]]; };
-  const poly = (pts, fill, ln) => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); if (ln !== false) { ctx.strokeStyle = 'rgba(10,12,18,.55)'; ctx.lineWidth = 0.6; ctx.lineJoin = 'round'; ctx.stroke(); } };
-  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(0, 1, Lc * 0.62, Wc * 0.36, 0, 0, 7); ctx.fill();
-  const wheel = (a, b) => { const p = Q(a, b, 0); ctx.fillStyle = '#16181c'; ctx.beginPath(); ctx.ellipse(p[0], p[1] - 1, 2, 2.4, 0, 0, 7); ctx.fill(); };
-  wheel(Lc * 0.8, Wc); wheel(Lc * 0.2, Wc);   // roues du flanc droit (celles de l'essieu arrière restent cachées derrière la face arrière)
-  const h0 = 1.6;   // garde au sol
-  poly([Q(0, Wc, h0), Q(Lc, Wc, h0), Q(Lc, Wc, h0 + H1), Q(0, Wc, h0 + H1)], vvShade(col, -0.22));   // flanc droit
-  if (!ut) {
-    const a0 = Lc * 0.2, a1 = Lc * 0.72, hh = h0 + H1;
-    poly([Q(a0, Wc - 1.2, hh), Q(a1, Wc - 1.2, hh), Q(a1, Wc - 1.2, hh + H2), Q(a0 + 3, Wc - 1.2, hh + H2)], vvShade(col, -0.35));   // vitres du flanc droit
-    poly([Q(a0 + 3, 1.2, hh + H2), Q(a1, 1.2, hh + H2), Q(a1, Wc - 1.2, hh + H2), Q(a0 + 3, Wc - 1.2, hh + H2)], vvShade(col, 0.18));   // toit
-    poly([Q(a0, 1.2, hh), Q(a0, Wc - 1.2, hh), Q(a0 + 3, Wc - 1.2, hh + H2), Q(a0 + 3, 1.2, hh + H2)], '#1d2733');   // vitre arrière
+/* Responsable Mouvements : dessin d'un véhicule de la ville vivante selon sa direction (SE, SW : vers la caméra, vue avant ; NW, NE : s'éloigne, vue arrière).
+   Vue arrière : sprite propre au modèle « <modèle>_ar » s'il est livré, sinon « voiture_dos » (voitures, pas les utilitaires), sinon dessin vectoriel teinté
+   (vvRear). Convention de la commande n° 17 bis : les sprites de dos ont l'avant vers le HAUT À GAUCHE (sens NW) ; miroir pour NE. Vue avant : sprite du
+   modèle (avant en bas à droite ou en bas à gauche selon m[1], miroir pour l'autre axe), sinon « voiture_face » (avant en bas à droite).
+   Renvoie le cap dessiné (radians dans le plan u, v : 0 = SE, π/2 = SW, π = NW, −π/2 = NE), ou null si rien n'a été dessiné. */
+const ORI = { on: false, list: [] };   // relevé d'orientation pour l'audit (tools/audit_orientation.js) : rempli seulement quand l'audit l'active
+function oriRec(kind, id, u, v, hd, o) { if (!ORI.on || ORI.list.length >= 40000) return; if (id && typeof id === 'object') id = id._oid || (id._oid = kind + (ORI.n = (ORI.n | 0) + 1)); ORI.list.push(Object.assign({ kind, id, u, v, hd, f: ORI.frame | 0 }, o || {})); }
+const VV_DIRS = ['SE', 'SW', 'NW', 'NE'], VV_HD = { SE: 0, SW: Math.PI / 2, NW: Math.PI, NE: -Math.PI / 2 };
+const vvDirOf = h => VV_DIRS[((Math.round(h / (Math.PI / 2)) % 4) + 4) % 4];
+function vvVeh(m, dir, px, py, w) {
+  if (dir === 'NW' || dir === 'NE') {
+    const rn = [m[0] + '_ar', m[2] ? null : 'voiture_dos'].find(n => n && vvOk(n));
+    if (!(rn && vvSpr(rn, px, py, w, dir === 'NE') != null)) vvRear(m, px, py, dir === 'NW');
+    return VV_HD[dir];
   }
-  poly([Q(0, 0, h0), Q(0, Wc, h0), Q(0, Wc, h0 + H1), Q(0, 0, h0 + H1)], col);   // face arrière
-  poly([Q(0, 0, h0 + H1), Q(0, Wc, h0 + H1), Q(Lc, Wc, h0 + H1), Q(Lc, 0, h0 + H1)], vvShade(col, 0.2));   // capot / coffre vu de dessus
-  if (pick) { poly([Q(Lc * 0.28, 1.2, h0 + H1), Q(Lc * 0.28, Wc - 1.2, h0 + H1), Q(Lc * 0.72, Wc - 1.2, h0 + H1), Q(Lc * 0.72, 1.2, h0 + H1)], vvShade(col, -0.12)); }   // benne du pick-up
-  [[1.2, 0], [Wc - 3.2, 0]].forEach(w => poly([Q(0, w[0], h0 + H1 * 0.55), Q(0, w[0] + 2, h0 + H1 * 0.55), Q(0, w[0] + 2, h0 + H1 * 0.9), Q(0, w[0], h0 + H1 * 0.9)], '#e0392d'));   // feux arrière
-  poly([Q(0, Wc / 2 - 1.8, h0 + 1), Q(0, Wc / 2 + 1.8, h0 + 1), Q(0, Wc / 2 + 1.8, h0 + 2.8), Q(0, Wc / 2 - 1.8, h0 + 2.8)], '#e9e4cf');   // plaque
+  if (vvOk(m[0])) return vvSpr(m[0], px, py, w, dir === 'SE' ? m[1] === 1 : m[1] === 0) != null ? VV_HD[dir] : null;
+  return vvOk('voiture_face') && vvSpr('voiture_face', px, py, w, dir === 'SW') != null ? VV_HD[dir] : null;
+}
+/* Vue de trois quarts ARRIÈRE (véhicule qui s'éloigne) tant qu'aucun sprite de dos n'est livré : petit modèle 3D en facettes (Responsable Mouvements),
+   projeté en isométrique selon le cap, faces cachées éliminées, éclairage venant de la gauche comme les sprites. Berline / citadine : caisse, coffre,
+   habitacle vitré (lunette arrière, vitres latérales, montants), toit à la teinte du modèle, feux arrière, plaque vierge (aucun texte), pare-chocs, roues ;
+   pick-up : cabine et benne ; fourgon et camion : caisse haute (portes arrière, feux). Teinte = couleur dominante du sprite avant (VV_COL). */
+const VV_COL = { veh_argent: '#b9bec6', veh_blanc: '#eceff2', veh_bleu: '#2f62b5', veh_jaune: '#e3bb22', veh_noir: '#24272d', veh_orange: '#e5801f', veh_rouge: '#c42a26', veh_vert: '#2f6e35', voiture_ville_a: '#c42a26', voiture_ville_b: '#2f62b5', veh_pickup: '#8d9196', veh_camionnette: '#eef0f2', camion_ville: '#e9ebee' };
+function vvShade(h, f) { const n = parseInt(h.slice(1), 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255, k = f < 0 ? 0 : 255, a = Math.abs(f); return `rgb(${Math.round(r + (k - r) * a)},${Math.round(g + (k - g) * a)},${Math.round(b + (k - b) * a)})`; }
+const VV_MESH = {};   // modèles en facettes par silhouette : listes de faces [points [a, b, h] (a : longueur depuis l'arrière, b : largeur, h : hauteur px), matière]
+function vvMesh(kind) {
+  if (VV_MESH[kind]) return VV_MESH[kind];
+  const F = [], box = (a0, a1, b0, b1, h0, h1, mt, top) => {   // pavé (faces latérales, arrière, avant, dessus)
+    const n0 = F.length; F.push([[[a0, b0, h0], [a0, b1, h0], [a0, b1, h1], [a0, b0, h1]], mt.r || mt.s], [[[a1, b1, h0], [a1, b0, h0], [a1, b0, h1], [a1, b1, h1]], mt.f || mt.s],
+      [[[a0, b0, h0], [a1, b0, h0], [a1, b0, h1], [a0, b0, h1]], mt.s], [[[a1, b1, h0], [a0, b1, h0], [a0, b1, h1], [a1, b1, h1]], mt.s], [[[a0, b0, h1], [a1, b0, h1], [a1, b1, h1], [a0, b1, h1]], top || mt.t || mt.s]); for (let k = n0; k < F.length; k++) F[k][2] = [(a0 + a1) / 2, (b0 + b1) / 2, (h0 + h1) / 2]; };
+  const cab = (a0, a1, r0, r1, b0, b1, i, h0, h1) => {   // habitacle : base [a0, a1] à h0, toit [r0, r1] à h1, rentré de i sur les côtés
+    const n0 = F.length; F.push([[[a0, b0, h0], [a0, b1, h0], [r0, b1 - i, h1], [r0, b0 + i, h1]], 'glass'], [[[a1, b1, h0], [a1, b0, h0], [r1, b0 + i, h1], [r1, b1 - i, h1]], 'glass'],
+      [[[a0, b0, h0], [a1, b0, h0], [r1, b0 + i, h1], [r0, b0 + i, h1]], 'glass'], [[[a1, b1, h0], [a0, b1, h0], [r0, b1 - i, h1], [r1, b1 - i, h1]], 'glass'],
+      [[[r0, b0 + i, h1], [r1, b0 + i, h1], [r1, b1 - i, h1], [r0, b1 - i, h1]], 'roof']); for (let k = n0; k < F.length; k++) F[k][2] = [(a0 + a1 + r0 + r1) / 4, (b0 + b1) / 2, (h0 + h1) / 2]; };
+  if (kind === 'car') { const L = 0.4, W = 0.18; box(0, L, 0, W, 2.4, 8.6, { s: 'body', r: 'rear', f: 'body' }); cab(L * 0.16, L * 0.76, L * 0.3, L * 0.62, 0.008, W - 0.008, 0.018, 8.6, 14.2); F.L = L; F.W = W; }
+  else if (kind === 'pick') { const L = 0.4, W = 0.17; box(0, L, 0, W, 2.6, 8.6, { s: 'body', r: 'rear', f: 'body' }, 'bed'); box(L * 0.52, L, 0, W, 8.6, 9.2, { s: 'body' }); cab(L * 0.55, L * 0.8, L * 0.58, L * 0.72, 0.006, W - 0.006, 0.012, 9.2, 14.6); F.L = L; F.W = W; }
+  else { const L = kind === 'truck' ? 0.5 : 0.42, W = 0.19, H = kind === 'truck' ? 21 : 17; box(0, L * 0.74, 0, W, 2.8, H, { s: 'body', r: 'door' }); box(L * 0.74, L, 0, W, 2.8, H * 0.72, { s: 'body', f: 'body' }); cab(L * 0.74, L, L * 0.74, L * 0.86, 0.008, W - 0.008, 0.004, H * 0.72, H * 0.92); F.L = L; F.W = W; F.H = H; }
+  return (VV_MESH[kind] = F);
+}
+function vvRear(m, px, py, flip) { vvMeshDraw(m, px, py, flip ? Math.PI : -Math.PI / 2); }
+function vvMeshDraw(m, px, py, hd) {   // véhicule m centré au sol en (px, py) (monde), cap hd (radians, plan u, v)
+  const col = VV_COL[m[0]] || '#9aa3ad', kind = m[0] === 'veh_pickup' ? 'pick' : m[0] === 'camion_ville' ? 'truck' : m[2] ? 'van' : 'car', F = vvMesh(kind), L = F.L, Wd = F.W;
+  const fu = Math.cos(hd), fv = Math.sin(hd), ru = -fv, rv = fu, P = (a, b, h) => { const du = (a - L / 2) * fu + (b - Wd / 2) * ru, dv = (a - L / 2) * fv + (b - Wd / 2) * rv; return [px + (du - dv) * TW / 2, py + (du + dv) * TH / 2 - h]; };
+  const N = (a, b, h) => [(a) * fu + (b) * ru, (a) * fv + (b) * rv, h];   // vecteur local -> (u, v, z)
+  const lit = n => { const l = n[0] * MB_LI[0] + n[1] * MB_LI[1]; return n[2] > 0.7 ? 0.22 : clamp(0.08 * l - 0.06 + 0.12 * Math.max(0, l), -0.2, 0.12); };
+  const MAT = { body: col, rear: col, door: col, roof: col, bed: '#2b2e33', glass: '#1c2632' }, OFF = { door: -0.05, roof: 0.1 };
+  const dep = f => { const c = f[2], du = (c[0] - L / 2) * fu + (c[1] - Wd / 2) * ru, dv = (c[0] - L / 2) * fv + (c[1] - Wd / 2) * rv; return du + dv + c[2] / 40; };   // peintre : parties du fond d'abord
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(px, py + 1, (L + Wd) * 33, (L + Wd) * 12, 0, 0, 7); ctx.fill();   // ombre
+  [[0.2, 0], [0.2, 1], [0.8, 0], [0.8, 1]].forEach(w => { const q = P(L * w[0], Wd * w[1], 2.2); ctx.fillStyle = '#121418'; ctx.beginPath(); ctx.ellipse(q[0], q[1], 2.3, 2.5, 0, 0, 7); ctx.fill(); });   // roues
+  ctx.lineJoin = 'round'; ctx.lineWidth = 0.5; ctx.strokeStyle = 'rgba(10,12,18,.45)';
+  F.slice().sort((x, y) => dep(x) - dep(y)).forEach(f => {
+    const pts = f[0], A = pts[0], B = pts[1], C = pts[2], e1 = [B[0] - A[0], B[1] - A[1], (B[2] - A[2]) / 66], e2 = [C[0] - A[0], C[1] - A[1], (C[2] - A[2]) / 66];
+    const nl = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]], cc = f[2], gm = pts.reduce((g, q) => [g[0] + q[0] / pts.length, g[1] + q[1] / pts.length, g[2] + q[2] / pts.length], [0, 0, 0]);
+    if (nl[0] * (gm[0] - cc[0]) + nl[1] * (gm[1] - cc[1]) + nl[2] * (gm[2] - cc[2]) / 66 < 0) { nl[0] = -nl[0]; nl[1] = -nl[1]; nl[2] = -nl[2]; }   // normale sortante
+    const n = N(nl[0], nl[1], 0); n[2] = nl[2];
+    const nn = Math.hypot(n[0], n[1], n[2]) || 1, vis = (n[0] + n[1]) / nn * 0.6 + n[2] / nn * 0.8; if (vis <= 0.02) return;   // face tournée vers la caméra (vue plongeante ~ 30°)
+    const nu = [n[0] / nn, n[1] / nn, n[2] / nn], base = MAT[f[1]], fill = f[1] === 'glass' ? (nu[2] > 0.3 ? '#40566b' : '#263444') : vvShade(base, clamp(lit(nu) + (OFF[f[1]] || 0), -0.35, 0.4));
+    ctx.beginPath(); pts.forEach((q, i) => { const s = P(q[0], q[1], q[2]); i ? ctx.lineTo(s[0], s[1]) : ctx.moveTo(s[0], s[1]); }); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); ctx.stroke();
+    if (f[1] === 'rear' || f[1] === 'door') {   // feux arrière, plaque vierge, pare-chocs (face arrière visible)
+      const hT = kind === 'car' || kind === 'pick' ? 5.6 : 6.5, q = (b0, b1, h0, h1, c) => { ctx.beginPath(); [[b0, h0], [b1, h0], [b1, h1], [b0, h1]].forEach((r, i) => { const s = P(0, r[0], r[1]); i ? ctx.lineTo(s[0], s[1]) : ctx.moveTo(s[0], s[1]); }); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); };
+      q(0.004, Wd * 0.26, hT, hT + 2, '#e3352b'); q(Wd * 0.74, Wd - 0.004, hT, hT + 2, '#e3352b'); q(Wd * 0.36, Wd * 0.64, 3.4, 5, '#e9e4cf'); q(0, Wd, 2.2, 3.2, 'rgba(20,22,28,.55)');
+      if (f[1] === 'door') { const a = P(0, Wd / 2, 3.2), b = P(0, Wd / 2, (F.H || 16) - 1); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.strokeStyle = 'rgba(10,12,18,.5)'; ctx.stroke(); ctx.strokeStyle = 'rgba(10,12,18,.45)'; }
+    }
+  });
   ctx.restore();
 }
 const VV_GOODS = ['bac_argile', 'bac_bauxite', 'bac_chrome', 'bac_graphite', 'bac_lithium', 'bac_nickel', 'bac_phosphate', 'bac_potasse', 'bac_sel', 'bac_silice', 'bac_soufre', 'bac_terres_rares', 'bac_zinc', 'lingots_aluminium', 'lingots_laiton', 'sacs_alumine', 'sacs_engrais', 'barres_galva', 'barres_inox', 'briques_palette', 'futs_gaz', 'porcelaine_caisses', 'chassis_aluminium', 'aimants_terres_rares'];
@@ -23169,7 +23287,7 @@ Object.assign(window.WSE, { net: { NET, st: () => S.net, s: netS, daily: netDail
 Object.assign(window.WSE, { edu: { st: () => S.edu, s: eduS, demM: eduDemM, camp: eduCamp, campWhy: eduCampWhy, campBud: eduCampBud, campAmp: eduCampAmp, campDay: eduCampDay, cut: eduCut, roll: eduRoll, shock: eduShock, cap: eduCap, capEff: eduCapEff, lead: eduLead, brand: eduBrand, fcast: eduFcast, sc: eduSc, lim: eduLim, ahead: eduAhead, step: eduStep, save: eduSave, san: eduSan, emp: eduEmp, report: eduReport, concepts: eduConcepts, render: renderEdu, show: eduShow, copy: eduCopy, act: eduAct, LAG: EDU_LAG, CAMP_D: EDU_CAMP_D, PEN_LOY: EDU_PEN_LOY, PEN_BC: EDU_PEN_BC, SHK: EDU_SHK } });   // passe 43 : outil d'apprentissage
 Object.assign(window.WSE, { ecom: { st: () => S.ecom, launch: ecLaunch, step: ecomStep, list: ewhList, site: ecSite, cat: ecCatalog, delay: ecDelay, attract: ecAttract, pool: ecPool, val: ecVal, tier: () => tierOf((S.stats && S.stats.worth) || 0), raise: ecRaise, set: ecSet, kpi: ecKpi, advice: ecAdvice, save: ecSave, san: ecSan, render: renderEcom, show: ecShow, html: ecomHTML, edu: ecEduHTML, shipCap: ecShipCap, storeCap: ecStoreCap, used: ecUsed, CLS: EC_CLS, MIX: EC_MIX, RET: EC_RET, WORLD: EC_WORLD, FREQ: EC_FREQ, BASKET: EC_BASKET, EL: EC_EL, SHIP: EC_SHIP, STORE: EC_STORE, HOST: EC_HOST, DC: EC_DC, RESV: EC_RESV, LAUNCH: EC_LAUNCH } });   // passe 46 : commerce en ligne
 Object.assign(window.WSE, { audit: { solo: auditSolo, before: auditBefore, iso, TW, TH, mkCell }, sign: { SIGN, SIGN_COVER, SIGN_ST, SIGN_SZ, txt: signTxt, key: signKey, get drawn() { return SG.drawn.slice(); }, get queued() { return SG.list.length; }, get hidden() { return SG.hidden; }, get lost() { return Object.assign({}, SG.lost); }, get ui() { return SG.ui.slice(); }, IMP: SIGN_IMP, minImp: signMinImp, get ms() { return SG.last || 0; }, get avg() { return SG.avg; }, get on() { return SG.on; }, set on(v) { SG.on = !!v; }, get cacheN() { return SG.cache.size; }, FACE: SIGN_FACE, FACE_MIN: SIGN_FACE_MIN, get faces() { return SG.faces; } } });   // passe 54 : enseignes dessinées par le code
-Object.assign(window.WSE, { gfx: { use(g, fn) { const m = ctx; ctx = g; try { return fn(); } finally { ctx = m; } }, tile: drawTileOf, overlay: drawOverlay, dep: drawDeposit, depProc, spr: vvSpr, drawFlat: vvDraw, field: drawField, forest: drawForest, tree: drawDecorTree, rock: vvRock, quay: drawQuayDecor, ship: drawShip, car: drawCar, crane: drawCrane, containers: drawContainers, gtTile, gtPatch, gtKind, iso, mkCell, ATLAS, P2_IMG, P2DIM, P2_DEP, P2_RECOL, CROP_SPR, recolor: p2Recolor, VV_FARM, VV_CARS, VV_GOODS, PROC_IND, SPEC_T, CROP_COL, CITY_IMG, HQ_IMG, FAC_IMG, mallPeople: p => mbPerson([p.x, p.y], 'h2', 'marche', false, MB_PH) && mbPerson([p.x + 20, p.y], 'f1', 'debout', true, MB_PH), mallPark: p => mbCar([p.x, p.y], 3, 'v', 30) } });   // passe 55 : audit visuel (tools/audit_visuel.js)
+Object.assign(window.WSE, { gfx: { use(g, fn) { const m = ctx; ctx = g; try { return fn(); } finally { ctx = m; } }, tile: drawTileOf, overlay: drawOverlay, dep: drawDeposit, depProc, spr: vvSpr, veh: vvVeh, drawFlat: vvDraw, field: drawField, forest: drawForest, tree: drawDecorTree, rock: vvRock, quay: drawQuayDecor, ship: drawShip, car: drawCar, crane: drawCrane, containers: drawContainers, gtTile, gtPatch, gtKind, iso, mkCell, ATLAS, P2_IMG, P2DIM, P2_DEP, P2_RECOL, CROP_SPR, recolor: p2Recolor, VV_FARM, VV_CARS, VV_GOODS, PROC_IND, SPEC_T, CROP_COL, CITY_IMG, HQ_IMG, FAC_IMG, mallPeople: p => mbPerson([p.x, p.y], 'h2', 'marche', false, MB_PH) && mbPerson([p.x + 20, p.y], 'f1', 'debout', true, MB_PH), mallPark: p => mbCar([p.x, p.y], 3, 'v', 30) } });   // passe 55 : audit visuel (tools/audit_visuel.js)
 Object.assign(window.WSE, { occ: { OCC, A: OCC_A, AX: OCC_AX, R: OCC_R, FADE: OCC_FADE, MODES: OCC_MODES, setMode: occSetMode, get mode() { return OCC.mode; }, box: occBox, key: occKey, obj: occObj, compute: occCompute,
   hover: (x, y) => { hover = x == null ? null : { x, y }; }, select: (x, y) => { selected = x == null ? null : { x, y }; }, alt: v => { OCC.alt = !!v; }, touch: (x, y, ms) => { OCC.touch = x == null ? null : { id: -1, x, y }; OCC.touchT = performance.now() + (ms || 1e9); },
   list: () => [...OCC.set.keys()].map(a => ({ x: a.x, y: a.y, w: a.w, h: a.h, t: a.t, k: a.k || null, A: OCC.set.get(a), f: OCC.fade.has(a) ? OCC.fade.get(a) : 1 })), get drawn() { return OCC.drawn; }, get ms() { return OCC.ms; } } });   // passe 100 : transparence des bâtiments devant (tests t100)
@@ -23179,7 +23297,8 @@ window.WSE.spec = { T: SPEC_T, KEYS: SPEC_KEYS, FAM: SPEC_FAM, PF: PRODUCT_FAMIL
 window.WSE.air = { timeline: airTimeline, state: airState, anim: t => { AIRANIM.t = t == null ? null : +t; return AIRANIM.t; }, drawn: () => AIRANIM.drawn || null, cycle: airCycle, lvl: airLvl, slots: airVendorsLite, L: AIR_L, pos: airPos, ensure: airEnsure, pax: airPax, data: airData, html: airHTML, open: airOpen, close: airClose, isOpen: () => airOn, show: airShow, act: airAct, openShop: airOpenShop, closeShop: airCloseShop, shelf: airShelf, price: airPrice, step: airStep, san: airSan, K: { AIR_W, AIR_H, AIR_PAX0, AIR_BUY, AIR_MK, AIR_TAX, AIR_ENTRY, AIR_RENT, AIR_L } };   // passe 49 : aéroport et duty free
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
-window.WSE.traffic = { cars: () => cars, reset: () => { cars = []; }, update: updateCars, refresh: refreshRoadList, pos: carPos, close: carsClose };   // passe 99 : espacement des voitures (tools/voitures_espacement.js, t99)
+window.WSE.traffic = { cars: () => cars, reset: () => { cars = []; }, update: updateCars, refresh: refreshRoadList, pos: carPos, close: carsClose, geom: carGeom };
+window.WSE.ori = { ORI, VV_HD, ships: () => ships, SHIP_SPR, SHIP_BOW, path: airPathC, pose: airPose, park: AIR_PARK, stand: { u: AIR_SU, v: AIR_ST, h: AIR_SH }, scr: scrToMap, herd: (a, now) => herdList(a, now) };   // Responsable Mouvements : audit d'orientation (tools/audit_orientation.js)   // passe 99 : espacement des voitures (tools/voitures_espacement.js, t99)
 window.WSE.vv = { SPR: VV_SVC_SPR, dcVec, svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.brand.setStrat = setBrandStrat;
 window.WSE.mono = { xp: monoXP, info: monoInfo, txt: monoTxt, win: monoWin, init: monoInit, step: monoStep, rx: monoRx, K: { MONO_PH, MONO_XW, MONO_W, MONO_PAT, MONO_INNOV, MONO_LIC, MONO_LIC_K, MONO_COPY, MONO_COPY_PAT, MONO_NIV, LIC_MG } };   // passe 67 : monopole temporaire de l'innovation

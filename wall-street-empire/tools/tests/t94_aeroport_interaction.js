@@ -37,7 +37,7 @@ exports.run = async (t, L) => {
   const P = await pg.evaluate(() => window.WSE.air.pos());
   await pg.evaluate(P => { const W = window.WSE; W.zoomTo(1.1, innerWidth / 2, innerHeight / 2, { x: P.x + 3, y: P.y + 2 }); W.centerOn(P.x + 2.6, P.y + 1.6); }, P); await pg.waitForTimeout(900);
   const dr = await pg.evaluate(() => window.WSE.air.drawn());
-  t.check('parking d\'aéroport présent et garni (voitures HD garées)', dr && dr.stalls >= 24 && dr.cars >= 10 && dr.cars <= dr.stalls, JSON.stringify(dr));
+  t.check('parking d\'aéroport présent et garni (voitures HD garées)', dr && dr.stalls >= 16 && dr.cars >= 0.4 * dr.stalls && dr.cars <= dr.stalls, JSON.stringify(dr));   // Responsable Mouvements : 2 rangées de 8 places à la taille réelle des voitures (avant : 4 rangées de 12 places trop petites, voitures qui débordaient sur la place voisine et sur la rangée d'en face)
   t.check('façade de l\'aérogare : vitrines de boutiques et avions dessinés (au contact ou en mouvement)', dr && dr.slots >= 4 && dr.mov + dr.park >= 1, JSON.stringify(dr));
 
   // ---- 3. Survol : curseur main et étiquette « Aéroport · Entrer »
