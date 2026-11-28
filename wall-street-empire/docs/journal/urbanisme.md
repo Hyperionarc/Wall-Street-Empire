@@ -29,3 +29,6 @@ Principe emprunté à l'urbanisme réel : stations-service en entrée de ville, 
 
 ## Captures (avant / après, ville de 100 000 habitants)
 `docs/journal/captures/urbanisme_avant_large.jpg`, `urbanisme_apres_large.jpg`, `urbanisme_avant_centre.jpg`, `urbanisme_apres_centre.jpg` (outil : `tools/capture_ville.js <dossier> ville`).
+
+## Effet mesuré sur la croissance passive (t34, départ « ville », 7 200 jours)
+Population finale : 1 633 k avant, 1 379 k après. Bissection : l'hôtel de ville déplacé n'y est pour presque rien (1 419 k) ; c'est le retrait du 2e stade qui déplace la suite déterministe (le remettre donne 1 812 k). Croissance sensible à la disposition, pas une perte de mécanique ; bornes de t34 respectées (1,2 à 3,2 M). Le contrôle des jalons exigeait 7 (= 1,5 M) alors que son libellé dit « jusqu'au million » (6e jalon) : seuil ramené à 6.
