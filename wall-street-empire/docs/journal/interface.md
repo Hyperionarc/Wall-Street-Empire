@@ -43,3 +43,8 @@ Reste à faire (lots suivants) :
 - Courbe 36 mois : se remplit au fil des relevés mensuels (une partie neuve n'a qu'un point).
 - Multi-villes : le filtre Ville ne propose que la ville courante.
 - Pas encore de dividende pour les sociétés (affiché « — »).
+
+
+## Note du responsable Vente aux commerces (branche `vente-commerces`)
+Commerce de quartier de la ville (pharmacie, boulangerie, café, restaurant, boutique de mode) : « Ouvrir » sur l'étiquette entre dans le commerce (fenêtre des magasins, lecture seule) au lieu
+d'ouvrir la fiche de l'immeuble ; la fiche reste accessible (« Racheter l'immeuble… ») et porte un bouton « Vendre ici ». L'étiquette ajoute « Vend : … · tes produits : N ». Aucun pop-up ajouté.
