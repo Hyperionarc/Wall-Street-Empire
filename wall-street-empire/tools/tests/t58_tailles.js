@@ -98,9 +98,9 @@ exports.run = async (t, L) => {
       let spr = null; if (c0) { const a = S.grid[c0.my * N + c0.mx]; try { spr = W.audit.solo(Object.assign({}, a, { w: a.mw, h: a.mh }), 0.3).spr; } catch (e) { spr = 'erreur ' + e.message; } }
       out[m] = { n: cs.length, want: fp[0] * fp[1], one: !!one, lots: !!lots, spr, hd: W.vv.MON[m] }; });
     return { out, bad: F.audit() }; });
-  const eqBad = Object.keys(eq.out).filter(m => { const o = eq.out[m]; return o.n !== o.want || !o.one || !o.lots; });
+  const eqBad = Object.keys(eq.out).filter(m => { const o = eq.out[m]; if (m === 'stadium2' && o.n === 0) return false; /* urbanisme : le second stade est retiré de la ville de départ */ return o.n !== o.want || !o.one || !o.lots; });
   t.check('nouvelle partie : hôpital 3×3, lycée 3×2, collège, hôtel de ville et stades 2×2 — exactement leur emprise, sur des lots (ni rue ni voisin), WSE.fp.audit() vide', eqBad.length === 0 && eq.bad.length === 0, JSON.stringify(eqBad.map(m => [m, eq.out[m]])) + ' ' + eq.bad.slice(0, 3).join(' · '));
-  const sprBad = Object.keys(eq.out).filter(m => eq.out[m].spr !== eq.out[m].hd);
+  const sprBad = Object.keys(eq.out).filter(m => !(m === 'stadium2' && eq.out[m].n === 0) && eq.out[m].spr !== eq.out[m].hd);
   t.check('nouvelle partie : chaque équipement dessiné par son sprite HD sur son emprise (hopital, ecole, mairie, stade_sport), aucun repli vectoriel', sprBad.length === 0, Object.keys(eq.out).map(m => m + '=' + eq.out[m].spr).join(' '));
   // ancienne sauvegarde : hôpital sur 1 case entouré de bâtiments du joueur → reconstruit à 3×3 sur le lot libre le plus proche, sans toucher au joueur
   const os = await np.evaluate(() => { const W = window.WSE, S = W.S, N = W.N; S.cash = 5e9;
