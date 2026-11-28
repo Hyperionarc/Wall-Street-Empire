@@ -58,10 +58,36 @@ def solaire():
     boite(d, P, N - 3.6, N - 0.4, N - 2.6, N - 0.4, 90, (200, 200, 200, 255), (225, 225, 220, 255), (190, 190, 186, 255))  # local de contrôle
     im.save('gabarits/gab_solaire_12x12.png'); print('solaire', im.size, im.getbbox())
 
-hyper(); solaire()
 
 
-def super4():
+def rack(d, P, u, v, long_u=0.9, w=0.28, h=34):
+    boite(d, P, u, u + long_u, v, v + w, h, (150, 154, 158, 255), (120, 124, 128, 255), (100, 104, 108, 255))
+    for k in range(1, 6):
+        d.line([P(u + k * long_u / 6, v + w, 0), P(u + k * long_u / 6, v + w, h)], fill=(70, 72, 75, 255), width=2)
+
+def hyper14():
+    N = 14; HB = 340
+    S, W, H, P = projeteur(N, HB + 20)
+    im = Image.new('RGBA', (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    quad(d, P, [(0, 0), (N, 0), (N, N), (0, N)], (203, 200, 193, 255))
+    quad(d, P, [(0, 6.8), (10, 6.8), (10, N), (0, N)], (96, 98, 102, 255))              # parking (même taille qu'avant)
+    quad(d, P, [(10.5, 0), (N, 0), (N, 6.8), (10.5, 6.8)], (110, 112, 115, 255))        # cour de livraison
+    for b0 in (7.2, 8.7, 10.2, 11.7):
+        for v0 in (b0, b0 + 0.45):
+            u = 0.2
+            while u + 0.24 < 9.9:
+                d.line([P(u, v0), P(u, v0 + 0.45)], fill=(235, 235, 235, 255), width=3); u += 0.24
+    boite(d, P, 0, 10.5, 0, 6.5, HB, (166, 169, 173, 255), (226, 226, 222, 255), (188, 188, 186, 255))
+    quad(d, P, [(0.5, 6.5, 40), (10.0, 6.5, 40), (10.0, 6.5, 160), (0.5, 6.5, 160)], (110, 140, 165, 255))
+    boite(d, P, 4.2, 6.4, 6.5, 7.1, 200, (240, 240, 240, 255), (205, 205, 205, 255), (180, 180, 180, 255), z0=160)
+    for (u, v) in ((3.2, 6.9), (6.9, 6.9), (0.6, 7.0), (9.0, 7.0)):                     # abris à caddies (racks)
+        rack(d, P, u, v)
+    for v0 in (0.7, 2.6, 4.5):                                                          # semi-remorques : UNE cabine, à l'avant
+        boite(d, P, 10.5, 13.1, v0, v0 + 0.7, 100, (240, 240, 240, 255), (215, 215, 215, 255), (190, 190, 190, 255), z0=14)
+        boite(d, P, 13.1, 13.7, v0 + 0.05, v0 + 0.65, 110, (60, 70, 120, 255), (50, 58, 100, 255), (40, 46, 85, 255), z0=14)
+    im.save('gabarits/gab_hyper_14x14.png'); print('hyper14', im.size, im.getbbox())
+
+def super4b():
     N = 4; HB = 150
     S, W, H, P = projeteur(N, HB + 20)
     im = Image.new('RGBA', (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
@@ -74,5 +100,25 @@ def super4():
     boite(d, P, 0.2, 3.4, 0.2, 1.7, HB, (45, 90, 170, 255), (232, 232, 228, 255), (30, 70, 150, 255))
     boite(d, P, 0.2, 3.4, 0.2, 1.7, HB + 8, (45, 90, 170, 255), (45, 90, 170, 255), (45, 90, 170, 255), z0=HB)
     quad(d, P, [(0.5, 1.7, 30), (3.1, 1.7, 30), (3.1, 1.7, 100), (0.5, 1.7, 100)], (110, 140, 165, 255))
-    im.save('gabarits/gab_super_4x4.png'); print('super', im.size)
-super4()
+    for (u, v) in ((0.25, 1.78), (2.6, 1.78), (3.0, 3.6), (0.2, 3.6)):                  # racks à caddies, plus d'arbres
+        rack(d, P, u, v, 0.7, 0.24, 30)
+    im.save('gabarits/gab_super_4x4b.png'); print('super4b', im.size)
+
+def solaire2():
+    N = 12; HB = 120
+    S, W, H, P = projeteur(N, HB)
+    im = Image.new('RGBA', (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    quad(d, P, [(0, 0), (N, 0), (N, N), (0, N)], (196, 192, 184, 255))
+    u = 0.35
+    while u + 0.6 < N - 0.3:                    # rangées orientées plein sud-est : face inclinée vers +u (la droite)
+        v1 = 9.6 if u > 9.6 else N - 0.4
+        dp = 0.62
+        quad(d, P, [(u, 0.4, 0), (u, v1, 0), (u, v1, 78), (u, 0.4, 78)], (40, 44, 52, 255))
+        quad(d, P, [(u, v1, 0), (u + dp, v1, 0), (u + dp, v1, 16), (u, v1, 78)], (28, 36, 60, 255))     # tranche visible
+        quad(d, P, [(u, 0.4, 78), (u, v1, 78), (u + dp, v1, 16), (u + dp, 0.4, 16)], (34, 62, 130, 255))   # face inclinée
+        u += 1.0
+    boite(d, P, 10.2, 11.7, 10.0, 11.6, 120, (245, 245, 245, 255), (230, 230, 228, 255), (205, 205, 203, 255))   # conteneur blanc
+    quad(d, P, [(10.95, 10.35, 120), (11.35, 10.35, 120), (11.05, 10.8, 120), (11.4, 10.8, 120), (10.8, 11.4, 120), (10.95, 10.95, 120), (10.65, 10.95, 120)], (20, 110, 235, 255))  # éclair
+    im.save('gabarits/gab_solaire_12x12b.png'); print('solaire2', im.size, im.getbbox())
+
+hyper14(); super4b(); solaire2()

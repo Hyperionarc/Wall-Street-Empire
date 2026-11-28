@@ -206,3 +206,10 @@ Livrés, sans texte, marge 6 px, QA asset_qa : pente 0,50, débordement 0 % (mé
 - Engins : `veh_pelleteuse_d`, `veh_chargeuse_c` (+ `_b` miroir) ; `veh_taxi_c`, `veh_bus_scolaire_c` sans texte (+ `_b`).
 - Photos Guide : `grandcru.jpg` refait selon références ; `tablewine.jpg` inchangé.
 - Les anciennes variantes (briques `_us`, `_6x6`, `_8x8_c`, `4x4_c`, station v2/v3, `veh_*_a/_b` précédents) ne sont pas supprimées : à retirer après validation.
+
+## Lot 38 — retours Rémy (28 nov)
+- Hypermarché : `bat_hypermarche_14x14_us` (dalle 14×14, bâtiment ~2,5× plus grand, même parking, racks à caddies emboîtés, une seule cabine par semi-remorque). `bat_hypermarche_10x10_us` devient obsolète.
+- Supermarché 4×4 : `bat_supermarche_4x4_h` (voitures seules dans les places, caddies en ligne emboîtée, plus d'arbres).
+- Solaire : `bat_centrale_solaire_12x12_c` (rangées espacées, panneaux inclinés orientés vers la droite/sud-est, conteneur blanc à éclair bleu).
+- Station : `bat_station_jaune_v8` (pictogramme pompe net, guérite vitrée avec caissier assis).
+- Grand cru : boîte ouverte, sceau de cire rouge, étiquette « CHÂTEAU VALMERAIE / GRAND CRU / 2018 » (nom inventé, non vérifié comme marque ; texte posé en post-traitement).
