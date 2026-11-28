@@ -18334,12 +18334,17 @@ const SF = {
   boulangerie: sfPx(256, 303, 'L', 79, 155, 76, 15),         // lambrequin du store
   cafe_de_quartier: sfPx(256, 303, 'L', 78, 151, 80, 15),    // lambrequin du store
   ecole: sfPx(320, 370, 'R', 215, 150, 104, 18),             // mur sous l'avancée du toit, au-dessus de l'entrée
-  mairie: sfPx(320, 409, 'L', 108, 168, 96, 17)              // frise entre l'étage et le rez-de-chaussée
+  mairie: sfPx(320, 409, 'L', 108, 168, 96, 17),             // frise entre l'étage et le rez-de-chaussée
+  // cohérence esthétique : bandeaux vierges des rendus 3D procéduraux (mesurés par tools/sprites_procedural/render.js, meta.json)
+  ecole_maternelle: sfPx(408, 333, 'L', 95.3, 155.4, 61.4, 10.9), creche: sfPx(408, 339, 'L', 92.3, 171.8, 71.3, 9.7), college: sfPx(804, 747, 'L', 477.4, 477.4, 63.4, 10.4),
+  lycee: sfPx(1002, 871, 'L', 503.2, 523.8, 83.2, 11.6), pharmacie_quartier: sfPx(408, 559, 'L', 128.6, 395.4, 134.6, 13.6), hotel_de_ville: sfPx(804, 869, 'L', 364.6, 578, 67.3, 14.5),
+  cafe_quartier: sfPx(408, 543, 'L', 144.4, 368, 134.6, 12.6), restaurant_quartier: sfPx(408, 545, 'L', 144.4, 368, 134.6, 12.6), boulangerie_quartier: sfPx(408, 543, 'L', 144.4, 368, 134.6, 12.6),
+  boutique_quartier: sfPx(408, 621, 'L', 144.4, 445.6, 134.6, 12.6, 0.5, 'MODE')
 };
-const SIGN_FACE = { spharma: { pharmacie: SF.pharmacie }, s1: { petit_marche_n1: SF.petit_marche_n1 }, slux: { boutique_luxe: SF.boutique_luxe },
+const SIGN_FACE = { spharma: { pharmacie: SF.pharmacie, pharmacie_quartier: SF.pharmacie_quartier }, s1: { petit_marche_n1: SF.petit_marche_n1 }, slux: { boutique_luxe: SF.boutique_luxe },
   smode: { boutique_mode_luxe: SF.boutique_mode_luxe, boutique_mode: SF.boutique_mode }, stech: { boutique_high_tech: SF.boutique_high_tech }, shome: { maison_deco: SF.maison_deco },
-  ssport: { sport_loisirs: SF.sport_loisirs }, sauto: { concession_auto: SF.concession_auto }, 'sv:boulangerie': { boulangerie: SF.boulangerie }, 'sv:drugstore': { pharmacie: SF.pharmacie }, 'sv:cafe_de_quartier': { cafe_de_quartier: SF.cafe_de_quartier },
-  'sv:boutique_mode': { boutique_mode: SF.boutique_mode }, 'mon:hall': { mairie: SF.mairie }, 'mon:lycee': { ecole: SF.ecole }, 'mon:college': { ecole: SF.ecole }, 'mon:maternelle': { ecole: SF.ecole }, 'mon:garderie': { ecole: SF.ecole } };
+  ssport: { sport_loisirs: SF.sport_loisirs }, sauto: { concession_auto: SF.concession_auto }, 'sv:boulangerie': { boulangerie: SF.boulangerie, boulangerie_quartier: SF.boulangerie_quartier }, 'sv:drugstore': { pharmacie: SF.pharmacie, pharmacie_quartier: SF.pharmacie_quartier }, 'sv:cafe_de_quartier': { cafe_de_quartier: SF.cafe_de_quartier, cafe_quartier: SF.cafe_quartier }, 'sv:restaurant_terrasse': { restaurant_quartier: SF.restaurant_quartier },
+  'sv:boutique_mode': { boutique_mode: SF.boutique_mode, boutique_quartier: SF.boutique_quartier }, 'mon:hall': { mairie: SF.mairie, hotel_de_ville: SF.hotel_de_ville }, 'mon:lycee': { ecole: SF.ecole, lycee: SF.lycee }, 'mon:college': { ecole: SF.ecole, college: SF.college }, 'mon:maternelle': { ecole: SF.ecole, ecole_maternelle: SF.ecole_maternelle }, 'mon:garderie': { ecole: SF.ecole, creche: SF.creche } };
 const SIGN_FACE_MIN = 9;   // px écran : en dessous, l'enseigne de façade serait illisible
 const SG = { on: true, list: [], drawn: [], obst: [], bb: [], ord: 0, ui: [], uiT: -1e9, uiW: 0, uiH: 0, lost: {}, cur: null, cache: new Map(), tw: new Map(), fo: false, foT: 0, ms: 0, avg: 0, n: 0, hidden: 0, faces: 0 };
 function signTxt(key) {   // nom affiché : celui de l'interface (TYPES, PUB, VV_SVC), partie avant « · », en capitales
@@ -22712,12 +22717,14 @@ function cityBox(hs, p) {   // passe 57 : cadre d'origine, puis recalé dans la 
 }
 function citySpr(a, grp, fl) {   // sprite HD pour un immeuble (choix déterministe par graine), ou null ; grp : res / tech / bank
   const L = CITY_MAP[grp || (a.k === 'res' ? 'res' : ['tech', 'tech', 'bank'][Math.floor(a.seed * 997) % 3])]; if (!L) return null; if (fl == null) fl = a.floors; a = { seed: a.seed, floors: fl };
-  const c = L.filter(r => r[2] && a.floors >= r[1] && a.floors <= r[2] && CITY_IMG[r[0]] && CITY_IMG[r[0]].ok); if (!c.length) return null; return CITY_IMG[c[Math.floor(a.seed * 7919) % c.length][0]];
+  let c = L.filter(r => r[2] && a.floors >= r[1] && a.floors <= r[2] && CITY_IMG[r[0]] && CITY_IMG[r[0]].ok);
+  if (!c.length && !grp) c = CITY_MAP.tech.filter(r => a.floors >= r[1] && a.floors <= r[2] && CITY_IMG[r[0]] && CITY_IMG[r[0]].ok);   // cohérence esthétique : une tour PNJ hors des plages de son groupe (banque de 14 étages…) prend une tour de bureaux HD au lieu de l'atlas empilé ou du prisme bleu sans détail (drawTowerProc)
+  if (!c.length) return null; return CITY_IMG[c[Math.floor(a.seed * 7919) % c.length][0]];
 }
 const P2HD = __P2HD_JSON__, P2DIM = __P2DIM_JSON__, P2_IMG = {};   // sprites de la phase 2 (gisements, mines, puits, carrières) ; dim = [largeur, hauteur, x0, y0, x1, y1] de l'image d'origine, la parcelle est calée sur le losange de la case
 const P2_DEP = { oil: 'gisement_petrole', iron: 'gisement_fer', coal: 'gisement_charbon', gas: 'gisement_gaz', copper: 'gisement_cuivre', nickel: 'gisement_nickel_chrome', chrome: 'gisement_nickel_chrome', bauxite: 'gisement_bauxite', lithium: 'gisement_lithium', zinc: 'gisement_zinc', graphite: 'gisement_graphite', phosphate: 'gisement_phosphate', potash: 'gisement_potasse', salt: 'gisement_sel', silica: 'gisement_silice', clay: 'gisement_argile' };
 const P2_TYPE = { ewh: 'entrepot', fwheat: 'fwheat', fsugar: 'fsugar', fcotton: 'fcotton', frubber: 'frubber', fvine: 'fvine', fcorn: 'fcorn', frapeseed: 'frapeseed', fcattle: 'fcattle', fchicken: 'fchicken', fpig: 'fpig', fsheep: 'fsheep', wh: 'entrepot', solar: 'centrale_solaire', wind: 'eolienne', plant: 'centrale_charbon', nuclear: 'centrale_nucleaire', pylon: 'pylone_electrique', rd: 'centre_rd', dc: 'data_center', btp: 'chantier_moyen', immo: 'agence_immo', foundry: 'fonderie', f1: 'usine_petite_f1', f2: 'usine_moyenne_f2', f3: 'usine_grande_f3', f4: 'usine_f4_mega', s1: 'petit_marche_n1', s2: 'supermarche', s3: 'hypermarche', s4: 'mega_centre_commercial', port: 'terminal_portuaire', tv: 'station_tv', sport: 'stade_sport' };
-{ const SPEC_SPR = { sauto: ['concession_auto'], stech: ['boutique_high_tech'], slux: ['boutique_luxe'], smode: ['boutique_mode_luxe', 'boutique_mode'], spharma: ['pharmacie'], shome: ['maison_deco'], ssport: ['sport_loisirs'], sbrico: ['brico_outillage'] };   // passe 46 : sprite HD commandé (n° 9) s'il est livré, sinon sprite existant (assets/factory_hd), sinon composition en primitives (drawSpecShop)
+{ const SPEC_SPR = { sauto: ['concession_auto'], stech: ['boutique_high_tech'], slux: ['boutique_luxe'], smode: ['boutique_mode_luxe', 'boutique_mode'], spharma: ['pharmacie_quartier', 'pharmacie'], shome: ['maison_deco'], ssport: ['sport_loisirs'], sbrico: ['brico_outillage'] };   // passe 46 : sprite HD commandé (n° 9) s'il est livré, sinon sprite existant (assets/factory_hd), sinon composition en primitives (drawSpecShop)
   Object.keys(SPEC_SPR).forEach(k => { const n = SPEC_SPR[k].find(x => P2HD[x]); if (n) P2_TYPE[k] = n; }); }
 if (P2HD.station_service) P2_TYPE.sfuel = 'station_service'; if (P2HD.station_recharge_electrique) P2_TYPE.scharge = 'station_recharge_electrique';   // liberté de construire : stations du joueur, mêmes sprites HD que les stations de la ville
 if (P2HD.banque) P2_TYPE.bank = 'banque';   // passe 99 : banque HD (péristyle de pierre, assets/phase2_hd/banque.png) à tous les niveaux ; avant : banque_neoclassique (pièce d'or géante sur le toit) jusqu'à 8 étages puis l'atlas Kenney empilé
@@ -22801,8 +22808,13 @@ const VV_SVC = {
 /* Passe 99 (Rémy : « la pharmacie, tu me l'as fait apparaître dans la TRÈS ANCIENNE version ») : le service de quartier « drugstore » dessinait assets/factory_hd/drugstore.png
    (cube blanc à croix sur un parking de voitures-cubes, livré le 17/11), alors que la pharmacie voulue est pharmacie.png (croix verte lumineuse, 19/11, enseigne PHARMACIE peinte en façade).
    Le service garde sa clé (sauvegardes, tests) mais emprunte le sprite de la pharmacie ; VV_SVC_OF fait le chemin inverse pour l'enseigne. */
-const VV_SVC_SPR = { drugstore: 'pharmacie' }, VV_SVC_OF = { pharmacie: 'drugstore' };
-const VV_MON = { telecom: 'station_tv', hospital: 'hopital', lycee: 'ecole', college: 'ecole', maternelle: 'ecole', garderie: 'ecole', hall: 'mairie', stadium: 'stade_sport', stadium2: 'stade_sport', police: 'commissariat', fire: 'caserne_pompiers' };   // passe 99 : caserne et commissariat HD (livrés dans assets/phase2_hd, jamais branchés : dessin vectoriel jusque-là) ; écoles : un seul PNG (ecole) pour les quatre, rendus distincts commandés (n° 17 bis)   // équipements publics existants : sprite HD
+const VV_SVC_SPR = { drugstore: 'pharmacie_quartier', cafe_de_quartier: 'cafe_quartier', restaurant_terrasse: 'restaurant_quartier', boulangerie: 'boulangerie_quartier', boutique_mode: 'boutique_quartier' },
+  VV_SVC_OF = { pharmacie: 'drugstore', pharmacie_quartier: 'drugstore', cafe_quartier: 'cafe_de_quartier', restaurant_quartier: 'restaurant_terrasse', boulangerie_quartier: 'boulangerie', boutique_quartier: 'boutique_mode' };
+// cohérence esthétique : commerces de quartier en immeubles de ville à devanture (tools/sprites_procedural) au lieu des petits cubes à pictogramme géant sur le toit (tasse, couverts, baguette, cintre)   // cohérence esthétique : pharmacie de quartier (immeuble à vitrines et croix verte à bras égaux sur potence) au lieu du bâtiment en forme de croix verte, lu comme une croix religieuse
+const VV_MON = { telecom: 'station_tv', hospital: 'hopital', lycee: 'lycee', college: 'college', maternelle: 'ecole_maternelle', garderie: 'creche', hall: 'hotel_de_ville', stadium: 'stade_sport', stadium2: 'stade_sport', police: 'commissariat', fire: 'caserne_pompiers' };   // passe 99 : caserne et commissariat HD (livrés dans assets/phase2_hd, jamais branchés : dessin vectoriel jusque-là) ; écoles : un seul PNG (ecole) pour les quatre, rendus distincts commandés (n° 17 bis)   // équipements publics existants : sprite HD
+/* Cohérence esthétique (docs/STYLE_BATIMENTS.md) : maternelle, crèche, collège et lycée ont chacun leur rendu européen (tools/sprites_procedural) ; l'ancien « ecole » (jouet) n'est plus
+   qu'un repli si le rendu manque. VV_MON_FULL : sprite dessiné sur TOUTE l'emprise rectangulaire (dalle 3 × 2 du lycée avec sa cour), au lieu du plus grand carré + cour tracée par le code. */
+const VV_MON_ALT = { lycee: 'ecole', college: 'ecole', ecole_maternelle: 'ecole', creche: 'ecole', hotel_de_ville: 'mairie' }, VV_MON_FULL = { lycee: 1 };
 Object.keys(CITY_SVC).forEach(b => { if (VV_MON[b]) for (let k = 2; k <= 60; k++) VV_MON[b + '_' + k] = VV_MON[b]; });   // passe 60 : équipements ajoutés par la croissance, même sprite que l'original
 P2_DEP.gold = 'gisement_or';
 /* Passe 55 (audit visuel) : sprites HD dérivés. Les gisements sans rendu propre (gravier, sable, calcaire, soufre, terres rares) et les parcelles
@@ -22875,7 +22887,10 @@ function vvNpc(a, p, x, y) {   // passe 99 : retient le sprite réellement dessi
 }
 function vvNpc0(a, p, x, y) {   // bâtiment PNJ en HD (équipement, parc, chantier de la croissance, service de quartier, tour) ; true si dessiné ; (x, y) = case dessinée (par défaut celle de a)
   if (x == null) { x = a.x; y = a.y; }
-  if (a.k === 'mon') { const n = VV_MON[a.m]; if (!n || !vvOk(n)) return false;
+  if (a.k === 'mon') { let n = VV_MON[a.m]; if (n && !vvOk(n) && VV_MON_ALT[n] && vvOk(VV_MON_ALT[n])) n = VV_MON_ALT[n]; if (!n || !vvOk(n)) return false;
+    if (monMulti(a) && VV_MON_FULL[n]) {   // rendu à l'emprise entière : dalle de l'image calée sur le rectangle (centre et largeur du losange), une seule fois depuis la case avant
+      if (!(x === a.mx + a.mw - 1 && y === a.my + a.mh - 1)) { a._top = null; return true; }
+      const q = iso(a.mx + (a.mw - 1) / 2, a.my + (a.mh - 1) / 2); a._top = p2Draw(n, p, (a.mw + a.mh) / 2, { x: q.x, y: q.y + TH / 2 }); return true; }
     if (monMulti(a)) {   // barème des tailles : équipement de plusieurs cases, sol de l'emprise (depuis le coin nord, dessiné en premier) puis sprite recalé (sprFit) sur le plus grand carré de l'emprise (depuis la case avant)
       if (x === a.mx && y === a.my) monGround(a);   // la case dessinée décide (et non la cellule passée) : n'importe quelle case de l'équipement peut servir à le dessiner en entier
       if (!(x === a.mx + a.mw - 1 && y === a.my + a.mh - 1)) { a._top = null; return true; }
@@ -22884,7 +22899,7 @@ function vvNpc0(a, p, x, y) {   // bâtiment PNJ en HD (équipement, parc, chant
     a._top = vvDraw(n, p, 1, null, [1, 1]); return true; }
   if (a.k === 'park') { if (!vvOk('parc_urbain')) return false; a._top = vvDraw('parc_urbain', p, 1, null, [1, 1]); return true; }
   if (!a.lm && a.cd != null && S.day - a.cd < 6) { const n = a.k === 'house' ? 'chantier_petit' : 'immeuble_en_construction'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // chantier : 6 jours après une construction ou une surélévation par la ville
-  vvSvcMap(); { const sn = a._sv && (VV_SVC_SPR[a._sv] || a._sv); if (sn && vvOk(sn)) { a._top = vvDraw(sn, p, 1, null, [1, 1]); return true; } }
+  vvSvcMap(); { let sn = a._sv && (VV_SVC_SPR[a._sv] || a._sv); if (sn && !vvOk(sn) && vvOk(a._sv)) sn = a._sv; if (sn && vvOk(sn)) { a._top = vvDraw(sn, p, 1, null, [1, 1]); return true; } }
   if (a.k === 'house' && hash(a.x, a.y, 84) < 0.3) { const n = ['maison_pnj_a', 'maison_pnj_b', 'maison_pnj_c'][Math.floor(hash(a.x, a.y, 85) * 3)]; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }   // maisons et petits immeubles PNJ de la phase 2 mêlés aux autres
   if (a.k !== 'house' && !a.lm && a.floors >= 3 && a.floors <= 8 && hash(a.x, a.y, 86) < 0.3) { const n = a.k === 'off' || hash(a.x, a.y, 87) < 0.5 ? 'immeuble_pnj_b' : 'immeuble_pnj_a'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }
   if (a.k !== 'house' && !a.lm && a.floors >= 12 && a.floors <= 30 && hash(a.x, a.y, 77) < 0.35) { const n = hash(a.x, a.y, 78) < 0.5 ? 'tour_pnj_a' : 'tour_pnj_b'; if (vvOk(n)) { a._top = vvDraw(n, p, 1, null, [1, 1]); return true; } }

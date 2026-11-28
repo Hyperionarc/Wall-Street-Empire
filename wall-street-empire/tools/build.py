@@ -306,6 +306,9 @@ P2_NAMES += P2_POSES
 # (<modèle>_ar : avant vers le haut à gauche ; voiture_dos / voiture_face génériques ; avion_ligne, bus_navette, taxi) ; sans fichier, le jeu garde son dessin vectoriel
 P2_NAMES += [_n + '_ar' for _n in ('veh_argent', 'veh_blanc', 'veh_bleu', 'veh_camionnette', 'veh_jaune', 'veh_noir', 'veh_orange', 'veh_pickup', 'veh_rouge', 'veh_vert', 'voiture_ville_a', 'voiture_ville_b', 'camion_ville')]
 P2_NAMES += ['voiture_dos', 'voiture_face', 'avion_ligne', 'avion_ligne_ar', 'bus_navette', 'taxi']
+# Cohérence esthétique (docs/STYLE_BATIMENTS.md) : écoles distinctes et pharmacie de quartier rendues en 3D procédurale (tools/sprites_procedural, assets/phase2_hd) ;
+# remplacent le sprite unique « ecole » (style jouet : cahier géant sur un toit bleu) et la pharmacie en forme de croix verte. Un rendu livré plus tard sous le même nom les remplace.
+P2_NAMES += ['ecole_maternelle', 'creche', 'college', 'lycee', 'pharmacie_quartier', 'cafe_quartier', 'restaurant_quartier', 'boulangerie_quartier', 'boutique_quartier', 'hotel_de_ville']
 p2hd = {}; p2dim = {}
 # Sol et routes (losanges 396x198 sans couture) : pas de palette 256 couleurs (bandes visibles sur l'herbe) mais un JPEG de qualité ;
 # le pourtour transparent est rempli par extension des couleurs du bord (aucun liseré sombre quand le jeu découpe le losange avec 1 px de recouvrement).
@@ -363,7 +366,7 @@ def _ground_tile(name, im, path=None):
 # Seules les sources au-delà de 480 px par case sont ramenées à 400 px par case. WSE_P2_ENC=png256 rétablit l'ancien encodage (comparaisons, tools/tests/t81_encodage.js).
 P2_ENC = os.environ.get('WSE_P2_ENC', 'webp')
 P2_PXCASE = 400   # px source par case au-delà de 480 px par case (largeur de la dalle / nombre de cases de large)
-P2_FP = {'aeroport_terminal': 2, 'supermarche': 2, 'supermarche_n2': 2, 'supermarche_n3': 2, 'hypermarche': 3, 'hypermarche_n2': 3, 'hypermarche_n3': 3, 'bat_supermarche': 2, 'bat_supermarche_n2': 2, 'bat_supermarche_n3': 2,
+P2_FP = {'college': 2, 'lycee': 2.5, 'hotel_de_ville': 2, 'aeroport_terminal': 2, 'supermarche': 2, 'supermarche_n2': 2, 'supermarche_n3': 2, 'hypermarche': 3, 'hypermarche_n2': 3, 'hypermarche_n3': 3, 'bat_supermarche': 2, 'bat_supermarche_n2': 2, 'bat_supermarche_n3': 2,
          'bat_hypermarche': 3, 'bat_hypermarche_n2': 3, 'bat_hypermarche_n3': 3, 'usine_moyenne_f2': 1.5, 'usine_grande_f3': 2, 'usine_f4_mega': 3, 'mega_centre_commercial': 2, 'terminal_portuaire': 2,
          'centrale_nucleaire': 3, 'centrale_solaire': 4.5, 'data_center': 4.5, 'concession_auto': 2, 'boutique_high_tech': 1.5, 'maison_deco': 1.5, 'sport_loisirs': 1.5, 'chantier_moyen': 1.5,
          'centrale_charbon': 1.5, 'bat_mega_centre_commercial': 3, 'data_center_campus': 4.5, 'port_navire_cargo_ne': 2, 'port_navire_cargo_se': 2, 'port_navire_petrolier': 2, 'port_navire_vraquier': 2, 'port_ferry': 2, 'port_portique_quai': 2, 'siege_hq_n2': 2, 'siege_hq_n3': 2, 'fwheat': 3, 'fsugar': 3, 'fcotton': 3, 'frubber': 3, 'fvine': 3, 'fcorn': 3, 'frapeseed': 3, 'fcattle': 2, 'fchicken': 2, 'fpig': 2, 'fsheep': 2}
