@@ -17466,22 +17466,96 @@ function drawWater(p, now, x, y) {
 }
 let QUAY_TIP = null;   // passe 99 : case de quai la plus au nord (phare)
 function quayTip() { if (QUAY_TIP) return QUAY_TIP; for (let i = 0; i < N * N; i++) if (ZONE[i] === 4) return (QUAY_TIP = [i % N, (i / N) | 0]); return (QUAY_TIP = [-1, -1]); }
-function drawQuayDecor(p, x, y, now) {
-  /* Passe 99 : décor HD du port livré mais jamais branché (assets/factory_hd/port_*) : phare à la pointe du quai, réservoirs, trémie de vrac et hangar sur quelques cases,
-     piles de conteneurs HD sur la moitié des cases (le reste garde les conteneurs dessinés), engins (cavalier, chariot porte-conteneurs), portiques de quai en alternance avec les grues. */
-  const T = quayTip(), cr = y % 6 === 3 && (x % 2 === 0 || !vvOk('grue_portique')), cy = p.y + TH / 2;
-  if (x === T[0] && y === T[1] && vvOk('port_phare')) { vvSpr('port_phare', p.x, cy + 14, 34, false); return; }
-  if (!cr) { const hb = hash(x, y, 27), big = hb < 0.05 ? 'port_reservoirs' : hb < 0.09 ? 'port_terminal_vrac' : hb < 0.12 ? 'port_entrepot_a' : null;
-    if (big && vvOk(big)) { vvSpr(big, p.x, cy + 26, big === 'port_entrepot_a' ? 112 : 100, hash(x, y, 29) < 0.5); return; } }
-  const hp = hash(x, y, 28), pn = hp < 0.25 ? 'port_piles_conteneurs_a' : hp < 0.5 ? 'port_piles_conteneurs_b' : null;
-  if (pn && !(hash(x, y, 23) < 0.25) && vvOk(pn)) { vvSpr(pn, p.x + (hash(x, y, 26) - 0.5) * 16, cy + 22, 62, hash(x, y, 2) < 0.5);
-    const en = hash(x, y, 31) < 0.3 ? (hash(x, y, 32) < 0.5 ? 'port_reach_stacker' : 'port_cavalier_straddle') : null; if (en && vvOk(en)) vvSpr(en, p.x + 30, cy + 28, 26, hash(x, y, 33) < 0.5);
-    if (cr) { const cn = x % 4 === 0 && vvOk('port_portique_quai') ? 'port_portique_quai' : null; if (cn) vvSpr(cn, p.x + 20, p.y + 40, 96, false); else drawCrane(p.x + 20, p.y + 40, y, now); }
+/* ---------- Terminal portuaire (Rémy : « ça ressemble à rien ton port », référence : terminal à conteneurs de Dunkerque) ----------
+   Le port se lit comme un vrai terminal industriel, en décor pur (rien n'est sauvegardé ; une case bâtie par un joueur ou un rival cache son décor, elle reste posable) :
+   - terre-plein clair (sol_terminal : l'asphalte du port remappé en béton clair, marquages conservés) ;
+   - parc à conteneurs en RANGÉES ORDONNÉES parallèles au quai (blocs de 3 rangées, 1 à 4 niveaux, couleurs sobres variées) séparés par des allées marquées, cavaliers et chariots dans les allées ;
+   - front de quai net : liseré jaune, bollards, portiques de quai alignés face aux postes, voie de circulation ;
+   - porte-conteneurs chargés amarrés aux postes : leur nombre suit l'activité réelle d'import / export (moyenne des 30 derniers jours) ;
+   - silos blancs, hangars et terminal vrac au fond du port (première colonne de blocs).
+   Performance : chaque case de parc est une image pré-rendue (PY_VAR variantes, cache) ; l'agencement est fonction de (x, y) par hash() ; les postes occupés sont recalculés une fois par jour. */
+const PY = { tiles: new Map(), spr: new Map(), W: 144, H: 132, OX: 72, OY: 64, day: -1, berths: [], T: 0, cur: 0, ms: 0 };   // cur / ms : temps de dessin du décor portuaire (image en cours / précédente)
+const PY_VAR = 12, PY_LVH = 9.5;
+const PY_COL = ['#2f5d93', '#2f5d93', '#2f5d93', '#a33a30', '#a33a30', '#7b4a2e', '#7b4a2e', '#8a9096', '#8a9096', '#d4d6d3', '#2a3f66', '#3d6f52'];   // surtout bleus, rouges, marron (référence de Rémy)
+const PY_ROWS = [[0.07, 0.29], [0.31, 0.53], [0.55, 0.77]], PY_LEN = [[0.04, 0.48], [0.52, 0.96]];   // 3 rangées (le long de y, parallèles au quai), 2 conteneurs par case ; allée de u 0,77 à 1,07
+const PY_BERTH = [66, 74, 58, 81], PY_SHIP_T = [0, 20000, 150000, 600000];   // centres des postes (y) dans l'ordre d'ouverture ; seuils d'activité (import + export, $ par jour) pour 1, 2, 3, 4 navires
+const PY_BACK = ['port_reservoirs', 'port_entrepot_a', 'port_terminal_vrac', 'port_entrepot_a', 'port_reservoirs'];   // fond du port : un motif par bloc (du nord au sud)
+const PY_KS = [0.25, 0.5, 1, 1.5, 2, 3];   // résolutions pré-rendues (px écran par px monde) : la plus proche au-dessus de z × dpr, pour un drawImage presque 1:1
+const pyK = () => { const e = z * dpr; return PY_KS.find(k => k >= e * 0.95) || PY_KS[PY_KS.length - 1]; };
+function pyTile(kind, v, K) {   // image pré-rendue d'une case de parc (kind 'Y' : parc, 'Q' : rangée de quai) ; v = variante ; K = résolution
+  K = K || pyK(); const key = kind + v + '@' + K; let c = PY.tiles.get(key); if (c) return c;
+  c = document.createElement('canvas'); c.width = Math.ceil(PY.W * K); c.height = Math.ceil(PY.H * K); const g = c.getContext('2d'); g.scale(K, K); g.translate(PY.OX, PY.OY);
+  const P = (u, w, zz) => { const q = iso(u, w); return [q.x, q.y - zz]; }, f = (pts, col) => { g.fillStyle = col; g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.fill(); };
+  // marquages : bord d'allée (blanc) et axe de l'allée (tirets jaunes)
+  g.strokeStyle = 'rgba(250,250,245,.75)'; g.lineWidth = 1; g.beginPath(); let a = P(0.79, 0.02, 0), b = P(0.79, 0.98, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+  g.setLineDash([5, 5]); g.strokeStyle = 'rgba(232,190,64,.85)'; g.beginPath(); a = P(0.93, 0, 0); b = P(0.93, 1, 0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); g.setLineDash([]);
+  const rows = kind === 'Q' ? PY_ROWS.slice(1) : PY_ROWS, boxes = [];
+  rows.forEach((r, ri) => PY_LEN.forEach((l, li) => { const s = hash(v * 7 + ri, 0, 911), lv0 = kind === 'Q' ? 1 + Math.floor(s * 2) : 2 + Math.floor(s * 3), lv = Math.max(1, lv0 - (hash(v * 7 + ri, li, 912) < 0.2 ? 1 : 0));   // hauteur régulière par rangée (2 à 4 niveaux), parfois une pile entamée
+    for (let k = 0; k < lv; k++) boxes.push([r[0], l[0], r[1], l[1], k, PY_COL[Math.floor(hash(v * 13 + ri * 5 + li, k, 913) * PY_COL.length)]]); }));
+  boxes.sort((p, q) => (p[0] + p[1]) - (q[0] + q[1]) || p[4] - q[4]);
+  rows.forEach(r => f([P(r[0] + 0.02, 0.06, 0), P(r[1] + 0.05, 0.06, 0), P(r[1] + 0.05, 0.98, 0), P(r[0] + 0.02, 0.98, 0)], 'rgba(40,44,50,.18)'));   // ombre portée au sol
+  boxes.forEach(([u0, w0, u1, w1, k, col]) => { const z0 = k * PY_LVH, z1 = z0 + PY_LVH - 0.6;
+    f([P(u0, w1, z0), P(u1, w1, z0), P(u1, w1, z1), P(u0, w1, z1)], mixC(col, '#000000', 0.2));   // bout (vers le bas à gauche)
+    f([P(u1, w0, z0), P(u1, w1, z0), P(u1, w1, z1), P(u1, w0, z1)], mixC(col, '#000000', 0.36));   // long côté (vers le bas à droite)
+    f([P(u0, w0, z1), P(u1, w0, z1), P(u1, w1, z1), P(u0, w1, z1)], mixC(col, '#ffffff', 0.2));    // toit
+    g.strokeStyle = mixC(col, '#000000', 0.52); g.lineWidth = 0.45; g.beginPath();
+    for (let j = 1; j < 7; j++) { const w = w0 + (w1 - w0) * j / 7, q0 = P(u1, w, z0 + 0.8), q1 = P(u1, w, z1 - 0.8); g.moveTo(q0[0], q0[1]); g.lineTo(q1[0], q1[1]); }   // nervures de la tôle
+    g.stroke(); });
+  c._hd = 'port_parc'; PY.tiles.set(key, c); return c;
+}
+function pySpr(n, x, y, w, flip) {   // vvSpr avec l'image mise à l'échelle en cache (une par sprite, largeur, résolution et sens) : plus de rééchantillonnage d'une grande image à chaque image
+  const e = P2_IMG[n], d = P2DIM[n]; if (!e || !e.ok || !d) return null; const K = pyK(), key = n + '|' + w + '|' + K + (flip ? 'f' : '');
+  let c = PY.spr.get(key); const k = w / Math.max(1, d[4] - d[2]), ax = d[10] >= 0 ? d[10] : (d[2] + d[4]) / 2, ay = d[11] >= 0 ? d[11] : d[5], dw = d[0] * k, dh = d[1] * k;
+  if (!c) { c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(dw * K)); c.height = Math.max(1, Math.ceil(dh * K)); const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+    if (flip) { g.translate(c.width, 0); g.scale(-1, 1); } g.drawImage(e.im, 0, 0, c.width, c.height); c._hd = n; PY.spr.set(key, c); }
+  const ox = flip ? dw - ax * k : ax * k; ctx.drawImage(c, x - ox, y - ay * k, dw, dh); VV.n++; return y - (ay - d[3]) * k;
+}
+const pyIn = (x, y) => inPort(x, y) && ZONE[idx(x, y)] === 2 && !isRoadPos(x, y);
+function portCellKind(x, y) {   // décor d'une case libre du port : 'parc' | 'fond:<sprite>' | 'quai_parc' | 'quai_voie' | 'quai_bord' | 'phare' | ''
+  const z = inb(x, y) ? ZONE[idx(x, y)] : -1;
+  if (z === 4) { const T = quayTip(); if (x === T[0] && y === T[1]) return 'phare'; const e = coastX(y) - x; return e === 1 ? 'quai_bord' : e === 2 ? 'quai_voie' : 'quai_parc'; }
+  if (!pyIn(x, y)) return '';
+  if (x >= PORT.x0 + GRID + 1) return 'parc';   // deux colonnes de blocs côté quai : parc à conteneurs
+  const lx = (x - PORT.x0) % GRID, ly = (y - PORT.y0) % GRID, by = Math.floor((y - PORT.y0) / GRID);
+  if ((lx === 2 || lx === 4) && (ly === 2 || ly === 4)) return 'fond:' + PY_BACK[by % PY_BACK.length];   // fond du port : 4 grands bâtiments par bloc, espacés
+  return '';
+}
+function portAct() {   // { T : import + export ($ par jour, 30 jours glissants), n : navires à quai } ; une fois par jour
+  if (!S) return { T: 0, n: 1 }; if (PY.day === S.day && PY.berths.length) return { T: PY.T, n: PY.berths.length };
+  let T = 0; try { const F = finM().F || S.fin || {}; T = Math.max(0, (F.imports || 0) + (F.revExport || 0)); } catch (e) { T = 0; }
+  let n = 0; PY_SHIP_T.forEach(t => { if (T >= t) n++; }); n = clamp(n, 1, PY_BERTH.length);
+  PY.day = S.day; PY.T = T; PY.berths = PY_BERTH.slice(0, n); return { T, n };
+}
+function portBerthDraw(vr) {   // navires amarrés (dessinés avant le bâti : les portiques du quai passent par-dessus leur pont)
+  PY.ms = PY.cur; const t0 = performance.now(); portAct(); const xs = coastX(PORT.y0) + 0.95;
+  PY.berths.forEach((yc, i) => { if (yc < vr.y0 - 6 || yc > vr.y1 + 6 || xs < vr.x0 - 6 || xs > vr.x1 + 6) return; const q = iso(xs, yc), n = i === 3 && vvOk('port_navire_vraquier') ? 'port_navire_vraquier' : 'navire_cargo';
+    if (pySpr(n, q.x - 20, q.y + 37, 400, false) == null) drawShip(q.x, q.y + 45, i); });
+  PY.cur = performance.now() - t0;
+}
+const pyCrane = y => { const b = PY.berths.find(yc => Math.abs(y - yc) <= 3); if (b != null) return (y - b) % 2 === 0; return PY_BERTH.some(yc => yc === y); };   // poste occupé : un portique toutes les 2 cases ; poste libre : un seul
+function drawQuayDecor(p, x, y, now) { const t0 = performance.now(); drawQuayDecor0(p, x, y, now); PY.cur += performance.now() - t0; }
+function drawQuayDecor0(p, x, y, now) {
+  const k = portCellKind(x, y), q = (u, w) => iso(x + u, y + w);
+  if (k === 'phare') { if (vvOk('port_phare')) pySpr('port_phare', p.x, p.y + TH / 2 + 14, 34, false); return; }
+  if (k === 'quai_parc') { const t = pyTile('Q', Math.floor(hash(x, y, 917) * PY_VAR)); ctx.drawImage(t, p.x - PY.OX, p.y - PY.OY, PY.W, PY.H); return; }
+  if (k === 'quai_voie') {   // voie de circulation du quai : marquage, cavaliers et camions
+    const a = q(0.5, 0), b = q(0.5, 1); ctx.strokeStyle = 'rgba(250,250,245,.7)'; ctx.lineWidth = 1.2; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    const h = hash(x, y, 919), c = q(0.5, 0.5); if (h < 0.22 && vvOk('port_cavalier_straddle')) pySpr('port_cavalier_straddle', c.x, c.y + 6, 30, hash(x, y, 920) < 0.5); else if (h < 0.42 && vvOk('camion_ville')) pySpr('camion_ville', c.x, c.y + 6, 30, hash(x, y, 921) < 0.5);
     return; }
-  if (cr && x % 4 === 0 && vvOk('port_portique_quai')) { drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35); vvSpr('port_portique_quai', p.x + 20, p.y + 40, 96, false); return; }
-  const gn = VV_GOODS[Math.floor(hash(x, y, 24) * VV_GOODS.length)];   // ville vivante : un quai sur quatre porte des marchandises (bacs de matières, lingots, sacs, barres)
-  if (!(hash(x, y, 23) < 0.25 && vvSpr(gn, p.x + (hash(x, y, 26) - 0.5) * 30, p.y + 40, 50, hash(x, y, 25) < 0.5) != null)) drawContainers(p, x * 31 + y, hash(x, y, 2) < 0.35);
-  if (y % 6 === 3 && (x % 2 === 0 || !vvOk('grue_portique'))) drawCrane(p.x + 20, p.y + 40, y, now);   // grues HD : une case sur deux de la rangée (sinon elles se chevauchent)
+  if (k === 'quai_bord') {   // front de quai : liseré de sécurité, bollards, portique face au poste
+    const a = q(0.86, 0), b = q(0.86, 1); ctx.strokeStyle = '#e0b23a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.fillStyle = '#34383e'; [0.25, 0.75].forEach(w => { const o = q(0.95, w); ctx.beginPath(); ctx.ellipse(o.x, o.y - 2, 3.2, 1.8, 0, 0, 7); ctx.fill(); ctx.fillRect(o.x - 3.2, o.y - 2, 6.4, 2); });
+    if (pyCrane(y)) { const c = q(0.55, 0.5); if (vvOk('port_portique_quai')) pySpr('port_portique_quai', c.x, c.y + 8, 170, true); else drawCrane(c.x, c.y + 8, y, now); }
+  }
+}
+function portYardDraw(p, x, y) { const t0 = performance.now(); portYardDraw0(p, x, y); PY.cur += performance.now() - t0; }
+function portYardDraw0(p, x, y) {   // case libre de la zone portuaire (2)
+  const k = portCellKind(x, y); if (!k) return;
+  if (k === 'parc') { const t = pyTile('Y', Math.floor(hash(x, y, 917) * PY_VAR)); ctx.drawImage(t, p.x - PY.OX, p.y - PY.OY, PY.W, PY.H);
+    const h = hash(x, y, 923), a = iso(x + 0.93, y + 0.5);   // engins dans l'allée
+    if (h < 0.16 && vvOk('port_cavalier_straddle')) pySpr('port_cavalier_straddle', a.x, a.y + 4, 26, hash(x, y, 924) < 0.5); else if (h < 0.26 && vvOk('port_reach_stacker')) pySpr('port_reach_stacker', a.x, a.y + 4, 24, hash(x, y, 925) < 0.5);
+    return; }
+  if (k.startsWith('fond:')) { const n = k.slice(5); if (vvOk(n)) pySpr(n, p.x, p.y + TH / 2 + 26, n === 'port_entrepot_a' ? 112 : 100, hash(x, y, 29) < 0.5); }
 }
 /* ---------- Sol texturé et routes en sprites (losanges 396x198 de assets/phase2_hd) ----------
    Chaque case reçoit une tuile choisie par un aléa déterministe hash(x, y) : herbe (4 variantes) en campagne avec des clairières de terre,
@@ -17495,14 +17569,14 @@ const GT_GRASS = ['herbe_a', 'herbe_b', 'herbe_c', 'herbe_d'], GT_DIRT = ['terre
 const ROAD_SPR = ['route_isolee', 'route_bout_se', 'route_bout_nw', 'route_droite_nw', 'route_bout_sw', 'route_coude_se_sw', 'route_coude_sw_nw', 'route_t_ne',
   'route_bout_ne', 'route_coude_ne_se', 'route_coude_ne_nw', 'route_t_sw', 'route_droite_ne', 'route_t_nw', 'route_t_se', 'route_croix'];
 const GT_NAMES = GT_GRASS.concat(GT_DIRT, GT_QUAI, ['sol_ville_pave', 'sol_port_asphalte', 'eau_calme', 'eau_rivage_quai', 'rivage_sable'], ROAD_SPR);
-const GT_FLAT = { herbe: '#8f9a5c', terre: '#8a6a48', sol_ville_pave: '#a9abae', sol_port_asphalte: '#4a4e55', sol_quai_beton: '#c9cbcc', eau_calme: '#3f8fb0', eau_rivage_quai: '#3f7f98', rivage_sable: '#cdbb94', route: '#8d8e8c' };
+const GT_FLAT = { herbe: '#8f9a5c', terre: '#8a6a48', sol_ville_pave: '#a9abae', sol_port_asphalte: '#4a4e55', sol_terminal: '#c6c8c8', sol_quai_beton: '#c9cbcc', eau_calme: '#3f8fb0', eau_rivage_quai: '#3f7f98', rivage_sable: '#cdbb94', route: '#8d8e8c' };
 const GT_MK = {};
 const gtFlatOf = n => GT_FLAT[n] || GT_FLAT[n.replace(/_[a-d]$/, '')] || (n.startsWith('route_') ? GT_FLAT.route : GT_FLAT.herbe);
 const gtDia = (g, p, o) => { g.beginPath(); g.moveTo(p.x, p.y - o / 2); g.lineTo(p.x + 66 + o, p.y + 33); g.lineTo(p.x, p.y + 66 + o / 2); g.lineTo(p.x - 66 - o, p.y + 33); g.closePath(); };
 function gtTex(n, rot) {   // tuile découpée sur son losange (1 px de recouvrement), éventuellement tournée de 180° ; null tant que le sprite n'est pas chargé
   const k = rot ? n + '@' : n, c0 = GT_MK[k]; if (c0) return c0;
-  const e = typeof P2_IMG !== 'undefined' && P2_IMG[n]; if (!e || !e.ok || !e.im.naturalWidth) return null;
-  const w = e.im.naturalWidth, h = e.im.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const e = typeof P2_IMG !== 'undefined' && P2_IMG[n]; if (!e || !e.ok || !(e.im.naturalWidth || e.im.width)) return null;   // image ou canevas dérivé (p2Recolor)
+  const w = e.im.naturalWidth || e.im.width, h = e.im.naturalHeight || e.im.height, c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d'), ex = 1.5 * w / 264; g.beginPath(); g.moveTo(w / 2, -ex / 2); g.lineTo(w + ex, h / 2); g.lineTo(w / 2, h + ex / 2); g.lineTo(-ex, h / 2); g.closePath(); g.clip();
   if (rot) { g.translate(w, h); g.rotate(Math.PI); } g.drawImage(e.im, 0, 0, w, h); c._hd = n;
   try { const q = document.createElement('canvas'); q.width = 8; q.height = 4; const qg = q.getContext('2d'); qg.drawImage(e.im, w * 0.3, h * 0.3, w * 0.4, h * 0.4, 0, 0, 8, 4); const d = qg.getImageData(0, 0, 8, 4).data; let r = 0, gg = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; } c.avg = `rgb(${r / 32 | 0},${gg / 32 | 0},${b / 32 | 0})`; } catch (er) { c.avg = gtFlatOf(n); }
@@ -17536,7 +17610,7 @@ function gtKind(x, y) {   // [nom du sprite, tourné de 180°] de la case
   if (isRoad(x, y)) return [ROAD_SPR[roadMask(x, y)], false];
   if (zn === 3) return inb(x - 1, y) && ZONE[idx(x - 1, y)] === 4 ? ['eau_rivage_quai', true] : ['eau_calme', false];
   if (zn === 4) return [GT_QUAI[Math.floor(hash(x, y, 71) * 2)], false];
-  if (zn === 2) return ['sol_port_asphalte', false];
+  if (zn === 2) return [p2Recolor('sol_terminal') ? 'sol_terminal' : 'sol_port_asphalte', false];   // terminal portuaire : béton clair (asphalte remappé, marquages conservés)
   if (zn === 1) return ['sol_ville_pave', false];
   if (gtWater(x + 1, y) || gtWater(x, y + 1) || gtWater(x, y - 1)) return ['rivage_sable', true];
   return [GT_GRASS[Math.floor(hash(x, y, 77) * 4)], false];
@@ -19521,6 +19595,7 @@ function frame(now) {
     if (selected && tool === 'view') { ctx.lineWidth = 4; if (monMulti(selected)) { const f = selected, L = iso(f.mx, f.my + f.mh), R = iso(f.mx + f.mw, f.my), T = iso(f.mx, f.my), B = iso(f.mx + f.mw, f.my + f.mh); poly([T, R, B, L], null, 'rgba(242,184,75,.95)'); } else poly(tilePts(iso(selected.x, selected.y)), null, 'rgba(242,184,75,.95)'); }   // équipement de plusieurs cases : tout son contour
 
     // passe 2 : arbres et bâtiments dans l'ordre de profondeur
+    portBerthDraw(vr);   // navires amarrés au quai (avant le bâti)
     const treeCol = 1; signReset(); occTick(now);   // passe 100 : masquants de la cible (transparence des bâtiments devant)
     // passe 57 : tri de profondeur des bâtiments de plusieurs cases. Un bâtiment w×h est dessiné (toutes ses cases, la case avant en dernier) juste après la diagonale
     // de son CENTRE (x + y + (w + h) / 2 - 1) au lieu de celle de sa case avant : les voisins posés devant ses flancs (cases x + w ou y + h) passent désormais après lui
@@ -19554,6 +19629,8 @@ function frame(now) {
         }
       } else if (ZONE[i] === 4) {
         drawQuayDecor(p, x, y, now);
+      } else if (ZONE[i] === 2) {
+        portYardDraw(p, x, y);   // terminal portuaire : parc à conteneurs, fond du port
       } else if (ZONE[i] === 0 && vvFuelMap().has(i) && vvOk(vvFuelMap().get(i))) {
         vvDraw(vvFuelMap().get(i), p, 1, null, [1, 1]);   // urbanisme : station-service ou de recharge au bord d'une route d'accès, hors de la ville
       } else if (S.dep[i] && S.dep[i].k === 'wood') {
@@ -22462,6 +22539,7 @@ P2_DEP.gold = 'gisement_or';
    de cultures (maïs, colza, canne, coton, hévéa, vigne) reprennent un sprite HD voisin dont la luminance est remappée sur une palette sobre
    (3 teintes désaturées) : même modelé, même éclairage, même emprise que les autres. Créés une fois, quand le sprite de base est chargé. */
 const P2_RECOL = {   // nom : [sprite de base, sombre, moyen, clair, position du moyen]
+  sol_terminal: ['sol_port_asphalte', '#b4b7b8', '#c9cbcb', '#f7f6f1', 0.62],   // terre-plein du terminal portuaire : béton clair, marquages blancs
   gisement_gravier: ['gisement_bauxite', '#2e2f33', '#77777a', '#c9c8c2'],
   gisement_calcaire: ['gisement_potasse', '#6f6b60', '#bdb7a6', '#f2eee3'], gisement_soufre: ['gisement_zinc', '#4e4626', '#a8984c', '#ddd38e'], gisement_terres_rares: ['gisement_graphite', '#2c2836', '#6a6280', '#b8b0c8'],
   champ_mais: ['champ_ble_vert', '#24381c', '#5f7d36', '#c9c07a'], champ_colza: ['champ_ble_mur', '#3d4a1e', '#a39f3a', '#e2d880', 0.55], champ_canne: ['champ_ble_vert', '#1f3a1d', '#5a8f45', '#b8d79a'],
@@ -23181,6 +23259,7 @@ window.WSE.air = { timeline: airTimeline, state: airState, anim: t => { AIRANIM.
 window.WSE.mall = { tool: () => tool, pos: mallPos, open: mallOpen, close: mallClose, isOpen: () => mallOn, data: mallData, html: mallHTML, act: mallAct, spot: mallSpot, bonus: mallBonus, pole: poleAt, dist: mallDist, traffic: trafficAt, trafficBase, upkOf, poleUm, ensure: mallEnsure, rect: mallRect, popE, render: { cache: () => _mbC[0], builds: () => _mbC.n | 0, geo: mbGeo, MBX, draw: drawMallBig }, K: { MALL_R, MALL_TRF, POLE_N, POLE_TRF, POLE_UPK, CITY_D0, POPE_REF, MALL_SH, MB_H: MB.H, BIG: MALL_BIG } };   // passe 44 : Mall central et pôle commercial
 window.WSE.fp = { BAREME: FP_BAREME, MON_FP, PERI_R, rules: fpRules, audit: fpAudit, spr: fpSprCheck, city: fpTestCity, snap: snapAt, periOk, periDist, migrate: fpMigrate, monLink, monMulti, monFront };   // barème des tailles et grille stricte
 window.WSE.traffic = { cars: () => cars, reset: () => { cars = []; }, update: updateCars, refresh: refreshRoadList, pos: carPos, close: carsClose };   // passe 99 : espacement des voitures (tools/voitures_espacement.js, t99)
+window.WSE.port = { kind: portCellKind, act: portAct, berths: () => (portAct(), PY.berths.slice()), tiles: () => PY.tiles.size, tile: pyTile, ms: () => PY.ms, VAR: PY_VAR, BERTH: PY_BERTH, SHIP_T: PY_SHIP_T };   // terminal portuaire (t119)
 window.WSE.vv = { fuel: () => (vvFuelMap(), VVF.list.slice()), SPR: VV_SVC_SPR, dcVec, svc: vvSvcMap, list: () => VV.list, name: vvSvcName, ok: vvOk, SVC: VV_SVC, MON: VV_MON, CARS: VV_CARS, GOODS: VV_GOODS, FARM: VV_FARM, LVL: VV_LVL, lvl: vvLvl, hq: vvHq, p2name: vvP2Name, html: vvSvcHTML, draws: () => VV.n };   // ville vivante (intégrateur n° 9)
 window.WSE.brand.setStrat = setBrandStrat;
 window.WSE.mono = { xp: monoXP, info: monoInfo, txt: monoTxt, win: monoWin, init: monoInit, step: monoStep, rx: monoRx, K: { MONO_PH, MONO_XW, MONO_W, MONO_PAT, MONO_INNOV, MONO_LIC, MONO_LIC_K, MONO_COPY, MONO_COPY_PAT, MONO_NIV, LIC_MG } };   // passe 67 : monopole temporaire de l'innovation

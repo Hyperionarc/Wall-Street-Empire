@@ -50,7 +50,7 @@ exports.run = async (t, L) => {
     return { cnt, city: zk(13, 13), port: zk(70, 58), sea: zk(94, 30), coast, det: zk(5, 5) === zk(5, 5) && G.kind(7, 9)[0] === G.kind(7, 9)[0] };
   });
   const c = k.cnt;
-  t.check('tuiles de sol par zone : herbe (4 variantes), clairières de terre, pavé en ville, asphalte au port, béton des quais, eau, rivage', c.herbe > 1000 && c.sol_ville_pave > 300 && c.sol_port_asphalte > 100 && c.sol_quai_beton > 30 && c.eau_calme > 300 && c.rivage_sable > 20 && c.route > 200 && k.coast === 'rivage_sable', JSON.stringify(k));
+  t.check('tuiles de sol par zone : herbe (4 variantes), clairières de terre, pavé en ville, terre-plein clair du terminal au port (asphalte remappé, t119), béton des quais, eau, rivage', c.herbe > 1000 && c.sol_ville_pave > 300 && c.sol_terminal > 100 && c.sol_quai_beton > 30 && c.eau_calme > 300 && c.rivage_sable > 20 && c.route > 200 && k.coast === 'rivage_sable', JSON.stringify(k));
   const cl = await pg.evaluate(() => { const W = window.WSE, N = W.N; let n = 0, z0 = 0; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (W.ZONE[(y) * N + (x)] === 0) { z0++; if (W.ground.clearing(x, y)) n++; } return { n, z0 }; });
   t.range('clairières de terre en campagne (part des cases)', 100 * cl.n / cl.z0, 2, 20, ' %');
   // cache : bloc cuit, puis rebâti quand une route est posée puis démolie
