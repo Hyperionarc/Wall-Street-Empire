@@ -156,7 +156,8 @@ exports.run = async (t, L) => {
   t.info(`zonage : ${F.created} cases créées, ${F.zoned} zonées (${F.fee} $), ${F.spawned} bâtiments sortis de terre en 60 jours ${JSON.stringify(F.kinds)} ; demande R/C/I ${JSON.stringify(F.dem)} ; services ${F.svc}`);
   t.check('terrassement en série : plusieurs chantiers livrés, des dizaines de cases créées', F.ops >= 2 && F.created >= 12, JSON.stringify([F.ops, F.created]));
   t.check('zonage résidentiel, résidentiel dense, commerce, bureaux : cases zonées, permis facturé', F.zoned >= 10 && F.fee > 0, JSON.stringify([F.zoned, F.fee]));
-  t.check('zonage refusé hors terrain aménagé (campagne, centre-ville industriel) avec explication', /Campagne/.test(F.reject[0]) && /industrielle/.test(F.reject[1]), JSON.stringify(F.reject));
+  // liberté de construire (docs/journal/construction.md) : la campagne se zone (aplanissement commandé avec le zonage, depuis une case contiguë à la ville) et l'industrie se zone en ville
+  t.check('zonage libéré : campagne zonable avec son aplanissement (pas de refus « aplanis d\'abord »), zone industrielle permise en ville', !/aplanis le terrain d'abord/.test(F.reject[0]) && (F.reject[0] === '' || /contiguë|Gisement|exploitée|occupée/.test(F.reject[0])) && F.reject[1] === '', JSON.stringify(F.reject));
   t.check('SimCity : la ville construit seule sur les zones reliées à une rue (maisons, immeubles, bureaux), selon la demande', F.spawned >= 4 && Object.keys(F.kinds).length >= 2 && F.conn >= 4, JSON.stringify([F.spawned, F.kinds, F.conn]));
 
   // ---------- 5. Voirie et permis
@@ -167,7 +168,8 @@ exports.run = async (t, L) => {
     W.setCaste('agriculteur'); const e2 = P.roadErr(spot[0] + 1, spot[1]); W.setCaste('promoteur'); o.nonProm = e2;
     return o;
   });
-  t.check('voirie : le promoteur pose une route en ville sous permis payant ; les autres castes sans entreprise de BTP sont refusés', G.ok && G.road && G.fee > 0 && G.bl && /permis de voirie|raccorder|Avenue/.test(G.nonProm || 'x'), JSON.stringify(G));
+  // liberté de construire : la voirie privée en ville n'exige plus de caste ni d'entreprise de BTP (le permis se paie, moins cher pour le promoteur)
+  t.check('voirie : le promoteur pose une route en ville sous permis payant ; les autres castes aussi (plus de refus « permis de voirie »), seules les règles physiques restent', G.ok && G.road && G.fee > 0 && G.bl && !/permis de voirie|Promoteur/.test(G.nonProm || ''), JSON.stringify(G));
 
   // ---------- 6. Contrats BTP sans produire les matériaux
   const H = await pg.evaluate(() => {

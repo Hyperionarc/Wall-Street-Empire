@@ -30,13 +30,14 @@ exports.run = async (t, L) => {
   // ---- 1. Interdit en ville, taille, emprise, placement hors de la ville
   const pg = await L.newPage({ wait: 600 }); await L.setup(pg); await L.inject(pg);
   const z = await pg.evaluate(() => { const W = window.WSE, S = W.S, N = W.N, T = window.T, Z = W.ZONE;
-    let city = 0, msg = '', tried = 0; for (let y = 0; y < N && tried < 400; y++) for (let x = 0; x < N; x++) { if (Z[y * N + x] !== 1) continue; tried++; const e = W.footprintError(x, y, 'dc'); if (!e) city++; else if (/en ville/.test(e)) msg = e; }
-    const placedCity = (() => { for (let y = 14; y < 44; y++) for (let x = 14; x < 44; x++) if (W.place(x, y, 'dc')) return true; return false; })();
+    let city = 0, msg = '', tried = 0; for (let y = 0; y < N && tried < 400; y++) for (let x = 0; x < N; x++) { if (Z[y * N + x] !== 1) continue; tried++; const e = W.footprintError(x, y, 'dc'); if (!e) city++; else if (/en ville|zone/.test(e)) msg = e; }
+    const placedCity = false;
     const d = T.inP('dc'); let parts = 0; for (let i = 0; i < N * N; i++) { const q = S.grid[i]; if (q && q.t === 'part' && d && q.ai === d.x + d.y * N) parts++; }
     let inCity = 0; if (d) for (let ox = 0; ox < d.w; ox++) for (let oy = 0; oy < d.h; oy++) if (Z[(d.y + oy) * N + d.x + ox] === 1) inCity++;
     return { city, msg, tried, placedCity, w: W.TYPES.dc.w, h: W.TYPES.dc.h, dw: d && d.w, dh: d && d.h, parts, inCity, cost: W.TYPES.dc.cost, jobs: W.TYPES.dc.jobs, f3: W.TYPES.f3.cost, nuc: W.TYPES.nuclear.cost };
   });
-  t.check('interdit en ville : aucune case urbaine ne l\'accepte, message clair', z.city === 0 && z.tried > 100 && /Pas de data center en ville/.test(z.msg) && /zone industrielle|campagne/.test(z.msg) && !z.placedCity, z.msg.slice(0, 90));
+  // liberté de construire (docs/journal/construction.md) : plus d'interdiction de zone ; seule l'emprise de 5×4 cases libres (physique) limite le campus en ville
+  t.check('plus interdit en ville : aucun refus de zone, seule l\'emprise libre de 5×4 cases compte (le centre est bâti)', z.tried > 100 && !z.msg, z.msg.slice(0, 90) || `${z.city} emprise(s) libre(s) en ville`);
   t.check('campus immense : emprise ≥ 10 cases (5×4 = 20), posé en zone industrielle', z.w * z.h >= 10 && z.dw === z.w && z.dh === z.h && z.parts === z.w * z.h - 1 && z.inCity === 0, `${z.w}×${z.h}, ${z.parts + 1} cases occupées`);
   t.check('coût et effectif proportionnés (≈ 4 anciens data centers : 60-120 M$, 150-300 emplois)', z.cost >= 6e7 && z.cost <= 1.2e8 && z.jobs >= 150 && z.jobs <= 300, `${(z.cost / 1e6).toFixed(0)} M$ · ${z.jobs} emplois`);
   await pg.context().close();

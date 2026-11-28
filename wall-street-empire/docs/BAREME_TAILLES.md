@@ -20,10 +20,12 @@ Colonnes : clé du type, nom, emprise avant → après (largeur × profondeur), 
 | `sbrico` | Brico et outillage | 2 × 1 | 2 × 1 | 2 | moyenne surface avec cour de matériaux |
 | `sauto` | Concession automobile | 2 × 2 | 2 × 2 | 4 | showroom + grand parking des voitures exposées, tout dans l'emprise |
 | `s2` | Supermarché | 2 × 1 | **2 × 2** | 4 | ≈ 2 500 m² de vente + parking clients : 4 cases ; occupe exactement le coin 2×2 réservé de chaque bloc |
-| `s3` | Hypermarché | 2 × 2 | **3 × 3** | 9 | ≈ 10 000 m² + très grand parking : 9 cases (≥ 8). Sprite carré → 3×3 plutôt que 4×2 (pas de déformation). **Périphérie seulement** |
+| `s3` | Hypermarché | 2 × 2 | **3 × 3** | 9 | ≈ 10 000 m² + très grand parking : 9 cases (≥ 8). Sprite carré → 3×3 plutôt que 4×2 (pas de déformation). **Périphérie conseillée** (plus d'interdiction au centre) |
 | `s4` | Méga-centre commercial | 3 × 3 | 3 × 3 | 9 | inchangé (consigne « mall inchangé ») : galerie sur plusieurs niveaux, d'où la même emprise que l'hypermarché pour 4 fois sa capacité ; périphérie comme l'hypermarché |
 | `ewh` | Entrepôt logistique en ligne | 2 × 2 | 2 × 2 | 4 | plateforme logistique |
 | `immo` | Agence immobilière | 1 × 1 | 1 × 1 | 1 | bureau en pied d'immeuble |
+| `sfuel` | Station-service | — | 1 × 1 | 1 | pompes, auvent et boutique au bord de la route (nouveau type, liberté de construire) |
+| `scharge` | Bornes de recharge | — | 1 × 1 | 1 | bornes rapides et auvent au bord de la route (nouveau type) |
 
 ## Ville, tours et bureaux (inchangés)
 
@@ -135,10 +137,11 @@ Marges vérifiées par `t02` (EBITDA des commerces ≥ 12 %).
 
 ## Hypermarché hors du centre dense
 
-Les grandes surfaces (`T.peri` : hypermarché, méga-centre) se posent en ville à **12 cases ou plus du centre** (distance du centre de leur emprise au
-centre-ville, `PERI_R`), là où il y a la place pour leur parking : « c'est couillon de le mettre en ville ». Au centre, la pose est refusée avec le message
-« Hypermarché : trop grand pour le centre dense (9 cases avec son parking). Pose-le en périphérie de la ville… ». Les bâtiments déjà construits
-dans une ancienne sauvegarde restent où ils sont.
+Les grandes surfaces (`T.peri` : hypermarché, méga-centre) ont leur place en ville à **12 cases ou plus du centre** (distance du centre de leur emprise au
+centre-ville, `PERI_R`), là où il y a la place pour leur parking : « c'est couillon de le mettre en ville ».
+Mise à jour (responsable Liberté de construire, consigne de Rémy « n'importe qui peut construire où il veut, il ne faut pas l'interdire ») : la pose au centre
+n'est plus refusée. La périphérie reste l'emplacement conseillé (conseil au survol « Centre dense : terrain cher et peu de place pour le parking », placements
+automatiques en périphérie seulement) et le prix du sol commercial du centre fait le reste. Voir `docs/journal/construction.md`.
 
 ## Migration des anciennes sauvegardes (`wse-city-v8`, format inchangé)
 

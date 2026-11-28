@@ -42,7 +42,7 @@ exports.run = async (t, L) => {
     let zc = null, zp = null, zr = null; for (let i = 0; i < N * N && !(zc && zp && zr); i++) { const x = i % N, y = (i / N) | 0; if (!zc && Z[i] === 1 && !S.grid[i] && !W.pro.zoneErr(x, y, 'i')) zc = [x, y]; if (!zp && Z[i] === 2 && !S.grid[i] && !W.pro.zoneErr(x, y, 'r')) zp = [x, y];
       if (!zr && Z[i] === 0 && !S.grid[i] && !S.dep[i] && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(d => Z[(y + d[1]) * N + x + d[0]] === 1)) zr = [x, y]; }
     o.zone = { city: zc && W.pro.zoneErr(zc[0], zc[1], 'i'), port: zp && W.pro.zoneErr(zp[0], zp[1], 'r'), rural: zr && W.pro.zoneErr(zr[0], zr[1], 'r') };
-    if (zr) { W.S.pro && (W.S.pro.zmode = 'r'); const c0 = S.cash; o.zone.ruralOk = W.place(zr[0], zr[1], 'zone'); o.zone.ruralPaid = c0 - S.cash; o.zone.q = (S.pro.terr || []).some(op => op.zq === 'r' && op.cells.some(q => q[0] === zr[0] && q[1] === zr[1])); o.zr = zr; }
+    if (zr) { W.S.pro && (W.S.pro.zmode = 'r'); const c0 = S.cash; o.zone.ruralOk = W.place(zr[0], zr[1], 'zone'); o.zone.ruralPaid = c0 - S.cash; o.zone.q = (S.pro.terr || []).some(op => op.zq === 'r' && op.cells.some(q => q[0] === zr[0] && q[1] === zr[1])); o.zr = zr; window._zr = zr; }
     { let rd = null; for (let y = 14; y < 44 && !rd; y++) for (let x = 14; x < 44; x++) if (Z[y * N + x] === 1 && !S.grid[y * N + x] && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(d => { const c = S.grid[(y + d[1]) * N + x + d[0]]; return c && c.t === 'road'; })) { rd = [x, y]; break; } o.road = rd ? W.pro.roadErr(rd[0], rd[1]) : 'aucune case'; }
     o.terraErr = (() => { const p = W.pro.terraPlan(10, 50, 1); return p.why || ''; })();
     return o;
@@ -68,9 +68,10 @@ exports.run = async (t, L) => {
   t.check('voirie libérée : en ville, une route privée ne demande plus de caste ni d\'entreprise de BTP (permis payant)', !/permis de voirie|Promoteur|BTP/.test(a.road), a.road || 'ok');
   // 6. économie des stations sur 30 jours
   const e = await pg.evaluate(dep => { const W = window.WSE, S = W.S, N = W.N; for (let i = 0; i < 30; i++) W.step(); const P = (x, y) => { const c = S.grid[y * N + x]; return c && { t: c.t, out: +(c.out || 0).toFixed(1), rev: Math.round(c.pRev || 0), profit: Math.round(c.profit || 0), fq: c._fq }; };
-    return { hw: P(55, 47), ch: P(57, 47), dep: dep && P(dep[0], dep[1]), q2: W.siteInfo(59, 47, 'sfuel').fq.sh, q2b: W.siteInfo(59, 47, 'sfuel').fq.sh, fin: S.fin.revRetail }; }, a.depAt);
+    const zr = window._zr, zi = zr ? zr[1] * N + zr[0] : -1; return { zr: zr && { pzn: (S.pzn || {})[zi] || null, z: W.ZONE[zi], pend: (S.pro.terr || []).some(o => o.zq && o.cells.some(q => q[0] === zr[0] && q[1] === zr[1])) }, hw: P(55, 47), ch: P(57, 47), dep: dep && P(dep[0], dep[1]), q2: W.siteInfo(59, 47, 'sfuel').fq.sh, q2b: W.siteInfo(59, 47, 'sfuel').fq.sh, fin: S.fin.revRetail }; }, a.depAt);
   t.info(`axe ville-port : ${JSON.stringify(e.hw)} · bornes : ${JSON.stringify(e.ch)} · départementale : ${JSON.stringify(e.dep)}`);
   t.check('station de l\'axe ville-port rentable (passage fort), plus que celle d\'une départementale (passage faible) : c\'est le marché qui place les stations', e.hw && e.hw.profit > 0 && e.hw.out > 50 && (!e.dep || e.dep.profit < e.hw.profit), `${e.hw && e.hw.profit} $/j contre ${e.dep && e.dep.profit} $/j`);
+  t.check('campagne zonée : après le permis et les travaux, la case devient urbaine et zonée (ou le permis est refusé et remboursé), jamais bloquée', e.zr && !e.zr.pend && (e.zr.pzn === 'r' ? e.zr.z === 1 : true), JSON.stringify(e.zr));
   t.check('prévision déterministe (même calcul, même résultat)', e.q2 === e.q2b, e.q2 + ' / ' + e.q2b);
   // 7. sauvegarde et rechargement
   const sv = await pg.evaluate(() => { const W = window.WSE, S = W.S; W.save(); return { st: S.grid.filter(c => c && (c.t === 'sfuel' || c.t === 'scharge')).length, roads: S.grid.filter(c => c && c.t === 'road' && c.own).length, n: S.grid.filter(c => c && c.t !== 'npc' && c.t !== 'road' && c.t !== 'part').length, zq: (S.pro.terr || []).filter(o => o.zq).length, day: S.day }; });
