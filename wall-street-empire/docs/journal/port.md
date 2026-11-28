@@ -107,6 +107,11 @@ sauvegardé) ; agencement et couleurs par `hash()`, aucun `rnd()` ; aucun texte 
 Principe d'un terminal réel : portique à jambes enjambant la voie, flèche au-dessus du navire, chargement par niveaux, camions sous le portique. Conçus pour le jeu :
 bande unique derrière le quai, parcelles marquées et subvention au survol, escale à phases, cargaison liée aux échanges, dessin vectoriel.
 
+## Tests (lancés un par un, branche `port-parcelles`)
+t119 20 PASS (refait : bande sur toute la longueur, 14/15 blocs libres, survol avec le taux réel, audit isométrique, escale qui se vide / se remplit sans saut,
+cargaison selon les échanges, avenue en bitume, construire en parcelle / bande / fond / quai, décor non sauvegardé ; décor 0,5 / 30,9 / 16,3 ms aux 3 zooms en logiciel) ·
+t01 7 · t05 6 · t44 45 · t49 8 · t53 26 · t120 20 (0 FAIL). t119 n'a été adapté que pour la densité voulue du décor (parc 10 blocs → bande) et les ajouts demandés.
+
 ## Reste imparfait
 - Les navires à quai sont en vectoriel (coque, château, pont) : plus sobres que les sprites HD des navires de passage.
 - La bande est une colonne du dernier bloc (ses cases restent constructibles, le décor s'efface sous le bâtiment) ; le bloc du bord compte 4 colonnes de parcelle.
