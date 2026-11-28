@@ -220,4 +220,4 @@ const MP = (() => {
     else if (qs('salle')) setTimeout(() => { if (!inGame() || S.mode.done) open(qs('salle')); }, 3500); }
   return { open, show, panelHTML, resHTML, connect, drop, stop, state: () => ({ conn: st.conn, code: st.code, pid: st.pid, host: st.host, room: st.room, board: st.board, err: st.err, final: st.final, fp0: st.fp0 || null }), stateMsg, wsUrl, fp };
 })();
-window.MP = MP; window.WSE.mp = MP;
+window.MP = MP; window.WSE.multi = MP;   // WSE.mp reste le pouvoir de marché (jeu)
