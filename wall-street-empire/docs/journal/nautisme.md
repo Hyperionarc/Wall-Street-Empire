@@ -108,5 +108,6 @@ location, dernière livraison). Ancienne sauvegarde : relue intacte, sans baie n
 - Un seul port municipal ; pas encore de concessionnaire nautique distinct (le port de plaisance du joueur sert de vitrine : +20 % d'attrait des yachts et voiliers vendus aux habitants).
 - Bateaux vectoriels faute de sprites de plaisance orientables (commande d'assets passée).
 
-## Tests (lancés un par un)
-Voir la section suivante, mise à jour en fin de passe.
+## Tests (lancés un par un, branche `nautisme`, build du 28 nov.)
+t124 16 PASS · t01 7 · t05 6 · t44 45 · t94 24 · t120 20 · t121 12 · t119 (port) 9 · t49 (sol et routes) 8 · t97 (économie libérale) 12 — 0 FAIL.
+Corrigé en route : t01 refusait un montant « $ /jour » dans la fiche du port de plaisance (les loyers sont maintenant affichés par mois).
